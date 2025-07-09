@@ -1,0 +1,20 @@
+{
+  "name": "client",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "generate": "bun run generate.ts",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "build": "esbuild index.ts --bundle --outfile=dist/index.js --format=esm --minify"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "^0.78.2",
+    "@types/bun": "latest",
+    "esbuild": "^0.19.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

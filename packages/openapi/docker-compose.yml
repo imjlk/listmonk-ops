@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: listmonk_db
+    environment:
+      POSTGRES_PASSWORD: listmonk
+      POSTGRES_USER: listmonk
+      POSTGRES_DB: listmonk
+    volumes:
+      - listmonk_db_data:/var/lib/postgresql/data
+    networks:
+      - listmonk
+
+  listmonk:
+    image: listmonk/listmonk:latest
+    container_name: listmonk
+    depends_on:
+      - db
+    ports:
+      - "9000:9000"
+    environment:
+      # Admin user creation (matches .env file)
+      LISTMONK_ADMIN_USER: admin
+      LISTMONK_ADMIN_PASSWORD: adminpass
+      LISTMONK_ADMIN_API_USER: api-admin
+      
+      # Database configuration
+      LISTMONK_db__host: db
+      LISTMONK_db__port: 5432
+      LISTMONK_db__user: listmonk
+      LISTMONK_db__password: listmonk
+      LISTMONK_db__database: listmonk
+      LISTMONK_db__ssl_mode: disable
+      
+      # App configuration
+      LISTMONK_app__address: 0.0.0.0:9000
+    networks:
+      - listmonk
+    volumes:
+      - listmonk_uploads:/listmonk/uploads
+      - listmonk_static:/listmonk/static
+    restart: unless-stopped
+    command: ["sh", "-c", "./listmonk --install --yes && ./listmonk"]
+
+networks:
+  listmonk:
+    driver: bridge
+
+volumes:
+  listmonk_db_data:
+  listmonk_uploads:
+  listmonk_static:
