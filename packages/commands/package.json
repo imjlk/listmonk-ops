@@ -1,0 +1,16 @@
+{
+	"name": "@listmonk-ops/commands",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@listmonk-ops/abtest": "workspace:*",
+		"@listmonk-ops/common": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "^5.0.0"
+	}
+}

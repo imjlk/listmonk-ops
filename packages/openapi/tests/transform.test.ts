@@ -123,22 +123,22 @@ describe("Response Transform", () => {
 					data: {
 						users: [
 							{ id: 1, name: "User 1" },
-							{ id: 2, name: "User 2" }
+							{ id: 2, name: "User 2" },
 						],
 						pagination: {
 							total: 2,
 							page: 1,
-							per_page: 10
-						}
+							per_page: 10,
+						},
 					},
 					message: "Users retrieved successfully",
 					metadata: {
 						query_time: "0.05s",
-						cache_hit: true
-					}
+						cache_hit: true,
+					},
 				},
 				status: 200,
-				timestamp: "2023-01-01T00:00:00Z"
+				timestamp: "2023-01-01T00:00:00Z",
 			};
 
 			const result = await transformResponse(response);
@@ -146,21 +146,21 @@ describe("Response Transform", () => {
 				data: {
 					users: [
 						{ id: 1, name: "User 1" },
-						{ id: 2, name: "User 2" }
+						{ id: 2, name: "User 2" },
 					],
 					pagination: {
 						total: 2,
 						page: 1,
-						per_page: 10
-					}
+						per_page: 10,
+					},
 				},
 				message: "Users retrieved successfully",
 				metadata: {
 					query_time: "0.05s",
-					cache_hit: true
+					cache_hit: true,
 				},
 				status: 200,
-				timestamp: "2023-01-01T00:00:00Z"
+				timestamp: "2023-01-01T00:00:00Z",
 			});
 		});
 	});

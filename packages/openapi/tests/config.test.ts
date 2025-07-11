@@ -27,9 +27,9 @@ describe("Configuration Management", () => {
 		});
 
 		test("should use environment variables", () => {
-			process.env.LISTMONK_URL = "https://api.example.com";
+			process.env.LISTMONK_API_URL = "https://api.example.com";
 			process.env.LISTMONK_USERNAME = "test-user";
-			process.env.LISTMONK_TOKEN = "test-token";
+			process.env.LISTMONK_API_TOKEN = "test-token";
 			process.env.LISTMONK_TIMEOUT = "60000";
 			process.env.LISTMONK_RETRIES = "5";
 
@@ -43,8 +43,8 @@ describe("Configuration Management", () => {
 		});
 
 		test("should prioritize overrides over environment variables", () => {
-			process.env.LISTMONK_URL = "https://env.example.com";
-			process.env.LISTMONK_TOKEN = "env-token";
+			process.env.LISTMONK_API_URL = "https://env.example.com";
+			process.env.LISTMONK_API_TOKEN = "env-token";
 
 			const config = createConfig({
 				baseUrl: "https://override.example.com",
@@ -62,7 +62,7 @@ describe("Configuration Management", () => {
 		});
 
 		test("should handle partial overrides", () => {
-			process.env.LISTMONK_TOKEN = "env-token";
+			process.env.LISTMONK_API_TOKEN = "env-token";
 
 			const config = createConfig({
 				auth: {

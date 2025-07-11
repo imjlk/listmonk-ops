@@ -1,0 +1,24 @@
+{
+	"name": "@listmonk-ops/cli",
+	"version": "0.1.0",
+	"type": "module",
+	"bin": {
+		"listmonk-cli": "./src/index.ts"
+	},
+	"scripts": {
+		"build": "bun build src/index.ts --outdir dist --target bun",
+		"dev": "bun --hot src/index.ts",
+		"start": "bun src/index.ts"
+	},
+	"dependencies": {
+		"@listmonk-ops/abtest": "workspace:*",
+		"@listmonk-ops/commands": "workspace:*",
+		"@listmonk-ops/common": "workspace:*",
+		"@listmonk-ops/openapi": "workspace:*",
+		"gunshi": "^0.26.3"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "^5.0.0"
+	}
+}

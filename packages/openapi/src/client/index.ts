@@ -219,21 +219,22 @@ export const createListmonkClient = (config: {
 }): EnhancedListmonkClient => {
 	// Create SDK options with client configuration
 	const sdkOptions = {
-		client: createClient(config)
+		client: createClient(config),
 	};
 
 	// Create proxy to automatically transform responses and provide SDK methods
 	const enhancedClient = new Proxy(sdkOptions.client, {
 		get(target, prop, receiver) {
 			// First check if it's an SDK method
-			if (typeof prop === 'string' && prop in sdk) {
+			if (typeof prop === "string" && prop in sdk) {
 				const sdkMethod = (sdk as Record<string, unknown>)[prop];
-				if (typeof sdkMethod === 'function') {
+				if (typeof sdkMethod === "function") {
 					return async (...args: unknown[]) => {
 						const firstArg = args[0];
-						const options = typeof firstArg === 'object' && firstArg !== null
-							? { ...sdkOptions, ...firstArg }
-							: sdkOptions;
+						const options =
+							typeof firstArg === "object" && firstArg !== null
+								? { ...sdkOptions, ...firstArg }
+								: sdkOptions;
 						const result = await sdkMethod(options);
 						return transformResponse(result);
 					};

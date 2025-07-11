@@ -45,7 +45,7 @@ describe("Main Public API Exports", () => {
 describe("Public API Usage", () => {
 	test("should create a listmonk client with default config", () => {
 		const client = createListmonkClient({
-			baseUrl: "http://localhost:9000",
+			baseUrl: "http://localhost:9000/api",
 		});
 
 		expect(client).toBeDefined();
@@ -70,7 +70,7 @@ describe("Public API Usage", () => {
 
 	test("should provide both SDK methods and HTTP methods", () => {
 		const client = createListmonkClient({
-			baseUrl: "http://localhost:9000",
+			baseUrl: "http://localhost:9000/api",
 		});
 
 		// SDK methods (enhanced with flattened responses)
@@ -123,7 +123,7 @@ describe("Tree-shaking Support", () => {
 	test("should not bundle unnecessary code", () => {
 		// Create a minimal client to verify it doesn't include unused functionality
 		const client = createListmonkClient({
-			baseUrl: "http://localhost:9000",
+			baseUrl: "http://localhost:9000/api",
 		});
 
 		// Client should have the expected interface without extra baggage

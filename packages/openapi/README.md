@@ -46,7 +46,7 @@ Set up environment variables for automatic configuration:
 # .env file or environment
 LISTMONK_BASE_URL=http://localhost:9000/api
 LISTMONK_USERNAME=api-admin
-LISTMONK_TOKEN=your_generated_token
+LISTMONK_API_TOKEN=your_generated_token
 ```
 
 Then use the client without manual configuration:
@@ -82,7 +82,7 @@ If using the provided Docker setup, authentication is pre-configured:
 
 ```env
 # .env file (included in the project)
-LISTMONK_ADMIN_API_TOKEN=your_generated_token
+LISTMONK_API_TOKEN=your_generated_token
 LISTMONK_USERNAME=api-admin
 ```
 
@@ -342,7 +342,7 @@ The client supports automatic configuration from environment variables:
 # Required
 LISTMONK_BASE_URL=http://localhost:9000/api
 LISTMONK_USERNAME=api-admin
-LISTMONK_TOKEN=your_generated_token
+LISTMONK_API_TOKEN=your_generated_token
 
 # Optional
 LISTMONK_CUSTOM_HEADER_NAME=value
@@ -504,7 +504,7 @@ const results = lists.data.results; // Direct access
 const client = createListmonkClient({
   baseUrl: process.env.LISTMONK_BASE_URL!,
   headers: {
-    Authorization: `token ${process.env.LISTMONK_USERNAME}:${process.env.LISTMONK_TOKEN}`
+    Authorization: `token ${process.env.LISTMONK_USERNAME}:${process.env.LISTMONK_API_TOKEN}`
   }
 });
 

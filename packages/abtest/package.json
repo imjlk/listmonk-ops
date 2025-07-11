@@ -1,0 +1,30 @@
+{
+	"name": "@listmonk-ops/abtest",
+	"version": "0.1.0",
+	"type": "module",
+	"description": "A/B testing utilities for Listmonk operations",
+	"main": "src/index.ts",
+	"scripts": {
+		"build": "tsc",
+		"dev": "tsc --watch",
+		"type-check": "tsc --noEmit"
+	},
+	"keywords": [
+		"listmonk",
+		"abtest",
+		"split-testing",
+		"conversion-optimization"
+	],
+	"dependencies": {},
+	"devDependencies": {
+		"@types/node": "^20.0.0",
+		"typescript": "^5.0.0"
+	},
+	"peerDependencies": {},
+	"exports": {
+		".": {
+			"import": "./src/index.ts",
+			"types": "./src/index.ts"
+		}
+	}
+}
