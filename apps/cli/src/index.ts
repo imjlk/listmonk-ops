@@ -1,14 +1,21 @@
 #!/usr/bin/env bun
 
 import { AbTestService } from "@listmonk-ops/abtest";
-import { createCommandExecutors } from "@listmonk-ops/commands";
+import {
+	createAbTestExecutors,
+	createCampaignExecutors,
+	createListExecutors
+} from "@listmonk-ops/commands";
 import { OutputUtils } from "@listmonk-ops/common";
 import { cli } from "gunshi";
 import { lazy } from "gunshi/definition";
 
 import {
+	type AbTestExecutors,
+	type CampaignExecutors,
 	type CommandExecutors,
 	commandGroups,
+	type ListExecutors,
 	type StatusCommandConfig,
 	standaloneCommands,
 } from "./commands";
@@ -17,10 +24,18 @@ import { initializeListmonkClient } from "./lib/listmonk";
 // Initialize services and dependencies
 const listmonkClient = initializeListmonkClient();
 const abTestService = new AbTestService();
-const executors: CommandExecutors = createCommandExecutors(
-	abTestService,
-	listmonkClient,
-);
+
+// Create domain-specific command executors
+const abTestExecutors = createAbTestExecutors(abTestService);
+const campaignExecutors = createCampaignExecutors(listmonkClient);
+const listExecutors = createListExecutors(listmonkClient);
+
+// Combine all executors for backward compatibility with existing command structure
+const executors: CommandExecutors = {
+	...abTestExecutors,
+	...campaignExecutors,
+	...listExecutors,
+};
 
 // Status command configuration
 const statusConfig: StatusCommandConfig = {
@@ -59,11 +74,27 @@ for (const group of commandGroups) {
 			const runFnName = `${meta.name}Run`;
 			const runFn = module[runFnName];
 
+			// Choose the appropriate executor based on the command group
+			let domainExecutor: AbTestExecutors | CampaignExecutors | ListExecutors | CommandExecutors;
+			switch (group.name) {
+				case 'abtest':
+					domainExecutor = abTestExecutors;
+					break;
+				case 'campaigns':
+					domainExecutor = campaignExecutors;
+					break;
+				case 'lists':
+					domainExecutor = listExecutors;
+					break;
+				default:
+					domainExecutor = executors; // fallback to combined executors
+			}
+
 			if (meta.args) {
 				return (ctx: { values: Record<string, unknown> }) =>
-					runFn(executors, ctx);
+					runFn(domainExecutor, ctx);
 			}
-			return () => runFn(executors);
+			return () => runFn(domainExecutor);
 		};
 
 		// Remove runner property for gunshi compatibility

@@ -1,6 +1,6 @@
 import { OutputUtils } from "@listmonk-ops/common";
 import { defineCommand } from "../lib/definition";
-import type { CommandContext, CommandExecutors } from "./campaigns";
+import type { CommandContext, ListExecutors } from "./types";
 
 export const listMeta = defineCommand({
 	name: "list",
@@ -8,7 +8,7 @@ export const listMeta = defineCommand({
 	runner: "executor",
 });
 
-export async function listRun(executors: CommandExecutors) {
+export async function listRun(executors: ListExecutors) {
 	try {
 		OutputUtils.info("📝 Fetching lists...");
 
@@ -21,8 +21,7 @@ export async function listRun(executors: CommandExecutors) {
 		}
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to fetch lists: ${
-				error instanceof Error ? error.message : String(error)
+			`Failed to fetch lists: ${error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);
@@ -42,7 +41,7 @@ export const getMeta = defineCommand({
 	runner: "executor",
 });
 
-export async function getRun(executors: CommandExecutors, ctx: CommandContext) {
+export async function getRun(executors: ListExecutors, ctx: CommandContext) {
 	try {
 		const { id } = ctx.values;
 		OutputUtils.info(`📝 Fetching list: ${id}`);
@@ -52,8 +51,7 @@ export async function getRun(executors: CommandExecutors, ctx: CommandContext) {
 		OutputUtils.json(list);
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to fetch list: ${
-				error instanceof Error ? error.message : String(error)
+			`Failed to fetch list: ${error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);

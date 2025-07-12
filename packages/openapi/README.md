@@ -13,16 +13,24 @@ A fully type-safe TypeScript client for the Listmonk newsletter and mailing list
 - **🔄 Always Up-to-Date**: Auto-generated from the latest Listmonk OpenAPI specification
 - **✅ Production Ready**: Comprehensive test coverage with real API integration tests
 
-A fully type-safe TypeScript client for the Listmonk newsletter and mailing list manager API. Features automatic response flattening, complete type safety, and excellent developer experience with IntelliSense auto-completion.
+## 🚀 Quick Start (Development Environment)
 
-## ✨ Features
+For development and testing, you can quickly spin up a complete Listmonk environment with Docker:
 
-- **🔒 Fully Type-Safe**: Complete TypeScript support with auto-generated types from OpenAPI spec
-- **🚀 Response Flattening**: Eliminates nested `data.data.data` patterns - just use `response.data`
-- **⚡ Auto-Complete**: Full IntelliSense support for all API methods and response properties
-- **� Flexible**: Use the enhanced client or individual SDK methods
-- **🔄 Always Up-to-Date**: Auto-generated from the latest Listmonk OpenAPI specification
-- **✅ Production Ready**: Comprehensive test coverage with real API integration tests
+```bash
+# Start the development environment
+docker-compose up -d
+
+# Wait for services to be ready, then configure SMTP automatically
+./setup-smtp.sh
+```
+
+This sets up:
+- **Listmonk**: `http://localhost:9000` (admin: admin/listmonk)
+- **Mailpit**: `http://localhost:8025` (SMTP testing interface)
+- **PostgreSQL**: `localhost:5432` (listmonk/listmonk)
+
+The setup script automatically configures SMTP to use Mailpit for email testing.
 
 ## 📦 Installation
 

@@ -1,7 +1,7 @@
 import type { AbTestConfig } from "@listmonk-ops/abtest";
 import { OutputUtils } from "@listmonk-ops/common";
 import { defineCommand } from "../lib/definition";
-import type { CommandContext, CommandExecutors } from "./campaigns";
+import type { AbTestExecutors, CommandContext } from "./types";
 
 export const createMeta = defineCommand({
 	name: "create",
@@ -28,7 +28,7 @@ export const createMeta = defineCommand({
 });
 
 export async function createRun(
-	executors: CommandExecutors,
+	executors: AbTestExecutors,
 	ctx: CommandContext,
 ) {
 	try {
@@ -108,8 +108,7 @@ export async function createRun(
 		OutputUtils.json(result);
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to create A/B test: ${
-				error instanceof Error ? error.message : String(error)
+			`Failed to create A/B test: ${error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);
@@ -131,7 +130,7 @@ export const analyzeMeta = defineCommand({
 });
 
 export async function analyzeRun(
-	executors: CommandExecutors,
+	executors: AbTestExecutors,
 	ctx: CommandContext,
 ) {
 	try {
@@ -200,8 +199,7 @@ export async function analyzeRun(
 		analysis.recommendations.forEach((rec) => OutputUtils.info(`  • ${rec}`));
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to analyze A/B test: ${
-				error instanceof Error ? error.message : String(error)
+			`Failed to analyze A/B test: ${error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);

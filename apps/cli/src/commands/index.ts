@@ -5,9 +5,15 @@ import * as examples from "./examples";
 import * as lists from "./lists";
 import * as status from "./status";
 
-// Re-export types for convenience
-export type { CommandContext, CommandExecutors } from "./campaigns";
 export type { StatusCommandConfig } from "./status";
+// Re-export types for convenience
+export type {
+	AbTestExecutors,
+	CampaignExecutors,
+	CommandContext,
+	CommandExecutors,
+	ListExecutors,
+} from "./types";
 
 // Standalone commands that are at the top level
 export const standaloneCommands = [status.meta, examples.meta];

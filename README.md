@@ -1,15 +1,32 @@
-# listmonk-ops
+# 📧 Listmonk Operations
 
-To install dependencies:
+A comprehensive TypeScript monorepo for Listmonk email marketing platform with complete development environment automation. Built with Cloudflare Workers platform and CLI support for easy email marketing automation operations.
 
-```bash
-bun install
-```
+## 🚀 Quick Start
 
-To run:
+### One-Command Setup
 
 ```bash
-bun run index.ts
+# Start the complete development environment
+docker compose up -d
+
+# Configure SMTP automatically
+./setup-smtp.sh
 ```
 
-This project was created using `bun init` in bun v1.2.15. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+That's it! Your complete email marketing development environment is ready.
+
+### Access Points
+
+- **📧 Listmonk Admin**: <http://localhost:9000/admin>
+- **📨 Mailpit Web UI**: <http://localhost:8025>  
+- **🐘 PostgreSQL**: localhost:5432
+
+### Default Credentials
+
+- **Username**: `admin`
+- **Password**: `adminpass`
+
+## ✨ What's Included
+
+WIP

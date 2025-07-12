@@ -1,21 +1,6 @@
-import type { AbTest, AbTestConfig, TestAnalysis } from "@listmonk-ops/abtest";
 import { OutputUtils } from "@listmonk-ops/common";
-import type { Campaign, List } from "@listmonk-ops/openapi";
 import { defineCommand } from "../lib/definition";
-
-// Command executors interface that matches createCommandExecutors return type
-export interface CommandExecutors {
-	listCampaigns(): Promise<Campaign[]>;
-	getCampaign(id: string): Promise<Campaign>;
-	listSubscriberLists(): Promise<List[]>;
-	getSubscriberList(id: string): Promise<List>;
-	createAbTest(config: AbTestConfig): Promise<AbTest>;
-	analyzeAbTest(testId: string): Promise<TestAnalysis>;
-}
-
-export interface CommandContext {
-	values: Record<string, unknown>;
-}
+import type { CampaignExecutors, CommandContext } from "./types";
 
 export const listMeta = defineCommand({
 	name: "list",
@@ -23,7 +8,7 @@ export const listMeta = defineCommand({
 	runner: "executor",
 });
 
-export async function listRun(executors: CommandExecutors) {
+export async function listRun(executors: CampaignExecutors) {
 	try {
 		OutputUtils.info("📧 Fetching campaigns...");
 		const campaigns = await executors.listCampaigns();
@@ -34,8 +19,7 @@ export async function listRun(executors: CommandExecutors) {
 		}
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to fetch campaigns: ${
-				error instanceof Error ? error.message : String(error)
+			`Failed to fetch campaigns: ${error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);
@@ -55,7 +39,7 @@ export const getMeta = defineCommand({
 	runner: "executor",
 });
 
-export async function getRun(executors: CommandExecutors, ctx: CommandContext) {
+export async function getRun(executors: CampaignExecutors, ctx: CommandContext) {
 	try {
 		const { id } = ctx.values;
 		OutputUtils.info(`📧 Fetching campaign: ${id}`);
@@ -63,8 +47,7 @@ export async function getRun(executors: CommandExecutors, ctx: CommandContext) {
 		OutputUtils.json(campaign);
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to fetch campaign: ${
-				error instanceof Error ? error.message : String(error)
+			`Failed to fetch campaign: ${error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);
