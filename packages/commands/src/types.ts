@@ -14,10 +14,10 @@ export interface ListmonkClient {
 	}>;
 	getCampaignById(params: { path: { campaign_id: number } }): Promise<
 		| {
-			data: Campaign;
-			request: Request;
-			response: Response;
-		}
+				data: Campaign;
+				request: Request;
+				response: Response;
+		  }
 		| { error: unknown }
 	>;
 	getLists(): Promise<{
@@ -32,10 +32,10 @@ export interface ListmonkClient {
 	}>;
 	getListById(params: { path: { list_id: number } }): Promise<
 		| {
-			data: List;
-			request: Request;
-			response: Response;
-		}
+				data: List;
+				request: Request;
+				response: Response;
+		  }
 		| { error: unknown }
 	>;
 }

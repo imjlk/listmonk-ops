@@ -1,6 +1,13 @@
+import "dotenv/config";
 import { beforeAll, describe, expect, test } from "bun:test";
 import type { List } from "../index";
 import { createListmonkClient } from "../index";
+
+// Load environment variables
+const LISTMONK_API_URL =
+	process.env.LISTMONK_API_URL || "http://localhost:9000/api";
+const LISTMONK_USERNAME = process.env.LISTMONK_USERNAME || "api-admin";
+const LISTMONK_API_TOKEN = process.env.LISTMONK_API_TOKEN || "";
 
 // Integration tests require a running Listmonk server
 // Run with: docker-compose up -d
@@ -8,10 +15,14 @@ describe("API Integration", () => {
 	let client: ReturnType<typeof createListmonkClient>;
 
 	beforeAll(() => {
+		if (!LISTMONK_API_TOKEN) {
+			throw new Error("LISTMONK_API_TOKEN environment variable is required");
+		}
+
 		client = createListmonkClient({
-			baseUrl: "http://localhost:9000/api",
+			baseUrl: LISTMONK_API_URL,
 			headers: {
-				Authorization: "token api-admin:pOIw1gMMYh1Ozjf7Z5uuDE0DZiCnr4hB",
+				Authorization: `token ${LISTMONK_USERNAME}:${LISTMONK_API_TOKEN}`,
 			},
 		});
 	});

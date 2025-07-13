@@ -21,7 +21,8 @@ export async function listRun(executors: ListExecutors) {
 		}
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to fetch lists: ${error instanceof Error ? error.message : String(error)
+			`Failed to fetch lists: ${
+				error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);
@@ -51,7 +52,8 @@ export async function getRun(executors: ListExecutors, ctx: CommandContext) {
 		OutputUtils.json(list);
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to fetch list: ${error instanceof Error ? error.message : String(error)
+			`Failed to fetch list: ${
+				error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);

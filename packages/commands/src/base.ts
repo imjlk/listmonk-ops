@@ -4,7 +4,8 @@ export interface Command<TInput, TOutput> {
 }
 
 export abstract class BaseCommand<TInput, TOutput>
-	implements Command<TInput, TOutput> {
+	implements Command<TInput, TOutput>
+{
 	abstract execute(input: TInput): Promise<TOutput>;
 
 	protected validate(_input: TInput): void {

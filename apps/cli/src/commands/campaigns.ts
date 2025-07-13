@@ -19,7 +19,8 @@ export async function listRun(executors: CampaignExecutors) {
 		}
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to fetch campaigns: ${error instanceof Error ? error.message : String(error)
+			`Failed to fetch campaigns: ${
+				error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);
@@ -39,7 +40,10 @@ export const getMeta = defineCommand({
 	runner: "executor",
 });
 
-export async function getRun(executors: CampaignExecutors, ctx: CommandContext) {
+export async function getRun(
+	executors: CampaignExecutors,
+	ctx: CommandContext,
+) {
 	try {
 		const { id } = ctx.values;
 		OutputUtils.info(`📧 Fetching campaign: ${id}`);
@@ -47,7 +51,8 @@ export async function getRun(executors: CampaignExecutors, ctx: CommandContext) 
 		OutputUtils.json(campaign);
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to fetch campaign: ${error instanceof Error ? error.message : String(error)
+			`Failed to fetch campaign: ${
+				error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);

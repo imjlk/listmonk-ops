@@ -1,23 +1,25 @@
 {
-  "name": "listmonk-ops",
-  "module": "index.ts",
-  "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@biomejs/biome": "2.0.6",
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "scripts": {
-    "api": "bun run --cwd packages/openapi --",
-    "format": "biome format --write"
-  },
-  "workspaces": {
-    "packages": [
-      "packages/*",
-      "apps/*"
-    ]
-  }
+	"name": "listmonk-ops",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"devDependencies": {
+		"@biomejs/biome": "2.1.1",
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"scripts": {
+		"cli": "bun run --cwd apps/cli --",
+		"api": "bun run --cwd packages/openapi --",
+		"mcp": "bun run --cwd packages/mcp --",
+		"format": "biome format --write"
+	},
+	"workspaces": {
+		"packages": [
+			"packages/*",
+			"apps/*"
+		]
+	}
 }

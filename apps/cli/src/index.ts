@@ -4,7 +4,7 @@ import { AbTestService } from "@listmonk-ops/abtest";
 import {
 	createAbTestExecutors,
 	createCampaignExecutors,
-	createListExecutors
+	createListExecutors,
 } from "@listmonk-ops/commands";
 import { OutputUtils } from "@listmonk-ops/common";
 import { cli } from "gunshi";
@@ -75,15 +75,19 @@ for (const group of commandGroups) {
 			const runFn = module[runFnName];
 
 			// Choose the appropriate executor based on the command group
-			let domainExecutor: AbTestExecutors | CampaignExecutors | ListExecutors | CommandExecutors;
+			let domainExecutor:
+				| AbTestExecutors
+				| CampaignExecutors
+				| ListExecutors
+				| CommandExecutors;
 			switch (group.name) {
-				case 'abtest':
+				case "abtest":
 					domainExecutor = abTestExecutors;
 					break;
-				case 'campaigns':
+				case "campaigns":
 					domainExecutor = campaignExecutors;
 					break;
-				case 'lists':
+				case "lists":
 					domainExecutor = listExecutors;
 					break;
 				default:

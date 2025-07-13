@@ -108,7 +108,8 @@ export async function createRun(
 		OutputUtils.json(result);
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to create A/B test: ${error instanceof Error ? error.message : String(error)
+			`Failed to create A/B test: ${
+				error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);
@@ -199,7 +200,8 @@ export async function analyzeRun(
 		analysis.recommendations.forEach((rec) => OutputUtils.info(`  • ${rec}`));
 	} catch (error) {
 		OutputUtils.error(
-			`Failed to analyze A/B test: ${error instanceof Error ? error.message : String(error)
+			`Failed to analyze A/B test: ${
+				error instanceof Error ? error.message : String(error)
 			}`,
 		);
 		process.exit(1);

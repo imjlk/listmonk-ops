@@ -23,4 +23,7 @@ export interface ListExecutors {
 }
 
 // Combined interface for backward compatibility
-export interface CommandExecutors extends AbTestExecutors, CampaignExecutors, ListExecutors { }
+export interface CommandExecutors
+	extends AbTestExecutors,
+		CampaignExecutors,
+		ListExecutors {}
