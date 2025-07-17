@@ -14,7 +14,7 @@ describe("Client Creation", () => {
 			expect(client).toBeDefined();
 			expect(typeof client.getHealthCheck).toBe("function");
 			expect(typeof client.list.create).toBe("function");
-			expect(typeof client.list.get).toBe("function");
+			expect(typeof client.list.list).toBe("function");
 		});
 
 		test("should create client with custom config", () => {
@@ -64,18 +64,18 @@ describe("Client Creation", () => {
 
 			// Lists
 			expect(typeof client.list.create).toBe("function");
-			expect(typeof client.list.get).toBe("function");
+			expect(typeof client.list.list).toBe("function");
 			expect(typeof client.list.getById).toBe("function");
 			expect(typeof client.list.delete).toBe("function");
 
 			// Subscribers
-			expect(typeof client.subscriber.get).toBe("function");
+			expect(typeof client.subscriber.list).toBe("function");
 			expect(typeof client.subscriber.create).toBe("function");
 			expect(typeof client.subscriber.getById).toBe("function");
 			expect(typeof client.subscriber.delete).toBe("function");
 
 			// Campaigns
-			expect(typeof client.campaign.get).toBe("function");
+			expect(typeof client.campaign.list).toBe("function");
 			expect(typeof client.campaign.create).toBe("function");
 			expect(typeof client.campaign.getById).toBe("function");
 			expect(typeof client.campaign.delete).toBe("function");

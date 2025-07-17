@@ -19,7 +19,7 @@ describe("Enhanced Client Namespaces", () => {
 
 	test("should have bounce namespace", () => {
 		expect(client.bounce).toBeDefined();
-		expect(typeof client.bounce.get).toBe("function");
+		expect(typeof client.bounce.list).toBe("function");
 		expect(typeof client.bounce.getById).toBe("function");
 		expect(typeof client.bounce.delete).toBe("function");
 		expect(typeof client.bounce.deleteById).toBe("function");

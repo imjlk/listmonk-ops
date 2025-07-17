@@ -85,7 +85,7 @@ describe("API Integration", () => {
 			}
 
 			// Just verify we can call the API
-			const listsResponse = await client.list.get();
+			const listsResponse = await client.list.list();
 			expect(listsResponse).toBeDefined();
 		});
 	});

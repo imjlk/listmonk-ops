@@ -58,7 +58,7 @@ type TemplateTypes = ResourceTypes<
 
 // Media operations interface - media doesn't follow standard patterns
 interface MediaOperations {
-	get(options?: t.GetMediaData): Promise<ListResult<t.MediaFileObject>>;
+	list(options?: t.GetMediaData): Promise<ListResult<t.MediaFileObject>>;
 	getById(options: {
 		path: { id: number };
 	}): Promise<CrudResult<t.MediaFileObject>>;
@@ -89,7 +89,7 @@ interface BaseDeleteByIdOperation {
 }
 
 interface BaseBounceListOperation<T> {
-	get(options?: {
+	list(options?: {
 		campaign_id?: number;
 		page?: number;
 		per_page?: number | "all";
@@ -139,6 +139,23 @@ interface TransactionalOperations {
 	send(options: TransactionalSendParams): Promise<FlattenedResponse<boolean>>;
 }
 
+interface SettingsOperations {
+	get(): Promise<FlattenedResponse<Record<string, unknown>>>;
+	update(options: { body: Record<string, unknown> }): Promise<FlattenedResponse<Record<string, unknown>>>;
+	testSmtp(options: { body: Record<string, unknown> }): Promise<FlattenedResponse<boolean>>;
+}
+
+interface DashboardOperations {
+	getCharts(options?: { query?: { type?: string } }): Promise<FlattenedResponse<Record<string, unknown>>>;
+	getCounts(): Promise<FlattenedResponse<Record<string, unknown>>>;
+}
+
+interface SystemOperations {
+	getConfig(): Promise<FlattenedResponse<Record<string, unknown>>>;
+	getLogs(): Promise<FlattenedResponse<string>>;
+	reload(): Promise<FlattenedResponse<boolean>>;
+}
+
 import {
 	configToHeaders,
 	createConfig,
@@ -185,7 +202,7 @@ interface CrudOperations<
 	DeleteData,
 > {
 	create(options: CreateData): Promise<FlattenedResponse<T>>;
-	get(options?: GetData): Promise<ListResult<T>>;
+	list(options?: GetData): Promise<ListResult<T>>;
 	getById(options: GetByIdData): Promise<CrudResult<T>>;
 	update(options: UpdateData): Promise<CrudResult<T>>;
 	delete(options: DeleteData): Promise<FlattenedResponse<boolean>>;
@@ -214,7 +231,19 @@ interface EnhancedListmonkClient {
 		SubscriberTypes["get"],
 		SubscriberTypes["getById"],
 		SubscriberTypes["delete"]
-	>;
+	> & {
+		manageLists(options: { body: { action?: "add" | "remove" | "unsubscribe"; target_list_ids?: number; query?: string; ids?: number[] } }): Promise<FlattenedResponse<boolean>>;
+		manageListById(options: { path: { id: number }; body: { action?: "add" | "remove" | "unsubscribe"; target_list_ids?: number; query?: string; ids?: number[] } }): Promise<FlattenedResponse<boolean>>;
+		manageBlocklist(options: { body: { action?: "add" | "remove"; query?: string; ids?: number[] } }): Promise<FlattenedResponse<boolean>>;
+		manageBlocklistById(options: { path: { id: number }; body: { action?: "add" | "remove" } }): Promise<FlattenedResponse<boolean>>;
+		export(options: { path: { id: number } }): Promise<FlattenedResponse<Record<string, unknown>>>;
+		sendOptin(options: { path: { id: number } }): Promise<FlattenedResponse<boolean>>;
+		getBounces(options: { path: { id: number } }): Promise<FlattenedResponse<Record<string, unknown>>>;
+		deleteBounces(options: { path: { id: number } }): Promise<FlattenedResponse<boolean>>;
+		deleteByQuery(options: { body: { query?: string } }): Promise<FlattenedResponse<boolean>>;
+		blocklistByQuery(options: { body: { query?: string } }): Promise<FlattenedResponse<boolean>>;
+		manageListsByQuery(options: { body: { action?: "add" | "remove" | "unsubscribe"; target_list_ids?: number; query?: string } }): Promise<FlattenedResponse<boolean>>;
+	};
 	campaign: CrudOperations<
 		Campaign,
 		CampaignTypes["create"],
@@ -222,7 +251,17 @@ interface EnhancedListmonkClient {
 		CampaignTypes["get"],
 		CampaignTypes["getById"],
 		CampaignTypes["delete"]
-	>;
+	> & {
+		preview(options: { path: { id: number } }): Promise<FlattenedResponse<string>>;
+		updatePreview(options: { path: { id: number }; body: { template_id?: number; body?: string } }): Promise<FlattenedResponse<boolean>>;
+		previewText(options: { path: { id: number }; body: { template_id?: number; body?: string } }): Promise<FlattenedResponse<string>>;
+		updateStatus(options: { path: { id: number }; body: { status: "scheduled" | "running" | "paused" | "cancelled" } }): Promise<FlattenedResponse<boolean>>;
+		updateArchive(options: { path: { id: number }; body: { archive: boolean } }): Promise<FlattenedResponse<boolean>>;
+		createContent(options: { path: { id: number }; body: { content_type: "html" | "markdown" | "plain" | "richtext"; body: string } }): Promise<FlattenedResponse<boolean>>;
+		test(options: { path: { id: number }; body: { template_id?: number; content_type?: string; body?: string; subject?: string; lists?: number[]; subscribers?: string[] } }): Promise<FlattenedResponse<boolean>>;
+		getRunningStats(options: { query: { campaign_id: number } }): Promise<FlattenedResponse<Record<string, unknown>>>;
+		getAnalytics(options: { path: { type: "links" | "views" | "clicks" | "bounces" }; query: { from: string; to: string; id: string } }): Promise<FlattenedResponse<Record<string, unknown>>>;
+	};
 	template: CrudOperations<
 		t.Template,
 		TemplateTypes["create"],
@@ -233,7 +272,9 @@ interface EnhancedListmonkClient {
 	> & {
 		setAsDefault(options: { path: { id: number } }): Promise<FlattenedResponse<boolean>>;
 	};
-	media: MediaOperations;
+	media: MediaOperations & {
+		upload(options: { body: File | Blob }): Promise<FlattenedResponse<t.MediaFileObject>>;
+	};
 
 	// Import operations
 	import: ImportOperations;
@@ -243,6 +284,15 @@ interface EnhancedListmonkClient {
 
 	// Transactional operations
 	transactional: TransactionalOperations;
+
+	// Settings operations
+	settings: SettingsOperations;
+
+	// Dashboard operations
+	dashboard: DashboardOperations;
+
+	// System operations
+	system: SystemOperations;
 }
 
 /**
@@ -348,7 +398,7 @@ const createCrudOperations = <T>(
 			throw new Error(`${methodNames.create} method not found`);
 		},
 
-		async get(options: unknown): Promise<ListResult<T>> {
+		async list(options: unknown): Promise<ListResult<T>> {
 			const sdkMethod = (sdk as Record<string, unknown>)[methodNames.get];
 			if (typeof sdkMethod === "function") {
 				const mergedOptions =
@@ -476,8 +526,112 @@ export const createListmonkClient = (
 
 		// Namespaced resource operations
 		list: createCrudOperations("List", sdkOptions),
-		subscriber: createCrudOperations("Subscriber", sdkOptions),
-		campaign: createCrudOperations("Campaign", sdkOptions),
+		subscriber: {
+			...createCrudOperations("Subscriber", sdkOptions),
+			async manageLists(options: { body: { action?: "add" | "remove" | "unsubscribe"; target_list_ids?: number; query?: string; ids?: number[] } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.manageSubscriberLists(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async manageListById(options: { path: { id: number }; body: { action?: "add" | "remove" | "unsubscribe"; target_list_ids?: number; query?: string; ids?: number[] } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.manageSubscriberListById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async manageBlocklist(options: { body: { action?: "add" | "remove"; query?: string; ids?: number[] } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.manageBlocklistBySubscriberList(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async manageBlocklistById(options: { path: { id: number }; body: { action?: "add" | "remove" } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.manageBlocklistSubscribersById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async export(options: { path: { id: number } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.exportSubscriberDataById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<Record<string, unknown>>;
+			},
+			async sendOptin(options: { path: { id: number } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.subscriberSendOptinById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async getBounces(options: { path: { id: number } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.getSubscriberBouncesById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<Record<string, unknown>>;
+			},
+			async deleteBounces(options: { path: { id: number } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.deleteSubscriberBouncesById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async deleteByQuery(options: { body: { query?: string } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.deleteSubscriberByQuery(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async blocklistByQuery(options: { body: { query?: string } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.blocklistSubscribersQuery(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async manageListsByQuery(options: { body: { action?: "add" | "remove" | "unsubscribe"; target_list_ids?: number; query?: string } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.manageSubscriberListsByQuery(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+		},
+		campaign: {
+			...createCrudOperations("Campaign", sdkOptions),
+			async preview(options: { path: { id: number } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.previewCampaignById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<string>;
+			},
+			async updatePreview(options: { path: { id: number }; body: { template_id?: number; body?: string } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.updatePreviewCampaignById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async previewText(options: { path: { id: number }; body: { template_id?: number; body?: string } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.previewCampaignTextById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<string>;
+			},
+			async updateStatus(options: { path: { id: number }; body: { status: "scheduled" | "running" | "paused" | "cancelled" } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.updateCampaignStatusById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async updateArchive(options: { path: { id: number }; body: { archive: boolean } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.updateCampaignArchiveById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async createContent(options: { path: { id: number }; body: { content_type: "html" | "markdown" | "plain" | "richtext"; body: string } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.createCampaignContentById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async test(options: { path: { id: number }; body: { template_id?: number; content_type?: string; body?: string; subject?: string; lists?: number[]; subscribers?: string[] } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.testCampaignById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async getRunningStats(options: { query: { campaign_id: number } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.getRunningCampaignStats(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<Record<string, unknown>>;
+			},
+			async getAnalytics(options: { path: { type: "links" | "views" | "clicks" | "bounces" }; query: { from: string; to: string; id: string } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.getCampaignAnalytics(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<Record<string, unknown>>;
+			},
+		},
 		template: {
 			...createCrudOperations("Template", sdkOptions),
 			async setAsDefault(options: { path: { id: number } }) {
@@ -487,12 +641,17 @@ export const createListmonkClient = (
 			},
 		},
 		media: {
-			get: createCrudOperations("Media", sdkOptions)
-				.get as MediaOperations["get"],
+			list: createCrudOperations("Media", sdkOptions)
+				.list as MediaOperations["list"],
 			getById: createCrudOperations("Media", sdkOptions)
 				.getById as MediaOperations["getById"],
 			deleteById: createCrudOperations("Media", sdkOptions)
 				.delete as MediaOperations["deleteById"], // Media uses deleteById, not delete
+			async upload(options: { body: File | Blob }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.uploadMedia(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<t.MediaFileObject>;
+			},
 		},
 
 		// Import operations
@@ -540,7 +699,7 @@ export const createListmonkClient = (
 
 		// Bounce operations
 		bounce: {
-			async get(options?: {
+			async list(options?: {
 				campaign_id?: number;
 				page?: number;
 				per_page?: number | "all";
@@ -576,6 +735,53 @@ export const createListmonkClient = (
 			async send(options: TransactionalSendParams) {
 				const mergedOptions = { ...sdkOptions, body: options };
 				const result = await sdk.transactWithSubscriber(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+		},
+
+		// Settings operations
+		settings: {
+			async get() {
+				const result = await sdk.getSettings(sdkOptions);
+				return (await transformResponse(result)) as FlattenedResponse<Record<string, unknown>>;
+			},
+			async update(options: { body: Record<string, unknown> }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.updateSettings(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<Record<string, unknown>>;
+			},
+			async testSmtp(options: { body: Record<string, unknown> }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.testSmtpSettings(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+		},
+
+		// Dashboard operations
+		dashboard: {
+			async getCharts(options?: { query?: { type?: string } }) {
+				const mergedOptions = options ? { ...sdkOptions, ...options } : sdkOptions;
+				const result = await sdk.getDashboardCharts(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<Record<string, unknown>>;
+			},
+			async getCounts() {
+				const result = await sdk.getDashboardCounts(sdkOptions);
+				return (await transformResponse(result)) as FlattenedResponse<Record<string, unknown>>;
+			},
+		},
+
+		// System operations
+		system: {
+			async getConfig() {
+				const result = await sdk.getServerConfig(sdkOptions);
+				return (await transformResponse(result)) as FlattenedResponse<Record<string, unknown>>;
+			},
+			async getLogs() {
+				const result = await sdk.getLogs(sdkOptions);
+				return (await transformResponse(result)) as FlattenedResponse<string>;
+			},
+			async reload() {
+				const result = await sdk.reloadApp(sdkOptions);
 				return (await transformResponse(result)) as FlattenedResponse<boolean>;
 			},
 		},
