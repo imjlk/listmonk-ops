@@ -12,7 +12,10 @@
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": true,
 		"verbatimModuleSyntax": true,
-		"noEmit": true,
+		"emitDeclarationOnly": true,
+		"composite": true,
+		"declaration": true,
+		"outDir": "dist",
 
 		// Best practices
 		"strict": true,
@@ -25,5 +28,7 @@
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
 		"noPropertyAccessFromIndexSignature": false
-	}
+	},
+	"include": ["src/**/*", "generated/**/*", "index.ts"],
+	"exclude": ["generate.ts", "tests/**/*", "dist/**/*"]
 }

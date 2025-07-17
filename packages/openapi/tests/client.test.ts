@@ -13,8 +13,8 @@ describe("Client Creation", () => {
 
 			expect(client).toBeDefined();
 			expect(typeof client.getHealthCheck).toBe("function");
-			expect(typeof client.createList).toBe("function");
-			expect(typeof client.getLists).toBe("function");
+			expect(typeof client.list.create).toBe("function");
+			expect(typeof client.list.get).toBe("function");
 		});
 
 		test("should create client with custom config", () => {
@@ -28,7 +28,7 @@ describe("Client Creation", () => {
 
 			expect(client).toBeDefined();
 			expect(typeof client.getHealthCheck).toBe("function");
-			expect(typeof client.createList).toBe("function");
+			expect(typeof client.list.create).toBe("function");
 		});
 
 		test("should create multiple independent clients", () => {
@@ -63,22 +63,22 @@ describe("Client Creation", () => {
 			expect(typeof client.getHealthCheck).toBe("function");
 
 			// Lists
-			expect(typeof client.createList).toBe("function");
-			expect(typeof client.getLists).toBe("function");
-			expect(typeof client.getListById).toBe("function");
-			expect(typeof client.deleteListById).toBe("function");
+			expect(typeof client.list.create).toBe("function");
+			expect(typeof client.list.get).toBe("function");
+			expect(typeof client.list.getById).toBe("function");
+			expect(typeof client.list.delete).toBe("function");
 
 			// Subscribers
-			expect(typeof client.getSubscribers).toBe("function");
-			expect(typeof client.createSubscriber).toBe("function");
-			expect(typeof client.getSubscriberById).toBe("function");
-			expect(typeof client.deleteSubscriberById).toBe("function");
+			expect(typeof client.subscriber.get).toBe("function");
+			expect(typeof client.subscriber.create).toBe("function");
+			expect(typeof client.subscriber.getById).toBe("function");
+			expect(typeof client.subscriber.delete).toBe("function");
 
 			// Campaigns
-			expect(typeof client.getCampaigns).toBe("function");
-			expect(typeof client.createCampaign).toBe("function");
-			expect(typeof client.getCampaignById).toBe("function");
-			expect(typeof client.deleteCampaignById).toBe("function");
+			expect(typeof client.campaign.get).toBe("function");
+			expect(typeof client.campaign.create).toBe("function");
+			expect(typeof client.campaign.getById).toBe("function");
+			expect(typeof client.campaign.delete).toBe("function");
 		});
 
 		test("should have HTTP methods available", () => {

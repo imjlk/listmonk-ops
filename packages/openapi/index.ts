@@ -5,67 +5,34 @@
  * Features automatic response flattening, complete type safety, and excellent developer experience.
  */
 
+// ===== IMPORTS =====
+
+import type { ListmonkClient } from "./src/client/index";
 // Client imports
-import type { Campaign, List, Subscriber } from "./src/client/index";
-import {
-	createClient,
-	createListmonkClient,
-	createListmonkClientFromEnv,
-	rawSdk,
-	transformResponse,
-} from "./src/client/index";
+import { createListmonkClient } from "./src/client/index";
 
 // Configuration imports
 import type { ListmonkConfig } from "./src/config";
-import { configToHeaders, createConfig, validateConfig } from "./src/config";
 
-// Error handling imports
-import {
-	AuthenticationError,
-	createErrorFromResponse,
-	isListmonkError,
-	ListmonkError,
-	NotFoundError,
-	RateLimitError,
-	ServerError,
-	ValidationError,
-} from "./src/errors";
 
-// Transform utility imports
-import { transformResponseSync } from "./src/transform";
+// ===== EXPORTS =====
 
-// === EXPORTS ===
+/**
+ * Main client function
+ */
+export { createListmonkClient };
 
-// Main client exports
-export {
-	createListmonkClient,
-	createListmonkClientFromEnv,
-	createClient,
-	rawSdk,
-	transformResponse,
-};
+/**
+ * Core types
+ */
+export type { ListmonkClient, ListmonkConfig };
 
-// Type exports
-export type { List, Subscriber, Campaign, ListmonkConfig };
-
-// Configuration exports
-export { createConfig, validateConfig, configToHeaders };
-
-// Transform utility exports
-export { transformResponseSync };
-
-// Error handling exports
-export {
-	ListmonkError,
-	AuthenticationError,
-	ValidationError,
-	NotFoundError,
-	RateLimitError,
-	ServerError,
-	createErrorFromResponse,
-	isListmonkError,
-};
-
-// Generated exports (for advanced use cases)
-export * as GeneratedSDK from "./generated/sdk.gen";
-export type * as GeneratedTypes from "./generated/types.gen";
+/**
+ * Core entity types
+ */
+export type {
+	Campaign,
+	List,
+	Subscriber,
+	Template,
+} from "./src/client/index";

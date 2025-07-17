@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { transformResponse } from "../index";
+import { transformResponse } from "../src/client/index";
 
 describe("Response Transform", () => {
 	describe("transformResponse", () => {

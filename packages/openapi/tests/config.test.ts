@@ -16,6 +16,10 @@ describe("Configuration Management", () => {
 
 	describe("createConfig", () => {
 		test("should create config with default values", () => {
+			// Clear environment variables for this test
+			const originalEnv = process.env;
+			process.env = {};
+
 			const config = createConfig();
 
 			expect(config.baseUrl).toBe("http://localhost:9000/api");
@@ -24,6 +28,9 @@ describe("Configuration Management", () => {
 			expect(config.timeout).toBe(30000);
 			expect(config.retries).toBe(3);
 			expect(config.headers).toEqual({});
+
+			// Restore environment
+			process.env = originalEnv;
 		});
 
 		test("should use environment variables", () => {
@@ -62,7 +69,9 @@ describe("Configuration Management", () => {
 		});
 
 		test("should handle partial overrides", () => {
-			process.env.LISTMONK_API_TOKEN = "env-token";
+			// Clear environment variables for this test
+			const originalEnv = process.env;
+			process.env = { LISTMONK_API_TOKEN: "env-token" };
 
 			const config = createConfig({
 				auth: {
@@ -74,6 +83,9 @@ describe("Configuration Management", () => {
 			expect(config.auth.username).toBe("partial-user");
 			expect(config.auth.token).toBe("partial-token");
 			expect(config.baseUrl).toBe("http://localhost:9000/api"); // from default
+
+			// Restore environment
+			process.env = originalEnv;
 		});
 
 		test("should merge headers correctly", () => {
@@ -119,10 +131,17 @@ describe("Configuration Management", () => {
 		});
 
 		test("should throw error for missing token", () => {
+			// Clear environment variables for this test
+			const originalEnv = process.env;
+			process.env = {};
+
 			const config = createConfig();
 			// token is empty by default
 
 			expect(() => validateConfig(config)).toThrow("auth.token is required");
+
+			// Restore environment
+			process.env = originalEnv;
 		});
 
 		test("should throw error for invalid URL", () => {

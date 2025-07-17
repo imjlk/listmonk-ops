@@ -5,7 +5,140 @@
 
 import { createClient } from "../../generated/client";
 import * as sdk from "../../generated/sdk.gen";
-import type * as types from "../../generated/types.gen";
+import type * as t from "../../generated/types.gen";
+
+// Clean types by removing common unnecessary fields
+type GetData<T> = Omit<T, "url" | "body" | "path">;
+type GetByIdData<T> = Omit<T, "url" | "body" | "query">;
+type CreateData<T> = Omit<T, "url" | "path" | "query">;
+type UpdateData<T> = Omit<T, "url" | "query">;
+type DeleteData<T> = Omit<T, "url" | "body" | "query">;
+
+// Helper type to generate clean types for a resource
+type ResourceTypes<TCreate, TGet, TGetById, TUpdate, TDelete> = {
+	create: CreateData<TCreate>;
+	get: GetData<TGet>;
+	getById: GetByIdData<TGetById>;
+	update: UpdateData<TUpdate>;
+	delete: DeleteData<TDelete>;
+};
+
+// Resource-specific clean types with overrides for special cases
+type ListTypes = ResourceTypes<
+	t.CreateListData,
+	t.GetListsData,
+	t.GetListByIdData,
+	t.UpdateListByIdData,
+	t.DeleteListByIdData
+>;
+
+type CampaignTypes = ResourceTypes<
+	t.CreateCampaignData,
+	t.GetCampaignsData,
+	t.GetCampaignByIdData,
+	t.UpdateCampaignByIdData,
+	t.DeleteCampaignByIdData
+>;
+
+type SubscriberTypes = ResourceTypes<
+	t.CreateSubscriberData,
+	t.GetSubscribersData,
+	t.GetSubscriberByIdData,
+	t.UpdateSubscriberByIdData,
+	t.DeleteSubscriberByIdData
+>;
+
+type TemplateTypes = ResourceTypes<
+	t.CreateTemplateData,
+	t.GetTemplatesData,
+	t.GetTemplateByIdData,
+	t.UpdateTemplateByIdData,
+	t.DeleteTemplateByIdData
+>;
+
+// Media operations interface - media doesn't follow standard patterns
+interface MediaOperations {
+	get(options?: t.GetMediaData): Promise<ListResult<t.MediaFileObject>>;
+	getById(options: {
+		path: { id: number };
+	}): Promise<CrudResult<t.MediaFileObject>>;
+	deleteById(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<boolean>>;
+}
+
+// Base operation interfaces for reuse
+interface BaseGetOperation<T> {
+	get(): Promise<FlattenedResponse<T>>;
+}
+
+interface BaseGetByIdOperation<T> {
+	getById(options: { path: { id: number } }): Promise<CrudResult<T>>;
+}
+
+interface BaseDeleteOperation {
+	delete(options: {
+		query: { all?: boolean; id?: string };
+	}): Promise<FlattenedResponse<boolean>>;
+}
+
+interface BaseDeleteByIdOperation {
+	deleteById(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<boolean>>;
+}
+
+interface BaseBounceListOperation<T> {
+	get(options?: {
+		campaign_id?: number;
+		page?: number;
+		per_page?: number | "all";
+		source?: string;
+		order_by?: "email" | "campaign_name" | "source" | "created_at";
+		order?: "asc" | "desc";
+	}): Promise<ListResult<T>>;
+}
+
+// Specific operation types
+type ImportStartParams = {
+	mode: "subscribe" | "blocklist";
+	delim: string;
+	lists: number[];
+	overwrite: boolean;
+	subscription_status?: string;
+	file: File | Blob;
+};
+
+type TransactionalSendParams = {
+	subscriber_email?: string;
+	subscriber_id?: number;
+	subscriber_emails?: string[];
+	subscriber_ids?: number[];
+	template_id: number;
+	from_email?: string;
+	data?: Record<string, unknown>;
+	headers?: Record<string, string>[];
+	messenger?: string;
+	content_type?: "html" | "markdown" | "plain";
+};
+
+// Composed operation interfaces
+interface ImportOperations extends BaseGetOperation<t.ImportStatus> {
+	stop(): Promise<FlattenedResponse<t.ImportStatus>>;
+	logs(): Promise<FlattenedResponse<string>>;
+	start(params: ImportStartParams): Promise<FlattenedResponse<t.ImportStatus>>;
+}
+
+interface BounceOperations
+	extends BaseBounceListOperation<t.Bounce>,
+		BaseGetByIdOperation<t.Bounce>,
+		BaseDeleteOperation,
+		BaseDeleteByIdOperation {}
+
+interface TransactionalOperations {
+	send(options: TransactionalSendParams): Promise<FlattenedResponse<boolean>>;
+}
+
 import {
 	configToHeaders,
 	createConfig,
@@ -14,9 +147,11 @@ import {
 } from "../config";
 
 // Re-export convenience types
-export type List = types.List;
-export type Subscriber = types.Subscriber;
-export type Campaign = types.Campaign;
+export type List = t.List;
+export type Subscriber = t.Subscriber;
+export type Campaign = t.Campaign;
+export type Template = t.Template;
+export type ListmonkClient = EnhancedListmonkClient;
 
 /**
  * Flattened response type for easier development
@@ -28,116 +163,86 @@ type FlattenedResponse<T> = {
 };
 
 /**
- * Enhanced client interface with proper type definitions for common operations
+ * Generic CRUD operation types
  */
-interface EnhancedListmonkClient extends ReturnType<typeof createClient> {
+type CrudResult<T> = FlattenedResponse<T> | { error: unknown };
+type ListResult<T> = FlattenedResponse<{
+	results: T[];
+	total: number;
+	per_page: number;
+	page: number;
+}>;
+
+/**
+ * Generic CRUD interface for resources
+ */
+interface CrudOperations<
+	T,
+	CreateData,
+	UpdateData,
+	GetData,
+	GetByIdData,
+	DeleteData,
+> {
+	create(options: CreateData): Promise<FlattenedResponse<T>>;
+	get(options?: GetData): Promise<ListResult<T>>;
+	getById(options: GetByIdData): Promise<CrudResult<T>>;
+	update(options: UpdateData): Promise<CrudResult<T>>;
+	delete(options: DeleteData): Promise<FlattenedResponse<boolean>>;
+}
+
+/**
+ * Enhanced client interface with only registered namespaces and operations
+ */
+interface EnhancedListmonkClient {
 	// Health check
 	getHealthCheck(): Promise<FlattenedResponse<boolean>>;
 
-	// Lists
-	createList(options: {
-		body: {
-			name: string;
-			type: "public" | "private";
-			optin: "single" | "double";
-		};
-	}): Promise<FlattenedResponse<List>>;
-	getListById(options: {
-		path: { list_id: number };
-	}): Promise<FlattenedResponse<List> | { error: unknown }>;
-	deleteListById(options: {
-		path: { list_id: number };
-	}): Promise<FlattenedResponse<boolean>>;
-	getLists(options?: {
-		query?: {
-			page?: number;
-			per_page?: number;
-			order_by?: string;
-			order?: string;
-			query?: string;
-		};
-	}): Promise<
-		FlattenedResponse<{
-			results: List[];
-			total: number;
-			per_page: number;
-			page: number;
-		}>
+	// Namespaced resource operations
+	list: CrudOperations<
+		List,
+		ListTypes["create"],
+		ListTypes["update"],
+		ListTypes["get"],
+		ListTypes["getById"],
+		ListTypes["delete"]
 	>;
-
-	// Subscribers
-	getSubscribers(options?: {
-		query?: {
-			page?: number;
-			per_page?: number;
-			order_by?: string;
-			order?: string;
-			query?: string;
-		};
-	}): Promise<
-		FlattenedResponse<{
-			results: Subscriber[];
-			total: number;
-			per_page: number;
-			page: number;
-		}>
+	subscriber: CrudOperations<
+		Subscriber,
+		SubscriberTypes["create"],
+		SubscriberTypes["update"],
+		SubscriberTypes["get"],
+		SubscriberTypes["getById"],
+		SubscriberTypes["delete"]
 	>;
-	createSubscriber(options: {
-		body: {
-			email: string;
-			name?: string;
-			status?: "enabled" | "disabled";
-			lists?: number[];
-			attributes?: Record<string, unknown>;
-		};
-	}): Promise<FlattenedResponse<Subscriber>>;
-	getSubscriberById(options: {
-		path: { subscriber_id: number };
-	}): Promise<FlattenedResponse<Subscriber> | { error: unknown }>;
-	deleteSubscriberById(options: {
-		path: { subscriber_id: number };
-	}): Promise<FlattenedResponse<boolean>>;
-
-	// Campaigns
-	getCampaigns(options?: {
-		query?: {
-			page?: number;
-			per_page?: number;
-			order_by?: string;
-			order?: string;
-			query?: string;
-			status?: string[];
-		};
-	}): Promise<
-		FlattenedResponse<{
-			results: Campaign[];
-			total: number;
-			per_page: number;
-			page: number;
-		}>
+	campaign: CrudOperations<
+		Campaign,
+		CampaignTypes["create"],
+		CampaignTypes["update"],
+		CampaignTypes["get"],
+		CampaignTypes["getById"],
+		CampaignTypes["delete"]
 	>;
-	createCampaign(options: {
-		body: {
-			name: string;
-			subject: string;
-			lists: number[];
-			type?: "regular" | "optin";
-			content_type?: "richtext" | "html" | "markdown" | "plain";
-			body?: string;
-			alt_body?: string;
-			send_at?: string;
-			tags?: string[];
-		};
-	}): Promise<FlattenedResponse<Campaign>>;
-	getCampaignById(options: {
-		path: { campaign_id: number };
-	}): Promise<FlattenedResponse<Campaign> | { error: unknown }>;
-	deleteCampaignById(options: {
-		path: { campaign_id: number };
-	}): Promise<FlattenedResponse<boolean>>;
+	template: CrudOperations<
+		t.Template,
+		TemplateTypes["create"],
+		TemplateTypes["update"],
+		TemplateTypes["get"],
+		TemplateTypes["getById"],
+		TemplateTypes["delete"]
+	> & {
+		setAsDefault(options: { path: { id: number } }): Promise<FlattenedResponse<boolean>>;
+	};
+	media: MediaOperations;
 
-	// All other SDK methods (fallback to original types)
-	[K: string]: unknown;
+	// Import operations
+	import: ImportOperations;
+
+	// Bounce operations
+	bounce: BounceOperations;
+
+	// Transactional operations
+	transactional: TransactionalOperations;
 }
 
 /**
@@ -213,66 +318,279 @@ export const transformResponse = async (
  * console.log(health.data); // boolean, not nested
  * ```
  */
-export const createListmonkClient = (config: {
-	baseUrl: string;
-	headers?: Record<string, string>;
-}): EnhancedListmonkClient => {
-	// Create SDK options with client configuration
-	const sdkOptions = {
-		client: createClient(config),
+/**
+ * Create a CRUD operations object for a specific resource
+ */
+const createCrudOperations = <T>(
+	resourceName: string,
+	sdkOptions: { client: ReturnType<typeof createClient> },
+): CrudOperations<T, unknown, unknown, unknown, unknown, unknown> => {
+	// Map resource names to actual SDK method names
+	const methodNames = {
+		create: `create${resourceName}`,
+		get: `get${resourceName}s`,
+		getById: `get${resourceName}ById`,
+		update: `update${resourceName}ById`,
+		delete: `delete${resourceName}ById`,
 	};
 
-	// Create proxy to automatically transform responses and provide SDK methods
-	const enhancedClient = new Proxy(sdkOptions.client, {
-		get(target, prop, receiver) {
-			// First check if it's an SDK method
-			if (typeof prop === "string" && prop in sdk) {
-				const sdkMethod = (sdk as Record<string, unknown>)[prop];
-				if (typeof sdkMethod === "function") {
-					return async (...args: unknown[]) => {
-						const firstArg = args[0];
-						const options =
-							typeof firstArg === "object" && firstArg !== null
-								? { ...sdkOptions, ...firstArg }
-								: sdkOptions;
-						const result = await sdkMethod(options);
-						return transformResponse(result);
-					};
-				}
+	return {
+		async create(options: unknown): Promise<FlattenedResponse<T>> {
+			const sdkMethod = (sdk as Record<string, unknown>)[methodNames.create];
+			if (typeof sdkMethod === "function") {
+				const mergedOptions =
+					typeof options === "object" && options !== null
+						? { ...sdkOptions, ...options }
+						: sdkOptions;
+				const result = await sdkMethod(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<T>;
 			}
-
-			// Otherwise, return the original HTTP client method
-			const originalMethod = Reflect.get(target, prop, receiver);
-			if (typeof originalMethod === "function") {
-				return async (...args: unknown[]) => {
-					const result = await originalMethod.apply(target, args);
-					return transformResponse(result);
-				};
-			}
-
-			return originalMethod;
+			throw new Error(`${methodNames.create} method not found`);
 		},
-	}) as EnhancedListmonkClient;
+
+		async get(options: unknown): Promise<ListResult<T>> {
+			const sdkMethod = (sdk as Record<string, unknown>)[methodNames.get];
+			if (typeof sdkMethod === "function") {
+				const mergedOptions =
+					typeof options === "object" && options !== null
+						? { ...sdkOptions, ...options }
+						: sdkOptions;
+				const result = await sdkMethod(mergedOptions);
+				return (await transformResponse(result)) as ListResult<T>;
+			}
+			throw new Error(`${methodNames.get} method not found`);
+		},
+
+		async getById(options: unknown): Promise<CrudResult<T>> {
+			const sdkMethod = (sdk as Record<string, unknown>)[methodNames.getById];
+			if (typeof sdkMethod === "function") {
+				const mergedOptions =
+					typeof options === "object" && options !== null
+						? { ...sdkOptions, ...options }
+						: sdkOptions;
+				const result = await sdkMethod(mergedOptions);
+				return (await transformResponse(result)) as CrudResult<T>;
+			}
+			throw new Error(`${methodNames.getById} method not found`);
+		},
+
+		async update(options: unknown): Promise<CrudResult<T>> {
+			const sdkMethod = (sdk as Record<string, unknown>)[methodNames.update];
+			if (typeof sdkMethod === "function") {
+				const mergedOptions =
+					typeof options === "object" && options !== null
+						? { ...sdkOptions, ...options }
+						: sdkOptions;
+				const result = await sdkMethod(mergedOptions);
+				return (await transformResponse(result)) as CrudResult<T>;
+			}
+			throw new Error(`${methodNames.update} method not found`);
+		},
+
+		async delete(options: unknown): Promise<FlattenedResponse<boolean>> {
+			const sdkMethod = (sdk as Record<string, unknown>)[methodNames.delete];
+			if (typeof sdkMethod === "function") {
+				const mergedOptions =
+					typeof options === "object" && options !== null
+						? { ...sdkOptions, ...options }
+						: sdkOptions;
+				const result = await sdkMethod(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			}
+			throw new Error(`${methodNames.delete} method not found`);
+		},
+	};
+};
+
+/**
+ * Creates a Listmonk client with automatic response flattening
+ *
+ * @param config - Client configuration (optional, uses environment variables if not provided)
+ * @returns Enhanced Listmonk client with flattened responses
+ *
+ * @example
+ * ```typescript
+ * // Using environment variables
+ * const client = createListmonkClient();
+ *
+ * // Using explicit configuration
+ * const client = createListmonkClient({
+ *   baseUrl: 'http://localhost:9000/api',
+ *   headers: {
+ *     Authorization: 'token api-admin:your-token'
+ *   }
+ * });
+ *
+ * // All responses are automatically flattened
+ * const health = await client.getHealthCheck();
+ * console.log(health.data); // boolean, not nested
+ * ```
+ */
+export const createListmonkClient = (
+	config?:
+		| {
+				baseUrl?: string;
+				headers?: Record<string, string>;
+		  }
+		| Partial<ListmonkConfig>,
+): EnhancedListmonkClient => {
+	// Determine final configuration
+	let finalConfig: { baseUrl: string; headers?: Record<string, string> };
+
+	if (!config || (!config.baseUrl && !("auth" in config))) {
+		// Use environment-based configuration
+		const envConfig = createConfig(config as Partial<ListmonkConfig>);
+		validateConfig(envConfig);
+		finalConfig = {
+			baseUrl: envConfig.baseUrl,
+			headers: configToHeaders(envConfig),
+		};
+	} else if ("auth" in config) {
+		// Handle ListmonkConfig format
+		const fullConfig = createConfig(config);
+		validateConfig(fullConfig);
+		finalConfig = {
+			baseUrl: fullConfig.baseUrl,
+			headers: configToHeaders(fullConfig),
+		};
+	} else {
+		// Handle direct config format
+		finalConfig = config as {
+			baseUrl: string;
+			headers?: Record<string, string>;
+		};
+	}
+
+	// Create SDK options with client configuration
+	const sdkOptions = {
+		client: createClient(finalConfig),
+	};
+
+	// Create enhanced client with only registered operations
+	const enhancedClient: EnhancedListmonkClient = {
+		// Health check
+		async getHealthCheck() {
+			const result = await sdk.getHealthCheck(sdkOptions);
+			return (await transformResponse(result)) as FlattenedResponse<boolean>;
+		},
+
+		// Namespaced resource operations
+		list: createCrudOperations("List", sdkOptions),
+		subscriber: createCrudOperations("Subscriber", sdkOptions),
+		campaign: createCrudOperations("Campaign", sdkOptions),
+		template: {
+			...createCrudOperations("Template", sdkOptions),
+			async setAsDefault(options: { path: { id: number } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.updateTemplateById2(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+		},
+		media: {
+			get: createCrudOperations("Media", sdkOptions)
+				.get as MediaOperations["get"],
+			getById: createCrudOperations("Media", sdkOptions)
+				.getById as MediaOperations["getById"],
+			deleteById: createCrudOperations("Media", sdkOptions)
+				.delete as MediaOperations["deleteById"], // Media uses deleteById, not delete
+		},
+
+		// Import operations
+		import: {
+			async get() {
+				const result = await sdk.getImportSubscribers(sdkOptions);
+				return (await transformResponse(
+					result,
+				)) as FlattenedResponse<t.ImportStatus>;
+			},
+			async stop() {
+				const result = await sdk.stopImportSubscribers(sdkOptions);
+				return (await transformResponse(
+					result,
+				)) as FlattenedResponse<t.ImportStatus>;
+			},
+			async logs() {
+				const result = await sdk.getImportSubscriberLogs(sdkOptions);
+				return (await transformResponse(result)) as FlattenedResponse<string>;
+			},
+			async start(params: ImportStartParams) {
+				// Create the import payload
+				const importParams = {
+					mode: params.mode,
+					delim: params.delim,
+					lists: params.lists,
+					overwrite: params.overwrite,
+					...(params.subscription_status && {
+						subscription_status: params.subscription_status,
+					}),
+				};
+
+				const result = await sdk.importSubscribers({
+					...sdkOptions,
+					body: {
+						params: JSON.stringify(importParams),
+						file: params.file,
+					},
+				});
+				return (await transformResponse(
+					result,
+				)) as FlattenedResponse<t.ImportStatus>;
+			},
+		},
+
+		// Bounce operations
+		bounce: {
+			async get(options?: {
+				campaign_id?: number;
+				page?: number;
+				per_page?: number | "all";
+				source?: string;
+				order_by?: "email" | "campaign_name" | "source" | "created_at";
+				order?: "asc" | "desc";
+			}) {
+				const mergedOptions = options
+					? { ...sdkOptions, query: options }
+					: sdkOptions;
+				const result = await sdk.getBounces(mergedOptions);
+				return (await transformResponse(result)) as ListResult<t.Bounce>;
+			},
+			async getById(options: { path: { id: number } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.getBounceById(mergedOptions);
+				return (await transformResponse(result)) as CrudResult<t.Bounce>;
+			},
+			async delete(options: { query: { all?: boolean; id?: string } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.deleteBounces(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+			async deleteById(options: { path: { id: number } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.deleteBounceById(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+		},
+
+		// Transactional operations
+		transactional: {
+			async send(options: TransactionalSendParams) {
+				const mergedOptions = { ...sdkOptions, body: options };
+				const result = await sdk.transactWithSubscriber(mergedOptions);
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			},
+		},
+	};
 
 	return enhancedClient;
 };
 
 /**
- * Creates a Listmonk client with environment-based configuration
- *
- * @param overrides - Optional configuration overrides
- * @returns Enhanced Listmonk client
+ * @deprecated Use createListmonkClient() instead. This function will be removed in a future version.
  */
 export const createListmonkClientFromEnv = (
 	overrides?: Partial<ListmonkConfig>,
 ): EnhancedListmonkClient => {
-	const config = createConfig(overrides);
-	validateConfig(config);
-
-	return createListmonkClient({
-		baseUrl: config.baseUrl,
-		headers: configToHeaders(config),
-	});
+	return createListmonkClient(overrides);
 };
 
 /**

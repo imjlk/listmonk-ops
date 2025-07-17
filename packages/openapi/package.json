@@ -2,13 +2,14 @@
 	"name": "@listmonk-ops/openapi",
 	"version": "0.1.0",
 	"module": "index.ts",
+	"types": "index.ts",
 	"type": "module",
 	"private": true,
 	"scripts": {
 		"generate": "bun run generate.ts",
 		"test": "bun test",
 		"test:watch": "bun test --watch",
-		"build": "esbuild index.ts --bundle --outfile=dist/index.js --format=esm --minify"
+		"build": "tsc && esbuild index.ts --bundle --outfile=dist/index.js --format=esm --minify"
 	},
 	"devDependencies": {
 		"@hey-api/openapi-ts": "^0.78.2",
