@@ -159,11 +159,13 @@ export async function handleTemplatesTools(
 				const response = await client.template.getById({
 					path: { id: parseId(args.id) },
 				});
-				
-				if ('error' in response) {
-					return createErrorResult(`Failed to fetch template: ${response.error}`);
+
+				if ("error" in response) {
+					return createErrorResult(
+						`Failed to fetch template: ${response.error}`,
+					);
 				}
-				
+
 				return createSuccessResult(response.data);
 			}
 
@@ -175,7 +177,8 @@ export async function handleTemplatesTools(
 
 				const body = {
 					name: args.name as string,
-					type: (args.type as "campaign" | "campaign_visual" | "tx") || "campaign",
+					type:
+						(args.type as "campaign" | "campaign_visual" | "tx") || "campaign",
 					subject: (args.subject as string) || "",
 					body: args.body as string,
 				};
@@ -200,11 +203,13 @@ export async function handleTemplatesTools(
 					path: { id: parseId(args.id) },
 					body,
 				});
-				
-				if ('error' in response) {
-					return createErrorResult(`Failed to update template: ${response.error}`);
+
+				if ("error" in response) {
+					return createErrorResult(
+						`Failed to update template: ${response.error}`,
+					);
 				}
-				
+
 				return createSuccessResult(response.data);
 			}
 

@@ -1,17 +1,17 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
-import type { BounceFilterParams, HandlerFunction } from "../types/shared.js";
+import type { HandlerFunction } from "../types/shared.js";
 import {
 	createErrorResult,
 	createSuccessResult,
 	validateRequiredParams,
 } from "../utils/response.js";
 import {
-	handleCrudResponse,
-	parsePaginationParams,
-	parseId,
-	withErrorHandler,
 	arrayToCommaString,
+	handleCrudResponse,
+	parseId,
+	parsePaginationParams,
+	withErrorHandler,
 } from "../utils/typeHelpers.js";
 
 export const bouncesTools: MCPTool[] = [
@@ -96,7 +96,10 @@ export const bouncesTools: MCPTool[] = [
 ];
 
 export const handleBouncesTools: HandlerFunction = withErrorHandler(
-	async (request: CallToolRequest, client: ListmonkClient): Promise<CallToolResult> => {
+	async (
+		request: CallToolRequest,
+		client: ListmonkClient,
+	): Promise<CallToolResult> => {
 		const { name, arguments: args = {} } = request.params;
 
 		switch (name) {
@@ -161,5 +164,5 @@ export const handleBouncesTools: HandlerFunction = withErrorHandler(
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);
 		}
-	}
+	},
 );

@@ -1,5 +1,5 @@
-import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
 import {
 	createErrorResult,
@@ -7,8 +7,8 @@ import {
 	validateRequiredParams,
 } from "../utils/response.js";
 import {
-	parsePaginationParams,
 	parseId,
+	parsePaginationParams,
 	withErrorHandler,
 } from "../utils/typeHelpers.js";
 
@@ -63,7 +63,10 @@ export const mediaTools: MCPTool[] = [
 ];
 
 export const handleMediaTools: HandlerFunction = withErrorHandler(
-	async (request: CallToolRequest, client: ListmonkClient): Promise<CallToolResult> => {
+	async (
+		request: CallToolRequest,
+		client: ListmonkClient,
+	): Promise<CallToolResult> => {
 		const { name, arguments: args = {} } = request.params;
 
 		switch (name) {
@@ -84,8 +87,10 @@ export const handleMediaTools: HandlerFunction = withErrorHandler(
 					path: { id: parseId(args.id) },
 				});
 
-				if ('error' in response) {
-					return createErrorResult(`Failed to fetch media file: ${response.error}`);
+				if ("error" in response) {
+					return createErrorResult(
+						`Failed to fetch media file: ${response.error}`,
+					);
 				}
 
 				return createSuccessResult(response.data);
@@ -107,5 +112,5 @@ export const handleMediaTools: HandlerFunction = withErrorHandler(
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);
 		}
-	}
+	},
 );

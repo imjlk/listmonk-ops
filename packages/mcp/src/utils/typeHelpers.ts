@@ -1,6 +1,5 @@
 import type { CallToolRequest, CallToolResult } from "../types/mcp.js";
-import type { ListmonkClient } from "@listmonk-ops/openapi";
-import type { CrudResponse, PaginationParams } from "../types/shared.js";
+import type { PaginationParams } from "../types/shared.js";
 import { createErrorResult, createSuccessResult } from "./response.js";
 
 /**
@@ -31,7 +30,7 @@ export function parsePaginationParams(args: any): PaginationParams {
  */
 export function parseId(id: unknown): number {
 	const parsed = typeof id === 'string' ? Number(id) : Number(id);
-	if (isNaN(parsed)) {
+	if (Number.isNaN(parsed)) {
 		throw new Error(`Invalid ID: ${id}`);
 	}
 	return parsed;
@@ -52,45 +51,6 @@ export function withErrorHandler<T extends any[]>(
 			);
 		}
 	};
-}
-
-/**
- * Helper function to build filter objects for API calls
- */
-export function buildFilterQuery(args: any, allowedFilters: string[]): Record<string, any> {
-	const filters: Record<string, any> = {};
-	
-	for (const filter of allowedFilters) {
-		if (args[filter] !== undefined) {
-			filters[filter] = args[filter];
-		}
-	}
-	
-	return filters;
-}
-
-/**
- * Type-safe parameter extraction helper
- */
-export function extractParams<T>(args: any, requiredKeys: (keyof T)[], optionalKeys: (keyof T)[] = []): T {
-	const result = {} as T;
-	
-	// Add required parameters
-	for (const key of requiredKeys) {
-		if (args[key] === undefined) {
-			throw new Error(`Required parameter '${String(key)}' is missing`);
-		}
-		result[key] = args[key];
-	}
-	
-	// Add optional parameters
-	for (const key of optionalKeys) {
-		if (args[key] !== undefined) {
-			result[key] = args[key];
-		}
-	}
-	
-	return result;
 }
 
 /**

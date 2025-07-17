@@ -1,5 +1,5 @@
-import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import {
 	createErrorResult,
 	createSuccessResult,
@@ -174,8 +174,10 @@ export async function handleSubscribersTools(
 					path: { id: parseId(args.id) },
 				});
 
-				if ('error' in response) {
-					return createErrorResult(`Failed to fetch subscriber: ${response.error}`);
+				if ("error" in response) {
+					return createErrorResult(
+						`Failed to fetch subscriber: ${response.error}`,
+					);
 				}
 
 				return createSuccessResult(response.data);
@@ -220,8 +222,10 @@ export async function handleSubscribersTools(
 					body,
 				});
 
-				if ('error' in response) {
-					return createErrorResult(`Failed to update subscriber: ${response.error}`);
+				if ("error" in response) {
+					return createErrorResult(
+						`Failed to update subscriber: ${response.error}`,
+					);
 				}
 
 				return createSuccessResult(response.data);

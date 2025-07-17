@@ -1,18 +1,17 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
-import type { CampaignCreateParams, CampaignStatus, HandlerFunction } from "../types/shared.js";
+import type { HandlerFunction } from "../types/shared.js";
 import {
 	createErrorResult,
 	createSuccessResult,
 	validateRequiredParams,
 } from "../utils/response.js";
 import {
-	handleCrudResponse,
-	parsePaginationParams,
-	parseId,
-	withErrorHandler,
 	castCampaignStatus,
-	extractParams,
+	handleCrudResponse,
+	parseId,
+	parsePaginationParams,
+	withErrorHandler,
 } from "../utils/typeHelpers.js";
 
 export const campaignsTools: MCPTool[] = [
@@ -180,7 +179,10 @@ export const campaignsTools: MCPTool[] = [
 ];
 
 export const handleCampaignsTools: HandlerFunction = withErrorHandler(
-	async (request: CallToolRequest, client: ListmonkClient): Promise<CallToolResult> => {
+	async (
+		request: CallToolRequest,
+		client: ListmonkClient,
+	): Promise<CallToolResult> => {
 		const { name, arguments: args = {} } = request.params;
 
 		switch (name) {
@@ -203,7 +205,7 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 				const response = await client.campaign.getById({
 					path: { id: parseId(args.id) },
 				});
-				
+
 				return handleCrudResponse(response, "Failed to fetch campaign");
 			}
 
@@ -278,5 +280,5 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);
 		}
-	}
+	},
 );

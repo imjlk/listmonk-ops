@@ -45,29 +45,3 @@ export function getBasicAuth(username: string, password: string): string {
 	return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
 }
 
-export async function makeListmonkRequest(
-	url: string,
-	options: RequestInit,
-	auth: string,
-): Promise<Response> {
-	const headers: Record<string, string> = {
-		"Content-Type": "application/json",
-		...(options.headers as Record<string, string>),
-	};
-
-	// Check if auth is Basic auth
-	if (auth.startsWith("Basic ")) {
-		headers.Authorization = auth;
-	} else {
-		// Assume it's an API token - use 'token username:api_token' format for Listmonk
-		headers.Authorization = `token ${auth}`;
-	}
-
-	console.log("Making request to:", url);
-	console.log("Authorization header:", headers.Authorization);
-
-	return fetch(url, {
-		...options,
-		headers,
-	});
-}

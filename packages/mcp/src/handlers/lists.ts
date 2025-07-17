@@ -1,18 +1,18 @@
-import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import type { HandlerFunction, ListCreateParams, ListUpdateParams } from "../types/shared.js";
+import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
+import type { HandlerFunction } from "../types/shared.js";
 import {
 	createErrorResult,
 	createSuccessResult,
 	validateRequiredParams,
 } from "../utils/response.js";
 import {
-	handleCrudResponse,
-	parsePaginationParams,
-	parseId,
-	withErrorHandler,
 	castListType,
 	castOptinType,
+	handleCrudResponse,
+	parseId,
+	parsePaginationParams,
+	withErrorHandler,
 } from "../utils/typeHelpers.js";
 
 export const listsTools: MCPTool[] = [
@@ -138,7 +138,10 @@ export const listsTools: MCPTool[] = [
 ];
 
 export const handleListsTools: HandlerFunction = withErrorHandler(
-	async (request: CallToolRequest, client: ListmonkClient): Promise<CallToolResult> => {
+	async (
+		request: CallToolRequest,
+		client: ListmonkClient,
+	): Promise<CallToolResult> => {
 		const { name, arguments: args = {} } = request.params;
 
 		switch (name) {
@@ -190,7 +193,8 @@ export const handleListsTools: HandlerFunction = withErrorHandler(
 				if (args.name) body.name = String(args.name);
 				if (args.type) body.type = castListType(args.type);
 				if (args.optin) body.optin = castOptinType(args.optin);
-				if (args.description !== undefined) body.description = String(args.description);
+				if (args.description !== undefined)
+					body.description = String(args.description);
 				if (args.tags) body.tags = Array.isArray(args.tags) ? args.tags : [];
 
 				await client.list.update({
@@ -217,5 +221,5 @@ export const handleListsTools: HandlerFunction = withErrorHandler(
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);
 		}
-	}
+	},
 );

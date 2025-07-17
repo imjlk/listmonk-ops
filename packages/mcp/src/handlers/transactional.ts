@@ -105,7 +105,9 @@ export async function handleTransactionalTools(
 
 				// Note: This endpoint is not available in the current OpenAPI client
 				// Would need to be added to the client if needed
-				return createErrorResult("Get transactional message not implemented in current client");
+				return createErrorResult(
+					"Get transactional message not implemented in current client",
+				);
 			}
 
 			default:

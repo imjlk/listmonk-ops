@@ -1,10 +1,7 @@
-import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
-import {
-	createErrorResult,
-	createSuccessResult,
-} from "../utils/response.js";
+import { createErrorResult, createSuccessResult } from "../utils/response.js";
 import { withErrorHandler } from "../utils/typeHelpers.js";
 
 export const settingsTools: MCPTool[] = [
@@ -41,7 +38,10 @@ export const settingsTools: MCPTool[] = [
 ];
 
 export const handleSettingsTools: HandlerFunction = withErrorHandler(
-	async (request: CallToolRequest, client: ListmonkClient): Promise<CallToolResult> => {
+	async (
+		request: CallToolRequest,
+		client: ListmonkClient,
+	): Promise<CallToolResult> => {
 		const { name, arguments: args = {} } = request.params;
 
 		switch (name) {
@@ -70,5 +70,5 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);
 		}
-	}
+	},
 );
