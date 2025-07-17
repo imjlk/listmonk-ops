@@ -1,14 +1,21 @@
 import type { CallToolRequest, CallToolResult } from "../types/mcp.js";
 
 export function createSuccessResult(content: unknown): CallToolResult {
+	let text: string;
+	
+	if (typeof content === "string") {
+		text = content;
+	} else if (content === undefined) {
+		text = "undefined";
+	} else {
+		text = JSON.stringify(content, null, 2);
+	}
+	
 	return {
 		content: [
 			{
 				type: "text",
-				text:
-					typeof content === "string"
-						? content
-						: JSON.stringify(content, null, 2),
+				text,
 			},
 		],
 	};

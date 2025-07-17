@@ -102,7 +102,7 @@ export const handleMediaTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				const response = await client.media.deleteById({
+				await client.media.deleteById({
 					path: { id: parseId(args.id) },
 				});
 

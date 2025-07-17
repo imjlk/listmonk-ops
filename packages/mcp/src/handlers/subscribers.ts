@@ -237,7 +237,7 @@ export async function handleSubscribersTools(
 					return createErrorResult(validation);
 				}
 
-				const response = await client.subscriber.delete({
+				await client.subscriber.delete({
 					path: { id: parseId(args.id) },
 				});
 

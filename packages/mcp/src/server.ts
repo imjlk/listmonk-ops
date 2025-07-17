@@ -243,3 +243,20 @@ export class ListmonkMCPServer {
 		}
 	}
 }
+
+/**
+ * Factory function to create a Listmonk MCP server instance
+ */
+export function createListmonkMCPServer(config: {
+	baseUrl: string;
+	username?: string;
+	password?: string;
+	apiToken?: string;
+}) {
+	return new ListmonkMCPServer({
+		baseUrl: config.baseUrl,
+		username: config.username || "admin",
+		password: config.password || "adminpass",
+		apiToken: config.apiToken,
+	});
+}

@@ -8,6 +8,8 @@
 		"dev": "bun run src/index.ts",
 		"build": "tsc",
 		"start": "node dist/index.js",
+		"test": "bun test",
+		"test:e2e": "bun test tests/e2e",
 		"lint": "biome check src",
 		"lint:fix": "biome check src --fix"
 	},

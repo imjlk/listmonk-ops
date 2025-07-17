@@ -146,9 +146,10 @@ export const handleListsTools: HandlerFunction = withErrorHandler(
 
 		switch (name) {
 			case "listmonk_get_lists": {
-				const options: any = parsePaginationParams(args);
+				const pagination = parsePaginationParams(args);
+				const query = pagination.page || pagination.per_page ? { query: pagination } : undefined;
 
-				const response = await client.list.list(options);
+				const response = await client.list.list(query);
 				return createSuccessResult(response.data);
 			}
 
@@ -171,7 +172,7 @@ export const handleListsTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				const body: any = {
+				const body: Record<string, unknown> = {
 					name: String(args.name),
 					type: args.type ? castListType(args.type) : "private",
 					optin: args.optin ? castOptinType(args.optin) : "single",
@@ -189,7 +190,7 @@ export const handleListsTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				const body: any = {};
+				const body: Record<string, unknown> = {};
 				if (args.name) body.name = String(args.name);
 				if (args.type) body.type = castListType(args.type);
 				if (args.optin) body.optin = castOptinType(args.optin);

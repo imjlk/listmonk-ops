@@ -187,12 +187,14 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 
 		switch (name) {
 			case "listmonk_get_campaigns": {
-				const options: any = {
-					...parsePaginationParams(args),
-					...(args.status && { status: [args.status] }),
-				};
+				const pagination = parsePaginationParams(args);
+				const queryParams: Record<string, unknown> = { ...pagination };
+				if (args.status) {
+					queryParams.status = [args.status];
+				}
 
-				const response = await client.campaign.list(options);
+				const hasQuery = Object.keys(queryParams).length > 0;
+				const response = await client.campaign.list(hasQuery ? { query: queryParams } : undefined);
 				return createSuccessResult(response.data);
 			}
 
@@ -222,7 +224,7 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				const body: any = {
+				const body: Record<string, unknown> = {
 					name: String(args.name),
 					subject: String(args.subject),
 					from_email: String(args.from_email),
