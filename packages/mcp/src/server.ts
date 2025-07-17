@@ -2,6 +2,8 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { createListmonkClient } from "@listmonk-ops/openapi";
+import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	bouncesTools,
 	campaignsTools,
@@ -32,8 +34,8 @@ import { createErrorResult, getBasicAuth } from "./utils/response.js";
 export class ListmonkMCPServer {
 	private app: Hono;
 	private tools: Map<string, MCPTool>;
+	private client: ListmonkClient;
 	private baseUrl: string;
-	private auth: string;
 
 	constructor(config: {
 		baseUrl: string;
@@ -44,10 +46,18 @@ export class ListmonkMCPServer {
 		this.app = new Hono();
 		this.tools = new Map();
 		this.baseUrl = config.baseUrl;
-		// Use API token if provided (in username:token format), otherwise use basic auth
-		this.auth = config.apiToken
+		
+		// Create ListmonkClient instance
+		const authString = config.apiToken
 			? `${config.username}:${config.apiToken}`
 			: getBasicAuth(config.username, config.password);
+		
+		this.client = createListmonkClient({
+			baseUrl: config.baseUrl,
+			headers: {
+				Authorization: `token ${authString}`,
+			},
+		});
 
 		this.setupMiddleware();
 		this.registerTools();
@@ -134,7 +144,7 @@ export class ListmonkMCPServer {
 				name.startsWith("listmonk_update_list") ||
 				name.startsWith("listmonk_delete_list")
 			) {
-				return await handleListsTools(request, this.baseUrl, this.auth);
+				return await handleListsTools(request, this.client);
 			}
 
 			if (
@@ -144,7 +154,7 @@ export class ListmonkMCPServer {
 				name.startsWith("listmonk_update_subscriber") ||
 				name.startsWith("listmonk_delete_subscriber")
 			) {
-				return await handleSubscribersTools(request, this.baseUrl, this.auth);
+				return await handleSubscribersTools(request, this.client);
 			}
 
 			if (
@@ -155,7 +165,7 @@ export class ListmonkMCPServer {
 				name.startsWith("listmonk_delete_campaign") ||
 				name.startsWith("listmonk_test_campaign")
 			) {
-				return await handleCampaignsTools(request, this.baseUrl, this.auth);
+				return await handleCampaignsTools(request, this.client);
 			}
 
 			if (
@@ -166,7 +176,7 @@ export class ListmonkMCPServer {
 				name.startsWith("listmonk_delete_template") ||
 				name.startsWith("listmonk_set_default_template")
 			) {
-				return await handleTemplatesTools(request, this.baseUrl, this.auth);
+				return await handleTemplatesTools(request, this.client);
 			}
 
 			if (
@@ -174,7 +184,7 @@ export class ListmonkMCPServer {
 				name.startsWith("listmonk_get_media_file") ||
 				name.startsWith("listmonk_delete_media")
 			) {
-				return await handleMediaTools(request, this.baseUrl, this.auth);
+				return await handleMediaTools(request, this.client);
 			}
 
 			if (
@@ -182,7 +192,7 @@ export class ListmonkMCPServer {
 				name.startsWith("listmonk_get_bounce") ||
 				name.startsWith("listmonk_delete_bounce")
 			) {
-				return await handleBouncesTools(request, this.baseUrl, this.auth);
+				return await handleBouncesTools(request, this.client);
 			}
 
 			if (
@@ -190,14 +200,14 @@ export class ListmonkMCPServer {
 				name.startsWith("listmonk_update_settings") ||
 				name.startsWith("listmonk_get_server_config")
 			) {
-				return await handleSettingsTools(request, this.baseUrl, this.auth);
+				return await handleSettingsTools(request, this.client);
 			}
 
 			if (
 				name.startsWith("listmonk_send_transactional") ||
 				name.startsWith("listmonk_get_transactional_message")
 			) {
-				return await handleTransactionalTools(request, this.baseUrl, this.auth);
+				return await handleTransactionalTools(request, this.client);
 			}
 
 			return createErrorResult(`No handler found for tool: ${name}`);

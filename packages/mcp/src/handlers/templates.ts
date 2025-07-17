@@ -1,10 +1,11 @@
+import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import {
 	createErrorResult,
 	createSuccessResult,
-	makeListmonkRequest,
 	validateRequiredParams,
 } from "../utils/response.js";
+import { parseId } from "../utils/typeHelpers.js";
 
 export const templatesTools: MCPTool[] = [
 	{
@@ -131,32 +132,22 @@ export const templatesTools: MCPTool[] = [
 
 export async function handleTemplatesTools(
 	request: CallToolRequest,
-	baseUrl: string,
-	auth: string,
+	client: ListmonkClient,
 ): Promise<CallToolResult> {
 	const { name, arguments: args = {} } = request.params;
 
 	try {
 		switch (name) {
 			case "listmonk_get_templates": {
-				const page = args.page || 1;
-				const perPage = args.per_page || 20;
-				const url = `${baseUrl}/templates?page=${page}&per_page=${perPage}`;
+				const options: any = {
+					query: {
+						page: args.page || 1,
+						per_page: args.per_page || 20,
+					},
+				};
 
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch templates: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.template.list(options);
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_get_template": {
@@ -165,21 +156,15 @@ export async function handleTemplatesTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/templates/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch template: ${data.message || response.statusText}`,
-					);
+				const response = await client.template.getById({
+					path: { id: parseId(args.id) },
+				});
+				
+				if ('error' in response) {
+					return createErrorResult(`Failed to fetch template: ${response.error}`);
 				}
-
-				return createSuccessResult(data);
+				
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_create_template": {
@@ -189,30 +174,14 @@ export async function handleTemplatesTools(
 				}
 
 				const body = {
-					name: args.name,
-					type: args.type || "campaign",
-					subject: args.subject || "",
-					body: args.body,
+					name: args.name as string,
+					type: (args.type as "campaign" | "campaign_visual" | "tx") || "campaign",
+					subject: (args.subject as string) || "",
+					body: args.body as string,
 				};
 
-				const url = `${baseUrl}/templates`;
-				const response = await makeListmonkRequest(
-					url,
-					{
-						method: "POST",
-						body: JSON.stringify(body),
-					},
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to create template: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.template.create({ body });
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_update_template": {
@@ -227,24 +196,16 @@ export async function handleTemplatesTools(
 				if (args.subject !== undefined) body.subject = args.subject;
 				if (args.body) body.body = args.body;
 
-				const url = `${baseUrl}/templates/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{
-						method: "PUT",
-						body: JSON.stringify(body),
-					},
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to update template: ${data.message || response.statusText}`,
-					);
+				const response = await client.template.update({
+					path: { id: parseId(args.id) },
+					body,
+				});
+				
+				if ('error' in response) {
+					return createErrorResult(`Failed to update template: ${response.error}`);
 				}
-
-				return createSuccessResult(data);
+				
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_delete_template": {
@@ -253,20 +214,9 @@ export async function handleTemplatesTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/templates/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "DELETE" },
-					auth,
-				);
-
-				if (!response.ok) {
-					const data = await response.json();
-					return createErrorResult(
-						`Failed to delete template: ${data.message || response.statusText}`,
-					);
-				}
-
+				await client.template.delete({
+					path: { id: parseId(args.id) },
+				});
 				return createSuccessResult("Template deleted successfully");
 			}
 
@@ -276,21 +226,10 @@ export async function handleTemplatesTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/templates/${args.id}/default`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "PUT" },
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to set default template: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				await client.template.setAsDefault({
+					path: { id: parseId(args.id) },
+				});
+				return createSuccessResult("Default template set successfully");
 			}
 
 			default:

@@ -1,10 +1,19 @@
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
+import type { ListmonkClient } from "@listmonk-ops/openapi";
+import type { HandlerFunction, ListCreateParams, ListUpdateParams } from "../types/shared.js";
 import {
 	createErrorResult,
 	createSuccessResult,
-	makeListmonkRequest,
 	validateRequiredParams,
 } from "../utils/response.js";
+import {
+	handleCrudResponse,
+	parsePaginationParams,
+	parseId,
+	withErrorHandler,
+	castListType,
+	castOptinType,
+} from "../utils/typeHelpers.js";
 
 export const listsTools: MCPTool[] = [
 	{
@@ -128,34 +137,16 @@ export const listsTools: MCPTool[] = [
 	},
 ];
 
-export async function handleListsTools(
-	request: CallToolRequest,
-	baseUrl: string,
-	auth: string,
-): Promise<CallToolResult> {
-	const { name, arguments: args = {} } = request.params;
+export const handleListsTools: HandlerFunction = withErrorHandler(
+	async (request: CallToolRequest, client: ListmonkClient): Promise<CallToolResult> => {
+		const { name, arguments: args = {} } = request.params;
 
-	try {
 		switch (name) {
 			case "listmonk_get_lists": {
-				const page = args.page || 1;
-				const perPage = args.per_page || 20;
-				const url = `${baseUrl}/lists?page=${page}&per_page=${perPage}`;
+				const options: any = parsePaginationParams(args);
 
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch lists: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.list.list(options);
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_get_list": {
@@ -164,21 +155,11 @@ export async function handleListsTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/lists/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
+				const response = await client.list.getById({
+					path: { list_id: parseId(args.id) },
+				});
 
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch list: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				return handleCrudResponse(response, "Failed to fetch list");
 			}
 
 			case "listmonk_create_list": {
@@ -187,32 +168,16 @@ export async function handleListsTools(
 					return createErrorResult(validation);
 				}
 
-				const body = {
-					name: args.name,
-					type: args.type || "private",
-					optin: args.optin || "single",
-					description: args.description || "",
-					tags: args.tags || [],
+				const body: any = {
+					name: String(args.name),
+					type: args.type ? castListType(args.type) : "private",
+					optin: args.optin ? castOptinType(args.optin) : "single",
+					description: String(args.description || ""),
+					tags: Array.isArray(args.tags) ? args.tags : [],
 				};
 
-				const url = `${baseUrl}/lists`;
-				const response = await makeListmonkRequest(
-					url,
-					{
-						method: "POST",
-						body: JSON.stringify(body),
-					},
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to create list: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.list.create({ body });
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_update_list": {
@@ -221,31 +186,19 @@ export async function handleListsTools(
 					return createErrorResult(validation);
 				}
 
-				const body: Record<string, unknown> = {};
-				if (args.name) body.name = args.name;
-				if (args.type) body.type = args.type;
-				if (args.optin) body.optin = args.optin;
-				if (args.description !== undefined) body.description = args.description;
-				if (args.tags) body.tags = args.tags;
+				const body: any = {};
+				if (args.name) body.name = String(args.name);
+				if (args.type) body.type = castListType(args.type);
+				if (args.optin) body.optin = castOptinType(args.optin);
+				if (args.description !== undefined) body.description = String(args.description);
+				if (args.tags) body.tags = Array.isArray(args.tags) ? args.tags : [];
 
-				const url = `${baseUrl}/lists/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{
-						method: "PUT",
-						body: JSON.stringify(body),
-					},
-					auth,
-				);
-				const data = await response.json();
+				await client.list.update({
+					path: { list_id: parseId(args.id) },
+					body,
+				});
 
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to update list: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				return createSuccessResult("List updated successfully");
 			}
 
 			case "listmonk_delete_list": {
@@ -254,19 +207,9 @@ export async function handleListsTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/lists/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "DELETE" },
-					auth,
-				);
-
-				if (!response.ok) {
-					const data = await response.json();
-					return createErrorResult(
-						`Failed to delete list: ${data.message || response.statusText}`,
-					);
-				}
+				await client.list.delete({
+					path: { list_id: parseId(args.id) },
+				});
 
 				return createSuccessResult("List deleted successfully");
 			}
@@ -274,9 +217,5 @@ export async function handleListsTools(
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);
 		}
-	} catch (error) {
-		return createErrorResult(
-			`Error: ${error instanceof Error ? error.message : String(error)}`,
-		);
 	}
-}
+);

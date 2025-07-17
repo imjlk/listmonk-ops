@@ -1,10 +1,16 @@
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
+import type { ListmonkClient } from "@listmonk-ops/openapi";
+import type { HandlerFunction } from "../types/shared.js";
 import {
 	createErrorResult,
 	createSuccessResult,
-	makeListmonkRequest,
 	validateRequiredParams,
 } from "../utils/response.js";
+import {
+	parsePaginationParams,
+	parseId,
+	withErrorHandler,
+} from "../utils/typeHelpers.js";
 
 export const mediaTools: MCPTool[] = [
 	{
@@ -56,34 +62,16 @@ export const mediaTools: MCPTool[] = [
 	},
 ];
 
-export async function handleMediaTools(
-	request: CallToolRequest,
-	baseUrl: string,
-	auth: string,
-): Promise<CallToolResult> {
-	const { name, arguments: args = {} } = request.params;
+export const handleMediaTools: HandlerFunction = withErrorHandler(
+	async (request: CallToolRequest, client: ListmonkClient): Promise<CallToolResult> => {
+		const { name, arguments: args = {} } = request.params;
 
-	try {
 		switch (name) {
 			case "listmonk_get_media": {
-				const page = args.page || 1;
-				const perPage = args.per_page || 20;
-				const url = `${baseUrl}/media?page=${page}&per_page=${perPage}`;
+				const options: any = parsePaginationParams(args);
 
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch media: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.media.list(options);
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_get_media_file": {
@@ -92,21 +80,15 @@ export async function handleMediaTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/media/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
+				const response = await client.media.getById({
+					path: { id: parseId(args.id) },
+				});
 
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch media file: ${data.message || response.statusText}`,
-					);
+				if ('error' in response) {
+					return createErrorResult(`Failed to fetch media file: ${response.error}`);
 				}
 
-				return createSuccessResult(data);
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_delete_media": {
@@ -115,19 +97,9 @@ export async function handleMediaTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/media/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "DELETE" },
-					auth,
-				);
-
-				if (!response.ok) {
-					const data = await response.json();
-					return createErrorResult(
-						`Failed to delete media file: ${data.message || response.statusText}`,
-					);
-				}
+				const response = await client.media.deleteById({
+					path: { id: parseId(args.id) },
+				});
 
 				return createSuccessResult("Media file deleted successfully");
 			}
@@ -135,9 +107,5 @@ export async function handleMediaTools(
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);
 		}
-	} catch (error) {
-		return createErrorResult(
-			`Error: ${error instanceof Error ? error.message : String(error)}`,
-		);
 	}
-}
+);

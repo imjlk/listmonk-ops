@@ -14,6 +14,7 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 ## Supported Operations
 
 ### Lists
+
 - `listmonk_get_lists` - Get all subscriber lists
 - `listmonk_get_list` - Get specific list by ID
 - `listmonk_create_list` - Create new subscriber list
@@ -21,6 +22,7 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_delete_list` - Delete list
 
 ### Subscribers
+
 - `listmonk_get_subscribers` - Get all subscribers
 - `listmonk_get_subscriber` - Get specific subscriber by ID
 - `listmonk_create_subscriber` - Create new subscriber
@@ -28,6 +30,7 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_delete_subscriber` - Delete subscriber
 
 ### Campaigns
+
 - `listmonk_get_campaigns` - Get all campaigns
 - `listmonk_get_campaign` - Get specific campaign by ID
 - `listmonk_create_campaign` - Create new campaign

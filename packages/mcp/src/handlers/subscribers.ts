@@ -1,10 +1,11 @@
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
+import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	createErrorResult,
 	createSuccessResult,
-	makeListmonkRequest,
 	validateRequiredParams,
 } from "../utils/response.js";
+import { parseId } from "../utils/typeHelpers.js";
 
 export const subscribersTools: MCPTool[] = [
 	{
@@ -135,8 +136,7 @@ export const subscribersTools: MCPTool[] = [
 
 export async function handleSubscribersTools(
 	request: CallToolRequest,
-	baseUrl: string,
-	auth: string,
+	client: ListmonkClient,
 ): Promise<CallToolResult> {
 	const { name, arguments: args = {} } = request.params;
 
@@ -145,29 +145,23 @@ export async function handleSubscribersTools(
 			case "listmonk_get_subscribers": {
 				const page = args.page || 1;
 				const perPage = args.per_page || 20;
-				let url = `${baseUrl}/subscribers?page=${page}&per_page=${perPage}`;
+				const queryParams: Record<string, unknown> = {
+					page,
+					per_page: perPage,
+				};
 
 				if (args.list_id) {
-					url += `&list_id=${args.list_id}`;
+					queryParams.list_id = args.list_id;
 				}
 				if (args.query) {
-					url += `&query=${encodeURIComponent(args.query as string)}`;
+					queryParams.query = args.query;
 				}
 
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
+				const response = await client.subscriber.list({
+					query: queryParams,
+				});
 
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch subscribers: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_get_subscriber": {
@@ -176,21 +170,15 @@ export async function handleSubscribersTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/subscribers/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
+				const response = await client.subscriber.getById({
+					path: { id: parseId(args.id) },
+				});
 
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch subscriber: ${data.message || response.statusText}`,
-					);
+				if ('error' in response) {
+					return createErrorResult(`Failed to fetch subscriber: ${response.error}`);
 				}
 
-				return createSuccessResult(data);
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_create_subscriber": {
@@ -199,32 +187,19 @@ export async function handleSubscribersTools(
 					return createErrorResult(validation);
 				}
 
-				const body = {
-					email: args.email,
-					name: args.name,
-					status: args.status || "enabled",
-					lists: args.lists || [],
+				const body: any = {
+					email: String(args.email),
+					name: String(args.name),
+					status: String(args.status || "enabled"),
+					lists: Array.isArray(args.lists) ? args.lists : [],
 					attribs: args.attribs || {},
 				};
 
-				const url = `${baseUrl}/subscribers`;
-				const response = await makeListmonkRequest(
-					url,
-					{
-						method: "POST",
-						body: JSON.stringify(body),
-					},
-					auth,
-				);
-				const data = await response.json();
+				const response = await client.subscriber.create({
+					body,
+				});
 
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to create subscriber: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_update_subscriber": {
@@ -240,24 +215,16 @@ export async function handleSubscribersTools(
 				if (args.lists) body.lists = args.lists;
 				if (args.attribs) body.attribs = args.attribs;
 
-				const url = `${baseUrl}/subscribers/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{
-						method: "PUT",
-						body: JSON.stringify(body),
-					},
-					auth,
-				);
-				const data = await response.json();
+				const response = await client.subscriber.update({
+					path: { id: parseId(args.id) },
+					body,
+				});
 
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to update subscriber: ${data.message || response.statusText}`,
-					);
+				if ('error' in response) {
+					return createErrorResult(`Failed to update subscriber: ${response.error}`);
 				}
 
-				return createSuccessResult(data);
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_delete_subscriber": {
@@ -266,19 +233,9 @@ export async function handleSubscribersTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/subscribers/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "DELETE" },
-					auth,
-				);
-
-				if (!response.ok) {
-					const data = await response.json();
-					return createErrorResult(
-						`Failed to delete subscriber: ${data.message || response.statusText}`,
-					);
-				}
+				const response = await client.subscriber.delete({
+					path: { id: parseId(args.id) },
+				});
 
 				return createSuccessResult("Subscriber deleted successfully");
 			}

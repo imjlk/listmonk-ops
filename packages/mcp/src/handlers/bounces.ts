@@ -1,10 +1,18 @@
+import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
+import type { BounceFilterParams, HandlerFunction } from "../types/shared.js";
 import {
 	createErrorResult,
 	createSuccessResult,
-	makeListmonkRequest,
 	validateRequiredParams,
 } from "../utils/response.js";
+import {
+	handleCrudResponse,
+	parsePaginationParams,
+	parseId,
+	withErrorHandler,
+	arrayToCommaString,
+} from "../utils/typeHelpers.js";
 
 export const bouncesTools: MCPTool[] = [
 	{
@@ -87,44 +95,25 @@ export const bouncesTools: MCPTool[] = [
 	},
 ];
 
-export async function handleBouncesTools(
-	request: CallToolRequest,
-	baseUrl: string,
-	auth: string,
-): Promise<CallToolResult> {
-	const { name, arguments: args = {} } = request.params;
+export const handleBouncesTools: HandlerFunction = withErrorHandler(
+	async (request: CallToolRequest, client: ListmonkClient): Promise<CallToolResult> => {
+		const { name, arguments: args = {} } = request.params;
 
-	try {
 		switch (name) {
 			case "listmonk_get_bounces": {
-				const page = args.page || 1;
-				const perPage = args.per_page || 20;
-				let url = `${baseUrl}/bounces?page=${page}&per_page=${perPage}`;
+				const options: any = {
+					...parsePaginationParams(args),
+				};
 
 				if (args.campaign_id) {
-					url += `&campaign_id=${args.campaign_id}`;
-				}
-				if (args.subscriber_id) {
-					url += `&subscriber_id=${args.subscriber_id}`;
+					options.campaign_id = Number(args.campaign_id);
 				}
 				if (args.source) {
-					url += `&source=${encodeURIComponent(args.source as string)}`;
+					options.source = String(args.source);
 				}
 
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch bounces: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.bounce.list(options);
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_get_bounce": {
@@ -133,21 +122,11 @@ export async function handleBouncesTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/bounces/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
+				const response = await client.bounce.getById({
+					path: { id: parseId(args.id) },
+				});
 
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch bounce: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				return handleCrudResponse(response, "Failed to fetch bounce");
 			}
 
 			case "listmonk_delete_bounce": {
@@ -156,62 +135,31 @@ export async function handleBouncesTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/bounces/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "DELETE" },
-					auth,
-				);
-
-				if (!response.ok) {
-					const data = await response.json();
-					return createErrorResult(
-						`Failed to delete bounce: ${data.message || response.statusText}`,
-					);
-				}
-
+				await client.bounce.deleteById({
+					path: { id: parseId(args.id) },
+				});
 				return createSuccessResult("Bounce deleted successfully");
 			}
 
 			case "listmonk_delete_bounces": {
-				const url = `${baseUrl}/bounces`;
-				const body: Record<string, unknown> = {};
+				const query: { all?: boolean; id?: string } = {};
 
 				if (args.all) {
-					body.all = true;
+					query.all = true;
 				} else if (args.ids && Array.isArray(args.ids)) {
-					body.ids = args.ids;
+					query.id = arrayToCommaString(args.ids);
 				} else {
 					return createErrorResult(
 						"Either 'ids' array or 'all=true' must be provided",
 					);
 				}
 
-				const response = await makeListmonkRequest(
-					url,
-					{
-						method: "DELETE",
-						body: JSON.stringify(body),
-					},
-					auth,
-				);
-
-				if (!response.ok) {
-					const data = await response.json();
-					return createErrorResult(
-						`Failed to delete bounces: ${data.message || response.statusText}`,
-					);
-				}
-
+				await client.bounce.delete({ query });
 				return createSuccessResult("Bounces deleted successfully");
 			}
 
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);
 		}
-	} catch (error) {
-		return createErrorResult(
-			`Error: ${error instanceof Error ? error.message : String(error)}`,
-		);
 	}
-}
+);

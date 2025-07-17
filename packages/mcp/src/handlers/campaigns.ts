@@ -1,10 +1,19 @@
+import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
+import type { CampaignCreateParams, CampaignStatus, HandlerFunction } from "../types/shared.js";
 import {
 	createErrorResult,
 	createSuccessResult,
-	makeListmonkRequest,
 	validateRequiredParams,
 } from "../utils/response.js";
+import {
+	handleCrudResponse,
+	parsePaginationParams,
+	parseId,
+	withErrorHandler,
+	castCampaignStatus,
+	extractParams,
+} from "../utils/typeHelpers.js";
 
 export const campaignsTools: MCPTool[] = [
 	{
@@ -170,38 +179,19 @@ export const campaignsTools: MCPTool[] = [
 	},
 ];
 
-export async function handleCampaignsTools(
-	request: CallToolRequest,
-	baseUrl: string,
-	auth: string,
-): Promise<CallToolResult> {
-	const { name, arguments: args = {} } = request.params;
+export const handleCampaignsTools: HandlerFunction = withErrorHandler(
+	async (request: CallToolRequest, client: ListmonkClient): Promise<CallToolResult> => {
+		const { name, arguments: args = {} } = request.params;
 
-	try {
 		switch (name) {
 			case "listmonk_get_campaigns": {
-				const page = args.page || 1;
-				const perPage = args.per_page || 20;
-				let url = `${baseUrl}/campaigns?page=${page}&per_page=${perPage}`;
+				const options: any = {
+					...parsePaginationParams(args),
+					...(args.status && { status: [args.status] }),
+				};
 
-				if (args.status) {
-					url += `&status=${args.status}`;
-				}
-
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch campaigns: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.campaign.list(options);
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_get_campaign": {
@@ -210,21 +200,11 @@ export async function handleCampaignsTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/campaigns/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch campaign: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.campaign.getById({
+					path: { id: parseId(args.id) },
+				});
+				
+				return handleCrudResponse(response, "Failed to fetch campaign");
 			}
 
 			case "listmonk_create_campaign": {
@@ -240,37 +220,21 @@ export async function handleCampaignsTools(
 					return createErrorResult(validation);
 				}
 
-				const body = {
-					name: args.name,
-					subject: args.subject,
-					from_email: args.from_email,
-					body: args.body,
-					altbody: args.altbody || "",
-					type: args.type || "regular",
-					template_id: args.template_id,
-					lists: args.lists,
-					tags: args.tags || [],
+				const body: any = {
+					name: String(args.name),
+					subject: String(args.subject),
+					from_email: String(args.from_email),
+					body: String(args.body),
+					altbody: String(args.altbody || ""),
+					type: String(args.type || "regular"),
+					template_id: Number(args.template_id),
+					lists: Array.isArray(args.lists) ? args.lists : [],
+					tags: Array.isArray(args.tags) ? args.tags : [],
 					messenger: "email",
 				};
 
-				const url = `${baseUrl}/campaigns`;
-				const response = await makeListmonkRequest(
-					url,
-					{
-						method: "POST",
-						body: JSON.stringify(body),
-					},
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to create campaign: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.campaign.create({ body });
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_update_campaign_status": {
@@ -279,24 +243,11 @@ export async function handleCampaignsTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/campaigns/${args.id}/status`;
-				const response = await makeListmonkRequest(
-					url,
-					{
-						method: "PUT",
-						body: JSON.stringify({ status: args.status }),
-					},
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to update campaign status: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.campaign.updateStatus({
+					path: { id: parseId(args.id) },
+					body: { status: castCampaignStatus(args.status) },
+				});
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_delete_campaign": {
@@ -305,21 +256,10 @@ export async function handleCampaignsTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/campaigns/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "DELETE" },
-					auth,
-				);
-
-				if (!response.ok) {
-					const data = await response.json();
-					return createErrorResult(
-						`Failed to delete campaign: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult("Campaign deleted successfully");
+				const response = await client.campaign.delete({
+					path: { id: parseId(args.id) },
+				});
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_test_campaign": {
@@ -328,32 +268,15 @@ export async function handleCampaignsTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/campaigns/${args.id}/test`;
-				const response = await makeListmonkRequest(
-					url,
-					{
-						method: "POST",
-						body: JSON.stringify({ emails: args.emails }),
-					},
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to send test campaign: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.campaign.test({
+					path: { id: parseId(args.id) },
+					body: { subscribers: Array.isArray(args.emails) ? args.emails : [] },
+				});
+				return createSuccessResult(response.data);
 			}
 
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);
 		}
-	} catch (error) {
-		return createErrorResult(
-			`Error: ${error instanceof Error ? error.message : String(error)}`,
-		);
 	}
-}
+);

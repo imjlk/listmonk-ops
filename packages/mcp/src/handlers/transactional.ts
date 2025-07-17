@@ -1,8 +1,8 @@
+import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import {
 	createErrorResult,
 	createSuccessResult,
-	makeListmonkRequest,
 	validateRequiredParams,
 } from "../utils/response.js";
 
@@ -59,8 +59,7 @@ export const transactionalTools: MCPTool[] = [
 
 export async function handleTransactionalTools(
 	request: CallToolRequest,
-	baseUrl: string,
-	auth: string,
+	client: ListmonkClient,
 ): Promise<CallToolResult> {
 	const { name, arguments: args = {} } = request.params;
 
@@ -94,24 +93,8 @@ export async function handleTransactionalTools(
 					body.from_email = args.from_email;
 				}
 
-				const url = `${baseUrl}/tx`;
-				const response = await makeListmonkRequest(
-					url,
-					{
-						method: "POST",
-						body: JSON.stringify(body),
-					},
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to send transactional email: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				const response = await client.transactional.send(body as any);
+				return createSuccessResult(response.data);
 			}
 
 			case "listmonk_get_transactional_message": {
@@ -120,21 +103,9 @@ export async function handleTransactionalTools(
 					return createErrorResult(validation);
 				}
 
-				const url = `${baseUrl}/tx/${args.id}`;
-				const response = await makeListmonkRequest(
-					url,
-					{ method: "GET" },
-					auth,
-				);
-				const data = await response.json();
-
-				if (!response.ok) {
-					return createErrorResult(
-						`Failed to fetch transactional message: ${data.message || response.statusText}`,
-					);
-				}
-
-				return createSuccessResult(data);
+				// Note: This endpoint is not available in the current OpenAPI client
+				// Would need to be added to the client if needed
+				return createErrorResult("Get transactional message not implemented in current client");
 			}
 
 			default:
