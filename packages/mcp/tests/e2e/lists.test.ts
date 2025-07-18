@@ -10,11 +10,13 @@ describe("Lists MCP Tools", () => {
 		// Clean up any existing test lists
 		const listsResult = await client.callTool("listmonk_get_lists");
 		const lists = utils.assertSuccess(listsResult);
-		
+
 		if (lists.results) {
 			for (const list of lists.results) {
 				if (list.name?.startsWith("Test-")) {
-					await client.callTool("listmonk_delete_list", { id: list.id.toString() });
+					await client.callTool("listmonk_delete_list", {
+						id: list.id.toString(),
+					});
 				}
 			}
 		}
@@ -33,7 +35,7 @@ describe("Lists MCP Tools", () => {
 
 	test("should create a new list", async () => {
 		const listName = `Test-List-${Date.now()}`;
-		
+
 		const result = await client.callTool("listmonk_create_list", {
 			name: listName,
 			type: "private",
@@ -43,27 +45,30 @@ describe("Lists MCP Tools", () => {
 		});
 
 		const createdList = utils.assertSuccess(result, "Failed to create list");
-		
+
 		expect(createdList).toHaveProperty("id");
 		expect(createdList.name).toBe(listName);
 		expect(createdList.type).toBe("private");
 		expect(createdList.optin).toBe("single");
-		
-		testListId = (createdList as {id: number}).id;
+
+		testListId = (createdList as { id: number }).id;
 	});
 
 	test("should get a specific list by ID", async () => {
 		// First create a list
 		const createdList = await utils.createTestList();
-		testListId = (createdList as {id: number}).id;
+		testListId = (createdList as { id: number }).id;
 
 		// Then get it by ID
 		const result = await client.callTool("listmonk_get_list", {
 			id: testListId.toString(),
 		});
 
-		const retrievedList = utils.assertSuccess(result, "Failed to get list by ID");
-		
+		const retrievedList = utils.assertSuccess(
+			result,
+			"Failed to get list by ID",
+		);
+
 		expect(retrievedList.id).toBe(testListId);
 		expect(retrievedList.name).toBe(createdList.name);
 	});
@@ -71,10 +76,10 @@ describe("Lists MCP Tools", () => {
 	test("should update an existing list", async () => {
 		// First create a list
 		const createdList = await utils.createTestList();
-		testListId = (createdList as {id: number}).id;
+		testListId = (createdList as { id: number }).id;
 
 		const updatedName = `Updated-Test-List-${Date.now()}`;
-		
+
 		const result = await client.callTool("listmonk_update_list", {
 			id: testListId.toString(),
 			name: updatedName,
@@ -97,7 +102,7 @@ describe("Lists MCP Tools", () => {
 	test("should delete a list", async () => {
 		// First create a list
 		const createdList = await utils.createTestList();
-		testListId = (createdList as {id: number}).id;
+		testListId = (createdList as { id: number }).id;
 
 		// Delete it
 		const result = await client.callTool("listmonk_delete_list", {
@@ -119,5 +124,4 @@ describe("Lists MCP Tools", () => {
 
 		utils.assertError(result, "Missing required parameter: name");
 	});
-
 });

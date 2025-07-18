@@ -14,7 +14,6 @@ import { createListmonkClient } from "./src/client/index";
 // Configuration imports
 import type { ListmonkConfig } from "./src/config";
 
-
 // ===== EXPORTS =====
 
 /**

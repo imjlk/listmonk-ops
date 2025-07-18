@@ -147,7 +147,10 @@ export const handleListsTools: HandlerFunction = withErrorHandler(
 		switch (name) {
 			case "listmonk_get_lists": {
 				const pagination = parsePaginationParams(args);
-				const query = pagination.page || pagination.per_page ? { query: pagination } : undefined;
+				const query =
+					pagination.page || pagination.per_page
+						? { query: pagination }
+						: undefined;
 
 				const response = await client.list.list(query);
 				return createSuccessResult(response.data);

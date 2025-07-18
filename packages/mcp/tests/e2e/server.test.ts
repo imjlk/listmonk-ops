@@ -7,14 +7,14 @@ describe("MCP Server Integration", () => {
 
 	test("should list all available tools", async () => {
 		const tools = await client.listTools();
-		
+
 		expect(tools).toBeDefined();
 		expect(Array.isArray(tools.tools)).toBe(true);
 		expect(tools.tools.length).toBeGreaterThan(0);
 
 		// Check for key tool categories
 		const toolNames = tools.tools.map((tool: any) => tool.name);
-		
+
 		// Lists tools
 		expect(toolNames).toContain("listmonk_get_lists");
 		expect(toolNames).toContain("listmonk_create_list");
@@ -57,7 +57,7 @@ describe("MCP Server Integration", () => {
 
 	test("should provide server information", async () => {
 		const info = await client.getServerInfo();
-		
+
 		expect(info).toHaveProperty("name");
 		expect(info).toHaveProperty("version");
 		expect(info.name).toBe("listmonk-mcp-server");
@@ -65,14 +65,14 @@ describe("MCP Server Integration", () => {
 
 	test("should handle unknown tool calls", async () => {
 		const result = await client.callTool("non_existent_tool", {});
-		
+
 		utils.assertError(result, "Unknown tool");
 	});
 
 	test("should handle malformed requests", async () => {
 		// Test with missing arguments object
 		const result = await client.callTool("listmonk_get_lists");
-		
+
 		// Should still work (arguments are optional for this tool)
 		utils.assertSuccess(result, "Failed to handle request without arguments");
 	});
@@ -85,7 +85,10 @@ describe("MCP Server Integration", () => {
 			type: "private",
 		});
 
-		const createdList = utils.assertSuccess<{id: number}>(createResult, "Failed to create list");
+		const createdList = utils.assertSuccess<{ id: number }>(
+			createResult,
+			"Failed to create list",
+		);
 		const listId = createdList.id;
 
 		// Update it
@@ -101,7 +104,10 @@ describe("MCP Server Integration", () => {
 			id: listId.toString(),
 		});
 
-		const updatedList = utils.assertSuccess(getResult, "Failed to get updated list");
+		const updatedList = utils.assertSuccess(
+			getResult,
+			"Failed to get updated list",
+		);
 		expect(updatedList.name).toBe(`${listName}-updated`);
 
 		// Clean up
@@ -128,10 +134,26 @@ describe("MCP Server Integration", () => {
 	test("should validate required parameters", async () => {
 		// Test various tools with missing required parameters
 		const testCases = [
-			{ tool: "listmonk_get_list", args: {}, expectedError: "Missing required parameter: id" },
-			{ tool: "listmonk_create_list", args: {}, expectedError: "Missing required parameter: name" },
-			{ tool: "listmonk_create_subscriber", args: { name: "Test" }, expectedError: "Missing required parameter: email" },
-			{ tool: "listmonk_create_campaign", args: { name: "Test" }, expectedError: "Missing required parameter" },
+			{
+				tool: "listmonk_get_list",
+				args: {},
+				expectedError: "Missing required parameter: id",
+			},
+			{
+				tool: "listmonk_create_list",
+				args: {},
+				expectedError: "Missing required parameter: name",
+			},
+			{
+				tool: "listmonk_create_subscriber",
+				args: { name: "Test" },
+				expectedError: "Missing required parameter: email",
+			},
+			{
+				tool: "listmonk_create_campaign",
+				args: { name: "Test" },
+				expectedError: "Missing required parameter",
+			},
 		];
 
 		for (const testCase of testCases) {
@@ -152,16 +174,19 @@ describe("MCP Server Integration", () => {
 		expect(page1Data).toHaveProperty("total");
 		expect(page1Data).toHaveProperty("page");
 		expect(page1Data).toHaveProperty("per_page");
-		
+
 		if (page1Data.total > 1) {
 			const page2Result = await client.callTool("listmonk_get_lists", {
 				page: 2,
 				per_page: 1,
 			});
 
-			const page2Data = utils.assertSuccess(page2Result, "Failed to get page 2");
+			const page2Data = utils.assertSuccess(
+				page2Result,
+				"Failed to get page 2",
+			);
 			expect(page2Data.page).toBe(2);
-			
+
 			// Results should be different (assuming we have more than 1 list)
 			if (page1Data.results.length > 0 && page2Data.results.length > 0) {
 				expect(page1Data.results[0].id).not.toBe(page2Data.results[0].id);

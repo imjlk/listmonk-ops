@@ -194,7 +194,9 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 				}
 
 				const hasQuery = Object.keys(queryParams).length > 0;
-				const response = await client.campaign.list(hasQuery ? { query: queryParams } : undefined);
+				const response = await client.campaign.list(
+					hasQuery ? { query: queryParams } : undefined,
+				);
 				return createSuccessResult(response.data);
 			}
 

@@ -17,7 +17,9 @@ describe("API Integration", () => {
 
 	beforeAll(async () => {
 		if (!LISTMONK_API_TOKEN) {
-			console.warn("⚠️  LISTMONK_API_TOKEN not found, skipping integration tests");
+			console.warn(
+				"⚠️  LISTMONK_API_TOKEN not found, skipping integration tests",
+			);
 			return;
 		}
 
@@ -34,7 +36,9 @@ describe("API Integration", () => {
 			serverAvailable = healthResponse?.data === true;
 		} catch (error) {
 			serverAvailable = false;
-			console.warn("⚠️  Listmonk server not available, skipping integration tests");
+			console.warn(
+				"⚠️  Listmonk server not available, skipping integration tests",
+			);
 		}
 	});
 

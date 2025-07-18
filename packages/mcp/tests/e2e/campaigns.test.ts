@@ -91,7 +91,7 @@ describe("Campaigns MCP Tools", () => {
 		expect(createdCampaign.subject).toBe("Test Campaign Subject");
 		expect(createdCampaign.status).toBe("draft");
 
-		testCampaignId = (createdCampaign as {id: number}).id;
+		testCampaignId = (createdCampaign as { id: number }).id;
 	});
 
 	test("should get a specific campaign by ID", async () => {
@@ -107,7 +107,7 @@ describe("Campaigns MCP Tools", () => {
 		});
 
 		const createdCampaign = utils.assertSuccess(createResult);
-		testCampaignId = (createdCampaign as {id: number}).id;
+		testCampaignId = (createdCampaign as { id: number }).id;
 
 		// Then get it by ID
 		const result = await client.callTool("listmonk_get_campaign", {
@@ -135,10 +135,10 @@ describe("Campaigns MCP Tools", () => {
 		});
 
 		const createdCampaign = utils.assertSuccess(createResult);
-		testCampaignId = (createdCampaign as {id: number}).id;
+		testCampaignId = (createdCampaign as { id: number }).id;
 
 		// Simply verify that the campaign was created with draft status
-		expect((createdCampaign as {status: string}).status).toBe("draft");
+		expect((createdCampaign as { status: string }).status).toBe("draft");
 
 		// Test that status update endpoint exists and doesn't crash
 		const result = await client.callTool("listmonk_update_campaign_status", {
@@ -162,7 +162,7 @@ describe("Campaigns MCP Tools", () => {
 		});
 
 		const createdCampaign = utils.assertSuccess(createResult);
-		testCampaignId = (createdCampaign as {id: number}).id;
+		testCampaignId = (createdCampaign as { id: number }).id;
 
 		// Send test email
 		const result = await client.callTool("listmonk_test_campaign", {
@@ -185,7 +185,7 @@ describe("Campaigns MCP Tools", () => {
 		});
 
 		const createdCampaign = utils.assertSuccess(createResult);
-		testCampaignId = (createdCampaign as {id: number}).id;
+		testCampaignId = (createdCampaign as { id: number }).id;
 
 		// Delete it
 		const result = await client.callTool("listmonk_delete_campaign", {
@@ -224,7 +224,7 @@ describe("Campaigns MCP Tools", () => {
 		});
 
 		const createdCampaign = utils.assertSuccess(createResult);
-		testCampaignId = (createdCampaign as {id: number}).id;
+		testCampaignId = (createdCampaign as { id: number }).id;
 
 		// Try to update with invalid status
 		const result = await client.callTool("listmonk_update_campaign_status", {

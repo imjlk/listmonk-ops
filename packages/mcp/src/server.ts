@@ -46,12 +46,12 @@ export class ListmonkMCPServer {
 		this.app = new Hono();
 		this.tools = new Map();
 		this.baseUrl = config.baseUrl;
-		
+
 		// Create ListmonkClient instance
 		const authString = config.apiToken
 			? `${config.username}:${config.apiToken}`
 			: getBasicAuth(config.username, config.password);
-		
+
 		this.client = createListmonkClient({
 			baseUrl: config.baseUrl,
 			headers: {

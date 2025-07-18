@@ -7,9 +7,9 @@ import { createErrorResult, createSuccessResult } from "./response.js";
  */
 export function handleCrudResponse<T>(
 	response: any,
-	errorMessage: string = "Operation failed"
+	errorMessage: string = "Operation failed",
 ): CallToolResult {
-	if ('error' in response && response.error) {
+	if ("error" in response && response.error) {
 		return createErrorResult(`${errorMessage}: ${response.error}`);
 	}
 	return createSuccessResult(response.data);
@@ -29,7 +29,7 @@ export function parsePaginationParams(args: any): PaginationParams {
  * Helper function to safely parse number from string
  */
 export function parseId(id: unknown): number {
-	const parsed = typeof id === 'string' ? Number(id) : Number(id);
+	const parsed = typeof id === "string" ? Number(id) : Number(id);
 	if (Number.isNaN(parsed)) {
 		throw new Error(`Invalid ID: ${id}`);
 	}
@@ -40,14 +40,14 @@ export function parseId(id: unknown): number {
  * Helper function to create a standardized error handler wrapper
  */
 export function withErrorHandler<T extends any[]>(
-	handler: (...args: T) => Promise<CallToolResult>
+	handler: (...args: T) => Promise<CallToolResult>,
 ): (...args: T) => Promise<CallToolResult> {
 	return async (...args: T): Promise<CallToolResult> => {
 		try {
 			return await handler(...args);
 		} catch (error) {
 			return createErrorResult(
-				`Error: ${error instanceof Error ? error.message : String(error)}`
+				`Error: ${error instanceof Error ? error.message : String(error)}`,
 			);
 		}
 	};
@@ -58,16 +58,20 @@ export function withErrorHandler<T extends any[]>(
  */
 export function arrayToCommaString(arr: any): string | undefined {
 	if (!Array.isArray(arr)) return undefined;
-	return arr.join(',');
+	return arr.join(",");
 }
 
 /**
  * Helper to safely cast status parameters
  */
-export function castCampaignStatus(status: any): "scheduled" | "running" | "paused" | "cancelled" {
+export function castCampaignStatus(
+	status: any,
+): "scheduled" | "running" | "paused" | "cancelled" {
 	const validStatuses = ["scheduled", "running", "paused", "cancelled"];
 	if (!validStatuses.includes(status)) {
-		throw new Error(`Invalid campaign status: ${status}. Valid statuses: ${validStatuses.join(', ')}`);
+		throw new Error(
+			`Invalid campaign status: ${status}. Valid statuses: ${validStatuses.join(", ")}`,
+		);
 	}
 	return status as "scheduled" | "running" | "paused" | "cancelled";
 }
@@ -78,7 +82,9 @@ export function castCampaignStatus(status: any): "scheduled" | "running" | "paus
 export function castListType(type: any): "public" | "private" {
 	const validTypes = ["public", "private"];
 	if (!validTypes.includes(type)) {
-		throw new Error(`Invalid list type: ${type}. Valid types: ${validTypes.join(', ')}`);
+		throw new Error(
+			`Invalid list type: ${type}. Valid types: ${validTypes.join(", ")}`,
+		);
 	}
 	return type as "public" | "private";
 }
@@ -89,7 +95,9 @@ export function castListType(type: any): "public" | "private" {
 export function castOptinType(optin: any): "single" | "double" {
 	const validOptins = ["single", "double"];
 	if (!validOptins.includes(optin)) {
-		throw new Error(`Invalid optin type: ${optin}. Valid types: ${validOptins.join(', ')}`);
+		throw new Error(
+			`Invalid optin type: ${optin}. Valid types: ${validOptins.join(", ")}`,
+		);
 	}
 	return optin as "single" | "double";
 }

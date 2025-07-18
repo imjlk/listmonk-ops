@@ -2,7 +2,7 @@ import type { CallToolRequest, CallToolResult } from "../types/mcp.js";
 
 export function createSuccessResult(content: unknown): CallToolResult {
 	let text: string;
-	
+
 	if (typeof content === "string") {
 		text = content;
 	} else if (content === undefined) {
@@ -10,7 +10,7 @@ export function createSuccessResult(content: unknown): CallToolResult {
 	} else {
 		text = JSON.stringify(content, null, 2);
 	}
-	
+
 	return {
 		content: [
 			{
@@ -51,4 +51,3 @@ export function validateRequiredParams(
 export function getBasicAuth(username: string, password: string): string {
 	return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
 }
-

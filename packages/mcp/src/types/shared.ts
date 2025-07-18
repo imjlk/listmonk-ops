@@ -13,6 +13,6 @@ export type HandlerFunction = (
 	client: ListmonkClient,
 ) => Promise<CallToolResult>;
 
-// List types for type safety  
+// List types for type safety
 export type ListType = "public" | "private";
 export type OptinType = "single" | "double";

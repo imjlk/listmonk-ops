@@ -1006,15 +1006,8 @@ export type MediaFileObject = {
     id?: number;
     uuid?: string;
     filename?: string;
-    content_type?: string;
     created_at?: string;
     thumb_url?: string;
-    thumb_uri?: string;
-    provider?: string;
-    meta?: {
-        [key: string]: unknown;
-    };
-    url?: string;
     uri?: string;
 };
 
@@ -1024,56 +1017,8 @@ export type Template = {
     updated_at?: string;
     name?: string;
     body?: string;
-    body_source?: string;
-    subject?: string;
     type?: string;
     is_default?: boolean;
-};
-
-export type NewTemplate = {
-    /**
-     * Name of the template
-     */
-    name: string;
-    /**
-     * Type of the template
-     */
-    type: 'campaign' | 'campaign_visual' | 'tx';
-    /**
-     * Subject line for the template (only for tx)
-     */
-    subject?: string;
-    /**
-     * JSON source for the email-builder template (only for campaign_visual)
-     */
-    body_source?: string;
-    /**
-     * HTML body of the template
-     */
-    body: string;
-};
-
-export type UpdateTemplate = {
-    /**
-     * Name of the template
-     */
-    name?: string;
-    /**
-     * Type of the template
-     */
-    type?: 'campaign' | 'campaign_visual' | 'tx';
-    /**
-     * Subject line for the template (only for tx)
-     */
-    subject?: string;
-    /**
-     * JSON source for the email-builder template (only for campaign_visual)
-     */
-    body_source?: string;
-    /**
-     * HTML body of the template
-     */
-    body?: string;
 };
 
 export type TransactionalMessage = {
@@ -2031,14 +1976,14 @@ export type ImportSubscribersResponses = {
 
 export type ImportSubscribersResponse = ImportSubscribersResponses[keyof ImportSubscribersResponses];
 
-export type GetImportSubscriberLogsData = {
+export type GetImportSubscriberStatsData = {
     body?: never;
     path?: never;
     query?: never;
     url: '/import/subscribers/logs';
 };
 
-export type GetImportSubscriberLogsResponses = {
+export type GetImportSubscriberStatsResponses = {
     /**
      * import statistics
      */
@@ -2047,7 +1992,7 @@ export type GetImportSubscriberLogsResponses = {
     };
 };
 
-export type GetImportSubscriberLogsResponse = GetImportSubscriberLogsResponses[keyof GetImportSubscriberLogsResponses];
+export type GetImportSubscriberStatsResponse = GetImportSubscriberStatsResponses[keyof GetImportSubscriberStatsResponses];
 
 export type GetCampaignsData = {
     body?: never;
@@ -2578,27 +2523,6 @@ export type GetTemplatesResponses = {
 
 export type GetTemplatesResponse = GetTemplatesResponses[keyof GetTemplatesResponses];
 
-export type CreateTemplateData = {
-    /**
-     * new template info
-     */
-    body: NewTemplate;
-    path?: never;
-    query?: never;
-    url: '/templates';
-};
-
-export type CreateTemplateResponses = {
-    /**
-     * response
-     */
-    200: {
-        data?: Template;
-    };
-};
-
-export type CreateTemplateResponse = CreateTemplateResponses[keyof CreateTemplateResponses];
-
 export type DeleteTemplateByIdData = {
     body?: never;
     path: {
@@ -2649,32 +2573,6 @@ export type GetTemplateByIdResponses = {
 };
 
 export type GetTemplateByIdResponse = GetTemplateByIdResponses[keyof GetTemplateByIdResponses];
-
-export type UpdateTemplateByIdData = {
-    /**
-     * updated template info
-     */
-    body: UpdateTemplate;
-    path: {
-        /**
-         * The id value of the template you want to update.
-         */
-        id: number;
-    };
-    query?: never;
-    url: '/templates/{id}';
-};
-
-export type UpdateTemplateByIdResponses = {
-    /**
-     * response
-     */
-    200: {
-        data?: Template;
-    };
-};
-
-export type UpdateTemplateByIdResponse = UpdateTemplateByIdResponses[keyof UpdateTemplateByIdResponses];
 
 export type PreviewTemplateData = {
     /**
@@ -2737,7 +2635,7 @@ export type PreviewTemplateByIdResponses = {
 
 export type PreviewTemplateByIdResponse = PreviewTemplateByIdResponses[keyof PreviewTemplateByIdResponses];
 
-export type UpdateTemplateById2Data = {
+export type UpdateTemplateByIdData = {
     body?: never;
     path: {
         /**
@@ -2749,14 +2647,14 @@ export type UpdateTemplateById2Data = {
     url: '/templates/{id}/default';
 };
 
-export type UpdateTemplateById2Responses = {
+export type UpdateTemplateByIdResponses = {
     /**
      * response
      */
     200: Template;
 };
 
-export type UpdateTemplateById2Response = UpdateTemplateById2Responses[keyof UpdateTemplateById2Responses];
+export type UpdateTemplateByIdResponse = UpdateTemplateByIdResponses[keyof UpdateTemplateByIdResponses];
 
 export type TransactWithSubscriberData = {
     /**

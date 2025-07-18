@@ -31,7 +31,7 @@ describe("Main Public API Exports", () => {
 		// Import the module and check it only exports what we expect
 		const indexModule = require("../index");
 		const exportedKeys = Object.keys(indexModule);
-		
+
 		// Should only have the essential exports
 		expect(exportedKeys).toContain("createListmonkClient");
 		expect(exportedKeys.length).toBeLessThan(10); // Much smaller than before
@@ -78,7 +78,7 @@ describe("Client Creation", () => {
 		const expectedKeys = [
 			"getHealthCheck",
 			"list",
-			"subscriber", 
+			"subscriber",
 			"campaign",
 			"template",
 			"media",
