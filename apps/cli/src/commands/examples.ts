@@ -32,6 +32,11 @@ listmonk-cli tx send --template-id 10 --subscriber-email user@example.com --data
 listmonk-cli abtest interactive --interactive
 listmonk-cli abtest create --name "Subject test" --campaign-id 100 --variants '[{"name":"A"},{"name":"B"}]'
 
+# Ops automation
+listmonk-cli ops preflight --campaign-id 100
+listmonk-cli ops guard --campaign-id 100 --pause-on-breach true
+listmonk-cli ops digest --hours 24
+
 # Shell completion
 listmonk-cli completions zsh
 source <(listmonk-cli completions zsh)

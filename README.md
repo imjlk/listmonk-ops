@@ -18,6 +18,7 @@ This repository includes:
 | `apps/cli` | `listmonk-cli` command line app (Bunli) |
 | `packages/openapi` | Generated API SDK and typed client wrappers |
 | `packages/abtest` | A/B test services and analysis logic |
+| `packages/ops` | Operational automation services (preflight/guard/hygiene/drift/digest) |
 | `packages/mcp` | MCP server exposing Listmonk operations |
 | `packages/common` | Shared utilities and error/validation helpers |
 
@@ -73,6 +74,7 @@ From repository root:
 # CLI
 bun run cli -- status
 bun run cli -- campaigns list
+bun run cli -- ops digest --hours 24
 
 # OpenAPI package
 bun run api generate
@@ -180,6 +182,31 @@ listmonk_abtest_stop
 listmonk_abtest_delete
 listmonk_abtest_recommend_sample_size
 listmonk_abtest_deploy_winner
+```
+
+## Ops Automation Commands
+
+```bash
+# 1) Pre-send gate
+listmonk-cli ops preflight --campaign-id 123 --check-links true --fail-on-warn false
+
+# 2) Deliverability guard
+listmonk-cli ops guard --campaign-id 123 --pause-on-breach true
+
+# 3) Subscriber hygiene (preview)
+listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90
+
+# 4) Segment drift snapshot
+listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
+
+# 5) Template registry/versioning
+listmonk-cli ops templates-sync
+listmonk-cli ops templates-history --template-id 10
+listmonk-cli ops templates-promote --template-id 10 --version-id v_...
+listmonk-cli ops templates-rollback --template-id 10
+
+# 6) Daily digest
+listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 ```
 
 ## OpenAPI Regeneration (Hey API)

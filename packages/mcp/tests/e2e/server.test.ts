@@ -61,6 +61,17 @@ describe("MCP Server Integration", () => {
 		// Transactional tools
 		expect(toolNames).toContain("listmonk_send_transactional");
 
+		// Ops tools
+		expect(toolNames).toContain("listmonk_ops_preflight");
+		expect(toolNames).toContain("listmonk_ops_deliverability_guard");
+		expect(toolNames).toContain("listmonk_ops_subscriber_hygiene");
+		expect(toolNames).toContain("listmonk_ops_segment_drift");
+		expect(toolNames).toContain("listmonk_ops_template_registry_sync");
+		expect(toolNames).toContain("listmonk_ops_template_registry_history");
+		expect(toolNames).toContain("listmonk_ops_template_registry_promote");
+		expect(toolNames).toContain("listmonk_ops_template_registry_rollback");
+		expect(toolNames).toContain("listmonk_ops_daily_digest");
+
 		// A/B test tools
 		expect(toolNames).toContain("listmonk_abtest_list");
 		expect(toolNames).toContain("listmonk_abtest_get");

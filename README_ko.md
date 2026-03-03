@@ -18,6 +18,7 @@
 | `apps/cli` | `listmonk-cli` 커맨드라인 앱 (Bunli) |
 | `packages/openapi` | 생성형 API SDK 및 타입드 클라이언트 래퍼 |
 | `packages/abtest` | A/B 테스트 서비스 및 분석 로직 |
+| `packages/ops` | 운영 자동화 서비스 (preflight/guard/hygiene/drift/digest) |
 | `packages/mcp` | Listmonk 작업을 노출하는 MCP 서버 |
 | `packages/common` | 공통 유틸/검증/에러 헬퍼 |
 
@@ -73,6 +74,7 @@ export LISTMONK_OPS_ABTEST_SILENT="1"
 # CLI
 bun run cli -- status
 bun run cli -- campaigns list
+bun run cli -- ops digest --hours 24
 
 # OpenAPI 패키지
 bun run api generate
@@ -180,6 +182,31 @@ listmonk_abtest_stop
 listmonk_abtest_delete
 listmonk_abtest_recommend_sample_size
 listmonk_abtest_deploy_winner
+```
+
+## 운영 자동화 명령
+
+```bash
+# 1) 발송 전 게이트
+listmonk-cli ops preflight --campaign-id 123 --check-links true --fail-on-warn false
+
+# 2) 전달성 가드
+listmonk-cli ops guard --campaign-id 123 --pause-on-breach true
+
+# 3) 구독자 위생 관리 (프리뷰)
+listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90
+
+# 4) 세그먼트 드리프트 스냅샷
+listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
+
+# 5) 템플릿 레지스트리/버전 관리
+listmonk-cli ops templates-sync
+listmonk-cli ops templates-history --template-id 10
+listmonk-cli ops templates-promote --template-id 10 --version-id v_...
+listmonk-cli ops templates-rollback --template-id 10
+
+# 6) 데일리 다이제스트
+listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 ```
 
 ## OpenAPI 재생성 (Hey API)

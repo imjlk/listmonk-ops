@@ -13,12 +13,14 @@ import {
 	handleCampaignsTools,
 	handleListsTools,
 	handleMediaTools,
+	handleOpsTools,
 	handleSettingsTools,
 	handleSubscribersTools,
 	handleTemplatesTools,
 	handleTransactionalTools,
 	listsTools,
 	mediaTools,
+	opsTools,
 	settingsTools,
 	subscribersTools,
 	templatesTools,
@@ -77,6 +79,7 @@ export class ListmonkMCPServer {
 			...campaignsTools,
 			...templatesTools,
 			...mediaTools,
+			...opsTools,
 			...bouncesTools,
 			...settingsTools,
 			...transactionalTools,
@@ -221,6 +224,10 @@ export class ListmonkMCPServer {
 				name.startsWith("listmonk_get_transactional_message")
 			) {
 				return await handleTransactionalTools(request, this.client);
+			}
+
+			if (name.startsWith("listmonk_ops_")) {
+				return await handleOpsTools(request, this.client);
 			}
 
 			if (name.startsWith("listmonk_abtest_")) {

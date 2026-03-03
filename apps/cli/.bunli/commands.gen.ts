@@ -8,13 +8,14 @@ import Abtest from '../src/commands/abtest.js'
 import Campaigns from '../src/commands/campaigns.js'
 import Examples from '../src/commands/examples.js'
 import Lists from '../src/commands/lists.js'
+import Ops from '../src/commands/ops.js'
 import Status from '../src/commands/status.js'
 import Subscribers from '../src/commands/subscribers.js'
 import Templates from '../src/commands/templates.js'
 import Tx from '../src/commands/tx.js'
 
 // Narrow list of command names to avoid typeof-cycles in types
-const names = ['abtest', 'campaigns', 'examples', 'lists', 'status', 'subscribers', 'templates', 'tx'] as const
+const names = ['abtest', 'campaigns', 'examples', 'lists', 'ops', 'status', 'subscribers', 'templates', 'tx'] as const
 type GeneratedNames = typeof names[number]
 
 const modules: Record<GeneratedNames, Command<any>> = {
@@ -22,6 +23,7 @@ const modules: Record<GeneratedNames, Command<any>> = {
   'campaigns': Campaigns,
   'examples': Examples,
   'lists': Lists,
+  'ops': Ops,
   'status': Status,
   'subscribers': Subscribers,
   'templates': Templates,
@@ -153,6 +155,105 @@ const metadata: Record<GeneratedNames, GeneratedCommandMeta> = {
         }
       ],
       path: './src/commands/lists'
+    },
+  'ops': {
+      name: 'ops',
+      description: 'Operational automation and safety tooling',
+      commands: [
+        {
+          name: 'preflight',
+          description: 'Run pre-send campaign preflight checks',
+          options: {
+            'campaign-id': { type: 'z.coerce.number.int.positive', required: true, hasDefault: false, description: 'Campaign ID', schema: {"type":"zod","method":"positive","args":[]}, validator: '(val) => true' },
+            'max-audience': { type: 'z.coerce.number.int.positive.optional', required: false, hasDefault: false, description: 'Warning threshold for audience size', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
+            'check-links': { type: 'z.coerce.boolean.default', required: true, hasDefault: true, default: false, description: 'Check outbound links in campaign body', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"BooleanLiteral","start":1325,"end":1330,"loc":{"start":{"line":41,"column":53,"index":1325},"end":{"line":41,"column":58,"index":1330}},"value":false}}]}, validator: '(val) => true' },
+            'fail-on-warn': { type: 'z.coerce.boolean.default', required: true, hasDefault: true, default: false, description: 'Treat warnings as failures', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"BooleanLiteral","start":1456,"end":1461,"loc":{"start":{"line":44,"column":54,"index":1456},"end":{"line":44,"column":59,"index":1461}},"value":false}}]}, validator: '(val) => true' }
+          },
+          path: './src/commands/ops'
+        },
+        {
+          name: 'guard',
+          description: 'Evaluate deliverability guard and optionally pause campaign',
+          options: {
+            'campaign-id': { type: 'z.coerce.number.int.positive', required: true, hasDefault: false, description: 'Campaign ID', schema: {"type":"zod","method":"positive","args":[]}, validator: '(val) => true' },
+            'bounce-threshold': { type: 'z.coerce.number.min.max.default', required: true, hasDefault: true, default: 0.05, description: 'Max allowed bounce rate', min: 0, max: 1, minLength: 0, maxLength: 1, schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":2527,"end":2531,"loc":{"start":{"line":83,"column":45,"index":2527},"end":{"line":83,"column":49,"index":2531}},"extra":{"rawValue":0.05,"raw":"0.05"},"value":0.05}}]}, validator: '(val) => true' },
+            'open-threshold': { type: 'z.coerce.number.min.max.default', required: true, hasDefault: true, default: 0.08, description: 'Min required open rate', min: 0, max: 1, minLength: 0, maxLength: 1, schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":2677,"end":2681,"loc":{"start":{"line":89,"column":45,"index":2677},"end":{"line":89,"column":49,"index":2681}},"extra":{"rawValue":0.08,"raw":"0.08"},"value":0.08}}]}, validator: '(val) => true' },
+            'click-threshold': { type: 'z.coerce.number.min.max.default', required: true, hasDefault: true, default: 0.01, description: 'Min required click rate', min: 0, max: 1, minLength: 0, maxLength: 1, schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":2827,"end":2831,"loc":{"start":{"line":95,"column":45,"index":2827},"end":{"line":95,"column":49,"index":2831}},"extra":{"rawValue":0.01,"raw":"0.01"},"value":0.01}}]}, validator: '(val) => true' },
+            'pause-on-breach': { type: 'z.coerce.boolean.default', required: true, hasDefault: true, default: false, description: 'Pause running/scheduled campaign on breach', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"BooleanLiteral","start":2959,"end":2964,"loc":{"start":{"line":100,"column":57,"index":2959},"end":{"line":100,"column":62,"index":2964}},"value":false}}]}, validator: '(val) => true' }
+          },
+          path: './src/commands/ops'
+        },
+        {
+          name: 'hygiene',
+          description: 'Run subscriber hygiene workflow (winback/sunset)',
+          options: {
+            'mode': { type: 'z.enum.default', required: true, hasDefault: true, default: "winback", description: 'Hygiene mode', enumValues: ["winback","sunset"], schema: {"type":"zod","method":"default","args":[{"type":"literal","value":"winback"}]}, validator: '(val) => true' },
+            'inactivity-days': { type: 'z.coerce.number.int.positive.default', required: true, hasDefault: true, default: 90, description: 'Inactive threshold in days', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":3952,"end":3954,"loc":{"start":{"line":134,"column":48,"index":3952},"end":{"line":134,"column":50,"index":3954}},"extra":{"rawValue":90,"raw":"90"},"value":90}}]}, validator: '(val) => true' },
+            'source-list-ids': { type: 'z.string.trim.optional', required: false, hasDefault: false, description: 'Restrict candidates to these list IDs (csv)', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
+            'target-list-id': { type: 'z.coerce.number.int.positive.optional', required: false, hasDefault: false, description: 'Target list ID for winback/sunset tagging', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
+            'blocklist': { type: 'z.coerce.boolean.default', required: true, hasDefault: true, default: false, description: 'Blocklist sunset candidates', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"BooleanLiteral","start":4380,"end":4385,"loc":{"start":{"line":148,"column":49,"index":4380},"end":{"line":148,"column":54,"index":4385}},"value":false}}]}, validator: '(val) => true' },
+            'dry-run': { type: 'z.coerce.boolean.default', required: true, hasDefault: true, default: true, description: 'Preview candidates without mutating subscribers', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"BooleanLiteral","start":4496,"end":4500,"loc":{"start":{"line":151,"column":49,"index":4496},"end":{"line":151,"column":53,"index":4500}},"value":true}}]}, validator: '(val) => true' },
+            'max-subscribers': { type: 'z.coerce.number.int.positive.default', required: true, hasDefault: true, default: 500, description: 'Max candidates to process in one run', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":4661,"end":4664,"loc":{"start":{"line":155,"column":48,"index":4661},"end":{"line":155,"column":51,"index":4664}},"extra":{"rawValue":500,"raw":"500"},"value":500}}]}, validator: '(val) => true' }
+          },
+          path: './src/commands/ops'
+        },
+        {
+          name: 'segment-drift',
+          description: 'Snapshot list sizes and detect segment drift',
+          options: {
+            'list-ids': { type: 'z.string.trim.optional', required: false, hasDefault: false, description: 'Specific list IDs to monitor (csv)', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
+            'threshold': { type: 'z.coerce.number.min.default', required: true, hasDefault: true, default: 0.2, description: 'Relative drift threshold (0.2 = 20%)', min: 0, minLength: 0, schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":5757,"end":5760,"loc":{"start":{"line":192,"column":55,"index":5757},"end":{"line":192,"column":58,"index":5760}},"extra":{"rawValue":0.2,"raw":"0.2"},"value":0.2}}]}, validator: '(val) => true' },
+            'min-absolute-change': { type: 'z.coerce.number.int.min.default', required: true, hasDefault: true, default: 50, description: 'Minimum absolute subscriber delta for alert', min: 0, minLength: 0, schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":5910,"end":5912,"loc":{"start":{"line":196,"column":44,"index":5910},"end":{"line":196,"column":46,"index":5912}},"extra":{"rawValue":50,"raw":"50"},"value":50}}]}, validator: '(val) => true' },
+            'lookback-days': { type: 'z.coerce.number.int.positive.default', required: true, hasDefault: true, default: 14, description: 'Baseline lookback window (days)', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":6080,"end":6082,"loc":{"start":{"line":202,"column":48,"index":6080},"end":{"line":202,"column":50,"index":6082}},"extra":{"rawValue":14,"raw":"14"},"value":14}}]}, validator: '(val) => true' }
+          },
+          path: './src/commands/ops'
+        },
+        {
+          name: 'templates-sync',
+          description: 'Sync Listmonk templates into local version registry',
+          options: {
+            'template-ids': { type: 'z.string.trim.optional', required: false, hasDefault: false, description: 'Template IDs to sync (csv). Omit for all templates', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
+            'note': { type: 'z.string.trim.optional', required: false, hasDefault: false, description: 'Optional note stored with this snapshot', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' }
+          },
+          path: './src/commands/ops'
+        },
+        {
+          name: 'templates-history',
+          description: 'Show template version history from local registry',
+          options: {
+            'template-id': { type: 'z.coerce.number.int.positive', required: true, hasDefault: false, description: 'Template ID', schema: {"type":"zod","method":"positive","args":[]}, validator: '(val) => true' }
+          },
+          path: './src/commands/ops'
+        },
+        {
+          name: 'templates-promote',
+          description: 'Promote a stored template version to active content',
+          options: {
+            'template-id': { type: 'z.coerce.number.int.positive', required: true, hasDefault: false, description: 'Template ID', schema: {"type":"zod","method":"positive","args":[]}, validator: '(val) => true' },
+            'version-id': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Stored version ID', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":8459,"end":8460,"loc":{"start":{"line":283,"column":47,"index":8459},"end":{"line":283,"column":48,"index":8460}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' }
+          },
+          path: './src/commands/ops'
+        },
+        {
+          name: 'templates-rollback',
+          description: 'Rollback template to previous stored version',
+          options: {
+            'template-id': { type: 'z.coerce.number.int.positive', required: true, hasDefault: false, description: 'Template ID', schema: {"type":"zod","method":"positive","args":[]}, validator: '(val) => true' }
+          },
+          path: './src/commands/ops'
+        },
+        {
+          name: 'digest',
+          description: 'Generate daily operations digest',
+          options: {
+            'hours': { type: 'z.coerce.number.int.positive.default', required: true, hasDefault: true, default: 24, description: 'Lookback window in hours', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":9651,"end":9653,"loc":{"start":{"line":326,"column":61,"index":9651},"end":{"line":326,"column":63,"index":9653}},"extra":{"rawValue":24,"raw":"24"},"value":24}}]}, validator: '(val) => true' },
+            'output': { type: 'z.string.trim.optional', required: false, hasDefault: false, description: 'Optional output path for markdown digest', fileType: 'path', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
+            'markdown-only': { type: 'z.coerce.boolean.default', required: true, hasDefault: true, default: false, description: 'Print markdown only (no JSON envelope)', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"BooleanLiteral","start":9888,"end":9893,"loc":{"start":{"line":332,"column":55,"index":9888},"end":{"line":332,"column":60,"index":9893}},"value":false}}]}, validator: '(val) => true' }
+          },
+          path: './src/commands/ops'
+        }
+      ],
+      path: './src/commands/ops'
     },
   'status': {
       name: 'status',

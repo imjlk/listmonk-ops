@@ -15,6 +15,7 @@
 	},
 	"dependencies": {
 		"@listmonk-ops/abtest": "workspace:*",
+		"@listmonk-ops/ops": "workspace:*",
 		"@modelcontextprotocol/sdk": "1.27.1",
 		"dotenv": "17.3.1",
 		"hono": "4.12.4"

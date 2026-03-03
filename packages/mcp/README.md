@@ -55,6 +55,18 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_abtest_recommend_sample_size` - Get sample-size recommendations
 - `listmonk_abtest_deploy_winner` - Deploy winning variant for holdout tests
 
+### Ops Automation
+
+- `listmonk_ops_preflight` - Run campaign preflight gate checks
+- `listmonk_ops_deliverability_guard` - Evaluate deliverability guard and optional pause
+- `listmonk_ops_subscriber_hygiene` - Run winback/sunset hygiene workflow
+- `listmonk_ops_segment_drift` - Snapshot list sizes and detect drift
+- `listmonk_ops_template_registry_sync` - Sync template registry versions
+- `listmonk_ops_template_registry_history` - Get template version history
+- `listmonk_ops_template_registry_promote` - Promote stored template version
+- `listmonk_ops_template_registry_rollback` - Rollback template to previous version
+- `listmonk_ops_daily_digest` - Generate operational daily digest
+
 ### Operations & Observability
 
 - `listmonk_health_check` - Verify API health
@@ -220,6 +232,7 @@ The E2E tests cover:
 - **Subscribers**: Subscriber management and validation
 - **Templates**: Template operations and default settings
 - **A/B Tests**: Create/list/get/analyze/launch/stop/delete lifecycle
+- **Ops Automation**: Preflight/guard/hygiene/drift/template-registry/digest workflows
 - **Server Integration**: Tool discovery, error handling, pagination
 - **Validation**: Parameter validation and error scenarios
 
@@ -255,6 +268,7 @@ src/
 │   └── index.ts      # Type exports
 ├── handlers/         # MCP tool handlers
 │   ├── abtest.ts     # A/B test lifecycle tools
+│   ├── ops.ts        # Ops automation tools
 │   ├── lists.ts      # List management tools
 │   ├── subscribers.ts # Subscriber management tools
 │   ├── campaigns.ts  # Campaign management tools
@@ -274,6 +288,7 @@ src/
     ├── mcp-helper.ts # MCP testing utilities
     └── e2e/          # End-to-end tests
         ├── abtest.test.ts
+        ├── ops.test.ts
         ├── lists.test.ts
         ├── campaigns.test.ts
         ├── subscribers.test.ts

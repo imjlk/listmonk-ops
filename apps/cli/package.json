@@ -6,12 +6,14 @@
 		"listmonk-cli": "./src/index.ts"
 	},
 	"scripts": {
-		"generate": "bunli generate --entry ./src/index.ts",
+		"generate": "bunli generate --entry ./src/index.ts && bun run generate:completion-metadata",
+		"generate:completion-metadata": "bun ./scripts/generate-completion-metadata.ts",
+		"copy:completion-metadata": "mkdir -p ./dist/bin && cp ./.bunli/commands.runtime.mjs ./dist/bin/commands.runtime.mjs",
 		"dev": "bunli dev --entry ./src/index.ts",
 		"build:js": "bunli build --entry ./src/index.ts --outdir ./dist/js --runtime bun",
 		"build:bin": "bunli build --entry ./src/index.ts --outdir ./dist/bin --targets native --outfile ./dist/bin/listmonk-cli",
 		"build:bin:all": "bunli build --entry ./src/index.ts --outdir ./dist/bin --targets all",
-		"build": "bun run generate && bun run build:js && bun run build:bin",
+		"build": "bun run generate && bun run build:js && bun run build:bin && bun run copy:completion-metadata",
 		"start": "bun src/index.ts",
 		"doctor:completions": "bunli doctor completions"
 	},
@@ -21,6 +23,7 @@
 		"@bunli/utils": "0.4.0",
 		"@listmonk-ops/abtest": "workspace:*",
 		"@listmonk-ops/common": "workspace:*",
+		"@listmonk-ops/ops": "workspace:*",
 		"@listmonk-ops/openapi": "workspace:*",
 		"bunli": "0.7.1",
 		"zod": "4.3.6"
