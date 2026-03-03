@@ -47,7 +47,7 @@ export function withErrorHandler<T extends any[]>(
 			return await handler(...args);
 		} catch (error) {
 			return createErrorResult(
-				`Error: ${error instanceof Error ? error.message : String(error)}`,
+				error instanceof Error ? error.message : String(error),
 			);
 		}
 	};

@@ -25,12 +25,28 @@ export const subscribersTools: MCPTool[] = [
 					default: 20,
 				},
 				list_id: {
-					type: "string",
-					description: "Filter by list ID",
+					type: "array",
+					items: { type: "number" },
+					description: "Filter by one or more list IDs",
 				},
 				query: {
 					type: "string",
 					description: "Search query",
+				},
+				order_by: {
+					type: "string",
+					enum: ["name", "status", "created_at", "updated_at"],
+					description: "Sort field",
+				},
+				order: {
+					type: "string",
+					enum: ["ASC", "DESC"],
+					description: "Sort order",
+				},
+				subscription_status: {
+					type: "string",
+					enum: ["confirmed", "unconfirmed", "unsubscribed"],
+					description: "Subscription status filter when list_id is provided",
 				},
 			},
 		},
@@ -132,6 +148,48 @@ export const subscribersTools: MCPTool[] = [
 			required: ["id"],
 		},
 	},
+	{
+		name: "listmonk_send_subscriber_optin",
+		description: "Send double opt-in email to a subscriber by ID",
+		inputSchema: {
+			type: "object",
+			properties: {
+				id: {
+					type: "string",
+					description: "Subscriber ID",
+				},
+			},
+			required: ["id"],
+		},
+	},
+	{
+		name: "listmonk_delete_subscribers_by_query",
+		description: "Delete subscribers matching an SQL query expression",
+		inputSchema: {
+			type: "object",
+			properties: {
+				query: {
+					type: "string",
+					description: "SQL expression to match subscribers",
+				},
+			},
+			required: ["query"],
+		},
+	},
+	{
+		name: "listmonk_blocklist_subscribers_by_query",
+		description: "Add matching subscribers to blocklist using SQL query expression",
+		inputSchema: {
+			type: "object",
+			properties: {
+				query: {
+					type: "string",
+					description: "SQL expression to match subscribers",
+				},
+			},
+			required: ["query"],
+		},
+	},
 ];
 
 export async function handleSubscribersTools(
@@ -151,10 +209,23 @@ export async function handleSubscribersTools(
 				};
 
 				if (args.list_id) {
-					queryParams.list_id = args.list_id;
+					if (Array.isArray(args.list_id)) {
+						queryParams.list_id = args.list_id.map((id) => Number(id));
+					} else {
+						queryParams.list_id = [Number(args.list_id)];
+					}
 				}
 				if (args.query) {
 					queryParams.query = args.query;
+				}
+				if (args.order_by) {
+					queryParams.order_by = String(args.order_by);
+				}
+				if (args.order) {
+					queryParams.order = String(args.order);
+				}
+				if (args.subscription_status) {
+					queryParams.subscription_status = String(args.subscription_status);
 				}
 
 				const response = await client.subscriber.list({
@@ -244,12 +315,51 @@ export async function handleSubscribersTools(
 				return createSuccessResult("Subscriber deleted successfully");
 			}
 
+			case "listmonk_send_subscriber_optin": {
+				const validation = validateRequiredParams(request, ["id"]);
+				if (validation) {
+					return createErrorResult(validation);
+				}
+
+				const response = await client.subscriber.sendOptin({
+					path: { id: parseId(args.id) },
+				});
+
+				return createSuccessResult(response.data);
+			}
+
+			case "listmonk_delete_subscribers_by_query": {
+				const validation = validateRequiredParams(request, ["query"]);
+				if (validation) {
+					return createErrorResult(validation);
+				}
+
+				const response = await client.subscriber.deleteByQuery({
+					body: { query: String(args.query) },
+				});
+
+				return createSuccessResult(response.data);
+			}
+
+			case "listmonk_blocklist_subscribers_by_query": {
+				const validation = validateRequiredParams(request, ["query"]);
+				if (validation) {
+					return createErrorResult(validation);
+				}
+
+				const response = await client.subscriber.blocklistByQuery({
+					body: { query: String(args.query) },
+				});
+
+				return createSuccessResult(response.data);
+			}
+
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);
 		}
 	} catch (error) {
 		return createErrorResult(
-			`Error: ${error instanceof Error ? error.message : String(error)}`,
+			error instanceof Error ? error.message : String(error),
 		);
 	}
 }

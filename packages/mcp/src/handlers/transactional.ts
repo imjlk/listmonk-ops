@@ -115,7 +115,7 @@ export async function handleTransactionalTools(
 		}
 	} catch (error) {
 		return createErrorResult(
-			`Error: ${error instanceof Error ? error.message : String(error)}`,
+			error instanceof Error ? error.message : String(error),
 		);
 	}
 }

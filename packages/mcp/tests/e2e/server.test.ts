@@ -40,8 +40,13 @@ describe("MCP Server Integration", () => {
 		expect(toolNames).toContain("listmonk_delete_template");
 
 		// Settings tools
+		expect(toolNames).toContain("listmonk_health_check");
 		expect(toolNames).toContain("listmonk_get_settings");
 		expect(toolNames).toContain("listmonk_update_settings");
+		expect(toolNames).toContain("listmonk_get_dashboard_counts");
+		expect(toolNames).toContain("listmonk_get_dashboard_charts");
+		expect(toolNames).toContain("listmonk_get_logs");
+		expect(toolNames).toContain("listmonk_reload_app");
 
 		// Media tools
 		expect(toolNames).toContain("listmonk_get_media");
@@ -53,6 +58,23 @@ describe("MCP Server Integration", () => {
 
 		// Transactional tools
 		expect(toolNames).toContain("listmonk_send_transactional");
+	});
+
+	test("should expose health and dashboard tools", async () => {
+		const healthResult = await client.callTool("listmonk_health_check", {});
+		const health = utils.assertSuccess<boolean>(
+			healthResult,
+			"Health check tool failed",
+		);
+		expect(health).toBe(true);
+
+		const countsResult = await client.callTool("listmonk_get_dashboard_counts", {});
+		const counts = utils.assertSuccess<Record<string, unknown>>(
+			countsResult,
+			"Dashboard counts tool failed",
+		);
+		expect(counts).toBeDefined();
+		expect(typeof counts).toBe("object");
 	});
 
 	test("should provide server information", async () => {

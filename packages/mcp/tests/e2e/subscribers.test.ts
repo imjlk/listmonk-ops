@@ -194,6 +194,20 @@ describe("Subscribers MCP Tools", () => {
 		utils.assertError(result, "Missing required parameter");
 	});
 
+	test("should validate required query params for bulk subscriber tools", async () => {
+		const deleteByQuery = await client.callTool(
+			"listmonk_delete_subscribers_by_query",
+			{},
+		);
+		utils.assertError(deleteByQuery, "Missing required parameter: query");
+
+		const blocklistByQuery = await client.callTool(
+			"listmonk_blocklist_subscribers_by_query",
+			{},
+		);
+		utils.assertError(blocklistByQuery, "Missing required parameter: query");
+	});
+
 	test("should handle invalid email addresses", async () => {
 		const result = await client.callTool("listmonk_create_subscriber", {
 			email: "invalid-email", // Invalid email format

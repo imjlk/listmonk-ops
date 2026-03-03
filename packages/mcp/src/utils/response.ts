@@ -39,15 +39,24 @@ export function validateRequiredParams(
 ): string | null {
 	const args = request.params.arguments || {};
 
+	const hasValue = (value: unknown): boolean => {
+		if (value === null || value === undefined) {
+			return false;
+		}
+		if (typeof value === "string") {
+			return value.trim().length > 0;
+		}
+		if (Array.isArray(value)) {
+			return value.length > 0;
+		}
+		return true;
+	};
+
 	for (const param of requiredParams) {
-		if (!args[param]) {
+		if (!(param in args) || !hasValue(args[param])) {
 			return `Missing required parameter: ${param}`;
 		}
 	}
 
 	return null;
-}
-
-export function getBasicAuth(username: string, password: string): string {
-	return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
 }

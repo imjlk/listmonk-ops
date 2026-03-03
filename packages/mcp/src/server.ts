@@ -29,7 +29,7 @@ import type {
 	ListToolsResult,
 	MCPTool,
 } from "./types/mcp.js";
-import { createErrorResult, getBasicAuth } from "./utils/response.js";
+import { createErrorResult } from "./utils/response.js";
 
 export class ListmonkMCPServer {
 	private app: Hono;
@@ -48,9 +48,8 @@ export class ListmonkMCPServer {
 		this.baseUrl = config.baseUrl;
 
 		// Create ListmonkClient instance
-		const authString = config.apiToken
-			? `${config.username}:${config.apiToken}`
-			: getBasicAuth(config.username, config.password);
+		const credential = config.apiToken || config.password;
+		const authString = `${config.username}:${credential}`;
 
 		this.client = createListmonkClient({
 			baseUrl: config.baseUrl,
@@ -152,7 +151,10 @@ export class ListmonkMCPServer {
 				name.startsWith("listmonk_get_subscriber") ||
 				name.startsWith("listmonk_create_subscriber") ||
 				name.startsWith("listmonk_update_subscriber") ||
-				name.startsWith("listmonk_delete_subscriber")
+				name.startsWith("listmonk_delete_subscriber") ||
+				name.startsWith("listmonk_send_subscriber_optin") ||
+				name.startsWith("listmonk_delete_subscribers_by_query") ||
+				name.startsWith("listmonk_blocklist_subscribers_by_query")
 			) {
 				return await handleSubscribersTools(request, this.client);
 			}
@@ -163,7 +165,9 @@ export class ListmonkMCPServer {
 				name.startsWith("listmonk_create_campaign") ||
 				name.startsWith("listmonk_update_campaign") ||
 				name.startsWith("listmonk_delete_campaign") ||
-				name.startsWith("listmonk_test_campaign")
+				name.startsWith("listmonk_test_campaign") ||
+				name.startsWith("listmonk_get_campaign_running_stats") ||
+				name.startsWith("listmonk_get_campaign_analytics")
 			) {
 				return await handleCampaignsTools(request, this.client);
 			}
@@ -196,9 +200,15 @@ export class ListmonkMCPServer {
 			}
 
 			if (
+				name.startsWith("listmonk_health_check") ||
 				name.startsWith("listmonk_get_settings") ||
 				name.startsWith("listmonk_update_settings") ||
-				name.startsWith("listmonk_get_server_config")
+				name.startsWith("listmonk_get_server_config") ||
+				name.startsWith("listmonk_get_dashboard_counts") ||
+				name.startsWith("listmonk_get_dashboard_charts") ||
+				name.startsWith("listmonk_test_smtp") ||
+				name.startsWith("listmonk_get_logs") ||
+				name.startsWith("listmonk_reload_app")
 			) {
 				return await handleSettingsTools(request, this.client);
 			}

@@ -43,6 +43,25 @@ export const campaignsTools: MCPTool[] = [
 					],
 					description: "Filter by campaign status",
 				},
+				query: {
+					type: "string",
+					description: "SQL query expression to filter campaigns",
+				},
+				order_by: {
+					type: "string",
+					enum: ["name", "status", "created_at", "updated_at"],
+					description: "Sort field",
+				},
+				order: {
+					type: "string",
+					enum: ["ASC", "DESC"],
+					description: "Sort order",
+				},
+				tags: {
+					type: "array",
+					items: { type: "string" },
+					description: "Filter by campaign tags",
+				},
 			},
 		},
 	},
@@ -176,6 +195,48 @@ export const campaignsTools: MCPTool[] = [
 			required: ["id", "emails"],
 		},
 	},
+	{
+		name: "listmonk_get_campaign_running_stats",
+		description: "Get live sending stats for a running campaign",
+		inputSchema: {
+			type: "object",
+			properties: {
+				campaign_id: {
+					type: "string",
+					description: "Campaign ID",
+				},
+			},
+			required: ["campaign_id"],
+		},
+	},
+	{
+		name: "listmonk_get_campaign_analytics",
+		description: "Get campaign analytics timeseries (links/views/clicks/bounces)",
+		inputSchema: {
+			type: "object",
+			properties: {
+				type: {
+					type: "string",
+					enum: ["links", "views", "clicks", "bounces"],
+					description: "Analytics type",
+				},
+				from: {
+					type: "string",
+					description: "Start datetime (RFC3339)",
+				},
+				to: {
+					type: "string",
+					description: "End datetime (RFC3339)",
+				},
+				id: {
+					type: "string",
+					description:
+						"Campaign ID(s), comma-separated if requesting multiple campaigns",
+				},
+			},
+			required: ["type", "from", "to", "id"],
+		},
+	},
 ];
 
 export const handleCampaignsTools: HandlerFunction = withErrorHandler(
@@ -191,6 +252,18 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 				const queryParams: Record<string, unknown> = { ...pagination };
 				if (args.status) {
 					queryParams.status = [args.status];
+				}
+				if (args.query) {
+					queryParams.query = String(args.query);
+				}
+				if (args.order_by) {
+					queryParams.order_by = String(args.order_by);
+				}
+				if (args.order) {
+					queryParams.order = String(args.order);
+				}
+				if (Array.isArray(args.tags) && args.tags.length > 0) {
+					queryParams.tags = args.tags.map((tag) => String(tag));
 				}
 
 				const hasQuery = Object.keys(queryParams).length > 0;
@@ -277,6 +350,42 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 				const response = await client.campaign.test({
 					path: { id: parseId(args.id) },
 					body: { subscribers: Array.isArray(args.emails) ? args.emails : [] },
+				});
+				return createSuccessResult(response.data);
+			}
+
+			case "listmonk_get_campaign_running_stats": {
+				const validation = validateRequiredParams(request, ["campaign_id"]);
+				if (validation) {
+					return createErrorResult(validation);
+				}
+
+				const response = await client.campaign.getRunningStats({
+					query: { campaign_id: parseId(args.campaign_id) },
+				});
+				return createSuccessResult(response.data);
+			}
+
+			case "listmonk_get_campaign_analytics": {
+				const validation = validateRequiredParams(request, [
+					"type",
+					"from",
+					"to",
+					"id",
+				]);
+				if (validation) {
+					return createErrorResult(validation);
+				}
+
+				const response = await client.campaign.getAnalytics({
+					path: {
+						type: String(args.type) as "links" | "views" | "clicks" | "bounces",
+					},
+					query: {
+						from: String(args.from),
+						to: String(args.to),
+						id: String(args.id),
+					},
 				});
 				return createSuccessResult(response.data);
 			}

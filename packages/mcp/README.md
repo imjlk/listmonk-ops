@@ -28,6 +28,9 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_create_subscriber` - Create new subscriber
 - `listmonk_update_subscriber` - Update existing subscriber
 - `listmonk_delete_subscriber` - Delete subscriber
+- `listmonk_send_subscriber_optin` - Send opt-in email to subscriber
+- `listmonk_delete_subscribers_by_query` - Bulk delete by SQL query
+- `listmonk_blocklist_subscribers_by_query` - Bulk blocklist by SQL query
 
 ### Campaigns
 
@@ -37,6 +40,17 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_update_campaign_status` - Update campaign status
 - `listmonk_delete_campaign` - Delete campaign
 - `listmonk_test_campaign` - Send test campaign
+- `listmonk_get_campaign_running_stats` - Get live run metrics
+- `listmonk_get_campaign_analytics` - Get timeseries analytics
+
+### Operations & Observability
+
+- `listmonk_health_check` - Verify API health
+- `listmonk_get_dashboard_counts` - Get dashboard summary counts
+- `listmonk_get_dashboard_charts` - Get dashboard chart series
+- `listmonk_get_logs` - Fetch server logs
+- `listmonk_reload_app` - Reload app config
+- `listmonk_test_smtp` - Validate SMTP settings payload
 
 ## Installation
 

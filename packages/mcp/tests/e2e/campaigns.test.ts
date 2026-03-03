@@ -234,4 +234,20 @@ describe("Campaigns MCP Tools", () => {
 
 		utils.assertError(result, "Invalid campaign status");
 	});
+
+	test("should validate required params for analytics tools", async () => {
+		const runningStatsResult = await client.callTool(
+			"listmonk_get_campaign_running_stats",
+			{},
+		);
+		utils.assertError(runningStatsResult, "Missing required parameter: campaign_id");
+
+		const analyticsResult = await client.callTool(
+			"listmonk_get_campaign_analytics",
+			{
+				type: "views",
+			},
+		);
+		utils.assertError(analyticsResult, "Missing required parameter");
+	});
 });

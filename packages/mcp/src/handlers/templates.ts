@@ -53,13 +53,17 @@ export const templatesTools: MCPTool[] = [
 				},
 				type: {
 					type: "string",
-					enum: ["campaign", "tx"],
+					enum: ["campaign", "campaign_visual", "tx"],
 					description: "Template type",
 					default: "campaign",
 				},
 				subject: {
 					type: "string",
 					description: "Email subject template",
+				},
+				body_source: {
+					type: "string",
+					description: "Optional visual editor source payload",
 				},
 				body: {
 					type: "string",
@@ -85,12 +89,16 @@ export const templatesTools: MCPTool[] = [
 				},
 				type: {
 					type: "string",
-					enum: ["campaign", "tx"],
+					enum: ["campaign", "campaign_visual", "tx"],
 					description: "Template type",
 				},
 				subject: {
 					type: "string",
 					description: "Email subject template",
+				},
+				body_source: {
+					type: "string",
+					description: "Optional visual editor source payload",
 				},
 				body: {
 					type: "string",
@@ -181,6 +189,7 @@ export async function handleTemplatesTools(
 						(args.type as "campaign" | "campaign_visual" | "tx") || "campaign",
 					subject: (args.subject as string) || "",
 					body: args.body as string,
+					body_source: args.body_source as string | undefined,
 				};
 
 				const response = await client.template.create({ body });
@@ -193,16 +202,46 @@ export async function handleTemplatesTools(
 					return createErrorResult(validation);
 				}
 
-				const body: Record<string, unknown> = {};
-				if (args.name) body.name = args.name;
-				if (args.type) body.type = args.type;
-				if (args.subject !== undefined) body.subject = args.subject;
-				if (args.body) body.body = args.body;
-
-				const response = await client.template.update({
-					path: { id: parseId(args.id) },
-					body,
+				const id = parseId(args.id);
+				const currentResponse = await client.template.getById({
+					path: { id },
 				});
+
+				if ("error" in currentResponse) {
+					return createErrorResult(
+						`Failed to load current template: ${currentResponse.error}`,
+					);
+				}
+
+				const current = currentResponse.data;
+				if (!current) {
+					return createErrorResult("Current template not found");
+				}
+
+				const body = {
+					name: (args.name as string) || current.name || "",
+					type:
+						(args.type as "campaign" | "campaign_visual" | "tx") ||
+						current.type ||
+						"campaign",
+					subject:
+						args.subject !== undefined
+							? (args.subject as string)
+							: (current.subject ?? ""),
+					body: (args.body as string) || current.body || "",
+					body_source:
+						args.body_source !== undefined
+							? (args.body_source as string)
+							: current.body_source,
+				};
+
+				if (!body.name || !body.type || !body.body) {
+					return createErrorResult(
+						"Template update requires name, type, and body after merge",
+					);
+				}
+
+				const response = await client.template.update({ path: { id }, body });
 
 				if ("error" in response) {
 					return createErrorResult(
@@ -242,7 +281,7 @@ export async function handleTemplatesTools(
 		}
 	} catch (error) {
 		return createErrorResult(
-			`Error: ${error instanceof Error ? error.message : String(error)}`,
+			error instanceof Error ? error.message : String(error),
 		);
 	}
 }
