@@ -211,7 +211,8 @@ export const campaignsTools: MCPTool[] = [
 	},
 	{
 		name: "listmonk_get_campaign_analytics",
-		description: "Get campaign analytics timeseries (links/views/clicks/bounces)",
+		description:
+			"Get campaign analytics timeseries (links/views/clicks/bounces)",
 		inputSchema: {
 			type: "object",
 			properties: {

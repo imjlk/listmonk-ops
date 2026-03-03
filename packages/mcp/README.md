@@ -43,6 +43,18 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_get_campaign_running_stats` - Get live run metrics
 - `listmonk_get_campaign_analytics` - Get timeseries analytics
 
+### A/B Tests
+
+- `listmonk_abtest_list` - List persisted A/B tests
+- `listmonk_abtest_get` - Get a specific A/B test
+- `listmonk_abtest_create` - Create and persist an A/B test
+- `listmonk_abtest_analyze` - Analyze A/B test results
+- `listmonk_abtest_launch` - Launch a draft A/B test
+- `listmonk_abtest_stop` - Stop a running A/B test
+- `listmonk_abtest_delete` - Delete an A/B test
+- `listmonk_abtest_recommend_sample_size` - Get sample-size recommendations
+- `listmonk_abtest_deploy_winner` - Deploy winning variant for holdout tests
+
 ### Operations & Observability
 
 - `listmonk_health_check` - Verify API health
@@ -75,6 +87,8 @@ LISTMONK_API_URL=http://localhost:9000/api
 # Listmonk Authentication
 LISTMONK_USERNAME=admin
 LISTMONK_PASSWORD=password
+# Optional: suppress A/B statistical logs in MCP automation
+LISTMONK_OPS_ABTEST_SILENT=1
 
 # MCP Server Configuration
 MCP_SERVER_PORT=3000
@@ -205,6 +219,7 @@ The E2E tests cover:
 - **Campaigns**: Full campaign lifecycle including status updates
 - **Subscribers**: Subscriber management and validation
 - **Templates**: Template operations and default settings
+- **A/B Tests**: Create/list/get/analyze/launch/stop/delete lifecycle
 - **Server Integration**: Tool discovery, error handling, pagination
 - **Validation**: Parameter validation and error scenarios
 
@@ -239,6 +254,7 @@ src/
 │   ├── shared.ts     # Shared types and interfaces
 │   └── index.ts      # Type exports
 ├── handlers/         # MCP tool handlers
+│   ├── abtest.ts     # A/B test lifecycle tools
 │   ├── lists.ts      # List management tools
 │   ├── subscribers.ts # Subscriber management tools
 │   ├── campaigns.ts  # Campaign management tools
@@ -249,6 +265,7 @@ src/
 │   ├── transactional.ts # Transactional email tools
 │   └── index.ts      # Handler exports
 ├── utils/           # Utility functions
+│   ├── abtest-store.ts # A/B test persistence store helpers
 │   ├── response.ts   # Response helpers and validation
 │   ├── typeHelpers.ts # Type conversion and validation helpers
 │   └── index.ts      # Utility exports
@@ -256,6 +273,7 @@ src/
     ├── setup.ts      # Test environment setup
     ├── mcp-helper.ts # MCP testing utilities
     └── e2e/          # End-to-end tests
+        ├── abtest.test.ts
         ├── lists.test.ts
         ├── campaigns.test.ts
         ├── subscribers.test.ts

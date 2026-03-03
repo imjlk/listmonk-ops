@@ -116,6 +116,7 @@ export interface AbTestInput {
 // Command-specific input types
 export interface CreateAbTestInput {
 	name: string;
+	campaign_id?: string;
 	description?: string;
 	variants: Array<{
 		name: string;

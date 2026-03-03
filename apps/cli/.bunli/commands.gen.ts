@@ -35,7 +35,7 @@ const metadata: Record<GeneratedNames, GeneratedCommandMeta> = {
       commands: [
         {
           name: 'list',
-          description: 'List in-memory A/B tests',
+          description: 'List A/B tests from persisted state',
           path: './src/commands/abtest'
         },
         {
@@ -47,16 +47,17 @@ const metadata: Record<GeneratedNames, GeneratedCommandMeta> = {
           name: 'create',
           description: 'Create an A/B test from JSON variant config',
           options: {
-            'name': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Test name', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":10969,"end":10970,"loc":{"start":{"line":413,"column":39,"index":10969},"end":{"line":413,"column":40,"index":10970}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' },
+            'name': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Test name', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":13911,"end":13912,"loc":{"start":{"line":528,"column":39,"index":13911},"end":{"line":528,"column":40,"index":13912}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' },
             'campaign-id': { type: 'z.coerce.number.int.positive', required: true, hasDefault: false, description: 'Base campaign ID', schema: {"type":"zod","method":"positive","args":[]}, validator: '(val) => true' },
-            'variants': { type: 'z.string.min', required: true, hasDefault: false, description: 'JSON array of variants', min: 2, minLength: 2, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":11160,"end":11161,"loc":{"start":{"line":419,"column":36,"index":11160},"end":{"line":419,"column":37,"index":11161}},"extra":{"rawValue":2,"raw":"2"},"value":2}}]}, validator: '(val) => true' },
-            'lists': { type: 'z.string.optional', required: false, hasDefault: false, description: 'Comma-separated list IDs', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
+            'variants': { type: 'z.string.min', required: true, hasDefault: false, description: 'JSON variants: [{"name":"A","percentage":50},{"name":"B","percentage":50}]', min: 2, minLength: 2, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":14102,"end":14103,"loc":{"start":{"line":534,"column":36,"index":14102},"end":{"line":534,"column":37,"index":14103}},"extra":{"rawValue":2,"raw":"2"},"value":2}}]}, validator: '(val) => true' },
+            'lists': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Comma-separated list IDs', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":14258,"end":14259,"loc":{"start":{"line":538,"column":40,"index":14258},"end":{"line":538,"column":41,"index":14259}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' },
             'subject': { type: 'z.string.optional', required: false, hasDefault: false, description: 'Base subject', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
             'body': { type: 'z.string.optional', required: false, hasDefault: false, description: 'Base body', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
             'testing-mode': { type: 'z.enum.optional', required: false, hasDefault: false, description: 'Testing mode', enumValues: ["holdout","full-split"], schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
             'test-group-percentage': { type: 'z.coerce.number.min.max.optional', required: false, hasDefault: false, description: 'Test-group traffic percentage', min: 1, max: 100, minLength: 1, maxLength: 100, schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
-            'auto-launch': { type: 'z.coerce.boolean.default', required: true, hasDefault: true, default: false, description: 'Auto-launch the test', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"BooleanLiteral","start":11815,"end":11820,"loc":{"start":{"line":440,"column":53,"index":11815},"end":{"line":440,"column":58,"index":11820}},"value":false}}]}, validator: '(val) => true' },
-            'auto-deploy-winner': { type: 'z.coerce.boolean.default', required: true, hasDefault: true, default: false, description: 'Auto-deploy winning variant', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"BooleanLiteral","start":11935,"end":11940,"loc":{"start":{"line":443,"column":60,"index":11935},"end":{"line":443,"column":65,"index":11940}},"value":false}}]}, validator: '(val) => true' }
+            'auto-launch': { type: 'z.coerce.boolean.default', required: true, hasDefault: true, default: false, description: 'Launch test after creation', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"BooleanLiteral","start":14818,"end":14823,"loc":{"start":{"line":556,"column":53,"index":14818},"end":{"line":556,"column":58,"index":14823}},"value":false}}]}, validator: '(val) => true' },
+            'auto-deploy-winner': { type: 'z.coerce.boolean.default', required: true, hasDefault: true, default: false, description: 'Auto-deploy winning variant', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"BooleanLiteral","start":14944,"end":14949,"loc":{"start":{"line":559,"column":60,"index":14944},"end":{"line":559,"column":65,"index":14949}},"value":false}}]}, validator: '(val) => true' },
+            'ignore-sample-size-warnings': { type: 'z.coerce.boolean.default', required: true, hasDefault: true, default: false, description: 'Ignore sample-size warnings', schema: {"type":"zod","method":"default","args":[{"type":"unknown","raw":{"type":"BooleanLiteral","start":15086,"end":15091,"loc":{"start":{"line":563,"column":32,"index":15086},"end":{"line":563,"column":37,"index":15091}},"value":false}}]}, validator: '(val) => true' }
           },
           path: './src/commands/abtest'
         },
@@ -64,7 +65,39 @@ const metadata: Record<GeneratedNames, GeneratedCommandMeta> = {
           name: 'analyze',
           description: 'Analyze A/B test results',
           options: {
-            'test-id': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Test ID', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":12527,"end":12528,"loc":{"start":{"line":464,"column":44,"index":12527},"end":{"line":464,"column":45,"index":12528}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' }
+            'test-id': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Test ID', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":15888,"end":15889,"loc":{"start":{"line":593,"column":44,"index":15888},"end":{"line":593,"column":45,"index":15889}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' }
+          },
+          path: './src/commands/abtest'
+        },
+        {
+          name: 'get',
+          description: 'Get A/B test details',
+          options: {
+            'test-id': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Test ID', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":17007,"end":17008,"loc":{"start":{"line":631,"column":44,"index":17007},"end":{"line":631,"column":45,"index":17008}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' }
+          },
+          path: './src/commands/abtest'
+        },
+        {
+          name: 'launch',
+          description: 'Launch a draft A/B test',
+          options: {
+            'test-id': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Test ID', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":17511,"end":17512,"loc":{"start":{"line":649,"column":44,"index":17511},"end":{"line":649,"column":45,"index":17512}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' }
+          },
+          path: './src/commands/abtest'
+        },
+        {
+          name: 'stop',
+          description: 'Stop a running A/B test',
+          options: {
+            'test-id': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Test ID', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":18149,"end":18150,"loc":{"start":{"line":671,"column":44,"index":18149},"end":{"line":671,"column":45,"index":18150}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' }
+          },
+          path: './src/commands/abtest'
+        },
+        {
+          name: 'delete',
+          description: 'Delete an A/B test from persisted store',
+          options: {
+            'test-id': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Test ID', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":18784,"end":18785,"loc":{"start":{"line":691,"column":44,"index":18784},"end":{"line":691,"column":45,"index":18785}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' }
           },
           path: './src/commands/abtest'
         }
@@ -183,10 +216,10 @@ const metadata: Record<GeneratedNames, GeneratedCommandMeta> = {
           name: 'create',
           description: 'Create a template',
           options: {
-            'name': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Template name', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":1740,"end":1741,"loc":{"start":{"line":63,"column":39,"index":1740},"end":{"line":63,"column":40,"index":1741}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' },
+            'name': { type: 'z.string.trim.min', required: true, hasDefault: false, description: 'Template name', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":1748,"end":1749,"loc":{"start":{"line":63,"column":39,"index":1748},"end":{"line":63,"column":40,"index":1749}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' },
             'type': { type: 'templateTypeSchema.default', required: true, hasDefault: true, default: "campaign", description: 'Template type', schema: {"type":"zod","method":"default","args":[{"type":"literal","value":"campaign"}]}, validator: '(val) => true' },
             'subject': { type: 'z.string.trim.optional', required: false, hasDefault: false, description: 'Email subject', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' },
-            'body': { type: 'z.string.min', required: true, hasDefault: false, description: 'Template body', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":2018,"end":2019,"loc":{"start":{"line":72,"column":32,"index":2018},"end":{"line":72,"column":33,"index":2019}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' },
+            'body': { type: 'z.string.min', required: true, hasDefault: false, description: 'Template body', min: 1, minLength: 1, schema: {"type":"zod","method":"min","args":[{"type":"unknown","raw":{"type":"NumericLiteral","start":2026,"end":2027,"loc":{"start":{"line":72,"column":32,"index":2026},"end":{"line":72,"column":33,"index":2027}},"extra":{"rawValue":1,"raw":"1"},"value":1}}]}, validator: '(val) => true' },
             'body-source': { type: 'z.string.optional', required: false, hasDefault: false, description: 'Original source body', schema: {"type":"zod","method":"optional","args":[]}, validator: '(val) => true' }
           },
           path: './src/commands/templates'

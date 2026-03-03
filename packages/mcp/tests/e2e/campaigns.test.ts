@@ -20,7 +20,7 @@ describe("Campaigns MCP Tools", () => {
 						await client.callTool("listmonk_delete_campaign", {
 							id: campaign.id.toString(),
 						});
-					} catch (error) {
+					} catch {
 						// Ignore errors when cleaning up
 					}
 				}
@@ -240,7 +240,10 @@ describe("Campaigns MCP Tools", () => {
 			"listmonk_get_campaign_running_stats",
 			{},
 		);
-		utils.assertError(runningStatsResult, "Missing required parameter: campaign_id");
+		utils.assertError(
+			runningStatsResult,
+			"Missing required parameter: campaign_id",
+		);
 
 		const analyticsResult = await client.callTool(
 			"listmonk_get_campaign_analytics",

@@ -8,6 +8,14 @@ import type { AbTest, TestResults, Variant } from "./types";
 export class ListmonkAbTestIntegration {
 	constructor(private listmonkClient: ListmonkClient) {}
 
+	private requireNumericId(value: unknown, context: string): number {
+		if (typeof value === "number" && Number.isFinite(value)) {
+			return value;
+		}
+
+		throw new Error(`${context}: response missing numeric id`);
+	}
+
 	/**
 	 * Creates actual Listmonk campaigns for A/B test variants
 	 */
@@ -22,15 +30,7 @@ export class ListmonkAbTestIntegration {
 	): Promise<{ variantId: string; campaignId: number }[]> {
 		const createdCampaigns: { variantId: string; campaignId: number }[] = [];
 
-		// Get total subscribers for percentage calculation
-		const totalSubscribers = await this.getTotalSubscribers(baseConfig.lists);
-
 		for (const variant of abTest.variants) {
-			// Calculate subscriber count for this variant
-			const variantSubscriberCount = Math.floor(
-				(totalSubscribers * variant.percentage) / 100,
-			);
-
 			// Create campaign for this variant
 			const campaignData = {
 				body: {
@@ -55,7 +55,10 @@ export class ListmonkAbTestIntegration {
 
 			createdCampaigns.push({
 				variantId: variant.id,
-				campaignId: result.data.id!,
+				campaignId: this.requireNumericId(
+					result.data.id,
+					`Failed to create campaign for variant ${variant.name}`,
+				),
 			});
 		}
 
@@ -109,7 +112,10 @@ export class ListmonkAbTestIntegration {
 			);
 		}
 
-		const holdoutListId = holdoutListResult.data.id!;
+		const holdoutListId = this.requireNumericId(
+			holdoutListResult.data.id,
+			"Failed to create holdout list",
+		);
 
 		// Add holdout subscribers to holdout list
 		for (const subscriber of holdoutGroupSubscribers) {
@@ -144,7 +150,10 @@ export class ListmonkAbTestIntegration {
 				);
 			}
 
-			const testListId = testListResult.data.id!;
+			const testListId = this.requireNumericId(
+				testListResult.data.id,
+				`Failed to create test list for variant ${variant.name}`,
+			);
 
 			// Add subscribers to test list
 			for (const subscriber of variantSubscribers) {
@@ -213,7 +222,10 @@ export class ListmonkAbTestIntegration {
 				);
 			}
 
-			const listId = listResult.data.id!;
+			const listId = this.requireNumericId(
+				listResult.data.id,
+				`Failed to create list for variant ${variant.name}`,
+			);
 
 			// Add subscribers to this list
 			for (const subscriber of variantSubscribers) {
@@ -271,20 +283,21 @@ export class ListmonkAbTestIntegration {
 			throw new Error(`Failed to create winner campaign: ${result.error}`);
 		}
 
-		return result.data.id!;
+		return this.requireNumericId(
+			result.data.id,
+			"Failed to create winner campaign",
+		);
 	}
 
 	/**
 	 * Automatically launches winner campaign to holdout group
 	 */
 	async autoDeployWinner(winnerCampaignId: number): Promise<void> {
-		// Update campaign status to running
-		await this.listmonkClient.campaign.update({
+		// Launch winner campaign
+		await this.listmonkClient.campaign.updateStatus({
 			path: { id: winnerCampaignId },
 			body: {
-				// Note: Status updates may need to be handled differently in actual API
-				// For now, just update the name to indicate it's running
-				name: `Winner Campaign - Running`,
+				status: "running",
 			},
 		});
 	}
@@ -293,7 +306,7 @@ export class ListmonkAbTestIntegration {
 	 * Collects actual test results from Listmonk campaigns
 	 */
 	async collectTestResults(
-		testId: string,
+		_testId: string,
 		campaignMappings: { variantId: string; campaignId: number }[],
 	): Promise<TestResults[]> {
 		const results: TestResults[] = [];
@@ -315,7 +328,6 @@ export class ListmonkAbTestIntegration {
 			const sampleSize = campaign.sent || 0;
 			const opens = campaign.views || 0;
 			const clicks = campaign.clicks || 0;
-			const bounces = 0; // campaign.bounces field not available in current API
 
 			// For conversion tracking, we'd need additional integration
 			// For now, use click-through as a proxy for conversions
@@ -436,7 +448,7 @@ export class ListmonkAbTestIntegration {
 		campaignMappings: { variantId: string; campaignId: number }[],
 		listMappings: { variantId: string; listId: number }[],
 	): Promise<void> {
-		// Update campaign lists to use segmented lists
+		// Apply segmented list mapping and launch each campaign.
 		for (const campaign of campaignMappings) {
 			const listMapping = listMappings.find(
 				(l) => l.variantId === campaign.variantId,
@@ -448,13 +460,22 @@ export class ListmonkAbTestIntegration {
 				);
 			}
 
-			// Update campaign to use the segmented list
-			await this.listmonkClient.campaign.update({
+			const updateResult = await this.listmonkClient.campaign.update({
 				path: { id: campaign.campaignId },
 				body: {
-					// Note: This needs to be implemented properly in the actual API
-					// For now, just update the name to indicate it's using segmented list
-					name: `Campaign for List ${listMapping.listId}`,
+					lists: [listMapping.listId],
+				},
+			});
+			if ("error" in updateResult) {
+				throw new Error(
+					`Failed to update campaign ${campaign.campaignId}: ${updateResult.error}`,
+				);
+			}
+
+			await this.listmonkClient.campaign.updateStatus({
+				path: { id: campaign.campaignId },
+				body: {
+					status: "running",
 				},
 			});
 		}
@@ -471,15 +492,24 @@ export class ListmonkAbTestIntegration {
 				throw new Error(`Failed to get list ${listId}: ${listResult.error}`);
 			}
 
-			total += listResult.data.subscriber_count || 0;
+			total += Math.max(0, Number(listResult.data.subscriber_count ?? 0));
 		}
+
+		// Some Listmonk setups can return stale/zero subscriber_count for API users.
+		// Fall back to direct subscriber enumeration to avoid false validation failures.
+		if (total === 0) {
+			const subscribers = await this.getAllSubscribers(listIds);
+			return subscribers.length;
+		}
+
 		return total;
 	}
 
 	async getAllSubscribers(
 		listIds: number[],
 	): Promise<{ id: number; email: string }[]> {
-		const allSubscribers: { id: number; email: string }[] = [];
+		const subscribersById = new Map<number, { id: number; email: string }>();
+		const targetListIds = new Set(listIds);
 
 		// Get subscribers from all lists
 		const subscribersResult = await this.listmonkClient.subscriber.list({
@@ -495,22 +525,76 @@ export class ListmonkAbTestIntegration {
 		}
 
 		for (const subscriber of subscribersResult.data.results) {
-			allSubscribers.push({
-				id: subscriber.id!,
-				email: subscriber.email!,
+			const subscriberId = subscriber.id;
+			const subscriberEmail = subscriber.email;
+			if (!subscriberId || !subscriberEmail) {
+				continue;
+			}
+
+			if (targetListIds.size > 0) {
+				const subscriberListIds = this.extractSubscriberListIds(
+					subscriber.lists,
+				);
+				if (
+					subscriberListIds.size > 0 &&
+					![...subscriberListIds].some((listId) => targetListIds.has(listId))
+				) {
+					continue;
+				}
+			}
+
+			subscribersById.set(subscriberId, {
+				id: subscriberId,
+				email: subscriberEmail,
 			});
 		}
 
-		return allSubscribers;
+		return Array.from(subscribersById.values());
 	}
 
 	async addSubscriberToList(
 		subscriberId: number,
 		listId: number,
 	): Promise<void> {
-		// This would typically be done via a bulk operation
-		// For now, we'll simulate the process
-		console.log(`Adding subscriber ${subscriberId} to list ${listId}`);
+		const subscriberResult = await this.listmonkClient.subscriber.getById({
+			path: { id: subscriberId },
+		});
+		if ("error" in subscriberResult) {
+			throw new Error(
+				`Failed to fetch subscriber ${subscriberId}: ${subscriberResult.error}`,
+			);
+		}
+
+		const subscriber = subscriberResult.data;
+		const existingListIds = this.extractSubscriberListIds(subscriber.lists);
+		if (existingListIds.has(listId)) {
+			return;
+		}
+
+		const lists = Array.from(new Set([...existingListIds, listId]));
+		const body: Record<string, unknown> = { lists };
+		if (subscriber.email) {
+			body.email = subscriber.email;
+		}
+		if (subscriber.name) {
+			body.name = subscriber.name;
+		}
+		if (subscriber.status) {
+			body.status = subscriber.status;
+		}
+		if (subscriber.attribs) {
+			body.attribs = subscriber.attribs;
+		}
+
+		const updateResult = await this.listmonkClient.subscriber.update({
+			path: { id: subscriberId },
+			body,
+		});
+		if ("error" in updateResult) {
+			throw new Error(
+				`Failed to add subscriber ${subscriberId} to list ${listId}: ${updateResult.error}`,
+			);
+		}
 	}
 
 	shuffleArray<T>(array: T[]): T[] {
@@ -518,9 +602,39 @@ export class ListmonkAbTestIntegration {
 		for (let i = shuffled.length - 1; i > 0; i--) {
 			const j = Math.floor(Math.random() * (i + 1));
 			const temp = shuffled[i];
-			shuffled[i] = shuffled[j]!;
-			shuffled[j] = temp!;
+			const swap = shuffled[j];
+			if (temp === undefined || swap === undefined) {
+				continue;
+			}
+
+			shuffled[i] = swap;
+			shuffled[j] = temp;
 		}
 		return shuffled;
+	}
+
+	private extractSubscriberListIds(lists: unknown): Set<number> {
+		if (!Array.isArray(lists)) {
+			return new Set();
+		}
+
+		const ids = new Set<number>();
+		for (const list of lists) {
+			if (typeof list === "number") {
+				ids.add(list);
+				continue;
+			}
+
+			if (
+				list &&
+				typeof list === "object" &&
+				"id" in list &&
+				typeof list.id === "number"
+			) {
+				ids.add(list.id);
+			}
+		}
+
+		return ids;
 	}
 }

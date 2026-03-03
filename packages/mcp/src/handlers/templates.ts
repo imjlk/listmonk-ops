@@ -24,6 +24,10 @@ export const templatesTools: MCPTool[] = [
 					description: "Number of items per page",
 					default: 20,
 				},
+				no_body: {
+					type: "boolean",
+					description: "Omit template body in response",
+				},
 			},
 		},
 	},
@@ -147,14 +151,12 @@ export async function handleTemplatesTools(
 	try {
 		switch (name) {
 			case "listmonk_get_templates": {
-				const options: any = {
-					query: {
-						page: args.page || 1,
-						per_page: args.per_page || 20,
-					},
-				};
-
-				const response = await client.template.list(options);
+				const noBody =
+					args.no_body === true ||
+					String(args.no_body).toLowerCase() === "true";
+				const response = await client.template.list(
+					noBody ? { query: { no_body: true } } : undefined,
+				);
 				return createSuccessResult(response.data);
 			}
 

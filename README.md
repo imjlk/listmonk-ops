@@ -1,32 +1,229 @@
-# 📧 Listmonk Operations
+# Listmonk Operations Monorepo
 
-A comprehensive TypeScript monorepo for Listmonk email marketing platform with complete development environment automation. Built with Cloudflare Workers platform and CLI support for easy email marketing automation operations.
+English | [한국어](./README_ko.md)
 
-## 🚀 Quick Start
+Production-oriented tooling for operating [Listmonk](https://listmonk.app/) with a single TypeScript/Bun monorepo.
 
-### One-Command Setup
+This repository includes:
+- OpenAPI-based SDK generation (Hey API)
+- A/B testing domain logic
+- MCP server for tool-based integrations
+- Bunli-based CLI with shell completions and standalone binary builds
+- Dockerized local Listmonk environment (Listmonk + Postgres + Mailpit)
+
+## Components
+
+| Path | Purpose |
+| --- | --- |
+| `apps/cli` | `listmonk-cli` command line app (Bunli) |
+| `packages/openapi` | Generated API SDK and typed client wrappers |
+| `packages/abtest` | A/B test services and analysis logic |
+| `packages/mcp` | MCP server exposing Listmonk operations |
+| `packages/common` | Shared utilities and error/validation helpers |
+
+## Prerequisites
+
+- Bun 1.3+
+- Docker and Docker Compose
+- Node.js 18+ (for `packages/mcp` production start script)
+
+## Quick Start
 
 ```bash
-# Start the complete development environment
+# 1) Install dependencies
+bun install
+
+# 2) Start local Listmonk stack
 docker compose up -d
 
-# Configure SMTP automatically
+# 3) Configure SMTP for Mailpit
 ./setup-smtp.sh
 ```
 
-That's it! Your complete email marketing development environment is ready.
+Local endpoints:
+- Listmonk Admin: `http://localhost:9000/admin`
+- Listmonk API: `http://localhost:9000/api`
+- Mailpit UI: `http://localhost:8025`
+- Mailpit SMTP: `localhost:1025`
+- PostgreSQL: `localhost:5432`
 
-### Access Points
+Default admin credentials from `docker-compose.yml`:
+- Username: `admin`
+- Password: `adminpass`
 
-- **📧 Listmonk Admin**: <http://localhost:9000/admin>
-- **📨 Mailpit Web UI**: <http://localhost:8025>  
-- **🐘 PostgreSQL**: localhost:5432
+## Environment Variables
 
-### Default Credentials
+CLI/OpenAPI client use token-based auth:
 
-- **Username**: `admin`
-- **Password**: `adminpass`
+```bash
+export LISTMONK_API_URL="http://localhost:9000/api"
+export LISTMONK_USERNAME="api-admin"
+export LISTMONK_API_TOKEN="<your-token>"
+# Optional: suppress A/B statistical console logs in automation
+export LISTMONK_OPS_ABTEST_SILENT="1"
+```
 
-## ✨ What's Included
+You can create/manage tokens in the Listmonk admin UI.
 
-WIP
+## Workspace Commands
+
+From repository root:
+
+```bash
+# CLI
+bun run cli -- status
+bun run cli -- campaigns list
+
+# OpenAPI package
+bun run api generate
+bun run api test
+
+# MCP package
+bun run mcp dev
+bun run mcp test:e2e
+```
+
+## Operational Baseline
+
+For sustainable operation, keep these checks in your regular loop:
+
+```bash
+# Build every workspace package
+bun run build
+
+# Run package tests
+bun run test
+
+# Run integration/E2E tests (requires local stack)
+bun run test:e2e
+
+# Quick local stack smoke (read-only checks)
+bun run ops:smoke
+
+# Full smoke (includes create/analyze flows)
+bun run ops:smoke:full
+```
+
+Smoke script details:
+- File: `scripts/ops-smoke.sh`
+- Auto-resolves API token from local Docker DB when `LISTMONK_API_TOKEN` is not set
+- Supports mode switch with `LISTMONK_OPS_SMOKE_MODE=quick|full`
+- Writes JSON report to `${LISTMONK_OPS_SMOKE_REPORT:-/tmp/listmonk-ops-smoke/report.json}`
+
+CI now enforces:
+- OpenAPI generation drift detection
+- Workspace build/test
+- Docker-based local stack smoke on every push/PR
+
+## CLI Build Pipeline (JS + Single Binary)
+
+`apps/cli` uses Bunli and supports both JS output and native standalone binary.
+
+```bash
+# Build everything
+bun run --cwd apps/cli build
+
+# Outputs
+# - dist/js/index.js          (runtime bundle)
+# - dist/bin/listmonk-cli     (native single binary for current platform)
+```
+
+Additional scripts:
+
+```bash
+# JS-only bundle
+bun run --cwd apps/cli build:js
+
+# Native binary for current platform
+bun run --cwd apps/cli build:bin
+
+# Native binaries for all supported targets
+bun run --cwd apps/cli build:bin:all
+```
+
+## Shell Completions (CLI)
+
+```bash
+# Generate completion script
+listmonk-cli completions zsh
+listmonk-cli completions bash
+listmonk-cli completions fish
+listmonk-cli completions powershell
+
+# Example (zsh)
+source <(listmonk-cli completions zsh)
+```
+
+## A/B Test Operations
+
+CLI `abtest` group now supports full lifecycle operations:
+
+```bash
+listmonk-cli abtest list
+listmonk-cli abtest get --test-id <id>
+listmonk-cli abtest create ...
+listmonk-cli abtest launch --test-id <id>
+listmonk-cli abtest stop --test-id <id>
+listmonk-cli abtest analyze --test-id <id>
+listmonk-cli abtest delete --test-id <id>
+```
+
+MCP now also exposes A/B test lifecycle tools:
+
+```text
+listmonk_abtest_list
+listmonk_abtest_get
+listmonk_abtest_create
+listmonk_abtest_analyze
+listmonk_abtest_launch
+listmonk_abtest_stop
+listmonk_abtest_delete
+listmonk_abtest_recommend_sample_size
+listmonk_abtest_deploy_winner
+```
+
+## OpenAPI Regeneration (Hey API)
+
+The SDK is generated by `@hey-api/openapi-ts`.
+
+1. Update spec file:
+   - `packages/openapi/spec/listmonk.yaml`
+2. Regenerate client/SDK:
+
+```bash
+bun run --cwd packages/openapi generate
+```
+
+Generated artifacts are written to:
+- `packages/openapi/generated/*`
+
+## MCP Server
+
+Start development server:
+
+```bash
+bun run --cwd packages/mcp dev
+```
+
+Common endpoints:
+- `GET /health`
+- `POST /tools/list`
+- `POST /tools/call`
+
+See [packages/mcp/README.md](./packages/mcp/README.md) for detailed tool coverage and E2E workflow.
+
+## Troubleshooting
+
+- If CLI requests fail with auth errors, verify `LISTMONK_API_TOKEN` and `LISTMONK_USERNAME`.
+- If local Listmonk is not ready, check logs:
+
+```bash
+docker compose logs -f listmonk
+docker compose logs -f db
+```
+
+- Re-run SMTP setup after recreating containers:
+
+```bash
+./setup-smtp.sh
+```

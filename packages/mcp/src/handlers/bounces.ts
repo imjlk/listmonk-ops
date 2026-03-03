@@ -104,12 +104,14 @@ export const handleBouncesTools: HandlerFunction = withErrorHandler(
 
 		switch (name) {
 			case "listmonk_get_bounces": {
-				const options: any = {
+				const options: NonNullable<
+					Parameters<ListmonkClient["bounce"]["list"]>[0]
+				> = {
 					...parsePaginationParams(args),
 				};
 
-				if (args.campaign_id) {
-					options.campaign_id = Number(args.campaign_id);
+				if (args.campaign_id !== undefined && args.campaign_id !== null) {
+					options.campaign_id = parseId(args.campaign_id);
 				}
 				if (args.source) {
 					options.source = String(args.source);
@@ -146,8 +148,9 @@ export const handleBouncesTools: HandlerFunction = withErrorHandler(
 
 			case "listmonk_delete_bounces": {
 				const query: { all?: boolean; id?: string } = {};
+				const deleteAll = args.all === true || args.all === "true";
 
-				if (args.all) {
+				if (deleteAll) {
 					query.all = true;
 				} else if (args.ids && Array.isArray(args.ids)) {
 					query.id = arrayToCommaString(args.ids);

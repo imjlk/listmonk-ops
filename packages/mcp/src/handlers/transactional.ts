@@ -62,6 +62,9 @@ export async function handleTransactionalTools(
 	client: ListmonkClient,
 ): Promise<CallToolResult> {
 	const { name, arguments: args = {} } = request.params;
+	type TransactionalSendInput = Parameters<
+		ListmonkClient["transactional"]["send"]
+	>[0];
 
 	try {
 		switch (name) {
@@ -77,23 +80,46 @@ export async function handleTransactionalTools(
 					);
 				}
 
-				const body: Record<string, unknown> = {
-					template_id: args.template_id,
-					data: args.data || {},
-					headers: args.headers || {},
+				const templateId = Number(args.template_id);
+				if (!Number.isInteger(templateId) || templateId <= 0) {
+					return createErrorResult("template_id must be a positive integer");
+				}
+
+				const body: TransactionalSendInput = {
+					template_id: templateId,
+					data:
+						typeof args.data === "object" &&
+						args.data !== null &&
+						!Array.isArray(args.data)
+							? (args.data as Record<string, unknown>)
+							: {},
+					headers: Array.isArray(args.headers)
+						? args.headers.filter(
+								(entry): entry is Record<string, string> =>
+									typeof entry === "object" &&
+									entry !== null &&
+									!Array.isArray(entry),
+							)
+						: [],
 				};
 
 				if (args.subscriber_email) {
-					body.subscriber_email = args.subscriber_email;
+					body.subscriber_email = String(args.subscriber_email);
 				}
 				if (args.subscriber_id) {
-					body.subscriber_id = args.subscriber_id;
+					const subscriberId = Number(args.subscriber_id);
+					if (!Number.isInteger(subscriberId) || subscriberId <= 0) {
+						return createErrorResult(
+							"subscriber_id must be a positive integer",
+						);
+					}
+					body.subscriber_id = subscriberId;
 				}
 				if (args.from_email) {
-					body.from_email = args.from_email;
+					body.from_email = String(args.from_email);
 				}
 
-				const response = await client.transactional.send(body as any);
+				const response = await client.transactional.send(body);
 				return createSuccessResult(response.data);
 			}
 

@@ -1,4 +1,4 @@
-import { test, expect, describe } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { createMCPTestSuite } from "../mcp-helper.js";
 import "../setup.js";
 
@@ -13,7 +13,9 @@ describe("MCP Server Integration", () => {
 		expect(tools.tools.length).toBeGreaterThan(0);
 
 		// Check for key tool categories
-		const toolNames = tools.tools.map((tool: any) => tool.name);
+		const toolNames = (tools.tools as Array<{ name: string }>).map(
+			(tool) => tool.name,
+		);
 
 		// Lists tools
 		expect(toolNames).toContain("listmonk_get_lists");
@@ -58,6 +60,17 @@ describe("MCP Server Integration", () => {
 
 		// Transactional tools
 		expect(toolNames).toContain("listmonk_send_transactional");
+
+		// A/B test tools
+		expect(toolNames).toContain("listmonk_abtest_list");
+		expect(toolNames).toContain("listmonk_abtest_get");
+		expect(toolNames).toContain("listmonk_abtest_create");
+		expect(toolNames).toContain("listmonk_abtest_analyze");
+		expect(toolNames).toContain("listmonk_abtest_launch");
+		expect(toolNames).toContain("listmonk_abtest_stop");
+		expect(toolNames).toContain("listmonk_abtest_delete");
+		expect(toolNames).toContain("listmonk_abtest_recommend_sample_size");
+		expect(toolNames).toContain("listmonk_abtest_deploy_winner");
 	});
 
 	test("should expose health and dashboard tools", async () => {
@@ -68,7 +81,10 @@ describe("MCP Server Integration", () => {
 		);
 		expect(health).toBe(true);
 
-		const countsResult = await client.callTool("listmonk_get_dashboard_counts", {});
+		const countsResult = await client.callTool(
+			"listmonk_get_dashboard_counts",
+			{},
+		);
 		const counts = utils.assertSuccess<Record<string, unknown>>(
 			countsResult,
 			"Dashboard counts tool failed",

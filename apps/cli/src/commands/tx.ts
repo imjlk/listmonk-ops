@@ -2,7 +2,7 @@ import { defineCommand, defineGroup, option } from "@bunli/core";
 import { OutputUtils } from "@listmonk-ops/common";
 import { z } from "zod";
 
-import { parseJson, toErrorMessage } from "../lib/command-utils";
+import { hasApiError, parseJson, toErrorMessage } from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
 
 export default defineGroup({
@@ -56,6 +56,9 @@ export default defineGroup({
 						content_type: flags["content-type"],
 						data: templateData,
 					});
+					if (hasApiError(response)) {
+						throw new Error(toErrorMessage(response.error));
+					}
 
 					OutputUtils.success("Transactional message sent");
 					OutputUtils.json(response.data);

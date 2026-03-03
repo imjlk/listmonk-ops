@@ -19,7 +19,7 @@ export class CreateAbTestCommand {
 		// Convert CreateAbTestInput to AbTestConfig
 		const config: AbTestConfig = {
 			name: input.name,
-			campaignId: `campaign-${Date.now()}`, // Generate temporary campaign ID
+			campaignId: input.campaign_id || `campaign-${Date.now()}`,
 			variants: input.variants.map((v, index) => ({
 				id: `variant-${index}`,
 				name: v.name,

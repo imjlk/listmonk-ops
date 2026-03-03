@@ -22,7 +22,7 @@ describe("Subscribers MCP Tools", () => {
 						await client.callTool("listmonk_delete_subscriber", {
 							id: subscriber.id.toString(),
 						});
-					} catch (error) {
+					} catch {
 						// Ignore errors when cleaning up
 					}
 				}

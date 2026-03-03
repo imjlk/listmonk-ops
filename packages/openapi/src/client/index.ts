@@ -52,7 +52,7 @@ type TemplateTypes = ResourceTypes<
 	t.CreateTemplateData,
 	t.GetTemplatesData,
 	t.GetTemplateByIdData,
-	t.UpdateTemplateByIdData,
+	t.UpdateTemplateByIdPutData,
 	t.DeleteTemplateByIdData
 >;
 
@@ -351,7 +351,7 @@ interface EnhancedListmonkClient {
 	> & {
 		setAsDefault(options: {
 			path: { id: number };
-		}): Promise<FlattenedResponse<boolean>>;
+		}): Promise<FlattenedResponse<t.Template>>;
 	};
 	media: MediaOperations & {
 		upload(options: {
@@ -454,83 +454,130 @@ export const transformResponse = async (
 /**
  * Create a CRUD operations object for a specific resource
  */
+type CrudMethod = "create" | "get" | "getById" | "update" | "delete";
+type CrudMethodOverrides = Partial<Record<CrudMethod, string[]>>;
+type SdkMethod = (options: unknown) => Promise<unknown>;
+
+const resolveSdkMethod = (candidateNames: string[]): SdkMethod => {
+	for (const methodName of candidateNames) {
+		const method = (sdk as Record<string, unknown>)[methodName];
+		if (typeof method === "function") {
+			return method as SdkMethod;
+		}
+	}
+	throw new Error(`SDK method not found: ${candidateNames.join(" | ")}`);
+};
+
+const normalizeListPayload = <T>(data: unknown): ListResult<T>["data"] => {
+	if (Array.isArray(data)) {
+		return {
+			results: data as T[],
+			total: data.length,
+			per_page: data.length,
+			page: 1,
+		};
+	}
+
+	if (data && typeof data === "object") {
+		const listData = data as Record<string, unknown>;
+		if (Array.isArray(listData.results)) {
+			const results = listData.results as T[];
+			return {
+				results,
+				total: typeof listData.total === "number" ? listData.total : results.length,
+				per_page:
+					typeof listData.per_page === "number"
+						? listData.per_page
+						: results.length,
+				page: typeof listData.page === "number" ? listData.page : 1,
+			};
+		}
+	}
+
+	return {
+		results: [],
+		total: 0,
+		per_page: 0,
+		page: 1,
+	};
+};
+
 const createCrudOperations = <T>(
 	resourceName: string,
 	sdkOptions: { client: ReturnType<typeof createClient> },
+	methodOverrides: CrudMethodOverrides = {},
 ): CrudOperations<T, unknown, unknown, unknown, unknown, unknown> => {
-	// Map resource names to actual SDK method names
-	const methodNames = {
-		create: `create${resourceName}`,
-		get: `get${resourceName}s`,
-		getById: `get${resourceName}ById`,
-		update: `update${resourceName}ById`,
-		delete: `delete${resourceName}ById`,
+	const defaultMethodNames: Record<CrudMethod, string[]> = {
+		create: [`create${resourceName}`],
+		get: [`get${resourceName}s`],
+		getById: [`get${resourceName}ById`],
+		update: [`update${resourceName}ById`],
+		delete: [`delete${resourceName}ById`],
+	};
+
+	const methodNames: Record<CrudMethod, string[]> = {
+		create: [...(methodOverrides.create ?? []), ...defaultMethodNames.create],
+		get: [...(methodOverrides.get ?? []), ...defaultMethodNames.get],
+		getById: [...(methodOverrides.getById ?? []), ...defaultMethodNames.getById],
+		update: [...(methodOverrides.update ?? []), ...defaultMethodNames.update],
+		delete: [...(methodOverrides.delete ?? []), ...defaultMethodNames.delete],
 	};
 
 	return {
 		async create(options: unknown): Promise<FlattenedResponse<T>> {
-			const sdkMethod = (sdk as Record<string, unknown>)[methodNames.create];
-			if (typeof sdkMethod === "function") {
-				const mergedOptions =
-					typeof options === "object" && options !== null
-						? { ...sdkOptions, ...options }
-						: sdkOptions;
-				const result = await sdkMethod(mergedOptions);
-				return (await transformResponse(result)) as FlattenedResponse<T>;
-			}
-			throw new Error(`${methodNames.create} method not found`);
+			const sdkMethod = resolveSdkMethod(methodNames.create);
+			const mergedOptions =
+				typeof options === "object" && options !== null
+					? { ...sdkOptions, ...options }
+					: sdkOptions;
+			const result = await sdkMethod(mergedOptions);
+			return (await transformResponse(result)) as FlattenedResponse<T>;
 		},
 
 		async list(options: unknown): Promise<ListResult<T>> {
-			const sdkMethod = (sdk as Record<string, unknown>)[methodNames.get];
-			if (typeof sdkMethod === "function") {
-				const mergedOptions =
-					typeof options === "object" && options !== null
-						? { ...sdkOptions, ...options }
-						: sdkOptions;
-				const result = await sdkMethod(mergedOptions);
-				return (await transformResponse(result)) as ListResult<T>;
-			}
-			throw new Error(`${methodNames.get} method not found`);
+			const sdkMethod = resolveSdkMethod(methodNames.get);
+			const mergedOptions =
+				typeof options === "object" && options !== null
+					? { ...sdkOptions, ...options }
+					: sdkOptions;
+			const result = await sdkMethod(mergedOptions);
+			const transformed = (await transformResponse(result)) as FlattenedResponse<
+				unknown
+			>;
+			return {
+				...transformed,
+				data: normalizeListPayload<T>(transformed.data),
+			} as ListResult<T>;
 		},
 
 		async getById(options: unknown): Promise<CrudResult<T>> {
-			const sdkMethod = (sdk as Record<string, unknown>)[methodNames.getById];
-			if (typeof sdkMethod === "function") {
-				const mergedOptions =
-					typeof options === "object" && options !== null
-						? { ...sdkOptions, ...options }
-						: sdkOptions;
-				const result = await sdkMethod(mergedOptions);
-				return (await transformResponse(result)) as CrudResult<T>;
-			}
-			throw new Error(`${methodNames.getById} method not found`);
+			const sdkMethod = resolveSdkMethod(methodNames.getById);
+			const mergedOptions =
+				typeof options === "object" && options !== null
+					? { ...sdkOptions, ...options }
+					: sdkOptions;
+			const result = await sdkMethod(mergedOptions);
+			return (await transformResponse(result)) as CrudResult<T>;
 		},
 
 		async update(options: unknown): Promise<CrudResult<T>> {
-			const sdkMethod = (sdk as Record<string, unknown>)[methodNames.update];
-			if (typeof sdkMethod === "function") {
-				const mergedOptions =
-					typeof options === "object" && options !== null
-						? { ...sdkOptions, ...options }
-						: sdkOptions;
-				const result = await sdkMethod(mergedOptions);
-				return (await transformResponse(result)) as CrudResult<T>;
-			}
-			throw new Error(`${methodNames.update} method not found`);
+			const sdkMethod = resolveSdkMethod(methodNames.update);
+			const mergedOptions =
+				typeof options === "object" && options !== null
+					? { ...sdkOptions, ...options }
+					: sdkOptions;
+			const result = await sdkMethod(mergedOptions);
+			return (await transformResponse(result)) as CrudResult<T>;
 		},
 
 		async delete(options: unknown): Promise<FlattenedResponse<boolean>> {
-			const sdkMethod = (sdk as Record<string, unknown>)[methodNames.delete];
-			if (typeof sdkMethod === "function") {
-				const mergedOptions =
-					typeof options === "object" && options !== null
-						? { ...sdkOptions, ...options }
-						: sdkOptions;
-				const result = await sdkMethod(mergedOptions);
-				return (await transformResponse(result)) as FlattenedResponse<boolean>;
-			}
-			throw new Error(`${methodNames.delete} method not found`);
+			const sdkMethod = resolveSdkMethod(methodNames.delete);
+			const mergedOptions =
+				typeof options === "object" && options !== null
+					? { ...sdkOptions, ...options }
+					: sdkOptions;
+			const result = await sdkMethod(mergedOptions);
+			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 	};
 };
@@ -780,14 +827,17 @@ export const createListmonkClient = (
 				>;
 			},
 		},
-		template: {
-			...createCrudOperations("Template", sdkOptions),
-			async setAsDefault(options: { path: { id: number } }) {
-				const mergedOptions = { ...sdkOptions, ...options };
-				const result = await sdk.updateTemplateById2(mergedOptions);
-				return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			template: {
+				...createCrudOperations("Template", sdkOptions, {
+					create: ["createTemplate"],
+					update: ["updateTemplateByIdPut"],
+				}),
+				async setAsDefault(options: { path: { id: number } }) {
+					const mergedOptions = { ...sdkOptions, ...options };
+					const result = await sdk.updateTemplateById(mergedOptions);
+					return (await transformResponse(result)) as FlattenedResponse<t.Template>;
+				},
 			},
-		},
 		media: {
 			list: createCrudOperations("Media", sdkOptions)
 				.list as MediaOperations["list"],
@@ -819,7 +869,7 @@ export const createListmonkClient = (
 				)) as FlattenedResponse<t.ImportStatus>;
 			},
 			async logs() {
-				const result = await sdk.getImportSubscriberLogs(sdkOptions);
+				const result = await sdk.getImportSubscriberStats(sdkOptions);
 				return (await transformResponse(result)) as FlattenedResponse<string>;
 			},
 			async start(params: ImportStartParams) {

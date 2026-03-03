@@ -4,16 +4,22 @@
 	"type": "module",
 	"private": true,
 	"devDependencies": {
-		"@biomejs/biome": "2.1.1",
-		"@types/bun": "latest"
+		"@biomejs/biome": "2.4.5",
+		"@types/bun": "^1.3.10"
 	},
 	"peerDependencies": {
-		"typescript": "^5"
+		"typescript": "^5.9.3"
 	},
 	"scripts": {
-		"cli": "bun run --cwd apps/cli --",
+		"cli": "bun --cwd apps/cli src/index.ts",
 		"api": "bun run --cwd packages/openapi --",
 		"mcp": "bun run --cwd packages/mcp --",
+		"build": "bun run --cwd apps/cli build && bun run --cwd packages/openapi build && bun run --cwd packages/abtest build && bun run --cwd packages/mcp build",
+		"test": "bun run --cwd packages/openapi test && bun run --cwd packages/abtest test",
+		"test:e2e": "bun run --cwd packages/mcp test:e2e",
+		"test:all": "bun run test && bun run test:e2e",
+		"ops:smoke": "bash ./scripts/ops-smoke.sh",
+		"ops:smoke:full": "LISTMONK_OPS_SMOKE_MODE=full bash ./scripts/ops-smoke.sh",
 		"format": "biome format --write"
 	},
 	"workspaces": {

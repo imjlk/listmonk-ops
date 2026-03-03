@@ -11,7 +11,7 @@ export default defineConfig({
 	},
 	build: {
 		entry: "./src/index.ts",
-		outdir: "./dist",
+		outdir: "./dist/js",
 		minify: true,
 		sourcemap: false,
 	},

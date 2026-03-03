@@ -451,7 +451,7 @@ bun test --watch
 bun run generate
 
 # The generate command:
-# 1. Fetches latest Listmonk OpenAPI spec from https://listmonk.app/docs/swagger/collections.yaml
+# 1. Uses the local source spec at ./spec/listmonk.yaml
 # 2. Generates TypeScript client using @hey-api/openapi-ts
 # 3. Creates type definitions and SDK methods
 # 4. Outputs to ./generated/ directory

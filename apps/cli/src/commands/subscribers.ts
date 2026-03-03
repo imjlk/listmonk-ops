@@ -77,7 +77,7 @@ export default defineGroup({
 					});
 
 					if (hasApiError(response)) {
-						throw new Error(String(response.error));
+						throw new Error(toErrorMessage(response.error));
 					}
 
 					OutputUtils.json(response.data);
@@ -116,6 +116,9 @@ export default defineGroup({
 							lists: listIds,
 						},
 					});
+					if (hasApiError(response)) {
+						throw new Error(toErrorMessage(response.error));
+					}
 
 					OutputUtils.success(`Subscriber created: ${flags.email}`);
 					OutputUtils.json(response.data);

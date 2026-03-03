@@ -44,6 +44,8 @@ export class AbTestService {
 
 		// Validate test configuration and provide statistical recommendations
 		if (this.listmonkIntegration) {
+			const shouldLogStatSummary =
+				process.env.LISTMONK_OPS_ABTEST_SILENT !== "1";
 			const totalSubscribers =
 				await this.listmonkIntegration.getTotalSubscribers(
 					config.baseConfig.lists,
@@ -67,7 +69,7 @@ export class AbTestService {
 			}
 
 			// Log warnings for user awareness
-			if (validationResult.warnings.length > 0) {
+			if (shouldLogStatSummary && validationResult.warnings.length > 0) {
 				console.warn("⚠️ A/B Test Configuration Warnings:");
 				validationResult.warnings.forEach((warning) => {
 					console.warn(`  - ${warning}`);
@@ -75,7 +77,10 @@ export class AbTestService {
 			}
 
 			// Log recommendations
-			if (validationResult.sampleSizeRecommendation?.recommendations?.length) {
+			if (
+				shouldLogStatSummary &&
+				validationResult.sampleSizeRecommendation?.recommendations?.length
+			) {
 				console.info("💡 A/B Test Recommendations:");
 				validationResult.sampleSizeRecommendation.recommendations.forEach(
 					(rec) => {
@@ -85,7 +90,7 @@ export class AbTestService {
 			}
 
 			// Log statistical summary
-			if (validationResult.sampleSizeRecommendation) {
+			if (shouldLogStatSummary && validationResult.sampleSizeRecommendation) {
 				const rec = validationResult.sampleSizeRecommendation;
 				console.info("📊 Statistical Summary:");
 				console.info(
@@ -212,7 +217,7 @@ export class AbTestService {
 				abTest.holdoutListId = holdoutListId;
 				abTest.testGroupSize = testGroupSize;
 				abTest.holdoutGroupSize = holdoutGroupSize;
-				abTest.status = "running";
+				abTest.status = config.autoLaunch ? "running" : "draft";
 
 				// Auto-launch if configured
 				if (config.autoLaunch) {
@@ -237,6 +242,40 @@ export class AbTestService {
 	}
 
 	async getAllTests(): Promise<AbTest[]> {
+		return Array.from(this.tests.values());
+	}
+
+	/**
+	 * Hydrate tests from external persistent storage.
+	 * This allows CLI processes to restore previous in-memory state.
+	 */
+	hydrateTests(tests: AbTest[]): void {
+		this.tests.clear();
+
+		for (const rawTest of tests) {
+			const hydratedTest: AbTest = {
+				...rawTest,
+				createdAt: new Date(rawTest.createdAt),
+				updatedAt: new Date(rawTest.updatedAt),
+				variants: rawTest.variants.map((variant) => ({
+					...variant,
+					contentOverrides: {
+						...variant.contentOverrides,
+						sendTime: variant.contentOverrides.sendTime
+							? new Date(variant.contentOverrides.sendTime)
+							: undefined,
+					},
+				})),
+			};
+
+			this.tests.set(hydratedTest.id, hydratedTest);
+		}
+	}
+
+	/**
+	 * Export tests to an external persistence layer.
+	 */
+	snapshotTests(): AbTest[] {
 		return Array.from(this.tests.values());
 	}
 
@@ -366,12 +405,34 @@ export class AbTestService {
 		const p2 = testGroup.conversionRate / 100;
 		const n1 = controlGroup.sampleSize;
 		const n2 = testGroup.sampleSize;
+		const totalSampleSize = n1 + n2;
+
+		// Guard against zero-sample comparisons, which otherwise produce NaN.
+		if (n1 === 0 || n2 === 0) {
+			return {
+				zScore: 0,
+				pValue: 1,
+				isSignificant: false,
+				confidenceLevel: 0.95,
+				sampleSize: totalSampleSize,
+			};
+		}
 
 		const pooledP =
-			(controlGroup.conversions + testGroup.conversions) / (n1 + n2);
+			(controlGroup.conversions + testGroup.conversions) / totalSampleSize;
 		const standardError = Math.sqrt(
 			pooledP * (1 - pooledP) * (1 / n1 + 1 / n2),
 		);
+		if (!Number.isFinite(standardError) || standardError === 0) {
+			return {
+				zScore: 0,
+				pValue: 1,
+				isSignificant: false,
+				confidenceLevel: 0.95,
+				sampleSize: totalSampleSize,
+			};
+		}
+
 		const zScore = Math.abs(p1 - p2) / standardError;
 
 		// Calculate p-value (simplified)

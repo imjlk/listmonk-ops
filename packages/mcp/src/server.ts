@@ -1,12 +1,14 @@
+import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { createListmonkClient } from "@listmonk-ops/openapi";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { createListmonkClient } from "@listmonk-ops/openapi";
-import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	abtestTools,
 	bouncesTools,
 	campaignsTools,
+	handleAbTestTools,
 	handleBouncesTools,
 	handleCampaignsTools,
 	handleListsTools,
@@ -78,6 +80,7 @@ export class ListmonkMCPServer {
 			...bouncesTools,
 			...settingsTools,
 			...transactionalTools,
+			...abtestTools,
 		];
 
 		for (const tool of allTools) {
@@ -218,6 +221,10 @@ export class ListmonkMCPServer {
 				name.startsWith("listmonk_get_transactional_message")
 			) {
 				return await handleTransactionalTools(request, this.client);
+			}
+
+			if (name.startsWith("listmonk_abtest_")) {
+				return await handleAbTestTools(request, this.client);
 			}
 
 			return createErrorResult(`No handler found for tool: ${name}`);

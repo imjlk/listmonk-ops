@@ -1,5 +1,5 @@
-import type { CallToolRequest, CallToolResult } from "./mcp.js";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import type { CallToolRequest, CallToolResult } from "./mcp.js";
 
 // Common pagination parameters
 export interface PaginationParams {

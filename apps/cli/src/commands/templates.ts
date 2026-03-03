@@ -47,7 +47,7 @@ export default defineGroup({
 					});
 
 					if (hasApiError(response)) {
-						throw new Error(String(response.error));
+						throw new Error(toErrorMessage(response.error));
 					}
 
 					OutputUtils.json(response.data);
@@ -88,6 +88,13 @@ export default defineGroup({
 							body_source: flags["body-source"],
 						},
 					});
+					if (hasApiError(response)) {
+						throw new Error(toErrorMessage(response.error));
+					}
+
+					if (!response.data) {
+						throw new Error("Template creation returned no data");
+					}
 
 					OutputUtils.success(`Template created: ${flags.name}`);
 					OutputUtils.json(response.data);
@@ -112,6 +119,9 @@ export default defineGroup({
 					const response = await client.template.setAsDefault({
 						path: { id: flags.id },
 					});
+					if (hasApiError(response)) {
+						throw new Error(toErrorMessage(response.error));
+					}
 
 					OutputUtils.success(`Default template set: ${flags.id}`);
 					OutputUtils.json(response.data);

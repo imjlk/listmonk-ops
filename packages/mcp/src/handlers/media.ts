@@ -71,7 +71,9 @@ export const handleMediaTools: HandlerFunction = withErrorHandler(
 
 		switch (name) {
 			case "listmonk_get_media": {
-				const options: any = parsePaginationParams(args);
+				const options = parsePaginationParams(args) as Parameters<
+					ListmonkClient["media"]["list"]
+				>[0];
 
 				const response = await client.media.list(options);
 				return createSuccessResult(response.data);

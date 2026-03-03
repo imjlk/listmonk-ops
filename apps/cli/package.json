@@ -8,7 +8,10 @@
 	"scripts": {
 		"generate": "bunli generate --entry ./src/index.ts",
 		"dev": "bunli dev --entry ./src/index.ts",
-		"build": "bunli build --entry ./src/index.ts --outdir ./dist",
+		"build:js": "bunli build --entry ./src/index.ts --outdir ./dist/js --runtime bun",
+		"build:bin": "bunli build --entry ./src/index.ts --outdir ./dist/bin --targets native --outfile ./dist/bin/listmonk-cli",
+		"build:bin:all": "bunli build --entry ./src/index.ts --outdir ./dist/bin --targets all",
+		"build": "bun run generate && bun run build:js && bun run build:bin",
 		"start": "bun src/index.ts",
 		"doctor:completions": "bunli doctor completions"
 	},

@@ -178,7 +178,8 @@ export const subscribersTools: MCPTool[] = [
 	},
 	{
 		name: "listmonk_blocklist_subscribers_by_query",
-		description: "Add matching subscribers to blocklist using SQL query expression",
+		description:
+			"Add matching subscribers to blocklist using SQL query expression",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -197,6 +198,10 @@ export async function handleSubscribersTools(
 	client: ListmonkClient,
 ): Promise<CallToolResult> {
 	const { name, arguments: args = {} } = request.params;
+	type CreateSubscriberBody = NonNullable<
+		Parameters<ListmonkClient["subscriber"]["create"]>[0]
+	>["body"];
+	type SubscriberStatus = "enabled" | "disabled" | "blocklisted";
 
 	try {
 		switch (name) {
@@ -260,12 +265,28 @@ export async function handleSubscribersTools(
 					return createErrorResult(validation);
 				}
 
-				const body: any = {
+				const lists = Array.isArray(args.lists)
+					? args.lists
+							.map((id) => Number(id))
+							.filter((id) => Number.isInteger(id) && id > 0)
+					: [];
+				const attribs =
+					typeof args.attribs === "object" &&
+					args.attribs !== null &&
+					!Array.isArray(args.attribs)
+						? (args.attribs as Record<string, unknown>)
+						: {};
+				const statusValue =
+					args.status === "disabled" || args.status === "blocklisted"
+						? args.status
+						: "enabled";
+
+				const body: CreateSubscriberBody = {
 					email: String(args.email),
 					name: String(args.name),
-					status: String(args.status || "enabled"),
-					lists: Array.isArray(args.lists) ? args.lists : [],
-					attribs: args.attribs || {},
+					status: statusValue as SubscriberStatus,
+					lists,
+					attribs,
 				};
 
 				const response = await client.subscriber.create({

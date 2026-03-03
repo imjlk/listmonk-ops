@@ -1,5 +1,11 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { defineCommand, defineGroup, option } from "@bunli/core";
-import { type AbTestConfig, AbTestService } from "@listmonk-ops/abtest";
+import {
+	type AbTest,
+	type CreateAbTestInput,
+	createAbTestExecutors,
+} from "@listmonk-ops/abtest";
 import { OutputUtils } from "@listmonk-ops/common";
 import { z } from "zod";
 
@@ -8,6 +14,7 @@ import {
 	parseJson,
 	toErrorMessage,
 } from "../lib/command-utils";
+import { getListmonkClient } from "../lib/listmonk";
 
 type VariantInput = {
 	name: string;
@@ -18,7 +25,28 @@ type VariantInput = {
 	};
 };
 
-const abTestService = new AbTestService();
+type VariantForCreateInput = {
+	name: string;
+	percentage: number;
+	contentOverrides: {
+		subject?: string;
+		body?: string;
+	};
+};
+
+type AbTestStore = {
+	version: 1;
+	tests: AbTest[];
+};
+
+const DEFAULT_STORE_PATH = join(
+	Bun.env.HOME || process.cwd(),
+	".listmonk-ops",
+	"abtests.json",
+);
+
+const ABTEST_STORE_PATH =
+	Bun.env.LISTMONK_OPS_ABTEST_STORE?.trim() || DEFAULT_STORE_PATH;
 
 function roundToFour(value: number): number {
 	return Math.round(value * 10000) / 10000;
@@ -26,20 +54,17 @@ function roundToFour(value: number): number {
 
 function normalizeVariants(
 	rawVariants: VariantInput[],
-): AbTestConfig["variants"] {
+): VariantForCreateInput[] {
 	if (rawVariants.length < 2 || rawVariants.length > 3) {
 		throw new Error("A/B test requires 2-3 variants");
 	}
 
-	const variants = rawVariants.map((variant, index) => {
-		const name = variant.name?.trim() || `Variant ${index + 1}`;
-		return {
-			name,
-			percentage:
-				typeof variant.percentage === "number" ? variant.percentage : undefined,
-			contentOverrides: variant.contentOverrides ?? {},
-		};
-	});
+	const variants = rawVariants.map((variant, index) => ({
+		name: variant.name?.trim() || `Variant ${index + 1}`,
+		percentage:
+			typeof variant.percentage === "number" ? variant.percentage : undefined,
+		contentOverrides: variant.contentOverrides ?? {},
+	}));
 
 	const provided = variants.filter(
 		(variant): variant is typeof variant & { percentage: number } =>
@@ -90,6 +115,7 @@ function normalizeVariants(
 			if (variantIndex === undefined) {
 				continue;
 			}
+
 			const variant = variants[variantIndex];
 			if (!variant) {
 				continue;
@@ -120,52 +146,106 @@ function normalizeVariants(
 	}));
 }
 
-function buildConfigFromFlags(flags: {
+function buildCreateInputFromFlags(flags: {
 	name: string;
 	"campaign-id": number;
 	variants: string;
-	lists?: string;
+	lists: string;
 	subject?: string;
 	body?: string;
 	"testing-mode"?: "holdout" | "full-split";
 	"test-group-percentage"?: number;
-	"auto-launch": boolean;
 	"auto-deploy-winner": boolean;
-}): AbTestConfig {
+	"ignore-sample-size-warnings": boolean;
+}): CreateAbTestInput {
 	const parsedVariants = parseJson<VariantInput[]>(flags.variants, "variants");
 	if (!Array.isArray(parsedVariants)) {
 		throw new Error("Variants must be a JSON array");
 	}
 
-	const variants = normalizeVariants(parsedVariants);
+	const normalizedVariants = normalizeVariants(parsedVariants);
 	const lists = parseCsvNumbers(flags.lists);
 	const testingMode = flags["testing-mode"] ?? "holdout";
+	const testGroupPercentage =
+		flags["test-group-percentage"] ?? (testingMode === "holdout" ? 10 : 100);
+	const baseSubject = flags.subject?.trim() ?? "";
+	const baseBody = flags.body?.trim() ?? "";
 
 	return {
 		name: flags.name,
-		campaignId: String(flags["campaign-id"]),
-		variants,
-		metrics: [
-			{ name: "Open Rate", type: "open_rate" },
-			{ name: "Click Rate", type: "click_rate" },
-		],
-		baseConfig: {
-			subject: flags.subject ?? "",
-			body: flags.body ?? "",
-			lists,
-			template_id: 0,
-		},
-		testingMode,
-		testGroupPercentage:
-			flags["test-group-percentage"] ?? (testingMode === "holdout" ? 10 : 100),
-		autoLaunch: flags["auto-launch"],
-		autoDeployWinner: flags["auto-deploy-winner"],
+		campaign_id: String(flags["campaign-id"]),
+		lists,
+		variants: normalizedVariants.map((variant) => ({
+			name: variant.name,
+			percentage: variant.percentage,
+			campaign_config: {
+				subject: variant.contentOverrides.subject ?? baseSubject,
+				body: variant.contentOverrides.body ?? baseBody,
+			},
+		})),
+		testing_mode: testingMode,
+		test_group_percentage: testGroupPercentage,
+		auto_deploy_winner: flags["auto-deploy-winner"],
+		ignore_sample_size_warnings: flags["ignore-sample-size-warnings"],
 	};
 }
 
-async function promptInteractiveConfig(
+async function loadStoredTests(): Promise<AbTest[]> {
+	try {
+		const raw = await readFile(ABTEST_STORE_PATH, "utf8");
+		const parsed = JSON.parse(raw) as Partial<AbTestStore>;
+		if (!parsed || !Array.isArray(parsed.tests)) {
+			return [];
+		}
+
+		return parsed.tests;
+	} catch (error) {
+		if (
+			error &&
+			typeof error === "object" &&
+			"code" in error &&
+			error.code === "ENOENT"
+		) {
+			return [];
+		}
+
+		throw new Error(`Failed to read A/B test store: ${toErrorMessage(error)}`);
+	}
+}
+
+async function saveStoredTests(tests: AbTest[]): Promise<void> {
+	const store: AbTestStore = {
+		version: 1,
+		tests,
+	};
+
+	await mkdir(dirname(ABTEST_STORE_PATH), { recursive: true });
+	await writeFile(
+		ABTEST_STORE_PATH,
+		`${JSON.stringify(store, null, 2)}\n`,
+		"utf8",
+	);
+}
+
+async function getHydratedExecutors(
+	args: Parameters<typeof getListmonkClient>[0],
+) {
+	const client = await getListmonkClient(args);
+	const executors = createAbTestExecutors(client);
+	const storedTests = await loadStoredTests();
+	executors.abTestService.hydrateTests(storedTests);
+	return executors;
+}
+
+async function persistExecutors(
+	executors: ReturnType<typeof createAbTestExecutors>,
+): Promise<void> {
+	await saveStoredTests(executors.abTestService.snapshotTests());
+}
+
+async function promptInteractiveInput(
 	clack: typeof import("@bunli/utils").prompt.clack,
-): Promise<AbTestConfig> {
+): Promise<{ input: CreateAbTestInput; autoLaunch: boolean }> {
 	clack.intro("Interactive A/B test setup");
 
 	const nameResult = await clack.text({
@@ -264,6 +344,14 @@ async function promptInteractiveConfig(
 	const listsResult = await clack.text({
 		message: "List IDs (comma separated)",
 		placeholder: "1,2,3",
+		validate: (value) => {
+			try {
+				parseCsvNumbers(value);
+				return undefined;
+			} catch (error) {
+				return toErrorMessage(error);
+			}
+		},
 	});
 	if (clack.isCancel(listsResult)) {
 		clack.cancel("Cancelled");
@@ -300,7 +388,7 @@ async function promptInteractiveConfig(
 	}
 
 	const autoLaunchResult = await clack.confirm({
-		message: "Auto-launch test after creation?",
+		message: "Launch test immediately after creation?",
 		initialValue: false,
 	});
 	if (clack.isCancel(autoLaunchResult)) {
@@ -317,7 +405,16 @@ async function promptInteractiveConfig(
 		throw new Error("Prompt cancelled by user");
 	}
 
-	const config = buildConfigFromFlags({
+	const ignoreWarningsResult = await clack.confirm({
+		message: "Ignore statistical sample-size warnings?",
+		initialValue: false,
+	});
+	if (clack.isCancel(ignoreWarningsResult)) {
+		clack.cancel("Cancelled");
+		throw new Error("Prompt cancelled by user");
+	}
+
+	const input = buildCreateInputFromFlags({
 		name: nameResult,
 		"campaign-id": Number(campaignIdResult),
 		variants: JSON.stringify(variants),
@@ -326,21 +423,23 @@ async function promptInteractiveConfig(
 		body: bodyResult,
 		"testing-mode": testingModeResult,
 		"test-group-percentage": Number(testGroupResult),
-		"auto-launch": autoLaunchResult,
 		"auto-deploy-winner": autoDeployResult,
+		"ignore-sample-size-warnings": ignoreWarningsResult,
 	});
 
 	clack.note(
 		JSON.stringify(
 			{
-				name: config.name,
-				campaignId: config.campaignId,
-				variants: config.variants.map((variant) => ({
+				name: input.name,
+				campaignId: input.campaign_id,
+				lists: input.lists,
+				variants: input.variants.map((variant) => ({
 					name: variant.name,
 					percentage: variant.percentage,
 				})),
-				testingMode: config.testingMode,
-				testGroupPercentage: config.testGroupPercentage,
+				testingMode: input.testing_mode,
+				testGroupPercentage: input.test_group_percentage,
+				autoDeployWinner: input.auto_deploy_winner,
 			},
 			null,
 			2,
@@ -358,7 +457,11 @@ async function promptInteractiveConfig(
 	}
 
 	clack.outro("Creating A/B test");
-	return config;
+
+	return {
+		input,
+		autoLaunch: autoLaunchResult,
+	};
 }
 
 export default defineGroup({
@@ -367,10 +470,11 @@ export default defineGroup({
 	commands: [
 		defineCommand({
 			name: "list",
-			description: "List in-memory A/B tests",
-			handler: async () => {
+			description: "List A/B tests from persisted state",
+			handler: async (args) => {
 				try {
-					const tests = await abTestService.getAllTests();
+					const executors = await getHydratedExecutors(args);
+					const tests = await executors.listAbTests();
 					if (tests.length === 0) {
 						OutputUtils.info("No A/B tests found");
 						return;
@@ -382,6 +486,7 @@ export default defineGroup({
 						status: test.status,
 						variants: test.variants.length,
 						mode: test.testingMode,
+						testGroupPercentage: test.testGroupPercentage,
 						createdAt: test.createdAt.toISOString(),
 					}));
 					OutputUtils.table(rows);
@@ -393,10 +498,20 @@ export default defineGroup({
 		defineCommand({
 			name: "interactive",
 			description: "Create an A/B test with guided prompts",
-			handler: async ({ prompt }) => {
+			handler: async ({ prompt, ...args }) => {
 				try {
-					const config = await promptInteractiveConfig(prompt.clack);
-					const created = await abTestService.createTest(config);
+					const executors = await getHydratedExecutors(args);
+					const { input, autoLaunch } = await promptInteractiveInput(
+						prompt.clack,
+					);
+					const created = await executors.createAbTest(input);
+
+					if (autoLaunch) {
+						await executors.launchAbTest(created.id);
+					}
+
+					await persistExecutors(executors);
+
 					OutputUtils.success(`A/B test created: ${created.id}`);
 					OutputUtils.json(created);
 				} catch (error) {
@@ -417,9 +532,10 @@ export default defineGroup({
 					description: "Base campaign ID",
 				}),
 				variants: option(z.string().min(2), {
-					description: "JSON array of variants",
+					description:
+						'JSON variants: [{"name":"A","percentage":50},{"name":"B","percentage":50}]',
 				}),
-				lists: option(z.string().optional(), {
+				lists: option(z.string().trim().min(1), {
 					description: "Comma-separated list IDs",
 				}),
 				subject: option(z.string().optional(), {
@@ -438,16 +554,29 @@ export default defineGroup({
 					},
 				),
 				"auto-launch": option(z.coerce.boolean().default(false), {
-					description: "Auto-launch the test",
+					description: "Launch test after creation",
 				}),
 				"auto-deploy-winner": option(z.coerce.boolean().default(false), {
 					description: "Auto-deploy winning variant",
 				}),
+				"ignore-sample-size-warnings": option(
+					z.coerce.boolean().default(false),
+					{
+						description: "Ignore sample-size warnings",
+					},
+				),
 			},
-			handler: async ({ flags }) => {
+			handler: async ({ flags, ...args }) => {
 				try {
-					const config = buildConfigFromFlags(flags);
-					const created = await abTestService.createTest(config);
+					const executors = await getHydratedExecutors(args);
+					const input = buildCreateInputFromFlags(flags);
+					const created = await executors.createAbTest(input);
+
+					if (flags["auto-launch"]) {
+						await executors.launchAbTest(created.id);
+					}
+
+					await persistExecutors(executors);
 					OutputUtils.success(`A/B test created: ${created.id}`);
 					OutputUtils.json(created);
 				} catch (error) {
@@ -465,9 +594,12 @@ export default defineGroup({
 					description: "Test ID",
 				}),
 			},
-			handler: async ({ flags }) => {
+			handler: async ({ flags, ...args }) => {
 				try {
-					const analysis = await abTestService.analyzeTest(flags["test-id"]);
+					const executors = await getHydratedExecutors(args);
+					const analysis = await executors.analyzeAbTestSimple(
+						flags["test-id"],
+					);
 					const rows = analysis.results.map((result, index) => ({
 						variant: String.fromCharCode(65 + index),
 						sample: result.sampleSize,
@@ -488,6 +620,91 @@ export default defineGroup({
 				} catch (error) {
 					throw new Error(
 						`Failed to analyze A/B test: ${toErrorMessage(error)}`,
+					);
+				}
+			},
+		}),
+		defineCommand({
+			name: "get",
+			description: "Get A/B test details",
+			options: {
+				"test-id": option(z.string().trim().min(1), {
+					description: "Test ID",
+				}),
+			},
+			handler: async ({ flags, ...args }) => {
+				try {
+					const executors = await getHydratedExecutors(args);
+					const test = await executors.getAbTest(flags["test-id"]);
+					OutputUtils.json(test);
+				} catch (error) {
+					throw new Error(`Failed to get A/B test: ${toErrorMessage(error)}`);
+				}
+			},
+		}),
+		defineCommand({
+			name: "launch",
+			description: "Launch a draft A/B test",
+			options: {
+				"test-id": option(z.string().trim().min(1), {
+					description: "Test ID",
+				}),
+			},
+			handler: async ({ flags, ...args }) => {
+				try {
+					const executors = await getHydratedExecutors(args);
+					const launched = await executors.launchAbTest(flags["test-id"]);
+					await persistExecutors(executors);
+					OutputUtils.success(`A/B test launched: ${flags["test-id"]}`);
+					OutputUtils.json(launched);
+				} catch (error) {
+					throw new Error(
+						`Failed to launch A/B test: ${toErrorMessage(error)}`,
+					);
+				}
+			},
+		}),
+		defineCommand({
+			name: "stop",
+			description: "Stop a running A/B test",
+			options: {
+				"test-id": option(z.string().trim().min(1), {
+					description: "Test ID",
+				}),
+			},
+			handler: async ({ flags, ...args }) => {
+				try {
+					const executors = await getHydratedExecutors(args);
+					const stopped = await executors.stopAbTest(flags["test-id"]);
+					await persistExecutors(executors);
+					OutputUtils.success(`A/B test stopped: ${flags["test-id"]}`);
+					OutputUtils.json(stopped);
+				} catch (error) {
+					throw new Error(`Failed to stop A/B test: ${toErrorMessage(error)}`);
+				}
+			},
+		}),
+		defineCommand({
+			name: "delete",
+			description: "Delete an A/B test from persisted store",
+			options: {
+				"test-id": option(z.string().trim().min(1), {
+					description: "Test ID",
+				}),
+			},
+			handler: async ({ flags, ...args }) => {
+				try {
+					const executors = await getHydratedExecutors(args);
+					const deleted = await executors.deleteAbTest(flags["test-id"]);
+					if (!deleted) {
+						throw new Error(`Test with ID ${flags["test-id"]} not found`);
+					}
+
+					await persistExecutors(executors);
+					OutputUtils.success(`A/B test deleted: ${flags["test-id"]}`);
+				} catch (error) {
+					throw new Error(
+						`Failed to delete A/B test: ${toErrorMessage(error)}`,
 					);
 				}
 			},

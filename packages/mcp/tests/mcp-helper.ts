@@ -2,6 +2,8 @@ import { createListmonkMCPServer } from "../src/server.js";
 import type { CallToolRequest, CallToolResult } from "../src/types/mcp.js";
 import { TEST_CONFIG } from "./setup.js";
 
+const MCP_TEST_VERBOSE = process.env.MCP_TEST_VERBOSE === "1";
+
 /**
  * MCP Test Client - simulates how an MCP client would call tools
  */
@@ -34,10 +36,12 @@ export class MCPTestClient {
 
 		try {
 			const result = await this.server.callTool(request);
-			console.log(
-				`🔧 Tool ${toolName} result:`,
-				JSON.stringify(result, null, 2),
-			);
+			if (MCP_TEST_VERBOSE) {
+				console.log(
+					`🔧 Tool ${toolName} result:`,
+					JSON.stringify(result, null, 2),
+				);
+			}
 			return result;
 		} catch (error) {
 			console.error(`❌ Tool ${toolName} error:`, error);
@@ -85,7 +89,7 @@ export class MCPTestUtils {
 	/**
 	 * Assert that a tool call was successful
 	 */
-	assertSuccess<T = any>(result: CallToolResult, message?: string): T {
+	assertSuccess<T = unknown>(result: CallToolResult, message?: string): T {
 		if (result.isError) {
 			const errorText = result.content?.[0]?.text || "Unknown error";
 			throw new Error(message ? `${message}: ${errorText}` : errorText);

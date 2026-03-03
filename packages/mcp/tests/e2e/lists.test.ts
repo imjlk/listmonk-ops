@@ -1,4 +1,4 @@
-import { test, expect, describe, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { createMCPTestSuite } from "../mcp-helper.js";
 import "../setup.js";
 
