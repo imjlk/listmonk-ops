@@ -1,13 +1,65 @@
 import { afterAll, beforeAll } from "bun:test";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createListmonkClient } from "@listmonk-ops/openapi";
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+
+function resolveApiTokenFromDocker(username: string): string | undefined {
+	if (process.env.LISTMONK_API_TOKEN?.trim()) {
+		return process.env.LISTMONK_API_TOKEN.trim();
+	}
+
+	const dockerCheck = Bun.spawnSync(["docker", "--version"], {
+		cwd: REPO_ROOT,
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	if (dockerCheck.exitCode !== 0) {
+		return undefined;
+	}
+
+	const query = `SELECT password FROM users WHERE username='${username}' LIMIT 1;`;
+	const tokenResult = Bun.spawnSync(
+		[
+			"docker",
+			"compose",
+			"-f",
+			"docker-compose.yml",
+			"exec",
+			"-T",
+			"db",
+			"psql",
+			"-U",
+			"listmonk",
+			"-d",
+			"listmonk",
+			"-Atc",
+			query,
+		],
+		{
+			cwd: REPO_ROOT,
+			stdout: "pipe",
+			stderr: "pipe",
+		},
+	);
+
+	if (tokenResult.exitCode !== 0) {
+		return undefined;
+	}
+
+	const token = tokenResult.stdout.toString().trim();
+	return token.length > 0 ? token : undefined;
+}
 
 // Test configuration
 export const TEST_CONFIG = {
 	baseUrl: process.env.LISTMONK_API_URL || "http://localhost:9000/api",
-	username: process.env.LISTMONK_USERNAME || "test",
+	username: process.env.LISTMONK_USERNAME || "api-admin",
 	password: process.env.LISTMONK_PASSWORD || "",
-	apiToken:
-		process.env.LISTMONK_API_TOKEN || "6Yf5w3IKrkcd5MrVWjqDgBePs5zj0rCM",
+	apiToken: resolveApiTokenFromDocker(
+		process.env.LISTMONK_USERNAME || "api-admin",
+	),
 };
 
 // Create test client
@@ -30,11 +82,11 @@ export async function waitForListmonk(maxRetries = 30) {
 
 	for (let i = 0; i < maxRetries; i++) {
 		try {
-			// Try to get lists instead of health endpoint
+			// Verify authenticated API access, not just process availability.
 			const response = await client.list.list({
 				query: { page: 1, per_page: 1 },
 			});
-			if (response.data) {
+			if (!("error" in response) && response.data) {
 				console.log("✅ Listmonk is ready!");
 				return true;
 			}
@@ -44,8 +96,8 @@ export async function waitForListmonk(maxRetries = 30) {
 		}
 	}
 
-	console.log("❌ Listmonk is not available, but continuing with tests...");
-	return false; // Don't throw error, just continue
+	console.log("❌ Listmonk authenticated readiness check failed.");
+	return false;
 }
 
 // Clean up test data
@@ -115,7 +167,12 @@ export async function cleanupTestData() {
 // Setup and teardown for all tests
 beforeAll(async () => {
 	console.log("🚀 Setting up E2E tests...");
-	await waitForListmonk();
+	const ready = await waitForListmonk();
+	if (!ready) {
+		throw new Error(
+			`Listmonk not ready or auth failed (baseUrl=${TEST_CONFIG.baseUrl}, username=${TEST_CONFIG.username})`,
+		);
+	}
 	await cleanupTestData();
 });
 
