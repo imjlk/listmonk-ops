@@ -10,7 +10,7 @@ import {
 	runSegmentDriftSnapshot,
 	runSubscriberHygiene,
 	syncTemplateRegistry,
-} from "@listmonk-ops/ops";
+} from "@listmonk-ops/automation";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
 import {

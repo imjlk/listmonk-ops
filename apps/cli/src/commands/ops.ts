@@ -13,7 +13,7 @@ import {
 	runSegmentDriftSnapshot,
 	runSubscriberHygiene,
 	syncTemplateRegistry,
-} from "@listmonk-ops/ops";
+} from "@listmonk-ops/automation";
 import { z } from "zod";
 
 import { parseCsvNumbers, toErrorMessage } from "../lib/command-utils";

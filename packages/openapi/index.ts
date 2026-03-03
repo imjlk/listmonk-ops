@@ -7,9 +7,21 @@
 
 // ===== IMPORTS =====
 
-import type { ListmonkClient } from "./src/client/index";
+import type {
+	Campaign,
+	List,
+	ListmonkClient,
+	Subscriber,
+	Template,
+} from "./src/client/index";
 // Client imports
-import { createListmonkClient } from "./src/client/index";
+import {
+	createClient,
+	createListmonkClient,
+	createListmonkClientFromEnv,
+	rawSdk,
+	transformResponse,
+} from "./src/client/index";
 
 // Configuration imports
 import type { ListmonkConfig } from "./src/config";
@@ -19,7 +31,7 @@ import type { ListmonkConfig } from "./src/config";
 /**
  * Main client function
  */
-export { createListmonkClient };
+export { createClient, createListmonkClient, createListmonkClientFromEnv, rawSdk, transformResponse };
 
 /**
  * Core types
@@ -29,9 +41,4 @@ export type { ListmonkClient, ListmonkConfig };
 /**
  * Core entity types
  */
-export type {
-	Campaign,
-	List,
-	Subscriber,
-	Template,
-} from "./src/client/index";
+export type { Campaign, List, Subscriber, Template };

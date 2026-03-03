@@ -7,7 +7,10 @@ import type {
 
 import { toPositiveInt } from "./core";
 
-export async function getCampaign(client: ListmonkClient, campaignId: number) {
+export async function getCampaign(
+	client: ListmonkClient,
+	campaignId: number,
+): Promise<Campaign> {
 	const response = await client.campaign.getById({
 		path: { id: campaignId },
 	});
@@ -21,7 +24,10 @@ export async function getCampaign(client: ListmonkClient, campaignId: number) {
 	return response.data || ({} as Campaign);
 }
 
-export async function getListById(client: ListmonkClient, listId: number) {
+export async function getListById(
+	client: ListmonkClient,
+	listId: number,
+): Promise<List> {
 	const response = await client.list.getById({
 		path: { list_id: listId },
 	});
@@ -34,7 +40,7 @@ export async function getListById(client: ListmonkClient, listId: number) {
 export async function getTemplateById(
 	client: ListmonkClient,
 	templateId: number,
-) {
+): Promise<Template> {
 	const response = await client.template.getById({
 		path: { id: templateId },
 	});

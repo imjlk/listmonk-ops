@@ -457,6 +457,7 @@ export const transformResponse = async (
 type CrudMethod = "create" | "get" | "getById" | "update" | "delete";
 type CrudMethodOverrides = Partial<Record<CrudMethod, string[]>>;
 type SdkMethod = (options: unknown) => Promise<unknown>;
+type FetchFn = (input: URL | RequestInfo, init?: RequestInit) => Promise<Response>;
 
 const resolveSdkMethod = (candidateNames: string[]): SdkMethod => {
 	for (const methodName of candidateNames) {
@@ -582,6 +583,141 @@ const createCrudOperations = <T>(
 	};
 };
 
+const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_RETRIES = 3;
+const RETRYABLE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+const wait = async (ms: number): Promise<void> =>
+	await new Promise((resolve) => setTimeout(resolve, ms));
+
+function getRequestMethod(
+	input: URL | RequestInfo,
+	init: RequestInit,
+): string {
+	if (init.method) {
+		return init.method.toUpperCase();
+	}
+
+	if (typeof Request !== "undefined" && input instanceof Request) {
+		return input.method.toUpperCase();
+	}
+
+	return "GET";
+}
+
+function isAbortError(error: unknown): boolean {
+	if (error instanceof DOMException) {
+		return error.name === "AbortError";
+	}
+
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"name" in error &&
+		(error as { name?: string }).name === "AbortError"
+	);
+}
+
+function mergeAbortSignals(
+	primary?: AbortSignal | null,
+	secondary?: AbortSignal,
+): AbortSignal | undefined {
+	if (!primary) {
+		return secondary;
+	}
+	if (!secondary) {
+		return primary;
+	}
+
+	if (typeof AbortSignal !== "undefined" && typeof AbortSignal.any === "function") {
+		return AbortSignal.any([primary, secondary]);
+	}
+
+	const controller = new AbortController();
+	const onAbort = () => controller.abort();
+
+	if (primary.aborted || secondary.aborted) {
+		controller.abort();
+		return controller.signal;
+	}
+
+	primary.addEventListener("abort", onAbort, { once: true });
+	secondary.addEventListener("abort", onAbort, { once: true });
+
+	return controller.signal;
+}
+
+function createResilientFetch(options: {
+	timeoutMs: number;
+	retries: number;
+	baseFetch: FetchFn;
+}): FetchFn {
+	const timeoutMs = Math.max(1, options.timeoutMs);
+	const retries = Math.max(0, options.retries);
+	const maxAttempts = retries + 1;
+
+	return async (input, init = {}) => {
+		const requestInit = init as RequestInit;
+		const method = getRequestMethod(input, requestInit);
+		const isRetryableMethod = RETRYABLE_METHODS.has(method);
+		let lastError: unknown;
+
+		for (let attempt = 0; attempt < maxAttempts; attempt++) {
+			const timeoutController = new AbortController();
+			const timeoutHandle = setTimeout(
+				() => timeoutController.abort(),
+				timeoutMs,
+			);
+
+			try {
+				const mergedSignal = mergeAbortSignals(
+					requestInit.signal,
+					timeoutController.signal,
+				);
+
+				const response = await options.baseFetch(input, {
+					...requestInit,
+					signal: mergedSignal,
+				});
+
+				if (
+					response.status >= 500 &&
+					isRetryableMethod &&
+					attempt < maxAttempts - 1
+				) {
+					await wait(Math.min(1000, 100 * 2 ** attempt));
+					continue;
+				}
+
+				return response;
+			} catch (error) {
+				lastError = error;
+
+				const userAborted = requestInit.signal?.aborted === true;
+				const abortError = isAbortError(error);
+
+				if (
+					userAborted ||
+					!isRetryableMethod ||
+					attempt >= maxAttempts - 1 ||
+					(abortError && !timeoutController.signal.aborted)
+				) {
+					throw error;
+				}
+
+				await wait(Math.min(1000, 100 * 2 ** attempt));
+			} finally {
+				clearTimeout(timeoutHandle);
+			}
+		}
+
+		throw (
+			lastError ||
+			new Error("Request failed without an explicit transport error")
+		);
+	};
+}
+
 /**
  * Creates a Listmonk client with automatic response flattening
  *
@@ -611,16 +747,26 @@ export const createListmonkClient = (
 		| {
 				baseUrl?: string;
 				headers?: Record<string, string>;
+				timeout?: number;
+				retries?: number;
 		  }
 		| Partial<ListmonkConfig>,
 ): EnhancedListmonkClient => {
 	// Determine final configuration
-	let finalConfig: { baseUrl: string; headers?: Record<string, string> };
+	let finalConfig: {
+		baseUrl: string;
+		headers?: Record<string, string>;
+		fetch?: typeof fetch;
+	};
+	let timeout = DEFAULT_TIMEOUT_MS;
+	let retries = DEFAULT_RETRIES;
 
 	if (!config || (!config.baseUrl && !("auth" in config))) {
 		// Use environment-based configuration
 		const envConfig = createConfig(config as Partial<ListmonkConfig>);
 		validateConfig(envConfig);
+		timeout = envConfig.timeout ?? DEFAULT_TIMEOUT_MS;
+		retries = envConfig.retries ?? DEFAULT_RETRIES;
 		finalConfig = {
 			baseUrl: envConfig.baseUrl,
 			headers: configToHeaders(envConfig),
@@ -629,17 +775,33 @@ export const createListmonkClient = (
 		// Handle ListmonkConfig format
 		const fullConfig = createConfig(config);
 		validateConfig(fullConfig);
+		timeout = fullConfig.timeout ?? DEFAULT_TIMEOUT_MS;
+		retries = fullConfig.retries ?? DEFAULT_RETRIES;
 		finalConfig = {
 			baseUrl: fullConfig.baseUrl,
 			headers: configToHeaders(fullConfig),
 		};
 	} else {
 		// Handle direct config format
-		finalConfig = config as {
+		const directConfig = config as {
 			baseUrl: string;
 			headers?: Record<string, string>;
+			timeout?: number;
+			retries?: number;
+		};
+		timeout = directConfig.timeout ?? DEFAULT_TIMEOUT_MS;
+		retries = directConfig.retries ?? DEFAULT_RETRIES;
+		finalConfig = {
+			baseUrl: directConfig.baseUrl,
+			headers: directConfig.headers,
 		};
 	}
+
+	finalConfig.fetch = createResilientFetch({
+		timeoutMs: timeout,
+		retries,
+		baseFetch: globalThis.fetch.bind(globalThis) as FetchFn,
+	}) as unknown as typeof fetch;
 
 	// Create SDK options with client configuration
 	const sdkOptions = {

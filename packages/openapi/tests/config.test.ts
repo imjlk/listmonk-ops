@@ -68,6 +68,16 @@ describe("Configuration Management", () => {
 			expect(config.timeout).toBe(120000);
 		});
 
+		test("should preserve explicit zero retries", () => {
+			process.env.LISTMONK_RETRIES = "5";
+
+			const config = createConfig({
+				retries: 0,
+			});
+
+			expect(config.retries).toBe(0);
+		});
+
 		test("should handle partial overrides", () => {
 			// Clear environment variables for this test
 			const originalEnv = process.env;

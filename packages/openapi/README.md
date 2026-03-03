@@ -1,670 +1,131 @@
-# Listmonk TypeScript Client
+# @listmonk-ops/openapi
 
-A fully type-safe TypeScript client for the Listmonk newsletter and mailing list manager API. Features automatic response flattening, complete type safety, environment-based configuration, and excellent developer experience with IntelliSense auto-completion.
+Type-safe Listmonk SDK generated from OpenAPI, with a higher-level client that flattens common Listmonk response nesting.
 
-## ✨ Features
-
-- **🔒 Fully Type-Safe**: Complete TypeScript support with auto-generated types from OpenAPI spec
-- **🚀 Response Flattening**: Eliminates nested `data.data.data` patterns - just use `response.data`
-- **⚡ Auto-Complete**: Full IntelliSense support for all API methods and response properties
-- **🔧 Environment Configuration**: Built-in support for environment variable configuration
-- **🛡️ Error Handling**: Comprehensive error classes with proper inheritance and context
-- **📦 Flexible**: Use the enhanced client, individual SDK methods, or raw HTTP client
-- **🔄 Always Up-to-Date**: Auto-generated from the latest Listmonk OpenAPI specification
-- **✅ Production Ready**: Comprehensive test coverage with real API integration tests
-
-## 🚀 Quick Start (Development Environment)
-
-For development and testing, you can quickly spin up a complete Listmonk environment with Docker:
+## Installation
 
 ```bash
-# Start the development environment
-docker-compose up -d
-
-# Wait for services to be ready, then configure SMTP automatically
-./setup-smtp.sh
-```
-
-This sets up:
-- **Listmonk**: `http://localhost:9000` (admin: admin/listmonk)
-- **Mailpit**: `http://localhost:8025` (SMTP testing interface)
-- **PostgreSQL**: `localhost:5432` (listmonk/listmonk)
-
-The setup script automatically configures SMTP to use Mailpit for email testing.
-
-## 📦 Installation
-
-```bash
-npm install @your-org/listmonk-client
+npm install @listmonk-ops/openapi
 # or
-yarn add @your-org/listmonk-client
-# or  
-bun install @your-org/listmonk-client
+bun add @listmonk-ops/openapi
+# or
+yarn add @listmonk-ops/openapi
 ```
 
-## 🔐 Authentication
+## Quick Start
 
-Listmonk uses token-based authentication. You need to create an API user and token:
-
-### Option 1: Environment Variables (Recommended)
-
-Set up environment variables for automatic configuration:
+### 1) Using environment variables
 
 ```bash
-# .env file or environment
-LISTMONK_BASE_URL=http://localhost:9000/api
-LISTMONK_USERNAME=api-admin
-LISTMONK_API_TOKEN=your_generated_token
+export LISTMONK_API_URL="http://localhost:9000/api"
+export LISTMONK_USERNAME="api-admin"
+export LISTMONK_API_TOKEN="<token>"
 ```
 
-Then use the client without manual configuration:
+```ts
+import { createListmonkClient } from "@listmonk-ops/openapi";
 
-```typescript
-import { createListmonkClientFromEnv } from '@your-org/listmonk-client';
+const client = createListmonkClient();
 
-// Automatically configured from environment variables
-const client = createListmonkClientFromEnv();
-
-// Optional: Override specific settings
-const client = createListmonkClientFromEnv({
-  baseUrl: 'https://production.listmonk.com/api'
-});
-```
-
-### Option 2: Manual Configuration
-
-```typescript
-import { createListmonkClient } from '@your-org/listmonk-client';
-
-const client = createListmonkClient({
-  baseUrl: 'http://localhost:9000/api',
-  headers: {
-    Authorization: 'token api-admin:your_generated_token'
-  }
-});
-```
-
-### Using Docker Setup
-
-If using the provided Docker setup, authentication is pre-configured:
-
-```env
-# .env file (included in the project)
-LISTMONK_API_TOKEN=your_generated_token
-LISTMONK_USERNAME=api-admin
-```
-
-Authentication format: `token username:token`
-
-## 🚀 Quick Start
-
-### Basic Usage (Environment Variables - Recommended)
-
-```typescript
-import { createListmonkClientFromEnv } from '@your-org/listmonk-client';
-
-// Create client from environment variables
-const client = createListmonkClientFromEnv();
-
-// ✅ Type-safe API calls with auto-completion
 const health = await client.getHealthCheck();
-console.log(health.data); // boolean
+console.log(health.data); // true
 
-// ✅ Create a list with full type safety  
-const list = await client.createList({
-  body: {
-    name: "My Newsletter",
-    type: "public",      // ✅ Auto-complete: "public" | "private"
-    optin: "single"      // ✅ Auto-complete: "single" | "double"
-  }
-});
-
-// ✅ Access response data directly (automatically flattened)
-console.log(list.data.name);  // string
-console.log(list.data.id);    // number
-console.log(list.data.type);  // "public" | "private"
+const lists = await client.list.list({ query: { page: 1, per_page: 10 } });
+console.log(lists.data.results.length);
 ```
 
-### Manual Configuration
+### 2) Explicit config
 
-```typescript
-import { createListmonkClient } from '@your-org/listmonk-client';
+```ts
+import { createListmonkClient } from "@listmonk-ops/openapi";
 
-// Create authenticated client manually
 const client = createListmonkClient({
-  baseUrl: 'http://localhost:9000/api',
+  baseUrl: "http://localhost:9000/api",
+  auth: {
+    username: "api-admin",
+    token: "<token>",
+  },
+});
+```
+
+### 3) Raw header mode
+
+```ts
+import { createListmonkClient } from "@listmonk-ops/openapi";
+
+const client = createListmonkClient({
+  baseUrl: "http://localhost:9000/api",
   headers: {
-    Authorization: 'token api-admin:your_token'
-  }
+    Authorization: "token api-admin:<token>",
+  },
 });
-
-// Same type-safe usage as above
-const lists = await client.getLists();
 ```
 
-### Advanced SDK Usage
+## Exported API
 
-For more control, you can use the raw SDK methods:
+- `createListmonkClient(config?)`
+- `createListmonkClientFromEnv(overrides?)` (deprecated alias)
+- `createClient` (raw hey-api client factory)
+- `rawSdk` (generated SDK functions)
+- `transformResponse` (response flatten helper)
+- Types: `ListmonkClient`, `ListmonkConfig`, `Campaign`, `List`, `Subscriber`, `Template`
 
-```typescript
-import { createListmonkClient, rawSdk } from '@your-org/listmonk-client';
+## Client Structure
 
-// Create SDK client options
-const sdkOptions = {
-  client: createClient({
-    baseUrl: 'http://localhost:9000/api',
-    headers: { Authorization: 'token api-admin:your_token' }
-  })
-};
+`createListmonkClient()` returns namespaced operations:
 
-// Use individual SDK functions
-const lists = await rawSdk.getLists(sdkOptions);
-const newList = await rawSdk.createList({
-  ...sdkOptions,
+- `getHealthCheck()`
+- `list.*`
+- `subscriber.*`
+- `campaign.*`
+- `template.*`
+- `media.*`
+- `import.*`
+- `bounce.*`
+- `transactional.*`
+- `settings.*`
+- `dashboard.*`
+- `system.*`
+
+Example:
+
+```ts
+const created = await client.list.create({
   body: {
-    name: "Newsletter Subscribers",
-    type: "public",
-    optin: "single"
-  }
+    name: "Newsletter",
+    type: "private",
+    optin: "single",
+  },
 });
 
-// Note: Raw SDK responses are not automatically flattened
-console.log(lists.data.data.results); // Raw response structure
+console.log(created.data.id);
 ```
 
-## 🛡️ Error Handling
+## Error Handling
 
-The client includes comprehensive error handling with specific error classes:
+Most calls return `{ data, request, response }` on success.
 
-```typescript
-import { 
-  createListmonkClient, 
-  AuthenticationError, 
-  ValidationError, 
-  NotFoundError,
-  RateLimitError,
-  ServerError,
-  isListmonkError 
-} from '@your-org/listmonk-client';
+Some methods are typed as a union with `{ error }` (`getById`, `update` style methods), so you can handle both patterns safely:
 
-const client = createListmonkClient({
-  baseUrl: 'http://localhost:9000/api',
-  headers: { Authorization: 'token api-admin:invalid_token' }
-});
+```ts
+const result = await client.list.getById({ path: { list_id: 1 } });
 
-try {
-  const lists = await client.getLists();
-} catch (error) {
-  if (isListmonkError(error)) {
-    switch (error.constructor) {
-      case AuthenticationError:
-        console.log('Authentication failed:', error.message);
-        break;
-      case ValidationError:
-        console.log('Validation errors:', error.validationErrors);
-        break;
-      case NotFoundError:
-        console.log('Resource not found:', error.message);
-        break;
-      case RateLimitError:
-        console.log('Rate limit exceeded:', error.message);
-        break;
-      case ServerError:
-        console.log('Server error:', error.statusCode, error.message);
-        break;
-      default:
-        console.log('Unknown Listmonk error:', error.message);
-    }
-  } else {
-    console.log('Network or other error:', error);
-  }
+if ("error" in result) {
+  console.error(result.error);
+} else {
+  console.log(result.data.name);
 }
 ```
 
-## 📋 Type Safety Examples
-
-The API maintains full type safety:
-
-```typescript
-import { createListmonkClientFromEnv } from '@your-org/listmonk-client';
-
-const client = createListmonkClientFromEnv();
-
-// ✅ TypeScript validates all parameters
-const subscriber = await client.createSubscriber({
-  body: {
-    email: "user@example.com",
-    name: "John Doe",
-    status: "enabled",     // TypeScript knows valid values
-    lists: [1, 2],         // TypeScript expects number array
-    attributes: {          // Note: 'attributes' not 'attribs'
-      city: "New York",    // Custom attributes
-      age: 30
-    }
-  }
-});
-
-// ✅ Required path parameters enforced
-const list = await client.getListById({
-  path: { list_id: 1 }  // TypeScript error if missing
-});
-
-// ❌ These cause TypeScript errors:
-// client.getListById();                    // Missing required parameters
-// client.getListById({});                  // Missing list_id
-// client.createSubscriber({ body: {} });   // Missing required fields
-```
-
-## 📦 API Coverage
-
-### Available Functions
-
-All Listmonk API endpoints are available with full type safety through the enhanced client:
-
-#### Lists
-
-- `client.getLists(options?)` - Get all lists with pagination
-- `client.createList(options)` - Create a new list  
-- `client.getListById(options)` - Get list by ID
-- `client.updateListById(options)` - Update list
-- `client.deleteListById(options)` - Delete list
-
-#### Subscribers
-
-- `client.getSubscribers(options?)` - Get all subscribers with filtering
-- `client.createSubscriber(options)` - Create subscriber
-- `client.getSubscriberById(options)` - Get subscriber by ID
-- `client.updateSubscriberById(options)` - Update subscriber
-- `client.deleteSubscriberById(options)` - Delete subscriber
-
-#### Campaigns
-
-- `client.getCampaigns(options?)` - Get all campaigns
-- `client.createCampaign(options)` - Create campaign
-- `client.getCampaignById(options)` - Get campaign by ID
-- `client.updateCampaignById(options)` - Update campaign
-- `client.deleteCampaignById(options)` - Delete campaign
-
-#### System
-
-- `client.getHealthCheck()` - Health check
-- `client.getServerConfig()` - Server configuration
-- `client.getSettings()` - Get settings
-- `client.updateSettings(options)` - Update settings
-
-#### Advanced Operations
-
-All SDK methods are also available via the Proxy, including:
-
-- Bounce management
-- Media uploads
-- Template operations
-- Import/export operations
-- Analytics and reporting
-
-### Response Structure
-
-All enhanced client responses follow this structure:
-
-```typescript
-interface FlattenedResponse<T> {
-  data: T;           // The actual data (automatically flattened)
-  request: Request;  // Original request object
-  response: Response; // Original response object
-}
-```
-
-## 🔄 Response Transformation
-
-All responses are automatically flattened to eliminate nested data access:
-
-```typescript
-import { createListmonkClient, rawSdk, createClient } from '@your-org/listmonk-client';
-
-// ❌ Raw SDK response (nested)
-const sdkOptions = { client: createClient({ baseUrl: 'http://localhost:9000/api' }) };
-const rawResponse = await rawSdk.getLists(sdkOptions);
-const lists = rawResponse.data?.data?.results; // Nested access
-
-// ✅ Enhanced client response (flattened)
-const client = createListmonkClient({ baseUrl: 'http://localhost:9000/api' });
-const response = await client.getLists();
-const lists = response.data.results;  // Direct access!
-
-// Response structure:
-console.log(response.data.results);    // List[]
-console.log(response.data.total);      // number
-console.log(response.data.page);       // number
-console.log(response.data.per_page);   // number
-console.log(response.request);         // Request object
-console.log(response.response);        // Response object
-```
-
-## ⚙️ Configuration Management
-
-### Environment Variables
-
-The client supports automatic configuration from environment variables:
+## Regeneration
 
 ```bash
-# Required
-LISTMONK_BASE_URL=http://localhost:9000/api
-LISTMONK_USERNAME=api-admin
-LISTMONK_API_TOKEN=your_generated_token
-
-# Optional
-LISTMONK_CUSTOM_HEADER_NAME=value
+bun run --cwd packages/openapi generate
 ```
 
-### Configuration API
-
-```typescript
-import { createConfig, validateConfig, configToHeaders } from '@your-org/listmonk-client';
-
-// Create configuration from environment + overrides
-const config = createConfig({
-  baseUrl: 'https://prod.listmonk.com/api' // Override environment
-});
-
-// Validate configuration
-try {
-  validateConfig(config);
-  console.log('Configuration is valid');
-} catch (error) {
-  console.error('Configuration error:', error.message);
-}
-
-// Convert to headers format
-const headers = configToHeaders(config);
-console.log(headers); // { Authorization: 'token username:token', ... }
-```
-
-## 🔧 Advanced Usage
-
-### Custom Client Configuration
-
-```typescript
-import { createClient, createListmonkClient } from '@your-org/listmonk-client';
-
-// Create a custom HTTP client
-const httpClient = createClient({
-  baseUrl: 'https://your-listmonk.com/api',
-  headers: {
-    'Authorization': 'token api-admin:your-token',
-    'Custom-Header': 'value'
-  }
-});
-
-// Use custom client with SDK
-import { rawSdk } from '@your-org/listmonk-client';
-const lists = await rawSdk.getLists({ client: httpClient });
-
-// Or create enhanced client with custom config
-const enhancedClient = createListmonkClient({
-  baseUrl: 'https://your-listmonk.com/api',
-  headers: {
-    'Authorization': 'token api-admin:your-token',
-    'Custom-Header': 'value'
-  }
-});
-```
-
-### Working with Generated Types
-
-```typescript
-import type { GeneratedTypes, GeneratedSDK } from '@your-org/listmonk-client';
-
-// Use generated types directly
-type RawList = GeneratedTypes.List;
-type RawSubscriber = GeneratedTypes.Subscriber;
-
-// Access all SDK methods
-const allSdkMethods = GeneratedSDK;
-```
-
-## 🧪 Testing
+## Build & Test
 
 ```bash
-# Run all tests
-bun test
-
-# Run specific test suites
-bun test tests/client.test.ts      # Client functionality
-bun test tests/transform.test.ts   # Response transformation
-bun test tests/errors.test.ts      # Error handling
-bun test tests/config.test.ts      # Configuration management
-bun test tests/integration.test.ts # Integration with real API
-
-# Run tests with coverage
-bun test --coverage
-
-# Watch mode for development
-bun test --watch
-```
-
-## 🔄 Development
-
-### Regenerate API Client
-
-```bash
-# Regenerate from OpenAPI spec
-bun run generate
-
-# The generate command:
-# 1. Uses the local source spec at ./spec/listmonk.yaml
-# 2. Generates TypeScript client using @hey-api/openapi-ts
-# 3. Creates type definitions and SDK methods
-# 4. Outputs to ./generated/ directory
-```
-
-### Project Structure
-
-```text
-packages/openapi/
-├── index.ts                    # Main entry point with all exports
-├── src/
-│   ├── client/
-│   │   └── index.ts           # Enhanced client implementation
-│   ├── config.ts              # Environment-based configuration
-│   ├── errors.ts              # Error classes and utilities
-│   ├── transform.ts           # Response transformation utilities
-│   └── utils/
-│       └── errors.ts          # Error utility functions
-├── tests/                     # Test suites
-│   ├── client.test.ts         # Client functionality tests
-│   ├── config.test.ts         # Configuration tests
-│   ├── errors.test.ts         # Error handling tests
-│   ├── integration.test.ts    # Real API integration tests
-│   └── transform.test.ts      # Response transformation tests
-├── generated/                 # Auto-generated files
-│   ├── client.gen.ts          # HTTP client
-│   ├── sdk.gen.ts             # API methods
-│   ├── types.gen.ts           # TypeScript types
-│   └── client/                # Generated client utilities
-└── package.json              # Dependencies and scripts
-```
-
-## 📚 Migration Guide
-
-### From Raw SDK
-
-```typescript
-// Before - Raw SDK usage
-import { getLists } from './generated/sdk.gen';
-import { createClient } from './generated/client';
-
-const client = createClient({ baseUrl: 'http://localhost:9000/api' });
-const lists = await getLists({ client });
-const results = lists.data?.data?.results; // Nested access
-
-// After - Enhanced client  
-import { createListmonkClient } from '@your-org/listmonk-client';
-
-const client = createListmonkClient({ baseUrl: 'http://localhost:9000/api' });
-const lists = await client.getLists();
-const results = lists.data.results; // Direct access
-```
-
-### From Environment Variables
-
-```typescript
-// Before - Manual environment handling
-const client = createListmonkClient({
-  baseUrl: process.env.LISTMONK_BASE_URL!,
-  headers: {
-    Authorization: `token ${process.env.LISTMONK_USERNAME}:${process.env.LISTMONK_API_TOKEN}`
-  }
-});
-
-// After - Automatic environment configuration
-import { createListmonkClientFromEnv } from '@your-org/listmonk-client';
-
-const client = createListmonkClientFromEnv(); // Automatically configured
-```
-
-### Error Handling Migration
-
-```typescript
-// Before - Basic error handling
-try {
-  const lists = await client.getLists();
-} catch (error) {
-  console.error('Something went wrong:', error);
-}
-
-// After - Specific error handling
-import { isListmonkError, AuthenticationError } from '@your-org/listmonk-client';
-
-try {
-  const lists = await client.getLists();
-} catch (error) {
-  if (isListmonkError(error)) {
-    if (error instanceof AuthenticationError) {
-      console.error('Authentication failed:', error.message);
-      // Handle auth error specifically
-    }
-  } else {
-    console.error('Network error:', error);
-  }
-}
-```
-
-## ✨ Best Practices
-
-### 1. Use Environment Configuration
-
-```typescript
-// ✅ Recommended - Environment-based configuration
-import { createListmonkClientFromEnv } from '@your-org/listmonk-client';
-
-const client = createListmonkClientFromEnv();
-
-// ❌ Avoid - Hardcoded credentials
-const client = createListmonkClient({
-  baseUrl: 'http://localhost:9000/api',
-  headers: { Authorization: 'token api-admin:hardcoded-token' }
-});
-```
-
-### 2. Handle Errors Appropriately
-
-```typescript
-import { createListmonkClientFromEnv, isListmonkError } from '@your-org/listmonk-client';
-
-const client = createListmonkClientFromEnv();
-
-try {
-  const lists = await client.getLists({
-    query: { page: 1, per_page: 50 }
-  });
-  
-  console.log(`Found ${lists.data.total} lists`);
-  
-  // Process successful response
-  lists.data.results.forEach(list => {
-    console.log(`List: ${list.name} (${list.type})`);
-  });
-  
-} catch (error) {
-  if (isListmonkError(error)) {
-    // Handle Listmonk-specific errors
-    console.error('Listmonk API Error:', error.message);
-    console.error('Status:', error.statusCode);
-  } else {
-    // Handle network or other errors
-    console.error('Request failed:', error);
-  }
-}
-```
-
-### 3. Leverage TypeScript
-
-```typescript
-import type { List, Subscriber, Campaign } from '@your-org/listmonk-client';
-
-// ✅ Use type annotations for better development experience
-async function createNewsletter(
-  name: string, 
-  type: List['type'],
-  subscribers: Subscriber[]
-): Promise<Campaign> {
-  const client = createListmonkClientFromEnv();
-  
-  // TypeScript will validate all parameters
-  const list = await client.createList({
-    body: { name, type, optin: 'single' }
-  });
-  
-  // Add subscribers to list
-  for (const subscriber of subscribers) {
-    await client.manageSubscriberListById({
-      path: { subscriber_id: subscriber.id! },
-      body: { 
-        lists: [list.data.id!],
-        action: 'add'
-      }
-    });
-  }
-  
-  // Create campaign
-  const campaign = await client.createCampaign({
-    body: {
-      name: `Newsletter for ${name}`,
-      subject: `Welcome to ${name}`,
-      lists: [list.data.id!],
-      type: 'regular',
-      content_type: 'html',
-      body: '<h1>Welcome!</h1>'
-    }
-  });
-  
-  return campaign.data;
-}
-```
-
-### 4. Optimize Bundle Size
-
-```typescript
-// ✅ Import only what you need
-import { createListmonkClientFromEnv } from '@your-org/listmonk-client';
-import type { List } from '@your-org/listmonk-client';
-
-// ❌ Avoid importing everything
-import * as listmonk from '@your-org/listmonk-client';
-```
-
-### 5. Use Configuration Validation
-
-```typescript
-import { createConfig, validateConfig } from '@your-org/listmonk-client';
-
-// Validate configuration at startup
-try {
-  const config = createConfig();
-  validateConfig(config);
-  console.log('✅ Configuration is valid');
-} catch (error) {
-  console.error('❌ Configuration error:', error.message);
-  process.exit(1);
-}
+bun run --cwd packages/openapi build
+bun run --cwd packages/openapi test
 ```

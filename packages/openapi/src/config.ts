@@ -81,8 +81,8 @@ export const createConfig = (
 				envConfig.auth?.token ||
 				DEFAULT_CONFIG.auth.token,
 		},
-		timeout: overrides?.timeout || envConfig.timeout || DEFAULT_CONFIG.timeout,
-		retries: overrides?.retries || envConfig.retries || DEFAULT_CONFIG.retries,
+		timeout: overrides?.timeout ?? envConfig.timeout ?? DEFAULT_CONFIG.timeout,
+		retries: overrides?.retries ?? envConfig.retries ?? DEFAULT_CONFIG.retries,
 		headers: {
 			...DEFAULT_CONFIG.headers,
 			...envConfig.headers,

@@ -18,7 +18,7 @@ This repository includes:
 | `apps/cli` | `listmonk-cli` command line app (Bunli) |
 | `packages/openapi` | Generated API SDK and typed client wrappers |
 | `packages/abtest` | A/B test services and analysis logic |
-| `packages/ops` | Operational automation services (preflight/guard/hygiene/drift/digest) |
+| `packages/automation` | `@listmonk-ops/automation` high-level operational workflows (preflight/guard/hygiene/drift/digest) |
 | `packages/mcp` | MCP server exposing Listmonk operations |
 | `packages/common` | Shared utilities and error/validation helpers |
 

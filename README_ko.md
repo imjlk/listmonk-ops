@@ -18,7 +18,7 @@
 | `apps/cli` | `listmonk-cli` 커맨드라인 앱 (Bunli) |
 | `packages/openapi` | 생성형 API SDK 및 타입드 클라이언트 래퍼 |
 | `packages/abtest` | A/B 테스트 서비스 및 분석 로직 |
-| `packages/ops` | 운영 자동화 서비스 (preflight/guard/hygiene/drift/digest) |
+| `packages/automation` | `@listmonk-ops/automation` 고수준 운영 워크플로 (preflight/guard/hygiene/drift/digest) |
 | `packages/mcp` | Listmonk 작업을 노출하는 MCP 서버 |
 | `packages/common` | 공통 유틸/검증/에러 헬퍼 |
 
