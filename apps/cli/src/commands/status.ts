@@ -1,50 +1,42 @@
+import { defineCommand } from "@bunli/core";
 import { OutputUtils } from "@listmonk-ops/common";
-import { defineCommand } from "../lib/definition";
 
-export interface StatusCommandConfig {
-	listmonkUrl: string;
-	apiToken?: string;
-	listmonkClient: unknown | null;
-}
+import { toErrorMessage } from "../lib/command-utils";
+import { resolveListmonkSession } from "../lib/listmonk";
 
-export const meta = defineCommand({
+export default defineCommand({
 	name: "status",
-	description: "Check system status and connection",
-	runner: "config",
-});
+	description: "Check runtime and Listmonk connectivity",
+	handler: async (args) => {
+		const session = await resolveListmonkSession(args, { requireAuth: false });
 
-export async function run(config: StatusCommandConfig) {
-	try {
-		OutputUtils.info("🏥 System Status Check");
+		let reachable = false;
+		let auth = session.apiToken ? "token" : "none";
+		let healthError: string | undefined;
 
-		const status = {
+		if (session.client) {
+			auth = "token";
+			try {
+				const health = await session.client.getHealthCheck();
+				reachable = Boolean(health.data);
+			} catch (error) {
+				healthError = toErrorMessage(error);
+			}
+		}
+
+		OutputUtils.json({
 			runtime: {
 				platform: process.platform,
 				arch: process.arch,
 				bun: Bun.version,
-				node_version: process.version,
+				node: process.version,
 			},
 			listmonk: {
-				url: config.listmonkUrl,
-				status: config.listmonkClient ? "connected" : "disconnected",
-				auth: config.apiToken ? "api-token" : "basic-auth",
+				url: session.baseUrl,
+				auth,
+				reachable,
+				healthError,
 			},
-			packages: {
-				core: "loaded",
-				commands: "loaded",
-				common: "loaded",
-				openapi: "loaded",
-			},
-		};
-
-		OutputUtils.success("All systems operational");
-		OutputUtils.json(status);
-	} catch (error) {
-		OutputUtils.error(
-			`System check failed: ${
-				error instanceof Error ? error.message : String(error)
-			}`,
-		);
-		process.exit(1);
-	}
-}
+		});
+	},
+});
