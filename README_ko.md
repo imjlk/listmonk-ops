@@ -165,6 +165,7 @@ npm Trusted Publishing 사전 설정(1회 필요):
 - 설정 파일: `renovate.json`
 - 스케줄: `Asia/Seoul` 기준 매월 첫째/셋째 월요일 오전 (격주 근사)
 - 자동 머지: required checks 통과 후 patch/pin/digest/lockfile maintenance 업데이트만 허용
+- `bunli` 업데이트는 dependency dashboard approval이 필요하며 `bun run check:cli-pack-size`를 통과해야 함
 
 ## 운영 베이스라인
 

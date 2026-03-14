@@ -28,6 +28,7 @@
 		"release:publish:oidc:dry": "bash ./scripts/sampo-publish.sh --dry-run -- --access public --provenance",
 		"ops:smoke": "bash ./scripts/ops-smoke.sh",
 		"ops:smoke:full": "LISTMONK_OPS_SMOKE_MODE=full bash ./scripts/ops-smoke.sh",
+		"check:cli-pack-size": "bash ./scripts/check-cli-pack-size.sh",
 		"format": "biome format --write"
 	},
 	"workspaces": {

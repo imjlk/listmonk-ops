@@ -30,7 +30,8 @@
 				"@bunli/utils"
 			],
 			"groupName": "bunli stack",
-			"addLabels": ["dependencies", "bunli"]
+			"dependencyDashboardApproval": true,
+			"addLabels": ["dependencies", "bunli", "manual-verification"]
 		},
 		{
 			"matchDepTypes": ["devDependencies"],
