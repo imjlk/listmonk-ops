@@ -34,15 +34,17 @@ jobs:
       - name: Setup Node.js (npm OIDC compatible)
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
       - name: Verify npm version for trusted publishing
         run: |
           set -euo pipefail
-          node --version
-          npm --version
-          node -e "const gte=(a,b)=>{for(let i=0;i<3;i++){const x=(a[i]??0),y=(b[i]??0);if(x>y)return true;if(x<y)return false;}return true};const nodeV=process.versions.node.split('.').map(Number);const npmV=process.versions.npm.split('.').map(Number);if(!gte(nodeV,[22,14,0])){console.error('Node >= 22.14.0 is required for npm trusted publishing');process.exit(1);}if(!gte(npmV,[11,5,1])){console.error('npm >= 11.5.1 is required for trusted publishing');process.exit(1);}"
+          node_version="$(node --version | sed 's/^v//')"
+          npm_version="$(npm --version)"
+          echo "Node ${node_version}"
+          echo "npm ${npm_version}"
+          node -e 'const [nodeVersion, npmVersion] = process.argv.slice(1); const gte=(a,b)=>{for(let i=0;i<3;i++){const x=(a[i]??0),y=(b[i]??0); if(x>y) return true; if(x<y) return false;} return true;}; const parse=(v)=>v.split(".").map(Number); if(!gte(parse(nodeVersion), [22,14,0])){console.error("Node >= 22.14.0 is required for npm trusted publishing"); process.exit(1);} if(!gte(parse(npmVersion), [11,5,1])){console.error("npm >= 11.5.1 is required for trusted publishing"); process.exit(1);}' "$node_version" "$npm_version"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
