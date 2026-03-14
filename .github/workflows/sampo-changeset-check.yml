@@ -1,0 +1,45 @@
+name: Sampo Changeset Check
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  changeset-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require changeset for releasable package changes
+        if: github.event_name == 'pull_request'
+        run: |
+          bash ./scripts/check-sampo-changeset.sh \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.sha }}"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Sampo
+        run: cargo install sampo --locked
+
+      - name: Validate release plan (dry-run)
+        run: |
+          set +e
+          sampo release --dry-run
+          code=$?
+          if [ "$code" -eq 0 ] || [ "$code" -eq 2 ]; then
+            exit 0
+          fi
+          exit "$code"

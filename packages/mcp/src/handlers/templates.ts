@@ -195,7 +195,19 @@ export async function handleTemplatesTools(
 				};
 
 				const response = await client.template.create({ body });
-				return createSuccessResult(response.data);
+				const createdTemplate =
+					response.data ??
+					(await client.template.list()).data?.results?.find(
+						(template) => template.name === body.name,
+					);
+
+				if (!createdTemplate) {
+					return createErrorResult(
+						"Template was created but the created record could not be resolved",
+					);
+				}
+
+				return createSuccessResult(createdTemplate);
 			}
 
 			case "listmonk_update_template": {

@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCLI } from "@bunli/core";
 import { completionsPlugin } from "@bunli/plugin-completions";
+import packageJson from "../package.json" with { type: "json" };
 
 import abtestCommand from "./commands/abtest";
 import campaignsCommand from "./commands/campaigns";
@@ -28,7 +29,7 @@ function resolveCompletionsGeneratedPath(): string {
 
 const cli = await createCLI({
 	name: "listmonk-cli",
-	version: "0.2.0",
+	version: packageJson.version,
 	description: "CLI for Listmonk operations",
 	plugins: [
 		completionsPlugin({

@@ -79,13 +79,8 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 ## Installation
 
 ```bash
-# Install dependencies
-bun install
-
-# Copy environment configuration
-cp .env.example .env
-
-# Edit .env with your Listmonk settings
+# Global install
+npm install -g @listmonk-ops/mcp
 ```
 
 ## Configuration
@@ -112,17 +107,32 @@ DEBUG=false
 
 ## Usage
 
+### Run With Environment Variables
+
+```bash
+LISTMONK_API_URL=http://localhost:9000/api \
+LISTMONK_USERNAME=admin \
+LISTMONK_API_TOKEN=<token> \
+listmonk-mcp
+```
+
+### Run With Runtime Flags (for remote Listmonk endpoint)
+
+```bash
+listmonk-mcp \
+  --listmonk-url https://listmonk.example.com/api \
+  --listmonk-username api-admin \
+  --listmonk-api-token <token> \
+  --host 0.0.0.0 \
+  --port 3000
+```
+
+CLI flags override environment values. This allows running MCP against a remote Listmonk instance without any local Docker setup.
+
 ### Development
 
 ```bash
 bun run dev
-```
-
-### Production
-
-```bash
-bun run build
-bun run start
 ```
 
 ## API Endpoints

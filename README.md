@@ -11,6 +11,13 @@ This repository includes:
 - Bunli-based CLI with shell completions and standalone binary builds
 - Dockerized local Listmonk environment (Listmonk + Postgres + Mailpit)
 
+## Built Around Listmonk
+
+This repository is designed for teams operating [Listmonk](https://listmonk.app/) in production.
+
+- Listmonk project: [listmonk.app](https://listmonk.app/)
+- Source code: [knadh/listmonk](https://github.com/knadh/listmonk)
+
 ## Components
 
 | Path | Purpose |
@@ -84,6 +91,65 @@ bun run api test
 bun run mcp dev
 bun run mcp test:e2e
 ```
+
+## CLI Binary Install (GitHub Release + curl)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash
+```
+
+Optional version pin:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash -s -- --version 0.2.0
+```
+
+## MCP Runtime Endpoint Override
+
+`listmonk-mcp` supports runtime flags, so local Docker Listmonk is not required:
+
+```bash
+listmonk-mcp \
+  --listmonk-url https://listmonk.example.com/api \
+  --listmonk-username api-admin \
+  --listmonk-api-token <token> \
+  --host 0.0.0.0 \
+  --port 3000
+```
+
+## Sampo Changesets + npm OIDC Publish
+
+This repo uses Sampo for release planning/changelog management and automated npm publishing on `main`.
+
+```bash
+# 1) Add a changeset in feature PR
+bun run release:add
+
+# 2) Validate release impact (dry-run)
+bun run release:plan
+
+# 3) (Optional local) Apply version/changelog updates
+bun run release:apply
+
+# 4) (Optional local) Publish through npm
+bun run release:publish
+```
+
+After a PR is merged into `main`, workflow `.github/workflows/sampo-release-publish.yml` runs:
+
+1. `sampo release`
+2. `bun run build`
+3. `sampo publish -- --access public --provenance`
+4. Pushes release commit and tags after publish succeeds
+
+CI guard:
+- PRs changing releasable packages (`apps/cli`, `packages/openapi`, `packages/automation`, `packages/common`, `packages/abtest`, `packages/mcp`) must include `.sampo/changesets/*.md`
+- Workflow: `.github/workflows/sampo-changeset-check.yml`
+
+npm Trusted Publishing setup required (one-time on npm):
+- Provider: GitHub Actions
+- Repository: `imjlk/listmonk-ops`
+- Workflow file: `.github/workflows/sampo-release-publish.yml`
 
 ## Operational Baseline
 

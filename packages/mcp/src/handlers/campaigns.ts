@@ -314,7 +314,36 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 				};
 
 				const response = await client.campaign.create({ body });
-				return createSuccessResult(response.data);
+				let createdCampaign: typeof response.data | undefined = response.data;
+				const pageSize = 100;
+				const firstPage = await client.campaign.list({
+					query: { page: 1, per_page: pageSize },
+				});
+				createdCampaign =
+					createdCampaign ??
+					firstPage.data?.results?.find((campaign) => campaign.name === body.name);
+
+				if (!createdCampaign) {
+					const total = firstPage.data?.total ?? 0;
+					const lastPage = total > 0 ? Math.ceil(total / pageSize) : 1;
+
+					if (lastPage > 1) {
+						const lastPageResponse = await client.campaign.list({
+							query: { page: lastPage, per_page: pageSize },
+						});
+						createdCampaign = lastPageResponse.data?.results?.find(
+							(campaign) => campaign.name === body.name,
+						);
+					}
+				}
+
+				if (!createdCampaign) {
+					return createErrorResult(
+						"Campaign was created but the created record could not be resolved",
+					);
+				}
+
+				return createSuccessResult(createdCampaign);
 			}
 
 			case "listmonk_update_campaign_status": {

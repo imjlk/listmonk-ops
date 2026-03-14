@@ -11,6 +11,13 @@
 - Bunli 기반 CLI (completion + standalone 바이너리 빌드)
 - Docker 로컬 개발 환경 (Listmonk + Postgres + Mailpit)
 
+## Listmonk 기반
+
+이 저장소는 [Listmonk](https://listmonk.app/)를 운영 환경에서 활용하는 팀을 위한 도구 모음입니다.
+
+- Listmonk 프로젝트: [listmonk.app](https://listmonk.app/)
+- 소스 코드: [knadh/listmonk](https://github.com/knadh/listmonk)
+
 ## 구성 요소
 
 | 경로 | 역할 |
@@ -84,6 +91,65 @@ bun run api test
 bun run mcp dev
 bun run mcp test:e2e
 ```
+
+## CLI 바이너리 설치 (GitHub Release + curl)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash
+```
+
+버전 고정 설치:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash -s -- --version 0.2.0
+```
+
+## MCP 런타임 Endpoint 오버라이드
+
+`listmonk-mcp`는 런타임 플래그를 지원하므로 로컬 Docker Listmonk 없이도 실행할 수 있습니다.
+
+```bash
+listmonk-mcp \
+  --listmonk-url https://listmonk.example.com/api \
+  --listmonk-username api-admin \
+  --listmonk-api-token <token> \
+  --host 0.0.0.0 \
+  --port 3000
+```
+
+## Sampo 체인지셋 + npm OIDC 배포
+
+이 레포는 Sampo로 릴리즈 계획/체인지로그를 관리하고, `main` 머지 후 npm 자동 배포를 수행합니다.
+
+```bash
+# 1) 기능 PR에서 체인지셋 추가
+bun run release:add
+
+# 2) 릴리즈 영향도 검증 (dry-run)
+bun run release:plan
+
+# 3) (옵션: 로컬) 버전/체인지로그 반영
+bun run release:apply
+
+# 4) (옵션: 로컬) npm 퍼블리시
+bun run release:publish
+```
+
+PR이 `main`에 머지되면 `.github/workflows/sampo-release-publish.yml`가 자동 실행됩니다.
+
+1. `sampo release`
+2. `bun run build`
+3. `sampo publish -- --access public --provenance`
+4. publish 성공 후 릴리즈 커밋/태그 push
+
+CI 가드:
+- 릴리즈 대상 패키지(`apps/cli`, `packages/openapi`, `packages/automation`, `packages/common`, `packages/abtest`, `packages/mcp`) 변경 PR에는 `.sampo/changesets/*.md`가 반드시 포함되어야 함
+- 워크플로우: `.github/workflows/sampo-changeset-check.yml`
+
+npm Trusted Publishing 사전 설정(1회 필요):
+- Provider: GitHub Actions
+- Repository: `imjlk/listmonk-ops`
+- Workflow file: `.github/workflows/sampo-release-publish.yml`
 
 ## 운영 베이스라인
 

@@ -2,8 +2,17 @@
 	"name": "@listmonk-ops/mcp",
 	"version": "0.1.0",
 	"description": "Listmonk Model Context Protocol Server using Hono",
-	"main": "dist/index.js",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"bin": {
+		"listmonk-mcp": "bin/listmonk-mcp.js"
+	},
 	"type": "module",
+	"files": [
+		"dist",
+		"bin",
+		"README.md"
+	],
 	"scripts": {
 		"dev": "bun run src/index.ts",
 		"build": "tsc",
@@ -11,11 +20,12 @@
 		"test": "bun test",
 		"test:e2e": "bun test tests/e2e",
 		"lint": "biome check src",
-		"lint:fix": "biome check src --fix"
+		"lint:fix": "biome check src --fix",
+		"prepublishOnly": "bun run build"
 	},
 	"dependencies": {
-		"@listmonk-ops/abtest": "workspace:*",
-		"@listmonk-ops/automation": "workspace:*",
+		"@listmonk-ops/abtest": "^0.1.0",
+		"@listmonk-ops/automation": "^0.1.0",
 		"@modelcontextprotocol/sdk": "1.27.1",
 		"dotenv": "17.3.1",
 		"hono": "4.12.4"

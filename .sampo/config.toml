@@ -1,0 +1,18 @@
+# Sampo configuration
+version = 1
+
+[git]
+default_branch = "main"
+
+[github]
+repository = "imjlk/listmonk-ops"
+
+[changesets]
+tags = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"]
+
+[changelog]
+show_commit_hash = true
+show_acknowledgments = true
+
+[packages]
+ignore_unpublished = true

@@ -293,7 +293,27 @@ export async function handleSubscribersTools(
 					body,
 				});
 
-				return createSuccessResult(response.data);
+				const createdSubscriber =
+					response.data ??
+					(
+						await client.subscriber.list({
+							query: {
+								page: 1,
+								per_page: 100,
+								query: String(args.email),
+							},
+						})
+					).data?.results?.find(
+						(subscriber) => subscriber.email === String(args.email),
+					);
+
+				if (!createdSubscriber) {
+					return createErrorResult(
+						"Subscriber was created but the created record could not be resolved",
+					);
+				}
+
+				return createSuccessResult(createdSubscriber);
 			}
 
 			case "listmonk_update_subscriber": {

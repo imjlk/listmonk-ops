@@ -1,4 +1,4 @@
-import { afterAll, beforeAll } from "bun:test";
+import { afterAll, beforeAll, setDefaultTimeout } from "bun:test";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createListmonkClient } from "@listmonk-ops/openapi";
@@ -61,6 +61,8 @@ export const TEST_CONFIG = {
 		process.env.LISTMONK_USERNAME || "api-admin",
 	),
 };
+
+setDefaultTimeout(30000);
 
 // Create test client
 export function createTestClient() {

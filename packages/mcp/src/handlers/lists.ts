@@ -184,7 +184,36 @@ export const handleListsTools: HandlerFunction = withErrorHandler(
 				};
 
 				const response = await client.list.create({ body });
-				return createSuccessResult(response.data);
+				let createdList: typeof response.data | undefined = response.data;
+				const pageSize = 100;
+				const firstPage = await client.list.list({
+					query: { page: 1, per_page: pageSize },
+				});
+				createdList =
+					createdList ??
+					firstPage.data?.results?.find((list) => list.name === body.name);
+
+				if (!createdList) {
+					const total = firstPage.data?.total ?? 0;
+					const lastPage = total > 0 ? Math.ceil(total / pageSize) : 1;
+
+					if (lastPage > 1) {
+						const lastPageResponse = await client.list.list({
+							query: { page: lastPage, per_page: pageSize },
+						});
+						createdList = lastPageResponse.data?.results?.find(
+							(list) => list.name === body.name,
+						);
+					}
+				}
+
+				if (!createdList) {
+					return createErrorResult(
+						"List was created but the created record could not be resolved",
+					);
+				}
+
+				return createSuccessResult(createdList);
 			}
 
 			case "listmonk_update_list": {
