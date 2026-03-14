@@ -151,11 +151,20 @@ After a PR is merged into `main`, workflow `.github/workflows/sampo-release-publ
 CI guard:
 - PRs changing releasable packages (`apps/cli`, `packages/openapi`, `packages/automation`, `packages/common`, `packages/abtest`, `packages/mcp`) must include `.sampo/changesets/*.md`
 - Workflow: `.github/workflows/sampo-changeset-check.yml`
+- Renovate PRs that touch releasable packages receive a bot-generated changeset via `.github/workflows/renovate-changeset.yml`
 
 npm Trusted Publishing setup required (one-time on npm):
 - Provider: GitHub Actions
 - Repository: `imjlk/listmonk-ops`
 - Workflow file: `.github/workflows/sampo-release-publish.yml`
+
+## Dependency Automation
+
+This repository uses Renovate for npm/Bun/GitHub Actions updates.
+
+- Config: `renovate.json`
+- Schedule: first and third Monday morning in `Asia/Seoul` (bi-weekly approximation)
+- Automerge: patch, pin, digest, and lockfile maintenance updates after required checks pass
 
 ## Operational Baseline
 

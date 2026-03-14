@@ -39,6 +39,12 @@ Check the release plan locally if needed:
 bun run release:plan
 ```
 
+Renovate PRs are the exception:
+
+- Renovate opens dependency PRs automatically.
+- If a Renovate PR changes a releasable package, `.github/workflows/renovate-changeset.yml` commits a generic changeset onto the PR branch.
+- Human-authored PRs should still add their own changesets directly.
+
 ## CI And Release
 
 PR validation:

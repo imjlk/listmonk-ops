@@ -39,6 +39,12 @@ bun run release:add
 bun run release:plan
 ```
 
+Renovate PR은 예외입니다.
+
+- Renovate가 디펜던시 PR을 자동으로 생성합니다.
+- 해당 PR이 릴리즈 대상 패키지를 변경하면 `.github/workflows/renovate-changeset.yml`가 generic changeset을 PR 브랜치에 커밋합니다.
+- 사람이 작성한 PR은 계속 직접 changeset을 추가하는 흐름을 유지합니다.
+
 ## CI와 릴리즈
 
 PR 검증:

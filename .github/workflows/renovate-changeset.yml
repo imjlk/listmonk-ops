@@ -1,0 +1,66 @@
+name: Renovate Dependency Changeset
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: renovate-changeset-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  add-changeset:
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'renovate/') &&
+      (
+        github.actor == 'renovate[bot]' ||
+        github.event.pull_request.user.login == 'renovate[bot]'
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Renovate branch
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
+
+      - name: Materialize trusted generator script from base branch
+        run: |
+          git show "origin/${{ github.event.pull_request.base.ref }}:scripts/generate-renovate-changeset.sh" > /tmp/generate-renovate-changeset.sh
+          chmod +x /tmp/generate-renovate-changeset.sh
+
+      - name: Generate dependency changeset
+        run: |
+          bash /tmp/generate-renovate-changeset.sh \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
+            "${{ github.event.pull_request.number }}"
+
+      - name: Commit generated changeset
+        run: |
+          if [[ -z "$(git status --short -- .sampo/changesets)" ]]; then
+            echo "No changeset changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .sampo/changesets
+          git commit -m "chore(renovate): add dependency changeset"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
