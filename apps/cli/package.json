@@ -1,6 +1,6 @@
 {
 	"name": "@listmonk-ops/cli",
-	"version": "0.2.2",
+	"version": "0.2.3",
 	"description": "Listmonk operations CLI built with Bunli",
 	"type": "module",
 	"repository": {
@@ -38,10 +38,10 @@
 		"@bunli/core": "0.7.0",
 		"@bunli/plugin-completions": "0.3.3",
 		"@bunli/utils": "0.4.0",
-		"@listmonk-ops/abtest": "^0.1.2",
-		"@listmonk-ops/common": "^0.1.2",
-		"@listmonk-ops/automation": "^0.1.2",
-		"@listmonk-ops/openapi": "^0.1.4",
+		"@listmonk-ops/abtest": "^0.1.3",
+		"@listmonk-ops/common": "^0.1.3",
+		"@listmonk-ops/automation": "^0.1.3",
+		"@listmonk-ops/openapi": "^0.1.5",
 		"bunli": "0.7.1",
 		"zod": "4.3.6"
 	},

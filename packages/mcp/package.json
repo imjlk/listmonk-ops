@@ -1,6 +1,6 @@
 {
 	"name": "@listmonk-ops/mcp",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Listmonk Model Context Protocol Server using Hono",
 	"repository": {
 		"type": "git",
@@ -29,8 +29,8 @@
 		"prepublishOnly": "bun run test"
 	},
 	"dependencies": {
-		"@listmonk-ops/abtest": "^0.1.2",
-		"@listmonk-ops/automation": "^0.1.2",
+		"@listmonk-ops/abtest": "^0.1.3",
+		"@listmonk-ops/automation": "^0.1.3",
 		"@modelcontextprotocol/sdk": "1.27.1",
 		"dotenv": "17.3.1",
 		"hono": "4.12.7"

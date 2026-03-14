@@ -1,5 +1,15 @@
 # @listmonk-ops/automation
 
+## 0.1.3 — 2026-03-14
+
+### Changed
+
+- [b225654](https://github.com/imjlk/listmonk-ops/commit/b225654b985bc3f5601af131dfccb53e53f2f093) Refresh workspace dependencies, add Renovate-based dependency automation, and generate Sampo changesets automatically for dependency PRs that touch releasable packages. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: openapi@0.1.5
+
 ## 0.1.2 — 2026-03-14
 
 ### Changed
