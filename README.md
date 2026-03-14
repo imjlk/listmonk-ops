@@ -4,6 +4,8 @@ English | [한국어](./README_ko.md)
 
 Production-oriented tooling for operating [Listmonk](https://listmonk.app/) with a single TypeScript/Bun monorepo.
 
+Contribution guide: [CONTRIBUTING.md](./CONTRIBUTING.md) | [한국어](./CONTRIBUTING_ko.md)
+
 This repository includes:
 - OpenAPI-based SDK generation (Hey API)
 - A/B testing domain logic

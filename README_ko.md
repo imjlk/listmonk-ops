@@ -4,6 +4,8 @@
 
 [Listmonk](https://listmonk.app/) 운영 자동화를 위한 TypeScript/Bun 기반 모노레포입니다.
 
+기여 가이드: [English](./CONTRIBUTING.md) | [한국어](./CONTRIBUTING_ko.md)
+
 이 저장소에는 다음이 포함되어 있습니다.
 - OpenAPI 스펙 기반 SDK 생성 (Hey API)
 - A/B 테스트 도메인 로직
