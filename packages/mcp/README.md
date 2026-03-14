@@ -79,9 +79,14 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 ## Installation
 
 ```bash
-# Global install
+# Recommended global install
+bun add -g @listmonk-ops/mcp
+
+# npm install is also supported, but Bun must be available on PATH
 npm install -g @listmonk-ops/mcp
 ```
+
+This package is published on npm, but the executable itself targets the Bun runtime.
 
 ## Configuration
 
@@ -133,6 +138,12 @@ CLI flags override environment values. This allows running MCP against a remote 
 
 ```bash
 bun run dev
+```
+
+### Runtime
+
+```bash
+bun ./bin/listmonk-mcp.js --help
 ```
 
 ## API Endpoints
@@ -199,7 +210,10 @@ If you have Listmonk running on `http://localhost:9000`:
 # Install dependencies and build
 bun install && bun run build
 
-# Run tests against existing Listmonk
+# Run fast unit/runtime checks
+bun run test
+
+# Run E2E tests against existing Listmonk
 bun test tests/e2e
 ```
 

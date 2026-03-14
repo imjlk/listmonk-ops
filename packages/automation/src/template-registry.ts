@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { ListmonkClient, Template } from "@listmonk-ops/openapi";
 
-import { getTemplateById } from "./api";
+import { getTemplateById, unwrapResponseData } from "./api";
 import {
 	extractResults,
 	readJsonFile,
@@ -115,7 +115,12 @@ async function getTemplateIds(
 	}
 
 	const response = await client.template.list();
-	const templates = extractResults<Template>(response.data);
+	const templates = extractResults<Template>(
+		unwrapResponseData(
+			response,
+			"Failed to list templates for template registry sync",
+		),
+	);
 	return templates
 		.map((template) => toPositiveInt(template.id))
 		.filter((templateId): templateId is number => templateId !== undefined);

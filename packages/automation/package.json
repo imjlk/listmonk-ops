@@ -3,6 +3,7 @@
 	"version": "0.1.1",
 	"type": "module",
 	"description": "High-level Listmonk operational automation workflows",
+	"sideEffects": false,
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/imjlk/listmonk-ops"
@@ -24,7 +25,8 @@
 	"scripts": {
 		"clean": "rm -rf dist",
 		"build": "bun run clean && tsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/openapi",
-		"prepublishOnly": "bun run build"
+		"test": "bun test",
+		"prepublishOnly": "bun run build && bun run test"
 	},
 	"dependencies": {
 		"@listmonk-ops/openapi": "^0.1.3"

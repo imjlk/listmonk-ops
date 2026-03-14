@@ -16,6 +16,7 @@
 		"composite": true,
 		"declaration": true,
 		"outDir": "dist",
+		"tsBuildInfoFile": "./tsconfig.tsbuildinfo",
 
 		// Best practices
 		"strict": true,
@@ -29,6 +30,6 @@
 		"noUnusedParameters": false,
 		"noPropertyAccessFromIndexSignature": false
 	},
-	"include": ["src/**/*", "generated/**/*", "index.ts"],
+	"include": ["src/**/*", "generated/**/*", "index.ts", "sdk.ts"],
 	"exclude": ["generate.ts", "tests/**/*", "dist/**/*"]
 }

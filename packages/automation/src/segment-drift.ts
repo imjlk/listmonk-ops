@@ -1,6 +1,6 @@
 import type { List, ListmonkClient } from "@listmonk-ops/openapi";
 
-import { getListById } from "./api";
+import { getListById, unwrapResponseData } from "./api";
 import {
 	extractResults,
 	readJsonFile,
@@ -74,7 +74,9 @@ async function getListsForDrift(
 	const response = await client.list.list({
 		query: { per_page: "all" },
 	});
-	return extractResults<List>(response.data);
+	return extractResults<List>(
+		unwrapResponseData(response, "Failed to list lists for segment drift"),
+	);
 }
 
 export async function runSegmentDriftSnapshot(

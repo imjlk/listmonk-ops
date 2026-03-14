@@ -1,6 +1,13 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { AbTest, TestResults, Variant } from "./types";
 
+export interface ProvisionedAbTestResources {
+	testId: string;
+	campaignIds: number[];
+	testListIds: number[];
+	holdoutListId?: number;
+}
+
 /**
  * Listmonk integration for A/B testing
  * Handles actual campaign creation, subscriber segmentation, and result collection
@@ -8,12 +15,61 @@ import type { AbTest, TestResults, Variant } from "./types";
 export class ListmonkAbTestIntegration {
 	constructor(private listmonkClient: ListmonkClient) {}
 
+	private formatError(error: unknown): string {
+		return error instanceof Error ? error.message : String(error);
+	}
+
+	private unwrapData<T>(
+		response: {
+			data?: T;
+			error?: unknown;
+		},
+		context: string,
+	): T {
+		if ("error" in response && response.error !== undefined) {
+			throw new Error(`${context}: ${this.formatError(response.error)}`);
+		}
+
+		if (response.data === undefined) {
+			throw new Error(`${context}: received empty data`);
+		}
+
+		return response.data;
+	}
+
 	private requireNumericId(value: unknown, context: string): number {
 		if (typeof value === "number" && Number.isFinite(value)) {
 			return value;
 		}
 
 		throw new Error(`${context}: response missing numeric id`);
+	}
+
+	private async deleteCampaignsBestEffort(campaignIds: number[]): Promise<void> {
+		for (const campaignId of campaignIds) {
+			try {
+				await this.listmonkClient.campaign.delete({
+					path: { id: campaignId },
+				});
+			} catch (error) {
+				console.warn(
+					`Failed to delete rollback campaign ${campaignId}:`,
+					error,
+				);
+			}
+		}
+	}
+
+	private async deleteListsBestEffort(listIds: number[]): Promise<void> {
+		for (const listId of listIds) {
+			try {
+				await this.listmonkClient.list.delete({
+					path: { list_id: listId },
+				});
+			} catch (error) {
+				console.warn(`Failed to delete rollback list ${listId}:`, error);
+			}
+		}
 	}
 
 	/**
@@ -30,39 +86,43 @@ export class ListmonkAbTestIntegration {
 	): Promise<{ variantId: string; campaignId: number }[]> {
 		const createdCampaigns: { variantId: string; campaignId: number }[] = [];
 
-		for (const variant of abTest.variants) {
-			// Create campaign for this variant
-			const campaignData = {
-				body: {
-					name: `${abTest.name} - ${variant.name}`,
-					subject: variant.contentOverrides.subject || baseConfig.subject,
-					body: variant.contentOverrides.body || baseConfig.body,
-					lists: baseConfig.lists,
-					type: "regular" as const,
-					content_type: "html" as const,
-					template_id: baseConfig.template_id,
-					tags: [`abtest:${abTest.id}`, `variant:${variant.id}`],
-				},
-			};
+		try {
+			for (const variant of abTest.variants) {
+				const campaignData = {
+					body: {
+						name: `${abTest.name} - ${variant.name}`,
+						subject: variant.contentOverrides.subject || baseConfig.subject,
+						body: variant.contentOverrides.body || baseConfig.body,
+						lists: baseConfig.lists,
+						type: "regular" as const,
+						content_type: "html" as const,
+						template_id: baseConfig.template_id,
+						tags: [`abtest:${abTest.id}`, `variant:${variant.id}`],
+					},
+				};
 
-			const result = await this.listmonkClient.campaign.create(campaignData);
-
-			if ("error" in result) {
-				throw new Error(
-					`Failed to create campaign for variant ${variant.name}: ${result.error}`,
+				const result = await this.listmonkClient.campaign.create(campaignData);
+				const createdCampaign = this.unwrapData(
+					result,
+					`Failed to create campaign for variant ${variant.name}`,
 				);
+
+				createdCampaigns.push({
+					variantId: variant.id,
+					campaignId: this.requireNumericId(
+						createdCampaign.id,
+						`Failed to create campaign for variant ${variant.name}`,
+					),
+				});
 			}
 
-			createdCampaigns.push({
-				variantId: variant.id,
-				campaignId: this.requireNumericId(
-					result.data.id,
-					`Failed to create campaign for variant ${variant.name}`,
-				),
-			});
+			return createdCampaigns;
+		} catch (error) {
+			await this.deleteCampaignsBestEffort(
+				createdCampaigns.map((entry) => entry.campaignId),
+			);
+			throw error;
 		}
-
-		return createdCampaigns;
 	}
 
 	/**
@@ -79,6 +139,9 @@ export class ListmonkAbTestIntegration {
 		testGroupSize: number;
 		holdoutGroupSize: number;
 	}> {
+		const createdListIds: number[] = [];
+		let holdoutListId: number | undefined;
+
 		// Get all subscribers from original lists
 		const allSubscribers = await this.getAllSubscribers(originalLists);
 		const totalSubscribers = allSubscribers.length;
@@ -97,83 +160,82 @@ export class ListmonkAbTestIntegration {
 		const holdoutGroupSubscribers = shuffledSubscribers.slice(testGroupSize);
 
 		// Create holdout list
-		const holdoutListResult = await this.listmonkClient.list.create({
-			body: {
-				name: `A/B Test Holdout - ${Date.now()}`,
-				type: "private",
-				optin: "single",
-				description: "Holdout group for A/B test - will receive winner variant",
-			},
-		});
-
-		if ("error" in holdoutListResult) {
-			throw new Error(
-				`Failed to create holdout list: ${holdoutListResult.error}`,
-			);
-		}
-
-		const holdoutListId = this.requireNumericId(
-			holdoutListResult.data.id,
-			"Failed to create holdout list",
-		);
-
-		// Add holdout subscribers to holdout list
-		for (const subscriber of holdoutGroupSubscribers) {
-			await this.addSubscriberToList(subscriber.id, holdoutListId);
-		}
-
-		// Create test lists for each variant
-		const testListMappings: { variantId: string; listId: number }[] = [];
-		const testGroupPerVariant = Math.floor(testGroupSize / variants.length);
-
-		let currentIndex = 0;
-		for (const variant of variants) {
-			// Get subscribers for this variant
-			const variantSubscribers = testGroupSubscribers.slice(
-				currentIndex,
-				currentIndex + testGroupPerVariant,
-			);
-
-			// Create test list for this variant
-			const testListResult = await this.listmonkClient.list.create({
+		try {
+			const holdoutListResult = await this.listmonkClient.list.create({
 				body: {
-					name: `A/B Test - ${variant.name} - ${Date.now()}`,
+					name: `A/B Test Holdout - ${Date.now()}`,
 					type: "private",
 					optin: "single",
-					description: `Test group for A/B test variant ${variant.name}`,
+					description:
+						"Holdout group for A/B test - will receive winner variant",
 				},
 			});
 
-			if ("error" in testListResult) {
-				throw new Error(
-					`Failed to create test list for variant ${variant.name}: ${testListResult.error}`,
-				);
-			}
-
-			const testListId = this.requireNumericId(
-				testListResult.data.id,
-				`Failed to create test list for variant ${variant.name}`,
+			const createdHoldoutList = this.unwrapData(
+				holdoutListResult,
+				"Failed to create holdout list",
 			);
+			holdoutListId = this.requireNumericId(
+				createdHoldoutList.id,
+				"Failed to create holdout list",
+			);
+			createdListIds.push(holdoutListId);
 
-			// Add subscribers to test list
-			for (const subscriber of variantSubscribers) {
-				await this.addSubscriberToList(subscriber.id, testListId);
+			for (const subscriber of holdoutGroupSubscribers) {
+				await this.addSubscriberToList(subscriber.id, holdoutListId);
 			}
 
-			testListMappings.push({
-				variantId: variant.id,
-				listId: testListId,
-			});
+			const testListMappings: { variantId: string; listId: number }[] = [];
+			const testGroupPerVariant = Math.floor(testGroupSize / variants.length);
 
-			currentIndex += testGroupPerVariant;
+			let currentIndex = 0;
+			for (const variant of variants) {
+				const variantSubscribers = testGroupSubscribers.slice(
+					currentIndex,
+					currentIndex + testGroupPerVariant,
+				);
+
+				const testListResult = await this.listmonkClient.list.create({
+					body: {
+						name: `A/B Test - ${variant.name} - ${Date.now()}`,
+						type: "private",
+						optin: "single",
+						description: `Test group for A/B test variant ${variant.name}`,
+					},
+				});
+
+				const createdTestList = this.unwrapData(
+					testListResult,
+					`Failed to create test list for variant ${variant.name}`,
+				);
+				const testListId = this.requireNumericId(
+					createdTestList.id,
+					`Failed to create test list for variant ${variant.name}`,
+				);
+				createdListIds.push(testListId);
+
+				for (const subscriber of variantSubscribers) {
+					await this.addSubscriberToList(subscriber.id, testListId);
+				}
+
+				testListMappings.push({
+					variantId: variant.id,
+					listId: testListId,
+				});
+
+				currentIndex += testGroupPerVariant;
+			}
+
+			return {
+				testListMappings,
+				holdoutListId,
+				testGroupSize,
+				holdoutGroupSize,
+			};
+		} catch (error) {
+			await this.deleteListsBestEffort([...createdListIds].reverse());
+			throw error;
 		}
-
-		return {
-			testListMappings,
-			holdoutListId,
-			testGroupSize,
-			holdoutGroupSize,
-		};
 	}
 
 	/**
@@ -186,6 +248,7 @@ export class ListmonkAbTestIntegration {
 		variants: Variant[],
 	): Promise<{ variantId: string; listId: number }[]> {
 		const segmentedLists: { variantId: string; listId: number }[] = [];
+		const createdListIds: number[] = [];
 
 		// Get all subscribers from original lists
 		const allSubscribers = await this.getAllSubscribers(originalLists);
@@ -194,53 +257,65 @@ export class ListmonkAbTestIntegration {
 		const shuffledSubscribers = this.shuffleArray([...allSubscribers]);
 
 		let currentIndex = 0;
-		for (const variant of variants) {
-			// Calculate subscriber count for this variant
-			const variantCount = Math.floor(
-				(shuffledSubscribers.length * variant.percentage) / 100,
-			);
-
-			// Get subscribers for this variant
-			const variantSubscribers = shuffledSubscribers.slice(
-				currentIndex,
-				currentIndex + variantCount,
-			);
-
-			// Create temporary list for this variant
-			const listResult = await this.listmonkClient.list.create({
-				body: {
-					name: `A/B Test - ${variant.name} - ${Date.now()}`,
-					type: "private",
-					optin: "single",
-					description: `Temporary list for A/B test variant ${variant.name}`,
-				},
-			});
-
-			if ("error" in listResult) {
-				throw new Error(
-					`Failed to create list for variant ${variant.name}: ${listResult.error}`,
+		try {
+			for (const variant of variants) {
+				const variantCount = Math.floor(
+					(shuffledSubscribers.length * variant.percentage) / 100,
 				);
+
+				const variantSubscribers = shuffledSubscribers.slice(
+					currentIndex,
+					currentIndex + variantCount,
+				);
+
+				const listResult = await this.listmonkClient.list.create({
+					body: {
+						name: `A/B Test - ${variant.name} - ${Date.now()}`,
+						type: "private",
+						optin: "single",
+						description: `Temporary list for A/B test variant ${variant.name}`,
+					},
+				});
+
+				const createdList = this.unwrapData(
+					listResult,
+					`Failed to create list for variant ${variant.name}`,
+				);
+				const listId = this.requireNumericId(
+					createdList.id,
+					`Failed to create list for variant ${variant.name}`,
+				);
+				createdListIds.push(listId);
+
+				for (const subscriber of variantSubscribers) {
+					await this.addSubscriberToList(subscriber.id, listId);
+				}
+
+				segmentedLists.push({
+					variantId: variant.id,
+					listId,
+				});
+
+				currentIndex += variantCount;
 			}
 
-			const listId = this.requireNumericId(
-				listResult.data.id,
-				`Failed to create list for variant ${variant.name}`,
-			);
+			return segmentedLists;
+		} catch (error) {
+			await this.deleteListsBestEffort([...createdListIds].reverse());
+			throw error;
+		}
+	}
 
-			// Add subscribers to this list
-			for (const subscriber of variantSubscribers) {
-				await this.addSubscriberToList(subscriber.id, listId);
-			}
-
-			segmentedLists.push({
-				variantId: variant.id,
-				listId,
-			});
-
-			currentIndex += variantCount;
+	async rollbackProvisioning(
+		resources: ProvisionedAbTestResources,
+	): Promise<void> {
+		const listIds = [...resources.testListIds];
+		if (resources.holdoutListId !== undefined) {
+			listIds.push(resources.holdoutListId);
 		}
 
-		return segmentedLists;
+		await this.deleteCampaignsBestEffort([...resources.campaignIds].reverse());
+		await this.deleteListsBestEffort(listIds.reverse());
 	}
 
 	/**
@@ -278,13 +353,13 @@ export class ListmonkAbTestIntegration {
 
 		const result =
 			await this.listmonkClient.campaign.create(winnerCampaignData);
-
-		if ("error" in result) {
-			throw new Error(`Failed to create winner campaign: ${result.error}`);
-		}
+		const createdWinnerCampaign = this.unwrapData(
+			result,
+			"Failed to create winner campaign",
+		);
 
 		return this.requireNumericId(
-			result.data.id,
+			createdWinnerCampaign.id,
 			"Failed to create winner campaign",
 		);
 	}
@@ -315,14 +390,10 @@ export class ListmonkAbTestIntegration {
 			const campaignResult = await this.listmonkClient.campaign.getById({
 				path: { id: mapping.campaignId },
 			});
-
-			if ("error" in campaignResult) {
-				throw new Error(
-					`Failed to get campaign ${mapping.campaignId}: ${campaignResult.error}`,
-				);
-			}
-
-			const campaign = campaignResult.data;
+			const campaign = this.unwrapData(
+				campaignResult,
+				`Failed to get campaign ${mapping.campaignId}`,
+			);
 
 			// Calculate metrics from campaign data
 			const sampleSize = campaign.sent || 0;
@@ -487,12 +558,8 @@ export class ListmonkAbTestIntegration {
 			const listResult = await this.listmonkClient.list.getById({
 				path: { list_id: listId },
 			});
-
-			if ("error" in listResult) {
-				throw new Error(`Failed to get list ${listId}: ${listResult.error}`);
-			}
-
-			total += Math.max(0, Number(listResult.data.subscriber_count ?? 0));
+			const list = this.unwrapData(listResult, `Failed to get list ${listId}`);
+			total += Math.max(0, Number(list.subscriber_count ?? 0));
 		}
 
 		// Some Listmonk setups can return stale/zero subscriber_count for API users.
@@ -519,12 +586,12 @@ export class ListmonkAbTestIntegration {
 				// For now, we'll get all subscribers and filter later
 			},
 		});
+		const subscribers = this.unwrapData(
+			subscribersResult,
+			"Failed to get subscribers",
+		);
 
-		if ("error" in subscribersResult) {
-			throw new Error(`Failed to get subscribers: ${subscribersResult.error}`);
-		}
-
-		for (const subscriber of subscribersResult.data.results) {
+		for (const subscriber of subscribers.results) {
 			const subscriberId = subscriber.id;
 			const subscriberEmail = subscriber.email;
 			if (!subscriberId || !subscriberEmail) {
@@ -559,13 +626,10 @@ export class ListmonkAbTestIntegration {
 		const subscriberResult = await this.listmonkClient.subscriber.getById({
 			path: { id: subscriberId },
 		});
-		if ("error" in subscriberResult) {
-			throw new Error(
-				`Failed to fetch subscriber ${subscriberId}: ${subscriberResult.error}`,
-			);
-		}
-
-		const subscriber = subscriberResult.data;
+		const subscriber = this.unwrapData(
+			subscriberResult,
+			`Failed to fetch subscriber ${subscriberId}`,
+		);
 		const existingListIds = this.extractSubscriberListIds(subscriber.lists);
 		if (existingListIds.has(listId)) {
 			return;

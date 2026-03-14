@@ -7,6 +7,7 @@
 		"url": "https://github.com/imjlk/listmonk-ops"
 	},
 	"main": "./dist/index.js",
+	"module": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"bin": {
 		"listmonk-mcp": "bin/listmonk-mcp.js"
@@ -18,14 +19,14 @@
 		"README.md"
 	],
 	"scripts": {
-		"dev": "bun run src/index.ts",
+		"dev": "bun src/index.ts",
 		"build": "tsc",
-		"start": "node dist/index.js",
-		"test": "bun test",
+		"start": "bun dist/index.js",
+		"test": "bun run --cwd ../common build && bun run --cwd ../openapi build && bun run --cwd ../automation build && bun run --cwd ../abtest build && bun run build && bun test tests/unit",
 		"test:e2e": "bun test tests/e2e",
 		"lint": "biome check src",
 		"lint:fix": "biome check src --fix",
-		"prepublishOnly": "bun run build"
+		"prepublishOnly": "bun run test"
 	},
 	"dependencies": {
 		"@listmonk-ops/abtest": "^0.1.1",
@@ -41,6 +42,6 @@
 		"typescript": "5.9.3"
 	},
 	"engines": {
-		"node": ">=18"
+		"bun": ">=1.3.0"
 	}
 }

@@ -4,6 +4,8 @@
 
 [Listmonk](https://listmonk.app/) 운영 자동화를 위한 TypeScript/Bun 기반 모노레포입니다.
 
+기여 가이드: [English](./CONTRIBUTING.md) | [한국어](./CONTRIBUTING_ko.md)
+
 이 저장소에는 다음이 포함되어 있습니다.
 - OpenAPI 스펙 기반 SDK 생성 (Hey API)
 - A/B 테스트 도메인 로직
@@ -29,11 +31,14 @@
 | `packages/mcp` | Listmonk 작업을 노출하는 MCP 서버 |
 | `packages/common` | 공통 유틸/검증/에러 헬퍼 |
 
+런타임 정책:
+- 실행 패키지(`apps/cli`, `packages/mcp`)는 Bun 런타임을 대상으로 합니다.
+- 라이브러리 패키지(`openapi`, `automation`, `abtest`, `common`)는 런타임 중립 ESM 패키지로 유지합니다.
+
 ## 사전 요구사항
 
 - Bun 1.3+
 - Docker, Docker Compose
-- Node.js 18+ (`packages/mcp` 프로덕션 start 스크립트용)
 
 ## 빠른 시작
 
@@ -107,6 +112,7 @@ curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/ins
 ## MCP 런타임 Endpoint 오버라이드
 
 `listmonk-mcp`는 런타임 플래그를 지원하므로 로컬 Docker Listmonk 없이도 실행할 수 있습니다.
+npm 패키지로 설치해도 실행 시점에는 `bun`이 필요합니다.
 
 ```bash
 listmonk-mcp \

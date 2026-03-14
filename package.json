@@ -15,7 +15,7 @@
 		"api": "bun run --cwd packages/openapi --",
 		"mcp": "bash ./scripts/ensure-runtime-deps.sh && bun run --cwd packages/mcp --",
 		"build": "bun run --cwd packages/common build && bun run --cwd packages/openapi build && bun run --cwd packages/automation build && bun run --cwd packages/abtest build && bun run --cwd apps/cli build && bun run --cwd packages/mcp build",
-		"test": "bun run --cwd packages/openapi test && bun run --cwd packages/abtest test",
+		"test": "bun run --cwd packages/openapi test && bun run --cwd packages/automation test && bun run --cwd packages/abtest test",
 		"test:e2e": "bun run --cwd packages/mcp test:e2e",
 		"test:all": "bun run test && bun run test:e2e",
 		"release:add": "sampo add",

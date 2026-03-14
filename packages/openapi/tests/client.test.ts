@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createListmonkClient } from "../index";
+import { createClient, createListmonkClient } from "../index";
 
 describe("Client Creation", () => {
 	describe("createListmonkClient", () => {
@@ -93,6 +93,16 @@ describe("Client Creation", () => {
 			expect(client).toBeDefined();
 			expect(typeof client.getHealthCheck).toBe("function");
 			// Note: HTTP methods like GET, POST might be internal to the SDK
+		});
+
+		test("should include configured baseUrl in raw client buildUrl", () => {
+			const client = createClient({
+				baseUrl: "http://localhost:9000/api",
+			});
+
+			expect(client.buildUrl({ url: "/lists" })).toBe(
+				"http://localhost:9000/api/lists",
+			);
 		});
 	});
 });

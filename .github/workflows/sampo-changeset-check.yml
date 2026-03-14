@@ -35,6 +35,8 @@ jobs:
         run: cargo install sampo --locked
 
       - name: Validate release plan (dry-run)
+        env:
+          SAMPO_RELEASE_BRANCH: main
         run: |
           set +e
           sampo release --dry-run

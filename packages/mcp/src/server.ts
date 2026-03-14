@@ -246,6 +246,12 @@ export class ListmonkMCPServer {
 		return this.app;
 	}
 	async listen(port: number, hostname = "localhost") {
+		if (typeof Bun === "undefined") {
+			throw new Error(
+				"@listmonk-ops/mcp requires the Bun runtime. Start it with `bun` or the installed `listmonk-mcp` launcher.",
+			);
+		}
+
 		console.log(
 			`🚀 Listmonk MCP Server starting on http://${hostname}:${port}`,
 		);

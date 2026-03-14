@@ -7,6 +7,30 @@ import type {
 
 import { toPositiveInt } from "./core";
 
+type DataResponse<T> = {
+	data?: T;
+	error?: unknown;
+};
+
+function formatResponseError(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+export function unwrapResponseData<T>(
+	response: DataResponse<T>,
+	context: string,
+): T {
+	if ("error" in response && response.error !== undefined) {
+		throw new Error(`${context}: ${formatResponseError(response.error)}`);
+	}
+
+	if (response.data === undefined) {
+		throw new Error(`${context}: received empty data`);
+	}
+
+	return response.data;
+}
+
 export async function getCampaign(
 	client: ListmonkClient,
 	campaignId: number,
@@ -14,14 +38,7 @@ export async function getCampaign(
 	const response = await client.campaign.getById({
 		path: { id: campaignId },
 	});
-
-	if ("error" in response) {
-		throw new Error(
-			`Failed to fetch campaign ${campaignId}: ${response.error}`,
-		);
-	}
-
-	return response.data || ({} as Campaign);
+	return unwrapResponseData(response, `Failed to fetch campaign ${campaignId}`);
 }
 
 export async function getListById(
@@ -31,10 +48,7 @@ export async function getListById(
 	const response = await client.list.getById({
 		path: { list_id: listId },
 	});
-	if ("error" in response) {
-		throw new Error(`Failed to fetch list ${listId}: ${response.error}`);
-	}
-	return response.data || ({} as List);
+	return unwrapResponseData(response, `Failed to fetch list ${listId}`);
 }
 
 export async function getTemplateById(
@@ -44,12 +58,7 @@ export async function getTemplateById(
 	const response = await client.template.getById({
 		path: { id: templateId },
 	});
-	if ("error" in response) {
-		throw new Error(
-			`Failed to fetch template ${templateId}: ${response.error}`,
-		);
-	}
-	return response.data || ({} as Template);
+	return unwrapResponseData(response, `Failed to fetch template ${templateId}`);
 }
 
 export function getCampaignListIds(campaign: Campaign): number[] {

@@ -5,6 +5,7 @@ import type {
 	Subscriber,
 } from "@listmonk-ops/openapi";
 
+import { unwrapResponseData } from "./api";
 import { evaluateDeliverabilityGuard } from "./campaign";
 import {
 	extractResults,
@@ -80,10 +81,27 @@ export async function generateDailyDigest(
 		client.bounce.list({ per_page: "all" }),
 	]);
 
-	const lists = extractResults<List>(listsResponse.data);
-	const subscribers = extractResults<Subscriber>(subscribersResponse.data);
-	const campaigns = extractResults<Campaign>(campaignsResponse.data);
-	const bounces = extractResults<RecordValue>(bouncesResponse.data);
+	const lists = extractResults<List>(
+		unwrapResponseData(listsResponse, "Failed to list lists for daily digest"),
+	);
+	const subscribers = extractResults<Subscriber>(
+		unwrapResponseData(
+			subscribersResponse,
+			"Failed to list subscribers for daily digest",
+		),
+	);
+	const campaigns = extractResults<Campaign>(
+		unwrapResponseData(
+			campaignsResponse,
+			"Failed to list campaigns for daily digest",
+		),
+	);
+	const bounces = extractResults<RecordValue>(
+		unwrapResponseData(
+			bouncesResponse,
+			"Failed to list bounces for daily digest",
+		),
+	);
 
 	const subscriberStatus = countBy(subscribers, (subscriber) =>
 		String(subscriber.status || "unknown").toLowerCase(),
