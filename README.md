@@ -165,6 +165,7 @@ This repository uses Renovate for npm/Bun/GitHub Actions updates.
 - Config: `renovate.json`
 - Schedule: first and third Monday morning in `Asia/Seoul` (bi-weekly approximation)
 - Automerge: patch, pin, digest, and lockfile maintenance updates after required checks pass
+- `bunli` updates require dependency dashboard approval and should pass `bun run check:cli-pack-size`
 
 ## Operational Baseline
 
