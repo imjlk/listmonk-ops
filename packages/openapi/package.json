@@ -3,6 +3,10 @@
 	"version": "0.1.2",
 	"description": "Type-safe Listmonk OpenAPI SDK with flattened response helpers",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/imjlk/listmonk-ops"
+	},
 	"main": "./dist/index.js",
 	"module": "./dist/index.js",
 	"types": "./dist/index.d.ts",

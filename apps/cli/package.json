@@ -3,6 +3,10 @@
 	"version": "0.2.0",
 	"description": "Listmonk operations CLI built with Bunli",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/imjlk/listmonk-ops"
+	},
 	"bin": {
 		"listmonk-cli": "dist/js/index.js"
 	},

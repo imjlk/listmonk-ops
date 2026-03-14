@@ -2,6 +2,10 @@
 	"name": "@listmonk-ops/mcp",
 	"version": "0.1.0",
 	"description": "Listmonk Model Context Protocol Server using Hono",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/imjlk/listmonk-ops"
+	},
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"bin": {
