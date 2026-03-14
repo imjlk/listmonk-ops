@@ -1,6 +1,11 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 
-import { getCampaign, getCampaignListIds, getListById } from "./api";
+import {
+	getCampaign,
+	getCampaignListIds,
+	getListById,
+	unwrapResponseData,
+} from "./api";
 import { extractResults, type RecordValue } from "./core";
 
 export type CheckLevel = "pass" | "warn" | "fail";
@@ -337,7 +342,12 @@ export async function evaluateDeliverabilityGuard(
 		campaign_id: campaignId,
 		per_page: "all",
 	});
-	const bounces = getBounceCount(bounceResponse.data);
+	const bounces = getBounceCount(
+		unwrapResponseData(
+			bounceResponse,
+			`Failed to list bounces for campaign ${campaignId}`,
+		),
+	);
 	const bounceRate = sent > 0 ? bounces / sent : 0;
 	const openRate = sent > 0 ? views / sent : 0;
 	const clickRate = sent > 0 ? clicks / sent : 0;
@@ -367,10 +377,13 @@ export async function evaluateDeliverabilityGuard(
 		breaches.length > 0 &&
 		(status === "running" || status === "scheduled")
 	) {
-		await client.campaign.updateStatus({
-			path: { id: campaignId },
-			body: { status: "paused" },
-		});
+		await unwrapResponseData(
+			await client.campaign.updateStatus({
+				path: { id: campaignId },
+				body: { status: "paused" },
+			}),
+			`Failed to pause campaign ${campaignId}`,
+		);
 		paused = true;
 	}
 

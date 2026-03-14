@@ -1,4 +1,7 @@
-import type { ListmonkAbTestIntegration } from "./listmonk-integration";
+import type {
+	ListmonkAbTestIntegration,
+	ProvisionedAbTestResources,
+} from "./listmonk-integration";
 import { StatisticalUtils } from "./statistical-utils";
 import type {
 	AbTest,
@@ -165,17 +168,24 @@ export class AbTestService {
 			testListMappings: [],
 		};
 
-		// Store in memory (in production, use database)
-		this.tests.set(testId, abTest);
-
 		// Create Listmonk campaigns if integration is available
 		if (this.listmonkIntegration) {
+			let provisionedResources: ProvisionedAbTestResources = {
+				testId,
+				campaignIds: [],
+				testListIds: [],
+			};
+
 			try {
 				const campaignMappings =
 					await this.listmonkIntegration.createTestCampaigns(
 						abTest,
 						config.baseConfig,
 					);
+				provisionedResources = {
+					...provisionedResources,
+					campaignIds: campaignMappings.map((mapping) => mapping.campaignId),
+				};
 
 				// Use appropriate segmentation method based on testing mode
 				let testListMappings: { variantId: string; listId: number }[];
@@ -211,6 +221,11 @@ export class AbTestService {
 					testGroupSize = totalSubscribers;
 					holdoutGroupSize = 0;
 				}
+				provisionedResources = {
+					...provisionedResources,
+					testListIds: testListMappings.map((mapping) => mapping.listId),
+					holdoutListId,
+				};
 
 				abTest.campaignMappings = campaignMappings;
 				abTest.testListMappings = testListMappings;
@@ -226,14 +241,23 @@ export class AbTestService {
 						testListMappings,
 					);
 				}
-
-				this.tests.set(testId, abTest);
 			} catch (error) {
-				console.error("Failed to create Listmonk campaigns:", error);
-				// Return test in draft state if campaign creation fails
+				try {
+					await this.listmonkIntegration.rollbackProvisioning(
+						provisionedResources,
+					);
+				} catch (rollbackError) {
+					console.error(
+						"Failed to rollback Listmonk A/B test provisioning:",
+						rollbackError,
+					);
+				}
+
+				throw error;
 			}
 		}
 
+		this.tests.set(testId, abTest);
 		return abTest;
 	}
 

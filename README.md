@@ -31,11 +31,14 @@ This repository is designed for teams operating [Listmonk](https://listmonk.app/
 | `packages/mcp` | MCP server exposing Listmonk operations |
 | `packages/common` | Shared utilities and error/validation helpers |
 
+Runtime policy:
+- Executable packages (`apps/cli`, `packages/mcp`) target the Bun runtime.
+- Library packages (`openapi`, `automation`, `abtest`, `common`) remain runtime-neutral ESM packages.
+
 ## Prerequisites
 
 - Bun 1.3+
 - Docker and Docker Compose
-- Node.js 18+ (for `packages/mcp` production start script)
 
 ## Quick Start
 
@@ -108,7 +111,8 @@ curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/ins
 
 ## MCP Runtime Endpoint Override
 
-`listmonk-mcp` supports runtime flags, so local Docker Listmonk is not required:
+`listmonk-mcp` supports runtime flags, so local Docker Listmonk is not required.
+The published npm package still requires `bun` on `PATH` at runtime:
 
 ```bash
 listmonk-mcp \

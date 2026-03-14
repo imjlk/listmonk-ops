@@ -1,5 +1,6 @@
 import type { ListmonkClient, Subscriber } from "@listmonk-ops/openapi";
 
+import { unwrapResponseData } from "./api";
 import { extractResults, toDate, toPositiveInt } from "./core";
 
 export type SubscriberHygieneMode = "winback" | "sunset";
@@ -56,7 +57,12 @@ export async function runSubscriberHygiene(
 			per_page: "all",
 		},
 	});
-	const subscribers = extractResults<Subscriber>(subscriberResponse.data);
+	const subscribers = extractResults<Subscriber>(
+		unwrapResponseData(
+			subscriberResponse,
+			"Failed to list subscribers for hygiene workflow",
+		),
+	);
 
 	const candidates = subscribers.filter((subscriber) => {
 		const subscriberId = toPositiveInt(subscriber.id);
