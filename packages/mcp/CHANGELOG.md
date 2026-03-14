@@ -1,5 +1,15 @@
 # @listmonk-ops/mcp
 
+## 0.1.2 — 2026-03-14
+
+### Changed
+
+- [3b22b2c](https://github.com/imjlk/listmonk-ops/commit/3b22b2c455c5883e182702eb0bb7355e52528c91) Mark executable packages as Bun-targeted where applicable, harden automation workflows against empty upstream responses, add atomic rollback to A/B test provisioning, and improve package metadata for library consumers. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.1.2, automation@0.1.2
+
 ## 0.1.1 — 2026-03-14
 
 ### Changed

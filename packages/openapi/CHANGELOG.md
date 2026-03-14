@@ -1,5 +1,11 @@
 # @listmonk-ops/openapi
 
+## 0.1.4 — 2026-03-14
+
+### Added
+
+- [3b22b2c](https://github.com/imjlk/listmonk-ops/commit/3b22b2c455c5883e182702eb0bb7355e52528c91) Add a tree-shakable `@listmonk-ops/openapi/sdk` entrypoint, update the generated SDK to `@hey-api/openapi-ts@0.94.1`, and cover the raw client `buildUrl()` behavior with a regression test. — Thanks @imjlk!
+
 ## 0.1.3 — 2026-03-14
 
 ### Changed
