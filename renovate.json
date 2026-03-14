@@ -1,0 +1,68 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": ["config:recommended"],
+	"timezone": "Asia/Seoul",
+	"enabledManagers": ["bun", "npm", "github-actions"],
+	"labels": ["dependencies"],
+	"dependencyDashboard": true,
+	"rangeStrategy": "replace",
+	"rebaseWhen": "behind-base-branch",
+	"schedule": ["* 9-11 1-7,15-21 * 1"],
+	"lockFileMaintenance": {
+		"enabled": true,
+		"schedule": ["* 9-11 1-7,15-21 * 1"],
+		"automerge": true,
+		"automergeType": "pr",
+		"addLabels": ["dependencies", "automerge", "lockfile"]
+	},
+	"packageRules": [
+		{
+			"matchManagers": ["github-actions"],
+			"groupName": "github-actions",
+			"pinDigests": true,
+			"addLabels": ["dependencies", "github-actions"]
+		},
+		{
+			"matchPackageNames": [
+				"bunli",
+				"@bunli/core",
+				"@bunli/plugin-completions",
+				"@bunli/utils"
+			],
+			"groupName": "bunli stack",
+			"addLabels": ["dependencies", "bunli"]
+		},
+		{
+			"matchDepTypes": ["devDependencies"],
+			"excludePackageNames": [
+				"bunli",
+				"@bunli/core",
+				"@bunli/plugin-completions",
+				"@bunli/utils"
+			],
+			"groupName": "tooling/dev deps",
+			"addLabels": ["dependencies", "tooling"]
+		},
+		{
+			"matchDepTypes": ["dependencies"],
+			"excludePackageNames": [
+				"bunli",
+				"@bunli/core",
+				"@bunli/plugin-completions",
+				"@bunli/utils"
+			],
+			"groupName": "runtime deps",
+			"addLabels": ["dependencies", "runtime"]
+		},
+		{
+			"matchUpdateTypes": ["patch", "pin", "digest"],
+			"automerge": true,
+			"automergeType": "pr",
+			"addLabels": ["automerge"]
+		},
+		{
+			"matchUpdateTypes": ["minor", "major"],
+			"automerge": false
+		}
+	]
+}
