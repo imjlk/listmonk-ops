@@ -1,8 +1,9 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import {
+	createApiErrorResult,
 	createErrorResult,
-	createSuccessResult,
+	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
 
@@ -33,29 +34,19 @@ export const transactionalTools: MCPTool[] = [
 					type: "object",
 					description: "Template data/variables",
 				},
-				headers: {
-					type: "object",
-					description: "Additional email headers",
+					headers: {
+						type: "array",
+						items: {
+							type: "object",
+							additionalProperties: { type: "string" },
+						},
+						description: "Additional email headers",
+					},
 				},
+				required: ["template_id"],
 			},
-			required: ["template_id"],
 		},
-	},
-	{
-		name: "listmonk_get_transactional_message",
-		description: "Get a transactional message by ID",
-		inputSchema: {
-			type: "object",
-			properties: {
-				id: {
-					type: "string",
-					description: "Message ID",
-				},
-			},
-			required: ["id"],
-		},
-	},
-];
+	];
 
 export async function handleTransactionalTools(
 	request: CallToolRequest,
@@ -115,26 +106,22 @@ export async function handleTransactionalTools(
 					}
 					body.subscriber_id = subscriberId;
 				}
-				if (args.from_email) {
-					body.from_email = String(args.from_email);
+					if (args.from_email) {
+						body.from_email = String(args.from_email);
+					}
+
+					const response = await client.transactional.send(body);
+					if ("error" in response && response.error !== undefined) {
+						return createApiErrorResult(
+							"Failed to send transactional message",
+							response.error,
+						);
+					}
+					return handleDataResponse(
+						response,
+						"Failed to send transactional message",
+					);
 				}
-
-				const response = await client.transactional.send(body);
-				return createSuccessResult(response.data);
-			}
-
-			case "listmonk_get_transactional_message": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				// Note: This endpoint is not available in the current OpenAPI client
-				// Would need to be added to the client if needed
-				return createErrorResult(
-					"Get transactional message not implemented in current client",
-				);
-			}
 
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);

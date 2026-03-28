@@ -4,6 +4,7 @@ import type { HandlerFunction } from "../types/shared.js";
 import {
 	createErrorResult,
 	createSuccessResult,
+	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
 import {
@@ -113,13 +114,13 @@ export const handleBouncesTools: HandlerFunction = withErrorHandler(
 				if (args.campaign_id !== undefined && args.campaign_id !== null) {
 					options.campaign_id = parseId(args.campaign_id);
 				}
-				if (args.source) {
-					options.source = String(args.source);
-				}
+					if (args.source) {
+						options.source = String(args.source);
+					}
 
-				const response = await client.bounce.list(options);
-				return createSuccessResult(response.data);
-			}
+					const response = await client.bounce.list(options);
+					return handleDataResponse(response, "Failed to fetch bounces");
+				}
 
 			case "listmonk_get_bounce": {
 				const validation = validateRequiredParams(request, ["id"]);

@@ -31,12 +31,14 @@ import {
 } from "@listmonk-ops/automation";
 
 const client =
-	process.env.LISTMONK_URL && process.env.LISTMONK_USERNAME
+	process.env.LISTMONK_API_URL && process.env.LISTMONK_USERNAME
 		? createListmonkClientFromEnv()
 		: createListmonkClient({
-				baseUrl: "http://localhost:9000",
-				username: "admin",
-				password: "listmonk",
+				baseUrl: "http://localhost:9000/api",
+				auth: {
+					username: "api-admin",
+					token: "<token>",
+				},
 			});
 
 const preflight = await runCampaignPreflight(client, 42, {

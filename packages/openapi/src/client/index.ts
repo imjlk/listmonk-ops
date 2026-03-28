@@ -322,17 +322,22 @@ interface EnhancedListmonkClient {
 				body: string;
 			};
 		}): Promise<FlattenedResponse<boolean>>;
-		test(options: {
-			path: { id: number };
-			body: {
-				template_id?: number;
-				content_type?: string;
-				body?: string;
-				subject?: string;
-				lists?: number[];
-				subscribers?: string[];
-			};
-		}): Promise<FlattenedResponse<boolean>>;
+			test(options: {
+				path: { id: number };
+				body: {
+					name?: string;
+					template_id?: number;
+					content_type?: string;
+					body?: string;
+					subject?: string;
+					from_email?: string;
+					messenger?: string;
+					type?: string;
+					tags?: string[];
+					lists?: number[];
+					subscribers?: string[];
+				};
+			}): Promise<FlattenedResponse<boolean>>;
 		getRunningStats(options: {
 			query: { campaign_id: number };
 		}): Promise<FlattenedResponse<Record<string, unknown>>>;
@@ -458,6 +463,11 @@ type CrudMethod = "create" | "get" | "getById" | "update" | "delete";
 type CrudMethodOverrides = Partial<Record<CrudMethod, string[]>>;
 type SdkMethod = (options: unknown) => Promise<unknown>;
 type FetchFn = (input: URL | RequestInfo, init?: RequestInit) => Promise<Response>;
+type ErrorEnvelope = {
+	error: unknown;
+	request?: Request;
+	response?: Response;
+};
 
 const resolveSdkMethod = (candidateNames: string[]): SdkMethod => {
 	for (const methodName of candidateNames) {
@@ -467,6 +477,15 @@ const resolveSdkMethod = (candidateNames: string[]): SdkMethod => {
 		}
 	}
 	throw new Error(`SDK method not found: ${candidateNames.join(" | ")}`);
+};
+
+const hasResponseError = (value: unknown): value is ErrorEnvelope => {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"error" in value &&
+		(value as { error?: unknown }).error !== undefined
+	);
 };
 
 const normalizeListPayload = <T>(data: unknown): ListResult<T>["data"] => {
@@ -503,6 +522,18 @@ const normalizeListPayload = <T>(data: unknown): ListResult<T>["data"] => {
 	};
 };
 
+const normalizeListResult = <T>(response: unknown): ListResult<T> => {
+	if (hasResponseError(response)) {
+		return response as unknown as ListResult<T>;
+	}
+
+	const transformed = response as FlattenedResponse<unknown>;
+	return {
+		...transformed,
+		data: normalizeListPayload<T>(transformed.data),
+	} as ListResult<T>;
+};
+
 const createCrudOperations = <T>(
 	resourceName: string,
 	sdkOptions: { client: ReturnType<typeof createClient> },
@@ -535,21 +566,15 @@ const createCrudOperations = <T>(
 			return (await transformResponse(result)) as FlattenedResponse<T>;
 		},
 
-		async list(options: unknown): Promise<ListResult<T>> {
-			const sdkMethod = resolveSdkMethod(methodNames.get);
+			async list(options: unknown): Promise<ListResult<T>> {
+				const sdkMethod = resolveSdkMethod(methodNames.get);
 			const mergedOptions =
 				typeof options === "object" && options !== null
 					? { ...sdkOptions, ...options }
 					: sdkOptions;
-			const result = await sdkMethod(mergedOptions);
-			const transformed = (await transformResponse(result)) as FlattenedResponse<
-				unknown
-			>;
-			return {
-				...transformed,
-				data: normalizeListPayload<T>(transformed.data),
-			} as ListResult<T>;
-		},
+				const result = await sdkMethod(mergedOptions);
+				return normalizeListResult<T>(await transformResponse(result));
+			},
 
 		async getById(options: unknown): Promise<CrudResult<T>> {
 			const sdkMethod = resolveSdkMethod(methodNames.getById);
@@ -718,6 +743,10 @@ function createResilientFetch(options: {
 	};
 }
 
+function createHealthCheckUrl(baseUrl: string): string {
+	return new URL("/health", baseUrl).toString();
+}
+
 /**
  * Creates a Listmonk client with automatic response flattening
  *
@@ -809,12 +838,38 @@ export const createListmonkClient = (
 	};
 
 	// Create enhanced client with only registered operations
-	const enhancedClient: EnhancedListmonkClient = {
-		// Health check
-		async getHealthCheck() {
-			const result = await sdk.getHealthCheck(sdkOptions);
-			return (await transformResponse(result)) as FlattenedResponse<boolean>;
-		},
+		const enhancedClient: EnhancedListmonkClient = {
+			// Health check
+			async getHealthCheck() {
+				const healthCheckUrl = createHealthCheckUrl(finalConfig.baseUrl);
+				const request = new Request(healthCheckUrl, {
+					method: "GET",
+					headers: finalConfig.headers,
+				});
+				const response = await finalConfig.fetch!(request);
+
+				if (!response.ok) {
+					let message = `Health check failed with status ${response.status}`;
+					try {
+						const payload = (await response.clone().json()) as {
+							message?: string;
+						};
+						if (typeof payload.message === "string" && payload.message.length > 0) {
+							message = payload.message;
+						}
+					} catch {
+						// Keep the default status-based message.
+					}
+					throw new Error(message);
+				}
+
+				const payload = await response.json();
+				return (await transformResponse({
+					data: payload,
+					request,
+					response,
+				})) as FlattenedResponse<boolean>;
+			},
 
 		// Namespaced resource operations
 		list: createCrudOperations("List", sdkOptions),

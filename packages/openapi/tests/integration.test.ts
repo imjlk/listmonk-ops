@@ -57,7 +57,7 @@ describe("API Integration", () => {
 	});
 
 	describe("Authentication", () => {
-		test("should handle authentication errors", async () => {
+		test("should surface authentication errors on authenticated endpoints", async () => {
 			if (!serverAvailable) {
 				console.log("⏭️  Skipping: Server not available");
 				return;
@@ -71,12 +71,13 @@ describe("API Integration", () => {
 				},
 			});
 
-			try {
-				await badClient.getHealthCheck();
-				// Should not reach here
-				expect(false).toBe(true);
-			} catch (error) {
-				expect(error).toBeDefined();
+			const listsResponse = await badClient.list.list({
+				query: { page: 1, per_page: 1 },
+			});
+
+			expect("error" in listsResponse).toBe(true);
+			if ("error" in listsResponse) {
+				expect(listsResponse.error).toBeDefined();
 			}
 		});
 	});

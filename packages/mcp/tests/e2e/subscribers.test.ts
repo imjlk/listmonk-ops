@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { createMCPTestSuite } from "../mcp-helper.js";
-import "../setup.js";
+import {
+	buildTestEmail,
+	buildTestName,
+	isManagedTestEmail,
+} from "../setup.js";
 
 describe("Subscribers MCP Tools", () => {
 	const { client, utils } = createMCPTestSuite();
@@ -8,27 +12,6 @@ describe("Subscribers MCP Tools", () => {
 	let testListId: number;
 
 	beforeEach(async () => {
-		// Clean up existing test subscribers
-		const subscribersResult = await client.callTool("listmonk_get_subscribers");
-		const subscribers = utils.assertSuccess(subscribersResult);
-
-		if (subscribers.results) {
-			for (const subscriber of subscribers.results) {
-				if (
-					subscriber.email?.includes("test@") ||
-					subscriber.email?.includes("example.com")
-				) {
-					try {
-						await client.callTool("listmonk_delete_subscriber", {
-							id: subscriber.id.toString(),
-						});
-					} catch {
-						// Ignore errors when cleaning up
-					}
-				}
-			}
-		}
-
 		// Create test list for subscriber tests
 		const testList = await utils.createTestList();
 		testListId = (testList as { id: number }).id;
@@ -71,7 +54,7 @@ describe("Subscribers MCP Tools", () => {
 
 	test("should search subscribers by query", async () => {
 		// First create a subscriber with a specific email
-		const uniqueEmail = `unique-${Date.now()}@example.com`;
+		const uniqueEmail = buildTestEmail("unique");
 		const createResult = await client.callTool("listmonk_create_subscriber", {
 			email: uniqueEmail,
 			name: "Unique Test User",
@@ -83,11 +66,11 @@ describe("Subscribers MCP Tools", () => {
 		testSubscriberId = (createdSubscriber as { id: number }).id;
 
 		// Test the search functionality - just verify it doesn't crash
-		const result = await client.callTool("listmonk_get_subscribers", {
-			page: 1,
-			per_page: 10,
-			query: uniqueEmail.split("@")[0], // Search by email prefix
-		});
+			const result = await client.callTool("listmonk_get_subscribers", {
+				page: 1,
+				per_page: 10,
+				query: `email = '${uniqueEmail}'`,
+			});
 
 		const data = utils.assertSuccess(result, "Failed to search subscribers");
 		// Just verify the search returns valid structure
@@ -100,8 +83,8 @@ describe("Subscribers MCP Tools", () => {
 	});
 
 	test("should create a new subscriber", async () => {
-		const email = `test-${Date.now()}@example.com`;
-		const name = `Test User ${Date.now()}`;
+		const email = buildTestEmail("subscriber");
+		const name = buildTestName("subscriber");
 
 		const result = await client.callTool("listmonk_create_subscriber", {
 			email,
@@ -125,6 +108,7 @@ describe("Subscribers MCP Tools", () => {
 		expect(createdSubscriber.status).toBe("enabled");
 
 		testSubscriberId = (createdSubscriber as { id: number }).id;
+		expect(isManagedTestEmail(createdSubscriber.email)).toBe(true);
 	});
 
 	test("should get a specific subscriber by ID", async () => {
@@ -151,7 +135,7 @@ describe("Subscribers MCP Tools", () => {
 		const createdSubscriber = await utils.createTestSubscriber();
 		testSubscriberId = (createdSubscriber as { id: number }).id;
 
-		const updatedName = `Updated Test User ${Date.now()}`;
+		const updatedName = buildTestName("updated-subscriber");
 
 		const result = await client.callTool("listmonk_update_subscriber", {
 			id: testSubscriberId.toString(),
@@ -228,7 +212,7 @@ describe("Subscribers MCP Tools", () => {
 	});
 
 	test("should handle duplicate email addresses", async () => {
-		const email = `duplicate-${Date.now()}@example.com`;
+		const email = buildTestEmail("duplicate");
 
 		// Create first subscriber
 		const result1 = await client.callTool("listmonk_create_subscriber", {

@@ -28,7 +28,7 @@ import { createListmonkClient } from "@listmonk-ops/openapi";
 const client = createListmonkClient();
 
 const health = await client.getHealthCheck();
-console.log(health.data); // true
+console.log(health.data); // true, fetched from the Listmonk origin /health endpoint
 
 const lists = await client.list.list({ query: { page: 1, per_page: 10 } });
 console.log(lists.data.results.length);
@@ -140,6 +140,8 @@ if ("error" in result) {
   console.log(result.data.name);
 }
 ```
+
+List-style operations also preserve upstream API errors at runtime. If the server responds with an error, the client no longer normalizes that into an empty `results` payload.
 
 ## Regeneration
 

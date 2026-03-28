@@ -1,9 +1,102 @@
 import { afterAll, beforeAll, setDefaultTimeout } from "bun:test";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createListmonkClient } from "@listmonk-ops/openapi";
+import { config as loadEnv } from "dotenv";
 
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const TESTS_DIR = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(TESTS_DIR, "../../..");
+const TEST_ENV_PATH = resolve(TESTS_DIR, ".env.test");
+const TEST_ENV_LOCAL_PATH = resolve(TESTS_DIR, ".env.test.local");
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
+const CLEANUP_PAGE_SIZE = 200;
+
+export const TEST_RESOURCE_PREFIX = "lmops-e2e";
+
+function loadTestEnvironment(): void {
+	for (const envPath of [TEST_ENV_PATH, TEST_ENV_LOCAL_PATH]) {
+		if (existsSync(envPath)) {
+			loadEnv({ path: envPath, override: true });
+		}
+	}
+}
+
+function readEnvValue(...keys: string[]): string | undefined {
+	for (const key of keys) {
+		const value = process.env[key]?.trim();
+		if (value) {
+			return value;
+		}
+	}
+
+	return undefined;
+}
+
+function normalizeApiUrl(url: string): string {
+	const trimmed = url.trim();
+	const withoutTrailingSlash = trimmed.endsWith("/")
+		? trimmed.slice(0, -1)
+		: trimmed;
+	const withApiSuffix = withoutTrailingSlash.endsWith("/api")
+		? withoutTrailingSlash
+		: `${withoutTrailingSlash}/api`;
+
+	return new URL(withApiSuffix).toString().replace(/\/$/, "");
+}
+
+function isLocalTarget(baseUrl: string): boolean {
+	try {
+		const url = new URL(baseUrl);
+		return LOCAL_HOSTNAMES.has(url.hostname);
+	} catch {
+		return false;
+	}
+}
+
+function formatError(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	if (error && typeof error === "object" && "message" in error) {
+		return String(error.message);
+	}
+	return String(error);
+}
+
+function hasResponseError<T>(
+	response: { data?: T; error?: unknown },
+): response is { data?: T; error: unknown } {
+	return "error" in response && response.error !== undefined;
+}
+
+function createResourceSlug(label: string): string {
+	const normalized = label
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+	return normalized.length > 0 ? normalized : "resource";
+}
+
+export function buildTestName(label: string): string {
+	return `${TEST_RESOURCE_PREFIX}-${createResourceSlug(label)}-${Date.now()}-${Math.random()
+		.toString(36)
+		.slice(2, 8)}`;
+}
+
+export function buildTestEmail(label = "user"): string {
+	return `${buildTestName(label)}@example.com`;
+}
+
+export function isManagedTestName(name: string | undefined): boolean {
+	return typeof name === "string" && name.startsWith(`${TEST_RESOURCE_PREFIX}-`);
+}
+
+export function isManagedTestEmail(email: string | undefined): boolean {
+	return typeof email === "string" && email.includes(`${TEST_RESOURCE_PREFIX}-`);
+}
+
+loadTestEnvironment();
 
 function resolveApiTokenFromDocker(username: string): string | undefined {
 	if (process.env.LISTMONK_API_TOKEN?.trim()) {
@@ -52,14 +145,25 @@ function resolveApiTokenFromDocker(username: string): string | undefined {
 	return token.length > 0 ? token : undefined;
 }
 
-// Test configuration
+const resolvedBaseUrl = normalizeApiUrl(
+	readEnvValue("LISTMONK_API_URL", "LISTMONK_URL") || "http://localhost:9000/api",
+);
+const resolvedUsername = readEnvValue("LISTMONK_USERNAME") || "api-admin";
+const resolvedPassword = readEnvValue("LISTMONK_PASSWORD") || "";
+const resolvedApiToken =
+	readEnvValue("LISTMONK_API_TOKEN") || resolveApiTokenFromDocker(resolvedUsername);
+const allowRemoteE2E = readEnvValue("LISTMONK_E2E_ALLOW_REMOTE") === "1";
+
+process.env.LISTMONK_API_URL = resolvedBaseUrl;
+process.env.LISTMONK_USERNAME = resolvedUsername;
+process.env.LISTMONK_PASSWORD = resolvedPassword;
+process.env.LISTMONK_API_TOKEN = resolvedApiToken || "";
+
 export const TEST_CONFIG = {
-	baseUrl: process.env.LISTMONK_API_URL || "http://localhost:9000/api",
-	username: process.env.LISTMONK_USERNAME || "api-admin",
-	password: process.env.LISTMONK_PASSWORD || "",
-	apiToken: resolveApiTokenFromDocker(
-		process.env.LISTMONK_USERNAME || "api-admin",
-	),
+	baseUrl: resolvedBaseUrl,
+	username: resolvedUsername,
+	password: resolvedPassword,
+	apiToken: resolvedApiToken,
 };
 
 setDefaultTimeout(30000);
@@ -76,6 +180,14 @@ export function createTestClient() {
 			Authorization: `token ${authString}`,
 		},
 	});
+}
+
+function assertSafeTestTarget(): void {
+	if (!isLocalTarget(TEST_CONFIG.baseUrl) && !allowRemoteE2E) {
+		throw new Error(
+			`Refusing to run MCP E2E against non-local target ${TEST_CONFIG.baseUrl}. Set LISTMONK_E2E_ALLOW_REMOTE=1 to override.`,
+		);
+	}
 }
 
 // Test utilities
@@ -104,19 +216,24 @@ export async function waitForListmonk(maxRetries = 30) {
 
 // Clean up test data
 export async function cleanupTestData() {
+	if (!isLocalTarget(TEST_CONFIG.baseUrl) && !allowRemoteE2E) {
+		console.warn("⚠️ Skipping cleanup for non-local MCP E2E target");
+		return;
+	}
+
 	const client = createTestClient();
 
 	try {
-		// Clean up test campaigns (those starting with "Test-")
+		// Clean up tagged test campaigns.
 		const campaigns = await client.campaign.list({
-			query: { page: 1, per_page: 100 },
+			query: { page: 1, per_page: CLEANUP_PAGE_SIZE },
 		});
+		if (hasResponseError(campaigns)) {
+			throw new Error(formatError(campaigns.error));
+		}
 		if (campaigns.data?.results) {
 			for (const campaign of campaigns.data.results) {
-				if (
-					campaign.name?.startsWith("Test-") &&
-					typeof campaign.id === "number"
-				) {
+				if (isManagedTestName(campaign.name) && typeof campaign.id === "number") {
 					try {
 						await client.campaign.delete({ path: { id: campaign.id } });
 					} catch {
@@ -126,13 +243,16 @@ export async function cleanupTestData() {
 			}
 		}
 
-		// Clean up test lists (those starting with "Test-")
+		// Clean up tagged test lists.
 		const lists = await client.list.list({
-			query: { page: 1, per_page: 100 },
+			query: { page: 1, per_page: CLEANUP_PAGE_SIZE },
 		});
+		if (hasResponseError(lists)) {
+			throw new Error(formatError(lists.error));
+		}
 		if (lists.data?.results) {
 			for (const list of lists.data.results) {
-				if (list.name?.startsWith("Test-") && typeof list.id === "number") {
+				if (isManagedTestName(list.name) && typeof list.id === "number") {
 					try {
 						await client.list.delete({ path: { list_id: list.id } });
 					} catch {
@@ -142,19 +262,43 @@ export async function cleanupTestData() {
 			}
 		}
 
-		// Clean up test subscribers (those with test emails)
+		// Clean up tagged test subscribers.
 		const subscribers = await client.subscriber.list({
-			query: { page: 1, per_page: 100 },
+			query: { page: 1, per_page: CLEANUP_PAGE_SIZE },
 		});
+		if (hasResponseError(subscribers)) {
+			throw new Error(formatError(subscribers.error));
+		}
 		if (subscribers.data?.results) {
 			for (const subscriber of subscribers.data.results) {
 				if (
-					(subscriber.email?.includes("test@") ||
-						subscriber.email?.includes("example.com")) &&
+					isManagedTestEmail(subscriber.email) &&
 					typeof subscriber.id === "number"
 				) {
 					try {
 						await client.subscriber.delete({ path: { id: subscriber.id } });
+					} catch {
+						// Ignore errors when cleaning up
+					}
+				}
+			}
+		}
+
+		// Clean up tagged test templates.
+		const templates = await client.template.list({
+			query: { page: 1, per_page: CLEANUP_PAGE_SIZE },
+		});
+		if (hasResponseError(templates)) {
+			throw new Error(formatError(templates.error));
+		}
+		if (templates.data?.results) {
+			for (const template of templates.data.results) {
+				if (
+					isManagedTestName(template.name) &&
+					typeof template.id === "number"
+				) {
+					try {
+						await client.template.delete({ path: { id: template.id } });
 					} catch {
 						// Ignore errors when cleaning up
 					}
@@ -169,6 +313,7 @@ export async function cleanupTestData() {
 // Setup and teardown for all tests
 beforeAll(async () => {
 	console.log("🚀 Setting up E2E tests...");
+	assertSafeTestTarget();
 	const ready = await waitForListmonk();
 	if (!ready) {
 		throw new Error(

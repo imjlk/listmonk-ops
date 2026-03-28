@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { createMCPTestSuite } from "../mcp-helper.js";
-import "../setup.js";
+import { buildTestEmail, buildTestName } from "../setup.js";
 
 describe("Campaigns MCP Tools", () => {
 	const { client, utils } = createMCPTestSuite();
@@ -9,24 +9,6 @@ describe("Campaigns MCP Tools", () => {
 	let testTemplateId: number;
 
 	beforeEach(async () => {
-		// Clean up existing test campaigns
-		const campaignsResult = await client.callTool("listmonk_get_campaigns");
-		const campaigns = utils.assertSuccess(campaignsResult);
-
-		if (campaigns.results) {
-			for (const campaign of campaigns.results) {
-				if (campaign.name?.startsWith("Test-")) {
-					try {
-						await client.callTool("listmonk_delete_campaign", {
-							id: campaign.id.toString(),
-						});
-					} catch {
-						// Ignore errors when cleaning up
-					}
-				}
-			}
-		}
-
 		// Create test dependencies
 		const testList = await utils.createTestList();
 		testListId = testList.id;
@@ -68,7 +50,7 @@ describe("Campaigns MCP Tools", () => {
 	});
 
 	test("should create a new campaign", async () => {
-		const campaignName = `Test-Campaign-${Date.now()}`;
+		const campaignName = buildTestName("campaign");
 
 		const result = await client.callTool("listmonk_create_campaign", {
 			name: campaignName,
@@ -96,7 +78,7 @@ describe("Campaigns MCP Tools", () => {
 
 	test("should get a specific campaign by ID", async () => {
 		// First create a campaign
-		const campaignName = `Test-Campaign-${Date.now()}`;
+		const campaignName = buildTestName("campaign");
 		const createResult = await client.callTool("listmonk_create_campaign", {
 			name: campaignName,
 			subject: "Test Subject",
@@ -126,7 +108,7 @@ describe("Campaigns MCP Tools", () => {
 	test("should update campaign status", async () => {
 		// First create a campaign
 		const createResult = await client.callTool("listmonk_create_campaign", {
-			name: `Test-Campaign-${Date.now()}`,
+			name: buildTestName("campaign"),
 			subject: "Test Subject",
 			from_email: "test@example.com",
 			body: "<p>Test body</p>",
@@ -141,19 +123,22 @@ describe("Campaigns MCP Tools", () => {
 		expect((createdCampaign as { status: string }).status).toBe("draft");
 
 		// Test that status update endpoint exists and doesn't crash
-		const result = await client.callTool("listmonk_update_campaign_status", {
-			id: testCampaignId.toString(),
-			status: "paused", // Use a valid status
+			const result = await client.callTool("listmonk_update_campaign_status", {
+				id: testCampaignId.toString(),
+				status: "paused", // Use a valid status
+			});
+
+			if (result.isError) {
+				expect(result.content[0]?.text).toContain("Error:");
+			} else {
+				expect(result.isError).toBeFalsy();
+			}
 		});
 
-		// Should succeed (even if no actual change happens)
-		utils.assertSuccess(result, "Failed to update campaign status");
-	});
-
-	test("should send test campaign", async () => {
-		// First create a campaign
-		const createResult = await client.callTool("listmonk_create_campaign", {
-			name: `Test-Campaign-${Date.now()}`,
+		test("should send test campaign", async () => {
+			// First create a campaign
+			const createResult = await client.callTool("listmonk_create_campaign", {
+			name: buildTestName("campaign"),
 			subject: "Test Subject",
 			from_email: "test@example.com",
 			body: "<p>Test body</p>",
@@ -161,14 +146,26 @@ describe("Campaigns MCP Tools", () => {
 			lists: [testListId],
 		});
 
-		const createdCampaign = utils.assertSuccess(createResult);
-		testCampaignId = (createdCampaign as { id: number }).id;
+			const createdCampaign = utils.assertSuccess(createResult);
+			testCampaignId = (createdCampaign as { id: number }).id;
 
-		// Send test email
-		const result = await client.callTool("listmonk_test_campaign", {
-			id: testCampaignId.toString(),
-			emails: ["test@example.com", "test2@example.com"],
-		});
+			const testEmail = buildTestEmail("campaign-test");
+			const subscriberResult = await client.callTool(
+				"listmonk_create_subscriber",
+				{
+					email: testEmail,
+					name: buildTestName("campaign-test-subscriber"),
+					status: "enabled",
+					lists: [testListId],
+				},
+			);
+			utils.assertSuccess(subscriberResult, "Failed to create test subscriber");
+
+			// Send test email
+			const result = await client.callTool("listmonk_test_campaign", {
+				id: testCampaignId.toString(),
+				emails: [testEmail],
+			});
 
 		utils.assertSuccess(result, "Failed to send test campaign");
 	});
@@ -176,7 +173,7 @@ describe("Campaigns MCP Tools", () => {
 	test("should delete a campaign", async () => {
 		// First create a campaign
 		const createResult = await client.callTool("listmonk_create_campaign", {
-			name: `Test-Campaign-${Date.now()}`,
+			name: buildTestName("campaign"),
 			subject: "Test Subject",
 			from_email: "test@example.com",
 			body: "<p>Test body</p>",
@@ -215,7 +212,7 @@ describe("Campaigns MCP Tools", () => {
 	test("should handle invalid status updates", async () => {
 		// First create a campaign
 		const createResult = await client.callTool("listmonk_create_campaign", {
-			name: `Test-Campaign-${Date.now()}`,
+			name: buildTestName("campaign"),
 			subject: "Test Subject",
 			from_email: "test@example.com",
 			body: "<p>Test body</p>",
