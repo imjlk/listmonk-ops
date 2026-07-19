@@ -27,7 +27,7 @@ jobs:
       - name: Verify OpenAPI generation is up-to-date
         run: |
           bun run --cwd packages/openapi generate
-          git diff --exit-code -- packages/openapi/generated packages/openapi/src/client/index.ts
+          git diff --exit-code -- packages/openapi/spec/listmonk.yaml packages/openapi/generated packages/openapi/src/client/index.ts
 
       - name: Build all workspaces
         run: bun run build
@@ -65,6 +65,9 @@ jobs:
           done
           echo "Listmonk health check timed out"
           exit 1
+
+      - name: Provision Listmonk API token
+        run: bun run stack:bootstrap-auth
 
       - name: Run CLI smoke checks
         env:

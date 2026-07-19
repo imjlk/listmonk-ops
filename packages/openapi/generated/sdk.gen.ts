@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { BlocklistSubscribersQueryData, BlocklistSubscribersQueryResponses, CreateCampaignContentByIdData, CreateCampaignContentByIdResponses, CreateCampaignData, CreateCampaignResponses, CreateListData, CreateListResponses, CreateSubscriberData, CreateSubscriberResponses, CreateTemplateData, CreateTemplateResponses, DeleteBounceByIdData, DeleteBounceByIdResponses, DeleteBouncesData, DeleteBouncesResponses, DeleteCampaignAnalyticsByTypeData, DeleteCampaignAnalyticsByTypeResponses, DeleteCampaignByIdData, DeleteCampaignByIdResponses, DeleteGcSubscribersData, DeleteGcSubscribersResponses, DeleteListByIdData, DeleteListByIdResponses, DeleteMediaByIdData, DeleteMediaByIdResponses, DeleteSubscriberBouncesByIdData, DeleteSubscriberBouncesByIdResponses, DeleteSubscriberByIdData, DeleteSubscriberByIdResponses, DeleteSubscriberByListData, DeleteSubscriberByListResponses, DeleteSubscriberByQueryData, DeleteSubscriberByQueryResponses, DeleteTemplateByIdData, DeleteTemplateByIdResponses, DeleteUnconfirmedSubscriptionsData, DeleteUnconfirmedSubscriptionsResponses, ExportSubscriberDataByIdData, ExportSubscriberDataByIdResponses, GetBounceByIdData, GetBounceByIdResponses, GetBouncesData, GetBouncesResponses, GetCampaignAnalyticsData, GetCampaignAnalyticsResponses, GetCampaignByIdData, GetCampaignByIdResponses, GetCampaignsData, GetCampaignsResponses, GetDashboardChartsData, GetDashboardChartsResponses, GetDashboardCountsData, GetDashboardCountsResponses, GetHealthCheckData, GetHealthCheckResponses, GetI18nLangData, GetI18nLangResponses, GetImportSubscribersData, GetImportSubscribersResponses, GetImportSubscriberStatsData, GetImportSubscriberStatsResponses, GetListByIdData, GetListByIdResponses, GetListsData, GetListsResponses, GetLogsData, GetLogsResponses, GetMediaByIdData, GetMediaByIdResponses, GetMediaData, GetMediaResponses, GetPublicListsData, GetPublicListsResponses, GetRunningCampaignStatsData, GetRunningCampaignStatsResponses, GetServerConfigData, GetServerConfigResponses, GetSettingsData, GetSettingsResponses, GetSubscriberBouncesByIdData, GetSubscriberBouncesByIdResponses, GetSubscriberByIdData, GetSubscriberByIdResponses, GetSubscribersData, GetSubscribersResponses, GetTemplateByIdData, GetTemplateByIdResponses, GetTemplatesData, GetTemplatesResponses, HandlePublicSubscriptionData, HandlePublicSubscriptionResponses, ImportSubscribersData, ImportSubscribersResponses, ManageBlocklistBySubscriberListData, ManageBlocklistBySubscriberListResponses, ManageBlocklistSubscribersByIdData, ManageBlocklistSubscribersByIdResponses, ManageSubscriberListByIdData, ManageSubscriberListByIdResponses, ManageSubscriberListsByQueryData, ManageSubscriberListsByQueryResponses, ManageSubscriberListsData, ManageSubscriberListsResponses, PreviewCampaignByIdData, PreviewCampaignByIdResponses, PreviewCampaignTextByIdData, PreviewCampaignTextByIdResponses, PreviewTemplateByIdData, PreviewTemplateByIdResponses, PreviewTemplateData, PreviewTemplateResponses, ReloadAppData, ReloadAppResponses, StopImportSubscribersData, StopImportSubscribersResponses, SubscriberSendOptinByIdData, SubscriberSendOptinByIdResponses, TestCampaignByIdData, TestCampaignByIdResponses, TestSmtpSettingsData, TestSmtpSettingsResponses, TransactWithSubscriberData, TransactWithSubscriberResponses, UpdateCampaignArchiveByIdData, UpdateCampaignArchiveByIdResponses, UpdateCampaignByIdData, UpdateCampaignByIdResponses, UpdateCampaignStatusByIdData, UpdateCampaignStatusByIdResponses, UpdateListByIdData, UpdateListByIdResponses, UpdatePreviewCampaignByIdData, UpdatePreviewCampaignByIdResponses, UpdateSettingsData, UpdateSettingsResponses, UpdateSubscriberByIdData, UpdateSubscriberByIdResponses, UpdateTemplateByIdData, UpdateTemplateByIdPutData, UpdateTemplateByIdPutResponses, UpdateTemplateByIdResponses, UploadMediaData, UploadMediaResponses } from './types.gen';
+import type { BlocklistSubscribersQueryData, BlocklistSubscribersQueryResponses, CreateCampaignContentByIdData, CreateCampaignContentByIdResponses, CreateCampaignData, CreateCampaignResponses, CreateListData, CreateListResponses, CreateSubscriberData, CreateSubscriberResponses, CreateTemplateData, CreateTemplateResponses, DeleteBounceByIdData, DeleteBounceByIdResponses, DeleteBouncesData, DeleteBouncesResponses, DeleteCampaignAnalyticsByTypeData, DeleteCampaignAnalyticsByTypeResponses, DeleteCampaignByIdData, DeleteCampaignByIdResponses, DeleteGcSubscribersData, DeleteGcSubscribersResponses, DeleteListByIdData, DeleteListByIdResponses, DeleteMediaByIdData, DeleteMediaByIdResponses, DeleteSubscriberBouncesByIdData, DeleteSubscriberBouncesByIdResponses, DeleteSubscriberByIdData, DeleteSubscriberByIdResponses, DeleteSubscriberByListData, DeleteSubscriberByListResponses, DeleteSubscriberByQueryData, DeleteSubscriberByQueryResponses, DeleteTemplateByIdData, DeleteTemplateByIdResponses, DeleteUnconfirmedSubscriptionsData, DeleteUnconfirmedSubscriptionsResponses, ExportSubscriberDataByIdData, ExportSubscriberDataByIdResponses, GetAboutInfoData, GetAboutInfoResponses, GetBounceByIdData, GetBounceByIdResponses, GetBouncesData, GetBouncesResponses, GetCampaignAnalyticsData, GetCampaignAnalyticsResponses, GetCampaignByIdData, GetCampaignByIdResponses, GetCampaignsData, GetCampaignsResponses, GetDashboardChartsData, GetDashboardChartsResponses, GetDashboardCountsData, GetDashboardCountsResponses, GetHealthCheckData, GetHealthCheckResponses, GetI18nLangData, GetI18nLangResponses, GetImportSubscriberLogsData, GetImportSubscriberLogsResponses, GetImportSubscribersData, GetImportSubscribersResponses, GetListByIdData, GetListByIdResponses, GetListsData, GetListsResponses, GetLogsData, GetLogsResponses, GetMediaByIdData, GetMediaByIdResponses, GetMediaData, GetMediaResponses, GetPublicListsData, GetPublicListsResponses, GetRunningCampaignStatsData, GetRunningCampaignStatsResponses, GetServerConfigData, GetServerConfigResponses, GetSettingsData, GetSettingsResponses, GetSubscriberBouncesByIdData, GetSubscriberBouncesByIdResponses, GetSubscriberByIdData, GetSubscriberByIdResponses, GetSubscribersData, GetSubscribersResponses, GetTemplateByIdData, GetTemplateByIdResponses, GetTemplatesData, GetTemplatesResponses, HandlePublicSubscriptionData, HandlePublicSubscriptionResponses, ImportSubscribersData, ImportSubscribersResponses, ManageBlocklistBySubscriberListData, ManageBlocklistBySubscriberListResponses, ManageBlocklistSubscribersByIdData, ManageBlocklistSubscribersByIdResponses, ManageSubscriberListByIdData, ManageSubscriberListByIdResponses, ManageSubscriberListsByQueryData, ManageSubscriberListsByQueryResponses, ManageSubscriberListsData, ManageSubscriberListsResponses, PatchSubscriberByIdData, PatchSubscriberByIdResponses, PreviewCampaignByIdData, PreviewCampaignByIdResponses, PreviewCampaignTextByIdData, PreviewCampaignTextByIdResponses, PreviewTemplateByIdData, PreviewTemplateByIdResponses, PreviewTemplateData, PreviewTemplateResponses, ReloadAppData, ReloadAppResponses, SetDefaultTemplateByIdData, SetDefaultTemplateByIdResponses, StopImportSubscribersData, StopImportSubscribersResponses, SubscriberSendOptinByIdData, SubscriberSendOptinByIdResponses, TestCampaignByIdData, TestCampaignByIdResponses, TestSmtpSettingsData, TestSmtpSettingsResponses, TransactWithSubscriberData, TransactWithSubscriberResponses, UpdateCampaignArchiveByIdData, UpdateCampaignArchiveByIdResponses, UpdateCampaignByIdData, UpdateCampaignByIdResponses, UpdateCampaignStatusByIdData, UpdateCampaignStatusByIdResponses, UpdateListByIdData, UpdateListByIdResponses, UpdatePreviewCampaignByIdData, UpdatePreviewCampaignByIdResponses, UpdateSettingsData, UpdateSettingsResponses, UpdateSubscriberByIdData, UpdateSubscriberByIdResponses, UpdateTemplateByIdData, UpdateTemplateByIdResponses, UploadMediaData, UploadMediaResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -83,6 +83,11 @@ export const reloadApp = <ThrowOnError extends boolean = false>(options?: Option
 export const getLogs = <ThrowOnError extends boolean = false>(options?: Options<GetLogsData, ThrowOnError>) => (options?.client ?? client).get<GetLogsResponses, unknown, ThrowOnError>({ url: '/logs', ...options });
 
 /**
+ * returns the running Listmonk build and system information
+ */
+export const getAboutInfo = <ThrowOnError extends boolean = false>(options?: Options<GetAboutInfoData, ThrowOnError>) => (options?.client ?? client).get<GetAboutInfoResponses, unknown, ThrowOnError>({ url: '/about', ...options });
+
+/**
  * handles subscribers deletion
  */
 export const deleteSubscriberByList = <ThrowOnError extends boolean = false>(options: Options<DeleteSubscriberByListData, ThrowOnError>) => (options.client ?? client).delete<DeleteSubscriberByListResponses, unknown, ThrowOnError>({ url: '/subscribers', ...options });
@@ -113,6 +118,18 @@ export const deleteSubscriberById = <ThrowOnError extends boolean = false>(optio
  * handles the retrieval of a single subscriber by ID.
  */
 export const getSubscriberById = <ThrowOnError extends boolean = false>(options: Options<GetSubscriberByIdData, ThrowOnError>) => (options.client ?? client).get<GetSubscriberByIdResponses, unknown, ThrowOnError>({ url: '/subscribers/{id}', ...options });
+
+/**
+ * partially modifies subscriber data while preserving omitted fields
+ */
+export const patchSubscriberById = <ThrowOnError extends boolean = false>(options: Options<PatchSubscriberByIdData, ThrowOnError>) => (options.client ?? client).patch<PatchSubscriberByIdResponses, unknown, ThrowOnError>({
+    url: '/subscribers/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * modify subscriber data
@@ -231,7 +248,7 @@ export const manageSubscriberListsByQuery = <ThrowOnError extends boolean = fals
 });
 
 /**
- * handles retrieval of bounce records.
+ * handles deletion of bounce records.
  */
 export const deleteBounces = <ThrowOnError extends boolean = false>(options?: Options<DeleteBouncesData, ThrowOnError>) => (options?.client ?? client).delete<DeleteBouncesResponses, unknown, ThrowOnError>({ url: '/bounces', ...options });
 
@@ -313,9 +330,9 @@ export const importSubscribers = <ThrowOnError extends boolean = false>(options?
 });
 
 /**
- * returns import statistics
+ * returns import logs from an ongoing import
  */
-export const getImportSubscriberStats = <ThrowOnError extends boolean = false>(options?: Options<GetImportSubscriberStatsData, ThrowOnError>) => (options?.client ?? client).get<GetImportSubscriberStatsResponses, unknown, ThrowOnError>({ url: '/import/subscribers/logs', ...options });
+export const getImportSubscriberLogs = <ThrowOnError extends boolean = false>(options?: Options<GetImportSubscriberLogsData, ThrowOnError>) => (options?.client ?? client).get<GetImportSubscriberLogsResponses, unknown, ThrowOnError>({ url: '/import/subscribers/logs', ...options });
 
 /**
  * handles retrieval of campaigns
@@ -479,14 +496,14 @@ export const getMediaById = <ThrowOnError extends boolean = false>(options: Opti
 export const getTemplates = <ThrowOnError extends boolean = false>(options?: Options<GetTemplatesData, ThrowOnError>) => (options?.client ?? client).get<GetTemplatesResponses, unknown, ThrowOnError>({ url: '/templates', ...options });
 
 /**
- * create a template.
+ * handles template creation
  */
-export const createTemplate = <ThrowOnError extends boolean = false>(options?: Options<CreateTemplateData, ThrowOnError>) => (options?.client ?? client).post<CreateTemplateResponses, unknown, ThrowOnError>({
+export const createTemplate = <ThrowOnError extends boolean = false>(options: Options<CreateTemplateData, ThrowOnError>) => (options.client ?? client).post<CreateTemplateResponses, unknown, ThrowOnError>({
     url: '/templates',
     ...options,
     headers: {
         'Content-Type': 'application/json',
-        ...options?.headers
+        ...options.headers
     }
 });
 
@@ -501,9 +518,9 @@ export const deleteTemplateById = <ThrowOnError extends boolean = false>(options
 export const getTemplateById = <ThrowOnError extends boolean = false>(options: Options<GetTemplateByIdData, ThrowOnError>) => (options.client ?? client).get<GetTemplateByIdResponses, unknown, ThrowOnError>({ url: '/templates/{id}', ...options });
 
 /**
- * update a template.
+ * handles template modification
  */
-export const updateTemplateByIdPut = <ThrowOnError extends boolean = false>(options: Options<UpdateTemplateByIdPutData, ThrowOnError>) => (options.client ?? client).put<UpdateTemplateByIdPutResponses, unknown, ThrowOnError>({
+export const updateTemplateById = <ThrowOnError extends boolean = false>(options: Options<UpdateTemplateByIdData, ThrowOnError>) => (options.client ?? client).put<UpdateTemplateByIdResponses, unknown, ThrowOnError>({
     url: '/templates/{id}',
     ...options,
     headers: {
@@ -541,7 +558,7 @@ export const previewTemplateById = <ThrowOnError extends boolean = false>(option
 /**
  * handles template modification.
  */
-export const updateTemplateById = <ThrowOnError extends boolean = false>(options: Options<UpdateTemplateByIdData, ThrowOnError>) => (options.client ?? client).put<UpdateTemplateByIdResponses, unknown, ThrowOnError>({ url: '/templates/{id}/default', ...options });
+export const setDefaultTemplateById = <ThrowOnError extends boolean = false>(options: Options<SetDefaultTemplateByIdData, ThrowOnError>) => (options.client ?? client).put<SetDefaultTemplateByIdResponses, unknown, ThrowOnError>({ url: '/templates/{id}/default', ...options });
 
 /**
  * send message to a subscriber

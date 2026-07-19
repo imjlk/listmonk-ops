@@ -1,0 +1,126 @@
+--- upstream/listmonk-v6.2.0.yaml	2026-07-20 01:49:02
++++ listmonk.yaml	2026-07-20 01:59:32
+@@ -247,6 +247,20 @@
+                     items:
+                       type: string
+ 
++  /about:
++    get:
++      tags:
++        - Miscellaneous
++      description: returns the running Listmonk build and system information
++      operationId: getAboutInfo
++      responses:
++        "200":
++          description: Listmonk build and system information
++          content:
++            application/json:
++              schema:
++                $ref: "#/components/schemas/About"
++
+   /subscribers:
+     get:
+       tags:
+@@ -431,6 +445,36 @@
+                   data:
+                     $ref: "#/components/schemas/Subscriber"
+ 
++    patch:
++      description: partially modifies subscriber data while preserving omitted fields
++      operationId: patchSubscriberById
++      tags:
++        - Subscribers
++      parameters:
++        - in: path
++          name: id
++          required: true
++          description: The id of the subscriber to update
++          schema:
++            type: integer
++      requestBody:
++        description: subscriber fields to update
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: "#/components/schemas/UpdateSubscriber"
++      responses:
++        "200":
++          description: returns the updated subscriber
++          content:
++            application/json:
++              schema:
++                type: object
++                properties:
++                  data:
++                    $ref: "#/components/schemas/Subscriber"
++
+     delete:
+       description: handles subscriber deletion based on id
+       operationId: deleteSubscriberById
+@@ -889,7 +933,7 @@
+                 properties:
+                   data:
+                     type: boolean
+-                    
++
+   /lists:
+     get:
+       description: retrieves lists with additional metadata like subscriber counts. This may be slow.
+@@ -1754,7 +1798,7 @@
+         - in: query
+           name: no_body
+           description: boolean flag for response with/without body
+-          required: true
++          required: false
+           schema:
+             type: boolean
+       responses:
+@@ -2132,6 +2176,41 @@
+ 
+ components:
+   schemas:
++    About:
++      type: object
++      required:
++        - version
++      properties:
++        version:
++          type: string
++        build:
++          type: string
++        go_version:
++          type: string
++        go_arch:
++          type: string
++        database:
++          type: object
++          additionalProperties: true
++        system:
++          type: object
++          properties:
++            num_cpu:
++              type: integer
++            memory_alloc_mb:
++              type: integer
++            memory_from_os_mb:
++              type: integer
++        host:
++          type: object
++          properties:
++            os:
++              type: string
++            arch:
++              type: string
++            hostname:
++              type: string
++
+     LanguagePack:
+       type: object
+       properties:
+@@ -4207,3 +4286,5 @@
+           type: string
+         content_type:
+           type: string
++        altbody:
++          type: string

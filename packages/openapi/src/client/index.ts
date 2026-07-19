@@ -52,7 +52,7 @@ type TemplateTypes = ResourceTypes<
 	t.CreateTemplateData,
 	t.GetTemplatesData,
 	t.GetTemplateByIdData,
-	t.UpdateTemplateByIdPutData,
+	t.UpdateTemplateByIdData,
 	t.DeleteTemplateByIdData
 >;
 
@@ -120,6 +120,7 @@ type TransactionalSendParams = {
 	headers?: Record<string, string>[];
 	messenger?: string;
 	content_type?: "html" | "markdown" | "plain";
+	altbody?: string;
 };
 
 // Composed operation interfaces
@@ -157,6 +158,7 @@ interface DashboardOperations {
 }
 
 interface SystemOperations {
+	getAbout(): Promise<FlattenedResponse<t.About>>;
 	getConfig(): Promise<FlattenedResponse<Record<string, unknown>>>;
 	getLogs(): Promise<FlattenedResponse<string>>;
 	reload(): Promise<FlattenedResponse<boolean>>;
@@ -174,6 +176,7 @@ export type List = t.List;
 export type Subscriber = t.Subscriber;
 export type Campaign = t.Campaign;
 export type Template = t.Template;
+export type About = t.About;
 export type ListmonkClient = EnhancedListmonkClient;
 
 /**
@@ -238,6 +241,9 @@ interface EnhancedListmonkClient {
 		SubscriberTypes["getById"],
 		SubscriberTypes["delete"]
 	> & {
+		patch(
+			options: Omit<t.PatchSubscriberByIdData, "url">,
+		): Promise<CrudResult<Subscriber>>;
 		manageLists(options: {
 			body: {
 				action?: "add" | "remove" | "unsubscribe";
@@ -826,11 +832,12 @@ export const createListmonkClient = (
 		};
 	}
 
-	finalConfig.fetch = createResilientFetch({
+	const resilientFetch = createResilientFetch({
 		timeoutMs: timeout,
 		retries,
 		baseFetch: globalThis.fetch.bind(globalThis) as FetchFn,
 	}) as unknown as typeof fetch;
+	finalConfig.fetch = resilientFetch;
 
 	// Create SDK options with client configuration
 	const sdkOptions = {
@@ -846,7 +853,7 @@ export const createListmonkClient = (
 					method: "GET",
 					headers: finalConfig.headers,
 				});
-				const response = await finalConfig.fetch!(request);
+				const response = await resilientFetch(request);
 
 				if (!response.ok) {
 					let message = `Health check failed with status ${response.status}`;
@@ -875,6 +882,11 @@ export const createListmonkClient = (
 		list: createCrudOperations("List", sdkOptions),
 		subscriber: {
 			...createCrudOperations("Subscriber", sdkOptions),
+			async patch(options: Omit<t.PatchSubscriberByIdData, "url">) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.patchSubscriberById(mergedOptions);
+				return (await transformResponse(result)) as CrudResult<Subscriber>;
+			},
 			async manageLists(options: {
 				body: {
 					action?: "add" | "remove" | "unsubscribe";
@@ -1045,13 +1057,10 @@ export const createListmonkClient = (
 			},
 		},
 			template: {
-				...createCrudOperations("Template", sdkOptions, {
-					create: ["createTemplate"],
-					update: ["updateTemplateByIdPut"],
-				}),
+				...createCrudOperations("Template", sdkOptions),
 				async setAsDefault(options: { path: { id: number } }) {
 					const mergedOptions = { ...sdkOptions, ...options };
-					const result = await sdk.updateTemplateById(mergedOptions);
+					const result = await sdk.setDefaultTemplateById(mergedOptions);
 					return (await transformResponse(result)) as FlattenedResponse<t.Template>;
 				},
 			},
@@ -1086,7 +1095,7 @@ export const createListmonkClient = (
 				)) as FlattenedResponse<t.ImportStatus>;
 			},
 			async logs() {
-				const result = await sdk.getImportSubscriberStats(sdkOptions);
+				const result = await sdk.getImportSubscriberLogs(sdkOptions);
 				return (await transformResponse(result)) as FlattenedResponse<string>;
 			},
 			async start(params: ImportStartParams) {
@@ -1199,6 +1208,10 @@ export const createListmonkClient = (
 
 		// System operations
 		system: {
+			async getAbout() {
+				const result = await sdk.getAboutInfo(sdkOptions);
+				return (await transformResponse(result)) as FlattenedResponse<t.About>;
+			},
 			async getConfig() {
 				const result = await sdk.getServerConfig(sdkOptions);
 				return (await transformResponse(result)) as FlattenedResponse<

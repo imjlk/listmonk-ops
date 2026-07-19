@@ -247,20 +247,6 @@ paths:
                     items:
                       type: string
 
-  /about:
-    get:
-      tags:
-        - Miscellaneous
-      description: returns the running Listmonk build and system information
-      operationId: getAboutInfo
-      responses:
-        "200":
-          description: Listmonk build and system information
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/About"
-
   /subscribers:
     get:
       tags:
@@ -437,36 +423,6 @@ paths:
       responses:
         "200":
           description: returns updated subscriber.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    $ref: "#/components/schemas/Subscriber"
-
-    patch:
-      description: partially modifies subscriber data while preserving omitted fields
-      operationId: patchSubscriberById
-      tags:
-        - Subscribers
-      parameters:
-        - in: path
-          name: id
-          required: true
-          description: The id of the subscriber to update
-          schema:
-            type: integer
-      requestBody:
-        description: subscriber fields to update
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateSubscriber"
-      responses:
-        "200":
-          description: returns the updated subscriber
           content:
             application/json:
               schema:
@@ -933,7 +889,7 @@ paths:
                 properties:
                   data:
                     type: boolean
-
+                    
   /lists:
     get:
       description: retrieves lists with additional metadata like subscriber counts. This may be slow.
@@ -1798,7 +1754,7 @@ paths:
         - in: query
           name: no_body
           description: boolean flag for response with/without body
-          required: false
+          required: true
           schema:
             type: boolean
       responses:
@@ -2176,41 +2132,6 @@ paths:
 
 components:
   schemas:
-    About:
-      type: object
-      required:
-        - version
-      properties:
-        version:
-          type: string
-        build:
-          type: string
-        go_version:
-          type: string
-        go_arch:
-          type: string
-        database:
-          type: object
-          additionalProperties: true
-        system:
-          type: object
-          properties:
-            num_cpu:
-              type: integer
-            memory_alloc_mb:
-              type: integer
-            memory_from_os_mb:
-              type: integer
-        host:
-          type: object
-          properties:
-            os:
-              type: string
-            arch:
-              type: string
-            hostname:
-              type: string
-
     LanguagePack:
       type: object
       properties:
@@ -4285,6 +4206,4 @@ components:
         messenger:
           type: string
         content_type:
-          type: string
-        altbody:
           type: string

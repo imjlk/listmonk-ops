@@ -1,0 +1,2 @@
+packages/openapi/spec/upstream/*.yaml -whitespace
+packages/openapi/spec/*.overlay.patch -whitespace

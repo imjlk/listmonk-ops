@@ -1,29 +1,40 @@
 services:
   db:
     image: postgres:17-alpine
-    container_name: listmonk_db
+    container_name: ${LISTMONK_DB_CONTAINER_NAME:-listmonk_db}
     environment:
       POSTGRES_PASSWORD: listmonk
       POSTGRES_USER: listmonk
       POSTGRES_DB: listmonk
     volumes:
       - listmonk_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U listmonk -d listmonk"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     networks:
       - listmonk
 
   listmonk:
-    image: listmonk/listmonk:latest
-    container_name: listmonk
+    image: listmonk/listmonk:v6.2.0
+    container_name: ${LISTMONK_CONTAINER_NAME:-listmonk}
     depends_on:
-      - db
-      - mailpit
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
     ports:
-      - "9000:9000"
+      - "${LISTMONK_PORT:-9000}:9000"
     environment:
       # Admin user creation (matches .env file)
       LISTMONK_ADMIN_USER: admin
       LISTMONK_ADMIN_PASSWORD: adminpass
-      LISTMONK_ADMIN_API_USER: api-admin
+
+      # Local-only bootstrap credential used to provision an API token through
+      # Listmonk's /api/users endpoint. Do not use this compose file as-is in production.
+      LISTMONK_app__admin_username: api-bootstrap
+      LISTMONK_app__admin_password: listmonk-ops-bootstrap-token
       
       # Database configuration
       LISTMONK_db__host: db
@@ -42,14 +53,14 @@ services:
       - listmonk_static:/listmonk/static
       - listmonk_tmp:/tmp
     restart: unless-stopped
-    command: ["sh", "-c", "if [ ! -f /tmp/listmonk-installed ]; then ./listmonk --install --yes && touch /tmp/listmonk-installed; fi && ./listmonk"]
+    command: ["sh", "-c", "./listmonk --install --idempotent --yes --config '' && ./listmonk --upgrade --yes --config '' && ./listmonk --config ''"]
 
   mailpit:
     image: axllent/mailpit:latest
-    container_name: listmonk_mailpit
+    container_name: ${LISTMONK_MAILPIT_CONTAINER_NAME:-listmonk_mailpit}
     ports:
-      - "8025:8025"  # Web UI
-      - "1025:1025"  # SMTP server
+      - "${LISTMONK_MAILPIT_UI_PORT:-8025}:8025"  # Web UI
+      - "${LISTMONK_MAILPIT_SMTP_PORT:-1025}:1025"  # SMTP server
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1

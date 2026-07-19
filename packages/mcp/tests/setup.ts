@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, setDefaultTimeout } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createListmonkClient } from "@listmonk-ops/openapi";
@@ -11,13 +11,16 @@ const TEST_ENV_PATH = resolve(TESTS_DIR, ".env.test");
 const TEST_ENV_LOCAL_PATH = resolve(TESTS_DIR, ".env.test.local");
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
 const CLEANUP_PAGE_SIZE = 200;
+const LOCAL_TOKEN_PATH =
+	process.env.LISTMONK_TEST_TOKEN_FILE || "/tmp/listmonk-ops-api-token";
 
 export const TEST_RESOURCE_PREFIX = "lmops-e2e";
 
 function loadTestEnvironment(): void {
-	for (const envPath of [TEST_ENV_PATH, TEST_ENV_LOCAL_PATH]) {
+	// Explicit process env wins, then .env.test.local, then committed defaults.
+	for (const envPath of [TEST_ENV_LOCAL_PATH, TEST_ENV_PATH]) {
 		if (existsSync(envPath)) {
-			loadEnv({ path: envPath, override: true });
+			loadEnv({ path: envPath, override: false });
 		}
 	}
 }
@@ -64,9 +67,10 @@ function formatError(error: unknown): string {
 	return String(error);
 }
 
-function hasResponseError<T>(
-	response: { data?: T; error?: unknown },
-): response is { data?: T; error: unknown } {
+function hasResponseError<T>(response: {
+	data?: T;
+	error?: unknown;
+}): response is { data?: T; error: unknown } {
 	return "error" in response && response.error !== undefined;
 }
 
@@ -89,18 +93,28 @@ export function buildTestEmail(label = "user"): string {
 }
 
 export function isManagedTestName(name: string | undefined): boolean {
-	return typeof name === "string" && name.startsWith(`${TEST_RESOURCE_PREFIX}-`);
+	return (
+		typeof name === "string" && name.startsWith(`${TEST_RESOURCE_PREFIX}-`)
+	);
 }
 
 export function isManagedTestEmail(email: string | undefined): boolean {
-	return typeof email === "string" && email.includes(`${TEST_RESOURCE_PREFIX}-`);
+	return (
+		typeof email === "string" && email.includes(`${TEST_RESOURCE_PREFIX}-`)
+	);
 }
 
 loadTestEnvironment();
 
-function resolveApiTokenFromDocker(username: string): string | undefined {
+function resolveApiTokenFromLocalStack(): string | undefined {
 	if (process.env.LISTMONK_API_TOKEN?.trim()) {
 		return process.env.LISTMONK_API_TOKEN.trim();
+	}
+	if (existsSync(LOCAL_TOKEN_PATH)) {
+		const token = readFileSync(LOCAL_TOKEN_PATH, "utf8").trim();
+		if (token) {
+			return token;
+		}
 	}
 
 	const dockerCheck = Bun.spawnSync(["docker", "--version"], {
@@ -112,46 +126,26 @@ function resolveApiTokenFromDocker(username: string): string | undefined {
 		return undefined;
 	}
 
-	const query = `SELECT password FROM users WHERE username='${username}' LIMIT 1;`;
-	const tokenResult = Bun.spawnSync(
-		[
-			"docker",
-			"compose",
-			"-f",
-			"docker-compose.yml",
-			"exec",
-			"-T",
-			"db",
-			"psql",
-			"-U",
-			"listmonk",
-			"-d",
-			"listmonk",
-			"-Atc",
-			query,
-		],
-		{
-			cwd: REPO_ROOT,
-			stdout: "pipe",
-			stderr: "pipe",
-		},
+	const bootstrapResult = Bun.spawnSync(
+		["bun", "run", "stack:bootstrap-auth"],
+		{ cwd: REPO_ROOT, stdout: "pipe", stderr: "pipe" },
 	);
-
-	if (tokenResult.exitCode !== 0) {
+	if (bootstrapResult.exitCode !== 0 || !existsSync(LOCAL_TOKEN_PATH)) {
 		return undefined;
 	}
 
-	const token = tokenResult.stdout.toString().trim();
+	const token = readFileSync(LOCAL_TOKEN_PATH, "utf8").trim();
 	return token.length > 0 ? token : undefined;
 }
 
 const resolvedBaseUrl = normalizeApiUrl(
-	readEnvValue("LISTMONK_API_URL", "LISTMONK_URL") || "http://localhost:9000/api",
+	readEnvValue("LISTMONK_API_URL", "LISTMONK_URL") ||
+		"http://localhost:9000/api",
 );
 const resolvedUsername = readEnvValue("LISTMONK_USERNAME") || "api-admin";
 const resolvedPassword = readEnvValue("LISTMONK_PASSWORD") || "";
 const resolvedApiToken =
-	readEnvValue("LISTMONK_API_TOKEN") || resolveApiTokenFromDocker(resolvedUsername);
+	readEnvValue("LISTMONK_API_TOKEN") || resolveApiTokenFromLocalStack();
 const allowRemoteE2E = readEnvValue("LISTMONK_E2E_ALLOW_REMOTE") === "1";
 
 process.env.LISTMONK_API_URL = resolvedBaseUrl;
@@ -233,7 +227,10 @@ export async function cleanupTestData() {
 		}
 		if (campaigns.data?.results) {
 			for (const campaign of campaigns.data.results) {
-				if (isManagedTestName(campaign.name) && typeof campaign.id === "number") {
+				if (
+					isManagedTestName(campaign.name) &&
+					typeof campaign.id === "number"
+				) {
 					try {
 						await client.campaign.delete({ path: { id: campaign.id } });
 					} catch {

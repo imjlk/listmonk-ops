@@ -26,6 +26,7 @@
 		"release:publish:dry": "bash ./scripts/sampo-publish.sh --dry-run -- --access public",
 		"release:publish:oidc": "bash ./scripts/sampo-publish.sh -- --access public --provenance",
 		"release:publish:oidc:dry": "bash ./scripts/sampo-publish.sh --dry-run -- --access public --provenance",
+		"stack:bootstrap-auth": "bun run ./scripts/bootstrap-listmonk-test-auth.ts",
 		"ops:smoke": "bash ./scripts/ops-smoke.sh",
 		"ops:smoke:full": "LISTMONK_OPS_SMOKE_MODE=full bash ./scripts/ops-smoke.sh",
 		"check:cli-pack-size": "bash ./scripts/check-cli-pack-size.sh",

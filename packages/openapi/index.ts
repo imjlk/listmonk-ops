@@ -8,6 +8,7 @@
 // ===== IMPORTS =====
 
 import type {
+	About,
 	Campaign,
 	List,
 	ListmonkClient,
@@ -41,4 +42,4 @@ export type { ListmonkClient, ListmonkConfig };
 /**
  * Core entity types
  */
-export type { Campaign, List, Subscriber, Template };
+export type { About, Campaign, List, Subscriber, Template };
