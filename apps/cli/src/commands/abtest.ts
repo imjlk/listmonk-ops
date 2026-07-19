@@ -1,6 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { defineCommand, defineGroup, option } from "@bunli/core";
 import {
 	type AbTest,
 	type CreateAbTestInput,
@@ -8,7 +7,7 @@ import {
 } from "@listmonk-ops/abtest";
 import { OutputUtils } from "@listmonk-ops/common";
 import { z } from "zod";
-
+import { defineCommand, defineGroup, option } from "../lib/command";
 import {
 	parseCsvNumbers,
 	parseJson,
@@ -244,7 +243,7 @@ async function persistExecutors(
 }
 
 async function promptInteractiveInput(
-	clack: typeof import("@bunli/utils").prompt.clack,
+	clack: typeof import("@clack/prompts"),
 ): Promise<{ input: CreateAbTestInput; autoLaunch: boolean }> {
 	clack.intro("Interactive A/B test setup");
 

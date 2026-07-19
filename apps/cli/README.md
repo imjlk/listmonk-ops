@@ -1,6 +1,6 @@
 # @listmonk-ops/cli
 
-CLI for Listmonk operations.
+Gunshi-based CLI for Listmonk operations.
 
 ## Install
 
@@ -26,3 +26,14 @@ listmonk-cli status
 listmonk-cli campaigns list
 listmonk-cli ops digest --hours 24
 ```
+
+## Shell completion
+
+```bash
+listmonk-cli complete zsh
+listmonk-cli complete bash
+listmonk-cli complete fish
+listmonk-cli complete powershell
+```
+
+The older `listmonk-cli completions <shell>` spelling remains a deprecated alias.

@@ -10,7 +10,7 @@
 - OpenAPI 스펙 기반 SDK 생성 (Hey API)
 - A/B 테스트 도메인 로직
 - 도구 연동용 MCP 서버
-- Bunli 기반 CLI (completion + standalone 바이너리 빌드)
+- Gunshi 기반 CLI (completion + standalone 바이너리 빌드)
 - Docker 로컬 개발 환경 (Listmonk + Postgres + Mailpit)
 
 ## Listmonk 기반
@@ -24,7 +24,7 @@
 
 | 경로 | 역할 |
 | --- | --- |
-| `apps/cli` | `listmonk-cli` 커맨드라인 앱 (Bunli) |
+| `apps/cli` | `listmonk-cli` 커맨드라인 앱 (Gunshi) |
 | `packages/openapi` | 생성형 API SDK 및 타입드 클라이언트 래퍼 |
 | `packages/abtest` | A/B 테스트 서비스 및 분석 로직 |
 | `packages/automation` | `@listmonk-ops/automation` 고수준 운영 워크플로 (preflight/guard/hygiene/drift/digest) |
@@ -165,7 +165,7 @@ npm Trusted Publishing 사전 설정(1회 필요):
 - 설정 파일: `renovate.json`
 - 스케줄: `Asia/Seoul` 기준 매월 첫째/셋째 월요일 오전 (격주 근사)
 - 자동 머지: required checks 통과 후 patch/pin/digest/lockfile maintenance 업데이트만 허용
-- `bunli` 업데이트는 dependency dashboard approval이 필요하며 `bun run check:cli-pack-size`를 통과해야 함
+- `gunshi`와 `@gunshi/plugin-completion` 업데이트는 dependency dashboard approval이 필요하며 CLI 계약·바이너리·패키지 크기 검증을 통과해야 함
 
 ## 운영 베이스라인
 
@@ -190,7 +190,7 @@ bun run ops:smoke:full
 
 스모크 스크립트 정보:
 - 파일: `scripts/ops-smoke.sh`
-- `LISTMONK_API_TOKEN`이 없으면 로컬 Docker DB에서 토큰 자동 조회
+- `LISTMONK_API_TOKEN` 또는 `bun run stack:bootstrap-auth`가 만든 토큰 파일 사용
 - `LISTMONK_OPS_SMOKE_MODE=quick|full` 모드 지원
 - JSON 리포트 경로: `${LISTMONK_OPS_SMOKE_REPORT:-/tmp/listmonk-ops-smoke/report.json}`
 
@@ -201,7 +201,7 @@ CI에서 자동 검증:
 
 ## CLI 빌드 파이프라인 (JS + 싱글 바이너리)
 
-`apps/cli`는 Bunli 기반이며 JS 번들과 native standalone 바이너리를 함께 지원합니다.
+`apps/cli`는 Gunshi 기반이며 Bun 런타임 번들과 native standalone 바이너리를 함께 지원합니다.
 
 ```bash
 # 전체 빌드
@@ -223,20 +223,26 @@ bun run --cwd apps/cli build:bin
 
 # 지원 전체 타겟 바이너리 빌드
 bun run --cwd apps/cli build:bin:all
+# - dist/bin/listmonk-cli-linux-x64
+# - dist/bin/listmonk-cli-linux-arm64
+# - dist/bin/listmonk-cli-darwin-x64
+# - dist/bin/listmonk-cli-darwin-arm64
 ```
 
 ## CLI Shell Completion
 
 ```bash
 # completion 스크립트 생성
-listmonk-cli completions zsh
-listmonk-cli completions bash
-listmonk-cli completions fish
-listmonk-cli completions powershell
+listmonk-cli complete zsh
+listmonk-cli complete bash
+listmonk-cli complete fish
+listmonk-cli complete powershell
 
 # 예시 (zsh)
-source <(listmonk-cli completions zsh)
+source <(listmonk-cli complete zsh)
 ```
+
+마이그레이션 호환성을 위해 기존 `completions` 표기도 deprecated alias로 유지합니다.
 
 ## A/B 테스트 운영 명령
 

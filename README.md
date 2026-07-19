@@ -10,7 +10,7 @@ This repository includes:
 - OpenAPI-based SDK generation (Hey API)
 - A/B testing domain logic
 - MCP server for tool-based integrations
-- Bunli-based CLI with shell completions and standalone binary builds
+- Gunshi-based CLI with shell completions and standalone binary builds
 - Dockerized local Listmonk environment (Listmonk + Postgres + Mailpit)
 
 ## Built Around Listmonk
@@ -24,7 +24,7 @@ This repository is designed for teams operating [Listmonk](https://listmonk.app/
 
 | Path | Purpose |
 | --- | --- |
-| `apps/cli` | `listmonk-cli` command line app (Bunli) |
+| `apps/cli` | `listmonk-cli` command line app (Gunshi) |
 | `packages/openapi` | Generated API SDK and typed client wrappers |
 | `packages/abtest` | A/B test services and analysis logic |
 | `packages/automation` | `@listmonk-ops/automation` high-level operational workflows (preflight/guard/hygiene/drift/digest) |
@@ -165,7 +165,7 @@ This repository uses Renovate for npm/Bun/GitHub Actions updates.
 - Config: `renovate.json`
 - Schedule: first and third Monday morning in `Asia/Seoul` (bi-weekly approximation)
 - Automerge: patch, pin, digest, and lockfile maintenance updates after required checks pass
-- `bunli` updates require dependency dashboard approval and should pass `bun run check:cli-pack-size`
+- `gunshi` and `@gunshi/plugin-completion` updates require dependency dashboard approval and should pass CLI contract, binary, and package-size checks
 
 ## Operational Baseline
 
@@ -190,7 +190,7 @@ bun run ops:smoke:full
 
 Smoke script details:
 - File: `scripts/ops-smoke.sh`
-- Auto-resolves API token from local Docker DB when `LISTMONK_API_TOKEN` is not set
+- Uses `LISTMONK_API_TOKEN` or the token file produced by `bun run stack:bootstrap-auth`
 - Supports mode switch with `LISTMONK_OPS_SMOKE_MODE=quick|full`
 - Writes JSON report to `${LISTMONK_OPS_SMOKE_REPORT:-/tmp/listmonk-ops-smoke/report.json}`
 
@@ -201,7 +201,7 @@ CI now enforces:
 
 ## CLI Build Pipeline (JS + Single Binary)
 
-`apps/cli` uses Bunli and supports both JS output and native standalone binary.
+`apps/cli` uses Gunshi and supports both a Bun runtime bundle and native standalone binaries.
 
 ```bash
 # Build everything
@@ -223,20 +223,26 @@ bun run --cwd apps/cli build:bin
 
 # Native binaries for all supported targets
 bun run --cwd apps/cli build:bin:all
+# - dist/bin/listmonk-cli-linux-x64
+# - dist/bin/listmonk-cli-linux-arm64
+# - dist/bin/listmonk-cli-darwin-x64
+# - dist/bin/listmonk-cli-darwin-arm64
 ```
 
 ## Shell Completions (CLI)
 
 ```bash
 # Generate completion script
-listmonk-cli completions zsh
-listmonk-cli completions bash
-listmonk-cli completions fish
-listmonk-cli completions powershell
+listmonk-cli complete zsh
+listmonk-cli complete bash
+listmonk-cli complete fish
+listmonk-cli complete powershell
 
 # Example (zsh)
-source <(listmonk-cli completions zsh)
+source <(listmonk-cli complete zsh)
 ```
+
+The deprecated `completions` spelling remains an alias for migration compatibility.
 
 ## A/B Test Operations
 

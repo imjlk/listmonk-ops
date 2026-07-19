@@ -23,35 +23,20 @@
 			"addLabels": ["dependencies", "github-actions"]
 		},
 		{
-			"matchPackageNames": [
-				"bunli",
-				"@bunli/core",
-				"@bunli/plugin-completions",
-				"@bunli/utils"
-			],
-			"groupName": "bunli stack",
+			"matchPackageNames": ["gunshi", "@gunshi/plugin-completion"],
+			"groupName": "gunshi stack",
 			"dependencyDashboardApproval": true,
-			"addLabels": ["dependencies", "bunli", "manual-verification"]
+			"addLabels": ["dependencies", "gunshi", "manual-verification"]
 		},
 		{
 			"matchDepTypes": ["devDependencies"],
-			"excludePackageNames": [
-				"bunli",
-				"@bunli/core",
-				"@bunli/plugin-completions",
-				"@bunli/utils"
-			],
+			"excludePackageNames": ["gunshi", "@gunshi/plugin-completion"],
 			"groupName": "tooling/dev deps",
 			"addLabels": ["dependencies", "tooling"]
 		},
 		{
 			"matchDepTypes": ["dependencies"],
-			"excludePackageNames": [
-				"bunli",
-				"@bunli/core",
-				"@bunli/plugin-completions",
-				"@bunli/utils"
-			],
+			"excludePackageNames": ["gunshi", "@gunshi/plugin-completion"],
 			"groupName": "runtime deps",
 			"addLabels": ["dependencies", "runtime"]
 		},

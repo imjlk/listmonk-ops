@@ -1,7 +1,6 @@
-import { defineCommand, defineGroup, option } from "@bunli/core";
 import { OutputUtils } from "@listmonk-ops/common";
 import { z } from "zod";
-
+import { defineCommand, defineGroup, option } from "../lib/command";
 import {
 	hasApiError,
 	parseCsvNumbers,
