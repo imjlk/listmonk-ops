@@ -411,7 +411,7 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					const currentResponse = await client.campaign.getById({
 						path: { id: campaignId },
 					});
-					if ("error" in currentResponse && currentResponse.error !== undefined) {
+					if ("error" in currentResponse) {
 						return createApiErrorResult(
 							"Failed to load campaign before test send",
 							currentResponse.error,
