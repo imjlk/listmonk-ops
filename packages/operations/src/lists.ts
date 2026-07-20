@@ -117,8 +117,14 @@ function toErrorMessage(error: unknown): string {
 	return String(error);
 }
 
+function hasResponseError<T>(
+	response: DataResponse<T>,
+): response is DataResponse<T> & { error: unknown } {
+	return response.error !== undefined;
+}
+
 function unwrapData<T>(response: DataResponse<T>, context: string): T {
-	if ("error" in response && response.error !== undefined) {
+	if (hasResponseError(response)) {
 		throw new Error(`${context}: ${toErrorMessage(response.error)}`);
 	}
 	if (response.data === undefined) {
@@ -196,7 +202,7 @@ export async function createSubscriberList(
 		},
 	});
 
-	if ("error" in response && response.error !== undefined) {
+	if (hasResponseError(response)) {
 		throw new Error(`Failed to create list: ${toErrorMessage(response.error)}`);
 	}
 	if (response.data !== undefined) {

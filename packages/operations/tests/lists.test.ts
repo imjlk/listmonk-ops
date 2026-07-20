@@ -7,6 +7,7 @@ import {
 	getListOperationByMcpName,
 	getListsOperation,
 	listOperations,
+	OperationExecutionError,
 	OperationInputError,
 	updateListOperation,
 } from "../src";
@@ -126,14 +127,20 @@ describe("subscriber-list operations", () => {
 	test("does not turn an update API error into success", async () => {
 		const update = mock(async () => ({ error: new Error("conflict") }));
 
-		await expect(
-			updateListOperation.invoke(
-				context({
-					update: update as unknown as ListClient["list"]["update"],
-				}),
-				{ id: 3, name: "Duplicate" },
-			),
-		).rejects.toThrow("Failed to update list: conflict");
+		const invocation = updateListOperation.invoke(
+			context({
+				update: update as unknown as ListClient["list"]["update"],
+			}),
+			{ id: 3, name: "Duplicate" },
+		);
+
+		await expect(invocation).rejects.toEqual(
+			expect.objectContaining<Partial<OperationExecutionError>>({
+				name: "OperationExecutionError",
+				operationId: "lists.update",
+				message: "Failed to update list: conflict",
+			}),
+		);
 	});
 
 	test("exposes JSON schemas and safety metadata through the registry", () => {

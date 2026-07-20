@@ -1,6 +1,10 @@
 import { OutputUtils } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import { getListOperation, getListsOperation } from "@listmonk-ops/operations";
+import {
+	getListOperation,
+	getListsOperation,
+	OperationExecutionError,
+} from "@listmonk-ops/operations";
 import { z } from "zod";
 import {
 	defineCommand,
@@ -29,12 +33,9 @@ export interface GetListInput {
 
 export function createListCommandError(
 	context: string,
-	operationContext: string,
 	error: unknown,
 ): Error {
-	if (error instanceof Error && error.message.startsWith(
-		`${operationContext}:`,
-	)) {
+	if (error instanceof OperationExecutionError) {
 		return error;
 	}
 	return new Error(`${context}: ${toErrorMessage(error)}`);
@@ -77,11 +78,7 @@ export async function handleListListsCommand({
 			{ page: flags.page, per_page: flags["per-page"] },
 		);
 	} catch (error) {
-		throw createListCommandError(
-			"Failed to list lists",
-			"Failed to fetch lists",
-			error,
-		);
+		throw createListCommandError("Failed to list lists", error);
 	}
 }
 
@@ -100,11 +97,7 @@ export async function handleGetListCommand({
 			{ id: flags.id },
 		);
 	} catch (error) {
-		throw createListCommandError(
-			"Failed to get list",
-			"Failed to fetch list",
-			error,
-		);
+		throw createListCommandError("Failed to get list", error);
 	}
 }
 

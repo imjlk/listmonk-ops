@@ -51,6 +51,26 @@ export class OperationOutputError extends Error {
 	}
 }
 
+export class OperationExecutionError extends Error {
+	public readonly operationId: string;
+
+	public constructor(operationId: string, cause: unknown) {
+		super(toErrorMessage(cause), { cause });
+		this.name = "OperationExecutionError";
+		this.operationId = operationId;
+	}
+}
+
+function toErrorMessage(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	if (error && typeof error === "object" && "message" in error) {
+		return String(error.message);
+	}
+	return String(error);
+}
+
 function toObjectJsonSchema(
 	schema: z.ZodType,
 	io: "input" | "output",
@@ -133,7 +153,15 @@ export function defineOperation<
 				);
 			}
 
-			const output = await config.execute(context, parsedInput.data);
+			let output: z.output<OutputSchema>;
+			try {
+				output = await config.execute(context, parsedInput.data);
+			} catch (error) {
+				if (error instanceof OperationExecutionError) {
+					throw error;
+				}
+				throw new OperationExecutionError(config.id, error);
+			}
 			const parsedOutput = config.outputSchema.safeParse(output);
 			if (!parsedOutput.success) {
 				throw new OperationOutputError(
