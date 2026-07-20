@@ -98,6 +98,30 @@ describe("A/B test persistence", () => {
 		expect(statuses).toEqual({ one: "running", two: "completed" });
 	});
 
+	test("hydrates persisted timestamps for direct store readers", async () => {
+		const storePath = await createStorePath();
+		const fixture = createTest("dated");
+		const firstVariant = fixture.variants[0];
+		if (!firstVariant) {
+			throw new Error("Expected a fixture variant");
+		}
+		firstVariant.contentOverrides.sendTime = new Date(
+			"2026-01-02T03:04:05.000Z",
+		);
+		await saveStoredAbTests([fixture], storePath);
+
+		const loaded = await loadStoredAbTests(storePath);
+		const loadedTest = loaded[0];
+		const loadedVariant = loadedTest?.variants[0];
+
+		expect(loadedTest?.createdAt).toBeInstanceOf(Date);
+		expect(loadedTest?.updatedAt).toBeInstanceOf(Date);
+		expect(loadedVariant?.contentOverrides.sendTime).toBeInstanceOf(Date);
+		expect(loadedVariant?.contentOverrides.sendTime?.toISOString()).toBe(
+			"2026-01-02T03:04:05.000Z",
+		);
+	});
+
 	test("does not commit a failed mutation", async () => {
 		const storePath = await createStorePath();
 		await saveStoredAbTests([createTest("one")], storePath);

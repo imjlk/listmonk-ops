@@ -103,6 +103,9 @@ The default versioned store is `~/.listmonk-ops/abtests.json`. Override it with
 queries and `mode: "write"` for operations that change local or remote state.
 Writes hold a cross-process transaction across hydration, the Listmonk action,
 and the atomic local snapshot, preventing CLI and MCP updates from being lost.
+Direct `loadStoredAbTests` reads hydrate persisted timestamps back to `Date`
+objects. Remote lifecycle writes allow up to two minutes for another process's
+transaction lock before timing out.
 
 If a remote mutation fails, local state is not committed but Listmonk may
 contain partial resources. If the local commit fails after the remote action,

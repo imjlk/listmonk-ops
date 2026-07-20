@@ -12,6 +12,7 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import type { AbTest } from "./types";
 
+const ABTEST_STORE_LOCK_TIMEOUT_MS = 120_000;
 const ABTEST_STATUSES = new Set<AbTest["status"]>([
 	"draft",
 	"testing",
@@ -216,7 +217,23 @@ function parseAbTestStore(value: unknown): AbTestStore {
 		}
 	}
 
-	return value as unknown as AbTestStore;
+	return {
+		version: 1,
+		tests: (value.tests as unknown as AbTest[]).map((test) => ({
+			...test,
+			createdAt: new Date(test.createdAt),
+			updatedAt: new Date(test.updatedAt),
+			variants: test.variants.map((variant) => ({
+				...variant,
+				contentOverrides: {
+					...variant.contentOverrides,
+					sendTime: variant.contentOverrides.sendTime
+						? new Date(variant.contentOverrides.sendTime)
+						: undefined,
+				},
+			})),
+		})),
+	};
 }
 
 export function getAbTestStorePath(): string {
@@ -234,6 +251,7 @@ function createAbTestStore(
 		path: storePath,
 		createDefault: () => ({ version: 1, tests: [] }),
 		parse: parseAbTestStore,
+		lock: { timeoutMs: ABTEST_STORE_LOCK_TIMEOUT_MS },
 	};
 }
 
