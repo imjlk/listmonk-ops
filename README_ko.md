@@ -127,6 +127,10 @@ listmonk-mcp \
   --port 3000
 ```
 
+명령 기반 MCP 클라이언트에서는 `listmonk-mcp --stdio`를 사용합니다. 기본
+HTTP 런타임은 기존 REST 엔드포인트를 유지하면서 `/mcp`에서 표준
+Streamable HTTP MCP를 제공합니다.
+
 ## Sampo 체인지셋 + npm OIDC 배포
 
 이 레포는 Sampo로 릴리즈 계획/체인지로그를 관리하고, `main` 머지 후 npm 자동 배포를 수행합니다.
@@ -329,6 +333,7 @@ bun run --cwd packages/mcp dev
 
 주요 엔드포인트:
 - `GET /health`
+- `/mcp` (표준 MCP Streamable HTTP)
 - `POST /tools/list`
 - `POST /tools/call`
 

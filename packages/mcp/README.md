@@ -5,10 +5,10 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 ## Features
 
 - 🚀 Built with Hono for fast performance
-- 📝 Complete Listmonk API coverage for core entities
-- 🔧 MCP-compliant tool interface
+- 📝 Core Listmonk workflows plus ops automation and A/B testing
+- 🔧 Standard MCP over stdio and Streamable HTTP
 - 🛡️ Type-safe with TypeScript
-- 🌐 RESTful HTTP endpoints
+- 🌐 Backward-compatible RESTful HTTP endpoints
 - 📊 Health monitoring and logging
 
 ## Supported Operations
@@ -116,7 +116,41 @@ DEBUG=false
 
 ## Usage
 
-### Run With Environment Variables
+### Standard MCP Over stdio
+
+Use stdio for local MCP clients such as Codex and Claude:
+
+```bash
+LISTMONK_API_URL=http://localhost:9000/api \
+ LISTMONK_USERNAME=api-admin \
+ LISTMONK_API_TOKEN=<token> \
+ listmonk-mcp --stdio
+```
+
+Example MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "listmonk": {
+      "command": "listmonk-mcp",
+      "args": ["--stdio"],
+      "env": {
+        "LISTMONK_API_URL": "http://localhost:9000/api",
+        "LISTMONK_USERNAME": "api-admin",
+        "LISTMONK_API_TOKEN": "<token>"
+      }
+    }
+  }
+}
+```
+
+### Standard MCP Over Streamable HTTP
+
+The default HTTP runtime exposes the standard MCP endpoint at
+`http://localhost:3000/mcp`.
+
+#### Run With Environment Variables
 
 ```bash
 LISTMONK_API_URL=http://localhost:9000/api \
@@ -125,7 +159,7 @@ LISTMONK_API_URL=http://localhost:9000/api \
  listmonk-mcp
 ```
 
-### Run With Runtime Flags (for remote Listmonk endpoint)
+#### Run With Runtime Flags (for remote Listmonk endpoint)
 
 ```bash
 listmonk-mcp \
@@ -137,6 +171,7 @@ listmonk-mcp \
 ```
 
 CLI flags override environment values. This allows running MCP against a remote Listmonk instance without any local Docker setup.
+Pass `--transport http` explicitly when runtime configuration benefits from an explicit transport selection.
 
 ### Development
 
@@ -154,8 +189,9 @@ bun ./bin/listmonk-mcp.js --help
 
 - `GET /` - Server information and available endpoints
 - `GET /health` - Health check endpoint
-- `POST /tools/list` - List all available MCP tools
-- `POST /tools/call` - Call a specific MCP tool
+- `/mcp` - Standard MCP Streamable HTTP endpoint
+- `POST /tools/list` - Legacy REST endpoint to list tools
+- `POST /tools/call` - Legacy REST endpoint to call a tool
 
 ## Example Usage
 

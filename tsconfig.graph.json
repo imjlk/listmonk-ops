@@ -14,7 +14,10 @@
 	},
 	"include": [
 		"apps/cli/src/**/*.ts",
+		// Tests stay in the graph as usage anchors; graph checks do not gate their diagnostics.
+		"apps/cli/tests/**/*.ts",
 		"packages/*/src/**/*.ts",
+		"packages/*/tests/**/*.ts",
 		"packages/openapi/index.ts",
 		"packages/openapi/sdk.ts",
 		"scripts/**/*.ts"
@@ -22,7 +25,6 @@
 	"exclude": [
 		"node_modules",
 		"**/dist/**",
-		"**/tests/**",
 		"packages/openapi/generated/**"
 	]
 }
