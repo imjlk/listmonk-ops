@@ -71,9 +71,72 @@ CLI 바이너리 릴리즈:
 
 ```bash
 bun install
+bun run check
 bun run build
 bun run test
 ```
+
+### TypeScript 7과 ttsc
+
+이 저장소는 TypeScript 7을 고정해 사용하며, 컴파일러 기반 타입 검사·린트·
+포맷을 모두 `ttsc`로 수행합니다. Biome, ESLint, Prettier는 개발 도구 체인에
+포함하지 않습니다.
+
+```bash
+# 직접 관리하는 TypeScript·JavaScript 파일 포맷
+bun run format
+
+# 의미론적 타입 진단 없이 린트 규칙 검사
+bun run lint
+
+# 안전한 린트 수정과 포맷 적용 후 린트 재검사
+bun run lint:fix
+
+# 모든 워크스페이스를 TypeScript 7로 타입 검사
+bun run typecheck
+
+# 로컬 품질 게이트: lint + typecheck (CI에서는 포맷을 별도로 검사)
+bun run check
+```
+
+린트·포맷 규칙은 `lint.config.ts`에서 관리합니다. `tsconfig.quality.json`은
+린트와 포맷 대상인 직접 관리 TypeScript·JavaScript 코드를 정의하며, 생성
+코드와 빌드 산출물은 제외합니다. 포맷은 파일을 수정하는 작업이므로 CI는
+`bun run format` 실행 결과에 diff가 생기면 실패시키고, 이어서
+`bun run check`를 실행합니다.
+
+워크스페이스 컴파일과 선언 파일 빌드는 `ttsc`를 사용합니다. Bun으로
+번들링하는 CLI의 최상위 빌드는 번들링 전에 `ttsc --noEmit`을 실행하며,
+네이티브 릴리스 워크플로도 산출물 생성 전에 같은 검사를 반복합니다.
+
+`packages/openapi` 워크스페이스에만 TypeScript 5.9 호환 런타임을 중첩해
+둡니다. `@hey-api/openapi-ts`가 코드 생성 중 구형 JavaScript 컴파일러 API를
+직접 import하기 때문입니다. Bun의 isolated workspace linker가 이 런타임과
+peer 해석을 OpenAPI 패키지 안에 격리합니다. 이 패키지의 `build`, `lint`,
+`typecheck` 명령은 계속 `ttsc`를 호출하므로 실제 컴파일은 TypeScript 7로
+수행합니다.
+
+VS Code에서는 추천 확장인 `samchon.ttsc`를 설치하세요. 저장소의 워크스페이스
+설정은 TypeScript 저장 시 포맷에 이 확장을 사용합니다.
+
+### TypeScript 코드 그래프
+
+`@ttsc/graph`는 코딩 에이전트와 로컬 아키텍처 탐색에서 바로 사용할 수
+있습니다. `tsconfig.graph.json`은 워크스페이스 패키지를 빌드 산출물이 아닌
+소스 엔트리포인트에 연결합니다.
+
+```bash
+# 컴파일러가 해석한 그래프를 JSON으로 출력
+bun run graph:dump
+
+# 로컬 인터랙티브 그래프 뷰어 실행
+bun run graph:view
+```
+
+Codex는 신뢰한 체크아웃의 `.codex/config.toml`에서 서버를 로드합니다. Claude
+Code 호환 클라이언트는 `.mcp.json`을 사용할 수 있습니다. 두 설정 모두 잠금된
+로컬 의존성을 `bun run graph:mcp`로 실행합니다. 최초 `bun install` 뒤 그래프
+도구가 보이지 않으면 클라이언트를 재시작하세요.
 
 로컬 Listmonk 스택이 필요하면:
 

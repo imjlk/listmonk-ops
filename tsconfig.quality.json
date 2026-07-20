@@ -1,0 +1,27 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"allowJs": true,
+		"noCheck": true,
+		"noEmit": true
+	},
+	"include": [
+		"apps/**/*.ts",
+		"apps/**/*.js",
+		"apps/**/*.mjs",
+		"apps/**/*.cjs",
+		"packages/**/*.ts",
+		"packages/**/*.js",
+		"packages/**/*.mjs",
+		"packages/**/*.cjs",
+		"scripts/**/*.ts",
+		"scripts/**/*.js",
+		"scripts/**/*.mjs",
+		"scripts/**/*.cjs",
+		"*.ts",
+		"*.js",
+		"*.mjs",
+		"*.cjs"
+	],
+	"exclude": ["node_modules", "**/dist/**", "packages/openapi/generated/**"]
+}

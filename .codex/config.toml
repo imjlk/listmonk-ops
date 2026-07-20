@@ -1,0 +1,4 @@
+[mcp_servers.ttsc-graph]
+command = "bun"
+args = ["run", "graph:mcp"]
+cwd = ".."

@@ -1,0 +1,28 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"allowJs": false,
+		"noEmit": true,
+		"paths": {
+			"@listmonk-ops/abtest": ["./packages/abtest/src/index.ts"],
+			"@listmonk-ops/automation": ["./packages/automation/src/index.ts"],
+			"@listmonk-ops/common": ["./packages/common/src/index.ts"],
+			"@listmonk-ops/mcp": ["./packages/mcp/src/index.ts"],
+			"@listmonk-ops/openapi": ["./packages/openapi/index.ts"],
+			"@listmonk-ops/openapi/sdk": ["./packages/openapi/sdk.ts"]
+		}
+	},
+	"include": [
+		"apps/cli/src/**/*.ts",
+		"packages/*/src/**/*.ts",
+		"packages/openapi/index.ts",
+		"packages/openapi/sdk.ts",
+		"scripts/**/*.ts"
+	],
+	"exclude": [
+		"node_modules",
+		"**/dist/**",
+		"**/tests/**",
+		"packages/openapi/generated/**"
+	]
+}

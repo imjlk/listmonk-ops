@@ -32,5 +32,6 @@
 				"transform": "@ttsc/lint"
 			}
 		]
-	}
+	},
+	"exclude": ["node_modules", "**/dist/**", "packages/openapi/generated/**"]
 }

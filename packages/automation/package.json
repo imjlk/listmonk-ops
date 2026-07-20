@@ -24,7 +24,11 @@
 	],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "bun run clean && tsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/openapi",
+		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/openapi",
+		"typecheck": "ttsc --noEmit",
+		"format": "ttsc format",
+		"lint": "ttsc --noEmit",
+		"lint:fix": "ttsc fix",
 		"test": "bun test",
 		"prepublishOnly": "bun run build && bun run test"
 	},
@@ -34,6 +38,6 @@
 	"devDependencies": {
 		"@types/bun": "1.3.10",
 		"esbuild": "0.27.4",
-		"typescript": "5.9.3"
+		"typescript": "7.0.2"
 	}
 }

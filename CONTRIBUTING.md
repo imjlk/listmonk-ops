@@ -71,9 +71,73 @@ Typical commands:
 
 ```bash
 bun install
+bun run check
 bun run build
 bun run test
 ```
+
+### TypeScript 7 and ttsc
+
+The repository pins TypeScript 7 and uses `ttsc` for compiler-powered type
+checking, linting, and formatting. Biome, ESLint, and Prettier are not part of
+the development toolchain.
+
+```bash
+# Format first-party TypeScript and JavaScript files
+bun run format
+
+# Check lint rules without semantic type diagnostics
+bun run lint
+
+# Apply safe lint fixes and formatting, then re-run lint
+bun run lint:fix
+
+# Type-check every workspace with TypeScript 7
+bun run typecheck
+
+# Local quality gate: lint + typecheck (CI checks formatting separately)
+bun run check
+```
+
+Lint and formatter behavior lives in `lint.config.ts`. `tsconfig.quality.json`
+defines the first-party TypeScript and JavaScript files covered by formatting
+and linting; generated and build output remain excluded. Formatting is a write
+operation, so CI runs `bun run format` and rejects the resulting diff before
+running `bun run check`.
+
+Workspace compiler and declaration builds invoke `ttsc`. The Bun-bundled CLI's
+top-level build runs `ttsc --noEmit` before bundling, and the native release
+workflow repeats that gate before producing artifacts.
+
+The `packages/openapi` workspace keeps a nested TypeScript 5.9 compatibility
+runtime solely because `@hey-api/openapi-ts` imports the legacy JavaScript
+compiler API while generating code. Bun's isolated workspace linker keeps that
+runtime and its peer resolution inside the OpenAPI package. Its `build`,
+`lint`, and `typecheck` scripts still invoke `ttsc` and therefore compile with
+TypeScript 7.
+
+For VS Code, install the recommended `samchon.ttsc` extension. The checked-in
+workspace settings use it for TypeScript format-on-save.
+
+### TypeScript code graph
+
+`@ttsc/graph` is available to coding agents and for local architecture
+inspection. `tsconfig.graph.json` maps workspace packages to their source entry
+points so graph results follow source-to-source relationships instead of built
+artifacts.
+
+```bash
+# Stream the compiler-resolved graph as JSON
+bun run graph:dump
+
+# Open the local interactive graph viewer
+bun run graph:view
+```
+
+Codex loads the server from `.codex/config.toml` in a trusted checkout. Claude
+Code-compatible clients can use `.mcp.json`. Both configurations run the local
+locked dependency through `bun run graph:mcp`; restart the client after the
+first `bun install` if the graph tool is not visible.
 
 If you need the local Listmonk stack:
 

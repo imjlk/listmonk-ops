@@ -122,7 +122,8 @@ interface ImportOperations extends BaseGetOperation<t.ImportStatus> {
 }
 
 interface BounceOperations
-	extends BaseBounceListOperation<t.Bounce>,
+	extends
+		BaseBounceListOperation<t.Bounce>,
 		BaseGetByIdOperation<t.Bounce>,
 		BaseDeleteOperation,
 		BaseDeleteByIdOperation {}
@@ -514,7 +515,9 @@ const normalizeListPayload = <T>(data: unknown): ListResult<T>["data"] => {
 
 const normalizeListResult = <T>(response: unknown): ListResult<T> => {
 	if (hasResponseError(response)) {
-		const normalizedData = normalizeListPayload<T>((response as { data?: unknown }).data);
+		const normalizedData = normalizeListPayload<T>(
+			(response as { data?: unknown }).data,
+		);
 		return {
 			...(response as ErrorEnvelope),
 			data: normalizedData,

@@ -52,6 +52,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check CLI types and lint with ttsc
+        run: bun run --cwd apps/cli typecheck
+
       - name: Build native CLI binary
         env:
           BUN_BUILD_TARGET: ${{ matrix.target }}

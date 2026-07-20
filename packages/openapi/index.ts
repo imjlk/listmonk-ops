@@ -32,7 +32,13 @@ import type { ListmonkConfig } from "./src/config";
 /**
  * Main client function
  */
-export { createClient, createListmonkClient, createListmonkClientFromEnv, rawSdk, transformResponse };
+export {
+	createClient,
+	createListmonkClient,
+	createListmonkClientFromEnv,
+	rawSdk,
+	transformResponse,
+};
 
 /**
  * Core types
