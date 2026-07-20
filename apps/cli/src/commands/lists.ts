@@ -38,7 +38,7 @@ export function createListCommandError(
 	if (error instanceof OperationExecutionError) {
 		return error;
 	}
-	return new Error(`${context}: ${toErrorMessage(error)}`);
+	return new Error(`${context}: ${toErrorMessage(error)}`, { cause: error });
 }
 
 export async function renderSubscriberLists(

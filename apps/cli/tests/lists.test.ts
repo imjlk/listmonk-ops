@@ -30,12 +30,16 @@ describe("lists CLI actions", () => {
 		expect(
 			createListCommandError("Failed to get list", operationError),
 		).toBe(operationError);
-		expect(
-			createListCommandError(
-				"Failed to get list",
-				new Error("Missing LISTMONK_API_TOKEN"),
-			).message,
-		).toBe("Failed to get list: Missing LISTMONK_API_TOKEN");
+
+		const authenticationError = new Error("Missing LISTMONK_API_TOKEN");
+		const commandError = createListCommandError(
+			"Failed to get list",
+			authenticationError,
+		);
+		expect(commandError.message).toBe(
+			"Failed to get list: Missing LISTMONK_API_TOKEN",
+		);
+		expect(commandError.cause).toBe(authenticationError);
 	});
 
 	test("renders a paginated list through the shared operation", async () => {

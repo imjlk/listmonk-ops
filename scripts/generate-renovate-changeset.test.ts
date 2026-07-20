@@ -1,25 +1,13 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { $ } from "bun";
 import { describe, expect, test } from "bun:test";
 
 const generator = resolve(import.meta.dir, "generate-renovate-changeset.sh");
 
-async function run(command: string[], cwd: string): Promise<string> {
-	const process = Bun.spawn(command, {
-		cwd,
-		stdout: "pipe",
-		stderr: "pipe",
-	});
-	const [stdout, stderr, exitCode] = await Promise.all([
-		new Response(process.stdout).text(),
-		new Response(process.stderr).text(),
-		process.exited,
-	]);
-	if (exitCode !== 0) {
-		throw new Error(stderr || `${command.join(" ")} exited with ${exitCode}`);
-	}
-	return stdout;
+function run(command: string[], cwd: string): Promise<string> {
+	return $`${command}`.cwd(cwd).text();
 }
 
 describe("Renovate changeset generator", () => {
