@@ -5,10 +5,15 @@
 	"private": true,
 	"devDependencies": {
 		"@biomejs/biome": "2.4.7",
-		"@types/bun": "^1.3.10"
+		"@ttsc/graph": "^0.19.3",
+		"@ttsc/lint": "^0.19.3",
+		"@types/bun": "^1.3.10",
+		"@types/node": "^26.1.1",
+		"ttsc": "^0.19.3",
+		"typescript": "^7.0.2"
 	},
 	"peerDependencies": {
-		"typescript": "^5.9.3"
+		"typescript": "^7.0.2"
 	},
 	"scripts": {
 		"cli": "bash ./scripts/ensure-runtime-deps.sh && bun --cwd apps/cli src/index.ts",
@@ -30,7 +35,13 @@
 		"ops:smoke": "bash ./scripts/ops-smoke.sh",
 		"ops:smoke:full": "LISTMONK_OPS_SMOKE_MODE=full bash ./scripts/ops-smoke.sh",
 		"check:cli-pack-size": "bash ./scripts/check-cli-pack-size.sh",
-		"format": "biome format --write"
+		"format": "biome format --write",
+		"format:biome": "biome format --write",
+		"lint:ttsc": "bun run --cwd packages/abtest ttsc --noEmit && bun run --cwd packages/automation ttsc --noEmit && bun run --cwd packages/common ttsc --noEmit && bun run --cwd packages/mcp ttsc --noEmit && bun run --cwd packages/openapi ttsc --noEmit && bun run --cwd apps/cli ttsc --noEmit",
+		"format:ttsc": "bun run --cwd packages/abtest ttsc format && bun run --cwd packages/automation ttsc format && bun run --cwd packages/common ttsc format && bun run --cwd packages/mcp ttsc format && bun run --cwd apps/cli ttsc format",
+		"lint:biome": "biome check .",
+		"check:ttsc": "bun run --cwd packages/abtest ttsc --noEmit && bun run --cwd packages/automation ttsc --noEmit && bun run --cwd packages/common ttsc --noEmit && bun run --cwd packages/mcp ttsc --noEmit && bun run --cwd packages/openapi ttsc --noEmit && bun run --cwd apps/cli ttsc --noEmit",
+		"benchmark:format-lint": "node ./scripts/benchmark-format-lint.mjs"
 	},
 	"workspaces": {
 		"packages": [

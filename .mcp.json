@@ -1,0 +1,8 @@
+{
+	"mcpServers": {
+		"ttsc-graph": {
+			"command": "npx",
+			"args": ["-y", "@ttsc/graph"]
+		}
+	}
+}

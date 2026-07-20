@@ -36,8 +36,7 @@ function loadFileEnv(path: string): void {
 	try {
 		content = readFileSync(path, "utf8");
 	} catch (error) {
-		const detail =
-			error instanceof Error ? error.message : String(error);
+		const detail = error instanceof Error ? error.message : String(error);
 		console.warn(`⚠️ Failed to read ${path}: ${detail}`);
 		return;
 	}
@@ -248,9 +247,9 @@ const isMainModule = (() => {
 	// Bun runtime
 	if (
 		typeof Bun !== "undefined" &&
-		typeof (import.meta as { main?: boolean }).main === "boolean"
+		typeof (import.meta as { main?: boolean | undefined }).main === "boolean"
 	) {
-		return (import.meta as { main: boolean }).main;
+		return (import.meta as { main?: boolean }).main === true;
 	}
 
 	// Node ESM runtime
