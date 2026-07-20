@@ -38,14 +38,39 @@ wait_for_listmonk() {
 	local description="$1"
 	local deadline=$((SECONDS + LISTMONK_WAIT_TIMEOUT))
 
-	while ! curl -fsS "$LISTMONK_HEALTH_URL" >/dev/null; do
-		if ((SECONDS >= deadline)); then
-			echo "❌ Timed out waiting for $description at $LISTMONK_HEALTH_URL"
-			return 1
+	while true; do
+		local remaining=$((deadline - SECONDS))
+		if ((remaining <= 0)); then
+			break
+		fi
+
+		local attempt_timeout=5
+		if ((remaining < attempt_timeout)); then
+			attempt_timeout="$remaining"
+		fi
+
+		if curl \
+			--connect-timeout "$attempt_timeout" \
+			--max-time "$attempt_timeout" \
+			-fsS "$LISTMONK_HEALTH_URL" >/dev/null; then
+			return 0
+		fi
+
+		remaining=$((deadline - SECONDS))
+		if ((remaining <= 0)); then
+			break
+		fi
+
+		local sleep_duration=2
+		if ((remaining < sleep_duration)); then
+			sleep_duration="$remaining"
 		fi
 		echo "   Waiting for $description..."
-		sleep 2
+		sleep "$sleep_duration"
 	done
+
+	echo "❌ Timed out waiting for $description at $LISTMONK_HEALTH_URL"
+	return 1
 }
 
 echo "🚀 Setting up Listmonk with Mailpit SMTP..."
