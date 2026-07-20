@@ -146,6 +146,65 @@ describe("JSON file store", () => {
 		expect(await readdir(dirname(store.path))).toEqual(["counter.json"]);
 	});
 
+	test("recovers a stale recovery sentinel whose local owner has exited", async () => {
+		const store = await createCounterStore();
+		const owner = Bun.spawn([process.execPath, "-e", "process.exit(0)"]);
+		const ownerPid = owner.pid;
+		await owner.exited;
+		await writeFile(
+			`${store.path}.lock`,
+			`${JSON.stringify(createLockMetadata(ownerPid, "exited-owner"))}\n`,
+			"utf8",
+		);
+		await writeFile(
+			`${store.path}.lock.recovery`,
+			`${JSON.stringify(createLockMetadata(ownerPid, "exited-recovery"))}\n`,
+			"utf8",
+		);
+
+		await writeJsonFileStore(store, { version: 1, count: 11 });
+
+		await expect(readJsonFileStore(store)).resolves.toEqual({
+			version: 1,
+			count: 11,
+		});
+		expect(await readdir(dirname(store.path))).toEqual(["counter.json"]);
+	});
+
+	test("enforces the deadline after removing an abandoned lock", async () => {
+		const store = await createCounterStore();
+		store.lock = { timeoutMs: 0, retryDelayMs: 1 };
+		const owner = Bun.spawn([process.execPath, "-e", "process.exit(0)"]);
+		const ownerPid = owner.pid;
+		await owner.exited;
+		await writeFile(
+			`${store.path}.lock`,
+			`${JSON.stringify(createLockMetadata(ownerPid, "expired-owner"))}\n`,
+			"utf8",
+		);
+
+		await expect(
+			writeJsonFileStore(store, { version: 1, count: 1 }),
+		).rejects.toThrow("Timed out after 0ms");
+		expect(await readdir(dirname(store.path))).toEqual([]);
+	});
+
+	test("rejects an invalid JSON representation before overwriting state", async () => {
+		const store = await createCounterStore();
+		await writeJsonFileStore(store, { version: 1, count: 7 });
+		const before = await readFile(store.path, "utf8");
+
+		await expect(
+			updateJsonFileStore(store, () =>
+				commitJsonFileStoreUpdate(
+					{ version: 1, count: Number.NaN },
+					undefined,
+				),
+			),
+		).rejects.toThrow("Invalid counter store");
+		expect(await readFile(store.path, "utf8")).toBe(before);
+	});
+
 	test("replaces a store with complete JSON and cleans temporary files", async () => {
 		const store = await createCounterStore();
 
