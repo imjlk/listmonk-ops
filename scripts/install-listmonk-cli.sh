@@ -14,8 +14,8 @@ Usage:
 
 Examples:
   install-listmonk-cli.sh
-  install-listmonk-cli.sh --version listmonk-ops-cli-v0.2.1
-  install-listmonk-cli.sh --version 0.2.1
+  install-listmonk-cli.sh --version @listmonk-ops/cli-v0.3.0
+  install-listmonk-cli.sh --version 0.3.0
   LISTMONK_CLI_INSTALL_DIR=/usr/local/bin install-listmonk-cli.sh
 EOF
 }
@@ -83,7 +83,10 @@ resolve_latest_tag() {
 download_from_tag() {
 	local tag="$1"
 	local out="$2"
-	local url="https://github.com/${REPO}/releases/download/${tag}/${asset_name}"
+	local encoded_tag="${tag//%/%25}"
+	encoded_tag="${encoded_tag//@/%40}"
+	encoded_tag="${encoded_tag//\//%2F}"
+	local url="https://github.com/${REPO}/releases/download/${encoded_tag}/${asset_name}"
 	if curl -fsSL "$url" -o "$out"; then
 		echo "$tag"
 		return 0
@@ -107,9 +110,9 @@ if [[ "$REQUESTED_VERSION" == "latest" ]]; then
 else
 	candidates=("$REQUESTED_VERSION")
 	if [[ "$REQUESTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		candidates=("listmonk-ops-cli-v$REQUESTED_VERSION" "v$REQUESTED_VERSION" "$REQUESTED_VERSION")
+		candidates=("@listmonk-ops/cli-v$REQUESTED_VERSION" "listmonk-ops-cli-v$REQUESTED_VERSION" "v$REQUESTED_VERSION" "$REQUESTED_VERSION")
 	elif [[ "$REQUESTED_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		candidates=("listmonk-ops-cli-$REQUESTED_VERSION" "$REQUESTED_VERSION")
+		candidates=("@listmonk-ops/cli-$REQUESTED_VERSION" "listmonk-ops-cli-$REQUESTED_VERSION" "$REQUESTED_VERSION")
 	fi
 
 	for tag in "${candidates[@]}"; do

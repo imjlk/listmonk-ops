@@ -63,8 +63,10 @@ PR 검증:
 
 CLI 바이너리 릴리즈:
 
-- `.github/workflows/cli-github-release.yml`는 `*cli-v*` 태그에서 실행됩니다.
-- 이 태그는 Sampo 릴리즈 흐름이 생성합니다.
+- `.github/workflows/cli-github-release.yml`는 태그 push 또는 명시적 dispatch로
+  scoped `@listmonk-ops/cli-v*` 태그를 빌드합니다.
+- Sampo는 새 CLI 태그를 배포한 뒤 이 워크플로를 명시적으로 dispatch합니다.
+  `GITHUB_TOKEN`으로 만든 태그만으로는 다른 워크플로가 시작되지 않습니다.
 
 ## 로컬 개발
 

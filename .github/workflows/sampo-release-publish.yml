@@ -10,6 +10,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
   id-token: write
@@ -74,6 +75,21 @@ jobs:
         if: steps.changesets.outputs.pending == 'false'
         run: bun run build
 
+      - name: Detect pending CLI binary release
+        id: cli_release
+        if: steps.changesets.outputs.pending == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cli_version="$(node -p 'require("./apps/cli/package.json").version')"
+          cli_tag="@listmonk-ops/cli-v${cli_version}"
+          pending=true
+          if git ls-remote --exit-code --tags origin "refs/tags/${cli_tag}" >/dev/null 2>&1; then
+            pending=false
+          fi
+          echo "tag=${cli_tag}" >> "$GITHUB_OUTPUT"
+          echo "pending=${pending}" >> "$GITHUB_OUTPUT"
+
       - name: Route Sampo publishes through npm OIDC
         if: steps.changesets.outputs.pending == 'false'
         run: |
@@ -120,3 +136,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SAMPO_RELEASE_BRANCH: main
+
+      - name: Dispatch CLI binary release
+        if: steps.sampo.outputs.published == 'true' && steps.cli_release.outputs.pending == 'true'
+        shell: bash
+        env:
+          CLI_RELEASE_TAG: ${{ steps.cli_release.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if ! git ls-remote --exit-code --tags origin "refs/tags/${CLI_RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "Sampo did not publish ${CLI_RELEASE_TAG}; skipping CLI binary release."
+            exit 0
+          fi
+          gh workflow run cli-github-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            --field "tag=${CLI_RELEASE_TAG}"

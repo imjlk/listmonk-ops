@@ -120,7 +120,7 @@ curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/ins
 Optional version pin:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash -s -- --version 0.2.0
+curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash -s -- --version 0.3.0
 ```
 
 ## MCP Runtime Endpoint Override
