@@ -18,7 +18,17 @@ function loadFileEnv(path: string): void {
 		return;
 	}
 
-	const lines = readFileSync(path, "utf8").split(/\r?\n/);
+	let content: string;
+	try {
+		content = readFileSync(path, "utf8");
+	} catch (error) {
+		if (error instanceof Error) {
+			console.warn(`⚠️ Failed to read ${path}: ${error.message}`);
+		}
+		return;
+	}
+
+	const lines = content.split(/\r?\n/);
 	for (const line of lines) {
 		const trimmed = line.trim();
 		if (!trimmed || trimmed.startsWith("#")) {
