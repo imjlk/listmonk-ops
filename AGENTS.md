@@ -1,7 +1,8 @@
 # Repository agent guide
 
-This file applies to the entire repository. `CLAUDE.md` must remain a symbolic
-link to this file so every coding agent receives the same instructions.
+This file applies to the entire repository. `CLAUDE.md` and `GEMINI.md` must
+remain symbolic links to this file so supported coding agents receive the same
+instructions.
 
 ## Project snapshot
 
@@ -35,9 +36,11 @@ packages should remain runtime-neutral ESM unless a task requires otherwise.
    local-only files.
 3. Keep each commit focused and reviewable. Run the checks appropriate to its
    scope before committing.
-4. If a PR changes a releasable workspace under `apps/cli` or `packages/*`, add
-   a Sampo changeset with `bun run release:add`. Documentation-only and
-   repository-infrastructure changes do not need one.
+4. If a PR changes a releasable workspace under `apps/cli` or the listed
+   `packages/*`, add a Sampo changeset with `bun run release:add`. The current
+   guard treats package READMEs and other package documentation as releasable
+   changes too. Root documentation and repository infrastructure outside those
+   workspaces do not need a changeset.
 5. Open a PR against `main`, wait for CI and review, address actionable
    findings, and request review again. Merge only after required checks pass.
 6. After merge, fast-forward local `main` from `origin/main`. The release
@@ -45,8 +48,12 @@ packages should remain runtime-neutral ESM unless a task requires otherwise.
 
 ## Toolchain and quality gates
 
-The repository pins TypeScript 7 and uses `ttsc`, `@ttsc/lint`, and
-`@ttsc/graph`. Biome, ESLint, and Prettier are not part of the toolchain.
+The first-party compiler workflow pins TypeScript 7 and uses `ttsc`,
+`@ttsc/lint`, and `@ttsc/graph`. Biome, ESLint, and Prettier are not part of the
+toolchain. `packages/openapi` intentionally keeps a nested TypeScript 5.9
+dependency because `@hey-api/openapi-ts` still imports the legacy compiler API
+during generation. Do not remove or upgrade that compatibility dependency as
+part of routine TypeScript 7 maintenance.
 
 Run commands from the repository root unless noted otherwise:
 
@@ -207,8 +214,8 @@ and then runs MCP E2E. Keep the local commands aligned with `.github/workflows/c
 - Update both English and Korean user documentation when user-visible behavior
   changes: `README.md` / `README_ko.md` and, when applicable,
   `CONTRIBUTING.md` / `CONTRIBUTING_ko.md`.
-- Keep `CLAUDE.md` as a relative symbolic link to `AGENTS.md`; do not duplicate
-  agent instructions.
+- Keep `CLAUDE.md` and `GEMINI.md` as relative symbolic links to `AGENTS.md`;
+  do not duplicate agent instructions.
 - Do not commit `dist`, package archives, logs, local environment files, or
   generated smoke reports unless the task explicitly requires an artifact
   update and the file is intentionally tracked.
@@ -225,4 +232,4 @@ At minimum:
 4. Add a Sampo changeset when a releasable package changed.
 5. Push the branch and open the PR as ready for review, not draft, unless work
    is intentionally incomplete.
-6. Verify both CI jobs and unresolved review threads before merging.
+6. Verify all required CI checks and unresolved review threads before merging.
