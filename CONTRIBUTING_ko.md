@@ -137,12 +137,18 @@ bun run graph:dump
 
 # 로컬 인터랙티브 그래프 뷰어 실행
 bun run graph:view
+
+# 생성 OpenAPI SDK 파일을 명시적 debug root로 포함
+bun run graph:openapi:dump
 ```
 
 Codex는 신뢰한 체크아웃의 `.codex/config.toml`에서 서버를 로드합니다. Claude
 Code 호환 클라이언트는 `.mcp.json`을 사용할 수 있습니다. 두 설정 모두 잠금된
 로컬 의존성을 `bun run graph:mcp`로 실행합니다. 최초 `bun install` 뒤 그래프
-도구가 보이지 않으면 클라이언트를 재시작하세요.
+도구가 보이지 않으면 클라이언트를 재시작하세요. MCP 프로세스는 시작 시점의
+graph 스냅샷을 사용하므로 브랜치를 전환하거나 graph 설정을 바꾼 뒤 결과가
+stale해 보이면 클라이언트를 재시작하세요. 재시작 전에는 dump 명령으로 최신
+스냅샷을 확인할 수 있습니다.
 
 로컬 Listmonk 스택이 필요하면:
 

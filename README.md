@@ -333,6 +333,15 @@ bun run --cwd packages/openapi generate
 Generated artifacts are written to:
 - `packages/openapi/generated/*`
 
+The default compiler graph keeps handwritten OpenAPI modules and TypeScript
+tests as explicit roots. To inspect generated SDK internals as graph roots, use
+the separate debug configuration:
+
+```bash
+bun run graph:openapi:dump
+bun run graph:openapi:view
+```
+
 ## MCP Server
 
 Start development server:

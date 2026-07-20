@@ -99,6 +99,9 @@ Useful local equivalents:
 bun run graph:dump
 bun run graph:view
 bun run graph:check
+bun run graph:openapi
+bun run graph:openapi:dump
+bun run graph:openapi:view
 ```
 
 Use graph queries to:
@@ -115,12 +118,18 @@ symbol edges. Prefer named exported actions and direct-import unit tests for
 new shared behavior while retaining black-box CLI and MCP integration tests.
 
 `tsconfig.graph.json` intentionally includes first-party TypeScript tests as
-usage anchors and excludes `packages/openapi/generated`. Do not add generated
-or build output to the main graph merely to increase coverage. If generated SDK
-debugging needs a graph, use a separate opt-in graph configuration.
+usage anchors and excludes `packages/openapi/generated` from its explicit root
+files. Generated modules can still appear as imported dependencies of the
+handwritten client; do not promote them to main roots merely to increase
+coverage. For generated SDK debugging, use the opt-in
+`tsconfig.graph.openapi.json` through `graph:openapi:*`. It makes the entire
+generated SDK, handwritten boundary, and direct-import tests explicit roots.
 
-If the graph tool is unavailable after the first install, restart the coding
-client. Fall back to `bun run graph:dump` and `rg` without blocking the task.
+The MCP process snapshots its graph when the coding client starts. Restart the
+client after switching branches or changing graph configuration when results
+look stale. If the tool is unavailable after the first install, restart as
+well. Until then, use a fresh `bun run graph:dump` or
+`bun run graph:openapi:dump` and `rg` without blocking the task.
 
 ## Architecture rules
 

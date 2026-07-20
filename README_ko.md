@@ -322,8 +322,8 @@ listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 
 SDK는 `@hey-api/openapi-ts`로 생성합니다.
 
-1. 스펙 파일 업데이트:
-   - `packages/openapi/spec/listmonk.yaml`
+1. 태그된 upstream 파일 또는 프로젝트 overlay 업데이트 방법 확인:
+   - `packages/openapi/spec/README.md`
 2. SDK 재생성:
 
 ```bash
@@ -332,6 +332,15 @@ bun run --cwd packages/openapi generate
 
 생성 산출물 경로:
 - `packages/openapi/generated/*`
+
+기본 컴파일러 graph는 수기 OpenAPI 모듈과 TypeScript 테스트를 명시적
+root로 사용합니다. 생성 SDK 내부까지 graph root로 조사할 때는 별도 debug
+설정을 사용합니다.
+
+```bash
+bun run graph:openapi:dump
+bun run graph:openapi:view
+```
 
 ## MCP 서버
 
