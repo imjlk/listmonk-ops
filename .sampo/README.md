@@ -22,16 +22,21 @@ Currently, no additional package ignore rules are configured.
 2. Validate release impact
    - `bun run release:plan`
 3. Merge PR into `main`
-4. GitHub Actions workflow `.github/workflows/sampo-release-publish.yml` runs:
-   - `sampo release`
-   - `bun run build`
-   - `sampo publish -- --access public --provenance`
-   - pushes release commit and tags after publish succeeds
-5. Optional local/manual path:
+4. GitHub Actions workflow `.github/workflows/sampo-release-publish.yml` creates or refreshes the `sampo/release` PR.
+   - Additional feature PRs keep accumulating their changesets in the same release PR.
+   - Package versions and changelogs are reviewed in the release PR before publishing.
+5. Merge `sampo/release` when the accumulated changes are ready to publish.
+6. The workflow runs again on the release PR merge:
+   - builds all workspaces with Bun
+   - packs publishable packages with Bun
+   - publishes the tarballs with npm OIDC trusted publishing
+   - creates and pushes package version tags
+7. Optional local/manual path:
    - `bun run release:apply`
    - `bun run release:publish`
 
 ## Notes
 
 - CI checks that changes touching releasable packages include a changeset file under `.sampo/changesets/`.
+- The `sampo/release` PR is the manual gate for each grouped release.
 - npm publishing is automated via OIDC trusted publishing in GitHub Actions.
