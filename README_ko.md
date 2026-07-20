@@ -30,11 +30,11 @@
 | `packages/abtest` | A/B 테스트 서비스 및 분석 로직 |
 | `packages/automation` | `@listmonk-ops/automation` 고수준 운영 워크플로 (preflight/guard/hygiene/drift/digest) |
 | `packages/mcp` | Listmonk 작업을 노출하는 MCP 서버 |
-| `packages/common` | 공통 유틸/검증/에러 헬퍼 |
+| `packages/common` | 공통 유틸/검증 헬퍼 및 atomic JSON persistence |
 
 런타임 정책:
 - 실행 패키지(`apps/cli`, `packages/mcp`)는 Bun 런타임을 대상으로 합니다.
-- 라이브러리 패키지(`openapi`, `operations`, `automation`, `abtest`, `common`)는 런타임 중립 ESM 패키지로 유지합니다.
+- 라이브러리 패키지는 ESM입니다. `openapi`와 `operations`는 런타임 중립을 유지하며, `common`, `automation`, `abtest`의 파일 저장 API는 Bun 같은 Node 호환 파일 시스템 런타임이 필요합니다.
 
 ## 사전 요구사항
 
@@ -79,9 +79,18 @@ export LISTMONK_USERNAME="api-admin"
 export LISTMONK_API_TOKEN="<your-token>"
 # 선택: 자동화 환경에서 A/B 통계 로그 출력 억제
 export LISTMONK_OPS_ABTEST_SILENT="1"
+# 선택: CLI/MCP가 공유하는 상태 파일 경로 재정의
+export LISTMONK_OPS_ABTEST_STORE="$HOME/.listmonk-ops/abtests.json"
+export LISTMONK_OPS_SEGMENT_STORE="$HOME/.listmonk-ops/ops/segment-drift.json"
+export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry.json"
 ```
 
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
+
+A/B 테스트, segment drift, template registry 저장소는 버전이 지정된 JSON,
+atomic 교체, 프로세스 간 쓰기 잠금을 사용합니다. 따라서 CLI와 MCP 프로세스가
+같은 로컬 상태를 공유해도 동시 업데이트를 잃지 않으며, 잘못되었거나 더 최신인
+스키마는 덮어쓰지 않고 거부합니다.
 
 ## 워크스페이스 명령어
 

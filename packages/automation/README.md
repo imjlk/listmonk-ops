@@ -65,3 +65,9 @@ Default local stores are under `~/.listmonk-ops/ops`.
 - `LISTMONK_OPS_TEMPLATE_REGISTRY`: override template registry store path
 
 Call `getOpsStorePaths()` to inspect resolved paths.
+
+Both stores use a versioned JSON schema, atomic file replacement, and a shared
+cross-process write lock. CLI and MCP workflows therefore serialize concurrent
+updates instead of overwriting one another. Unsupported or malformed state is
+rejected, and a lock is recovered only when its owner is confirmed dead on the
+same host.

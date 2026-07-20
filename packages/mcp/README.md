@@ -106,6 +106,11 @@ LISTMONK_API_TOKEN=<token>
 # Optional: suppress A/B statistical logs in MCP automation
 LISTMONK_OPS_ABTEST_SILENT=1
 
+# Optional: override state shared with listmonk-cli
+LISTMONK_OPS_ABTEST_STORE=/absolute/path/to/abtests.json
+LISTMONK_OPS_SEGMENT_STORE=/absolute/path/to/segment-drift.json
+LISTMONK_OPS_TEMPLATE_REGISTRY=/absolute/path/to/template-registry.json
+
 # MCP Server Configuration
 MCP_SERVER_PORT=3000
 MCP_SERVER_HOST=localhost
@@ -348,7 +353,6 @@ src/
 │   ├── transactional.ts # Transactional email tools
 │   └── index.ts      # Handler exports
 ├── utils/           # Utility functions
-│   ├── abtest-store.ts # A/B test persistence store helpers
 │   ├── response.ts   # Response helpers and validation
 │   ├── typeHelpers.ts # Type conversion and validation helpers
 │   └── index.ts      # Utility exports
@@ -370,4 +374,4 @@ This MCP package is part of the larger listmonk-ops project and integrates with 
 
 - Uses `docker-compose.yml` from project root for testing
 - Leverages shared PostgreSQL and Mailpit services
-- Integrates with the unified CLI and web dashboard interfaces
+- Shares domain operations and versioned local persistence with the Gunshi CLI
