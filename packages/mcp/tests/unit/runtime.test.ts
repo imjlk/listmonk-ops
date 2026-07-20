@@ -111,10 +111,13 @@ describe("mcp runtime entrypoint", () => {
 			name: "listmonk-ops-http-test",
 			version: "1.0.0",
 		});
-		await client.connect(transport);
-		const tools = await client.listTools();
-		expect(tools.tools).toHaveLength(62);
-		await client.close();
+		try {
+			await client.connect(transport);
+			const tools = await client.listTools();
+			expect(tools.tools).toHaveLength(62);
+		} finally {
+			await client.close();
+		}
 
 		const legacyResponse = await fetch(
 			`http://127.0.0.1:${port}/tools/list`,

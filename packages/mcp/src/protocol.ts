@@ -31,8 +31,8 @@ export function createMCPProtocolServer(provider: MCPToolProvider): Server {
 			"Manage Listmonk resources and listmonk-ops automation through the available tools.",
 	});
 
-	server.setRequestHandler(ListToolsRequestSchema, async () =>
-		provider.listTools({ method: "tools/list" }),
+	server.setRequestHandler(ListToolsRequestSchema, async (request) =>
+		provider.listTools(request),
 	);
 	server.setRequestHandler(CallToolRequestSchema, async (request) =>
 		provider.callTool(request),

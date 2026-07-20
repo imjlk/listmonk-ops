@@ -1,27 +1,19 @@
 import { resolve } from "node:path";
+import { $ } from "bun";
 
 const projectRoot = resolve(import.meta.dir, "..");
 const testPatterns = ["apps/*/tests/**/*.ts", "packages/*/tests/**/*.ts"];
 
-const compiler = Bun.spawn({
-	cmd: [
-		process.execPath,
-		"x",
-		"tsc",
-		"--listFiles",
-		"--noCheck",
-		"-p",
-		"tsconfig.graph.json",
-	],
-	cwd: projectRoot,
-	stderr: "pipe",
-	stdout: "pipe",
-});
-const [compilerOutput, compilerError, compilerExitCode] = await Promise.all([
-	new Response(compiler.stdout).text(),
-	new Response(compiler.stderr).text(),
-	compiler.exited,
-]);
+const {
+	stdout,
+	stderr,
+	exitCode: compilerExitCode,
+} = await $`bun x tsc --listFiles --noCheck -p tsconfig.graph.json`
+	.cwd(projectRoot)
+	.quiet()
+	.nothrow();
+const compilerOutput = stdout.toString();
+const compilerError = stderr.toString();
 
 if (compilerExitCode !== 0) {
 	throw new Error(
