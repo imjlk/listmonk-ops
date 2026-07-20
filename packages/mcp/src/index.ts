@@ -11,6 +11,7 @@ interface RuntimeArgs {
 	host?: string;
 	port?: number;
 	help?: boolean;
+	transport?: "http" | "stdio";
 }
 
 type MCPServerConfig = {
@@ -89,6 +90,8 @@ Options:
   --listmonk-api-token <token> Listmonk API token
   --host <host>                MCP server host (default: localhost)
   --port <port>                MCP server port (default: 3000)
+  --transport <http|stdio>     MCP transport (default: http)
+  --stdio                      Alias for --transport stdio
   --help                       Show this help
 
 Environment fallback:
@@ -127,6 +130,23 @@ function parseArgs(argv: string[]): RuntimeArgs {
 			case arg === "-h":
 				args.help = true;
 				break;
+			case arg === "--stdio":
+				args.transport = "stdio";
+				break;
+			case arg === "--transport":
+			case arg.startsWith("--transport="): {
+				const value = takeValue(arg, next);
+				if (value !== undefined && !arg.includes("=")) {
+					index += 1;
+				}
+				if (value !== "http" && value !== "stdio") {
+					throw new TypeError(
+						`Invalid transport: ${value || "(missing)"}. Expected http or stdio.`,
+					);
+				}
+				args.transport = value;
+				break;
+			}
 			case arg.startsWith("--listmonk-url"):
 			case arg.startsWith("--listmonk-api-url"): {
 				const value = takeValue(arg, next);
@@ -208,6 +228,7 @@ export async function main() {
 
 	const port = runtimeArgs.port || Number(process.env.MCP_SERVER_PORT) || 3000;
 	const host = runtimeArgs.host || process.env.MCP_SERVER_HOST || "localhost";
+	const transport = runtimeArgs.transport || "http";
 
 	// Validate required config
 	if (
@@ -225,6 +246,16 @@ export async function main() {
 
 	try {
 		const server = await createMCPServer(config);
+		if (transport === "stdio") {
+			const [{ StdioServerTransport }, { connectMCPTransport }] =
+				await Promise.all([
+					import("@modelcontextprotocol/sdk/server/stdio.js"),
+					import("./protocol.js"),
+				]);
+			await connectMCPTransport(server, new StdioServerTransport());
+			return;
+		}
+
 		await server.listen(port, host);
 	} catch (error) {
 		console.error("❌ Failed to start server:", error);
@@ -234,12 +265,12 @@ export async function main() {
 
 // Handle graceful shutdown
 process.on("SIGINT", () => {
-	console.log("\n🛑 Shutting down server...");
+	console.error("\n🛑 Shutting down server...");
 	process.exit(0);
 });
 
 process.on("SIGTERM", () => {
-	console.log("\n🛑 Shutting down server...");
+	console.error("\n🛑 Shutting down server...");
 	process.exit(0);
 });
 

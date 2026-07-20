@@ -4,6 +4,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import {
 	abtestTools,
 	bouncesTools,
@@ -34,6 +35,7 @@ import type {
 	MCPTool,
 } from "./types/mcp.js";
 import { createErrorResult } from "./utils/response.js";
+import { createMCPProtocolServer, MCP_SERVER_INFO } from "./protocol.js";
 
 export class ListmonkMCPServer {
 	private app: Hono;
@@ -91,6 +93,21 @@ export class ListmonkMCPServer {
 		}
 	}
 
+	private async handleMCPHttpRequest(request: Request): Promise<Response> {
+		const transport = new WebStandardStreamableHTTPServerTransport({
+			enableJsonResponse: true,
+			sessionIdGenerator: undefined,
+		});
+		const protocolServer = createMCPProtocolServer(this);
+		await protocolServer.connect(transport);
+
+		try {
+			return await transport.handleRequest(request);
+		} finally {
+			await protocolServer.close();
+		}
+	}
+
 	private setupRoutes() {
 		// Health check
 		this.app.get("/health", (c: Context) => {
@@ -111,16 +128,22 @@ export class ListmonkMCPServer {
 			return c.json(result);
 		});
 
+		// Standards-compliant MCP Streamable HTTP endpoint.
+		this.app.all("/mcp", async (c: Context) => {
+			return this.handleMCPHttpRequest(c.req.raw);
+		});
+
 		// Root endpoint
 		this.app.get("/", (c: Context) => {
 			return c.json({
 				name: "Listmonk MCP Server",
-				version: "0.1.0",
+				version: MCP_SERVER_INFO.version,
 				description: "Model Context Protocol server for Listmonk API",
 				endpoints: {
 					health: "/health",
 					tools_list: "/tools/list",
 					tools_call: "/tools/call",
+					mcp: "/mcp",
 				},
 				tools_count: this.tools.size,
 			});

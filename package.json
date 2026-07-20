@@ -35,7 +35,8 @@
 		"lint": "ttsc --noEmit --noCheck -p tsconfig.quality.json",
 		"lint:fix": "ttsc fix --noCheck -p tsconfig.quality.json",
 		"typecheck": "ttsc --noEmit -p tsconfig.typecheck.json",
-		"check": "bun run lint && bun run typecheck",
+		"check": "bun run lint && bun run typecheck && bun run graph:check",
+		"graph:check": "bun run ./scripts/check-graph-tests.ts && ttsc-graph dump --cwd . --tsconfig tsconfig.graph.json >/dev/null",
 		"graph:mcp": "ttsc-graph --cwd . --tsconfig tsconfig.graph.json",
 		"graph:dump": "ttsc-graph dump --cwd . --tsconfig tsconfig.graph.json",
 		"graph:view": "ttsc-graph view --cwd . --tsconfig tsconfig.graph.json"

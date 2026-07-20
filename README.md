@@ -127,6 +127,10 @@ listmonk-mcp \
   --port 3000
 ```
 
+Use `listmonk-mcp --stdio` for command-based MCP clients. The default HTTP
+runtime exposes the standard Streamable HTTP endpoint at `/mcp` while retaining
+the legacy REST endpoints.
+
 ## Sampo Changesets + npm OIDC Publish
 
 This repo uses Sampo for release planning/changelog management and automated npm publishing on `main`.
@@ -329,6 +333,7 @@ bun run --cwd packages/mcp dev
 
 Common endpoints:
 - `GET /health`
+- `/mcp` (standard MCP Streamable HTTP)
 - `POST /tools/list`
 - `POST /tools/call`
 

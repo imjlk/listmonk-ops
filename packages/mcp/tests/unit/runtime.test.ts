@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -66,6 +69,7 @@ describe("mcp runtime entrypoint", () => {
 		expect(stderr).toBe("");
 		expect(stdout).toContain("Usage:");
 		expect(stdout).toContain("listmonk-mcp");
+		expect(stdout).toContain("--stdio");
 	});
 
 	test("published bin starts successfully with minimal Bun runtime config", async () => {
@@ -99,5 +103,59 @@ describe("mcp runtime entrypoint", () => {
 
 		expect(response.ok).toBe(true);
 		expect(payload).toMatchObject({ status: "ok" });
+
+		const transport = new StreamableHTTPClientTransport(
+			new URL(`http://127.0.0.1:${port}/mcp`),
+		);
+		const client = new Client({
+			name: "listmonk-ops-http-test",
+			version: "1.0.0",
+		});
+		await client.connect(transport);
+		const tools = await client.listTools();
+		expect(tools.tools).toHaveLength(62);
+		await client.close();
+
+		const legacyResponse = await fetch(
+			`http://127.0.0.1:${port}/tools/list`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ method: "tools/list" }),
+			},
+		);
+		const legacyTools = await legacyResponse.json();
+		expect(legacyResponse.ok).toBe(true);
+		expect(legacyTools.tools).toHaveLength(62);
+	});
+
+	test("published bin serves MCP over stdio", async () => {
+		const transport = new StdioClientTransport({
+			command: "bun",
+			args: [
+				"./bin/listmonk-mcp.js",
+				"--stdio",
+				"--listmonk-url",
+				"http://127.0.0.1:9000/api",
+				"--listmonk-username",
+				"api-admin",
+				"--listmonk-api-token",
+				"dummy-token",
+			],
+			cwd: PACKAGE_ROOT,
+			stderr: "pipe",
+		});
+		const client = new Client({
+			name: "listmonk-ops-stdio-test",
+			version: "1.0.0",
+		});
+
+		try {
+			await client.connect(transport);
+			const tools = await client.listTools();
+			expect(tools.tools).toHaveLength(62);
+		} finally {
+			await client.close();
+		}
 	});
 });
