@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
@@ -9,6 +9,7 @@ import {
 	promoteTemplateVersion,
 	rollbackTemplateVersion,
 	syncTemplateRegistry,
+	TemplateRegistryWriteTransactionError,
 } from "../src/template-registry";
 
 let temporaryDirectory: string | undefined;
@@ -73,10 +74,13 @@ describe("automation persistence", () => {
 			},
 		} as unknown as ListmonkClient;
 
-		const results = await Promise.all([
-			runSegmentDriftSnapshot(client),
-			runSegmentDriftSnapshot(client),
-		]);
+		const firstSnapshot = runSegmentDriftSnapshot(client);
+		while (requestCount < 1) {
+			await Bun.sleep(1);
+		}
+		await Bun.sleep(2);
+		const secondSnapshot = runSegmentDriftSnapshot(client);
+		const results = await Promise.all([firstSnapshot, secondSnapshot]);
 		const persisted = JSON.parse(await readFile(segmentStorePath, "utf8")) as {
 			version: number;
 			snapshots: Array<{ subscriberCount: number }>;
@@ -88,10 +92,50 @@ describe("automation persistence", () => {
 		]);
 		expect(persisted.version).toBe(1);
 		expect(
-			persisted.snapshots
-				.map((snapshot) => snapshot.subscriberCount)
-				.sort((left, right) => left - right),
+			persisted.snapshots.map((snapshot) => snapshot.subscriberCount),
 		).toEqual([10, 20]);
+		expect(
+			results.map((result) => result.comparisons[0]?.previousCount),
+		).toEqual([undefined, undefined]);
+	});
+
+	test("bounds retained segment snapshots per list", async () => {
+		const { segmentStorePath } = await useTemporaryStores();
+		const snapshots = Array.from({ length: 1_000 }, (_, index) => ({
+			capturedAt: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
+			listId: 1,
+			listName: "Audience",
+			subscriberCount: index,
+		}));
+		await writeFile(
+			segmentStorePath,
+			`${JSON.stringify({ version: 1, snapshots })}\n`,
+			"utf8",
+		);
+		const client = {
+			list: {
+				list: async () => ({
+					data: {
+						results: [
+							{
+								id: 1,
+								name: "Audience",
+								subscriber_count: 1_001,
+							},
+						],
+					},
+				}),
+			},
+		} as unknown as ListmonkClient;
+
+		await runSegmentDriftSnapshot(client);
+		const persisted = JSON.parse(await readFile(segmentStorePath, "utf8")) as {
+			snapshots: Array<{ subscriberCount: number }>;
+		};
+
+		expect(persisted.snapshots).toHaveLength(1_000);
+		expect(persisted.snapshots.at(-1)?.subscriberCount).toBe(1_001);
+		expect(persisted.snapshots[0]?.subscriberCount).toBe(1);
 	});
 
 	test("serializes template versions, promotion, and rollback", async () => {
@@ -102,12 +146,17 @@ describe("automation persistence", () => {
 			template: {
 				getById: async () => {
 					requestCount += 1;
+					const currentRequest = requestCount;
+					if (currentRequest === 1) {
+						await Bun.sleep(10);
+					}
 					return {
 						data: {
 							id: 1,
 							name: "Transactional template",
 							type: "campaign",
-							subject: `Subject ${requestCount}`,
+							subject:
+								currentRequest === 1 ? "Subject 1" : "Subject 2",
 							body: "<p>Body</p>",
 						},
 					};
@@ -119,10 +168,13 @@ describe("automation persistence", () => {
 			},
 		} as unknown as ListmonkClient;
 
-		await Promise.all([
-			syncTemplateRegistry(client, { templateIds: [1] }),
-			syncTemplateRegistry(client, { templateIds: [1] }),
-		]);
+		const firstSync = syncTemplateRegistry(client, { templateIds: [1] });
+		while (requestCount < 1) {
+			await Bun.sleep(1);
+		}
+		await Bun.sleep(2);
+		const secondSync = syncTemplateRegistry(client, { templateIds: [1] });
+		await Promise.all([firstSync, secondSync]);
 		const initialHistory = await getTemplateRegistryHistory(1);
 		expect(initialHistory.storePath).toBe(templateStorePath);
 		expect(
@@ -130,6 +182,11 @@ describe("automation persistence", () => {
 				.map((version) => version.snapshot.subject)
 				.sort(),
 		).toEqual(["Subject 1", "Subject 2"]);
+		expect(initialHistory.versions.at(-1)?.snapshot.subject).toBe("Subject 2");
+
+		const unchanged = await syncTemplateRegistry(client, { templateIds: [1] });
+		expect(unchanged.createdVersions).toBe(0);
+		expect((await getTemplateRegistryHistory(1)).versions).toHaveLength(2);
 
 		const firstVersion = initialHistory.versions[0];
 		const lastVersion = initialHistory.versions.at(-1);
@@ -146,6 +203,57 @@ describe("automation persistence", () => {
 		expect(rolledBack.versionId).toBe(firstVersion.versionId);
 		const finalHistory = await getTemplateRegistryHistory(1);
 		expect(finalHistory.activeVersionId).toBe(firstVersion.versionId);
+	});
+
+	test("reports an unconfirmed registry commit after a remote promotion", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let remoteUpdates = 0;
+		let failLocalCommit = false;
+		const client = {
+			template: {
+				getById: async () => ({
+					data: {
+						id: 1,
+						name: "Transactional template",
+						type: "campaign",
+						subject: "Subject",
+						body: "<p>Body</p>",
+					},
+				}),
+				update: async () => {
+					remoteUpdates += 1;
+					if (failLocalCommit) {
+						await rm(templateStorePath, { force: true });
+						await mkdir(templateStorePath);
+					}
+					return { data: {} };
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		await syncTemplateRegistry(client, { templateIds: [1] });
+		const history = await getTemplateRegistryHistory(1);
+		const version = history.versions[0];
+		if (!version) {
+			throw new Error("Expected a persisted template version");
+		}
+		failLocalCommit = true;
+
+		let transactionError: unknown;
+		try {
+			await promoteTemplateVersion(client, 1, version.versionId);
+		} catch (error) {
+			transactionError = error;
+		}
+
+		expect(transactionError).toBeInstanceOf(
+			TemplateRegistryWriteTransactionError,
+		);
+		expect((transactionError as Error).message).toContain(
+			"was updated in Listmonk",
+		);
+		expect((transactionError as Error).message).toContain(templateStorePath);
+		expect(remoteUpdates).toBe(1);
 	});
 
 	test("rejects an unsupported segment store version without overwriting it", async () => {

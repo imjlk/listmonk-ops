@@ -16,6 +16,8 @@ import {
 	toPositiveInt,
 } from "./core";
 
+const TEMPLATE_REGISTRY_LOCK_TIMEOUT_MS = 120_000;
+
 export interface TemplateVersionSnapshot {
 	id: number;
 	name: string;
@@ -71,6 +73,23 @@ export interface TemplatePromoteResult {
 	versionId: string;
 	activeVersionId: string;
 	promotedAt: string;
+}
+
+export class TemplateRegistryWriteTransactionError extends Error {
+	constructor(message: string, cause: unknown) {
+		super(message, { cause });
+		this.name = "TemplateRegistryWriteTransactionError";
+	}
+}
+
+function compareTemplateVersions(
+	left: TemplateRegistryVersion,
+	right: TemplateRegistryVersion,
+): number {
+	return (
+		left.capturedAt.localeCompare(right.capturedAt) ||
+		left.versionId.localeCompare(right.versionId)
+	);
 }
 
 function isTemplateVersionSnapshot(
@@ -147,6 +166,7 @@ function createTemplateRegistryStore(): JsonFileStore<TemplateRegistryStore> {
 		path: getOpsStorePaths().templateRegistryPath,
 		createDefault: () => ({ version: 1, templates: {} }),
 		parse: parseTemplateRegistryStore,
+		lock: { timeoutMs: TEMPLATE_REGISTRY_LOCK_TIMEOUT_MS },
 	};
 }
 
@@ -253,6 +273,7 @@ function mergeTemplateRegistryCapture(
 			versions: [],
 			activeVersionId: undefined,
 		};
+		record.versions.sort(compareTemplateVersions);
 		const latestVersion = record.versions.at(-1);
 		if (latestVersion?.hash === hash) {
 			unchangedTemplates += 1;
@@ -268,7 +289,22 @@ function mergeTemplateRegistryCapture(
 		}
 
 		const versionId = `v_${capture.capturedAt}_${hash.slice(0, 10)}`;
-		record.templateName = snapshot.name;
+		const existingVersion = record.versions.find(
+			(version) => version.versionId === versionId,
+		);
+		if (existingVersion) {
+			unchangedTemplates += 1;
+			templates.push({
+				templateId,
+				templateName: snapshot.name,
+				changed: false,
+				hash,
+				versionId: existingVersion.versionId,
+			});
+			store.templates[key] = record;
+			continue;
+		}
+
 		record.versions.push({
 			versionId,
 			capturedAt: capture.capturedAt,
@@ -276,8 +312,11 @@ function mergeTemplateRegistryCapture(
 			note: options.note,
 			snapshot,
 		});
+		record.versions.sort(compareTemplateVersions);
+		record.templateName =
+			record.versions.at(-1)?.snapshot.name ?? snapshot.name;
 		if (!record.activeVersionId) {
-			record.activeVersionId = versionId;
+			record.activeVersionId = record.versions.at(-1)?.versionId || versionId;
 		}
 
 		store.templates[key] = record;
@@ -396,21 +435,50 @@ async function promoteTemplateVersionInStore(
 	};
 }
 
+async function commitRemoteTemplateMutation(
+	storeDefinition: JsonFileStore<TemplateRegistryStore>,
+	templateId: number,
+	action: (
+		store: TemplateRegistryStore,
+	) => Promise<TemplatePromoteResult>,
+): Promise<TemplatePromoteResult> {
+	let remoteMutationCompleted = false;
+	try {
+		return await updateJsonFileStore(storeDefinition, async (store) => {
+			const result = await action(store);
+			remoteMutationCompleted = true;
+			return commitJsonFileStoreUpdate(store, result);
+		});
+	} catch (error) {
+		if (!remoteMutationCompleted) {
+			throw error;
+		}
+
+		const causeMessage = error instanceof Error ? error.message : String(error);
+		throw new TemplateRegistryWriteTransactionError(
+			`Template ${templateId} was updated in Listmonk, but local registry state at ${storeDefinition.path} could not be confirmed. Inspect the remote template and registry before retrying. Cause: ${causeMessage}`,
+			error,
+		);
+	}
+}
+
 export async function promoteTemplateVersion(
 	client: ListmonkClient,
 	templateId: number,
 	versionId: string,
 ): Promise<TemplatePromoteResult> {
 	const storeDefinition = createTemplateRegistryStore();
-	return updateJsonFileStore(storeDefinition, async (store) => {
-		const result = await promoteTemplateVersionInStore(
-			client,
-			templateId,
-			versionId,
-			store,
-		);
-		return commitJsonFileStoreUpdate(store, result);
-	});
+	return commitRemoteTemplateMutation(
+		storeDefinition,
+		templateId,
+		(store) =>
+			promoteTemplateVersionInStore(
+				client,
+				templateId,
+				versionId,
+				store,
+			),
+	);
 }
 
 export async function rollbackTemplateVersion(
@@ -418,7 +486,7 @@ export async function rollbackTemplateVersion(
 	templateId: number,
 ): Promise<TemplatePromoteResult> {
 	const storeDefinition = createTemplateRegistryStore();
-	return updateJsonFileStore(storeDefinition, async (store) => {
+	return commitRemoteTemplateMutation(storeDefinition, templateId, async (store) => {
 		const record = store.templates[String(templateId)];
 		if (!record || record.versions.length < 2) {
 			throw new Error(
@@ -443,12 +511,11 @@ export async function rollbackTemplateVersion(
 			);
 		}
 
-		const result = await promoteTemplateVersionInStore(
+		return promoteTemplateVersionInStore(
 			client,
 			templateId,
 			targetVersion.versionId,
 			store,
 		);
-		return commitJsonFileStoreUpdate(store, result);
 	});
 }

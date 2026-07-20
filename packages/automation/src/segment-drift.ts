@@ -13,6 +13,8 @@ import {
 	toPositiveInt,
 } from "./core";
 
+const MAX_SEGMENT_SNAPSHOTS_PER_LIST = 1_000;
+
 export interface SegmentSnapshotEntry {
 	capturedAt: string;
 	listId: number;
@@ -100,10 +102,36 @@ function calculateDeltaRate(
 	if (previousCount > 0) {
 		return (currentCount - previousCount) / previousCount;
 	}
+	// Growth from an empty list is capped at 100% for alert thresholding.
 	if (currentCount > 0) {
 		return 1;
 	}
 	return 0;
+}
+
+function retainRecentSegmentSnapshots(
+	snapshots: SegmentSnapshotEntry[],
+): SegmentSnapshotEntry[] {
+	const snapshotsByList = new Map<number, SegmentSnapshotEntry[]>();
+	for (const snapshot of snapshots) {
+		const entries = snapshotsByList.get(snapshot.listId) || [];
+		entries.push(snapshot);
+		snapshotsByList.set(snapshot.listId, entries);
+	}
+
+	return Array.from(snapshotsByList.values())
+		.flatMap((entries) =>
+			entries
+				.sort((left, right) =>
+					left.capturedAt.localeCompare(right.capturedAt),
+				)
+				.slice(-MAX_SEGMENT_SNAPSHOTS_PER_LIST),
+		)
+		.sort(
+			(left, right) =>
+				left.capturedAt.localeCompare(right.capturedAt) ||
+				left.listId - right.listId,
+		);
 }
 
 async function getListsForDrift(
@@ -157,7 +185,11 @@ export async function runSegmentDriftSnapshot(
 	return updateJsonFileStore(storeDefinition, (store) => {
 		const comparisons: SegmentDriftComparison[] = currentEntries.map((entry) => {
 			const history = store.snapshots
-				.filter((snapshot) => snapshot.listId === entry.listId)
+				.filter(
+					(snapshot) =>
+						snapshot.listId === entry.listId &&
+						snapshot.capturedAt < entry.capturedAt,
+				)
 				.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
 			const previous = history.at(-1);
 			const lookbackHistory = history.filter((snapshot) => {
@@ -201,7 +233,10 @@ export async function runSegmentDriftSnapshot(
 		});
 		const nextStore: SegmentDriftStore = {
 			version: 1,
-			snapshots: [...store.snapshots, ...currentEntries],
+			snapshots: retainRecentSegmentSnapshots([
+				...store.snapshots,
+				...currentEntries,
+			]),
 		};
 		const result: SegmentDriftResult = {
 			capturedAt,
