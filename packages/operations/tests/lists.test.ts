@@ -1,0 +1,130 @@
+import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { describe, expect, mock, test } from "bun:test";
+import {
+	createListOperation,
+	deleteListOperation,
+	getListOperation,
+	getListOperationByMcpName,
+	getListsOperation,
+	listOperations,
+	OperationInputError,
+	updateListOperation,
+} from "../src";
+
+type ListClient = Pick<ListmonkClient, "list">;
+
+function context(list: Partial<ListClient["list"]>) {
+	return { client: { list } as ListClient };
+}
+
+describe("subscriber-list operations", () => {
+	test("normalizes paginated list output", async () => {
+		const list = mock(async () => ({
+			data: { results: [{ id: 7, name: "News" }] },
+		})) as unknown as ListClient["list"]["list"];
+
+		const output = await getListsOperation.invoke(context({ list }), {});
+
+		expect(list).toHaveBeenCalledWith({ query: { page: 1, per_page: 20 } });
+		expect(output).toEqual({
+			results: [{ id: 7, name: "News" }],
+			total: 0,
+			per_page: 20,
+			page: 1,
+		});
+	});
+
+	test("coerces IDs before get, update, and delete calls", async () => {
+		const getById = mock(async () => ({ data: { id: 7, name: "News" } }));
+		const update = mock(async () => ({ data: { id: 7, name: "Updates" } }));
+		const remove = mock(async () => ({ data: true }));
+		const clientContext = context({
+			getById: getById as unknown as ListClient["list"]["getById"],
+			update: update as unknown as ListClient["list"]["update"],
+			delete: remove as unknown as ListClient["list"]["delete"],
+		});
+
+		await expect(
+			getListOperation.invoke(clientContext, { id: "7" }),
+		).resolves.toMatchObject({ id: 7 });
+		await expect(
+			updateListOperation.invoke(clientContext, { id: "7", name: "Updates" }),
+		).resolves.toMatchObject({ name: "Updates" });
+		await expect(
+			deleteListOperation.invoke(clientContext, { id: "7" }),
+		).resolves.toEqual({ id: 7, deleted: true });
+
+		expect(getById).toHaveBeenCalledWith({ path: { list_id: 7 } });
+		expect(update).toHaveBeenCalledWith({
+			path: { list_id: 7 },
+			body: { name: "Updates" },
+		});
+		expect(remove).toHaveBeenCalledWith({ path: { list_id: 7 } });
+	});
+
+	test("resolves a create response whose body is empty", async () => {
+		const create = mock(async () => ({ data: undefined }));
+		const list = mock(async () => ({
+			data: {
+				results: [{ id: 9, name: "Created" }],
+				total: 1,
+				page: 1,
+				per_page: 100,
+			},
+		}));
+
+		const output = await createListOperation.invoke(
+			context({
+				create: create as unknown as ListClient["list"]["create"],
+				list: list as unknown as ListClient["list"]["list"],
+			}),
+			{ name: "Created" },
+		);
+
+		expect(output).toMatchObject({ id: 9, name: "Created" });
+		expect(create).toHaveBeenCalledWith({
+			body: {
+				name: "Created",
+				type: "private",
+				optin: "single",
+				description: "",
+				tags: [],
+			},
+		});
+	});
+
+	test("does not turn an update API error into success", async () => {
+		const update = mock(async () => ({ error: new Error("conflict") }));
+
+		await expect(
+			updateListOperation.invoke(
+				context({
+					update: update as unknown as ListClient["list"]["update"],
+				}),
+				{ id: 3, name: "Duplicate" },
+			),
+		).rejects.toThrow("Failed to update list: conflict");
+	});
+
+	test("exposes JSON schemas and safety metadata through the registry", () => {
+		expect(listOperations).toHaveLength(5);
+		expect(getListsOperation.inputJsonSchema.type).toBe("object");
+		expect(getListsOperation.outputJsonSchema.type).toBe("object");
+		expect(getListOperation.safety.readOnlyHint).toBe(true);
+		expect(deleteListOperation.safety.destructiveHint).toBe(true);
+		expect(
+			getListOperationByMcpName("listmonk_update_list"),
+		).toBe(updateListOperation);
+	});
+
+	test("reports a missing required top-level parameter consistently", async () => {
+		await expect(
+			getListOperation.invoke(context({}), {}),
+		).rejects.toEqual(
+			expect.objectContaining<Partial<OperationInputError>>({
+				name: "OperationInputError",
+				message: "Missing required parameter: id",
+			}),
+		);
+	});
+});

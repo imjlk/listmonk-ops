@@ -8,6 +8,7 @@ Managed release packages:
 
 - `@listmonk-ops/cli`
 - `@listmonk-ops/openapi`
+- `@listmonk-ops/operations`
 - `@listmonk-ops/automation`
 - `@listmonk-ops/common`
 - `@listmonk-ops/abtest`

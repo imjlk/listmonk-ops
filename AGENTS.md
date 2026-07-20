@@ -17,6 +17,8 @@ unless the task explicitly adds it.
 
 - `apps/cli`: Bun/Gunshi CLI, shell completion, JS bundle, and native binaries.
 - `packages/openapi`: generated Listmonk SDK plus handwritten client wrappers.
+- `packages/operations`: shared typed operation contracts and runtime-neutral
+  executors used by CLI and MCP adapters.
 - `packages/automation`: high-level operational workflows such as campaign
   preflight, deliverability guard, hygiene, drift, templates, and digest.
 - `packages/abtest`: A/B test lifecycle, Listmonk integration, and statistics.

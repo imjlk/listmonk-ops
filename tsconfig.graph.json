@@ -9,7 +9,8 @@
 			"@listmonk-ops/common": ["./packages/common/src/index.ts"],
 			"@listmonk-ops/mcp": ["./packages/mcp/src/index.ts"],
 			"@listmonk-ops/openapi": ["./packages/openapi/index.ts"],
-			"@listmonk-ops/openapi/sdk": ["./packages/openapi/sdk.ts"]
+			"@listmonk-ops/openapi/sdk": ["./packages/openapi/sdk.ts"],
+			"@listmonk-ops/operations": ["./packages/operations/src/index.ts"]
 		}
 	},
 	"include": [
