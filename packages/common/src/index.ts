@@ -1,3 +1,16 @@
+export {
+	commitJsonFileStoreUpdate,
+	JsonFileLockTimeoutError,
+	readJsonFileStore,
+	updateJsonFileStore,
+	writeJsonFileStore,
+} from "./json-file-store";
+export type {
+	JsonFileLockOptions,
+	JsonFileStore,
+	JsonFileStoreUpdate,
+} from "./json-file-store";
+
 // Common validation utilities
 export const ValidationUtils = {
 	validateEmail(email: string): boolean {
