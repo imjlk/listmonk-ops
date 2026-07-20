@@ -3,11 +3,11 @@ name: CLI GitHub Release
 on:
   push:
     tags:
-      - "*cli-v*"
+      - "@listmonk-ops/cli-v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. listmonk-ops-cli-v0.2.1)"
+        description: "Release tag (e.g. @listmonk-ops/cli-v0.3.0)"
         required: true
         type: string
 
@@ -43,6 +43,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.sha }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -54,6 +56,9 @@ jobs:
 
       - name: Check workspace types and lint with ttsc
         run: bun run typecheck
+
+      - name: Build workspaces
+        run: bun run build
 
       - name: Build native CLI binary
         env:

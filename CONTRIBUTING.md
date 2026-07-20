@@ -63,8 +63,10 @@ After merge to `main`:
 
 CLI release binaries:
 
-- `.github/workflows/cli-github-release.yml` runs on `*cli-v*` tags.
-- Those tags are created by the Sampo release flow.
+- `.github/workflows/cli-github-release.yml` builds the scoped
+  `@listmonk-ops/cli-v*` tag on tag pushes or explicit dispatches.
+- Sampo explicitly dispatches that workflow after publishing a new CLI tag;
+  tags created with `GITHUB_TOKEN` do not start another workflow by themselves.
 
 ## Local Development
 
