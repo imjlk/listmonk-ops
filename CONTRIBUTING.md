@@ -105,6 +105,10 @@ and linting; generated and build output remain excluded. Formatting is a write
 operation, so CI runs `bun run format` and rejects the resulting diff before
 running `bun run check`.
 
+`tsconfig.typecheck.json` maps internal workspace packages to their source
+entry points and checks the monorepo as one program. A clean checkout therefore
+does not need prebuilt `dist/*.d.ts` files before `bun run typecheck`.
+
 Workspace compiler and declaration builds invoke `ttsc`. The Bun-bundled CLI's
 top-level build runs `ttsc --noEmit` before bundling, and the native release
 workflow repeats that gate before producing artifacts.

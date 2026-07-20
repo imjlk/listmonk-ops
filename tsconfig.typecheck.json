@@ -1,0 +1,18 @@
+{
+	"extends": "./tsconfig.graph.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"noImplicitReturns": true,
+		"forceConsistentCasingInFileNames": true
+	},
+	"include": [
+		"apps/cli/**/*.ts",
+		"packages/*/src/**/*.ts",
+		"packages/openapi/generated/**/*.ts",
+		"packages/openapi/index.ts",
+		"packages/openapi/sdk.ts",
+		"scripts/**/*.ts",
+		"*.ts"
+	],
+	"exclude": ["node_modules", "**/dist/**"]
+}

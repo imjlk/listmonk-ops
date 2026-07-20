@@ -105,6 +105,11 @@ bun run check
 `bun run format` 실행 결과에 diff가 생기면 실패시키고, 이어서
 `bun run check`를 실행합니다.
 
+`tsconfig.typecheck.json`은 내부 워크스페이스 패키지를 소스 엔트리포인트에
+연결하고 모노리포를 하나의 프로그램으로 검사합니다. 따라서 깨끗한
+체크아웃에서도 `dist/*.d.ts`를 미리 빌드하지 않고 `bun run typecheck`를
+실행할 수 있습니다.
+
 워크스페이스 컴파일과 선언 파일 빌드는 `ttsc`를 사용합니다. Bun으로
 번들링하는 CLI의 최상위 빌드는 번들링 전에 `ttsc --noEmit`을 실행하며,
 네이티브 릴리스 워크플로도 산출물 생성 전에 같은 검사를 반복합니다.

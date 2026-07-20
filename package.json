@@ -34,7 +34,7 @@
 		"format": "ttsc format -p tsconfig.quality.json",
 		"lint": "ttsc --noEmit --noCheck -p tsconfig.quality.json",
 		"lint:fix": "ttsc fix --noCheck -p tsconfig.quality.json",
-		"typecheck": "bun run --cwd packages/abtest ttsc --noEmit && bun run --cwd packages/automation ttsc --noEmit && bun run --cwd packages/common ttsc --noEmit && bun run --cwd packages/mcp ttsc --noEmit && bun run --cwd packages/openapi ttsc --noEmit && bun run --cwd apps/cli ttsc --noEmit",
+		"typecheck": "ttsc --noEmit -p tsconfig.typecheck.json",
 		"check": "bun run lint && bun run typecheck",
 		"graph:mcp": "ttsc-graph --cwd . --tsconfig tsconfig.graph.json",
 		"graph:dump": "ttsc-graph dump --cwd . --tsconfig tsconfig.graph.json",
