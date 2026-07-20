@@ -25,7 +25,10 @@ const bootstrapAdminPassword =
 	"adminpass";
 const legacyBootstrapUsername = process.env.LISTMONK_BOOTSTRAP_USERNAME?.trim();
 const legacyBootstrapToken = process.env.LISTMONK_BOOTSTRAP_TOKEN?.trim();
-const targetUsername = process.env.LISTMONK_TEST_API_USERNAME || "api-admin";
+const targetUsername =
+	process.env.LISTMONK_TEST_API_USERNAME?.trim() ||
+	process.env.LISTMONK_USERNAME?.trim() ||
+	"api-admin";
 const tokenFile =
 	process.env.LISTMONK_TEST_TOKEN_FILE || "/tmp/listmonk-ops-api-token";
 

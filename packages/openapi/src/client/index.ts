@@ -183,12 +183,16 @@ type FlattenedResponse<T> = {
  * Generic CRUD operation types
  */
 type CrudResult<T> = FlattenedResponse<T> | { error: unknown };
-type ListResult<T> = FlattenedResponse<{
+type ListPayload<T> = {
 	results: T[];
 	total: number;
 	per_page: number;
 	page: number;
-}>;
+};
+type ListResult<T> = FlattenedResponse<ListPayload<T>> | ({
+	error: unknown;
+	data: ListPayload<T>;
+} & Omit<ErrorEnvelope, "request" | "response">);
 
 /**
  * Generic CRUD interface for resources
@@ -510,7 +514,11 @@ const normalizeListPayload = <T>(data: unknown): ListResult<T>["data"] => {
 
 const normalizeListResult = <T>(response: unknown): ListResult<T> => {
 	if (hasResponseError(response)) {
-		return response as unknown as ListResult<T>;
+		const normalizedData = normalizeListPayload<T>((response as { data?: unknown }).data);
+		return {
+			...(response as ErrorEnvelope),
+			data: normalizedData,
+		} as ListResult<T>;
 	}
 
 	const transformed = response as FlattenedResponse<unknown>;
