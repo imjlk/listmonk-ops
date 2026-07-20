@@ -9,6 +9,7 @@ AUTO_FILE=".sampo/changesets/renovate-pr-${PR_NUMBER}.md"
 declare -a PACKAGE_MAPPINGS=(
   "apps/cli/:npm/@listmonk-ops/cli"
   "packages/openapi/:npm/@listmonk-ops/openapi"
+  "packages/operations/:npm/@listmonk-ops/operations"
   "packages/common/:npm/@listmonk-ops/common"
   "packages/abtest/:npm/@listmonk-ops/abtest"
   "packages/automation/:npm/@listmonk-ops/automation"

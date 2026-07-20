@@ -2,7 +2,11 @@ import { resolve } from "node:path";
 import { $ } from "bun";
 
 const projectRoot = resolve(import.meta.dir, "..");
-const testPatterns = ["apps/*/tests/**/*.ts", "packages/*/tests/**/*.ts"];
+const testPatterns = [
+	"apps/*/tests/**/*.ts",
+	"packages/*/tests/**/*.ts",
+	"scripts/**/*.test.ts",
+];
 
 const {
 	stdout,
