@@ -51,8 +51,11 @@ export class OperationOutputError extends Error {
 	}
 }
 
-function toObjectJsonSchema(schema: z.ZodType): ObjectJsonSchema {
-	const jsonSchema = z.toJSONSchema(schema);
+function toObjectJsonSchema(
+	schema: z.ZodType,
+	io: "input" | "output",
+): ObjectJsonSchema {
+	const jsonSchema = z.toJSONSchema(schema, { io });
 	if (jsonSchema.type !== "object") {
 		throw new TypeError("Operation schemas must have an object root");
 	}
@@ -118,8 +121,8 @@ export function defineOperation<
 		description: config.description,
 		inputSchema: config.inputSchema,
 		outputSchema: config.outputSchema,
-		inputJsonSchema: toObjectJsonSchema(config.inputSchema),
-		outputJsonSchema: toObjectJsonSchema(config.outputSchema),
+		inputJsonSchema: toObjectJsonSchema(config.inputSchema, "input"),
+		outputJsonSchema: toObjectJsonSchema(config.outputSchema, "output"),
 		safety: config.safety,
 		mcp: config.mcp,
 		async invoke(context, input) {

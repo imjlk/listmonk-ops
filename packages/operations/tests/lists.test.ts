@@ -139,7 +139,12 @@ describe("subscriber-list operations", () => {
 	test("exposes JSON schemas and safety metadata through the registry", () => {
 		expect(listOperations).toHaveLength(5);
 		expect(getListsOperation.inputJsonSchema.type).toBe("object");
+		expect(getListsOperation.inputJsonSchema.required).toBeUndefined();
 		expect(getListsOperation.outputJsonSchema.type).toBe("object");
+		expect(createListOperation.inputJsonSchema.required).toEqual(["name"]);
+		expect(getListOperation.inputJsonSchema.properties?.id).toMatchObject({
+			anyOf: [{ type: "integer" }, { type: "string" }],
+		});
 		expect(getListOperation.safety.readOnlyHint).toBe(true);
 		expect(deleteListOperation.safety.destructiveHint).toBe(true);
 		expect(

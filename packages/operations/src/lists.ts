@@ -54,12 +54,23 @@ const listInputSchema = z.object({
 		.describe("Number of items per page"),
 });
 
+const positiveIdSchema = z.number().int().positive();
+const subscriberListIdSchema = z
+	.codec(
+		z.union([
+			positiveIdSchema,
+			z.string().regex(/^[1-9][0-9]*$/),
+		]),
+		positiveIdSchema,
+		{
+			decode: (value) => Number(value),
+			encode: (value) => value,
+		},
+	)
+	.describe("Subscriber list ID");
+
 const listIdInputSchema = z.object({
-	id: z.coerce
-		.number()
-		.int()
-		.positive()
-		.describe("Subscriber list ID"),
+	id: subscriberListIdSchema,
 });
 
 const createListInputSchema = z.object({
@@ -77,11 +88,7 @@ const createListInputSchema = z.object({
 });
 
 const updateListInputSchema = z.object({
-	id: z.coerce
-		.number()
-		.int()
-		.positive()
-		.describe("Subscriber list ID"),
+	id: subscriberListIdSchema,
 	name: z.string().trim().min(1).optional().describe("List name"),
 	type: z
 		.enum(["public", "private"])
