@@ -412,7 +412,7 @@ export class GenerateReportCommand extends BaseCommand<ReportInput, Report> {
 
 ### 핵심 기술
 
-- **TypeScript**: 타입 안전성
+- **TypeScript 7**: 타입 안전성
 - **Listmonk**: 이메일 전송 엔진
 - **SvelteKit**: 웹 대시보드
 - **gunshi**: CLI 프레임워크
@@ -423,7 +423,8 @@ export class GenerateReportCommand extends BaseCommand<ReportInput, Report> {
 - **Bun**: 패키지 매니저 및 런타임
 - **Turborepo**: 모노리포 빌드 시스템
 - **Vitest**: 테스트 프레임워크
-- **ESLint/Prettier**: 코드 품질
+- **ttsc + @ttsc/lint**: 컴파일러, 코드 품질, 포맷
+- **@ttsc/graph**: 개발 에이전트용 컴파일러 기반 코드 그래프
 
 ### 배포 옵션
 

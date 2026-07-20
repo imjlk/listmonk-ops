@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { createMCPTestSuite } from "../mcp-helper.js";
-import {
-	buildTestEmail,
-	buildTestName,
-	isManagedTestEmail,
-} from "../setup.js";
+import { buildTestEmail, buildTestName, isManagedTestEmail } from "../setup.js";
 
 describe("Subscribers MCP Tools", () => {
 	const { client, utils } = createMCPTestSuite();

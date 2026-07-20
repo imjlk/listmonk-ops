@@ -1,0 +1,8 @@
+{
+	"mcpServers": {
+		"ttsc-graph": {
+			"command": "bun",
+			"args": ["run", "graph:mcp"]
+		}
+	}
+}

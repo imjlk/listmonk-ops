@@ -176,6 +176,9 @@ This repository uses Renovate for npm/Bun/GitHub Actions updates.
 For sustainable operation, keep these checks in your regular loop:
 
 ```bash
+# Lint/typecheck with TypeScript 7 and ttsc
+bun run check
+
 # Build every workspace package
 bun run build
 

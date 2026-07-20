@@ -4,11 +4,12 @@
 	"type": "module",
 	"private": true,
 	"devDependencies": {
-		"@biomejs/biome": "2.4.7",
-		"@types/bun": "^1.3.10"
-	},
-	"peerDependencies": {
-		"typescript": "^5.9.3"
+		"@ttsc/graph": "0.19.3",
+		"@ttsc/lint": "0.19.3",
+		"@types/bun": "^1.3.10",
+		"@types/node": "^26.1.1",
+		"ttsc": "0.19.3",
+		"typescript": "7.0.2"
 	},
 	"scripts": {
 		"cli": "bash ./scripts/ensure-runtime-deps.sh && bun --cwd apps/cli src/index.ts",
@@ -30,7 +31,14 @@
 		"ops:smoke": "bash ./scripts/ops-smoke.sh",
 		"ops:smoke:full": "LISTMONK_OPS_SMOKE_MODE=full bash ./scripts/ops-smoke.sh",
 		"check:cli-pack-size": "bash ./scripts/check-cli-pack-size.sh",
-		"format": "biome format --write"
+		"format": "ttsc format -p tsconfig.quality.json",
+		"lint": "ttsc --noEmit --noCheck -p tsconfig.quality.json",
+		"lint:fix": "ttsc fix --noCheck -p tsconfig.quality.json",
+		"typecheck": "ttsc --noEmit -p tsconfig.typecheck.json",
+		"check": "bun run lint && bun run typecheck",
+		"graph:mcp": "ttsc-graph --cwd . --tsconfig tsconfig.graph.json",
+		"graph:dump": "ttsc-graph dump --cwd . --tsconfig tsconfig.graph.json",
+		"graph:view": "ttsc-graph view --cwd . --tsconfig tsconfig.graph.json"
 	},
 	"workspaces": {
 		"packages": [

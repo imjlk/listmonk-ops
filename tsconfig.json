@@ -10,6 +10,7 @@
 
 		// Bundler mode
 		"moduleResolution": "bundler",
+		"types": ["bun", "node"],
 		"allowImportingTsExtensions": true,
 		"verbatimModuleSyntax": true,
 		"noEmit": true,
@@ -24,6 +25,13 @@
 		// Some stricter flags (disabled by default)
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
-		"noPropertyAccessFromIndexSignature": false
-	}
+		"noPropertyAccessFromIndexSignature": false,
+
+		"plugins": [
+			{
+				"transform": "@ttsc/lint"
+			}
+		]
+	},
+	"exclude": ["node_modules", "**/dist/**", "packages/openapi/generated/**"]
 }

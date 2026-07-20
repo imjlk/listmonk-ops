@@ -40,9 +40,15 @@ bun run build:commands    # Build all command packages
 bun run lint:commands     # Lint all command packages
 
 # Code quality
-bun run format       # Format all code with Biome
-bun run lint         # Lint packages (run from package directories)
-bun run lint:fix     # Auto-fix linting issues
+bun run format       # Format first-party TypeScript/JavaScript with ttsc
+bun run lint         # Check ttsc lint diagnostics
+bun run lint:fix     # Apply safe ttsc lint fixes and formatting
+bun run typecheck    # Type-check all workspaces with TypeScript 7
+bun run check        # Run lint and typecheck (CI checks format separately)
+
+# Compiler-resolved code graph
+bun run graph:dump   # Stream graph JSON
+bun run graph:view   # Open the local interactive graph viewer
 ```
 
 ### Package-Specific Commands
@@ -104,8 +110,8 @@ Run tests from package directories using `bun test`. The OpenAPI package include
 ## Tech Stack
 
 - **Runtime**: Bun
-- **Language**: TypeScript (strict mode)
-- **Formatting/Linting**: Biome
+- **Language**: TypeScript 7 (strict mode)
+- **Compiler/Formatting/Linting**: ttsc + @ttsc/lint
 - **CLI Framework**: gunshi
 - **API Framework**: Hono
 - **Database**: PostgreSQL 17

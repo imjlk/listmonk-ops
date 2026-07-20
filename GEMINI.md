@@ -190,6 +190,7 @@ await cli(process.argv.slice(2), entry, {
 ### Technology Stack
 
 - **Runtime**: Bun (preferred over Node.js)
+- **Compiler/Code Quality**: TypeScript 7, ttsc, and @ttsc/lint
 - **API Client**: Listmonk OpenAPI client
 - **Web Framework**: SvelteKit
 - **CLI Framework**: gunshi
@@ -211,6 +212,9 @@ bun test
 
 # Build packages
 bun run build
+
+# Lint and type-check with TypeScript 7 / ttsc
+bun run check
 
 # CLI usage
 bun run cli ab-test:create --name "Subject Test"

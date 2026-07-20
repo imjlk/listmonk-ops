@@ -10,6 +10,7 @@
 
 		// Bundler mode
 		"moduleResolution": "bundler",
+		"types": ["node"],
 		"allowImportingTsExtensions": true,
 		"verbatimModuleSyntax": true,
 		"emitDeclarationOnly": true,
@@ -28,7 +29,12 @@
 		// Some stricter flags (disabled by default)
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
-		"noPropertyAccessFromIndexSignature": false
+		"noPropertyAccessFromIndexSignature": false,
+		"plugins": [
+			{
+				"transform": "@ttsc/lint"
+			}
+		]
 	},
 	"include": ["src/**/*", "generated/**/*", "index.ts", "sdk.ts"],
 	"exclude": ["generate.ts", "tests/**/*", "dist/**/*"]

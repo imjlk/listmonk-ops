@@ -24,6 +24,14 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check formatting with ttsc
+        run: |
+          bun run format
+          git diff --exit-code
+
+      - name: Check lint and types with ttsc
+        run: bun run check
+
       - name: Verify OpenAPI generation is up-to-date
         run: |
           bun run --cwd packages/openapi generate

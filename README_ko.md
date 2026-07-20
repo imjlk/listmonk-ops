@@ -176,6 +176,9 @@ npm Trusted Publishing 사전 설정(1회 필요):
 지속 운영을 위해 아래 검증 루프를 기본으로 유지하세요.
 
 ```bash
+# TypeScript 7 + ttsc 린트/타입 검사
+bun run check
+
 # 전체 워크스페이스 빌드
 bun run build
 

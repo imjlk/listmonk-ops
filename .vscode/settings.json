@@ -1,11 +1,6 @@
 {
-	"editor.formatOnSave": true,
-	"editor.defaultFormatter": "biomejs.biome",
-	"biome.requireConfiguration": true,
-	"[json]": {
-		"editor.defaultFormatter": "biomejs.biome"
-	},
-	"[typescript]": {
-		"editor.defaultFormatter": "biomejs.biome"
+	"[typescript][typescriptreact]": {
+		"editor.defaultFormatter": "samchon.ttsc",
+		"editor.formatOnSave": true
 	}
 }
