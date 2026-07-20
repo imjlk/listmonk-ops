@@ -1,4 +1,4 @@
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ListmonkMCPServer } from "./server.js";
@@ -11,6 +11,46 @@ interface RuntimeArgs {
 	host?: string;
 	port?: number;
 	help?: boolean;
+}
+
+function loadFileEnv(path: string): void {
+	if (!existsSync(path)) {
+		return;
+	}
+
+	const lines = readFileSync(path, "utf8").split(/\r?\n/);
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (!trimmed || trimmed.startsWith("#")) {
+			continue;
+		}
+
+		const separatorIndex = trimmed.indexOf("=");
+		if (separatorIndex < 0) {
+			continue;
+		}
+
+		const key = trimmed.slice(0, separatorIndex).trim();
+		if (!key) {
+			continue;
+		}
+
+		let value = trimmed.slice(separatorIndex + 1).trim();
+		if (
+			(value.startsWith('"') && value.endsWith('"')) ||
+			(value.startsWith("'") && value.endsWith("'"))
+		) {
+			value = value.slice(1, -1);
+		}
+
+		if (process.env[key] === undefined) {
+			process.env[key] = value;
+		}
+	}
+}
+
+function loadRuntimeEnv(): void {
+	loadFileEnv(resolve(process.cwd(), ".env"));
 }
 
 function printHelp(): void {
@@ -125,6 +165,7 @@ function parseArgs(argv: string[]): RuntimeArgs {
 }
 
 export async function main() {
+	loadRuntimeEnv();
 	const runtimeArgs = parseArgs(process.argv.slice(2));
 	if (runtimeArgs.help) {
 		printHelp();
