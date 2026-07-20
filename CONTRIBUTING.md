@@ -137,12 +137,18 @@ bun run graph:dump
 
 # Open the local interactive graph viewer
 bun run graph:view
+
+# Include generated OpenAPI SDK files as explicit debugging roots
+bun run graph:openapi:dump
 ```
 
 Codex loads the server from `.codex/config.toml` in a trusted checkout. Claude
 Code-compatible clients can use `.mcp.json`. Both configurations run the local
 locked dependency through `bun run graph:mcp`; restart the client after the
-first `bun install` if the graph tool is not visible.
+first `bun install` if the graph tool is not visible. The MCP process snapshots
+the graph at startup, so restart the client after switching branches or
+changing graph configuration if results look stale. Use the dump commands for
+a fresh snapshot before restarting.
 
 If you need the local Listmonk stack:
 

@@ -103,6 +103,39 @@ const created = await client.list.create({
 console.log(created.data.id);
 ```
 
+## Development Architecture
+
+The public enhanced-client facade stays in `src/client/index.ts`. Its
+handwritten implementation is split into named, graph-friendly modules:
+
+- `contracts.ts`: enhanced client and boundary contracts
+- `factory.ts`: config resolution, health check, and client assembly
+- `resource-operations.ts`: list, subscriber, campaign, template, and media
+  factories
+- `service-operations.ts`: import, bounce, transactional, settings, dashboard,
+  and system factories
+- `crud.ts`, `response.ts`, `transport.ts`: shared CRUD dispatch, response
+  normalization, and retry/abort transport policy
+
+`generated/` remains Hey API output and must not be edited by hand. Boundary
+behavior that compensates for incomplete upstream schemas belongs in the
+handwritten modules and realistic contract tests.
+
+From the repository root, use the main graph for normal impact analysis and
+the opt-in OpenAPI graph when generated SDK internals need investigation:
+
+```bash
+bun run graph:dump
+bun run graph:openapi
+bun run graph:openapi:dump
+bun run graph:openapi:view
+```
+
+The main graph uses handwritten source and TypeScript tests as explicit roots.
+The OpenAPI graph additionally makes every generated SDK TypeScript file an
+explicit root, so generated call paths are discoverable without bloating the
+normal project graph.
+
 ## Tree-Shakable SDK Entry
 
 `@listmonk-ops/openapi` keeps `createListmonkClient()` as the convenience entrypoint.
@@ -158,4 +191,5 @@ bun run --cwd packages/openapi generate
 ```bash
 bun run --cwd packages/openapi build
 bun run --cwd packages/openapi test
+bun run graph:check
 ```

@@ -1,0 +1,11 @@
+{
+	"extends": "./tsconfig.graph.json",
+	"include": [
+		"packages/openapi/index.ts",
+		"packages/openapi/sdk.ts",
+		"packages/openapi/src/**/*.ts",
+		"packages/openapi/tests/**/*.ts",
+		"packages/openapi/generated/**/*.ts"
+	],
+	"exclude": ["node_modules", "**/dist/**"]
+}
