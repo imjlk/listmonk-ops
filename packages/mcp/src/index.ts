@@ -1,6 +1,7 @@
 import { existsSync, realpathSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { ListmonkMCPServer } from "./server.js";
 
 interface RuntimeArgs {
 	baseUrl?: string;
@@ -19,7 +20,9 @@ type MCPServerConfig = {
 	apiToken: string;
 };
 
-async function createMCPServer(config: MCPServerConfig): Promise<unknown> {
+async function createMCPServer(
+	config: MCPServerConfig,
+): Promise<InstanceType<typeof ListmonkMCPServer>> {
 	const { ListmonkMCPServer } = await import("./server.js");
 	return new ListmonkMCPServer(config);
 }
@@ -222,9 +225,7 @@ export async function main() {
 	}
 
 	try {
-		const server = (await createMCPServer(config)) as {
-			listen: (port: number, host: string) => Promise<void>;
-		};
+		const server = await createMCPServer(config);
 		await server.listen(port, host);
 	} catch (error) {
 		console.error("❌ Failed to start server:", error);

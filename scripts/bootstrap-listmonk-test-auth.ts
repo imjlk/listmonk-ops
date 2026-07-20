@@ -64,7 +64,9 @@ assertSingleLine("LISTMONK_TEST_API_USERNAME", targetUsername);
 assertSingleLine("LISTMONK_BOOTSTRAP_ADMIN_USERNAME", bootstrapAdminUsername);
 assertSingleLine("LISTMONK_BOOTSTRAP_ADMIN_PASSWORD", bootstrapAdminPassword);
 if (targetUsername.includes(":")) {
-	throw new Error("LISTMONK_TEST_API_USERNAME must not contain ':'");
+	throw new Error(
+		"LISTMONK_TEST_API_USERNAME / LISTMONK_USERNAME must not contain ':'",
+	);
 }
 if (Boolean(legacyBootstrapUsername) !== Boolean(legacyBootstrapToken)) {
 	throw new Error(
@@ -255,7 +257,7 @@ const existingUser = usersResponse.data?.find(
 if (existingUser) {
 	if (existingUser.name !== MANAGED_API_USER_NAME) {
 		throw new Error(
-			`Refusing to replace existing API user "${targetUsername}" because it is not managed by listmonk-ops. Set LISTMONK_TEST_API_USERNAME to a dedicated test username.`,
+		`Refusing to replace existing API user "${targetUsername}" because it is not managed by listmonk-ops. Set LISTMONK_TEST_API_USERNAME (or LISTMONK_USERNAME) to a dedicated test username.`,
 		);
 	}
 	await requestJson(`/users/${existingUser.id}`, { method: "DELETE" });
