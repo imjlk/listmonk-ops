@@ -49,7 +49,6 @@ const listInputSchema = z.object({
 		.number()
 		.int()
 		.positive()
-		.max(1000)
 		.default(20)
 		.describe("Number of items per page"),
 });
@@ -111,8 +110,18 @@ function toErrorMessage(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
 	}
-	if (error && typeof error === "object" && "message" in error) {
-		return String(error.message);
+	if (error && typeof error === "object") {
+		if ("message" in error && typeof error.message === "string") {
+			return error.message;
+		}
+		if ("error" in error && typeof error.error === "string") {
+			return error.error;
+		}
+		try {
+			return JSON.stringify(error);
+		} catch {
+			// Fall through to String conversion for non-serializable values.
+		}
 	}
 	return String(error);
 }

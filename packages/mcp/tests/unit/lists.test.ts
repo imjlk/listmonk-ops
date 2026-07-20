@@ -51,14 +51,14 @@ describe("list operation MCP adapter", () => {
 
 	test("returns validated structured output with compatible text content", async () => {
 		const result = await handleListsTools(
-			request("listmonk_get_lists", { page: "2", per_page: 5 }),
+			request("listmonk_get_lists", { page: "2", per_page: 5000 }),
 			clientWithList({
 				list: async () => ({
 					data: {
 						results: [{ id: 4, name: "News" }],
 						total: 6,
 						page: 2,
-						per_page: 5,
+						per_page: 5000,
 					},
 					request: new Request("https://example.test"),
 					response: new Response(),
@@ -71,7 +71,7 @@ describe("list operation MCP adapter", () => {
 			results: [{ id: 4, name: "News" }],
 			total: 6,
 			page: 2,
-			per_page: 5,
+			per_page: 5000,
 		});
 		expect(JSON.parse(result.content[0]?.text ?? "null")).toEqual(
 			result.structuredContent,
@@ -107,7 +107,7 @@ describe("list operation MCP adapter", () => {
 		const apiFailure = await handleListsTools(
 			request("listmonk_update_list", { id: 8, name: "Duplicate" }),
 			clientWithList({
-				update: async () => ({ error: new Error("conflict") }),
+				update: async () => ({ error: { error: "conflict" } }),
 			}),
 		);
 		expect(apiFailure.isError).toBe(true);

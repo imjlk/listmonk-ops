@@ -113,7 +113,7 @@ export default defineGroup({
 					description: "Page number",
 				}),
 				"per-page": option(
-					z.coerce.number().int().positive().max(1000).optional(),
+					z.coerce.number().int().positive().optional(),
 					{ description: "Items per page" },
 				),
 			},

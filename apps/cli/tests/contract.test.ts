@@ -81,6 +81,14 @@ describe("CLI contract", () => {
 		expect(result.output).toContain("--per-page");
 	});
 
+	test("accepts documented numeric list page sizes", () => {
+		const result = runCli(["lists", "list", "--per-page", "5000"]);
+
+		expect(result.exitCode).not.toBe(0);
+		expect(result.output).toContain("Missing LISTMONK_API_TOKEN");
+		expect(result.output).not.toMatch(/less than|maximum|too big/i);
+	});
+
 	test("rejects missing and out-of-range required options", () => {
 		const missing = runCli(["campaigns", "get"]);
 		const invalid = runCli(["campaigns", "get", "--id", "0"]);

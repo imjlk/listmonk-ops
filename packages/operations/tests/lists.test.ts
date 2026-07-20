@@ -35,6 +35,17 @@ describe("subscriber-list operations", () => {
 		});
 	});
 
+	test("forwards documented numeric page sizes without a local cap", async () => {
+		const list = mock(async () => ({
+			data: { results: [], total: 0, page: 1, per_page: 5000 },
+		})) as unknown as ListClient["list"]["list"];
+
+		await expect(
+			getListsOperation.invoke(context({ list }), { per_page: 5000 }),
+		).resolves.toMatchObject({ per_page: 5000 });
+		expect(list).toHaveBeenCalledWith({ query: { page: 1, per_page: 5000 } });
+	});
+
 	test("coerces IDs before get, update, and delete calls", async () => {
 		const getById = mock(async () => ({ data: { id: 7, name: "News" } }));
 		const update = mock(async () => ({ data: { id: 7, name: "Updates" } }));
@@ -125,7 +136,7 @@ describe("subscriber-list operations", () => {
 	});
 
 	test("does not turn an update API error into success", async () => {
-		const update = mock(async () => ({ error: new Error("conflict") }));
+		const update = mock(async () => ({ error: { error: "conflict" } }));
 
 		const invocation = updateListOperation.invoke(
 			context({
