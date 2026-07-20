@@ -22,6 +22,7 @@ Changesets are required when a PR changes any of these:
 
 - `apps/cli`
 - `packages/openapi`
+- `packages/operations`
 - `packages/common`
 - `packages/abtest`
 - `packages/automation`

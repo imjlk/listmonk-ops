@@ -3,7 +3,7 @@ set -euo pipefail
 
 BASE_REF="${1:-origin/main}"
 HEAD_REF="${2:-}"
-RELEASABLE_PATTERN='^(apps/cli/|packages/openapi/|packages/automation/|packages/common/|packages/abtest/|packages/mcp/)'
+RELEASABLE_PATTERN='^(apps/cli/|packages/openapi/|packages/operations/|packages/automation/|packages/common/|packages/abtest/|packages/mcp/)'
 
 if ! git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
 	echo "[sampo-check] Base ref '$BASE_REF' not found. Skipping changeset check."

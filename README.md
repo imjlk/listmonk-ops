@@ -26,6 +26,7 @@ This repository is designed for teams operating [Listmonk](https://listmonk.app/
 | --- | --- |
 | `apps/cli` | `listmonk-cli` command line app (Gunshi) |
 | `packages/openapi` | Generated API SDK and typed client wrappers |
+| `packages/operations` | Shared typed operation contracts and executors for CLI/MCP adapters |
 | `packages/abtest` | A/B test services and analysis logic |
 | `packages/automation` | `@listmonk-ops/automation` high-level operational workflows (preflight/guard/hygiene/drift/digest) |
 | `packages/mcp` | MCP server exposing Listmonk operations |
@@ -33,7 +34,7 @@ This repository is designed for teams operating [Listmonk](https://listmonk.app/
 
 Runtime policy:
 - Executable packages (`apps/cli`, `packages/mcp`) target the Bun runtime.
-- Library packages (`openapi`, `automation`, `abtest`, `common`) remain runtime-neutral ESM packages.
+- Library packages (`openapi`, `operations`, `automation`, `abtest`, `common`) remain runtime-neutral ESM packages.
 
 ## Prerequisites
 
@@ -157,7 +158,7 @@ After a PR is merged into `main`, workflow `.github/workflows/sampo-release-publ
 4. Pushes release commit and tags after publish succeeds
 
 CI guard:
-- PRs changing releasable packages (`apps/cli`, `packages/openapi`, `packages/automation`, `packages/common`, `packages/abtest`, `packages/mcp`) must include `.sampo/changesets/*.md`
+- PRs changing releasable packages (`apps/cli`, `packages/openapi`, `packages/operations`, `packages/automation`, `packages/common`, `packages/abtest`, `packages/mcp`) must include `.sampo/changesets/*.md`
 - Workflow: `.github/workflows/sampo-changeset-check.yml`
 - Renovate PRs that touch releasable packages receive a bot-generated changeset via `.github/workflows/renovate-changeset.yml`
 

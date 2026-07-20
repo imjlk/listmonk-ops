@@ -22,6 +22,7 @@
 
 - `apps/cli`
 - `packages/openapi`
+- `packages/operations`
 - `packages/common`
 - `packages/abtest`
 - `packages/automation`
