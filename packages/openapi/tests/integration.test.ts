@@ -1,9 +1,7 @@
-import "dotenv/config";
 import { beforeAll, describe, expect, test } from "bun:test";
-import type { List } from "../index";
 import { createListmonkClient } from "../index";
 
-// Load environment variables
+// Read environment variables from process.env
 const LISTMONK_API_URL =
 	process.env.LISTMONK_API_URL || "http://localhost:9000/api";
 const LISTMONK_USERNAME = process.env.LISTMONK_USERNAME || "api-admin";
@@ -34,7 +32,7 @@ describe("API Integration", () => {
 		try {
 			const healthResponse = await client.getHealthCheck();
 			serverAvailable = healthResponse?.data === true;
-		} catch (error) {
+		} catch {
 			serverAvailable = false;
 			console.warn(
 				"⚠️  Listmonk server not available, skipping integration tests",
@@ -57,7 +55,7 @@ describe("API Integration", () => {
 	});
 
 	describe("Authentication", () => {
-		test("should handle authentication errors", async () => {
+		test("should surface authentication errors on authenticated endpoints", async () => {
 			if (!serverAvailable) {
 				console.log("⏭️  Skipping: Server not available");
 				return;
@@ -71,12 +69,13 @@ describe("API Integration", () => {
 				},
 			});
 
-			try {
-				await badClient.getHealthCheck();
-				// Should not reach here
-				expect(false).toBe(true);
-			} catch (error) {
-				expect(error).toBeDefined();
+			const listsResponse = await badClient.list.list({
+				query: { page: 1, per_page: 1 },
+			});
+
+			expect("error" in listsResponse).toBe(true);
+			if ("error" in listsResponse) {
+				expect(listsResponse.error).toBeDefined();
 			}
 		});
 	});

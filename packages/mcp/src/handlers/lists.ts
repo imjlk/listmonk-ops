@@ -1,9 +1,11 @@
-import type { ListmonkClient } from "@listmonk-ops/openapi";
+import type { List, ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
 import {
+	createApiErrorResult,
 	createErrorResult,
 	createSuccessResult,
+	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
 import {
@@ -153,7 +155,7 @@ export const handleListsTools: HandlerFunction = withErrorHandler(
 						: undefined;
 
 				const response = await client.list.list(query);
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to fetch lists");
 			}
 
 			case "listmonk_get_list": {
@@ -184,14 +186,27 @@ export const handleListsTools: HandlerFunction = withErrorHandler(
 				};
 
 				const response = await client.list.create({ body });
-				let createdList: typeof response.data | undefined = response.data;
+				if ("error" in response && response.error !== undefined) {
+					return createApiErrorResult("Failed to create list", response.error);
+				}
+				if (response.data !== undefined) {
+					return createSuccessResult(response.data);
+				}
+
+				let createdList: List | undefined;
 				const pageSize = 100;
 				const firstPage = await client.list.list({
 					query: { page: 1, per_page: pageSize },
 				});
-				createdList =
-					createdList ??
-					firstPage.data?.results?.find((list) => list.name === body.name);
+				if ("error" in firstPage && firstPage.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to resolve created list",
+						firstPage.error,
+					);
+				}
+				createdList = firstPage.data?.results?.find(
+					(list) => list.name === body.name,
+				);
 
 				if (!createdList) {
 					const total = firstPage.data?.total ?? 0;
@@ -201,6 +216,15 @@ export const handleListsTools: HandlerFunction = withErrorHandler(
 						const lastPageResponse = await client.list.list({
 							query: { page: lastPage, per_page: pageSize },
 						});
+						if (
+							"error" in lastPageResponse &&
+							lastPageResponse.error !== undefined
+						) {
+							return createApiErrorResult(
+								"Failed to resolve created list",
+								lastPageResponse.error,
+							);
+						}
 						createdList = lastPageResponse.data?.results?.find(
 							(list) => list.name === body.name,
 						);

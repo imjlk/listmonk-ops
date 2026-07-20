@@ -1,8 +1,9 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import {
+	createApiErrorResult,
 	createErrorResult,
-	createSuccessResult,
+	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
 
@@ -34,25 +35,15 @@ export const transactionalTools: MCPTool[] = [
 					description: "Template data/variables",
 				},
 				headers: {
-					type: "object",
+					type: "array",
+					items: {
+						type: "object",
+						additionalProperties: { type: "string" },
+					},
 					description: "Additional email headers",
 				},
 			},
 			required: ["template_id"],
-		},
-	},
-	{
-		name: "listmonk_get_transactional_message",
-		description: "Get a transactional message by ID",
-		inputSchema: {
-			type: "object",
-			properties: {
-				id: {
-					type: "string",
-					description: "Message ID",
-				},
-			},
-			required: ["id"],
 		},
 	},
 ];
@@ -120,19 +111,15 @@ export async function handleTransactionalTools(
 				}
 
 				const response = await client.transactional.send(body);
-				return createSuccessResult(response.data);
-			}
-
-			case "listmonk_get_transactional_message": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
+				if ("error" in response && response.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to send transactional message",
+						response.error,
+					);
 				}
-
-				// Note: This endpoint is not available in the current OpenAPI client
-				// Would need to be added to the client if needed
-				return createErrorResult(
-					"Get transactional message not implemented in current client",
+				return handleDataResponse(
+					response,
+					"Failed to send transactional message",
 				);
 			}
 

@@ -1,6 +1,5 @@
-import { defineCommand } from "@bunli/core";
 import { OutputUtils } from "@listmonk-ops/common";
-
+import { defineCommand } from "../lib/command";
 import { toErrorMessage } from "../lib/command-utils";
 import { resolveListmonkSession } from "../lib/listmonk";
 

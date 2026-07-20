@@ -1,4 +1,3 @@
-import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	evaluateDeliverabilityGuard,
 	generateDailyDigest,
@@ -11,6 +10,7 @@ import {
 	runSubscriberHygiene,
 	syncTemplateRegistry,
 } from "@listmonk-ops/automation";
+import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
 import {

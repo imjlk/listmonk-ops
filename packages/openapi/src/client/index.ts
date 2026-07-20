@@ -52,7 +52,7 @@ type TemplateTypes = ResourceTypes<
 	t.CreateTemplateData,
 	t.GetTemplatesData,
 	t.GetTemplateByIdData,
-	t.UpdateTemplateByIdPutData,
+	t.UpdateTemplateByIdData,
 	t.DeleteTemplateByIdData
 >;
 
@@ -109,18 +109,10 @@ type ImportStartParams = {
 	file: File | Blob;
 };
 
-type TransactionalSendParams = {
-	subscriber_email?: string;
-	subscriber_id?: number;
-	subscriber_emails?: string[];
-	subscriber_ids?: number[];
-	template_id: number;
-	from_email?: string;
-	data?: Record<string, unknown>;
-	headers?: Record<string, string>[];
-	messenger?: string;
-	content_type?: "html" | "markdown" | "plain";
-};
+type TransactionalSendParams = NonNullable<
+	t.TransactWithSubscriberData["body"]
+>;
+type CampaignTestParams = Omit<t.TestCampaignByIdData, "url">;
 
 // Composed operation interfaces
 interface ImportOperations extends BaseGetOperation<t.ImportStatus> {
@@ -140,10 +132,10 @@ interface TransactionalOperations {
 }
 
 interface SettingsOperations {
-	get(): Promise<FlattenedResponse<Record<string, unknown>>>;
+	get(): Promise<FlattenedResponse<t.Settings>>;
 	update(options: {
 		body: Record<string, unknown>;
-	}): Promise<FlattenedResponse<Record<string, unknown>>>;
+	}): Promise<FlattenedResponse<boolean>>;
 	testSmtp(options: {
 		body: Record<string, unknown>;
 	}): Promise<FlattenedResponse<boolean>>;
@@ -152,13 +144,14 @@ interface SettingsOperations {
 interface DashboardOperations {
 	getCharts(options?: {
 		query?: { type?: string };
-	}): Promise<FlattenedResponse<Record<string, unknown>>>;
-	getCounts(): Promise<FlattenedResponse<Record<string, unknown>>>;
+	}): Promise<FlattenedResponse<t.DashboardChart>>;
+	getCounts(): Promise<FlattenedResponse<t.DashboardCount>>;
 }
 
 interface SystemOperations {
-	getConfig(): Promise<FlattenedResponse<Record<string, unknown>>>;
-	getLogs(): Promise<FlattenedResponse<string>>;
+	getAbout(): Promise<FlattenedResponse<t.About>>;
+	getConfig(): Promise<FlattenedResponse<t.ServerConfig>>;
+	getLogs(): Promise<FlattenedResponse<string[]>>;
 	reload(): Promise<FlattenedResponse<boolean>>;
 }
 
@@ -174,6 +167,7 @@ export type List = t.List;
 export type Subscriber = t.Subscriber;
 export type Campaign = t.Campaign;
 export type Template = t.Template;
+export type About = t.About;
 export type ListmonkClient = EnhancedListmonkClient;
 
 /**
@@ -189,12 +183,16 @@ type FlattenedResponse<T> = {
  * Generic CRUD operation types
  */
 type CrudResult<T> = FlattenedResponse<T> | { error: unknown };
-type ListResult<T> = FlattenedResponse<{
+type ListPayload<T> = {
 	results: T[];
 	total: number;
 	per_page: number;
 	page: number;
-}>;
+};
+type ListResult<T> = FlattenedResponse<ListPayload<T>> | ({
+	error: unknown;
+	data: ListPayload<T>;
+} & Omit<ErrorEnvelope, "request" | "response">);
 
 /**
  * Generic CRUD interface for resources
@@ -238,6 +236,9 @@ interface EnhancedListmonkClient {
 		SubscriberTypes["getById"],
 		SubscriberTypes["delete"]
 	> & {
+		patch(
+			options: Omit<t.PatchSubscriberByIdData, "url">,
+		): Promise<CrudResult<Subscriber>>;
 		manageLists(options: {
 			body: {
 				action?: "add" | "remove" | "unsubscribe";
@@ -318,21 +319,11 @@ interface EnhancedListmonkClient {
 		createContent(options: {
 			path: { id: number };
 			body: {
-				content_type: "html" | "markdown" | "plain" | "richtext";
+				content_type: "html" | "markdown" | "plain" | "richtext" | "visual";
 				body: string;
 			};
 		}): Promise<FlattenedResponse<boolean>>;
-		test(options: {
-			path: { id: number };
-			body: {
-				template_id?: number;
-				content_type?: string;
-				body?: string;
-				subject?: string;
-				lists?: number[];
-				subscribers?: string[];
-			};
-		}): Promise<FlattenedResponse<boolean>>;
+		test(options: CampaignTestParams): Promise<FlattenedResponse<boolean>>;
 		getRunningStats(options: {
 			query: { campaign_id: number };
 		}): Promise<FlattenedResponse<Record<string, unknown>>>;
@@ -457,7 +448,15 @@ export const transformResponse = async (
 type CrudMethod = "create" | "get" | "getById" | "update" | "delete";
 type CrudMethodOverrides = Partial<Record<CrudMethod, string[]>>;
 type SdkMethod = (options: unknown) => Promise<unknown>;
-type FetchFn = (input: URL | RequestInfo, init?: RequestInit) => Promise<Response>;
+type FetchFn = (
+	input: URL | RequestInfo,
+	init?: RequestInit,
+) => Promise<Response>;
+type ErrorEnvelope = {
+	error: unknown;
+	request?: Request;
+	response?: Response;
+};
 
 const resolveSdkMethod = (candidateNames: string[]): SdkMethod => {
 	for (const methodName of candidateNames) {
@@ -467,6 +466,15 @@ const resolveSdkMethod = (candidateNames: string[]): SdkMethod => {
 		}
 	}
 	throw new Error(`SDK method not found: ${candidateNames.join(" | ")}`);
+};
+
+const hasResponseError = (value: unknown): value is ErrorEnvelope => {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"error" in value &&
+		(value as { error?: unknown }).error !== undefined
+	);
 };
 
 const normalizeListPayload = <T>(data: unknown): ListResult<T>["data"] => {
@@ -485,7 +493,8 @@ const normalizeListPayload = <T>(data: unknown): ListResult<T>["data"] => {
 			const results = listData.results as T[];
 			return {
 				results,
-				total: typeof listData.total === "number" ? listData.total : results.length,
+				total:
+					typeof listData.total === "number" ? listData.total : results.length,
 				per_page:
 					typeof listData.per_page === "number"
 						? listData.per_page
@@ -501,6 +510,22 @@ const normalizeListPayload = <T>(data: unknown): ListResult<T>["data"] => {
 		per_page: 0,
 		page: 1,
 	};
+};
+
+const normalizeListResult = <T>(response: unknown): ListResult<T> => {
+	if (hasResponseError(response)) {
+		const normalizedData = normalizeListPayload<T>((response as { data?: unknown }).data);
+		return {
+			...(response as ErrorEnvelope),
+			data: normalizedData,
+		} as ListResult<T>;
+	}
+
+	const transformed = response as FlattenedResponse<unknown>;
+	return {
+		...transformed,
+		data: normalizeListPayload<T>(transformed.data),
+	} as ListResult<T>;
 };
 
 const createCrudOperations = <T>(
@@ -519,7 +544,10 @@ const createCrudOperations = <T>(
 	const methodNames: Record<CrudMethod, string[]> = {
 		create: [...(methodOverrides.create ?? []), ...defaultMethodNames.create],
 		get: [...(methodOverrides.get ?? []), ...defaultMethodNames.get],
-		getById: [...(methodOverrides.getById ?? []), ...defaultMethodNames.getById],
+		getById: [
+			...(methodOverrides.getById ?? []),
+			...defaultMethodNames.getById,
+		],
 		update: [...(methodOverrides.update ?? []), ...defaultMethodNames.update],
 		delete: [...(methodOverrides.delete ?? []), ...defaultMethodNames.delete],
 	};
@@ -542,13 +570,7 @@ const createCrudOperations = <T>(
 					? { ...sdkOptions, ...options }
 					: sdkOptions;
 			const result = await sdkMethod(mergedOptions);
-			const transformed = (await transformResponse(result)) as FlattenedResponse<
-				unknown
-			>;
-			return {
-				...transformed,
-				data: normalizeListPayload<T>(transformed.data),
-			} as ListResult<T>;
+			return normalizeListResult<T>(await transformResponse(result));
 		},
 
 		async getById(options: unknown): Promise<CrudResult<T>> {
@@ -590,10 +612,7 @@ const RETRYABLE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const wait = async (ms: number): Promise<void> =>
 	await new Promise((resolve) => setTimeout(resolve, ms));
 
-function getRequestMethod(
-	input: URL | RequestInfo,
-	init: RequestInit,
-): string {
+function getRequestMethod(input: URL | RequestInfo, init: RequestInit): string {
 	if (init.method) {
 		return init.method.toUpperCase();
 	}
@@ -629,7 +648,10 @@ function mergeAbortSignals(
 		return primary;
 	}
 
-	if (typeof AbortSignal !== "undefined" && typeof AbortSignal.any === "function") {
+	if (
+		typeof AbortSignal !== "undefined" &&
+		typeof AbortSignal.any === "function"
+	) {
 		return AbortSignal.any([primary, secondary]);
 	}
 
@@ -718,6 +740,19 @@ function createResilientFetch(options: {
 	};
 }
 
+function createHealthCheckUrl(baseUrl: string): string {
+	const url = new URL(baseUrl);
+	const basePath = url.pathname.replace(/\/+$/, "");
+	const appPath = basePath.endsWith("/api")
+		? basePath.slice(0, -"/api".length)
+		: basePath;
+
+	url.pathname = `${appPath}/health`;
+	url.search = "";
+	url.hash = "";
+	return url.toString();
+}
+
 /**
  * Creates a Listmonk client with automatic response flattening
  *
@@ -797,11 +832,12 @@ export const createListmonkClient = (
 		};
 	}
 
-	finalConfig.fetch = createResilientFetch({
+	const resilientFetch = createResilientFetch({
 		timeoutMs: timeout,
 		retries,
 		baseFetch: globalThis.fetch.bind(globalThis) as FetchFn,
 	}) as unknown as typeof fetch;
+	finalConfig.fetch = resilientFetch;
 
 	// Create SDK options with client configuration
 	const sdkOptions = {
@@ -812,14 +848,53 @@ export const createListmonkClient = (
 	const enhancedClient: EnhancedListmonkClient = {
 		// Health check
 		async getHealthCheck() {
-			const result = await sdk.getHealthCheck(sdkOptions);
-			return (await transformResponse(result)) as FlattenedResponse<boolean>;
+			const healthCheckUrl = createHealthCheckUrl(finalConfig.baseUrl);
+			const request = new Request(healthCheckUrl, {
+				method: "GET",
+				headers: finalConfig.headers,
+			});
+			const response = await resilientFetch(request);
+
+			if (!response.ok) {
+				let message = `Health check failed with status ${response.status}`;
+				try {
+					const payload = (await response.clone().json()) as {
+						message?: string;
+					};
+					if (
+						typeof payload.message === "string" &&
+						payload.message.length > 0
+					) {
+						message = payload.message;
+					}
+				} catch {
+					// Keep the default status-based message.
+				}
+				throw new Error(message);
+			}
+
+			let payload: unknown = false;
+			try {
+				payload = await response.json();
+			} catch {
+				// Treat a non-JSON success body as an unhealthy response.
+			}
+			return (await transformResponse({
+				data: payload,
+				request,
+				response,
+			})) as FlattenedResponse<boolean>;
 		},
 
 		// Namespaced resource operations
 		list: createCrudOperations("List", sdkOptions),
 		subscriber: {
 			...createCrudOperations("Subscriber", sdkOptions),
+			async patch(options: Omit<t.PatchSubscriberByIdData, "url">) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.patchSubscriberById(mergedOptions);
+				return (await transformResponse(result)) as CrudResult<Subscriber>;
+			},
 			async manageLists(options: {
 				body: {
 					action?: "add" | "remove" | "unsubscribe";
@@ -948,7 +1023,7 @@ export const createListmonkClient = (
 			async createContent(options: {
 				path: { id: number };
 				body: {
-					content_type: "html" | "markdown" | "plain" | "richtext";
+					content_type: "html" | "markdown" | "plain" | "richtext" | "visual";
 					body: string;
 				};
 			}) {
@@ -956,17 +1031,7 @@ export const createListmonkClient = (
 				const result = await sdk.createCampaignContentById(mergedOptions);
 				return (await transformResponse(result)) as FlattenedResponse<boolean>;
 			},
-			async test(options: {
-				path: { id: number };
-				body: {
-					template_id?: number;
-					content_type?: string;
-					body?: string;
-					subject?: string;
-					lists?: number[];
-					subscribers?: string[];
-				};
-			}) {
+			async test(options: CampaignTestParams) {
 				const mergedOptions = { ...sdkOptions, ...options };
 				const result = await sdk.testCampaignById(mergedOptions);
 				return (await transformResponse(result)) as FlattenedResponse<boolean>;
@@ -989,17 +1054,16 @@ export const createListmonkClient = (
 				>;
 			},
 		},
-			template: {
-				...createCrudOperations("Template", sdkOptions, {
-					create: ["createTemplate"],
-					update: ["updateTemplateByIdPut"],
-				}),
-				async setAsDefault(options: { path: { id: number } }) {
-					const mergedOptions = { ...sdkOptions, ...options };
-					const result = await sdk.updateTemplateById(mergedOptions);
-					return (await transformResponse(result)) as FlattenedResponse<t.Template>;
-				},
+		template: {
+			...createCrudOperations("Template", sdkOptions),
+			async setAsDefault(options: { path: { id: number } }) {
+				const mergedOptions = { ...sdkOptions, ...options };
+				const result = await sdk.setDefaultTemplateById(mergedOptions);
+				return (await transformResponse(
+					result,
+				)) as FlattenedResponse<t.Template>;
 			},
+		},
 		media: {
 			list: createCrudOperations("Media", sdkOptions)
 				.list as MediaOperations["list"],
@@ -1031,7 +1095,7 @@ export const createListmonkClient = (
 				)) as FlattenedResponse<t.ImportStatus>;
 			},
 			async logs() {
-				const result = await sdk.getImportSubscriberStats(sdkOptions);
+				const result = await sdk.getImportSubscriberLogs(sdkOptions);
 				return (await transformResponse(result)) as FlattenedResponse<string>;
 			},
 			async start(params: ImportStartParams) {
@@ -1105,16 +1169,14 @@ export const createListmonkClient = (
 		settings: {
 			async get() {
 				const result = await sdk.getSettings(sdkOptions);
-				return (await transformResponse(result)) as FlattenedResponse<
-					Record<string, unknown>
-				>;
+				return (await transformResponse(
+					result,
+				)) as FlattenedResponse<t.Settings>;
 			},
 			async update(options: { body: Record<string, unknown> }) {
 				const mergedOptions = { ...sdkOptions, ...options };
 				const result = await sdk.updateSettings(mergedOptions);
-				return (await transformResponse(result)) as FlattenedResponse<
-					Record<string, unknown>
-				>;
+				return (await transformResponse(result)) as FlattenedResponse<boolean>;
 			},
 			async testSmtp(options: { body: Record<string, unknown> }) {
 				const mergedOptions = { ...sdkOptions, ...options };
@@ -1130,29 +1192,33 @@ export const createListmonkClient = (
 					? { ...sdkOptions, ...options }
 					: sdkOptions;
 				const result = await sdk.getDashboardCharts(mergedOptions);
-				return (await transformResponse(result)) as FlattenedResponse<
-					Record<string, unknown>
-				>;
+				return (await transformResponse(
+					result,
+				)) as FlattenedResponse<t.DashboardChart>;
 			},
 			async getCounts() {
 				const result = await sdk.getDashboardCounts(sdkOptions);
-				return (await transformResponse(result)) as FlattenedResponse<
-					Record<string, unknown>
-				>;
+				return (await transformResponse(
+					result,
+				)) as FlattenedResponse<t.DashboardCount>;
 			},
 		},
 
 		// System operations
 		system: {
+			async getAbout() {
+				const result = await sdk.getAboutInfo(sdkOptions);
+				return (await transformResponse(result)) as FlattenedResponse<t.About>;
+			},
 			async getConfig() {
 				const result = await sdk.getServerConfig(sdkOptions);
-				return (await transformResponse(result)) as FlattenedResponse<
-					Record<string, unknown>
-				>;
+				return (await transformResponse(
+					result,
+				)) as FlattenedResponse<t.ServerConfig>;
 			},
 			async getLogs() {
 				const result = await sdk.getLogs(sdkOptions);
-				return (await transformResponse(result)) as FlattenedResponse<string>;
+				return (await transformResponse(result)) as FlattenedResponse<string[]>;
 			},
 			async reload() {
 				const result = await sdk.reloadApp(sdkOptions);

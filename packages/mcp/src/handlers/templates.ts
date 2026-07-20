@@ -1,8 +1,10 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import {
+	createApiErrorResult,
 	createErrorResult,
 	createSuccessResult,
+	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
 import { parseId } from "../utils/typeHelpers.js";
@@ -157,7 +159,7 @@ export async function handleTemplatesTools(
 				const response = await client.template.list(
 					noBody ? { query: { no_body: true } } : undefined,
 				);
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to fetch templates");
 			}
 
 			case "listmonk_get_template": {
@@ -195,11 +197,26 @@ export async function handleTemplatesTools(
 				};
 
 				const response = await client.template.create({ body });
-				const createdTemplate =
-					response.data ??
-					(await client.template.list()).data?.results?.find(
-						(template) => template.name === body.name,
+				if ("error" in response && response.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to create template",
+						response.error,
 					);
+				}
+				if (response.data !== undefined) {
+					return createSuccessResult(response.data);
+				}
+
+				const lookupResponse = await client.template.list();
+				if ("error" in lookupResponse && lookupResponse.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to resolve created template",
+						lookupResponse.error,
+					);
+				}
+				const createdTemplate = lookupResponse.data?.results?.find(
+					(template) => template.name === body.name,
+				);
 
 				if (!createdTemplate) {
 					return createErrorResult(
@@ -263,7 +280,7 @@ export async function handleTemplatesTools(
 					);
 				}
 
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to update template");
 			}
 
 			case "listmonk_delete_template": {

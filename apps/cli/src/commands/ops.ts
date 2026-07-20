@@ -1,7 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { defineCommand, defineGroup, option } from "@bunli/core";
-import { OutputUtils } from "@listmonk-ops/common";
 import {
 	evaluateDeliverabilityGuard,
 	generateDailyDigest,
@@ -14,8 +12,9 @@ import {
 	runSubscriberHygiene,
 	syncTemplateRegistry,
 } from "@listmonk-ops/automation";
+import { OutputUtils } from "@listmonk-ops/common";
 import { z } from "zod";
-
+import { defineCommand, defineGroup, option } from "../lib/command";
 import { parseCsvNumbers, toErrorMessage } from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
 

@@ -247,6 +247,20 @@ paths:
                     items:
                       type: string
 
+  /about:
+    get:
+      tags:
+        - Miscellaneous
+      description: returns the running Listmonk build and system information
+      operationId: getAboutInfo
+      responses:
+        "200":
+          description: Listmonk build and system information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/About"
+
   /subscribers:
     get:
       tags:
@@ -423,6 +437,36 @@ paths:
       responses:
         "200":
           description: returns updated subscriber.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Subscriber"
+
+    patch:
+      description: partially modifies subscriber data while preserving omitted fields
+      operationId: patchSubscriberById
+      tags:
+        - Subscribers
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: The id of the subscriber to update
+          schema:
+            type: integer
+      requestBody:
+        description: subscriber fields to update
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSubscriber"
+      responses:
+        "200":
+          description: returns the updated subscriber
           content:
             application/json:
               schema:
@@ -817,7 +861,7 @@ paths:
                       page:
                         type: integer
     delete:
-      description: handles retrieval of bounce records.
+      description: handles deletion of bounce records.
       operationId: deleteBounces
       tags:
         - Bounces
@@ -1134,8 +1178,8 @@ paths:
 
   /import/subscribers/logs:
     get:
-      description: returns import statistics
-      operationId: getImportSubscriberStats
+      description: returns import logs from an ongoing import
+      operationId: getImportSubscriberLogs
       tags:
         - Import
       responses:
@@ -1261,7 +1305,7 @@ paths:
                 type: object
                 properties:
                   data:
-                    $ref: "#/components/schemas/CampaignUpdate"
+                    $ref: "#/components/schemas/Campaign"
 
   "/campaigns/{id}":
     get:
@@ -1320,7 +1364,7 @@ paths:
                 type: object
                 properties:
                   data:
-                    $ref: "#/components/schemas/CampaignUpdate"
+                    $ref: "#/components/schemas/Campaign"
 
     delete:
       description: deletes specified campaign
@@ -1770,12 +1814,13 @@ paths:
                     items:
                       $ref: "#/components/schemas/Template"
     post:
-      description: create a template.
+      description: handles template creation
       operationId: createTemplate
       tags:
         - Templates
       requestBody:
-        description: new template fields.
+        description: new template info
+        required: true
         content:
           application/json:
             schema:
@@ -1821,8 +1866,8 @@ paths:
                   data:
                     $ref: "#/components/schemas/Template"
     put:
-      description: update a template.
-      operationId: updateTemplateByIdPut
+      description: handles template modification
+      operationId: updateTemplateById
       tags:
         - Templates
       parameters:
@@ -1833,7 +1878,8 @@ paths:
           schema:
             type: integer
       requestBody:
-        description: updated template fields.
+        description: updated template info
+        required: true
         content:
           application/json:
             schema:
@@ -1848,7 +1894,6 @@ paths:
                 properties:
                   data:
                     $ref: "#/components/schemas/Template"
-
     delete:
       description: handles deletion of templates
       operationId: deleteTemplateById
@@ -1940,8 +1985,8 @@ paths:
 
   "/templates/{id}/default":
     put:
-      description: handles template modification.
-      operationId: updateTemplateById
+      description: sets the specified template as the default template.
+      operationId: setDefaultTemplateById
       tags:
         - Templates
       parameters:
@@ -2131,6 +2176,41 @@ paths:
 
 components:
   schemas:
+    About:
+      type: object
+      required:
+        - version
+      properties:
+        version:
+          type: string
+        build:
+          type: string
+        go_version:
+          type: string
+        go_arch:
+          type: string
+        database:
+          type: object
+          additionalProperties: true
+        system:
+          type: object
+          properties:
+            num_cpu:
+              type: integer
+            memory_alloc_mb:
+              type: integer
+            memory_from_os_mb:
+              type: integer
+        host:
+          type: object
+          properties:
+            os:
+              type: string
+            arch:
+              type: string
+            hostname:
+              type: string
+
     LanguagePack:
       type: object
       properties:
@@ -2158,6 +2238,10 @@ components:
             analytics.title:
               type: string
             analytics.toDate:
+              type: string
+            bounces.numSelected:
+              type: string
+            bounces.selectAll:
               type: string
             bounces.source:
               type: string
@@ -2839,6 +2923,8 @@ components:
               type: string
             settings.bounces.enableSES:
               type: string
+            settings.bounces.enableAzure:
+              type: string
             settings.bounces.enableSendgrid:
               type: string
             settings.bounces.enableForwardemail:
@@ -2854,6 +2940,14 @@ components:
             settings.bounces.folderHelp:
               type: string
             settings.bounces.invalidScanInterval:
+              type: string
+            settings.bounces.azureSharedSecret:
+              type: string
+            settings.bounces.azureSharedSecretHelp:
+              type: string
+            settings.bounces.azureSharedSecretHeader:
+              type: string
+            settings.bounces.azureSharedSecretHeaderHelp:
               type: string
             settings.bounces.name:
               type: string
@@ -3548,6 +3642,12 @@ components:
           type: string
         bounce.ses_enabled:
           type: boolean
+        bounce.azure.enabled:
+          type: boolean
+        bounce.azure.shared_secret:
+          type: string
+        bounce.azure.shared_secret_header:
+          type: string
         bounce.sendgrid_enabled:
           type: boolean
         bounce.sendgrid_key:
@@ -3854,6 +3954,8 @@ components:
           type: integer
         clicks:
           type: integer
+        bounces:
+          type: integer
         lists:
           type: array
           items:
@@ -3865,6 +3967,8 @@ components:
                 type: string
         started_at:
           type: string
+          format: date-time
+          nullable: true
         to_send:
           type: integer
         sent:
@@ -3882,21 +3986,54 @@ components:
           type: string
         body:
           type: string
+        body_source:
+          type: string
+          nullable: true
+        altbody:
+          type: string
+          nullable: true
         send_at:
           type: string
+          format: date-time
+          nullable: true
         status:
           type: string
         content_type:
           type: string
-          enum: [richtext, html, markdown, plain]
+          enum: [richtext, html, markdown, plain, visual]
         tags:
           type: array
           items:
             type: string
         template_id:
           type: integer
+          nullable: true
         messenger:
           type: string
+        headers:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+        attribs:
+          type: object
+          additionalProperties: true
+        archive:
+          type: boolean
+        archive_slug:
+          type: string
+          nullable: true
+        archive_template_id:
+          type: integer
+          nullable: true
+        archive_meta:
+          type: object
+          additionalProperties: true
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaFileObject"
 
     CampaignContentRequest:
       type: object
@@ -3924,6 +4061,8 @@ components:
                 type: string
         started_at:
           type: string
+          format: date-time
+          nullable: true
         to_send:
           type: integer
         sent:
@@ -3943,17 +4082,20 @@ components:
           type: string
         send_at:
           type: string
+          format: date-time
+          nullable: true
         status:
           type: string
         content_type:
           type: string
-          enum: [richtext, html, markdown, plain]
+          enum: [richtext, html, markdown, plain, visual]
         tags:
           type: array
           items:
             type: string
         template_id:
           type: integer
+          nullable: true
         messenger:
           type: string
         from:
@@ -3971,30 +4113,64 @@ components:
         lists:
           type: array
           items:
-            type: number
+            type: integer
         from_email:
           type: string
         content_type:
           type: string
+          enum: [richtext, html, markdown, plain, visual]
         messenger:
           type: string
         type:
           type: string
+          enum: [regular, optin]
         tags:
           type: array
           items:
             type: string
-        send_later:
-          type: boolean
         send_at:
+          type: string
+          format: date-time
+          nullable: true
+        headers:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+        attribs:
           type: object
-          properties:
-            headers:
-              type: array
-              items:
-                type: object
-            template_id:
-              type: number
+          additionalProperties: true
+        template_id:
+          type: integer
+          nullable: true
+        body:
+          type: string
+        body_source:
+          type: string
+          nullable: true
+        altbody:
+          type: string
+          nullable: true
+        archive:
+          type: boolean
+        archive_slug:
+          type: string
+          nullable: true
+        archive_template_id:
+          type: integer
+          nullable: true
+        archive_meta:
+          type: object
+          additionalProperties: true
+        media:
+          type: array
+          items:
+            type: integer
+        subscribers:
+          type: array
+          items:
+            type: string
 
     CampaignUpdate:
       type: object
@@ -4082,9 +4258,19 @@ components:
           type: string
         filename:
           type: string
+        content_type:
+          type: string
         created_at:
           type: string
         thumb_url:
+          type: string
+        thumb_uri:
+          type: string
+        provider:
+          type: string
+        meta:
+          type: object
+        url:
           type: string
         uri:
           type: string
@@ -4110,6 +4296,7 @@ components:
           type: string
         is_default:
           type: boolean
+
     NewTemplate:
       type: object
       required:
@@ -4119,43 +4306,63 @@ components:
       properties:
         name:
           type: string
+          description: Name of the template
         type:
           type: string
-          enum:
-            - campaign
-            - campaign_visual
-            - tx
+          enum: [campaign, campaign_visual, tx]
+          description: Type of the template
         subject:
           type: string
+          description: Subject line for the template (only for tx)
         body_source:
           type: string
+          description: JSON source for the email-builder template (only for campaign_visual)
         body:
           type: string
+          description: HTML body of the template
+
     UpdateTemplate:
       type: object
       properties:
         name:
           type: string
+          description: Name of the template
         type:
           type: string
-          enum:
-            - campaign
-            - campaign_visual
-            - tx
+          enum: [campaign, campaign_visual, tx]
+          description: Type of the template
         subject:
           type: string
+          description: Subject line for the template (only for tx)
         body_source:
           type: string
+          description: JSON source for the email-builder template (only for campaign_visual)
         body:
           type: string
+          description: HTML body of the template
 
     TransactionalMessage:
       type: object
+      required:
+        - template_id
       properties:
+        subscriber_mode:
+          type: string
+          enum: [default, fallback, external]
+        subscriber_emails:
+          type: array
+          items:
+            type: string
+        subscriber_ids:
+          type: array
+          items:
+            type: integer
         subscriber_email:
           type: string
+          deprecated: true
         subscriber_id:
           type: integer
+          deprecated: true
         template_id:
           type: integer
         from_email:
@@ -4166,7 +4373,13 @@ components:
           type: array
           items:
             type: object
+            additionalProperties:
+              type: string
         messenger:
           type: string
         content_type:
+          type: string
+        subject:
+          type: string
+        altbody:
           type: string

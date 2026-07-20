@@ -1,7 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
-import { createErrorResult, createSuccessResult } from "../utils/response.js";
+import { createErrorResult, handleDataResponse } from "../utils/response.js";
 import { withErrorHandler } from "../utils/typeHelpers.js";
 
 export const settingsTools: MCPTool[] = [
@@ -106,12 +106,12 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 		switch (name) {
 			case "listmonk_health_check": {
 				const response = await client.getHealthCheck();
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Health check failed");
 			}
 
 			case "listmonk_get_settings": {
 				const response = await client.settings.get();
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to fetch settings");
 			}
 
 			case "listmonk_update_settings": {
@@ -123,24 +123,24 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 					body: args.settings as Record<string, unknown>,
 				});
 
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to update settings");
 			}
 
 			case "listmonk_get_server_config": {
 				const response = await client.system.getConfig();
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to fetch server config");
 			}
 
 			case "listmonk_get_dashboard_counts": {
 				const response = await client.dashboard.getCounts();
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to fetch dashboard counts");
 			}
 
 			case "listmonk_get_dashboard_charts": {
 				const response = await client.dashboard.getCharts(
 					args.type ? { query: { type: String(args.type) } } : undefined,
 				);
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to fetch dashboard charts");
 			}
 
 			case "listmonk_test_smtp": {
@@ -152,17 +152,17 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 					body: args.settings as Record<string, unknown>,
 				});
 
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to test SMTP settings");
 			}
 
 			case "listmonk_get_logs": {
 				const response = await client.system.getLogs();
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to fetch logs");
 			}
 
 			case "listmonk_reload_app": {
 				const response = await client.system.reload();
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to reload app");
 			}
 
 			default:

@@ -254,64 +254,34 @@ export const commands = {
 
 ```typescript
 // src/index.ts
-import { gunshi } from 'gunshi';
-import { CreateAbTestCommand, AnalyzeAbTestCommand } from '@listmonk-ops/commands';
-import { AbTestService } from '@listmonk-ops/abtest';
-import { createListmonkClientFromEnv } from '@listmonk-ops/openapi';
+import completion from '@gunshi/plugin-completion';
+import { cli, define } from 'gunshi';
+import abtestCommand from './commands/abtest';
+import campaignsCommand from './commands/campaigns';
+import { prepareCliArgv } from './lib/command';
 
-const client = createListmonkClientFromEnv();
-const abTestService = new AbTestService(client);
+const entry = define({
+  name: 'listmonk-cli',
+  description: 'CLI for Listmonk operations',
+  run: () => undefined,
+});
 
-const createCommand = new CreateAbTestCommand(abTestService);
-const analyzeCommand = new AnalyzeAbTestCommand(abTestService);
-
-gunshi
-  .command('ab-test:create')
-  .description('Create a new A/B test')
-  .option('--name <name>', 'Test name')
-  .option('--campaign-id <id>', 'Base campaign ID')
-  .option('--variants <json>', 'Variants configuration as JSON')
-  .action(async (options) => {
-    try {
-      const input = {
-        name: options.name,
-        campaignId: options.campaignId,
-        variants: JSON.parse(options.variants)
-      };
-      
-      const result = await createCommand.execute(input);
-      console.log(`✅ A/B Test "${result.name}" created with ID: ${result.id}`);
-    } catch (error) {
-      console.error(`❌ Error: ${error.message}`);
-      process.exit(1);
-    }
-  });
-
-gunshi
-  .command('ab-test:analyze <testId>')
-  .description('Analyze A/B test results')
-  .option('--format <format>', 'Output format (table, json)', 'table')
-  .action(async (testId, options) => {
-    try {
-      const analysis = await analyzeCommand.execute(testId);
-      
-      if (options.format === 'json') {
-        console.log(JSON.stringify(analysis, null, 2));
-      } else {
-        // 테이블 형태로 출력
-        console.table(analysis.results);
-        if (analysis.winner) {
-          console.log(`🏆 Winner: ${analysis.winner.name} (${analysis.analysis.confidence}% confidence)`);
-        }
-      }
-    } catch (error) {
-      console.error(`❌ Error: ${error.message}`);
-      process.exit(1);
-    }
-  });
-
-gunshi.parse();
+await cli(prepareCliArgv(process.argv.slice(2)), entry, {
+  name: 'listmonk-cli',
+  version: packageVersion,
+  strict: true,
+  subCommands: {
+    campaigns: campaignsCommand,
+    abtest: abtestCommand,
+    // status, lists, subscribers, templates, tx, ops, ...
+  },
+  plugins: [completion()],
+});
 ```
+
+`src/lib/command.ts`는 애플리케이션이 소유하는 호환성 경계입니다. Zod 기반
+옵션과 Clack 프롬프트를 Gunshi 정의로 변환하고 중첩 `subCommands`를 구성하며,
+파싱 전에 deprecated `completions` 표기와 기존 명시적 boolean 값을 정규화합니다.
 
 ## A/B 테스트 구현
 

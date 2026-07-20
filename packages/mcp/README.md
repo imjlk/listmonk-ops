@@ -96,9 +96,13 @@ Create a `.env` file with your Listmonk configuration:
 # Listmonk API Base URL
 LISTMONK_API_URL=http://localhost:9000/api
 
-# Listmonk Authentication
-LISTMONK_USERNAME=admin
-LISTMONK_PASSWORD=password
+# Listmonk API authentication (recommended)
+LISTMONK_USERNAME=api-admin
+LISTMONK_API_TOKEN=<token>
+
+# Optional legacy fallback if you cannot use an API token yet
+# LISTMONK_PASSWORD=adminpass
+
 # Optional: suppress A/B statistical logs in MCP automation
 LISTMONK_OPS_ABTEST_SILENT=1
 
@@ -116,9 +120,9 @@ DEBUG=false
 
 ```bash
 LISTMONK_API_URL=http://localhost:9000/api \
-LISTMONK_USERNAME=admin \
-LISTMONK_API_TOKEN=<token> \
-listmonk-mcp
+ LISTMONK_USERNAME=api-admin \
+ LISTMONK_API_TOKEN=<token> \
+ listmonk-mcp
 ```
 
 ### Run With Runtime Flags (for remote Listmonk endpoint)
@@ -235,16 +239,21 @@ bun run mcp test:e2e
 
 #### Test Configuration
 
+The MCP E2E harness loads `tests/.env.test` first and then `tests/.env.test.local` (if present), while keeping explicit process env values as highest priority.
+
 Create `tests/.env.test.local` to customize test settings:
 
 ```bash
 # Copy template and modify as needed
 cp tests/.env.test tests/.env.test.local
 
-# Edit configuration (default values work with project Docker setup)
-LISTMONK_URL=http://localhost:9000
-LISTMONK_USERNAME=admin
-LISTMONK_PASSWORD=adminpass
+# Edit configuration (default values work with the project Docker setup)
+LISTMONK_API_URL=http://localhost:9000/api
+LISTMONK_USERNAME=api-admin
+LISTMONK_API_TOKEN=<token>
+
+# Only set this when you intentionally want to hit a non-local target.
+LISTMONK_E2E_ALLOW_REMOTE=0
 ```
 
 #### Test Coverage

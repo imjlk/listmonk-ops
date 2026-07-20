@@ -1,9 +1,11 @@
-import type { ListmonkClient } from "@listmonk-ops/openapi";
+import type { Campaign, ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
 import {
+	createApiErrorResult,
 	createErrorResult,
 	createSuccessResult,
+	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
 import {
@@ -271,7 +273,7 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 				const response = await client.campaign.list(
 					hasQuery ? { query: queryParams } : undefined,
 				);
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to fetch campaigns");
 			}
 
 			case "listmonk_get_campaign": {
@@ -314,14 +316,30 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 				};
 
 				const response = await client.campaign.create({ body });
-				let createdCampaign: typeof response.data | undefined = response.data;
+				if ("error" in response && response.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to create campaign",
+						response.error,
+					);
+				}
+				if (response.data !== undefined) {
+					return createSuccessResult(response.data);
+				}
+
+				let createdCampaign: Campaign | undefined;
 				const pageSize = 100;
 				const firstPage = await client.campaign.list({
 					query: { page: 1, per_page: pageSize },
 				});
-				createdCampaign =
-					createdCampaign ??
-					firstPage.data?.results?.find((campaign) => campaign.name === body.name);
+				if ("error" in firstPage && firstPage.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to resolve created campaign",
+						firstPage.error,
+					);
+				}
+				createdCampaign = firstPage.data?.results?.find(
+					(campaign) => campaign.name === body.name,
+				);
 
 				if (!createdCampaign) {
 					const total = firstPage.data?.total ?? 0;
@@ -331,6 +349,15 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 						const lastPageResponse = await client.campaign.list({
 							query: { page: lastPage, per_page: pageSize },
 						});
+						if (
+							"error" in lastPageResponse &&
+							lastPageResponse.error !== undefined
+						) {
+							return createApiErrorResult(
+								"Failed to resolve created campaign",
+								lastPageResponse.error,
+							);
+						}
 						createdCampaign = lastPageResponse.data?.results?.find(
 							(campaign) => campaign.name === body.name,
 						);
@@ -356,7 +383,7 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					path: { id: parseId(args.id) },
 					body: { status: castCampaignStatus(args.status) },
 				});
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to update campaign status");
 			}
 
 			case "listmonk_delete_campaign": {
@@ -368,7 +395,7 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 				const response = await client.campaign.delete({
 					path: { id: parseId(args.id) },
 				});
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to delete campaign");
 			}
 
 			case "listmonk_test_campaign": {
@@ -377,11 +404,52 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				const response = await client.campaign.test({
-					path: { id: parseId(args.id) },
-					body: { subscribers: Array.isArray(args.emails) ? args.emails : [] },
+				const campaignId = parseId(args.id);
+				const currentResponse = await client.campaign.getById({
+					path: { id: campaignId },
 				});
-				return createSuccessResult(response.data);
+				if ("error" in currentResponse) {
+					return createApiErrorResult(
+						"Failed to load campaign before test send",
+						currentResponse.error,
+					);
+				}
+
+				const currentCampaign = currentResponse.data;
+				if (!currentCampaign) {
+					return createErrorResult("Campaign not found");
+				}
+
+				const response = await client.campaign.test({
+					path: { id: campaignId },
+					body: {
+						name: currentCampaign.name ?? `campaign-${campaignId}`,
+						subject: currentCampaign.subject ?? "",
+						from_email: currentCampaign.from_email ?? "",
+						body: currentCampaign.body ?? "",
+						altbody: currentCampaign.altbody,
+						content_type: currentCampaign.content_type ?? "html",
+						template_id: currentCampaign.template_id,
+						headers: currentCampaign.headers ?? [],
+						lists:
+							currentCampaign.lists
+								?.map((list) => Number(list.id))
+								.filter((id) => Number.isInteger(id) && id > 0) ?? [],
+						media:
+							currentCampaign.media
+								?.map((item) => Number(item.id))
+								.filter((id) => Number.isInteger(id) && id > 0) ?? [],
+						subscribers: Array.isArray(args.emails)
+							? args.emails.map((email) => String(email))
+							: [],
+						messenger: currentCampaign.messenger ?? "email",
+						type: currentCampaign.type ?? "regular",
+						tags: Array.isArray(currentCampaign.tags)
+							? currentCampaign.tags
+							: [],
+					},
+				});
+				return handleDataResponse(response, "Failed to send test campaign");
 			}
 
 			case "listmonk_get_campaign_running_stats": {
@@ -393,7 +461,10 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 				const response = await client.campaign.getRunningStats({
 					query: { campaign_id: parseId(args.campaign_id) },
 				});
-				return createSuccessResult(response.data);
+				return handleDataResponse(
+					response,
+					"Failed to fetch running campaign stats",
+				);
 			}
 
 			case "listmonk_get_campaign_analytics": {
@@ -417,7 +488,10 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 						id: String(args.id),
 					},
 				});
-				return createSuccessResult(response.data);
+				return handleDataResponse(
+					response,
+					"Failed to fetch campaign analytics",
+				);
 			}
 
 			default:

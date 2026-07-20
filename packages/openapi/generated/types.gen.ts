@@ -4,6 +4,26 @@ export type ClientOptions = {
     baseUrl: 'http://localhost:9000/api' | (string & {});
 };
 
+export type About = {
+    version: string;
+    build?: string;
+    go_version?: string;
+    go_arch?: string;
+    database?: {
+        [key: string]: unknown;
+    };
+    system?: {
+        num_cpu?: number;
+        memory_alloc_mb?: number;
+        memory_from_os_mb?: number;
+    };
+    host?: {
+        os?: string;
+        arch?: string;
+        hostname?: string;
+    };
+};
+
 export type LanguagePack = {
     data?: {
         '_.code'?: string;
@@ -17,6 +37,8 @@ export type LanguagePack = {
         'analytics.nonUnique'?: string;
         'analytics.title'?: string;
         'analytics.toDate'?: string;
+        'bounces.numSelected'?: string;
+        'bounces.selectAll'?: string;
         'bounces.source'?: string;
         'bounces.unknownService'?: string;
         'bounces.view'?: string;
@@ -357,6 +379,7 @@ export type LanguagePack = {
         'settings.bounces.enable'?: string;
         'settings.bounces.enableMailbox'?: string;
         'settings.bounces.enableSES'?: string;
+        'settings.bounces.enableAzure'?: string;
         'settings.bounces.enableSendgrid'?: string;
         'settings.bounces.enableForwardemail'?: string;
         'settings.bounces.enablePostmark'?: string;
@@ -365,6 +388,10 @@ export type LanguagePack = {
         'settings.bounces.folder'?: string;
         'settings.bounces.folderHelp'?: string;
         'settings.bounces.invalidScanInterval'?: string;
+        'settings.bounces.azureSharedSecret'?: string;
+        'settings.bounces.azureSharedSecretHelp'?: string;
+        'settings.bounces.azureSharedSecretHeader'?: string;
+        'settings.bounces.azureSharedSecretHeaderHelp'?: string;
         'settings.bounces.name'?: string;
         'settings.bounces.scanInterval'?: string;
         'settings.bounces.scanIntervalHelp'?: string;
@@ -723,6 +750,9 @@ export type Settings = {
     'bounce.count'?: number;
     'bounce.action'?: string;
     'bounce.ses_enabled'?: boolean;
+    'bounce.azure.enabled'?: boolean;
+    'bounce.azure.shared_secret'?: string;
+    'bounce.azure.shared_secret_header'?: string;
     'bounce.sendgrid_enabled'?: boolean;
     'bounce.sendgrid_key'?: string;
     'bounce.forwardemail_enabled'?: boolean;
@@ -894,11 +924,12 @@ export type Campaign = {
     CampaignID?: number;
     views?: number;
     clicks?: number;
+    bounces?: number;
     lists?: Array<{
         id?: number;
         name?: string;
     }>;
-    started_at?: string;
+    started_at?: string | null;
     to_send?: number;
     sent?: number;
     uuid?: string;
@@ -907,12 +938,27 @@ export type Campaign = {
     subject?: string;
     from_email?: string;
     body?: string;
-    send_at?: string;
+    body_source?: string | null;
+    altbody?: string | null;
+    send_at?: string | null;
     status?: string;
-    content_type?: 'richtext' | 'html' | 'markdown' | 'plain';
+    content_type?: 'richtext' | 'html' | 'markdown' | 'plain' | 'visual';
     tags?: Array<string>;
-    template_id?: number;
+    template_id?: number | null;
     messenger?: string;
+    headers?: Array<{
+        [key: string]: string;
+    }>;
+    attribs?: {
+        [key: string]: unknown;
+    };
+    archive?: boolean;
+    archive_slug?: string | null;
+    archive_template_id?: number | null;
+    archive_meta?: {
+        [key: string]: unknown;
+    };
+    media?: Array<MediaFileObject>;
 };
 
 export type CampaignContentRequest = {
@@ -926,7 +972,7 @@ export type CampaignContentRequest = {
         id?: number;
         name?: string;
     }>;
-    started_at?: string;
+    started_at?: string | null;
     to_send?: number;
     sent?: number;
     uuid?: string;
@@ -935,11 +981,11 @@ export type CampaignContentRequest = {
     subject?: string;
     from_email?: string;
     body?: string;
-    send_at?: string;
+    send_at?: string | null;
     status?: string;
-    content_type?: 'richtext' | 'html' | 'markdown' | 'plain';
+    content_type?: 'richtext' | 'html' | 'markdown' | 'plain' | 'visual';
     tags?: Array<string>;
-    template_id?: number;
+    template_id?: number | null;
     messenger?: string;
     from?: string;
     to?: string;
@@ -950,17 +996,29 @@ export type CampaignRequest = {
     subject?: string;
     lists?: Array<number>;
     from_email?: string;
-    content_type?: string;
+    content_type?: 'richtext' | 'html' | 'markdown' | 'plain' | 'visual';
     messenger?: string;
-    type?: string;
+    type?: 'regular' | 'optin';
     tags?: Array<string>;
-    send_later?: boolean;
-    send_at?: {
-        headers?: Array<{
-            [key: string]: unknown;
-        }>;
-        template_id?: number;
+    send_at?: string | null;
+    headers?: Array<{
+        [key: string]: string;
+    }>;
+    attribs?: {
+        [key: string]: unknown;
     };
+    template_id?: number | null;
+    body?: string;
+    body_source?: string | null;
+    altbody?: string | null;
+    archive?: boolean;
+    archive_slug?: string | null;
+    archive_template_id?: number | null;
+    archive_meta?: {
+        [key: string]: unknown;
+    };
+    media?: Array<number>;
+    subscribers?: Array<string>;
 };
 
 export type CampaignUpdate = {
@@ -1010,8 +1068,15 @@ export type MediaFileObject = {
     id?: number;
     uuid?: string;
     filename?: string;
+    content_type?: string;
     created_at?: string;
     thumb_url?: string;
+    thumb_uri?: string;
+    provider?: string;
+    meta?: {
+        [key: string]: unknown;
+    };
+    url?: string;
     uri?: string;
 };
 
@@ -1028,34 +1093,75 @@ export type Template = {
 };
 
 export type NewTemplate = {
+    /**
+     * Name of the template
+     */
     name: string;
+    /**
+     * Type of the template
+     */
     type: 'campaign' | 'campaign_visual' | 'tx';
+    /**
+     * Subject line for the template (only for tx)
+     */
     subject?: string;
+    /**
+     * JSON source for the email-builder template (only for campaign_visual)
+     */
     body_source?: string;
+    /**
+     * HTML body of the template
+     */
     body: string;
 };
 
 export type UpdateTemplate = {
+    /**
+     * Name of the template
+     */
     name?: string;
+    /**
+     * Type of the template
+     */
     type?: 'campaign' | 'campaign_visual' | 'tx';
+    /**
+     * Subject line for the template (only for tx)
+     */
     subject?: string;
+    /**
+     * JSON source for the email-builder template (only for campaign_visual)
+     */
     body_source?: string;
+    /**
+     * HTML body of the template
+     */
     body?: string;
 };
 
 export type TransactionalMessage = {
+    subscriber_mode?: 'default' | 'fallback' | 'external';
+    subscriber_emails?: Array<string>;
+    subscriber_ids?: Array<number>;
+    /**
+     * @deprecated
+     */
     subscriber_email?: string;
+    /**
+     * @deprecated
+     */
     subscriber_id?: number;
-    template_id?: number;
+    template_id: number;
     from_email?: string;
     data?: {
         [key: string]: unknown;
     };
     headers?: Array<{
-        [key: string]: unknown;
+        [key: string]: string;
     }>;
     messenger?: string;
     content_type?: string;
+    subject?: string;
+    altbody?: string;
 };
 
 export type GetHealthCheckData = {
@@ -1249,6 +1355,22 @@ export type GetLogsResponses = {
 
 export type GetLogsResponse = GetLogsResponses[keyof GetLogsResponses];
 
+export type GetAboutInfoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/about';
+};
+
+export type GetAboutInfoResponses = {
+    /**
+     * Listmonk build and system information
+     */
+    200: About;
+};
+
+export type GetAboutInfoResponse = GetAboutInfoResponses[keyof GetAboutInfoResponses];
+
 export type DeleteSubscriberByListData = {
     body?: never;
     path?: never;
@@ -1391,6 +1513,32 @@ export type GetSubscriberByIdResponses = {
 };
 
 export type GetSubscriberByIdResponse = GetSubscriberByIdResponses[keyof GetSubscriberByIdResponses];
+
+export type PatchSubscriberByIdData = {
+    /**
+     * subscriber fields to update
+     */
+    body: UpdateSubscriber;
+    path: {
+        /**
+         * The id of the subscriber to update
+         */
+        id: number;
+    };
+    query?: never;
+    url: '/subscribers/{id}';
+};
+
+export type PatchSubscriberByIdResponses = {
+    /**
+     * returns the updated subscriber
+     */
+    200: {
+        data?: Subscriber;
+    };
+};
+
+export type PatchSubscriberByIdResponse = PatchSubscriberByIdResponses[keyof PatchSubscriberByIdResponses];
 
 export type UpdateSubscriberByIdData = {
     /**
@@ -1998,14 +2146,14 @@ export type ImportSubscribersResponses = {
 
 export type ImportSubscribersResponse = ImportSubscribersResponses[keyof ImportSubscribersResponses];
 
-export type GetImportSubscriberStatsData = {
+export type GetImportSubscriberLogsData = {
     body?: never;
     path?: never;
     query?: never;
     url: '/import/subscribers/logs';
 };
 
-export type GetImportSubscriberStatsResponses = {
+export type GetImportSubscriberLogsResponses = {
     /**
      * import statistics
      */
@@ -2014,7 +2162,7 @@ export type GetImportSubscriberStatsResponses = {
     };
 };
 
-export type GetImportSubscriberStatsResponse = GetImportSubscriberStatsResponses[keyof GetImportSubscriberStatsResponses];
+export type GetImportSubscriberLogsResponse = GetImportSubscriberLogsResponses[keyof GetImportSubscriberLogsResponses];
 
 export type GetCampaignsData = {
     body?: never;
@@ -2088,7 +2236,7 @@ export type CreateCampaignResponses = {
      * new campaign object
      */
     200: {
-        data?: CampaignUpdate;
+        data?: Campaign;
     };
 };
 
@@ -2165,7 +2313,7 @@ export type UpdateCampaignByIdResponses = {
      * updated campaign object
      */
     200: {
-        data?: CampaignUpdate;
+        data?: Campaign;
     };
 };
 
@@ -2547,9 +2695,9 @@ export type GetTemplatesResponse = GetTemplatesResponses[keyof GetTemplatesRespo
 
 export type CreateTemplateData = {
     /**
-     * new template fields.
+     * new template info
      */
-    body?: NewTemplate;
+    body: NewTemplate;
     path?: never;
     query?: never;
     url: '/templates';
@@ -2617,11 +2765,11 @@ export type GetTemplateByIdResponses = {
 
 export type GetTemplateByIdResponse = GetTemplateByIdResponses[keyof GetTemplateByIdResponses];
 
-export type UpdateTemplateByIdPutData = {
+export type UpdateTemplateByIdData = {
     /**
-     * updated template fields.
+     * updated template info
      */
-    body?: UpdateTemplate;
+    body: UpdateTemplate;
     path: {
         /**
          * The id value of the template you want to update.
@@ -2632,7 +2780,7 @@ export type UpdateTemplateByIdPutData = {
     url: '/templates/{id}';
 };
 
-export type UpdateTemplateByIdPutResponses = {
+export type UpdateTemplateByIdResponses = {
     /**
      * response
      */
@@ -2641,7 +2789,7 @@ export type UpdateTemplateByIdPutResponses = {
     };
 };
 
-export type UpdateTemplateByIdPutResponse = UpdateTemplateByIdPutResponses[keyof UpdateTemplateByIdPutResponses];
+export type UpdateTemplateByIdResponse = UpdateTemplateByIdResponses[keyof UpdateTemplateByIdResponses];
 
 export type PreviewTemplateData = {
     /**
@@ -2704,7 +2852,7 @@ export type PreviewTemplateByIdResponses = {
 
 export type PreviewTemplateByIdResponse = PreviewTemplateByIdResponses[keyof PreviewTemplateByIdResponses];
 
-export type UpdateTemplateByIdData = {
+export type SetDefaultTemplateByIdData = {
     body?: never;
     path: {
         /**
@@ -2716,14 +2864,14 @@ export type UpdateTemplateByIdData = {
     url: '/templates/{id}/default';
 };
 
-export type UpdateTemplateByIdResponses = {
+export type SetDefaultTemplateByIdResponses = {
     /**
      * response
      */
     200: Template;
 };
 
-export type UpdateTemplateByIdResponse = UpdateTemplateByIdResponses[keyof UpdateTemplateByIdResponses];
+export type SetDefaultTemplateByIdResponse = SetDefaultTemplateByIdResponses[keyof SetDefaultTemplateByIdResponses];
 
 export type TransactWithSubscriberData = {
     /**

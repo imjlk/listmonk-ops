@@ -106,9 +106,10 @@ describe("Resilient Fetch Policy", () => {
 		const controller = new AbortController();
 		controller.abort();
 
-		await client.list.list({
+		const abortableOptions = {
 			signal: controller.signal,
-		} as any);
+		} as Parameters<typeof client.list.list>[0] & { signal: AbortSignal };
+		await client.list.list(abortableOptions);
 
 		expect(calls).toBe(1);
 	});

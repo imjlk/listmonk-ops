@@ -1,8 +1,7 @@
-import "dotenv/config";
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ListmonkMCPServer } from "./server.js";
+import type { ListmonkMCPServer } from "./server.js";
 
 interface RuntimeArgs {
 	baseUrl?: string;
@@ -12,6 +11,70 @@ interface RuntimeArgs {
 	host?: string;
 	port?: number;
 	help?: boolean;
+}
+
+type MCPServerConfig = {
+	baseUrl: string;
+	username: string;
+	password: string;
+	apiToken: string;
+};
+
+async function createMCPServer(
+	config: MCPServerConfig,
+): Promise<InstanceType<typeof ListmonkMCPServer>> {
+	const { ListmonkMCPServer } = await import("./server.js");
+	return new ListmonkMCPServer(config);
+}
+
+function loadFileEnv(path: string): void {
+	if (!existsSync(path)) {
+		return;
+	}
+
+	let content: string;
+	try {
+		content = readFileSync(path, "utf8");
+	} catch (error) {
+		const detail =
+			error instanceof Error ? error.message : String(error);
+		console.warn(`⚠️ Failed to read ${path}: ${detail}`);
+		return;
+	}
+
+	const lines = content.split(/\r?\n/);
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (!trimmed || trimmed.startsWith("#")) {
+			continue;
+		}
+
+		const separatorIndex = trimmed.indexOf("=");
+		if (separatorIndex < 0) {
+			continue;
+		}
+
+		const key = trimmed.slice(0, separatorIndex).trim();
+		if (!key) {
+			continue;
+		}
+
+		let value = trimmed.slice(separatorIndex + 1).trim();
+		if (
+			(value.startsWith('"') && value.endsWith('"')) ||
+			(value.startsWith("'") && value.endsWith("'"))
+		) {
+			value = value.slice(1, -1);
+		}
+
+		if (process.env[key] === undefined) {
+			process.env[key] = value;
+		}
+	}
+}
+
+function loadRuntimeEnv(): void {
+	loadFileEnv(resolve(process.cwd(), ".env"));
 }
 
 function printHelp(): void {
@@ -41,7 +104,10 @@ Environment fallback:
 
 function parseArgs(argv: string[]): RuntimeArgs {
 	const args: RuntimeArgs = {};
-	const takeValue = (arg: string, next: string | undefined): string | undefined => {
+	const takeValue = (
+		arg: string,
+		next: string | undefined,
+	): string | undefined => {
 		if (arg.includes("=")) {
 			const [, value] = arg.split("=", 2);
 			return value;
@@ -123,6 +189,7 @@ function parseArgs(argv: string[]): RuntimeArgs {
 }
 
 export async function main() {
+	loadRuntimeEnv();
 	const runtimeArgs = parseArgs(process.argv.slice(2));
 	if (runtimeArgs.help) {
 		printHelp();
@@ -158,7 +225,7 @@ export async function main() {
 	}
 
 	try {
-		const server = new ListmonkMCPServer(config);
+		const server = await createMCPServer(config);
 		await server.listen(port, host);
 	} catch (error) {
 		console.error("❌ Failed to start server:", error);

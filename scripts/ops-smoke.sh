@@ -14,6 +14,7 @@ rm -f "$RESULTS_TSV"
 LISTMONK_API_URL="${LISTMONK_API_URL:-http://localhost:9000/api}"
 LISTMONK_USERNAME="${LISTMONK_USERNAME:-api-admin}"
 LISTMONK_API_TOKEN="${LISTMONK_API_TOKEN:-}"
+export LISTMONK_TEST_TOKEN_FILE="${LISTMONK_TEST_TOKEN_FILE:-/tmp/listmonk-ops-api-token}"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -77,18 +78,21 @@ if ! curl -fsS "$HEALTH_URL" >/dev/null; then
 	exit 1
 fi
 
+if [[ -z "$LISTMONK_API_TOKEN" && -f "$LISTMONK_TEST_TOKEN_FILE" ]]; then
+	LISTMONK_API_TOKEN="$(tr -d '\r\n' <"$LISTMONK_TEST_TOKEN_FILE")"
+fi
+
 if [[ -z "$LISTMONK_API_TOKEN" ]] && command -v docker >/dev/null 2>&1; then
-	if docker compose -f "$ROOT_DIR/docker-compose.yml" ps --services --filter status=running | grep -q "^db$"; then
-		LISTMONK_API_TOKEN="$(
-			docker compose -f "$ROOT_DIR/docker-compose.yml" exec -T db \
-				psql -U listmonk -d listmonk -Atc \
-				"SELECT password FROM users WHERE username='${LISTMONK_USERNAME}' LIMIT 1;" 2>/dev/null || true
-		)"
+	if docker compose -f "$ROOT_DIR/docker-compose.yml" ps --services --filter status=running | grep -q "^listmonk$"; then
+		bun run --cwd "$ROOT_DIR" stack:bootstrap-auth
+		if [[ -f "$LISTMONK_TEST_TOKEN_FILE" ]]; then
+			LISTMONK_API_TOKEN="$(tr -d '\r\n' <"$LISTMONK_TEST_TOKEN_FILE")"
+		fi
 	fi
 fi
 
 if [[ -z "$LISTMONK_API_TOKEN" ]]; then
-	echo "LISTMONK_API_TOKEN is required (env or local docker db lookup)"
+	echo "LISTMONK_API_TOKEN is required (env or local test-stack bootstrap)"
 	exit 1
 fi
 

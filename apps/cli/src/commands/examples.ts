@@ -1,5 +1,5 @@
-import { defineCommand } from "@bunli/core";
 import { OutputUtils } from "@listmonk-ops/common";
+import { defineCommand } from "../lib/command";
 
 export default defineCommand({
 	name: "examples",
@@ -38,8 +38,8 @@ listmonk-cli ops guard --campaign-id 100 --pause-on-breach true
 listmonk-cli ops digest --hours 24
 
 # Shell completion
-listmonk-cli completions zsh
-source <(listmonk-cli completions zsh)
+listmonk-cli complete zsh
+source <(listmonk-cli complete zsh)
 `);
 	},
 });

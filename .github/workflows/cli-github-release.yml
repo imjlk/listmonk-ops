@@ -23,15 +23,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             platform: linux
             arch: x64
-          - os: macos-13
+            target: bun-linux-x64
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+            target: bun-linux-arm64
+          - os: macos-15-intel
             platform: darwin
             arch: x64
-          - os: macos-latest
+            target: bun-darwin-x64
+          - os: macos-15
             platform: darwin
             arch: arm64
+            target: bun-darwin-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -46,7 +53,12 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build native CLI binary
+        env:
+          BUN_BUILD_TARGET: ${{ matrix.target }}
         run: bun run --cwd apps/cli build:bin
+
+      - name: Test native CLI binary
+        run: bun run --cwd apps/cli test:binary
 
       - name: Package release asset
         run: |

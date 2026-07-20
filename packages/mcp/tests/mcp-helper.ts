@@ -1,6 +1,6 @@
 import { createListmonkMCPServer } from "../src/server.js";
 import type { CallToolRequest, CallToolResult } from "../src/types/mcp.js";
-import { TEST_CONFIG } from "./setup.js";
+import { buildTestEmail, buildTestName, TEST_CONFIG } from "./setup.js";
 
 const MCP_TEST_VERBOSE = process.env.MCP_TEST_VERBOSE === "1";
 
@@ -129,11 +129,11 @@ export class MCPTestUtils {
 	/**
 	 * Create a test list
 	 */
-	async createTestList(name: string = "Test-List") {
+	async createTestList(name?: string) {
 		const result = await this.client.callTool("listmonk_create_list", {
-			name: `${name}-${Date.now()}`,
+			name: name || buildTestName("list"),
 			type: "private",
-			description: "Test list created by E2E tests",
+			description: "Managed by MCP E2E tests",
 		});
 
 		return this.assertSuccess(result, "Failed to create test list");
@@ -142,13 +142,10 @@ export class MCPTestUtils {
 	/**
 	 * Create a test subscriber
 	 */
-	async createTestSubscriber(
-		email: string = "test@example.com",
-		name: string = "Test User",
-	) {
+	async createTestSubscriber(email?: string, name?: string) {
 		const result = await this.client.callTool("listmonk_create_subscriber", {
-			email: `${Date.now()}.${email}`,
-			name: `${name} ${Date.now()}`,
+			email: email || buildTestEmail("subscriber"),
+			name: name || buildTestName("subscriber"),
 			status: "enabled",
 		});
 
@@ -158,9 +155,9 @@ export class MCPTestUtils {
 	/**
 	 * Create a test template
 	 */
-	async createTestTemplate(name: string = "Test-Template") {
+	async createTestTemplate(name?: string) {
 		const result = await this.client.callTool("listmonk_create_template", {
-			name: `${name}-${Date.now()}`,
+			name: name || buildTestName("template"),
 			body: "<h1>Test Template</h1><p>This is a test template created by E2E tests.</p>",
 			type: "campaign",
 			subject: "Test Template Subject",

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createMCPTestSuite } from "../mcp-helper.js";
-import "../setup.js";
+import { buildTestName } from "../setup.js";
 
 describe("MCP Server Integration", () => {
 	const { client, utils } = createMCPTestSuite();
@@ -58,8 +58,9 @@ describe("MCP Server Integration", () => {
 		expect(toolNames).toContain("listmonk_get_bounces");
 		expect(toolNames).toContain("listmonk_delete_bounce");
 
-		// Transactional tools
-		expect(toolNames).toContain("listmonk_send_transactional");
+			// Transactional tools
+			expect(toolNames).toContain("listmonk_send_transactional");
+			expect(toolNames).not.toContain("listmonk_get_transactional_message");
 
 		// Ops tools
 		expect(toolNames).toContain("listmonk_ops_preflight");
@@ -126,9 +127,9 @@ describe("MCP Server Integration", () => {
 		utils.assertSuccess(result, "Failed to handle request without arguments");
 	});
 
-	test("should maintain client state across calls", async () => {
-		// Create a list
-		const listName = `State-Test-List-${Date.now()}`;
+		test("should maintain client state across calls", async () => {
+			// Create a list
+			const listName = buildTestName("state-list");
 		const createResult = await client.callTool("listmonk_create_list", {
 			name: listName,
 			type: "private",

@@ -1,8 +1,10 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import {
+	createApiErrorResult,
 	createErrorResult,
 	createSuccessResult,
+	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
 import { parseId } from "../utils/typeHelpers.js";
@@ -237,7 +239,7 @@ export async function handleSubscribersTools(
 					query: queryParams,
 				});
 
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to fetch subscribers");
 			}
 
 			case "listmonk_get_subscriber": {
@@ -292,20 +294,34 @@ export async function handleSubscribersTools(
 				const response = await client.subscriber.create({
 					body,
 				});
-
-				const createdSubscriber =
-					response.data ??
-					(
-						await client.subscriber.list({
-							query: {
-								page: 1,
-								per_page: 100,
-								query: String(args.email),
-							},
-						})
-					).data?.results?.find(
-						(subscriber) => subscriber.email === String(args.email),
+				if ("error" in response && response.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to create subscriber",
+						response.error,
 					);
+				}
+				if (response.data !== undefined) {
+					return createSuccessResult(response.data);
+				}
+
+				const lookupResponse = await client.subscriber.list({
+					query: {
+						page: 1,
+						per_page: 100,
+						query: String(args.email),
+					},
+				});
+				if ("error" in lookupResponse && lookupResponse.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to resolve created subscriber",
+						lookupResponse.error,
+					);
+				}
+
+				const expectedEmail = String(args.email).toLowerCase();
+				const createdSubscriber = lookupResponse.data?.results?.find(
+					(subscriber) => subscriber.email?.toLowerCase() === expectedEmail,
+				);
 
 				if (!createdSubscriber) {
 					return createErrorResult(
@@ -366,7 +382,7 @@ export async function handleSubscribersTools(
 					path: { id: parseId(args.id) },
 				});
 
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to send subscriber opt-in");
 			}
 
 			case "listmonk_delete_subscribers_by_query": {
@@ -379,7 +395,10 @@ export async function handleSubscribersTools(
 					body: { query: String(args.query) },
 				});
 
-				return createSuccessResult(response.data);
+				return handleDataResponse(
+					response,
+					"Failed to delete subscribers by query",
+				);
 			}
 
 			case "listmonk_blocklist_subscribers_by_query": {
@@ -392,7 +411,10 @@ export async function handleSubscribersTools(
 					body: { query: String(args.query) },
 				});
 
-				return createSuccessResult(response.data);
+				return handleDataResponse(
+					response,
+					"Failed to blocklist subscribers by query",
+				);
 			}
 
 			default:

@@ -1,6 +1,6 @@
 import type { CallToolResult } from "../types/mcp.js";
 import type { PaginationParams } from "../types/shared.js";
-import { createErrorResult, createSuccessResult } from "./response.js";
+import { createErrorResult, handleDataResponse } from "./response.js";
 
 type CrudResponse<T> = {
 	data?: T;
@@ -14,10 +14,7 @@ export function handleCrudResponse<T>(
 	response: CrudResponse<T>,
 	errorMessage: string = "Operation failed",
 ): CallToolResult {
-	if ("error" in response && response.error) {
-		return createErrorResult(`${errorMessage}: ${response.error}`);
-	}
-	return createSuccessResult(response.data);
+	return handleDataResponse(response, errorMessage);
 }
 
 /**

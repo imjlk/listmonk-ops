@@ -1,26 +1,10 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { createMCPTestSuite } from "../mcp-helper.js";
-import "../setup.js";
+import { buildTestName } from "../setup.js";
 
 describe("Lists MCP Tools", () => {
 	const { client, utils } = createMCPTestSuite();
 	let testListId: number;
-
-	beforeEach(async () => {
-		// Clean up any existing test lists
-		const listsResult = await client.callTool("listmonk_get_lists");
-		const lists = utils.assertSuccess(listsResult);
-
-		if (lists.results) {
-			for (const list of lists.results) {
-				if (list.name?.startsWith("Test-")) {
-					await client.callTool("listmonk_delete_list", {
-						id: list.id.toString(),
-					});
-				}
-			}
-		}
-	});
 
 	test("should list all lists", async () => {
 		const result = await client.callTool("listmonk_get_lists", {
@@ -34,7 +18,7 @@ describe("Lists MCP Tools", () => {
 	});
 
 	test("should create a new list", async () => {
-		const listName = `Test-List-${Date.now()}`;
+		const listName = buildTestName("list");
 
 		const result = await client.callTool("listmonk_create_list", {
 			name: listName,
@@ -78,7 +62,7 @@ describe("Lists MCP Tools", () => {
 		const createdList = await utils.createTestList();
 		testListId = (createdList as { id: number }).id;
 
-		const updatedName = `Updated-Test-List-${Date.now()}`;
+		const updatedName = buildTestName("updated-list");
 
 		const result = await client.callTool("listmonk_update_list", {
 			id: testListId.toString(),

@@ -175,13 +175,16 @@ export class CreateAbTestCommand extends BaseCommand<AbTestInput, AbTest> {
 **CLI (gunshi):**
 
 ```typescript
-gunshi
-  .command('ab-test:create')
-  .option('--name <name>', 'Test name')
-  .action(async (options) => {
-    const result = await createCommand.execute(options);
-    console.log(`✅ A/B Test "${result.name}" created`);
-  });
+const create = define({
+  name: 'create',
+  args: { name: { type: 'string', required: true } },
+  run: async ({ values }) => createAbTest(values),
+});
+
+await cli(process.argv.slice(2), entry, {
+  name: 'listmonk-cli',
+  subCommands: { abtest: define({ name: 'abtest', subCommands: { create } }) },
+});
 ```
 
 ### Technology Stack

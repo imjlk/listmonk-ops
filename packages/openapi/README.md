@@ -1,6 +1,6 @@
 # @listmonk-ops/openapi
 
-Type-safe Listmonk SDK generated from OpenAPI, with a higher-level client that flattens common Listmonk response nesting.
+Type-safe Listmonk v6.2 SDK generated from OpenAPI, with a higher-level client that flattens common Listmonk response nesting.
 
 ## Installation
 
@@ -28,7 +28,7 @@ import { createListmonkClient } from "@listmonk-ops/openapi";
 const client = createListmonkClient();
 
 const health = await client.getHealthCheck();
-console.log(health.data); // true
+console.log(health.data); // true, fetched from the Listmonk origin /health endpoint
 
 const lists = await client.list.list({ query: { page: 1, per_page: 10 } });
 console.log(lists.data.results.length);
@@ -68,7 +68,7 @@ const client = createListmonkClient({
 - `createClient` (raw hey-api client factory)
 - `rawSdk` (generated SDK functions)
 - `transformResponse` (response flatten helper)
-- Types: `ListmonkClient`, `ListmonkConfig`, `Campaign`, `List`, `Subscriber`, `Template`
+- Types: `ListmonkClient`, `ListmonkConfig`, `About`, `Campaign`, `List`, `Subscriber`, `Template`
 
 ## Client Structure
 
@@ -86,6 +86,8 @@ const client = createListmonkClient({
 - `settings.*`
 - `dashboard.*`
 - `system.*`
+
+Listmonk v6.2 additions include `system.getAbout()`, `subscriber.patch()`, and transactional `altbody` support.
 
 Example:
 
@@ -141,7 +143,11 @@ if ("error" in result) {
 }
 ```
 
+List-style operations also preserve upstream API errors at runtime. If the server responds with an error, the client no longer normalizes that into an empty `results` payload.
+
 ## Regeneration
+
+The tagged upstream v6.2.0 specification and the project overlay are composed before Hey API runs. See [`spec/README.md`](./spec/README.md) for provenance and update instructions.
 
 ```bash
 bun run --cwd packages/openapi generate

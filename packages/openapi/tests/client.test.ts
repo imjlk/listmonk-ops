@@ -1,6 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { createClient, createListmonkClient } from "../index";
 
+function resolveRequestedUrl(input: URL | RequestInfo): string {
+	if (typeof input === "string") {
+		return input;
+	}
+
+	if (input instanceof URL) {
+		return input.toString();
+	}
+
+	return input.url;
+}
+
 describe("Client Creation", () => {
 	describe("createListmonkClient", () => {
 		test("should create client with default config", () => {
@@ -103,6 +115,117 @@ describe("Client Creation", () => {
 			expect(client.buildUrl({ url: "/lists" })).toBe(
 				"http://localhost:9000/api/lists",
 			);
+		});
+
+		test("should call the origin /health endpoint even when baseUrl includes /api", async () => {
+			const originalFetch = globalThis.fetch;
+			let requestedUrl = "";
+
+			try {
+				globalThis.fetch = (async (input) => {
+					requestedUrl = resolveRequestedUrl(input);
+					return new Response(JSON.stringify({ data: true }), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					});
+				}) as typeof fetch;
+
+				const client = createListmonkClient({
+					baseUrl: "http://localhost:9000/api",
+					headers: {
+						Authorization: "token api-admin:test-token",
+					},
+				});
+
+				const result = await client.getHealthCheck();
+
+				expect(requestedUrl).toBe("http://localhost:9000/health");
+				expect(result.data).toBe(true);
+			} finally {
+				globalThis.fetch = originalFetch;
+			}
+		});
+
+		test("should preserve a deployment prefix in the health URL", async () => {
+			const originalFetch = globalThis.fetch;
+			let requestedUrl = "";
+
+			try {
+				globalThis.fetch = (async (input) => {
+					requestedUrl = resolveRequestedUrl(input);
+					return Response.json({ data: true });
+				}) as typeof fetch;
+
+				const client = createListmonkClient({
+					baseUrl: "https://example.com/newsletter/api",
+				});
+
+				await client.getHealthCheck();
+
+				expect(requestedUrl).toBe("https://example.com/newsletter/health");
+			} finally {
+				globalThis.fetch = originalFetch;
+			}
+		});
+
+		test("should return an unhealthy result for a non-JSON success body", async () => {
+			const originalFetch = globalThis.fetch;
+
+			try {
+				globalThis.fetch = (async () =>
+					new Response("healthy", { status: 200 })) as typeof fetch;
+
+				const client = createListmonkClient({
+					baseUrl: "http://localhost:9000/api",
+				});
+				const result = await client.getHealthCheck();
+
+				expect(result.data).toBe(false);
+			} finally {
+				globalThis.fetch = originalFetch;
+			}
+		});
+
+		test("should preserve list API errors instead of normalizing them to empty results", async () => {
+			const originalFetch = globalThis.fetch;
+			let requestedUrl = "";
+
+			try {
+				globalThis.fetch = (async (input) => {
+					requestedUrl = resolveRequestedUrl(input);
+					return new Response(
+						JSON.stringify({ message: "invalid API credentials" }),
+						{
+							status: 403,
+							headers: { "Content-Type": "application/json" },
+						},
+					);
+				}) as typeof fetch;
+
+				const client = createListmonkClient({
+					baseUrl: "http://localhost:9000/api",
+					headers: {
+						Authorization: "token api-admin:test-token",
+					},
+				});
+
+				const result = await client.list.list({
+					query: { page: 1, per_page: 1 },
+				});
+
+				expect(requestedUrl).toBe(
+					"http://localhost:9000/api/lists?page=1&per_page=1",
+				);
+				expect("error" in result).toBe(true);
+
+				if ("error" in result) {
+					expect(result.error).toEqual({
+						message: "invalid API credentials",
+					});
+				}
+			} finally {
+				globalThis.fetch = originalFetch;
+			}
 		});
 	});
 });

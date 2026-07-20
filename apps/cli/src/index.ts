@@ -1,9 +1,7 @@
 #!/usr/bin/env bun
 
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { createCLI } from "@bunli/core";
-import { completionsPlugin } from "@bunli/plugin-completions";
+import completion from "@gunshi/plugin-completion";
+import { cli, define } from "gunshi";
 import packageJson from "../package.json" with { type: "json" };
 
 import abtestCommand from "./commands/abtest";
@@ -15,41 +13,31 @@ import statusCommand from "./commands/status";
 import subscribersCommand from "./commands/subscribers";
 import templatesCommand from "./commands/templates";
 import txCommand from "./commands/tx";
+import { prepareCliArgv } from "./lib/command";
 
-function resolveCompletionsGeneratedPath(): string {
-	// Standalone binaries run from $bunfs. Keep metadata beside the executable.
-	if (import.meta.url.includes("/$bunfs/")) {
-		return resolve(dirname(process.execPath), "commands.runtime.mjs");
-	}
+const entry = define({
+	name: "listmonk-cli",
+	description: "CLI for Listmonk operations",
+	run: () => undefined,
+});
 
-	return fileURLToPath(
-		new URL("../.bunli/commands.runtime.mjs", import.meta.url),
-	);
-}
+const subCommands = {
+	status: statusCommand,
+	examples: examplesCommand,
+	campaigns: campaignsCommand,
+	lists: listsCommand,
+	subscribers: subscribersCommand,
+	templates: templatesCommand,
+	tx: txCommand,
+	abtest: abtestCommand,
+	ops: opsCommand,
+};
 
-const cli = await createCLI({
+await cli(prepareCliArgv(process.argv.slice(2)), entry, {
 	name: "listmonk-cli",
 	version: packageJson.version,
 	description: "CLI for Listmonk operations",
-	plugins: [
-		completionsPlugin({
-			generatedPath: resolveCompletionsGeneratedPath(),
-			commandName: "listmonk-cli",
-			executable: "listmonk-cli",
-			includeAliases: true,
-			includeGlobalFlags: true,
-		}),
-	],
+	strict: true,
+	subCommands,
+	plugins: [completion()],
 });
-
-cli.command(statusCommand);
-cli.command(examplesCommand);
-cli.command(campaignsCommand);
-cli.command(listsCommand);
-cli.command(subscribersCommand);
-cli.command(templatesCommand);
-cli.command(txCommand);
-cli.command(abtestCommand);
-cli.command(opsCommand);
-
-await cli.run();

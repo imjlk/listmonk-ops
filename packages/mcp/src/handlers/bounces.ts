@@ -4,6 +4,7 @@ import type { HandlerFunction } from "../types/shared.js";
 import {
 	createErrorResult,
 	createSuccessResult,
+	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
 import {
@@ -118,7 +119,7 @@ export const handleBouncesTools: HandlerFunction = withErrorHandler(
 				}
 
 				const response = await client.bounce.list(options);
-				return createSuccessResult(response.data);
+				return handleDataResponse(response, "Failed to fetch bounces");
 			}
 
 			case "listmonk_get_bounce": {

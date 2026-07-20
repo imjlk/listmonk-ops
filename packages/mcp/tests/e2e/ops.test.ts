@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { createMCPTestSuite } from "../mcp-helper.js";
-import "../setup.js";
+import { buildTestName } from "../setup.js";
 
 const SUFFIX = `${process.pid}-${Date.now()}`;
 const SEGMENT_STORE = `/tmp/listmonk-ops-segment-${SUFFIX}.json`;
@@ -34,10 +34,10 @@ describe("Ops MCP Tools", () => {
 
 		templateId = 3;
 
-		const campaignCreateResult = await client.callTool(
-			"listmonk_create_campaign",
-			{
-				name: `Ops-E2E-Campaign-${stamp}`,
+			const campaignCreateResult = await client.callTool(
+				"listmonk_create_campaign",
+				{
+					name: buildTestName(`ops-campaign-${stamp}`),
 				subject: `Ops E2E Campaign ${stamp}`,
 				from_email: "ops@example.com",
 				body: `<p>Visit https://example.com and unsubscribe here</p>`,

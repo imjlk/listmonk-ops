@@ -1,13 +1,15 @@
-import type { HandlerArgs } from "@bunli/core";
+import * as clack from "@clack/prompts";
 import {
 	createListmonkClient,
 	type ListmonkClient,
 } from "@listmonk-ops/openapi";
+import { getRuntimeFlags, type HandlerArgs } from "./command";
 
 const DEFAULT_API_URL = "http://localhost:9000/api";
 const DEFAULT_USERNAME = "api-admin";
 
 type UnknownFlags = Record<string, unknown>;
+type ListmonkHandlerContext = Partial<HandlerArgs<UnknownFlags>>;
 
 export interface ListmonkSession {
 	baseUrl: string;
@@ -34,16 +36,16 @@ function normalizeApiUrl(url: string): string {
 	return withApiSuffix;
 }
 
-function shouldUseInteractivePrompt(args: HandlerArgs<UnknownFlags>): boolean {
-	const interactive = Boolean(args.flags.interactive || args.flags.tui);
-	return interactive && args.terminal.isInteractive;
+function shouldUseInteractivePrompt(args: ListmonkHandlerContext): boolean {
+	const flags = { ...getRuntimeFlags(), ...(args.flags ?? {}) };
+	const interactive = Boolean(flags.interactive || flags.tui);
+	return interactive && Boolean(process.stdin.isTTY && process.stdout.isTTY);
 }
 
-async function promptForCredentials(
-	args: HandlerArgs<UnknownFlags>,
-	defaults: { baseUrl: string; username: string },
-): Promise<{ baseUrl: string; username: string; apiToken: string }> {
-	const clack = args.prompt.clack;
+async function promptForCredentials(defaults: {
+	baseUrl: string;
+	username: string;
+}): Promise<{ baseUrl: string; username: string; apiToken: string }> {
 	clack.intro("Listmonk authentication setup");
 
 	const baseUrlResult = await clack.text({
@@ -98,7 +100,7 @@ async function promptForCredentials(
 }
 
 export async function resolveListmonkSession(
-	args: HandlerArgs<UnknownFlags>,
+	args: ListmonkHandlerContext = {},
 	options: { requireAuth?: boolean } = {},
 ): Promise<ListmonkSession> {
 	const requireAuth = options.requireAuth ?? true;
@@ -108,7 +110,7 @@ export async function resolveListmonkSession(
 	let apiToken = Bun.env.LISTMONK_API_TOKEN?.trim();
 
 	if (!apiToken && requireAuth && shouldUseInteractivePrompt(args)) {
-		const prompted = await promptForCredentials(args, { baseUrl, username });
+		const prompted = await promptForCredentials({ baseUrl, username });
 		baseUrl = prompted.baseUrl;
 		username = prompted.username;
 		apiToken = prompted.apiToken;
@@ -145,7 +147,7 @@ export async function resolveListmonkSession(
 }
 
 export async function getListmonkClient(
-	args: HandlerArgs<UnknownFlags>,
+	args: ListmonkHandlerContext = {},
 ): Promise<ListmonkClient> {
 	const session = await resolveListmonkSession(args, { requireAuth: true });
 	if (!session.client) {
