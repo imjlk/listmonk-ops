@@ -30,11 +30,11 @@ This repository is designed for teams operating [Listmonk](https://listmonk.app/
 | `packages/abtest` | A/B test services and analysis logic |
 | `packages/automation` | `@listmonk-ops/automation` high-level operational workflows (preflight/guard/hygiene/drift/digest) |
 | `packages/mcp` | MCP server exposing Listmonk operations |
-| `packages/common` | Shared utilities and error/validation helpers |
+| `packages/common` | Shared utilities, validation helpers, and atomic JSON persistence |
 
 Runtime policy:
 - Executable packages (`apps/cli`, `packages/mcp`) target the Bun runtime.
-- Library packages (`openapi`, `operations`, `automation`, `abtest`, `common`) remain runtime-neutral ESM packages.
+- Library packages are ESM. `openapi` and `operations` remain runtime-neutral; the file-backed APIs in `common`, `automation`, and `abtest` require a Node-compatible file-system runtime such as Bun.
 
 ## Prerequisites
 
@@ -79,9 +79,18 @@ export LISTMONK_USERNAME="api-admin"
 export LISTMONK_API_TOKEN="<your-token>"
 # Optional: suppress A/B statistical console logs in automation
 export LISTMONK_OPS_ABTEST_SILENT="1"
+# Optional: override shared CLI/MCP state files
+export LISTMONK_OPS_ABTEST_STORE="$HOME/.listmonk-ops/abtests.json"
+export LISTMONK_OPS_SEGMENT_STORE="$HOME/.listmonk-ops/ops/segment-drift.json"
+export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry.json"
 ```
 
 You can create/manage tokens in the Listmonk admin UI.
+
+The A/B test, segment drift, and template registry stores use versioned JSON,
+atomic replacement, and cross-process write locks so CLI and MCP processes can
+share the same local state without losing concurrent updates. Invalid or newer
+schemas are rejected instead of being overwritten.
 
 ## Workspace Commands
 

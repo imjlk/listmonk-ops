@@ -29,7 +29,8 @@
 		"format": "ttsc format",
 		"lint": "ttsc --noEmit",
 		"lint:fix": "ttsc fix",
-		"prepublishOnly": "bun run build"
+		"test": "bun test",
+		"prepublishOnly": "bun run build && bun run test"
 	},
 	"devDependencies": {
 		"@types/bun": "1.3.10",

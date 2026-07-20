@@ -15,13 +15,13 @@ Advanced A/B testing capabilities for Listmonk email campaigns with statistical 
 ## Installation
 
 ```bash
-npm install @listmonk-ops/commands-abtest
+npm install @listmonk-ops/abtest @listmonk-ops/openapi
 ```
 
 ## Quick Start
 
 ```typescript
-import { createAbTestExecutors } from "@listmonk-ops/commands-abtest";
+import { createAbTestExecutors } from "@listmonk-ops/abtest";
 import { createListmonkClientFromEnv } from "@listmonk-ops/openapi";
 
 // Initialize with Listmonk client
@@ -82,6 +82,36 @@ if (analysis.winner && !test.auto_deploy_winner) {
   await abTestExecutors.deployWinner(test.id);
 }
 ```
+
+## Shared CLI/MCP Persistence
+
+Use `withStoredAbTestExecutors` when an A/B lifecycle must share durable state
+with the CLI or MCP server:
+
+```typescript
+import { withStoredAbTestExecutors } from "@listmonk-ops/abtest";
+
+const created = await withStoredAbTestExecutors(
+  listmonkClient,
+  { mode: "write" },
+  (executors) => executors.createAbTest(input),
+);
+```
+
+The default versioned store is `~/.listmonk-ops/abtests.json`. Override it with
+`LISTMONK_OPS_ABTEST_STORE` or the `storePath` option. Use `mode: "read"` for
+queries and `mode: "write"` for operations that change local or remote state.
+Writes hold a cross-process transaction across hydration, the Listmonk action,
+and the atomic local snapshot, preventing CLI and MCP updates from being lost.
+Direct `loadStoredAbTests` reads hydrate persisted timestamps back to `Date`
+objects. Remote lifecycle writes allow up to two minutes for another process's
+transaction lock before timing out.
+
+If a remote mutation fails, local state is not committed but Listmonk may
+contain partial resources. If the local commit fails after the remote action,
+the local state is unconfirmed. The raised `AbTestWriteTransactionError`
+includes reconciliation guidance; inspect Listmonk and the state file before
+retrying.
 
 ## API Reference
 

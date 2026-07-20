@@ -1,13 +1,19 @@
+import {
+	commitJsonFileStoreUpdate,
+	type JsonFileStore,
+	updateJsonFileStore,
+} from "@listmonk-ops/common";
 import type { List, ListmonkClient } from "@listmonk-ops/openapi";
 
 import { getListById, unwrapResponseData } from "./api";
 import {
 	extractResults,
-	readJsonFile,
-	SEGMENT_STORE_PATH,
+	getOpsStorePaths,
+	isRecord,
 	toPositiveInt,
-	writeJsonFile,
 } from "./core";
+
+const MAX_SEGMENT_SNAPSHOTS_PER_LIST = 1_000;
 
 export interface SegmentSnapshotEntry {
 	capturedAt: string;
@@ -48,15 +54,84 @@ export interface SegmentDriftResult {
 	alerts: SegmentDriftComparison[];
 }
 
-async function loadSegmentStore(): Promise<SegmentDriftStore> {
-	return readJsonFile<SegmentDriftStore>(SEGMENT_STORE_PATH, {
-		version: 1,
-		snapshots: [],
-	});
+function parseSegmentDriftStore(value: unknown): SegmentDriftStore {
+	if (!isRecord(value) || value.version !== 1) {
+		throw new Error("Invalid segment drift store: expected schema version 1");
+	}
+	if (!Array.isArray(value.snapshots)) {
+		throw new Error("Invalid segment drift store: snapshots must be an array");
+	}
+
+	for (const [index, snapshot] of value.snapshots.entries()) {
+		if (
+			!isRecord(snapshot) ||
+			typeof snapshot.capturedAt !== "string" ||
+			Number.isNaN(new Date(snapshot.capturedAt).getTime()) ||
+			typeof snapshot.listId !== "number" ||
+			!Number.isInteger(snapshot.listId) ||
+			snapshot.listId <= 0 ||
+			typeof snapshot.listName !== "string" ||
+			typeof snapshot.subscriberCount !== "number" ||
+			!Number.isFinite(snapshot.subscriberCount) ||
+			snapshot.subscriberCount < 0
+		) {
+			throw new Error(
+				`Invalid segment drift store: snapshot ${index} failed schema validation`,
+			);
+		}
+	}
+
+	return value as unknown as SegmentDriftStore;
 }
 
-async function saveSegmentStore(store: SegmentDriftStore): Promise<void> {
-	await writeJsonFile(SEGMENT_STORE_PATH, store);
+function createSegmentDriftStore(): JsonFileStore<SegmentDriftStore> {
+	return {
+		path: getOpsStorePaths().segmentStorePath,
+		createDefault: () => ({ version: 1, snapshots: [] }),
+		parse: parseSegmentDriftStore,
+	};
+}
+
+function calculateDeltaRate(
+	currentCount: number,
+	previousCount: number | undefined,
+): number | undefined {
+	if (previousCount === undefined) {
+		return undefined;
+	}
+	if (previousCount > 0) {
+		return (currentCount - previousCount) / previousCount;
+	}
+	// Growth from an empty list is capped at 100% for alert thresholding.
+	if (currentCount > 0) {
+		return 1;
+	}
+	return 0;
+}
+
+function retainRecentSegmentSnapshots(
+	snapshots: SegmentSnapshotEntry[],
+): SegmentSnapshotEntry[] {
+	const snapshotsByList = new Map<number, SegmentSnapshotEntry[]>();
+	for (const snapshot of snapshots) {
+		const entries = snapshotsByList.get(snapshot.listId) || [];
+		entries.push(snapshot);
+		snapshotsByList.set(snapshot.listId, entries);
+	}
+
+	return Array.from(snapshotsByList.values())
+		.flatMap((entries) =>
+			entries
+				.sort((left, right) =>
+					left.capturedAt.localeCompare(right.capturedAt),
+				)
+				.slice(-MAX_SEGMENT_SNAPSHOTS_PER_LIST),
+		)
+		.sort(
+			(left, right) =>
+				left.capturedAt.localeCompare(right.capturedAt) ||
+				left.listId - right.listId,
+		);
 }
 
 async function getListsForDrift(
@@ -88,7 +163,6 @@ export async function runSegmentDriftSnapshot(
 	const lookbackDays = Math.max(1, options.lookbackDays ?? 14);
 	const capturedAt = new Date().toISOString();
 	const lists = await getListsForDrift(client, options.listIds);
-	const store = await loadSegmentStore();
 
 	const currentEntries: SegmentSnapshotEntry[] = lists
 		.map((list) => {
@@ -106,65 +180,73 @@ export async function runSegmentDriftSnapshot(
 		.filter((entry): entry is SegmentSnapshotEntry => entry !== undefined);
 
 	const lookbackCutoff = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
+	const storeDefinition = createSegmentDriftStore();
 
-	const comparisons: SegmentDriftComparison[] = currentEntries.map((entry) => {
-		const history = store.snapshots
-			.filter((snapshot) => snapshot.listId === entry.listId)
-			.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
-		const previous = history.at(-1);
-		const lookbackHistory = history.filter((snapshot) => {
-			const time = new Date(snapshot.capturedAt).getTime();
-			return !Number.isNaN(time) && time >= lookbackCutoff;
+	return updateJsonFileStore(storeDefinition, (store) => {
+		const comparisons: SegmentDriftComparison[] = currentEntries.map((entry) => {
+			const history = store.snapshots
+				.filter(
+					(snapshot) =>
+						snapshot.listId === entry.listId &&
+						snapshot.capturedAt < entry.capturedAt,
+				)
+				.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+			const previous = history.at(-1);
+			const lookbackHistory = history.filter((snapshot) => {
+				const time = new Date(snapshot.capturedAt).getTime();
+				return !Number.isNaN(time) && time >= lookbackCutoff;
+			});
+			const baselineCount =
+				lookbackHistory.length > 0
+					? Math.round(
+							lookbackHistory.reduce(
+								(sum, snapshot) => sum + snapshot.subscriberCount,
+								0,
+							) / lookbackHistory.length,
+						)
+					: undefined;
+			const previousCount = previous?.subscriberCount;
+			const delta =
+				previousCount === undefined
+					? undefined
+					: entry.subscriberCount - previousCount;
+			const deltaRate = calculateDeltaRate(
+				entry.subscriberCount,
+				previousCount,
+			);
+			const alert =
+				delta !== undefined &&
+				deltaRate !== undefined &&
+				Math.abs(delta) >= minAbsoluteChange &&
+				Math.abs(deltaRate) >= threshold;
+
+			return {
+				listId: entry.listId,
+				listName: entry.listName,
+				previousCount,
+				currentCount: entry.subscriberCount,
+				baselineCount,
+				delta,
+				deltaRate,
+				alert,
+			};
 		});
-		const baselineCount =
-			lookbackHistory.length > 0
-				? Math.round(
-						lookbackHistory.reduce(
-							(sum, snapshot) => sum + snapshot.subscriberCount,
-							0,
-						) / lookbackHistory.length,
-					)
-				: undefined;
-		const previousCount = previous?.subscriberCount;
-		const delta =
-			previousCount === undefined
-				? undefined
-				: entry.subscriberCount - previousCount;
-		const deltaRate =
-			previousCount === undefined
-				? undefined
-				: previousCount > 0
-					? (entry.subscriberCount - previousCount) / previousCount
-					: entry.subscriberCount > 0
-						? 1
-						: 0;
-		const alert =
-			delta !== undefined &&
-			deltaRate !== undefined &&
-			Math.abs(delta) >= minAbsoluteChange &&
-			Math.abs(deltaRate) >= threshold;
-
-		return {
-			listId: entry.listId,
-			listName: entry.listName,
-			previousCount,
-			currentCount: entry.subscriberCount,
-			baselineCount,
-			delta,
-			deltaRate,
-			alert,
+		const nextStore: SegmentDriftStore = {
+			version: 1,
+			snapshots: retainRecentSegmentSnapshots([
+				...store.snapshots,
+				...currentEntries,
+			]),
 		};
+		const result: SegmentDriftResult = {
+			capturedAt,
+			storePath: storeDefinition.path,
+			threshold,
+			minAbsoluteChange,
+			comparisons,
+			alerts: comparisons.filter((comparison) => comparison.alert),
+		};
+
+		return commitJsonFileStoreUpdate(nextStore, result);
 	});
-
-	store.snapshots.push(...currentEntries);
-	await saveSegmentStore(store);
-
-	return {
-		capturedAt,
-		storePath: SEGMENT_STORE_PATH,
-		threshold,
-		minAbsoluteChange,
-		comparisons,
-		alerts: comparisons.filter((comparison) => comparison.alert),
-	};
 }

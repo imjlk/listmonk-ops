@@ -23,12 +23,16 @@ unless the task explicitly adds it.
   preflight, deliverability guard, hygiene, drift, templates, and digest.
 - `packages/abtest`: A/B test lifecycle, Listmonk integration, and statistics.
 - `packages/mcp`: stdio and Streamable HTTP MCP server and tool handlers.
-- `packages/common`: runtime-neutral shared utilities.
+- `packages/common`: shared utilities, including Node-compatible atomic JSON
+  persistence.
 - `scripts`: repository checks, local-stack bootstrap, and smoke tests.
 - `docker-compose.yml`: local Listmonk 6.2.0, PostgreSQL, and Mailpit stack.
 
 Executable packages (`apps/cli` and `packages/mcp`) target Bun. Library
-packages should remain runtime-neutral ESM unless a task requires otherwise.
+packages are ESM. `packages/openapi` and `packages/operations` remain
+runtime-neutral; the file-backed persistence APIs in `packages/common`,
+`packages/automation`, and `packages/abtest` require a Node-compatible file
+system runtime such as Bun.
 
 ## Working agreement
 

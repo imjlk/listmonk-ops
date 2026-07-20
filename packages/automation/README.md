@@ -65,3 +65,17 @@ Default local stores are under `~/.listmonk-ops/ops`.
 - `LISTMONK_OPS_TEMPLATE_REGISTRY`: override template registry store path
 
 Call `getOpsStorePaths()` to inspect resolved paths.
+
+Both stores use a versioned JSON schema, atomic file replacement, and a shared
+cross-process write lock. CLI and MCP workflows therefore serialize concurrent
+updates instead of overwriting one another. Unsupported or malformed state is
+rejected, and a lock is recovered only when its owner is confirmed dead on the
+same host.
+
+Segment history retains the most recent 1,000 snapshots per list and compares a
+capture only with earlier observations, including when concurrent captures
+commit out of order. Template history is kept in capture order for the same
+reason. Promotion and rollback hold the registry lock across the Listmonk
+update; if Listmonk succeeds but the local registry commit cannot be confirmed,
+`TemplateRegistryWriteTransactionError` names the store and requires remote/
+local reconciliation before retrying.

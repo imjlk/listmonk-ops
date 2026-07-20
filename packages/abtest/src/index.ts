@@ -13,6 +13,16 @@ export type { AbTestExecutors } from "./factory";
 // Export factory function
 export { createAbTestExecutors } from "./factory";
 export { ListmonkAbTestIntegration } from "./listmonk-integration";
+export {
+	AbTestNotFoundError,
+	AbTestWriteTransactionError,
+	getAbTestStorePath,
+	loadStoredAbTests,
+	saveStoredAbTests,
+	validateStoredAbTestStore,
+	withStoredAbTestExecutors,
+} from "./persistence";
+export type { AbTestStore, StoredAbTestAccessOptions } from "./persistence";
 export type {
 	AbTest,
 	AbTestConfig,
