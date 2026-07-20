@@ -235,12 +235,12 @@ export async function handleSubscribersTools(
 					queryParams.subscription_status = String(args.subscription_status);
 				}
 
-					const response = await client.subscriber.list({
-						query: queryParams,
-					});
+				const response = await client.subscriber.list({
+					query: queryParams,
+				});
 
-					return handleDataResponse(response, "Failed to fetch subscribers");
-				}
+				return handleDataResponse(response, "Failed to fetch subscribers");
+			}
 
 			case "listmonk_get_subscriber": {
 				const validation = validateRequiredParams(request, ["id"]);
@@ -291,36 +291,36 @@ export async function handleSubscribersTools(
 					attribs,
 				};
 
-					const response = await client.subscriber.create({
-						body,
-					});
-					if ("error" in response && response.error !== undefined) {
-						return createApiErrorResult(
-							"Failed to create subscriber",
-							response.error,
-						);
-					}
-					if (response.data !== undefined) {
-						return createSuccessResult(response.data);
-					}
-
-					const lookupResponse = await client.subscriber.list({
-						query: {
-							page: 1,
-							per_page: 100,
-							query: String(args.email),
-						},
-					});
-					if ("error" in lookupResponse && lookupResponse.error !== undefined) {
-						return createApiErrorResult(
-							"Failed to resolve created subscriber",
-							lookupResponse.error,
-						);
-					}
-
-					const createdSubscriber = lookupResponse.data?.results?.find(
-						(subscriber) => subscriber.email === String(args.email),
+				const response = await client.subscriber.create({
+					body,
+				});
+				if ("error" in response && response.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to create subscriber",
+						response.error,
 					);
+				}
+				if (response.data !== undefined) {
+					return createSuccessResult(response.data);
+				}
+
+				const lookupResponse = await client.subscriber.list({
+					query: {
+						page: 1,
+						per_page: 100,
+						query: String(args.email),
+					},
+				});
+				if ("error" in lookupResponse && lookupResponse.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to resolve created subscriber",
+						lookupResponse.error,
+					);
+				}
+
+				const createdSubscriber = lookupResponse.data?.results?.find(
+					(subscriber) => subscriber.email === String(args.email),
+				);
 
 				if (!createdSubscriber) {
 					return createErrorResult(
@@ -377,15 +377,12 @@ export async function handleSubscribersTools(
 					return createErrorResult(validation);
 				}
 
-					const response = await client.subscriber.sendOptin({
-						path: { id: parseId(args.id) },
-					});
+				const response = await client.subscriber.sendOptin({
+					path: { id: parseId(args.id) },
+				});
 
-					return handleDataResponse(
-						response,
-						"Failed to send subscriber opt-in",
-					);
-				}
+				return handleDataResponse(response, "Failed to send subscriber opt-in");
+			}
 
 			case "listmonk_delete_subscribers_by_query": {
 				const validation = validateRequiredParams(request, ["query"]);
@@ -393,15 +390,15 @@ export async function handleSubscribersTools(
 					return createErrorResult(validation);
 				}
 
-					const response = await client.subscriber.deleteByQuery({
-						body: { query: String(args.query) },
-					});
+				const response = await client.subscriber.deleteByQuery({
+					body: { query: String(args.query) },
+				});
 
-					return handleDataResponse(
-						response,
-						"Failed to delete subscribers by query",
-					);
-				}
+				return handleDataResponse(
+					response,
+					"Failed to delete subscribers by query",
+				);
+			}
 
 			case "listmonk_blocklist_subscribers_by_query": {
 				const validation = validateRequiredParams(request, ["query"]);
@@ -409,15 +406,15 @@ export async function handleSubscribersTools(
 					return createErrorResult(validation);
 				}
 
-					const response = await client.subscriber.blocklistByQuery({
-						body: { query: String(args.query) },
-					});
+				const response = await client.subscriber.blocklistByQuery({
+					body: { query: String(args.query) },
+				});
 
-					return handleDataResponse(
-						response,
-						"Failed to blocklist subscribers by query",
-					);
-				}
+				return handleDataResponse(
+					response,
+					"Failed to blocklist subscribers by query",
+				);
+			}
 
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);

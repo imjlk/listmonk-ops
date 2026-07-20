@@ -1,9 +1,10 @@
---- upstream/listmonk-v6.2.0.yaml	2026-07-20 01:49:02
-+++ listmonk.yaml	2026-07-20 01:59:32
-@@ -247,6 +247,20 @@
+--- upstream/listmonk-v6.2.0.yaml
++++ listmonk.yaml
+@@ -246,6 +246,20 @@
+                     type: array
                      items:
                        type: string
- 
++
 +  /about:
 +    get:
 +      tags:
@@ -17,10 +18,9 @@
 +            application/json:
 +              schema:
 +                $ref: "#/components/schemas/About"
-+
+ 
    /subscribers:
      get:
-       tags:
 @@ -431,6 +445,36 @@
                    data:
                      $ref: "#/components/schemas/Subscriber"
@@ -67,6 +67,24 @@
    /lists:
      get:
        description: retrieves lists with additional metadata like subscriber counts. This may be slow.
+@@ -1261,7 +1305,7 @@
+                 type: object
+                 properties:
+                   data:
+-                    $ref: "#/components/schemas/CampaignUpdate"
++                    $ref: "#/components/schemas/Campaign"
+ 
+   "/campaigns/{id}":
+     get:
+@@ -1320,7 +1364,7 @@
+                 type: object
+                 properties:
+                   data:
+-                    $ref: "#/components/schemas/CampaignUpdate"
++                    $ref: "#/components/schemas/Campaign"
+ 
+     delete:
+       description: deletes specified campaign
 @@ -1754,7 +1798,7 @@
          - in: query
            name: no_body
@@ -118,9 +136,224 @@
      LanguagePack:
        type: object
        properties:
-@@ -4207,3 +4286,5 @@
+@@ -3875,6 +3954,8 @@
+           type: integer
+         clicks:
+           type: integer
++        bounces:
++          type: integer
+         lists:
+           type: array
+           items:
+@@ -3886,6 +3967,8 @@
+                 type: string
+         started_at:
+           type: string
++          format: date-time
++          nullable: true
+         to_send:
+           type: integer
+         sent:
+@@ -3903,21 +3986,54 @@
+           type: string
+         body:
+           type: string
++        body_source:
++          type: string
++          nullable: true
++        altbody:
++          type: string
++          nullable: true
+         send_at:
+           type: string
++          format: date-time
++          nullable: true
+         status:
            type: string
          content_type:
            type: string
+-          enum: [richtext, html, markdown, plain]
++          enum: [richtext, html, markdown, plain, visual]
+         tags:
+           type: array
+           items:
+             type: string
+         template_id:
+           type: integer
++          nullable: true
+         messenger:
++          type: string
++        headers:
++          type: array
++          items:
++            type: object
++            additionalProperties:
++              type: string
++        attribs:
++          type: object
++          additionalProperties: true
++        archive:
++          type: boolean
++        archive_slug:
+           type: string
++          nullable: true
++        archive_template_id:
++          type: integer
++          nullable: true
++        archive_meta:
++          type: object
++          additionalProperties: true
++        media:
++          type: array
++          items:
++            $ref: "#/components/schemas/MediaFileObject"
+ 
+     CampaignContentRequest:
+       type: object
+@@ -3945,6 +4061,8 @@
+                 type: string
+         started_at:
+           type: string
++          format: date-time
++          nullable: true
+         to_send:
+           type: integer
+         sent:
+@@ -3964,17 +4082,20 @@
+           type: string
+         send_at:
+           type: string
++          format: date-time
++          nullable: true
+         status:
+           type: string
+         content_type:
+           type: string
+-          enum: [richtext, html, markdown, plain]
++          enum: [richtext, html, markdown, plain, visual]
+         tags:
+           type: array
+           items:
+             type: string
+         template_id:
+           type: integer
++          nullable: true
+         messenger:
+           type: string
+         from:
+@@ -3992,30 +4113,64 @@
+         lists:
+           type: array
+           items:
+-            type: number
++            type: integer
+         from_email:
+           type: string
+         content_type:
+           type: string
++          enum: [richtext, html, markdown, plain, visual]
+         messenger:
+           type: string
+         type:
+           type: string
++          enum: [regular, optin]
+         tags:
+           type: array
+           items:
+             type: string
+-        send_later:
+-          type: boolean
+         send_at:
++          type: string
++          format: date-time
++          nullable: true
++        headers:
++          type: array
++          items:
++            type: object
++            additionalProperties:
++              type: string
++        attribs:
+           type: object
+-          properties:
+-            headers:
+-              type: array
+-              items:
+-                type: object
+-            template_id:
+-              type: number
++          additionalProperties: true
++        template_id:
++          type: integer
++          nullable: true
++        body:
++          type: string
++        body_source:
++          type: string
++          nullable: true
++        altbody:
++          type: string
++          nullable: true
++        archive:
++          type: boolean
++        archive_slug:
++          type: string
++          nullable: true
++        archive_template_id:
++          type: integer
++          nullable: true
++        archive_meta:
++          type: object
++          additionalProperties: true
++        media:
++          type: array
++          items:
++            type: integer
++        subscribers:
++          type: array
++          items:
++            type: string
+ 
+     CampaignUpdate:
+       type: object
+@@ -4188,11 +4343,26 @@
+ 
+     TransactionalMessage:
+       type: object
++      required:
++        - template_id
+       properties:
++        subscriber_mode:
++          type: string
++          enum: [default, fallback, external]
++        subscriber_emails:
++          type: array
++          items:
++            type: string
++        subscriber_ids:
++          type: array
++          items:
++            type: integer
+         subscriber_email:
+           type: string
++          deprecated: true
+         subscriber_id:
+           type: integer
++          deprecated: true
+         template_id:
+           type: integer
+         from_email:
+@@ -4203,7 +4373,13 @@
+           type: array
+           items:
+             type: object
++            additionalProperties:
++              type: string
+         messenger:
+           type: string
+         content_type:
+           type: string
++        subject:
++          type: string
 +        altbody:
 +          type: string

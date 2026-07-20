@@ -20,6 +20,9 @@ The overlay currently:
 - keeps the optional `no_body` query parameter for `GET /templates`;
 - documents `GET /about` so tests can verify the running Listmonk version;
 - documents the v6.1+ `PATCH /subscribers/{id}` route;
-- adds the `altbody` field accepted by transactional messages.
+- aligns campaign request/response fields with the tagged Go models, including
+  visual content, test recipients, headers, media, and nullable timestamps;
+- aligns transactional messages with the tagged `TxMessage` model, including
+  recipient arrays, subscriber mode, subject, headers, and `altbody`.
 
 The upstream specification does not cover every registered `/api` handler. See the repository-level `MISSING_API_ENDPOINTS.md` for the current coverage boundary.

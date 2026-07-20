@@ -45,7 +45,9 @@ export class ListmonkAbTestIntegration {
 		throw new Error(`${context}: response missing numeric id`);
 	}
 
-	private async deleteCampaignsBestEffort(campaignIds: number[]): Promise<void> {
+	private async deleteCampaignsBestEffort(
+		campaignIds: number[],
+	): Promise<void> {
 		for (const campaignId of campaignIds) {
 			try {
 				await this.listmonkClient.campaign.delete({

@@ -269,12 +269,12 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					queryParams.tags = args.tags.map((tag) => String(tag));
 				}
 
-					const hasQuery = Object.keys(queryParams).length > 0;
-					const response = await client.campaign.list(
-						hasQuery ? { query: queryParams } : undefined,
-					);
-					return handleDataResponse(response, "Failed to fetch campaigns");
-				}
+				const hasQuery = Object.keys(queryParams).length > 0;
+				const response = await client.campaign.list(
+					hasQuery ? { query: queryParams } : undefined,
+				);
+				return handleDataResponse(response, "Failed to fetch campaigns");
+			}
 
 			case "listmonk_get_campaign": {
 				const validation = validateRequiredParams(request, ["id"]);
@@ -313,54 +313,54 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					lists: Array.isArray(args.lists) ? args.lists : [],
 					tags: Array.isArray(args.tags) ? args.tags : [],
 					messenger: "email",
-					};
+				};
 
-					const response = await client.campaign.create({ body });
-					if ("error" in response && response.error !== undefined) {
-						return createApiErrorResult(
-							"Failed to create campaign",
-							response.error,
-						);
-					}
-					if (response.data !== undefined) {
-						return createSuccessResult(response.data);
-					}
-
-					let createdCampaign: Campaign | undefined;
-					const pageSize = 100;
-					const firstPage = await client.campaign.list({
-						query: { page: 1, per_page: pageSize },
-					});
-					if ("error" in firstPage && firstPage.error !== undefined) {
-						return createApiErrorResult(
-							"Failed to resolve created campaign",
-							firstPage.error,
-						);
-					}
-					createdCampaign = firstPage.data?.results?.find(
-						(campaign) => campaign.name === body.name,
+				const response = await client.campaign.create({ body });
+				if ("error" in response && response.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to create campaign",
+						response.error,
 					);
+				}
+				if (response.data !== undefined) {
+					return createSuccessResult(response.data);
+				}
 
-					if (!createdCampaign) {
+				let createdCampaign: Campaign | undefined;
+				const pageSize = 100;
+				const firstPage = await client.campaign.list({
+					query: { page: 1, per_page: pageSize },
+				});
+				if ("error" in firstPage && firstPage.error !== undefined) {
+					return createApiErrorResult(
+						"Failed to resolve created campaign",
+						firstPage.error,
+					);
+				}
+				createdCampaign = firstPage.data?.results?.find(
+					(campaign) => campaign.name === body.name,
+				);
+
+				if (!createdCampaign) {
 					const total = firstPage.data?.total ?? 0;
 					const lastPage = total > 0 ? Math.ceil(total / pageSize) : 1;
 
-						if (lastPage > 1) {
-							const lastPageResponse = await client.campaign.list({
-								query: { page: lastPage, per_page: pageSize },
-							});
-							if (
-								"error" in lastPageResponse &&
-								lastPageResponse.error !== undefined
-							) {
-								return createApiErrorResult(
-									"Failed to resolve created campaign",
-									lastPageResponse.error,
-								);
-							}
-							createdCampaign = lastPageResponse.data?.results?.find(
-								(campaign) => campaign.name === body.name,
+					if (lastPage > 1) {
+						const lastPageResponse = await client.campaign.list({
+							query: { page: lastPage, per_page: pageSize },
+						});
+						if (
+							"error" in lastPageResponse &&
+							lastPageResponse.error !== undefined
+						) {
+							return createApiErrorResult(
+								"Failed to resolve created campaign",
+								lastPageResponse.error,
 							);
+						}
+						createdCampaign = lastPageResponse.data?.results?.find(
+							(campaign) => campaign.name === body.name,
+						);
 					}
 				}
 
@@ -379,15 +379,12 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-					const response = await client.campaign.updateStatus({
-						path: { id: parseId(args.id) },
-						body: { status: castCampaignStatus(args.status) },
-					});
-					return handleDataResponse(
-						response,
-						"Failed to update campaign status",
-					);
-				}
+				const response = await client.campaign.updateStatus({
+					path: { id: parseId(args.id) },
+					body: { status: castCampaignStatus(args.status) },
+				});
+				return handleDataResponse(response, "Failed to update campaign status");
+			}
 
 			case "listmonk_delete_campaign": {
 				const validation = validateRequiredParams(request, ["id"]);
@@ -395,59 +392,65 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-					const response = await client.campaign.delete({
-						path: { id: parseId(args.id) },
-					});
-					return handleDataResponse(response, "Failed to delete campaign");
+				const response = await client.campaign.delete({
+					path: { id: parseId(args.id) },
+				});
+				return handleDataResponse(response, "Failed to delete campaign");
+			}
+
+			case "listmonk_test_campaign": {
+				const validation = validateRequiredParams(request, ["id", "emails"]);
+				if (validation) {
+					return createErrorResult(validation);
 				}
 
-				case "listmonk_test_campaign": {
-					const validation = validateRequiredParams(request, ["id", "emails"]);
-					if (validation) {
-						return createErrorResult(validation);
-					}
-
-					const campaignId = parseId(args.id);
-					const currentResponse = await client.campaign.getById({
-						path: { id: campaignId },
-					});
-					if ("error" in currentResponse) {
-						return createApiErrorResult(
-							"Failed to load campaign before test send",
-							currentResponse.error,
-						);
-					}
-
-					const currentCampaign = currentResponse.data;
-					if (!currentCampaign) {
-						return createErrorResult("Campaign not found");
-					}
-
-					const response = await client.campaign.test({
-						path: { id: campaignId },
-						body: {
-							name: currentCampaign.name ?? `campaign-${campaignId}`,
-							subject: currentCampaign.subject ?? "",
-							from_email: currentCampaign.from_email ?? "",
-							body: currentCampaign.body ?? "",
-							content_type: currentCampaign.content_type ?? "html",
-							template_id: currentCampaign.template_id,
-							lists:
-								currentCampaign.lists
-									?.map((list) => Number(list.id))
-									.filter((id) => Number.isInteger(id) && id > 0) ?? [],
-							subscribers: Array.isArray(args.emails)
-								? args.emails.map((email) => String(email))
-								: [],
-							messenger: currentCampaign.messenger ?? "email",
-							type: currentCampaign.type ?? "regular",
-							tags: Array.isArray(currentCampaign.tags)
-								? currentCampaign.tags
-								: [],
-						},
-					});
-					return handleDataResponse(response, "Failed to send test campaign");
+				const campaignId = parseId(args.id);
+				const currentResponse = await client.campaign.getById({
+					path: { id: campaignId },
+				});
+				if ("error" in currentResponse) {
+					return createApiErrorResult(
+						"Failed to load campaign before test send",
+						currentResponse.error,
+					);
 				}
+
+				const currentCampaign = currentResponse.data;
+				if (!currentCampaign) {
+					return createErrorResult("Campaign not found");
+				}
+
+				const response = await client.campaign.test({
+					path: { id: campaignId },
+					body: {
+						name: currentCampaign.name ?? `campaign-${campaignId}`,
+						subject: currentCampaign.subject ?? "",
+						from_email: currentCampaign.from_email ?? "",
+						body: currentCampaign.body ?? "",
+						altbody: currentCampaign.altbody,
+						content_type: currentCampaign.content_type ?? "html",
+						template_id: currentCampaign.template_id,
+						headers: currentCampaign.headers ?? [],
+						lists:
+							currentCampaign.lists
+								?.map((list) => Number(list.id))
+								.filter((id) => Number.isInteger(id) && id > 0) ?? [],
+						media:
+							currentCampaign.media
+								?.map((item) => Number(item.id))
+								.filter((id) => Number.isInteger(id) && id > 0) ?? [],
+						subscribers: Array.isArray(args.emails)
+							? args.emails.map((email) => String(email))
+							: [],
+						messenger: currentCampaign.messenger ?? "email",
+						type: currentCampaign.type ?? "regular",
+						tags: Array.isArray(currentCampaign.tags)
+							? currentCampaign.tags
+							: [],
+					},
+				});
+				return handleDataResponse(response, "Failed to send test campaign");
+			}
 
 			case "listmonk_get_campaign_running_stats": {
 				const validation = validateRequiredParams(request, ["campaign_id"]);
@@ -455,14 +458,14 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-					const response = await client.campaign.getRunningStats({
-						query: { campaign_id: parseId(args.campaign_id) },
-					});
-					return handleDataResponse(
-						response,
-						"Failed to fetch running campaign stats",
-					);
-				}
+				const response = await client.campaign.getRunningStats({
+					query: { campaign_id: parseId(args.campaign_id) },
+				});
+				return handleDataResponse(
+					response,
+					"Failed to fetch running campaign stats",
+				);
+			}
 
 			case "listmonk_get_campaign_analytics": {
 				const validation = validateRequiredParams(request, [
@@ -475,7 +478,7 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-					const response = await client.campaign.getAnalytics({
+				const response = await client.campaign.getAnalytics({
 					path: {
 						type: String(args.type) as "links" | "views" | "clicks" | "bounces",
 					},
@@ -484,12 +487,12 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 						to: String(args.to),
 						id: String(args.id),
 					},
-					});
-					return handleDataResponse(
-						response,
-						"Failed to fetch campaign analytics",
-					);
-				}
+				});
+				return handleDataResponse(
+					response,
+					"Failed to fetch campaign analytics",
+				);
+			}
 
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);

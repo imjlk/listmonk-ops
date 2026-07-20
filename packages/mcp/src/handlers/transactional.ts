@@ -34,19 +34,19 @@ export const transactionalTools: MCPTool[] = [
 					type: "object",
 					description: "Template data/variables",
 				},
-					headers: {
-						type: "array",
-						items: {
-							type: "object",
-							additionalProperties: { type: "string" },
-						},
-						description: "Additional email headers",
+				headers: {
+					type: "array",
+					items: {
+						type: "object",
+						additionalProperties: { type: "string" },
 					},
+					description: "Additional email headers",
 				},
-				required: ["template_id"],
 			},
+			required: ["template_id"],
 		},
-	];
+	},
+];
 
 export async function handleTransactionalTools(
 	request: CallToolRequest,
@@ -106,22 +106,22 @@ export async function handleTransactionalTools(
 					}
 					body.subscriber_id = subscriberId;
 				}
-					if (args.from_email) {
-						body.from_email = String(args.from_email);
-					}
+				if (args.from_email) {
+					body.from_email = String(args.from_email);
+				}
 
-					const response = await client.transactional.send(body);
-					if ("error" in response && response.error !== undefined) {
-						return createApiErrorResult(
-							"Failed to send transactional message",
-							response.error,
-						);
-					}
-					return handleDataResponse(
-						response,
+				const response = await client.transactional.send(body);
+				if ("error" in response && response.error !== undefined) {
+					return createApiErrorResult(
 						"Failed to send transactional message",
+						response.error,
 					);
 				}
+				return handleDataResponse(
+					response,
+					"Failed to send transactional message",
+				);
+			}
 
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);

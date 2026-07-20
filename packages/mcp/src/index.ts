@@ -41,7 +41,10 @@ Environment fallback:
 
 function parseArgs(argv: string[]): RuntimeArgs {
 	const args: RuntimeArgs = {};
-	const takeValue = (arg: string, next: string | undefined): string | undefined => {
+	const takeValue = (
+		arg: string,
+		next: string | undefined,
+	): string | undefined => {
 		if (arg.includes("=")) {
 			const [, value] = arg.split("=", 2);
 			return value;

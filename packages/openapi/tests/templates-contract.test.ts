@@ -19,7 +19,7 @@ describe("Template Operations Contract", () => {
 			port: 0,
 			async fetch(request) {
 				const url = new URL(request.url);
-				let body: unknown = undefined;
+				let body: unknown;
 				if (!["GET", "HEAD"].includes(request.method)) {
 					try {
 						body = await request.json();
@@ -68,7 +68,10 @@ describe("Template Operations Contract", () => {
 					});
 				}
 
-				if (request.method === "PUT" && url.pathname === "/api/templates/1/default") {
+				if (
+					request.method === "PUT" &&
+					url.pathname === "/api/templates/1/default"
+				) {
 					return Response.json({
 						data: {
 							id: 1,

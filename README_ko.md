@@ -58,7 +58,11 @@ docker compose up -d
 - Listmonk API: `http://localhost:9000/api`
 - Mailpit UI: `http://localhost:8025`
 - Mailpit SMTP: `localhost:1025`
-- PostgreSQL: `localhost:5432`
+- PostgreSQL: Docker 내부 `db:5432`에서만 접근 가능
+
+로컬 스택은 고정된 부트스트랩 자격증명을 사용하므로 공개 포트는 기본적으로
+`127.0.0.1`에 바인딩됩니다. 현재 머신 밖으로 테스트 스택을 노출하려는 경우에만
+`LISTMONK_BIND_ADDRESS`를 명시적으로 설정하세요.
 
 `docker-compose.yml` 기본 관리자 계정:
 - Username: `admin`

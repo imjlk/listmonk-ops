@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { createListmonkClient } from "../index";
 import type {
-	ListmonkClient,
-	ListmonkConfig,
 	Campaign,
 	List,
+	ListmonkClient,
+	ListmonkConfig,
 	Subscriber,
 	Template,
 } from "../index";
+import { createListmonkClient } from "../index";
 
 describe("Main Public API Exports", () => {
 	test("should export createListmonkClient function", () => {
@@ -16,12 +16,12 @@ describe("Main Public API Exports", () => {
 
 	test("should export essential type definitions", () => {
 		// TypeScript types - can't test at runtime, but importing them verifies they exist
-		const _typeCheck: ListmonkClient = {} as any;
-		const _configCheck: ListmonkConfig = {} as any;
-		const _campaignCheck: Campaign = {} as any;
-		const _listCheck: List = {} as any;
-		const _subscriberCheck: Subscriber = {} as any;
-		const _templateCheck: Template = {} as any;
+		const _typeCheck = {} as ListmonkClient;
+		const _configCheck = {} as ListmonkConfig;
+		const _campaignCheck = {} as Campaign;
+		const _listCheck = {} as List;
+		const _subscriberCheck = {} as Subscriber;
+		const _templateCheck = {} as Template;
 
 		// If we get here, all essential types are exported correctly
 		expect(true).toBe(true);
@@ -59,10 +59,11 @@ describe("Client Creation", () => {
 		expect(client.getHealthCheck).toBeDefined();
 
 		// Should NOT have raw SDK methods or internal utilities
-		expect((client as any).createList).toBeUndefined();
-		expect((client as any).getLists).toBeUndefined();
-		expect((client as any).rawSdk).toBeUndefined();
-		expect((client as any).transformResponse).toBeUndefined();
+		const runtimeClient = client as unknown as Record<string, unknown>;
+		expect(runtimeClient.createList).toBeUndefined();
+		expect(runtimeClient.getLists).toBeUndefined();
+		expect(runtimeClient.rawSdk).toBeUndefined();
+		expect(runtimeClient.transformResponse).toBeUndefined();
 	});
 
 	test("should have clean autocomplete interface", () => {

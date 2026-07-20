@@ -1,10 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
-import {
-	createErrorResult,
-	handleDataResponse,
-} from "../utils/response.js";
+import { createErrorResult, handleDataResponse } from "../utils/response.js";
 import { withErrorHandler } from "../utils/typeHelpers.js";
 
 export const settingsTools: MCPTool[] = [
@@ -107,75 +104,66 @@ export const handleSettingsTools: HandlerFunction = withErrorHandler(
 		const { name, arguments: args = {} } = request.params;
 
 		switch (name) {
-				case "listmonk_health_check": {
-					const response = await client.getHealthCheck();
-					return handleDataResponse(response, "Health check failed");
-				}
+			case "listmonk_health_check": {
+				const response = await client.getHealthCheck();
+				return handleDataResponse(response, "Health check failed");
+			}
 
-				case "listmonk_get_settings": {
-					const response = await client.settings.get();
-					return handleDataResponse(response, "Failed to fetch settings");
-				}
+			case "listmonk_get_settings": {
+				const response = await client.settings.get();
+				return handleDataResponse(response, "Failed to fetch settings");
+			}
 
 			case "listmonk_update_settings": {
 				if (!args.settings) {
 					return createErrorResult("Settings object is required");
 				}
 
-					const response = await client.settings.update({
-						body: args.settings as Record<string, unknown>,
-					});
+				const response = await client.settings.update({
+					body: args.settings as Record<string, unknown>,
+				});
 
-					return handleDataResponse(response, "Failed to update settings");
-				}
+				return handleDataResponse(response, "Failed to update settings");
+			}
 
-				case "listmonk_get_server_config": {
-					const response = await client.system.getConfig();
-					return handleDataResponse(
-						response,
-						"Failed to fetch server config",
-					);
-				}
+			case "listmonk_get_server_config": {
+				const response = await client.system.getConfig();
+				return handleDataResponse(response, "Failed to fetch server config");
+			}
 
-				case "listmonk_get_dashboard_counts": {
-					const response = await client.dashboard.getCounts();
-					return handleDataResponse(
-						response,
-						"Failed to fetch dashboard counts",
-					);
-				}
+			case "listmonk_get_dashboard_counts": {
+				const response = await client.dashboard.getCounts();
+				return handleDataResponse(response, "Failed to fetch dashboard counts");
+			}
 
 			case "listmonk_get_dashboard_charts": {
-					const response = await client.dashboard.getCharts(
-						args.type ? { query: { type: String(args.type) } } : undefined,
-					);
-					return handleDataResponse(
-						response,
-						"Failed to fetch dashboard charts",
-					);
-				}
+				const response = await client.dashboard.getCharts(
+					args.type ? { query: { type: String(args.type) } } : undefined,
+				);
+				return handleDataResponse(response, "Failed to fetch dashboard charts");
+			}
 
 			case "listmonk_test_smtp": {
 				if (!args.settings || typeof args.settings !== "object") {
 					return createErrorResult("settings object is required");
 				}
 
-					const response = await client.settings.testSmtp({
-						body: args.settings as Record<string, unknown>,
-					});
+				const response = await client.settings.testSmtp({
+					body: args.settings as Record<string, unknown>,
+				});
 
-					return handleDataResponse(response, "Failed to test SMTP settings");
-				}
+				return handleDataResponse(response, "Failed to test SMTP settings");
+			}
 
-				case "listmonk_get_logs": {
-					const response = await client.system.getLogs();
-					return handleDataResponse(response, "Failed to fetch logs");
-				}
+			case "listmonk_get_logs": {
+				const response = await client.system.getLogs();
+				return handleDataResponse(response, "Failed to fetch logs");
+			}
 
-				case "listmonk_reload_app": {
-					const response = await client.system.reload();
-					return handleDataResponse(response, "Failed to reload app");
-				}
+			case "listmonk_reload_app": {
+				const response = await client.system.reload();
+				return handleDataResponse(response, "Failed to reload app");
+			}
 
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);

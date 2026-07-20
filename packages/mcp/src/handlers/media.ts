@@ -72,13 +72,13 @@ export const handleMediaTools: HandlerFunction = withErrorHandler(
 
 		switch (name) {
 			case "listmonk_get_media": {
-					const options = parsePaginationParams(args) as Parameters<
-						ListmonkClient["media"]["list"]
-					>[0];
+				const options = parsePaginationParams(args) as Parameters<
+					ListmonkClient["media"]["list"]
+				>[0];
 
-					const response = await client.media.list(options);
-					return handleDataResponse(response, "Failed to fetch media");
-				}
+				const response = await client.media.list(options);
+				return handleDataResponse(response, "Failed to fetch media");
+			}
 
 			case "listmonk_get_media_file": {
 				const validation = validateRequiredParams(request, ["id"]);
@@ -96,8 +96,8 @@ export const handleMediaTools: HandlerFunction = withErrorHandler(
 					);
 				}
 
-					return handleDataResponse(response, "Failed to fetch media file");
-				}
+				return handleDataResponse(response, "Failed to fetch media file");
+			}
 
 			case "listmonk_delete_media": {
 				const validation = validateRequiredParams(request, ["id"]);

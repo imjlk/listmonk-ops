@@ -1,6 +1,6 @@
 import { createListmonkMCPServer } from "../src/server.js";
 import type { CallToolRequest, CallToolResult } from "../src/types/mcp.js";
-import { TEST_CONFIG, buildTestEmail, buildTestName } from "./setup.js";
+import { buildTestEmail, buildTestName, TEST_CONFIG } from "./setup.js";
 
 const MCP_TEST_VERBOSE = process.env.MCP_TEST_VERBOSE === "1";
 
@@ -142,10 +142,7 @@ export class MCPTestUtils {
 	/**
 	 * Create a test subscriber
 	 */
-	async createTestSubscriber(
-		email?: string,
-		name?: string,
-	) {
+	async createTestSubscriber(email?: string, name?: string) {
 		const result = await this.client.callTool("listmonk_create_subscriber", {
 			email: email || buildTestEmail("subscriber"),
 			name: name || buildTestName("subscriber"),

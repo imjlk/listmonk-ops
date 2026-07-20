@@ -1,20 +1,11 @@
 import { createHash } from "node:crypto";
-import {
-	mkdtempSync,
-	readFileSync,
-	renameSync,
-	rmSync,
-} from "node:fs";
+import { mkdtempSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PACKAGE_DIR = dirname(fileURLToPath(import.meta.url));
 const SPEC_DIR = join(PACKAGE_DIR, "spec");
-const UPSTREAM_SPEC = join(
-	SPEC_DIR,
-	"upstream",
-	"listmonk-v6.2.0.yaml",
-);
+const UPSTREAM_SPEC = join(SPEC_DIR, "upstream", "listmonk-v6.2.0.yaml");
 const OVERLAY_PATCH = join(SPEC_DIR, "listmonk-v6.2.0.overlay.patch");
 const OUTPUT_SPEC = join(SPEC_DIR, "listmonk.yaml");
 const EXPECTED_UPSTREAM_SHA256 =
@@ -34,14 +25,7 @@ const temporaryOutput = join(temporaryDirectory, "listmonk.yaml");
 
 try {
 	const result = Bun.spawnSync(
-		[
-			"patch",
-			"-s",
-			"-o",
-			temporaryOutput,
-			UPSTREAM_SPEC,
-			OVERLAY_PATCH,
-		],
+		["patch", "-s", "-o", temporaryOutput, UPSTREAM_SPEC, OVERLAY_PATCH],
 		{ stdout: "pipe", stderr: "pipe" },
 	);
 

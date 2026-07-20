@@ -26,7 +26,7 @@ describe("Listmonk v6.2 contracts", () => {
 			async fetch(request) {
 				const url = new URL(request.url);
 				let body: unknown;
-				if (!['GET', 'HEAD'].includes(request.method)) {
+				if (!["GET", "HEAD"].includes(request.method)) {
 					body = await request.json().catch(() => undefined);
 				}
 
@@ -35,12 +35,21 @@ describe("Listmonk v6.2 contracts", () => {
 				if (request.method === "GET" && url.pathname === "/api/about") {
 					return Response.json({ version: "v6.2.0", build: "test" });
 				}
-				if (request.method === "PATCH" && url.pathname === "/api/subscribers/42") {
+				if (
+					request.method === "PATCH" &&
+					url.pathname === "/api/subscribers/42"
+				) {
 					return Response.json({
 						data: { id: 42, email: "before@example.com", ...(body as object) },
 					});
 				}
 				if (request.method === "POST" && url.pathname === "/api/tx") {
+					return Response.json({ data: true });
+				}
+				if (
+					request.method === "POST" &&
+					url.pathname === "/api/campaigns/7/test"
+				) {
 					return Response.json({ data: true });
 				}
 				if (
@@ -76,7 +85,10 @@ describe("Listmonk v6.2 contracts", () => {
 		const response = await client.system.getAbout();
 
 		expect(response.data.version).toBe("v6.2.0");
-		expect(requests[0]).toMatchObject({ method: "GET", pathname: "/api/about" });
+		expect(requests[0]).toMatchObject({
+			method: "GET",
+			pathname: "/api/about",
+		});
 	});
 
 	test("partially updates subscribers with PATCH", async () => {
@@ -96,15 +108,55 @@ describe("Listmonk v6.2 contracts", () => {
 		});
 	});
 
-	test("passes transactional altbody through the enhanced client", async () => {
+	test("passes the complete v6.2 transactional payload", async () => {
 		const response = await client.transactional.send({
-			subscriber_email: "recipient@example.com",
+			subscriber_mode: "external",
+			subscriber_emails: ["recipient@example.com"],
 			template_id: 1,
+			subject: "Receipt",
 			altbody: "Plain-text fallback",
+			headers: [{ "X-Request-ID": "request-1" }],
 		});
 
 		expect(response.data).toBe(true);
-		expect(requests[0]?.body).toMatchObject({ altbody: "Plain-text fallback" });
+		expect(requests[0]?.body).toMatchObject({
+			subscriber_mode: "external",
+			subscriber_emails: ["recipient@example.com"],
+			subject: "Receipt",
+			altbody: "Plain-text fallback",
+		});
+	});
+
+	test("passes campaign test fields omitted by the upstream spec", async () => {
+		const response = await client.campaign.test({
+			path: { id: 7 },
+			body: {
+				name: "Visual campaign",
+				subject: "Preview",
+				from_email: "Sender <sender@example.com>",
+				content_type: "visual",
+				messenger: "email",
+				type: "regular",
+				body: "<p>Preview</p>",
+				altbody: "Preview",
+				headers: [{ "X-Campaign": "preview" }],
+				lists: [1],
+				media: [3],
+				subscribers: ["recipient@example.com"],
+			},
+		});
+
+		expect(response.data).toBe(true);
+		expect(requests[0]).toMatchObject({
+			method: "POST",
+			pathname: "/api/campaigns/7/test",
+			body: {
+				content_type: "visual",
+				altbody: "Preview",
+				media: [3],
+				subscribers: ["recipient@example.com"],
+			},
+		});
 	});
 
 	test("uses the renamed import logs operation", async () => {

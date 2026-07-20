@@ -924,11 +924,12 @@ export type Campaign = {
     CampaignID?: number;
     views?: number;
     clicks?: number;
+    bounces?: number;
     lists?: Array<{
         id?: number;
         name?: string;
     }>;
-    started_at?: string;
+    started_at?: string | null;
     to_send?: number;
     sent?: number;
     uuid?: string;
@@ -937,12 +938,27 @@ export type Campaign = {
     subject?: string;
     from_email?: string;
     body?: string;
-    send_at?: string;
+    body_source?: string | null;
+    altbody?: string | null;
+    send_at?: string | null;
     status?: string;
-    content_type?: 'richtext' | 'html' | 'markdown' | 'plain';
+    content_type?: 'richtext' | 'html' | 'markdown' | 'plain' | 'visual';
     tags?: Array<string>;
-    template_id?: number;
+    template_id?: number | null;
     messenger?: string;
+    headers?: Array<{
+        [key: string]: string;
+    }>;
+    attribs?: {
+        [key: string]: unknown;
+    };
+    archive?: boolean;
+    archive_slug?: string | null;
+    archive_template_id?: number | null;
+    archive_meta?: {
+        [key: string]: unknown;
+    };
+    media?: Array<MediaFileObject>;
 };
 
 export type CampaignContentRequest = {
@@ -956,7 +972,7 @@ export type CampaignContentRequest = {
         id?: number;
         name?: string;
     }>;
-    started_at?: string;
+    started_at?: string | null;
     to_send?: number;
     sent?: number;
     uuid?: string;
@@ -965,11 +981,11 @@ export type CampaignContentRequest = {
     subject?: string;
     from_email?: string;
     body?: string;
-    send_at?: string;
+    send_at?: string | null;
     status?: string;
-    content_type?: 'richtext' | 'html' | 'markdown' | 'plain';
+    content_type?: 'richtext' | 'html' | 'markdown' | 'plain' | 'visual';
     tags?: Array<string>;
-    template_id?: number;
+    template_id?: number | null;
     messenger?: string;
     from?: string;
     to?: string;
@@ -980,17 +996,29 @@ export type CampaignRequest = {
     subject?: string;
     lists?: Array<number>;
     from_email?: string;
-    content_type?: string;
+    content_type?: 'richtext' | 'html' | 'markdown' | 'plain' | 'visual';
     messenger?: string;
-    type?: string;
+    type?: 'regular' | 'optin';
     tags?: Array<string>;
-    send_later?: boolean;
-    send_at?: {
-        headers?: Array<{
-            [key: string]: unknown;
-        }>;
-        template_id?: number;
+    send_at?: string | null;
+    headers?: Array<{
+        [key: string]: string;
+    }>;
+    attribs?: {
+        [key: string]: unknown;
     };
+    template_id?: number | null;
+    body?: string;
+    body_source?: string | null;
+    altbody?: string | null;
+    archive?: boolean;
+    archive_slug?: string | null;
+    archive_template_id?: number | null;
+    archive_meta?: {
+        [key: string]: unknown;
+    };
+    media?: Array<number>;
+    subscribers?: Array<string>;
 };
 
 export type CampaignUpdate = {
@@ -1111,18 +1139,28 @@ export type UpdateTemplate = {
 };
 
 export type TransactionalMessage = {
+    subscriber_mode?: 'default' | 'fallback' | 'external';
+    subscriber_emails?: Array<string>;
+    subscriber_ids?: Array<number>;
+    /**
+     * @deprecated
+     */
     subscriber_email?: string;
+    /**
+     * @deprecated
+     */
     subscriber_id?: number;
-    template_id?: number;
+    template_id: number;
     from_email?: string;
     data?: {
         [key: string]: unknown;
     };
     headers?: Array<{
-        [key: string]: unknown;
+        [key: string]: string;
     }>;
     messenger?: string;
     content_type?: string;
+    subject?: string;
     altbody?: string;
 };
 
@@ -2198,7 +2236,7 @@ export type CreateCampaignResponses = {
      * new campaign object
      */
     200: {
-        data?: CampaignUpdate;
+        data?: Campaign;
     };
 };
 
@@ -2275,7 +2313,7 @@ export type UpdateCampaignByIdResponses = {
      * updated campaign object
      */
     200: {
-        data?: CampaignUpdate;
+        data?: Campaign;
     };
 };
 

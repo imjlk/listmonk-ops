@@ -1,6 +1,5 @@
 import "dotenv/config";
 import { beforeAll, describe, expect, test } from "bun:test";
-import type { List } from "../index";
 import { createListmonkClient } from "../index";
 
 // Load environment variables
@@ -34,7 +33,7 @@ describe("API Integration", () => {
 		try {
 			const healthResponse = await client.getHealthCheck();
 			serverAvailable = healthResponse?.data === true;
-		} catch (error) {
+		} catch {
 			serverAvailable = false;
 			console.warn(
 				"⚠️  Listmonk server not available, skipping integration tests",
