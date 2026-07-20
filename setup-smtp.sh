@@ -27,15 +27,32 @@ resolve_published_port() {
 LISTMONK_PORT="${LISTMONK_PORT:-$(resolve_published_port listmonk 9000 9000)}"
 MAILPIT_UI_PORT="${LISTMONK_MAILPIT_UI_PORT:-$(resolve_published_port mailpit 8025 8025)}"
 LISTMONK_HEALTH_URL="${LISTMONK_HEALTH_URL:-http://localhost:${LISTMONK_PORT}/health}"
+LISTMONK_WAIT_TIMEOUT="${LISTMONK_WAIT_TIMEOUT:-120}"
+
+if ! [[ "$LISTMONK_WAIT_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
+	echo "❌ LISTMONK_WAIT_TIMEOUT must be a positive number of seconds."
+	exit 1
+fi
+
+wait_for_listmonk() {
+	local description="$1"
+	local deadline=$((SECONDS + LISTMONK_WAIT_TIMEOUT))
+
+	while ! curl -fsS "$LISTMONK_HEALTH_URL" >/dev/null; do
+		if ((SECONDS >= deadline)); then
+			echo "❌ Timed out waiting for $description at $LISTMONK_HEALTH_URL"
+			return 1
+		fi
+		echo "   Waiting for $description..."
+		sleep 2
+	done
+}
 
 echo "🚀 Setting up Listmonk with Mailpit SMTP..."
 
 # Wait for Listmonk to be ready
 echo "⏳ Waiting for Listmonk to be ready..."
-while ! curl -fsS "$LISTMONK_HEALTH_URL" >/dev/null; do
-	echo "   Waiting for Listmonk..."
-	sleep 2
-done
+wait_for_listmonk "Listmonk" || exit 1
 echo "✅ Listmonk is ready!"
 
 # Wait for database to be ready
@@ -65,10 +82,7 @@ WHERE key = 'smtp';
 	sleep 10
 
 	# Wait for health check
-	while ! curl -fsS "$LISTMONK_HEALTH_URL" >/dev/null; do
-		echo "   Waiting for Listmonk restart..."
-		sleep 2
-	done
+	wait_for_listmonk "Listmonk restart" || exit 1
 
 	echo ""
 	echo "🎉 Setup completed successfully!"
