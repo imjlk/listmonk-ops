@@ -22,9 +22,9 @@ function loadFileEnv(path: string): void {
 	try {
 		content = readFileSync(path, "utf8");
 	} catch (error) {
-		if (error instanceof Error) {
-			console.warn(`⚠️ Failed to read ${path}: ${error.message}`);
-		}
+		const detail =
+			error instanceof Error ? error.message : String(error);
+		console.warn(`⚠️ Failed to read ${path}: ${detail}`);
 		return;
 	}
 
