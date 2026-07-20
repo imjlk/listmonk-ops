@@ -1,12 +1,12 @@
 import {
-	type AbTestExecutors,
+	AbTestNotFoundError,
 	type CreateAbTestInput,
 	createAbTestExecutors,
+	withStoredAbTestExecutors,
 } from "@listmonk-ops/abtest";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
-import { loadStoredTests, saveStoredTests } from "../utils/abtest-store.js";
 import {
 	createErrorResult,
 	createSuccessResult,
@@ -421,19 +421,6 @@ function parseCreateInput(args: Record<string, unknown>): CreateAbTestInput {
 	};
 }
 
-async function getHydratedExecutors(
-	client: ListmonkClient,
-): Promise<AbTestExecutors> {
-	const executors = createAbTestExecutors(client);
-	const tests = await loadStoredTests();
-	executors.abTestService.hydrateTests(tests);
-	return executors;
-}
-
-async function persistExecutors(executors: AbTestExecutors): Promise<void> {
-	await saveStoredTests(executors.abTestService.snapshotTests());
-}
-
 function parseStatus(args: Record<string, unknown>): AbTestStatus | undefined {
 	if (args.status === undefined || args.status === null) {
 		return undefined;
@@ -457,16 +444,21 @@ export const handleAbTestTools: HandlerFunction = withErrorHandler(
 		client: ListmonkClient,
 	): Promise<CallToolResult> => {
 		const { name, arguments: args = {} } = request.params;
-		const executors = await getHydratedExecutors(client);
 
 		switch (name) {
 			case "listmonk_abtest_list": {
-				const tests = await executors.listAbTests();
 				const status = parseStatus(args);
-				const filteredTests = status
-					? tests.filter((test) => test.status === status)
-					: tests;
-				return createSuccessResult(filteredTests);
+				return withStoredAbTestExecutors(
+					client,
+					{ mode: "read" },
+					async (executors) => {
+						const tests = await executors.listAbTests();
+						const filteredTests = status
+							? tests.filter((test) => test.status === status)
+							: tests;
+						return createSuccessResult(filteredTests);
+					},
+				);
 			}
 
 			case "listmonk_abtest_get": {
@@ -475,8 +467,13 @@ export const handleAbTestTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				const test = await executors.getAbTest(getTestId(args));
-				return createSuccessResult(test);
+				const testId = getTestId(args);
+				return withStoredAbTestExecutors(
+					client,
+					{ mode: "read" },
+					async (executors) =>
+						createSuccessResult(await executors.getAbTest(testId)),
+				);
 			}
 
 			case "listmonk_abtest_create": {
@@ -490,9 +487,12 @@ export const handleAbTestTools: HandlerFunction = withErrorHandler(
 				}
 
 				const input = parseCreateInput(args);
-				const created = await executors.createAbTest(input);
-				await persistExecutors(executors);
-				return createSuccessResult(created);
+				return withStoredAbTestExecutors(
+					client,
+					{ mode: "write" },
+					async (executors) =>
+						createSuccessResult(await executors.createAbTest(input)),
+				);
 			}
 
 			case "listmonk_abtest_analyze": {
@@ -501,11 +501,18 @@ export const handleAbTestTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				const analysis = await executors.analyzeAbTest({
-					test_id: getTestId(args),
-					include_recommendations: true,
-				});
-				return createSuccessResult(analysis);
+				const testId = getTestId(args);
+				return withStoredAbTestExecutors(
+					client,
+					{ mode: "read" },
+					async (executors) =>
+						createSuccessResult(
+							await executors.analyzeAbTest({
+								test_id: testId,
+								include_recommendations: true,
+							}),
+						),
+				);
 			}
 
 			case "listmonk_abtest_launch": {
@@ -514,9 +521,13 @@ export const handleAbTestTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				const launched = await executors.launchAbTest(getTestId(args));
-				await persistExecutors(executors);
-				return createSuccessResult(launched);
+				const testId = getTestId(args);
+				return withStoredAbTestExecutors(
+					client,
+					{ mode: "write" },
+					async (executors) =>
+						createSuccessResult(await executors.launchAbTest(testId)),
+				);
 			}
 
 			case "listmonk_abtest_stop": {
@@ -525,9 +536,13 @@ export const handleAbTestTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				const stopped = await executors.stopAbTest(getTestId(args));
-				await persistExecutors(executors);
-				return createSuccessResult(stopped);
+				const testId = getTestId(args);
+				return withStoredAbTestExecutors(
+					client,
+					{ mode: "write" },
+					async (executors) =>
+						createSuccessResult(await executors.stopAbTest(testId)),
+				);
 			}
 
 			case "listmonk_abtest_delete": {
@@ -536,12 +551,18 @@ export const handleAbTestTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				const deleted = await executors.deleteAbTest(getTestId(args));
-				if (!deleted) {
-					return createErrorResult(`Test with ID ${getTestId(args)} not found`);
-				}
-				await persistExecutors(executors);
-				return createSuccessResult({ deleted: true });
+				const testId = getTestId(args);
+				return withStoredAbTestExecutors(
+					client,
+					{ mode: "write" },
+					async (executors) => {
+						const deleted = await executors.deleteAbTest(testId);
+						if (!deleted) {
+							throw new AbTestNotFoundError(testId);
+						}
+						return createSuccessResult({ deleted: true });
+					},
+				);
 			}
 
 			case "listmonk_abtest_recommend_sample_size": {
@@ -581,6 +602,9 @@ export const handleAbTestTools: HandlerFunction = withErrorHandler(
 					return createErrorResult("variant_count must be 2 or 3");
 				}
 
+				// Sample-size advice only queries remote subscriber counts and does
+				// not need the persisted A/B lifecycle state.
+				const executors = createAbTestExecutors(client);
 				const recommendation = await executors.getSampleSizeRecommendation(
 					lists,
 					testGroupPercentage,
@@ -595,9 +619,15 @@ export const handleAbTestTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				await executors.deployWinner(getTestId(args));
-				await persistExecutors(executors);
-				return createSuccessResult({ deployed: true });
+				const testId = getTestId(args);
+				return withStoredAbTestExecutors(
+					client,
+					{ mode: "write" },
+					async (executors) => {
+						await executors.deployWinner(testId);
+						return createSuccessResult({ deployed: true });
+					},
+				);
 			}
 
 			default:

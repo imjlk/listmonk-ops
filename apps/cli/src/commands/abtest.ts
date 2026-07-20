@@ -1,9 +1,9 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
 import {
-	type AbTest,
+	AbTestNotFoundError,
+	type AbTestExecutors,
 	type CreateAbTestInput,
-	createAbTestExecutors,
+	validateStoredAbTestStore,
+	withStoredAbTestExecutors,
 } from "@listmonk-ops/abtest";
 import { OutputUtils } from "@listmonk-ops/common";
 import { z } from "zod";
@@ -32,20 +32,6 @@ type VariantForCreateInput = {
 		body?: string;
 	};
 };
-
-type AbTestStore = {
-	version: 1;
-	tests: AbTest[];
-};
-
-const DEFAULT_STORE_PATH = join(
-	Bun.env.HOME || process.cwd(),
-	".listmonk-ops",
-	"abtests.json",
-);
-
-const ABTEST_STORE_PATH =
-	Bun.env.LISTMONK_OPS_ABTEST_STORE?.trim() || DEFAULT_STORE_PATH;
 
 function roundToFour(value: number): number {
 	return Math.round(value * 10000) / 10000;
@@ -189,57 +175,13 @@ function buildCreateInputFromFlags(flags: {
 	};
 }
 
-async function loadStoredTests(): Promise<AbTest[]> {
-	try {
-		const raw = await readFile(ABTEST_STORE_PATH, "utf8");
-		const parsed = JSON.parse(raw) as Partial<AbTestStore>;
-		if (!parsed || !Array.isArray(parsed.tests)) {
-			return [];
-		}
-
-		return parsed.tests;
-	} catch (error) {
-		if (
-			error &&
-			typeof error === "object" &&
-			"code" in error &&
-			error.code === "ENOENT"
-		) {
-			return [];
-		}
-
-		throw new Error(`Failed to read A/B test store: ${toErrorMessage(error)}`);
-	}
-}
-
-async function saveStoredTests(tests: AbTest[]): Promise<void> {
-	const store: AbTestStore = {
-		version: 1,
-		tests,
-	};
-
-	await mkdir(dirname(ABTEST_STORE_PATH), { recursive: true });
-	await writeFile(
-		ABTEST_STORE_PATH,
-		`${JSON.stringify(store, null, 2)}\n`,
-		"utf8",
-	);
-}
-
-async function getHydratedExecutors(
+async function withPersistedAbTests<Result>(
 	args: Parameters<typeof getListmonkClient>[0],
-) {
+	mode: "read" | "write",
+	action: (executors: AbTestExecutors) => Promise<Result> | Result,
+): Promise<Result> {
 	const client = await getListmonkClient(args);
-	const executors = createAbTestExecutors(client);
-	const storedTests = await loadStoredTests();
-	executors.abTestService.hydrateTests(storedTests);
-	return executors;
-}
-
-async function persistExecutors(
-	executors: ReturnType<typeof createAbTestExecutors>,
-): Promise<void> {
-	await saveStoredTests(executors.abTestService.snapshotTests());
+	return withStoredAbTestExecutors(client, { mode }, action);
 }
 
 async function promptInteractiveInput(
@@ -472,8 +414,11 @@ export default defineGroup({
 			description: "List A/B tests from persisted state",
 			handler: async (args) => {
 				try {
-					const executors = await getHydratedExecutors(args);
-					const tests = await executors.listAbTests();
+					const tests = await withPersistedAbTests(
+						args,
+						"read",
+						(executors) => executors.listAbTests(),
+					);
 					if (tests.length === 0) {
 						OutputUtils.info("No A/B tests found");
 						return;
@@ -499,17 +444,23 @@ export default defineGroup({
 			description: "Create an A/B test with guided prompts",
 			handler: async ({ prompt, ...args }) => {
 				try {
-					const executors = await getHydratedExecutors(args);
+					// Fail on an unreadable/corrupt store before starting the prompt. The
+					// write transaction re-reads it afterward to avoid a stale snapshot.
+					await validateStoredAbTestStore();
 					const { input, autoLaunch } = await promptInteractiveInput(
 						prompt.clack,
 					);
-					const created = await executors.createAbTest(input);
-
-					if (autoLaunch) {
-						await executors.launchAbTest(created.id);
-					}
-
-					await persistExecutors(executors);
+					const created = await withPersistedAbTests(
+						args,
+						"write",
+						async (executors) => {
+							const nextTest = await executors.createAbTest(input);
+							if (autoLaunch) {
+								await executors.launchAbTest(nextTest.id);
+							}
+							return nextTest;
+						},
+					);
 
 					OutputUtils.success(`A/B test created: ${created.id}`);
 					OutputUtils.json(created);
@@ -567,15 +518,18 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					const executors = await getHydratedExecutors(args);
 					const input = buildCreateInputFromFlags(flags);
-					const created = await executors.createAbTest(input);
-
-					if (flags["auto-launch"]) {
-						await executors.launchAbTest(created.id);
-					}
-
-					await persistExecutors(executors);
+					const created = await withPersistedAbTests(
+						args,
+						"write",
+						async (executors) => {
+							const nextTest = await executors.createAbTest(input);
+							if (flags["auto-launch"]) {
+								await executors.launchAbTest(nextTest.id);
+							}
+							return nextTest;
+						},
+					);
 					OutputUtils.success(`A/B test created: ${created.id}`);
 					OutputUtils.json(created);
 				} catch (error) {
@@ -595,9 +549,11 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					const executors = await getHydratedExecutors(args);
-					const analysis = await executors.analyzeAbTestSimple(
-						flags["test-id"],
+					const analysis = await withPersistedAbTests(
+						args,
+						"read",
+						(executors) =>
+							executors.analyzeAbTestSimple(flags["test-id"]),
 					);
 					const rows = analysis.results.map((result, index) => ({
 						variant: String.fromCharCode(65 + index),
@@ -633,8 +589,11 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					const executors = await getHydratedExecutors(args);
-					const test = await executors.getAbTest(flags["test-id"]);
+					const test = await withPersistedAbTests(
+						args,
+						"read",
+						(executors) => executors.getAbTest(flags["test-id"]),
+					);
 					OutputUtils.json(test);
 				} catch (error) {
 					throw new Error(`Failed to get A/B test: ${toErrorMessage(error)}`);
@@ -651,9 +610,11 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					const executors = await getHydratedExecutors(args);
-					const launched = await executors.launchAbTest(flags["test-id"]);
-					await persistExecutors(executors);
+					const launched = await withPersistedAbTests(
+						args,
+						"write",
+						(executors) => executors.launchAbTest(flags["test-id"]),
+					);
 					OutputUtils.success(`A/B test launched: ${flags["test-id"]}`);
 					OutputUtils.json(launched);
 				} catch (error) {
@@ -673,9 +634,11 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					const executors = await getHydratedExecutors(args);
-					const stopped = await executors.stopAbTest(flags["test-id"]);
-					await persistExecutors(executors);
+					const stopped = await withPersistedAbTests(
+						args,
+						"write",
+						(executors) => executors.stopAbTest(flags["test-id"]),
+					);
 					OutputUtils.success(`A/B test stopped: ${flags["test-id"]}`);
 					OutputUtils.json(stopped);
 				} catch (error) {
@@ -693,13 +656,16 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					const executors = await getHydratedExecutors(args);
-					const deleted = await executors.deleteAbTest(flags["test-id"]);
-					if (!deleted) {
-						throw new Error(`Test with ID ${flags["test-id"]} not found`);
-					}
-
-					await persistExecutors(executors);
+					await withPersistedAbTests(
+						args,
+						"write",
+						async (executors) => {
+							const deleted = await executors.deleteAbTest(flags["test-id"]);
+							if (!deleted) {
+								throw new AbTestNotFoundError(flags["test-id"]);
+							}
+						},
+					);
 					OutputUtils.success(`A/B test deleted: ${flags["test-id"]}`);
 				} catch (error) {
 					throw new Error(

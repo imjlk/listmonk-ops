@@ -3,9 +3,9 @@ import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { loadStoredAbTests } from "@listmonk-ops/abtest";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { handleAbTestTools } from "../../src/handlers/abtest.js";
-import { loadStoredTests } from "../../src/utils/abtest-store.js";
 
 let tempDir: string | undefined;
 let previousStorePath: string | undefined;
@@ -86,6 +86,6 @@ describe("mcp abtest persistence", () => {
 		expect(result.isError).toBe(true);
 		expect(result.content?.[0]?.text).toContain("campaign creation failed");
 		expect(existsSync(storePath)).toBe(false);
-		await expect(loadStoredTests()).resolves.toEqual([]);
+		await expect(loadStoredAbTests()).resolves.toEqual([]);
 	});
 });
