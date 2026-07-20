@@ -24,15 +24,16 @@
 	],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/openapi",
+		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/common --external:@listmonk-ops/openapi",
 		"typecheck": "ttsc --noEmit",
 		"format": "ttsc format",
 		"lint": "ttsc --noEmit",
 		"lint:fix": "ttsc fix",
-		"test": "bun test",
+		"test": "bun run --cwd ../common build && bun test",
 		"prepublishOnly": "bun run build && bun run test"
 	},
 	"dependencies": {
+		"@listmonk-ops/common": "^0.1.3",
 		"@listmonk-ops/openapi": "^0.1.5"
 	},
 	"devDependencies": {
