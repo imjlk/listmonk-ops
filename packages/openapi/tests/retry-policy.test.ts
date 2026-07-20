@@ -113,4 +113,40 @@ describe("Resilient Fetch Policy", () => {
 
 		expect(calls).toBe(1);
 	});
+
+	test("stops retry backoff when the caller aborts", async () => {
+		let calls = 0;
+		globalThis.fetch = (async () => {
+			calls += 1;
+			return new Response('{"error":"temporary upstream failure"}', {
+				status: 503,
+				headers: { "Content-Type": "application/json" },
+			});
+		}) as typeof fetch;
+
+		const client = createListmonkClient({
+			baseUrl: "http://localhost:9000/api",
+			headers: {
+				Authorization: "token api-admin:test-token",
+			},
+			retries: 3,
+		});
+		const controller = new AbortController();
+		const abortableOptions = {
+			signal: controller.signal,
+		} as Parameters<typeof client.list.list>[0] & { signal: AbortSignal };
+		const completion = client.list.list(abortableOptions).then(
+			() => "completed",
+			() => "completed",
+		);
+
+		setTimeout(() => controller.abort(), 5);
+		const outcome = await Promise.race([
+			completion,
+			Bun.sleep(60).then(() => "timed-out"),
+		]);
+
+		expect(outcome).toBe("completed");
+		expect(calls).toBe(1);
+	});
 });
