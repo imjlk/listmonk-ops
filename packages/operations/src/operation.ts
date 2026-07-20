@@ -110,7 +110,7 @@ export function defineOperation<
 	execute(
 		context: Context,
 		input: z.output<InputSchema>,
-	): Promise<unknown>;
+	): Promise<z.output<OutputSchema>>;
 }): OperationDefinition<Context, InputSchema, OutputSchema> {
 	return {
 		id: config.id,

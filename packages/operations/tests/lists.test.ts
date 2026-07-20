@@ -91,6 +91,36 @@ describe("subscriber-list operations", () => {
 				tags: [],
 			},
 		});
+		expect(list).toHaveBeenCalledWith({
+			query: { page: 1, per_page: 100, query: "Created" },
+		});
+	});
+
+	test("searches every result page when resolving an empty create response", async () => {
+		const create = mock(async () => ({ data: undefined }));
+		const list = mock(async (options: { query: { page: number } }) => ({
+			data: {
+				results:
+					options.query.page === 2 ? [{ id: 109, name: "Created" }] : [],
+				total: 250,
+				page: options.query.page,
+				per_page: 100,
+			},
+		}));
+
+		const output = await createListOperation.invoke(
+			context({
+				create: create as unknown as ListClient["list"]["create"],
+				list: list as unknown as ListClient["list"]["list"],
+			}),
+			{ name: "Created" },
+		);
+
+		expect(output).toMatchObject({ id: 109 });
+		expect(list).toHaveBeenCalledTimes(2);
+		expect(list).toHaveBeenNthCalledWith(2, {
+			query: { page: 2, per_page: 100, query: "Created" },
+		});
 	});
 
 	test("does not turn an update API error into success", async () => {

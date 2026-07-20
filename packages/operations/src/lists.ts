@@ -152,7 +152,7 @@ async function findCreatedList(
 ): Promise<List | undefined> {
 	const pageSize = 100;
 	const firstResponse = await client.list.list({
-		query: { page: 1, per_page: pageSize },
+		query: { page: 1, per_page: pageSize, query: name },
 	});
 	const firstPage = unwrapData(firstResponse, "Failed to resolve created list");
 	const firstMatch = firstPage.results?.find((list) => list.name === name);
@@ -160,19 +160,19 @@ async function findCreatedList(
 		return firstMatch;
 	}
 
-	const lastPage = Math.max(1, Math.ceil((firstPage.total ?? 0) / pageSize));
-	if (lastPage === 1) {
-		return undefined;
+	const pageCount = Math.max(1, Math.ceil((firstPage.total ?? 0) / pageSize));
+	for (let page = 2; page <= pageCount; page += 1) {
+		const response = await client.list.list({
+			query: { page, per_page: pageSize, query: name },
+		});
+		const pageData = unwrapData(response, "Failed to resolve created list");
+		const match = pageData.results?.find((list) => list.name === name);
+		if (match) {
+			return match;
+		}
 	}
 
-	const lastResponse = await client.list.list({
-		query: { page: lastPage, per_page: pageSize },
-	});
-	const lastPageData = unwrapData(
-		lastResponse,
-		"Failed to resolve created list",
-	);
-	return lastPageData.results?.find((list) => list.name === name);
+	return undefined;
 }
 
 export async function createSubscriberList(
