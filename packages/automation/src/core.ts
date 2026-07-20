@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 export type RecordValue = Record<string, unknown>;
@@ -40,11 +41,7 @@ export function toDate(value: string | undefined): Date | undefined {
 }
 
 export function getOpsStorePaths() {
-	const dataDirectory = join(
-		process.env.HOME || process.cwd(),
-		".listmonk-ops",
-		"ops",
-	);
+	const dataDirectory = join(homedir(), ".listmonk-ops", "ops");
 	return {
 		segmentStorePath:
 			process.env.LISTMONK_OPS_SEGMENT_STORE?.trim() ||
