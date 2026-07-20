@@ -1,5 +1,18 @@
 # @listmonk-ops/automation
 
+## 0.1.4 — 2026-07-20
+
+### Changed
+
+- [8ccc103](https://github.com/imjlk/listmonk-ops/commit/8ccc10341381036a05c1eb62241a1000fb563c7b) Stabilize OpenAPI response handling and MCP tools, add regression coverage for Listmonk workflows, and document the updated automation behavior. — Thanks @imjlk!
+- [d227f35](https://github.com/imjlk/listmonk-ops/commit/d227f35985afb8c95472991e579f28569c86afdc) Add schema-aware atomic JSON persistence with recoverable cross-process locks,
+  migrate automation stores, and share transactional A/B state across CLI and
+  MCP workflows. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: common@0.2.0, openapi@0.2.0
+
 ## 0.1.3 — 2026-03-14
 
 ### Changed

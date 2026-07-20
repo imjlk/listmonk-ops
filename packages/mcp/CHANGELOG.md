@@ -1,5 +1,29 @@
 # @listmonk-ops/mcp
 
+## 0.2.0 — 2026-07-20
+
+### Fixed
+
+- [9a20afe](https://github.com/imjlk/listmonk-ops/commit/9a20afee64787f844871d1a5c227f3217a4cdca1) Adopt the TypeScript 7 and ttsc compiler pipeline across development and builds, and keep MCP startup detection compatible with the stricter compiler types. — Thanks @imjlk!
+- [1d13791](https://github.com/imjlk/listmonk-ops/commit/1d1379148c9e6b9fe68411f40383cac1b2002962) Target Listmonk v6.2.0 with a reproducible upstream OpenAPI overlay, expose the renamed and newly documented API operations, and provision E2E credentials through Listmonk's hashed API-token flow. — Thanks @imjlk!
+- [8ccc103](https://github.com/imjlk/listmonk-ops/commit/8ccc10341381036a05c1eb62241a1000fb563c7b) Stabilize OpenAPI response handling and MCP tools, add regression coverage for Listmonk workflows, and document the updated automation behavior. — Thanks @imjlk!
+- [d227f35](https://github.com/imjlk/listmonk-ops/commit/d227f35985afb8c95472991e579f28569c86afdc) Add schema-aware atomic JSON persistence with recoverable cross-process locks,
+  migrate automation stores, and share transactional A/B state across CLI and
+  MCP workflows. — Thanks @imjlk!
+
+### Added
+
+- [b34d868](https://github.com/imjlk/listmonk-ops/commit/b34d8688e4a9e687ae520bb4a60607fdc844ee32) Expose the existing Listmonk tool registry through standard MCP stdio and Streamable HTTP transports while preserving the legacy REST endpoints. — Thanks @imjlk!
+- [13220ca](https://github.com/imjlk/listmonk-ops/commit/13220ca1d9fc82e410ec190d04cc077c31acf8b5) Add a shared typed subscriber-list operation registry, expose validated MCP
+  schemas, safety hints, and structured output, and route graph-friendly CLI list
+  actions through the same executors with pagination support.
+  
+  Publish the operations package changes made after its bootstrap 0.1.0 release. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.2.0, automation@0.1.4, openapi@0.2.0, operations@0.1.1
+
 ## 0.1.3 — 2026-03-14
 
 ### Changed

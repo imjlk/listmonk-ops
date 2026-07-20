@@ -1,5 +1,18 @@
 # @listmonk-ops/openapi
 
+## 0.2.0 — 2026-07-20
+
+### Changed
+
+- [1d13791](https://github.com/imjlk/listmonk-ops/commit/1d1379148c9e6b9fe68411f40383cac1b2002962) Target Listmonk v6.2.0 with a reproducible upstream OpenAPI overlay, expose the renamed and newly documented API operations, and provision E2E credentials through Listmonk's hashed API-token flow. — Thanks @imjlk!
+
+### Fixed
+
+- [8ccc103](https://github.com/imjlk/listmonk-ops/commit/8ccc10341381036a05c1eb62241a1000fb563c7b) Stabilize OpenAPI response handling and MCP tools, add regression coverage for Listmonk workflows, and document the updated automation behavior. — Thanks @imjlk!
+- [1518101](https://github.com/imjlk/listmonk-ops/commit/151810192825dbe9209c33dd90ed05f1606eacc6) Split the handwritten client into named namespace factories, preserve aborts
+  during retry backoff, normalize bounce and media list operations, and add an
+  opt-in generated SDK graph contract with direct factory tests. — Thanks @imjlk!
+
 ## 0.1.5 — 2026-03-14
 
 ### Changed

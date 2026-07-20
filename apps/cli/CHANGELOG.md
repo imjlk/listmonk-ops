@@ -1,5 +1,26 @@
 # @listmonk-ops/cli
 
+## 0.3.0 — 2026-07-20
+
+### Changed
+
+- [a56544c](https://github.com/imjlk/listmonk-ops/commit/a56544cf914c7819f5377035d77edc9a4daeb037) Replace Bunli with Gunshi while preserving the existing command tree and legacy boolean/completion input, add native Linux arm64 releases, and validate both source and compiled CLI contracts. — Thanks @imjlk!
+- [13220ca](https://github.com/imjlk/listmonk-ops/commit/13220ca1d9fc82e410ec190d04cc077c31acf8b5) Add a shared typed subscriber-list operation registry, expose validated MCP
+  schemas, safety hints, and structured output, and route graph-friendly CLI list
+  actions through the same executors with pagination support.
+  
+  Publish the operations package changes made after its bootstrap 0.1.0 release. — Thanks @imjlk!
+
+### Fixed
+
+- [d227f35](https://github.com/imjlk/listmonk-ops/commit/d227f35985afb8c95472991e579f28569c86afdc) Add schema-aware atomic JSON persistence with recoverable cross-process locks,
+  migrate automation stores, and share transactional A/B state across CLI and
+  MCP workflows. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.2.0, automation@0.1.4, common@0.2.0, openapi@0.2.0, operations@0.1.1
+
 ## 0.2.3 — 2026-03-14
 
 ### Changed

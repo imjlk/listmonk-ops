@@ -1,6 +1,6 @@
 {
 	"name": "@listmonk-ops/automation",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"type": "module",
 	"description": "High-level Listmonk operational automation workflows",
 	"sideEffects": false,
@@ -33,8 +33,8 @@
 		"prepublishOnly": "bun run build && bun run test"
 	},
 	"dependencies": {
-		"@listmonk-ops/common": "^0.1.3",
-		"@listmonk-ops/openapi": "^0.1.5"
+		"@listmonk-ops/common": "^0.2.0",
+		"@listmonk-ops/openapi": "^0.2.0"
 	},
 	"devDependencies": {
 		"@types/bun": "1.3.10",

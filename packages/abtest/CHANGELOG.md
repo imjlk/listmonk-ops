@@ -1,5 +1,17 @@
 # @listmonk-ops/abtest
 
+## 0.2.0 — 2026-07-20
+
+### Added
+
+- [d227f35](https://github.com/imjlk/listmonk-ops/commit/d227f35985afb8c95472991e579f28569c86afdc) Add schema-aware atomic JSON persistence with recoverable cross-process locks,
+  migrate automation stores, and share transactional A/B state across CLI and
+  MCP workflows. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: common@0.2.0, openapi@0.2.0
+
 ## 0.1.3 — 2026-03-14
 
 ### Changed
