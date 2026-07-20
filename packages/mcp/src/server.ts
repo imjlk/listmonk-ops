@@ -130,6 +130,12 @@ export class ListmonkMCPServer {
 
 		// Standards-compliant MCP Streamable HTTP endpoint.
 		this.app.all("/mcp", async (c: Context) => {
+			if (c.req.method !== "POST") {
+				return new Response(null, {
+					status: 405,
+					headers: { Allow: "POST" },
+				});
+			}
 			return this.handleMCPHttpRequest(c.req.raw);
 		});
 

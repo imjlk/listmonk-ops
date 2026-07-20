@@ -104,6 +104,10 @@ describe("mcp runtime entrypoint", () => {
 		expect(response.ok).toBe(true);
 		expect(payload).toMatchObject({ status: "ok" });
 
+		const streamResponse = await fetch(`http://127.0.0.1:${port}/mcp`);
+		expect(streamResponse.status).toBe(405);
+		expect(streamResponse.headers.get("Allow")).toBe("POST");
+
 		const transport = new StreamableHTTPClientTransport(
 			new URL(`http://127.0.0.1:${port}/mcp`),
 		);
