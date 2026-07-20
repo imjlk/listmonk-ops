@@ -27,6 +27,19 @@ export interface GetListInput {
 	id: number;
 }
 
+export function createListCommandError(
+	context: string,
+	operationContext: string,
+	error: unknown,
+): Error {
+	if (error instanceof Error && error.message.startsWith(
+		`${operationContext}:`,
+	)) {
+		return error;
+	}
+	return new Error(`${context}: ${toErrorMessage(error)}`);
+}
+
 export async function renderSubscriberLists(
 	context: ListsCliContext,
 	input: ListListsInput,
@@ -64,7 +77,11 @@ export async function handleListListsCommand({
 			{ page: flags.page, per_page: flags["per-page"] },
 		);
 	} catch (error) {
-		throw new Error(`Failed to list lists: ${toErrorMessage(error)}`);
+		throw createListCommandError(
+			"Failed to list lists",
+			"Failed to fetch lists",
+			error,
+		);
 	}
 }
 
@@ -83,7 +100,11 @@ export async function handleGetListCommand({
 			{ id: flags.id },
 		);
 	} catch (error) {
-		throw new Error(`Failed to get list: ${toErrorMessage(error)}`);
+		throw createListCommandError(
+			"Failed to get list",
+			"Failed to fetch list",
+			error,
+		);
 	}
 }
 

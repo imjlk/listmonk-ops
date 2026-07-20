@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import {
+	createListCommandError,
 	renderSubscriberList,
 	renderSubscriberLists,
 	type ListsCliContext,
@@ -20,6 +21,24 @@ function context(list: Partial<ListClient["list"]>) {
 }
 
 describe("lists CLI actions", () => {
+	test("does not duplicate operation error context", () => {
+		const operationError = new Error("Failed to fetch list: not found");
+		expect(
+			createListCommandError(
+				"Failed to get list",
+				"Failed to fetch list",
+				operationError,
+			),
+		).toBe(operationError);
+		expect(
+			createListCommandError(
+				"Failed to get list",
+				"Failed to fetch list",
+				new Error("Missing LISTMONK_API_TOKEN"),
+			).message,
+		).toBe("Failed to get list: Missing LISTMONK_API_TOKEN");
+	});
+
 	test("renders a paginated list through the shared operation", async () => {
 		const list = mock(async () => ({
 			data: {
