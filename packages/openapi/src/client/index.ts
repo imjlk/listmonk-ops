@@ -865,7 +865,12 @@ export const createListmonkClient = (
 				throw new Error(message);
 			}
 
-			const payload = await response.json();
+			let payload: unknown = false;
+			try {
+				payload = await response.json();
+			} catch {
+				// Treat a non-JSON success body as an unhealthy response.
+			}
 			return (await transformResponse({
 				data: payload,
 				request,

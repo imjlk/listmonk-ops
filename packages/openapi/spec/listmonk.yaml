@@ -1985,7 +1985,7 @@ paths:
 
   "/templates/{id}/default":
     put:
-      description: handles template modification.
+      description: sets the specified template as the default template.
       operationId: setDefaultTemplateById
       tags:
         - Templates

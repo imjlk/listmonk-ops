@@ -3,8 +3,8 @@
 The generated SDK targets Listmonk `v6.2.0`.
 
 - Upstream tag: `v6.2.0`
-- Upstream commit: `ef0a758e3dd55d0af530701551174a09a860b0e7`
-- Source: <https://github.com/knadh/listmonk/blob/v6.2.0/docs/swagger/collections.yaml>
+- Upstream commit: `ef0a75872463f10a4848af6c547d1c057405453a`
+- Source: <https://github.com/knadh/listmonk/blob/ef0a75872463f10a4848af6c547d1c057405453a/docs/swagger/collections.yaml>
 - Vendored SHA-256: `b9bacc15711f1e9c34260075f7226f81ddb672678b1b7c6f9b90757c21295c53`
 
 Files:

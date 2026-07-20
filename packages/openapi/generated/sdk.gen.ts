@@ -556,7 +556,7 @@ export const previewTemplateById = <ThrowOnError extends boolean = false>(option
 });
 
 /**
- * handles template modification.
+ * sets the specified template as the default template.
  */
 export const setDefaultTemplateById = <ThrowOnError extends boolean = false>(options: Options<SetDefaultTemplateByIdData, ThrowOnError>) => (options.client ?? client).put<SetDefaultTemplateByIdResponses, unknown, ThrowOnError>({ url: '/templates/{id}/default', ...options });
 

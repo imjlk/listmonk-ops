@@ -65,13 +65,16 @@ function formatValidationError(error: {
 function createArgSchema(name: string, definition: CliOption): ArgSchema {
 	const defaultResult = definition.schema.safeParse(undefined);
 	const description = definition.config.description;
+	const booleanResult = definition.schema.safeParse(true);
 
-	if (defaultResult.success && typeof defaultResult.data === "boolean") {
+	if (booleanResult.success && typeof booleanResult.data === "boolean") {
 		booleanOptionNames.add(name);
 		return {
 			type: "boolean",
 			description,
-			default: defaultResult.data,
+			...(defaultResult.success && typeof defaultResult.data === "boolean"
+				? { default: defaultResult.data }
+				: {}),
 			negatable: true,
 		};
 	}
@@ -123,8 +126,8 @@ export function defineCommand<
 		async run(context) {
 			await config.handler({
 				flags: {
-					...runtimeFlags,
 					...context.values,
+					...runtimeFlags,
 				} as InferFlags<Options> & RuntimeFlags,
 				spinner: clack.spinner,
 				prompt: { clack },

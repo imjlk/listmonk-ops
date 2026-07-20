@@ -318,8 +318,9 @@ export async function handleSubscribersTools(
 					);
 				}
 
+				const expectedEmail = String(args.email).toLowerCase();
 				const createdSubscriber = lookupResponse.data?.results?.find(
-					(subscriber) => subscriber.email === String(args.email),
+					(subscriber) => subscriber.email?.toLowerCase() === expectedEmail,
 				);
 
 				if (!createdSubscriber) {

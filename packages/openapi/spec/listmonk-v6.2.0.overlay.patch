@@ -21,10 +21,18 @@
  
    /subscribers:
      get:
-@@ -431,6 +445,36 @@
-                   data:
-                     $ref: "#/components/schemas/Subscriber"
- 
+@@ -423,6 +437,36 @@
+       responses:
+         "200":
+           description: returns updated subscriber.
++          content:
++            application/json:
++              schema:
++                type: object
++                properties:
++                  data:
++                    $ref: "#/components/schemas/Subscriber"
++
 +    patch:
 +      description: partially modifies subscriber data while preserving omitted fields
 +      operationId: patchSubscriberById
@@ -47,17 +55,9 @@
 +      responses:
 +        "200":
 +          description: returns the updated subscriber
-+          content:
-+            application/json:
-+              schema:
-+                type: object
-+                properties:
-+                  data:
-+                    $ref: "#/components/schemas/Subscriber"
-+
-     delete:
-       description: handles subscriber deletion based on id
-       operationId: deleteSubscriberById
+           content:
+             application/json:
+               schema:
 @@ -889,7 +933,7 @@
                  properties:
                    data:
@@ -94,6 +94,15 @@
            schema:
              type: boolean
        responses:
+@@ -1941,7 +1985,7 @@
+ 
+   "/templates/{id}/default":
+     put:
+-      description: handles template modification.
++      description: sets the specified template as the default template.
+       operationId: setDefaultTemplateById
+       tags:
+         - Templates
 @@ -2132,6 +2176,41 @@
  
  components:
@@ -136,15 +145,15 @@
      LanguagePack:
        type: object
        properties:
-@@ -3875,6 +3954,8 @@
+@@ -3874,6 +3953,8 @@
+         views:
            type: integer
          clicks:
-           type: integer
-+        bounces:
 +          type: integer
++        bounces:
+           type: integer
          lists:
            type: array
-           items:
 @@ -3886,6 +3967,8 @@
                  type: string
          started_at:
@@ -154,12 +163,13 @@
          to_send:
            type: integer
          sent:
-@@ -3903,21 +3986,54 @@
+@@ -3902,22 +3985,55 @@
+         from_email:
            type: string
          body:
-           type: string
-+        body_source:
 +          type: string
++        body_source:
+           type: string
 +          nullable: true
 +        altbody:
 +          type: string

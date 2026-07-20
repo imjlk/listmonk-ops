@@ -14,7 +14,7 @@ rm -f "$RESULTS_TSV"
 LISTMONK_API_URL="${LISTMONK_API_URL:-http://localhost:9000/api}"
 LISTMONK_USERNAME="${LISTMONK_USERNAME:-api-admin}"
 LISTMONK_API_TOKEN="${LISTMONK_API_TOKEN:-}"
-LISTMONK_TEST_TOKEN_FILE="${LISTMONK_TEST_TOKEN_FILE:-/tmp/listmonk-ops-api-token}"
+export LISTMONK_TEST_TOKEN_FILE="${LISTMONK_TEST_TOKEN_FILE:-/tmp/listmonk-ops-api-token}"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -85,7 +85,9 @@ fi
 if [[ -z "$LISTMONK_API_TOKEN" ]] && command -v docker >/dev/null 2>&1; then
 	if docker compose -f "$ROOT_DIR/docker-compose.yml" ps --services --filter status=running | grep -q "^listmonk$"; then
 		bun run --cwd "$ROOT_DIR" stack:bootstrap-auth
-		LISTMONK_API_TOKEN="$(tr -d '\r\n' <"$LISTMONK_TEST_TOKEN_FILE")"
+		if [[ -f "$LISTMONK_TEST_TOKEN_FILE" ]]; then
+			LISTMONK_API_TOKEN="$(tr -d '\r\n' <"$LISTMONK_TEST_TOKEN_FILE")"
+		fi
 	fi
 fi
 

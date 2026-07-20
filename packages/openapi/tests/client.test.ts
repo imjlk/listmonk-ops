@@ -168,6 +168,24 @@ describe("Client Creation", () => {
 			}
 		});
 
+		test("should return an unhealthy result for a non-JSON success body", async () => {
+			const originalFetch = globalThis.fetch;
+
+			try {
+				globalThis.fetch = (async () =>
+					new Response("healthy", { status: 200 })) as typeof fetch;
+
+				const client = createListmonkClient({
+					baseUrl: "http://localhost:9000/api",
+				});
+				const result = await client.getHealthCheck();
+
+				expect(result.data).toBe(false);
+			} finally {
+				globalThis.fetch = originalFetch;
+			}
+		});
+
 		test("should preserve list API errors instead of normalizing them to empty results", async () => {
 			const originalFetch = globalThis.fetch;
 			let requestedUrl = "";
