@@ -239,7 +239,7 @@ bun run mcp test:e2e
 
 #### Test Configuration
 
-The MCP E2E harness loads `tests/.env.test` first and then `tests/.env.test.local` (if present), overriding any ambient root `.env` values.
+The MCP E2E harness loads `tests/.env.test` first and then `tests/.env.test.local` (if present), while keeping explicit process env values as highest priority.
 
 Create `tests/.env.test.local` to customize test settings:
 

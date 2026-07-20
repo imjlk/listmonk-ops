@@ -3,7 +3,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createListmonkClient } from "@listmonk-ops/openapi";
-import { config as loadEnv } from "dotenv";
 
 const TESTS_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(TESTS_DIR, "../../..");
@@ -17,11 +16,45 @@ const LOCAL_TOKEN_PATH =
 export const TEST_RESOURCE_PREFIX = "lmops-e2e";
 
 function loadTestEnvironment(): void {
+	const loadFile = (path: string): void => {
+		if (!existsSync(path)) {
+			return;
+		}
+
+		const lines = readFileSync(path, "utf8").split(/\r?\n/);
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed || trimmed.startsWith("#")) {
+				continue;
+			}
+
+			const separatorIndex = trimmed.indexOf("=");
+			if (separatorIndex < 0) {
+				continue;
+			}
+
+			const key = trimmed.slice(0, separatorIndex).trim();
+			if (!key) {
+				continue;
+			}
+
+			let value = trimmed.slice(separatorIndex + 1).trim();
+			if (
+				(value.startsWith('"') && value.endsWith('"')) ||
+				(value.startsWith("'") && value.endsWith("'"))
+			) {
+				value = value.slice(1, -1);
+			}
+
+			if (process.env[key] === undefined) {
+				process.env[key] = value;
+			}
+		}
+	};
+
 	// Explicit process env wins, then .env.test.local, then committed defaults.
 	for (const envPath of [TEST_ENV_LOCAL_PATH, TEST_ENV_PATH]) {
-		if (existsSync(envPath)) {
-			loadEnv({ path: envPath, override: false });
-		}
+		loadFile(envPath);
 	}
 }
 

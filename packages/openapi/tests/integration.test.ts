@@ -1,8 +1,7 @@
-import "dotenv/config";
 import { beforeAll, describe, expect, test } from "bun:test";
 import { createListmonkClient } from "../index";
 
-// Load environment variables
+// Read environment variables from process.env
 const LISTMONK_API_URL =
 	process.env.LISTMONK_API_URL || "http://localhost:9000/api";
 const LISTMONK_USERNAME = process.env.LISTMONK_USERNAME || "api-admin";
