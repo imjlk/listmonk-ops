@@ -19,6 +19,7 @@ import {
 	handleSubscribersTools,
 	handleTemplatesTools,
 	handleTransactionalTools,
+	isListsToolName,
 	listsTools,
 	mediaTools,
 	opsTools,
@@ -171,13 +172,7 @@ export class ListmonkMCPServer {
 
 		try {
 			// Route to appropriate handler based on tool name prefix
-			if (
-				name.startsWith("listmonk_get_lists") ||
-				name.startsWith("listmonk_get_list") ||
-				name.startsWith("listmonk_create_list") ||
-				name.startsWith("listmonk_update_list") ||
-				name.startsWith("listmonk_delete_list")
-			) {
+			if (isListsToolName(name)) {
 				return await handleListsTools(request, this.client);
 			}
 

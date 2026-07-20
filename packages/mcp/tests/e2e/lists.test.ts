@@ -15,6 +15,7 @@ describe("Lists MCP Tools", () => {
 		const data = utils.assertSuccess(result, "Failed to get lists");
 		expect(data).toHaveProperty("results");
 		expect(Array.isArray(data.results)).toBe(true);
+		expect(result.structuredContent).toEqual(data);
 	});
 
 	test("should create a new list", async () => {
@@ -72,6 +73,10 @@ describe("Lists MCP Tools", () => {
 		});
 
 		utils.assertSuccess(result, "Failed to update list");
+		expect(result.structuredContent).toMatchObject({
+			id: testListId,
+			name: updatedName,
+		});
 
 		// Verify the update
 		const getResult = await client.callTool("listmonk_get_list", {
@@ -97,6 +102,10 @@ describe("Lists MCP Tools", () => {
 
 		// Just verify the delete operation succeeded - no need to test error message format
 		expect(result.isError).toBeFalsy();
+		expect(result.structuredContent).toEqual({
+			id: testListId,
+			deleted: true,
+		});
 	});
 
 	test("should handle validation errors", async () => {

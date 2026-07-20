@@ -1,282 +1,63 @@
-import type { List, ListmonkClient } from "@listmonk-ops/openapi";
+import type { ListmonkClient } from "@listmonk-ops/openapi";
+import {
+	getListOperationByMcpName,
+	listOperations,
+	type ListOperation,
+} from "@listmonk-ops/operations";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
-import {
-	createApiErrorResult,
-	createErrorResult,
-	createSuccessResult,
-	handleDataResponse,
-	validateRequiredParams,
-} from "../utils/response.js";
-import {
-	castListType,
-	castOptinType,
-	handleCrudResponse,
-	parseId,
-	parsePaginationParams,
-	withErrorHandler,
-} from "../utils/typeHelpers.js";
+import { createErrorResult } from "../utils/response.js";
+import { withErrorHandler } from "../utils/typeHelpers.js";
 
-export const listsTools: MCPTool[] = [
-	{
-		name: "listmonk_get_lists",
-		description: "Get all subscriber lists from Listmonk",
-		inputSchema: {
-			type: "object",
-			properties: {
-				page: {
-					type: "number",
-					description: "Page number for pagination",
-					default: 1,
-				},
-				per_page: {
-					type: "number",
-					description: "Number of items per page",
-					default: 20,
-				},
-			},
+function toMcpTool(operation: ListOperation): MCPTool {
+	return {
+		name: operation.mcp.name,
+		title: operation.title,
+		description: operation.description,
+		inputSchema: operation.inputJsonSchema,
+		outputSchema: operation.outputJsonSchema,
+		annotations: {
+			title: operation.title,
+			...operation.safety,
 		},
-	},
-	{
-		name: "listmonk_get_list",
-		description: "Get a specific subscriber list by ID",
-		inputSchema: {
-			type: "object",
-			properties: {
-				id: {
-					type: "string",
-					description: "List ID",
-				},
-			},
-			required: ["id"],
-		},
-	},
-	{
-		name: "listmonk_create_list",
-		description: "Create a new subscriber list",
-		inputSchema: {
-			type: "object",
-			properties: {
-				name: {
-					type: "string",
-					description: "List name",
-				},
-				type: {
-					type: "string",
-					enum: ["public", "private"],
-					description: "List type",
-					default: "private",
-				},
-				optin: {
-					type: "string",
-					enum: ["single", "double"],
-					description: "Opt-in type",
-					default: "single",
-				},
-				description: {
-					type: "string",
-					description: "List description",
-				},
-				tags: {
-					type: "array",
-					items: { type: "string" },
-					description: "List tags",
-				},
-			},
-			required: ["name"],
-		},
-	},
-	{
-		name: "listmonk_update_list",
-		description: "Update an existing subscriber list",
-		inputSchema: {
-			type: "object",
-			properties: {
-				id: {
-					type: "string",
-					description: "List ID",
-				},
-				name: {
-					type: "string",
-					description: "List name",
-				},
-				type: {
-					type: "string",
-					enum: ["public", "private"],
-					description: "List type",
-				},
-				optin: {
-					type: "string",
-					enum: ["single", "double"],
-					description: "Opt-in type",
-				},
-				description: {
-					type: "string",
-					description: "List description",
-				},
-				tags: {
-					type: "array",
-					items: { type: "string" },
-					description: "List tags",
-				},
-			},
-			required: ["id"],
-		},
-	},
-	{
-		name: "listmonk_delete_list",
-		description: "Delete a subscriber list",
-		inputSchema: {
-			type: "object",
-			properties: {
-				id: {
-					type: "string",
-					description: "List ID",
-				},
-			},
-			required: ["id"],
-		},
-	},
-];
+	};
+}
+
+function createOperationResult(
+	operation: ListOperation,
+	output: Record<string, unknown>,
+): CallToolResult {
+	const text =
+		operation.mcp.legacySuccessText ?? JSON.stringify(output, null, 2);
+	return {
+		content: [{ type: "text", text }],
+		structuredContent: output,
+	};
+}
+
+export const listsTools: MCPTool[] = listOperations.map(toMcpTool);
+
+export function isListsToolName(name: string): boolean {
+	return getListOperationByMcpName(name) !== undefined;
+}
 
 export const handleListsTools: HandlerFunction = withErrorHandler(
 	async (
 		request: CallToolRequest,
 		client: ListmonkClient,
 	): Promise<CallToolResult> => {
-		const { name, arguments: args = {} } = request.params;
-
-		switch (name) {
-			case "listmonk_get_lists": {
-				const pagination = parsePaginationParams(args);
-				const query =
-					pagination.page || pagination.per_page
-						? { query: pagination }
-						: undefined;
-
-				const response = await client.list.list(query);
-				return handleDataResponse(response, "Failed to fetch lists");
-			}
-
-			case "listmonk_get_list": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const response = await client.list.getById({
-					path: { list_id: parseId(args.id) },
-				});
-
-				return handleCrudResponse(response, "Failed to fetch list");
-			}
-
-			case "listmonk_create_list": {
-				const validation = validateRequiredParams(request, ["name"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const body: Record<string, unknown> = {
-					name: String(args.name),
-					type: args.type ? castListType(args.type) : "private",
-					optin: args.optin ? castOptinType(args.optin) : "single",
-					description: String(args.description || ""),
-					tags: Array.isArray(args.tags) ? args.tags : [],
-				};
-
-				const response = await client.list.create({ body });
-				if ("error" in response && response.error !== undefined) {
-					return createApiErrorResult("Failed to create list", response.error);
-				}
-				if (response.data !== undefined) {
-					return createSuccessResult(response.data);
-				}
-
-				let createdList: List | undefined;
-				const pageSize = 100;
-				const firstPage = await client.list.list({
-					query: { page: 1, per_page: pageSize },
-				});
-				if ("error" in firstPage && firstPage.error !== undefined) {
-					return createApiErrorResult(
-						"Failed to resolve created list",
-						firstPage.error,
-					);
-				}
-				createdList = firstPage.data?.results?.find(
-					(list) => list.name === body.name,
-				);
-
-				if (!createdList) {
-					const total = firstPage.data?.total ?? 0;
-					const lastPage = total > 0 ? Math.ceil(total / pageSize) : 1;
-
-					if (lastPage > 1) {
-						const lastPageResponse = await client.list.list({
-							query: { page: lastPage, per_page: pageSize },
-						});
-						if (
-							"error" in lastPageResponse &&
-							lastPageResponse.error !== undefined
-						) {
-							return createApiErrorResult(
-								"Failed to resolve created list",
-								lastPageResponse.error,
-							);
-						}
-						createdList = lastPageResponse.data?.results?.find(
-							(list) => list.name === body.name,
-						);
-					}
-				}
-
-				if (!createdList) {
-					return createErrorResult(
-						"List was created but the created record could not be resolved",
-					);
-				}
-
-				return createSuccessResult(createdList);
-			}
-
-			case "listmonk_update_list": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const body: Record<string, unknown> = {};
-				if (args.name) body.name = String(args.name);
-				if (args.type) body.type = castListType(args.type);
-				if (args.optin) body.optin = castOptinType(args.optin);
-				if (args.description !== undefined)
-					body.description = String(args.description);
-				if (args.tags) body.tags = Array.isArray(args.tags) ? args.tags : [];
-
-				await client.list.update({
-					path: { list_id: parseId(args.id) },
-					body,
-				});
-
-				return createSuccessResult("List updated successfully");
-			}
-
-			case "listmonk_delete_list": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				await client.list.delete({
-					path: { list_id: parseId(args.id) },
-				});
-
-				return createSuccessResult("List deleted successfully");
-			}
-
-			default:
-				return createErrorResult(`Unknown tool: ${name}`);
+		const operation = getListOperationByMcpName(request.params.name);
+		if (!operation) {
+			return createErrorResult(`Unknown tool: ${request.params.name}`);
 		}
+
+		const output = await operation.invoke(
+			{ client },
+			request.params.arguments ?? {},
+		);
+		return createOperationResult(
+			operation,
+			output as Record<string, unknown>,
+		);
 	},
 );
