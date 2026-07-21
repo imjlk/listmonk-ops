@@ -14,6 +14,36 @@ export type { AbTestExecutors } from "./factory";
 export { createAbTestExecutors } from "./factory";
 export { ListmonkAbTestIntegration } from "./listmonk-integration";
 export {
+	abTestOperations,
+	getAbTestOperationByMcpName,
+	invokeAbTestOperationByMcpName,
+	invokeAnalyzeAbTestOperation,
+	invokeCreateAbTestOperation,
+	invokeDeleteAbTestOperation,
+	invokeDeployAbTestWinnerOperation,
+	invokeGetAbTestOperation,
+	invokeLaunchAbTestOperation,
+	invokeListAbTestsOperation,
+	invokeRecommendAbTestSampleSizeOperation,
+	invokeStopAbTestOperation,
+} from "./operations";
+export type {
+	AbTestOperation,
+	AbTestOperationContext,
+	AbTestOperationInvocation,
+	AbTestOperationRecord,
+	AnalyzeAbTestOperationOutput,
+	CreateAbTestOperationOutput,
+	DeleteAbTestOperationOutput,
+	DeployAbTestWinnerOperationOutput,
+	GetAbTestOperationOutput,
+	LaunchAbTestOperationOutput,
+	ListAbTestsOperationOutput,
+	RecommendAbTestSampleSizeOperationOutput,
+	StopAbTestOperationOutput,
+	TestAnalysisOperationRecord,
+} from "./operations";
+export {
 	AbTestNotFoundError,
 	AbTestWriteTransactionError,
 	getAbTestStorePath,

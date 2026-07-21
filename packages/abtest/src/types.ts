@@ -118,6 +118,7 @@ export interface CreateAbTestInput {
 	name: string;
 	campaign_id?: string;
 	description?: string;
+	auto_launch?: boolean;
 	variants: Array<{
 		name: string;
 		percentage: number; // Percentage within test group (should sum to 100)

@@ -1,9 +1,24 @@
 import {
-	AbTestNotFoundError,
-	type AbTestExecutors,
 	type CreateAbTestInput,
+	type AnalyzeAbTestOperationOutput,
+	type CreateAbTestOperationOutput,
+	type DeleteAbTestOperationOutput,
+	type DeployAbTestWinnerOperationOutput,
+	type GetAbTestOperationOutput,
+	type LaunchAbTestOperationOutput,
+	type ListAbTestsOperationOutput,
+	type RecommendAbTestSampleSizeOperationOutput,
+	type StopAbTestOperationOutput,
+	invokeAnalyzeAbTestOperation,
+	invokeCreateAbTestOperation,
+	invokeDeleteAbTestOperation,
+	invokeDeployAbTestWinnerOperation,
+	invokeGetAbTestOperation,
+	invokeLaunchAbTestOperation,
+	invokeListAbTestsOperation,
+	invokeRecommendAbTestSampleSizeOperation,
+	invokeStopAbTestOperation,
 	validateStoredAbTestStore,
-	withStoredAbTestExecutors,
 } from "@listmonk-ops/abtest";
 import { OutputUtils } from "@listmonk-ops/common";
 import { z } from "zod";
@@ -175,13 +190,78 @@ function buildCreateInputFromFlags(flags: {
 	};
 }
 
-async function withPersistedAbTests<Result>(
-	args: Parameters<typeof getListmonkClient>[0],
-	mode: "read" | "write",
-	action: (executors: AbTestExecutors) => Promise<Result> | Result,
-): Promise<Result> {
+type CliAbTestArgs = Parameters<typeof getListmonkClient>[0];
+
+async function invokeCliListAbTests(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<ListAbTestsOperationOutput> {
 	const client = await getListmonkClient(args);
-	return withStoredAbTestExecutors(client, { mode }, action);
+	return invokeListAbTestsOperation({ client }, input);
+}
+
+async function invokeCliGetAbTest(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<GetAbTestOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeGetAbTestOperation({ client }, input);
+}
+
+async function invokeCliCreateAbTest(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<CreateAbTestOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeCreateAbTestOperation({ client }, input);
+}
+
+async function invokeCliAnalyzeAbTest(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<AnalyzeAbTestOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeAnalyzeAbTestOperation({ client }, input);
+}
+
+async function invokeCliLaunchAbTest(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<LaunchAbTestOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeLaunchAbTestOperation({ client }, input);
+}
+
+async function invokeCliStopAbTest(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<StopAbTestOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeStopAbTestOperation({ client }, input);
+}
+
+async function invokeCliDeleteAbTest(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<DeleteAbTestOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeDeleteAbTestOperation({ client }, input);
+}
+
+async function invokeCliRecommendAbTestSampleSize(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<RecommendAbTestSampleSizeOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeRecommendAbTestSampleSizeOperation({ client }, input);
+}
+
+async function invokeCliDeployAbTestWinner(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<DeployAbTestWinnerOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeDeployAbTestWinnerOperation({ client }, input);
 }
 
 async function promptInteractiveInput(
@@ -414,10 +494,9 @@ export default defineGroup({
 			description: "List A/B tests from persisted state",
 			handler: async (args) => {
 				try {
-					const tests = await withPersistedAbTests(
+					const { tests } = await invokeCliListAbTests(
 						args,
-						"read",
-						(executors) => executors.listAbTests(),
+						{},
 					);
 					if (tests.length === 0) {
 						OutputUtils.info("No A/B tests found");
@@ -431,7 +510,7 @@ export default defineGroup({
 						variants: test.variants.length,
 						mode: test.testingMode,
 						testGroupPercentage: test.testGroupPercentage,
-						createdAt: test.createdAt.toISOString(),
+					createdAt: new Date(test.createdAt).toISOString(),
 					}));
 					OutputUtils.table(rows);
 				} catch (error) {
@@ -450,16 +529,9 @@ export default defineGroup({
 					const { input, autoLaunch } = await promptInteractiveInput(
 						prompt.clack,
 					);
-					const created = await withPersistedAbTests(
+					const { test: created } = await invokeCliCreateAbTest(
 						args,
-						"write",
-						async (executors) => {
-							const nextTest = await executors.createAbTest(input);
-							if (autoLaunch) {
-								await executors.launchAbTest(nextTest.id);
-							}
-							return nextTest;
-						},
+						{ ...input, auto_launch: autoLaunch },
 					);
 
 					OutputUtils.success(`A/B test created: ${created.id}`);
@@ -519,16 +591,9 @@ export default defineGroup({
 			handler: async ({ flags, ...args }) => {
 				try {
 					const input = buildCreateInputFromFlags(flags);
-					const created = await withPersistedAbTests(
+					const { test: created } = await invokeCliCreateAbTest(
 						args,
-						"write",
-						async (executors) => {
-							const nextTest = await executors.createAbTest(input);
-							if (flags["auto-launch"]) {
-								await executors.launchAbTest(nextTest.id);
-							}
-							return nextTest;
-						},
+						{ ...input, auto_launch: flags["auto-launch"] },
 					);
 					OutputUtils.success(`A/B test created: ${created.id}`);
 					OutputUtils.json(created);
@@ -549,11 +614,9 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					const analysis = await withPersistedAbTests(
+					const { analysis } = await invokeCliAnalyzeAbTest(
 						args,
-						"read",
-						(executors) =>
-							executors.analyzeAbTestSimple(flags["test-id"]),
+						{ test_id: flags["test-id"], include_recommendations: true },
 					);
 					const rows = analysis.results.map((result, index) => ({
 						variant: String.fromCharCode(65 + index),
@@ -580,6 +643,42 @@ export default defineGroup({
 			},
 		}),
 		defineCommand({
+			name: "recommend-sample-size",
+			description: "Recommend A/B test sample size",
+			options: {
+				lists: option(z.string().trim().min(1), {
+					description: "Comma-separated list IDs",
+				}),
+				"test-group-percentage": option(
+					z.coerce.number().min(1).max(100),
+					{
+						description: "Planned test-group percentage",
+					},
+				),
+				"variant-count": option(z.coerce.number().int().min(2).max(3).default(2), {
+					description: "Variant count (2-3)",
+				}),
+			},
+			handler: async ({ flags, ...args }) => {
+				try {
+					const { recommendation } =
+						await invokeCliRecommendAbTestSampleSize(
+							args,
+							{
+								lists: parseCsvNumbers(flags.lists),
+								test_group_percentage: flags["test-group-percentage"],
+								variant_count: flags["variant-count"],
+							},
+						);
+					OutputUtils.json(recommendation);
+				} catch (error) {
+					throw new Error(
+						`Failed to recommend A/B sample size: ${toErrorMessage(error)}`,
+					);
+				}
+			},
+		}),
+		defineCommand({
 			name: "get",
 			description: "Get A/B test details",
 			options: {
@@ -589,10 +688,9 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					const test = await withPersistedAbTests(
+					const { test } = await invokeCliGetAbTest(
 						args,
-						"read",
-						(executors) => executors.getAbTest(flags["test-id"]),
+						{ test_id: flags["test-id"] },
 					);
 					OutputUtils.json(test);
 				} catch (error) {
@@ -610,10 +708,9 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					const launched = await withPersistedAbTests(
+					const { test: launched } = await invokeCliLaunchAbTest(
 						args,
-						"write",
-						(executors) => executors.launchAbTest(flags["test-id"]),
+						{ test_id: flags["test-id"] },
 					);
 					OutputUtils.success(`A/B test launched: ${flags["test-id"]}`);
 					OutputUtils.json(launched);
@@ -634,15 +731,40 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					const stopped = await withPersistedAbTests(
+					const { test: stopped } = await invokeCliStopAbTest(
 						args,
-						"write",
-						(executors) => executors.stopAbTest(flags["test-id"]),
+						{ test_id: flags["test-id"] },
 					);
 					OutputUtils.success(`A/B test stopped: ${flags["test-id"]}`);
 					OutputUtils.json(stopped);
 				} catch (error) {
 					throw new Error(`Failed to stop A/B test: ${toErrorMessage(error)}`);
+				}
+			},
+		}),
+		defineCommand({
+			name: "deploy-winner",
+			description: "Deploy the statistically significant winner",
+			options: {
+				"test-id": option(z.string().trim().min(1), {
+					description: "Test ID",
+				}),
+			},
+			handler: async ({ flags, ...args }) => {
+				try {
+					const result =
+						await invokeCliDeployAbTestWinner(
+							args,
+							{ test_id: flags["test-id"] },
+						);
+					OutputUtils.success(
+						`A/B test winner deployed: ${flags["test-id"]}`,
+					);
+					OutputUtils.json(result);
+				} catch (error) {
+					throw new Error(
+						`Failed to deploy A/B test winner: ${toErrorMessage(error)}`,
+					);
 				}
 			},
 		}),
@@ -656,15 +778,9 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					await withPersistedAbTests(
+					await invokeCliDeleteAbTest(
 						args,
-						"write",
-						async (executors) => {
-							const deleted = await executors.deleteAbTest(flags["test-id"]);
-							if (!deleted) {
-								throw new AbTestNotFoundError(flags["test-id"]);
-							}
-						},
+						{ test_id: flags["test-id"] },
 					);
 					OutputUtils.success(`A/B test deleted: ${flags["test-id"]}`);
 				} catch (error) {

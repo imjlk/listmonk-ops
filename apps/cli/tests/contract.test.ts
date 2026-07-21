@@ -96,6 +96,29 @@ describe("CLI contract", () => {
 		expect(remove.output).toContain("--id");
 	});
 
+	test("exposes the shared A/B test lifecycle commands", () => {
+		const group = runCli(["abtest", "--help"]);
+		const recommendation = runCli(["abtest", "recommend-sample-size", "--help"]);
+		const deploy = runCli(["abtest", "deploy-winner", "--help"]);
+
+		expect(group.exitCode).toBe(0);
+		for (const command of [
+			"list",
+			"get",
+			"create",
+			"analyze",
+			"launch",
+			"stop",
+			"delete",
+			"recommend-sample-size",
+			"deploy-winner",
+		]) {
+			expect(group.output).toContain(command);
+		}
+		expect(recommendation.output).toContain("--lists");
+		expect(deploy.output).toContain("--test-id");
+	});
+
 	test("exposes the shared transactional payload flags", () => {
 		const result = runCli(["tx", "send", "--help"]);
 
