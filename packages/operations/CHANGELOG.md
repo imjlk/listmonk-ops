@@ -1,5 +1,12 @@
 # @listmonk-ops/operations
 
+## 0.1.2 — 2026-07-21
+
+### Changed
+
+- [db04303](https://github.com/imjlk/listmonk-ops/commit/db0430331540176626593618e05826042749ce1c) Expose graph-visible named list operation invokers, route the CLI and MCP list
+  adapters through them, and preserve the existing validated operation contract. — Thanks @imjlk!
+
 ## 0.1.1 — 2026-07-20
 
 ### Changed
