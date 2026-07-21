@@ -152,4 +152,4 @@ jobs:
           gh workflow run cli-github-release.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref main \
-            --field "tag=${CLI_RELEASE_TAG}"
+            --raw-field "tag=${CLI_RELEASE_TAG}"
