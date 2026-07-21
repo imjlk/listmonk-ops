@@ -35,9 +35,20 @@ export interface OpsOperationContext {
 	client: ListmonkClient;
 }
 
-const positiveIntegerInput = z.coerce.number().int().positive();
-const nonNegativeNumberInput = z.coerce.number().finite().min(0);
-const thresholdInput = nonNegativeNumberInput.max(1);
+const numberInput = () =>
+	z.preprocess(
+		(value: unknown) =>
+			value === null || value === "" || typeof value === "boolean"
+				? Number.NaN
+				: value,
+		z.coerce.number().finite(),
+	);
+const positiveIntegerInput = numberInput().pipe(z.number().int().positive());
+const nonNegativeNumberInput = numberInput().pipe(z.number().min(0));
+const nonNegativeIntegerInput = numberInput().pipe(
+	z.number().int().nonnegative(),
+);
+const thresholdInput = numberInput().pipe(z.number().min(0).max(1));
 
 const booleanInput = z.preprocess(
 	(value: unknown) => {
@@ -120,8 +131,7 @@ const segmentDriftInputSchema = z.object({
 	threshold: nonNegativeNumberInput
 		.default(0.2)
 		.describe("Relative drift threshold"),
-	min_absolute_change: nonNegativeNumberInput
-		.int()
+	min_absolute_change: nonNegativeIntegerInput
 		.default(50)
 		.describe("Minimum absolute subscriber delta for an alert"),
 	lookback_days: positiveIntegerInput

@@ -54,12 +54,14 @@ describe("automation operation registry", () => {
 	});
 
 	test("rejects unsafe threshold and boolean values", () => {
-		expect(() =>
-			deliverabilityGuardOperation.inputSchema.parse({
-				campaign_id: 42,
-				bounce_threshold: 1.1,
-			}),
-		).toThrow();
+		for (const value of [1.1, null, "", false]) {
+			expect(() =>
+				deliverabilityGuardOperation.inputSchema.parse({
+					campaign_id: 42,
+					bounce_threshold: value,
+				}),
+			).toThrow();
+		}
 		expect(() =>
 			deliverabilityGuardOperation.inputSchema.parse({
 				campaign_id: 42,
