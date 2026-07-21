@@ -142,7 +142,17 @@ bun run graph:view
 
 # Include generated OpenAPI SDK files as explicit debugging roots
 bun run graph:openapi:dump
+
+# Verify graph roots and the CLI/MCP -> operation -> OpenAPI call contract
+bun run graph:check
 ```
+
+The list-operation pilot intentionally exposes named operation invokers. The
+main graph contract verifies that CLI and MCP adapters reach those invokers,
+the handwritten OpenAPI boundary, and direct-import tests through real call
+edges. Keep these named boundaries when extending the registry; callback-only
+registration is not a substitute because the compiler graph cannot follow the
+runtime dispatch across that callback.
 
 Codex loads the server from `.codex/config.toml` in a trusted checkout. Claude
 Code-compatible clients can use `.mcp.json`. Both configurations run the local

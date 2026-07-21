@@ -200,6 +200,25 @@ describe("subscriber-list operations", () => {
 		).resolves.toBeUndefined();
 	});
 
+	test("keeps every registered MCP list operation dispatchable", async () => {
+		for (const operation of listOperations) {
+			const outcome = await invokeListOperationByMcpName(
+				context({}),
+				operation.mcp.name,
+				{},
+			).then(
+				(value) => ({ status: "fulfilled" as const, value }),
+				(error: unknown) => ({ status: "rejected" as const, error }),
+			);
+
+			if (outcome.status === "fulfilled") {
+				expect(outcome.value).toBeDefined();
+			} else {
+				expect(outcome.error).toBeInstanceOf(Error);
+			}
+		}
+	});
+
 	test("exposes JSON schemas and safety metadata through the registry", () => {
 		expect(listOperations).toHaveLength(5);
 		expect(getListsOperation.inputJsonSchema.type).toBe("object");

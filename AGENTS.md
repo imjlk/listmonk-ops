@@ -111,6 +111,11 @@ Use graph queries to:
 - connect named implementation symbols to direct-import tests;
 - verify new TypeScript tests remain part of the graph program.
 
+`bun run graph:check` also validates direct architecture paths for the shared
+list-operation pilot. If that contract fails, keep CLI/MCP adapters, named
+operation invokers, domain actions, OpenAPI methods, and their direct-import
+tests connected by real function calls rather than weakening the assertion.
+
 The graph complements, rather than replaces, `rg`, source inspection, and
 runtime tests. Text/config references, object-literal callbacks, dynamically
 dispatched commands, and subprocess-based CLI tests can have weak or no static

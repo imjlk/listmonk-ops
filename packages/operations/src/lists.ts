@@ -340,6 +340,9 @@ export const deleteListOperation = defineOperation({
 	execute: deleteSubscriberList,
 });
 
+// Keep these invokers as explicit functions instead of a callback-based helper.
+// ttsc-graph can then preserve each adapter -> invoker -> domain action edge.
+// Their shared validation, error, and output rules stay centralized in operation.ts.
 export async function invokeGetListsOperation(
 	context: ListOperationContext,
 	input: unknown,
