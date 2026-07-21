@@ -1,5 +1,11 @@
 # @listmonk-ops/automation
 
+## 0.1.5 — 2026-07-21
+
+### Fixed
+
+- [085ed77](https://github.com/imjlk/listmonk-ops/commit/085ed77e146e8327fbe8b8d341de87ba4e05a60d) Stabilize concurrent segment snapshot test ordering on loaded CI runners — Thanks @imjlk!
+
 ## 0.1.4 — 2026-07-20
 
 ### Changed

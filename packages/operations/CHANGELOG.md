@@ -1,5 +1,11 @@
 # @listmonk-ops/operations
 
+## 0.1.3 — 2026-07-21
+
+### Changed
+
+- [eb42347](https://github.com/imjlk/listmonk-ops/commit/eb423476d728d5f0fa33900551e634e0629df0c5) Share transactional delivery across CLI and MCP with graph and Mailpit verification — Thanks @imjlk!
+
 ## 0.1.2 — 2026-07-21
 
 ### Changed
