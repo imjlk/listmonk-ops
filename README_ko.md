@@ -277,6 +277,33 @@ listmonk-cli lists update --id 10 --name "Product updates"
 listmonk-cli lists delete --id 10
 ```
 
+campaign, subscriber, template CRUD도 CLI와 MCP에서 동일한 타입드 Operation을
+사용합니다. CLI에는 전체 CRUD 명령이 제공됩니다.
+
+```bash
+listmonk-cli campaigns list --page 1 --per-page 20
+listmonk-cli campaigns create --name "Weekly update" --subject "News" \
+  --from-email ops@example.com --body "<p>Hello</p>" \
+  --template-id 1 --lists 10
+listmonk-cli campaigns update --id 42 --subject "Updated news"
+listmonk-cli campaigns delete --id 42
+
+listmonk-cli subscribers create --email reader@example.com --name Reader
+listmonk-cli subscribers update --id 7 --status enabled
+listmonk-cli subscribers delete --id 7
+
+listmonk-cli templates create --name "Campaign HTML" --body "<p>Hello</p>"
+listmonk-cli templates update --id 3 --body "<p>Updated</p>"
+listmonk-cli templates delete --id 3
+```
+
+대응하는 MCP CRUD 도구는
+`listmonk_get_campaigns`, `listmonk_get_campaign`,
+`listmonk_create_campaign`, `listmonk_update_campaign`,
+`listmonk_delete_campaign`이며, subscriber와 template에도 같은 이름 규칙이
+적용됩니다. 결과는 structured content를 제공하면서 destructive mutation의
+기존 성공 텍스트도 호환성을 위해 유지합니다.
+
 ## 트랜잭셔널 이메일
 
 CLI와 MCP 서버는 하나의 타입드 트랜잭셔널 발송 Operation을 공유합니다. 두

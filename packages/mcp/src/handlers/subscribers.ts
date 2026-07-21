@@ -1,15 +1,18 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import {
-	createApiErrorResult,
+	invokeSubscriberOperationByMcpName,
+	subscriberOperations,
+} from "@listmonk-ops/operations";
+import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
+import { createOperationResult, toMcpTool } from "./operation-adapter.js";
+import {
 	createErrorResult,
-	createSuccessResult,
 	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
 import { parseId } from "../utils/typeHelpers.js";
 
-export const subscribersTools: MCPTool[] = [
+const subscriberLegacyTools: MCPTool[] = [
 	{
 		name: "listmonk_get_subscribers",
 		description: "Get all subscribers from Listmonk",
@@ -195,183 +198,33 @@ export const subscribersTools: MCPTool[] = [
 	},
 ];
 
+export const subscribersTools: MCPTool[] = [
+	...subscriberOperations.map(toMcpTool),
+	...subscriberLegacyTools.filter(
+		(tool) =>
+			!subscriberOperations.some((operation) => operation.mcp.name === tool.name),
+	),
+];
+
 export async function handleSubscribersTools(
 	request: CallToolRequest,
 	client: ListmonkClient,
 ): Promise<CallToolResult> {
 	const { name, arguments: args = {} } = request.params;
-	type CreateSubscriberBody = NonNullable<
-		Parameters<ListmonkClient["subscriber"]["create"]>[0]
-	>["body"];
-	type SubscriberStatus = "enabled" | "disabled" | "blocklisted";
-
 	try {
+		const operationInvocation = await invokeSubscriberOperationByMcpName(
+			{ client },
+			name,
+			args,
+		);
+		if (operationInvocation) {
+			return createOperationResult(
+				operationInvocation.operation,
+				operationInvocation.output,
+			);
+		}
+
 		switch (name) {
-			case "listmonk_get_subscribers": {
-				const page = args.page || 1;
-				const perPage = args.per_page || 20;
-				const queryParams: Record<string, unknown> = {
-					page,
-					per_page: perPage,
-				};
-
-				if (args.list_id) {
-					if (Array.isArray(args.list_id)) {
-						queryParams.list_id = args.list_id.map((id) => Number(id));
-					} else {
-						queryParams.list_id = [Number(args.list_id)];
-					}
-				}
-				if (args.query) {
-					queryParams.query = args.query;
-				}
-				if (args.order_by) {
-					queryParams.order_by = String(args.order_by);
-				}
-				if (args.order) {
-					queryParams.order = String(args.order);
-				}
-				if (args.subscription_status) {
-					queryParams.subscription_status = String(args.subscription_status);
-				}
-
-				const response = await client.subscriber.list({
-					query: queryParams,
-				});
-
-				return handleDataResponse(response, "Failed to fetch subscribers");
-			}
-
-			case "listmonk_get_subscriber": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const response = await client.subscriber.getById({
-					path: { id: parseId(args.id) },
-				});
-
-				if ("error" in response) {
-					return createErrorResult(
-						`Failed to fetch subscriber: ${response.error}`,
-					);
-				}
-
-				return createSuccessResult(response.data);
-			}
-
-			case "listmonk_create_subscriber": {
-				const validation = validateRequiredParams(request, ["email", "name"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const lists = Array.isArray(args.lists)
-					? args.lists
-							.map((id) => Number(id))
-							.filter((id) => Number.isInteger(id) && id > 0)
-					: [];
-				const attribs =
-					typeof args.attribs === "object" &&
-					args.attribs !== null &&
-					!Array.isArray(args.attribs)
-						? (args.attribs as Record<string, unknown>)
-						: {};
-				const statusValue =
-					args.status === "disabled" || args.status === "blocklisted"
-						? args.status
-						: "enabled";
-
-				const body: CreateSubscriberBody = {
-					email: String(args.email),
-					name: String(args.name),
-					status: statusValue as SubscriberStatus,
-					lists,
-					attribs,
-				};
-
-				const response = await client.subscriber.create({
-					body,
-				});
-				if ("error" in response && response.error !== undefined) {
-					return createApiErrorResult(
-						"Failed to create subscriber",
-						response.error,
-					);
-				}
-				if (response.data !== undefined) {
-					return createSuccessResult(response.data);
-				}
-
-				const lookupResponse = await client.subscriber.list({
-					query: {
-						page: 1,
-						per_page: 100,
-						query: String(args.email),
-					},
-				});
-				if ("error" in lookupResponse && lookupResponse.error !== undefined) {
-					return createApiErrorResult(
-						"Failed to resolve created subscriber",
-						lookupResponse.error,
-					);
-				}
-
-				const expectedEmail = String(args.email).toLowerCase();
-				const createdSubscriber = lookupResponse.data?.results?.find(
-					(subscriber) => subscriber.email?.toLowerCase() === expectedEmail,
-				);
-
-				if (!createdSubscriber) {
-					return createErrorResult(
-						"Subscriber was created but the created record could not be resolved",
-					);
-				}
-
-				return createSuccessResult(createdSubscriber);
-			}
-
-			case "listmonk_update_subscriber": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const body: Record<string, unknown> = {};
-				if (args.email) body.email = args.email;
-				if (args.name) body.name = args.name;
-				if (args.status) body.status = args.status;
-				if (args.lists) body.lists = args.lists;
-				if (args.attribs) body.attribs = args.attribs;
-
-				const response = await client.subscriber.update({
-					path: { id: parseId(args.id) },
-					body,
-				});
-
-				if ("error" in response) {
-					return createErrorResult(
-						`Failed to update subscriber: ${response.error}`,
-					);
-				}
-
-				return createSuccessResult(response.data);
-			}
-
-			case "listmonk_delete_subscriber": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				await client.subscriber.delete({
-					path: { id: parseId(args.id) },
-				});
-
-				return createSuccessResult("Subscriber deleted successfully");
-			}
-
 			case "listmonk_send_subscriber_optin": {
 				const validation = validateRequiredParams(request, ["id"]);
 				if (validation) {

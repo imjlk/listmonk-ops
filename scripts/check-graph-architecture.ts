@@ -477,6 +477,289 @@ const cliListMutationContracts: readonly CallPathContract[] = [
 	},
 ];
 
+type ResourceOperationContractConfig = {
+	resource: string;
+	cliModule: string;
+	cliTestModule: string;
+	mcpHandler: string;
+	dispatcher: string;
+	operationTestModule: string;
+	mcpTestModule: string;
+	testAnchor: {
+		invoker: string;
+		action: string;
+	};
+	invokers: readonly {
+		label: string;
+		cliHandler: string;
+		cliRender: string;
+		invoker: string;
+		action: string;
+		openapi: string;
+	}[];
+};
+
+function resourceOperationContracts(
+	config: ResourceOperationContractConfig,
+): CallPathContract[] {
+	const cliFile = config.cliModule.slice(0, config.cliModule.indexOf("#"));
+	const operationPaths = config.invokers.flatMap((operation) => [
+		{
+			label: `CLI ${config.resource} ${operation.label} reaches the shared action`,
+			path: [
+				`${cliFile}#${operation.cliHandler}:function`,
+				`${cliFile}#${operation.cliRender}:function`,
+				operation.invoker,
+				operation.action,
+			],
+		},
+		{
+			label: `MCP ${config.resource} ${operation.label} reaches the OpenAPI CRUD method`,
+			path: [
+				mcpCallTool,
+				config.mcpHandler,
+				config.dispatcher,
+				operation.invoker,
+				operation.action,
+				operation.openapi,
+			],
+		},
+	]);
+	return [
+		...operationPaths,
+		{
+			label: `CLI ${config.resource} tests anchor the shared renderer`,
+			path: [
+				config.cliTestModule,
+				`${cliFile}#${config.invokers.find((operation) => operation.invoker === config.testAnchor.invoker)?.cliRender}:function`,
+				config.testAnchor.invoker,
+			],
+		},
+		{
+			label: `MCP ${config.resource} tests anchor the dispatcher`,
+			path: [config.mcpTestModule, config.mcpHandler, config.dispatcher],
+		},
+		{
+			label: `Operation tests anchor the ${config.resource} invoker`,
+			path: [
+				config.operationTestModule,
+				config.testAnchor.invoker,
+				config.testAnchor.action,
+			],
+		},
+	];
+}
+
+const resourceCrudContracts: readonly CallPathContract[] = [
+	...resourceOperationContracts({
+		resource: "campaign",
+		cliModule:
+			"apps/cli/src/commands/campaigns.ts#apps/cli/src/commands/campaigns.ts:module",
+		cliTestModule:
+			"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+		mcpHandler: "packages/mcp/src/handlers/campaigns.ts#handleCampaignsTools:variable",
+		dispatcher:
+			"packages/operations/src/campaigns.ts#invokeCampaignOperationByMcpName:function",
+		operationTestModule:
+			"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+		mcpTestModule:
+			"packages/mcp/tests/unit/resources.test.ts#packages/mcp/tests/unit/resources.test.ts:module",
+		testAnchor: {
+			invoker:
+				"packages/operations/src/campaigns.ts#invokeGetCampaignsOperation:function",
+			action: "packages/operations/src/campaigns.ts#listCampaigns:function",
+		},
+		invokers: [
+			{
+				label: "list",
+				cliHandler: "handleListCampaignsCommand",
+				cliRender: "renderCampaigns",
+				invoker:
+					"packages/operations/src/campaigns.ts#invokeGetCampaignsOperation:function",
+				action:
+					"packages/operations/src/campaigns.ts#listCampaigns:function",
+				openapi: openapiListMethod,
+			},
+			{
+				label: "get",
+				cliHandler: "handleGetCampaignCommand",
+				cliRender: "renderCampaign",
+				invoker:
+					"packages/operations/src/campaigns.ts#invokeGetCampaignOperation:function",
+				action: "packages/operations/src/campaigns.ts#getCampaign:function",
+				openapi:
+					"packages/openapi/src/client/crud.ts#CrudOperations.getById:method",
+			},
+			{
+				label: "create",
+				cliHandler: "handleCreateCampaignCommand",
+				cliRender: "renderCreateCampaign",
+				invoker:
+					"packages/operations/src/campaigns.ts#invokeCreateCampaignOperation:function",
+				action: "packages/operations/src/campaigns.ts#createCampaign:function",
+				openapi: openapiCreateMethod,
+			},
+			{
+				label: "update",
+				cliHandler: "handleUpdateCampaignCommand",
+				cliRender: "renderUpdateCampaign",
+				invoker:
+					"packages/operations/src/campaigns.ts#invokeUpdateCampaignOperation:function",
+				action: "packages/operations/src/campaigns.ts#updateCampaign:function",
+				openapi: openapiUpdateMethod,
+			},
+			{
+				label: "delete",
+				cliHandler: "handleDeleteCampaignCommand",
+				cliRender: "renderDeleteCampaign",
+				invoker:
+					"packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
+				action: "packages/operations/src/campaigns.ts#deleteCampaign:function",
+				openapi: openapiDeleteMethod,
+			},
+		],
+	}),
+	...resourceOperationContracts({
+		resource: "subscriber",
+		cliModule:
+			"apps/cli/src/commands/subscribers.ts#apps/cli/src/commands/subscribers.ts:module",
+		cliTestModule:
+			"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+		mcpHandler: "packages/mcp/src/handlers/subscribers.ts#handleSubscribersTools:function",
+		dispatcher:
+			"packages/operations/src/subscribers.ts#invokeSubscriberOperationByMcpName:function",
+		operationTestModule:
+			"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+		mcpTestModule:
+			"packages/mcp/tests/unit/resources.test.ts#packages/mcp/tests/unit/resources.test.ts:module",
+		testAnchor: {
+			invoker:
+				"packages/operations/src/subscribers.ts#invokeCreateSubscriberOperation:function",
+			action:
+				"packages/operations/src/subscribers.ts#createSubscriber:function",
+		},
+		invokers: [
+			{
+				label: "list",
+				cliHandler: "handleListSubscribersCommand",
+				cliRender: "renderSubscribers",
+				invoker:
+					"packages/operations/src/subscribers.ts#invokeGetSubscribersOperation:function",
+				action:
+					"packages/operations/src/subscribers.ts#listSubscribers:function",
+				openapi: openapiListMethod,
+			},
+			{
+				label: "get",
+				cliHandler: "handleGetSubscriberCommand",
+				cliRender: "renderSubscriber",
+				invoker:
+					"packages/operations/src/subscribers.ts#invokeGetSubscriberOperation:function",
+				action: "packages/operations/src/subscribers.ts#getSubscriber:function",
+				openapi:
+					"packages/openapi/src/client/crud.ts#CrudOperations.getById:method",
+			},
+			{
+				label: "create",
+				cliHandler: "handleCreateSubscriberCommand",
+				cliRender: "renderCreateSubscriber",
+				invoker:
+					"packages/operations/src/subscribers.ts#invokeCreateSubscriberOperation:function",
+				action:
+					"packages/operations/src/subscribers.ts#createSubscriber:function",
+				openapi: openapiCreateMethod,
+			},
+			{
+				label: "update",
+				cliHandler: "handleUpdateSubscriberCommand",
+				cliRender: "renderUpdateSubscriber",
+				invoker:
+					"packages/operations/src/subscribers.ts#invokeUpdateSubscriberOperation:function",
+				action:
+					"packages/operations/src/subscribers.ts#updateSubscriber:function",
+				openapi: openapiUpdateMethod,
+			},
+			{
+				label: "delete",
+				cliHandler: "handleDeleteSubscriberCommand",
+				cliRender: "renderDeleteSubscriber",
+				invoker:
+					"packages/operations/src/subscribers.ts#invokeDeleteSubscriberOperation:function",
+				action:
+					"packages/operations/src/subscribers.ts#deleteSubscriber:function",
+				openapi: openapiDeleteMethod,
+			},
+		],
+	}),
+	...resourceOperationContracts({
+		resource: "template",
+		cliModule:
+			"apps/cli/src/commands/templates.ts#apps/cli/src/commands/templates.ts:module",
+		cliTestModule:
+			"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+		mcpHandler: "packages/mcp/src/handlers/templates.ts#handleTemplatesTools:function",
+		dispatcher:
+			"packages/operations/src/templates.ts#invokeTemplateOperationByMcpName:function",
+		operationTestModule:
+			"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+		mcpTestModule:
+			"packages/mcp/tests/unit/resources.test.ts#packages/mcp/tests/unit/resources.test.ts:module",
+		testAnchor: {
+			invoker:
+				"packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
+			action: "packages/operations/src/templates.ts#updateTemplate:function",
+		},
+		invokers: [
+			{
+				label: "list",
+				cliHandler: "handleListTemplatesCommand",
+				cliRender: "renderTemplates",
+				invoker:
+					"packages/operations/src/templates.ts#invokeGetTemplatesOperation:function",
+				action: "packages/operations/src/templates.ts#listTemplates:function",
+				openapi: openapiListMethod,
+			},
+			{
+				label: "get",
+				cliHandler: "handleGetTemplateCommand",
+				cliRender: "renderTemplate",
+				invoker:
+					"packages/operations/src/templates.ts#invokeGetTemplateOperation:function",
+				action: "packages/operations/src/templates.ts#getTemplate:function",
+				openapi:
+					"packages/openapi/src/client/crud.ts#CrudOperations.getById:method",
+			},
+			{
+				label: "create",
+				cliHandler: "handleCreateTemplateCommand",
+				cliRender: "renderCreateTemplate",
+				invoker:
+					"packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
+				action: "packages/operations/src/templates.ts#createTemplate:function",
+				openapi: openapiCreateMethod,
+			},
+			{
+				label: "update",
+				cliHandler: "handleUpdateTemplateCommand",
+				cliRender: "renderUpdateTemplate",
+				invoker:
+					"packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
+				action: "packages/operations/src/templates.ts#updateTemplate:function",
+				openapi: openapiUpdateMethod,
+			},
+			{
+				label: "delete",
+				cliHandler: "handleDeleteTemplateCommand",
+				cliRender: "renderDeleteTemplate",
+				invoker:
+					"packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
+				action: "packages/operations/src/templates.ts#deleteTemplate:function",
+				openapi: openapiDeleteMethod,
+			},
+		],
+	}),
+];
+
 export const architectureCallPaths: readonly CallPathContract[] = [
 	{
 		label: "CLI list command reaches the handwritten OpenAPI list method",
@@ -617,6 +900,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	},
 	...listInvokerContracts,
 	...cliListMutationContracts,
+	...resourceCrudContracts,
 	...opsOperationContracts,
 	...abTestOperationContracts,
 	...abTestTestContracts,

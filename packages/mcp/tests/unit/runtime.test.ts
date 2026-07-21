@@ -118,7 +118,7 @@ describe("mcp runtime entrypoint", () => {
 		try {
 			await client.connect(transport);
 			const tools = await client.listTools();
-			expect(tools.tools).toHaveLength(62);
+			expect(tools.tools).toHaveLength(63);
 		} finally {
 			await client.close();
 		}
@@ -133,7 +133,7 @@ describe("mcp runtime entrypoint", () => {
 		);
 		const legacyTools = await legacyResponse.json();
 		expect(legacyResponse.ok).toBe(true);
-		expect(legacyTools.tools).toHaveLength(62);
+			expect(legacyTools.tools).toHaveLength(63);
 	});
 
 	test("published bin serves MCP over stdio", async () => {
@@ -160,7 +160,7 @@ describe("mcp runtime entrypoint", () => {
 		try {
 			await client.connect(transport);
 			const tools = await client.listTools();
-			expect(tools.tools).toHaveLength(62);
+			expect(tools.tools).toHaveLength(63);
 		} finally {
 			await client.close();
 		}

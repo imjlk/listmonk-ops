@@ -1,15 +1,18 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import {
-	createApiErrorResult,
+	invokeTemplateOperationByMcpName,
+	templateOperations,
+} from "@listmonk-ops/operations";
+import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
+import { createOperationResult, toMcpTool } from "./operation-adapter.js";
+import {
 	createErrorResult,
 	createSuccessResult,
-	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
 import { parseId } from "../utils/typeHelpers.js";
 
-export const templatesTools: MCPTool[] = [
+const templateLegacyTools: MCPTool[] = [
 	{
 		name: "listmonk_get_templates",
 		description: "Get all templates from Listmonk",
@@ -144,6 +147,14 @@ export const templatesTools: MCPTool[] = [
 	},
 ];
 
+export const templatesTools: MCPTool[] = [
+	...templateOperations.map(toMcpTool),
+	...templateLegacyTools.filter(
+		(tool) =>
+			!templateOperations.some((operation) => operation.mcp.name === tool.name),
+	),
+];
+
 export async function handleTemplatesTools(
 	request: CallToolRequest,
 	client: ListmonkClient,
@@ -151,150 +162,19 @@ export async function handleTemplatesTools(
 	const { name, arguments: args = {} } = request.params;
 
 	try {
+		const operationInvocation = await invokeTemplateOperationByMcpName(
+			{ client },
+			name,
+			args,
+		);
+		if (operationInvocation) {
+			return createOperationResult(
+				operationInvocation.operation,
+				operationInvocation.output,
+			);
+		}
+
 		switch (name) {
-			case "listmonk_get_templates": {
-				const noBody =
-					args.no_body === true ||
-					String(args.no_body).toLowerCase() === "true";
-				const response = await client.template.list(
-					noBody ? { query: { no_body: true } } : undefined,
-				);
-				return handleDataResponse(response, "Failed to fetch templates");
-			}
-
-			case "listmonk_get_template": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const response = await client.template.getById({
-					path: { id: parseId(args.id) },
-				});
-
-				if ("error" in response) {
-					return createErrorResult(
-						`Failed to fetch template: ${response.error}`,
-					);
-				}
-
-				return createSuccessResult(response.data);
-			}
-
-			case "listmonk_create_template": {
-				const validation = validateRequiredParams(request, ["name", "body"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const body = {
-					name: args.name as string,
-					type:
-						(args.type as "campaign" | "campaign_visual" | "tx") || "campaign",
-					subject: (args.subject as string) || "",
-					body: args.body as string,
-					body_source: args.body_source as string | undefined,
-				};
-
-				const response = await client.template.create({ body });
-				if ("error" in response && response.error !== undefined) {
-					return createApiErrorResult(
-						"Failed to create template",
-						response.error,
-					);
-				}
-				if (response.data !== undefined) {
-					return createSuccessResult(response.data);
-				}
-
-				const lookupResponse = await client.template.list();
-				if ("error" in lookupResponse && lookupResponse.error !== undefined) {
-					return createApiErrorResult(
-						"Failed to resolve created template",
-						lookupResponse.error,
-					);
-				}
-				const createdTemplate = lookupResponse.data?.results?.find(
-					(template) => template.name === body.name,
-				);
-
-				if (!createdTemplate) {
-					return createErrorResult(
-						"Template was created but the created record could not be resolved",
-					);
-				}
-
-				return createSuccessResult(createdTemplate);
-			}
-
-			case "listmonk_update_template": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const id = parseId(args.id);
-				const currentResponse = await client.template.getById({
-					path: { id },
-				});
-
-				if ("error" in currentResponse) {
-					return createErrorResult(
-						`Failed to load current template: ${currentResponse.error}`,
-					);
-				}
-
-				const current = currentResponse.data;
-				if (!current) {
-					return createErrorResult("Current template not found");
-				}
-
-				const body = {
-					name: (args.name as string) || current.name || "",
-					type:
-						(args.type as "campaign" | "campaign_visual" | "tx") ||
-						current.type ||
-						"campaign",
-					subject:
-						args.subject !== undefined
-							? (args.subject as string)
-							: (current.subject ?? ""),
-					body: (args.body as string) || current.body || "",
-					body_source:
-						args.body_source !== undefined
-							? (args.body_source as string)
-							: current.body_source,
-				};
-
-				if (!body.name || !body.type || !body.body) {
-					return createErrorResult(
-						"Template update requires name, type, and body after merge",
-					);
-				}
-
-				const response = await client.template.update({ path: { id }, body });
-
-				if ("error" in response) {
-					return createErrorResult(
-						`Failed to update template: ${response.error}`,
-					);
-				}
-
-				return handleDataResponse(response, "Failed to update template");
-			}
-
-			case "listmonk_delete_template": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				await client.template.delete({
-					path: { id: parseId(args.id) },
-				});
-				return createSuccessResult("Template deleted successfully");
-			}
-
 			case "listmonk_set_default_template": {
 				const validation = validateRequiredParams(request, ["id"]);
 				if (validation) {

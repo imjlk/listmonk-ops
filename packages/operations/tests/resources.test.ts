@@ -4,6 +4,7 @@ import {
 	campaignOperations,
 	createCampaignOperation,
 	getCampaignOperationByMcpName,
+	invokeGetCampaignsOperation,
 	invokeCampaignOperationByMcpName,
 	invokeCreateSubscriberOperation,
 	invokeUpdateCampaignOperation,
@@ -75,6 +76,10 @@ describe("shared CRUD resource operations", () => {
 		expect(list).toHaveBeenCalledWith({
 			query: { page: 2, per_page: 10, status: ["scheduled"] },
 		});
+		await invokeGetCampaignsOperation(
+			campaignContext({ list: list as CampaignClient["campaign"]["list"] }),
+			{ page: 1 },
+		);
 	});
 
 	test("resolves campaigns and subscribers when create responses omit data", async () => {
@@ -116,11 +121,10 @@ describe("shared CRUD resource operations", () => {
 	test("rejects empty subscriber and campaign updates before API calls", async () => {
 		const campaignUpdate = mock(async () => ({ data: {} }));
 		await expect(
-			invokeCampaignOperationByMcpName(
+			invokeUpdateCampaignOperation(
 				campaignContext({
 					update: campaignUpdate as CampaignClient["campaign"]["update"],
 				}),
-				"listmonk_update_campaign",
 				{ id: 5 },
 			),
 		).rejects.toBeInstanceOf(OperationInputError);
