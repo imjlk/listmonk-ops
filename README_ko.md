@@ -265,6 +265,28 @@ source <(listmonk-cli complete zsh)
 
 마이그레이션 호환성을 위해 기존 `completions` 표기도 deprecated alias로 유지합니다.
 
+## 트랜잭셔널 이메일
+
+CLI와 MCP 서버는 하나의 타입드 트랜잭셔널 발송 Operation을 공유합니다. 두
+인터페이스에서 수신자, 템플릿 데이터, 콘텐츠 형식, 사용자 헤더를 동일하게
+전달할 수 있습니다.
+
+```bash
+listmonk-cli tx send \
+  --template-id 42 \
+  --subscriber-email recipient@example.com \
+  --from-email "Ops <ops@example.com>" \
+  --content-type html \
+  --data '{"name":"Ada"}' \
+  --headers '[{"X-Trace-ID":"example-trace"}]'
+```
+
+이메일 또는 ID 선택자는 Listmonk에 이미 등록된 subscriber를 대상으로 합니다.
+
+대응하는 MCP 도구는 `listmonk_send_transactional`입니다. 기존 클라이언트를
+위한 boolean 텍스트 결과는 유지하면서 `{"sent": true}` structured content도
+반환합니다.
+
 ## A/B 테스트 운영 명령
 
 `abtest` 그룹은 생성부터 중지/삭제까지 전체 라이프사이클을 지원합니다.

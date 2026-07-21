@@ -43,6 +43,12 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_get_campaign_running_stats` - Get live run metrics
 - `listmonk_get_campaign_analytics` - Get timeseries analytics
 
+### Transactional Email
+
+- `listmonk_send_transactional` - Send a transactional template to an existing
+  subscriber email or ID with optional template data, content type, sender, and
+  custom headers
+
 ### A/B Tests
 
 - `listmonk_abtest_list` - List persisted A/B tests
@@ -270,6 +276,9 @@ Run the complete test suite using the project's Docker environment:
 # From project root, start the Docker environment
 docker compose up -d
 
+# Point Listmonk SMTP at the Compose Mailpit service
+./setup-smtp.sh
+
 # Run E2E tests from MCP package
 cd packages/mcp
 bun test:e2e
@@ -305,6 +314,7 @@ The E2E tests cover:
 - **Campaigns**: Full campaign lifecycle including status updates
 - **Subscribers**: Subscriber management and validation
 - **Templates**: Template operations and default settings
+- **Transactional Email**: Shared operation invocation and Mailpit delivery
 - **A/B Tests**: Create/list/get/analyze/launch/stop/delete lifecycle
 - **Ops Automation**: Preflight/guard/hygiene/drift/template-registry/digest workflows
 - **Server Integration**: Tool discovery, error handling, pagination
@@ -365,6 +375,7 @@ src/
         ├── lists.test.ts
         ├── campaigns.test.ts
         ├── subscribers.test.ts
+        ├── transactional.test.ts
         └── server.test.ts
 ```
 

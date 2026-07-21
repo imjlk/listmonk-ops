@@ -46,6 +46,32 @@ const openapiListFactory =
 	"packages/openapi/src/client/resource-operations.ts#createListOperations:function";
 const openapiCrudFactory =
 	"packages/openapi/src/client/crud.ts#createCrudOperations:function";
+const cliTransactionalHandler =
+	"apps/cli/src/commands/tx.ts#handleSendTransactionalCommand:function";
+const cliTransactionalRenderer =
+	"apps/cli/src/commands/tx.ts#renderTransactionalSend:function";
+const mcpTransactionalHandler =
+	"packages/mcp/src/handlers/transactional.ts#handleTransactionalTools:variable";
+const mcpTransactionalToolMatcher =
+	"packages/mcp/src/handlers/transactional.ts#isTransactionalToolName:function";
+const transactionalDispatcher =
+	"packages/operations/src/transactional.ts#invokeTransactionalOperationByMcpName:function";
+const transactionalLookup =
+	"packages/operations/src/transactional.ts#getTransactionalOperationByMcpName:function";
+const sendTransactionalInvoker =
+	"packages/operations/src/transactional.ts#invokeSendTransactionalOperation:function";
+const sendTransactionalAction =
+	"packages/operations/src/transactional.ts#sendTransactionalMessage:function";
+const openapiTransactionalMethod =
+	"packages/openapi/src/client/contracts.ts#TransactionalOperations.send:method";
+const mcpTestClientCallTool =
+	"packages/mcp/tests/mcp-helper.ts#MCPTestClient.callTool:method";
+const mcpTransactionalE2eTest =
+	"packages/mcp/tests/e2e/transactional.test.ts#packages/mcp/tests/e2e/transactional.test.ts:module";
+const findMailpitMessage =
+	"packages/mcp/tests/e2e/transactional.test.ts#findMessage:function";
+const fetchMailpitJson =
+	"packages/mcp/tests/e2e/transactional.test.ts#fetchMailpitJson:function";
 
 const listInvokers: readonly (readonly [label: string, invoker: string])[] = [
 	[
@@ -139,6 +165,76 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			openapiFactory,
 			openapiListFactory,
 			openapiCrudFactory,
+		],
+	},
+	{
+		label: "CLI transactional command reaches the OpenAPI send method",
+		path: [
+			cliTransactionalHandler,
+			cliTransactionalRenderer,
+			sendTransactionalInvoker,
+			sendTransactionalAction,
+			openapiTransactionalMethod,
+		],
+	},
+	{
+		label: "MCP transactional tool reaches the OpenAPI send method",
+		path: [
+			mcpCallTool,
+			mcpTransactionalHandler,
+			transactionalDispatcher,
+			sendTransactionalInvoker,
+			sendTransactionalAction,
+			openapiTransactionalMethod,
+		],
+	},
+	{
+		label: "MCP transactional routing resolves the operation registry",
+		path: [mcpCallTool, mcpTransactionalToolMatcher, transactionalLookup],
+	},
+	{
+		label: "operations tests anchor the transactional send path",
+		path: [
+			"packages/operations/tests/transactional.test.ts#packages/operations/tests/transactional.test.ts:module",
+			sendTransactionalInvoker,
+			sendTransactionalAction,
+		],
+	},
+	{
+		label: "CLI tests anchor the transactional send path",
+		path: [
+			"apps/cli/tests/transactional.test.ts#apps/cli/tests/transactional.test.ts:module",
+			cliTransactionalRenderer,
+			sendTransactionalInvoker,
+		],
+	},
+	{
+		label: "MCP unit tests anchor the transactional send path",
+		path: [
+			"packages/mcp/tests/unit/transactional.test.ts#packages/mcp/tests/unit/transactional.test.ts:module",
+			mcpTransactionalHandler,
+			transactionalDispatcher,
+		],
+	},
+	{
+		label: "MCP E2E tests reach the transactional operation adapter",
+		path: [
+			mcpTransactionalE2eTest,
+			mcpTestClientCallTool,
+			mcpCallTool,
+			mcpTransactionalHandler,
+			transactionalDispatcher,
+		],
+	},
+	{
+		label: "MCP transactional E2E tests inspect Mailpit delivery",
+		path: [mcpTransactionalE2eTest, findMailpitMessage, fetchMailpitJson],
+	},
+	{
+		label: "OpenAPI tests anchor the transactional send method",
+		path: [
+			"packages/openapi/tests/listmonk-6.2-contract.test.ts#packages/openapi/tests/listmonk-6.2-contract.test.ts:module",
+			openapiTransactionalMethod,
 		],
 	},
 	...listInvokerContracts,
