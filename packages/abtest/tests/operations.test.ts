@@ -5,10 +5,12 @@ import { join } from "node:path";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	abTestOperations,
+	invokeLaunchAbTestOperation,
 	invokeListAbTestsOperation,
+	invokeStopAbTestOperation,
 	listAbTestsOperation,
 } from "../src/operations";
-import { saveStoredAbTests } from "../src/persistence";
+import { AbTestNotFoundError, saveStoredAbTests } from "../src/persistence";
 import type { AbTest } from "../src/types";
 
 let tempDir: string | undefined;
@@ -106,5 +108,23 @@ describe("A/B test operation registry", () => {
 				{ status: "not-a-status" },
 			),
 		).rejects.toThrow("Invalid parameter status");
+	});
+
+	test("preserves typed not-found errors for lifecycle transitions", async () => {
+		tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-transition-"));
+		const storePath = join(tempDir, "abtests.json");
+		await saveStoredAbTests([], storePath);
+		const context = { client: {} as ListmonkClient, storePath };
+
+		await expect(
+			invokeLaunchAbTestOperation(context, { test_id: "missing" }),
+		).rejects.toMatchObject({
+			cause: expect.any(AbTestNotFoundError),
+		});
+		await expect(
+			invokeStopAbTestOperation(context, { test_id: "missing" }),
+		).rejects.toMatchObject({
+			cause: expect.any(AbTestNotFoundError),
+		});
 	});
 });

@@ -7,7 +7,8 @@ import {
 } from "@listmonk-ops/operations";
 import { z } from "zod";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
-import { AbTestNotFoundError, withStoredAbTestExecutors } from "./persistence";
+import { AbTestNotFoundError } from "./errors";
+import { withStoredAbTestExecutors } from "./persistence";
 import type { AbTest, TestAnalysis, TestValidationResult } from "./types";
 
 // Keep the lifecycle contracts in the domain package so CLI and MCP share the
@@ -365,16 +366,20 @@ export async function executeLaunchAbTestOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof testIdInputSchema>,
 ): Promise<LaunchAbTestOperationOutput> {
-	const launched = await withStoredOperation<AbTest | null>(
-		context,
-		"write",
-		(executors) => executors.launchAbTest(input.test_id),
-	);
-	if (!launched) {
-		throw new AbTestNotFoundError(input.test_id);
-	}
 	return {
-		test: serializeAbTest(launched),
+		test: serializeAbTest(
+			await withStoredOperation<AbTest>(
+				context,
+				"write",
+				async (executors) => {
+					const launched = await executors.launchAbTest(input.test_id);
+					if (!launched) {
+						throw new AbTestNotFoundError(input.test_id);
+					}
+					return launched;
+				},
+			),
+		),
 	};
 }
 
@@ -382,16 +387,20 @@ export async function executeStopAbTestOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof testIdInputSchema>,
 ): Promise<StopAbTestOperationOutput> {
-	const stopped = await withStoredOperation<AbTest | null>(
-		context,
-		"write",
-		(executors) => executors.stopAbTest(input.test_id),
-	);
-	if (!stopped) {
-		throw new AbTestNotFoundError(input.test_id);
-	}
 	return {
-		test: serializeAbTest(stopped),
+		test: serializeAbTest(
+			await withStoredOperation<AbTest>(
+				context,
+				"write",
+				async (executors) => {
+					const stopped = await executors.stopAbTest(input.test_id);
+					if (!stopped) {
+						throw new AbTestNotFoundError(input.test_id);
+					}
+					return stopped;
+				},
+			),
+		),
 	};
 }
 
