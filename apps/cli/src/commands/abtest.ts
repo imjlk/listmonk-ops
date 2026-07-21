@@ -650,7 +650,7 @@ export default defineGroup({
 					description: "Comma-separated list IDs",
 				}),
 				"test-group-percentage": option(
-					z.coerce.number().min(1).max(100),
+					z.coerce.number().finite().gt(0).lte(100),
 					{
 						description: "Planned test-group percentage",
 					},

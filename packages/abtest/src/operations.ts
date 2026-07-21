@@ -615,31 +615,14 @@ export const abTestOperations = [
 
 export type AbTestOperation = (typeof abTestOperations)[number];
 
+const abTestOperationsByMcpName = new Map(
+	abTestOperations.map((operation) => [operation.mcp.name, operation] as const),
+);
+
 export function getAbTestOperationByMcpName(
 	name: string,
 ): AbTestOperation | undefined {
-	switch (name) {
-		case listAbTestsOperation.mcp.name:
-			return listAbTestsOperation;
-		case getAbTestOperation.mcp.name:
-			return getAbTestOperation;
-		case createAbTestOperation.mcp.name:
-			return createAbTestOperation;
-		case analyzeAbTestOperation.mcp.name:
-			return analyzeAbTestOperation;
-		case launchAbTestOperation.mcp.name:
-			return launchAbTestOperation;
-		case stopAbTestOperation.mcp.name:
-			return stopAbTestOperation;
-		case deleteAbTestOperation.mcp.name:
-			return deleteAbTestOperation;
-		case recommendAbTestSampleSizeOperation.mcp.name:
-			return recommendAbTestSampleSizeOperation;
-		case deployAbTestWinnerOperation.mcp.name:
-			return deployAbTestWinnerOperation;
-		default:
-			return undefined;
-	}
+	return abTestOperationsByMcpName.get(name);
 }
 
 export async function invokeListAbTestsOperation(
@@ -862,6 +845,8 @@ export async function invokeAbTestOperationByMcpName(
 	name: string,
 	input: unknown,
 ): Promise<AbTestOperationInvocation | undefined> {
+	// Keep explicit named invoker edges here so ttsc-graph can verify every
+	// MCP operation reaches its corresponding executor and direct-import tests.
 	switch (name) {
 		case listAbTestsOperation.mcp.name:
 			return {
