@@ -153,22 +153,29 @@ describe("lists CLI actions", () => {
 	});
 
 	test("requires at least one field for list updates", async () => {
-		const cliContext = context({});
+		const update = mock(async () => ({
+			data: { id: 12, name: "Unchanged" },
+		}));
+		const cliContext = context({
+			update: update as unknown as ListClient["list"]["update"],
+		});
 
 		await expect(
 			renderUpdateSubscriberList(cliContext, { id: 12 }),
 		).rejects.toThrow("At least one list field must be provided");
+		expect(update).not.toHaveBeenCalled();
 
 		await expect(
 			renderUpdateSubscriberList(cliContext, {
-				id: 12,
-				name: undefined,
-				type: undefined,
-				optin: undefined,
-				description: undefined,
-				tags: undefined,
+			id: 12,
+			name: undefined,
+			type: undefined,
+			optin: undefined,
+			description: undefined,
+			tags: undefined,
 			}),
 		).rejects.toThrow("At least one list field must be provided");
+		expect(update).not.toHaveBeenCalled();
 	});
 
 	test("deletes a list through the shared operation", async () => {

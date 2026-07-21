@@ -173,6 +173,39 @@ describe("subscriber-list operations", () => {
 		);
 	});
 
+	test("rejects empty list updates before calling the API", async () => {
+		const update = mock(async () => ({
+			data: { id: 3, name: "Unchanged" },
+		}));
+
+		await expect(
+			invokeUpdateListOperation(
+				context({
+					update: update as unknown as ListClient["list"]["update"],
+				}),
+				{ id: 3 },
+			),
+		).rejects.toThrow("At least one list field must be provided for update");
+		expect(update).not.toHaveBeenCalled();
+
+		await expect(
+			invokeUpdateListOperation(
+				context({
+					update: update as unknown as ListClient["list"]["update"],
+				}),
+				{
+					id: 3,
+					name: undefined,
+					type: undefined,
+					optin: undefined,
+					description: undefined,
+					tags: undefined,
+				},
+			),
+		).rejects.toThrow("At least one list field must be provided for update");
+		expect(update).not.toHaveBeenCalled();
+	});
+
 	test("dispatches MCP names through named operation invokers", async () => {
 		const list = mock(async () => ({
 			data: { results: [], total: 0, per_page: 20, page: 1 },

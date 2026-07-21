@@ -110,10 +110,7 @@ export async function renderUpdateSubscriberList(
 	context: ListsCliContext,
 	input: UpdateListInput,
 ): Promise<void> {
-	const { id, ...changes } = input;
-	if (Object.values(changes).every((value) => value === undefined)) {
-		throw new Error("At least one list field must be provided for update");
-	}
+	const { id } = input;
 
 	const list = await invokeUpdateListOperation(context, input);
 	context.output.success(`List updated: ${id}`);

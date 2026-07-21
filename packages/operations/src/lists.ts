@@ -91,20 +91,29 @@ const createListInputSchema = z.object({
 	tags: z.array(z.string()).default([]).describe("List tags"),
 });
 
-const updateListInputSchema = z.object({
-	id: subscriberListIdSchema,
-	name: z.string().trim().min(1).optional().describe("List name"),
-	type: z
-		.enum(["public", "private"])
-		.optional()
-		.describe("List visibility"),
-	optin: z
-		.enum(["single", "double"])
-		.optional()
-		.describe("Opt-in type"),
-	description: z.string().optional().describe("List description"),
-	tags: z.array(z.string()).optional().describe("List tags"),
-});
+const updateListInputSchema = z
+	.object({
+		id: subscriberListIdSchema,
+		name: z.string().trim().min(1).optional().describe("List name"),
+		type: z
+			.enum(["public", "private"])
+			.optional()
+			.describe("List visibility"),
+		optin: z
+			.enum(["single", "double"])
+			.optional()
+			.describe("Opt-in type"),
+		description: z.string().optional().describe("List description"),
+		tags: z.array(z.string()).optional().describe("List tags"),
+	})
+	.refine(
+		({ id: _id, ...changes }) =>
+			Object.values(changes).some((value) => value !== undefined),
+		{
+			message: "At least one list field must be provided for update",
+			path: ["id"],
+		},
+	);
 
 const deleteListOutputSchema = z.object({
 	id: z.number().int().positive(),
