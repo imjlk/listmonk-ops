@@ -1,16 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
-	evaluateDeliverabilityGuard,
-	generateDailyDigest,
-	getOpsStorePaths,
-	getTemplateRegistryHistory,
-	promoteTemplateVersion,
-	rollbackTemplateVersion,
-	runCampaignPreflight,
-	runSegmentDriftSnapshot,
-	runSubscriberHygiene,
-	syncTemplateRegistry,
+	invokeCampaignPreflightOperation,
+	invokeDailyDigestOperation,
+	invokeDeliverabilityGuardOperation,
+	invokeSegmentDriftOperation,
+	invokeSubscriberHygieneOperation,
+	invokeTemplateRegistryHistoryOperation,
+	invokeTemplateRegistryPromoteOperation,
+	invokeTemplateRegistryRollbackOperation,
+	invokeTemplateRegistrySyncOperation,
 } from "@listmonk-ops/automation";
 import { OutputUtils } from "@listmonk-ops/common";
 import { z } from "zod";
@@ -47,12 +46,12 @@ export default defineGroup({
 			handler: async ({ flags, ...args }) => {
 				try {
 					const client = await getListmonkClient(args);
-					const result = await runCampaignPreflight(
-						client,
-						flags["campaign-id"],
+					const result = await invokeCampaignPreflightOperation(
+						{ client },
 						{
-							maxAudience: flags["max-audience"],
-							checkLinks: flags["check-links"],
+							campaign_id: flags["campaign-id"],
+							max_audience: flags["max-audience"],
+							check_links: flags["check-links"],
 						},
 					);
 					OutputUtils.json(result);
@@ -103,14 +102,14 @@ export default defineGroup({
 			handler: async ({ flags, ...args }) => {
 				try {
 					const client = await getListmonkClient(args);
-					const result = await evaluateDeliverabilityGuard(
-						client,
-						flags["campaign-id"],
+					const result = await invokeDeliverabilityGuardOperation(
+						{ client },
 						{
-							bounceThreshold: flags["bounce-threshold"],
-							openRateThreshold: flags["open-threshold"],
-							clickRateThreshold: flags["click-threshold"],
-							pauseOnBreach: flags["pause-on-breach"],
+							campaign_id: flags["campaign-id"],
+							bounce_threshold: flags["bounce-threshold"],
+							open_threshold: flags["open-threshold"],
+							click_threshold: flags["click-threshold"],
+							pause_on_breach: flags["pause-on-breach"],
 						},
 					);
 
@@ -163,15 +162,18 @@ export default defineGroup({
 					const sourceListIds = flags["source-list-ids"]
 						? parseCsvNumbers(flags["source-list-ids"])
 						: undefined;
-					const result = await runSubscriberHygiene(client, {
-						mode: flags.mode,
-						inactivityDays: flags["inactivity-days"],
-						sourceListIds,
-						targetListId: flags["target-list-id"],
-						blocklist: flags.blocklist,
-						dryRun: flags["dry-run"],
-						maxSubscribers: flags["max-subscribers"],
-					});
+					const result = await invokeSubscriberHygieneOperation(
+						{ client },
+						{
+							mode: flags.mode,
+							inactivity_days: flags["inactivity-days"],
+							source_list_ids: sourceListIds,
+							target_list_id: flags["target-list-id"],
+							blocklist: flags.blocklist,
+							dry_run: flags["dry-run"],
+							max_subscribers: flags["max-subscribers"],
+						},
+					);
 
 					OutputUtils.json(result);
 				} catch (error) {
@@ -210,12 +212,15 @@ export default defineGroup({
 					const listIds = flags["list-ids"]
 						? parseCsvNumbers(flags["list-ids"])
 						: undefined;
-					const result = await runSegmentDriftSnapshot(client, {
-						listIds,
-						threshold: flags.threshold,
-						minAbsoluteChange: flags["min-absolute-change"],
-						lookbackDays: flags["lookback-days"],
-					});
+					const result = await invokeSegmentDriftOperation(
+						{ client },
+						{
+							list_ids: listIds,
+							threshold: flags.threshold,
+							min_absolute_change: flags["min-absolute-change"],
+							lookback_days: flags["lookback-days"],
+						},
+					);
 					OutputUtils.json(result);
 				} catch (error) {
 					throw new Error(
@@ -241,10 +246,13 @@ export default defineGroup({
 					const templateIds = flags["template-ids"]
 						? parseCsvNumbers(flags["template-ids"])
 						: undefined;
-					const result = await syncTemplateRegistry(client, {
-						templateIds,
-						note: flags.note,
-					});
+					const result = await invokeTemplateRegistrySyncOperation(
+						{ client },
+						{
+							template_ids: templateIds,
+							note: flags.note,
+						},
+					);
 					OutputUtils.json(result);
 				} catch (error) {
 					throw new Error(
@@ -263,7 +271,10 @@ export default defineGroup({
 			},
 			handler: async ({ flags }) => {
 				try {
-					const result = await getTemplateRegistryHistory(flags["template-id"]);
+					const result = await invokeTemplateRegistryHistoryOperation(
+						{},
+						{ template_id: flags["template-id"] },
+					);
 					OutputUtils.json(result);
 				} catch (error) {
 					throw new Error(
@@ -286,10 +297,12 @@ export default defineGroup({
 			handler: async ({ flags, ...args }) => {
 				try {
 					const client = await getListmonkClient(args);
-					const result = await promoteTemplateVersion(
-						client,
-						flags["template-id"],
-						flags["version-id"],
+					const result = await invokeTemplateRegistryPromoteOperation(
+						{ client },
+						{
+							template_id: flags["template-id"],
+							version_id: flags["version-id"],
+						},
 					);
 					OutputUtils.json(result);
 				} catch (error) {
@@ -308,9 +321,9 @@ export default defineGroup({
 			handler: async ({ flags, ...args }) => {
 				try {
 					const client = await getListmonkClient(args);
-					const result = await rollbackTemplateVersion(
-						client,
-						flags["template-id"],
+					const result = await invokeTemplateRegistryRollbackOperation(
+						{ client },
+						{ template_id: flags["template-id"] },
 					);
 					OutputUtils.json(result);
 				} catch (error) {
@@ -335,9 +348,10 @@ export default defineGroup({
 			handler: async ({ flags, ...args }) => {
 				try {
 					const client = await getListmonkClient(args);
-					const digest = await generateDailyDigest(client, {
-						hours: flags.hours,
-					});
+					const digest = await invokeDailyDigestOperation(
+						{ client },
+						{ hours: flags.hours },
+					);
 
 					if (flags.output) {
 						await writeTextFile(flags.output, `${digest.markdown}\n`);
@@ -348,11 +362,7 @@ export default defineGroup({
 						return;
 					}
 
-					OutputUtils.json({
-						...digest,
-						storePaths: getOpsStorePaths(),
-						output: flags.output,
-					});
+					OutputUtils.json({ ...digest, output: flags.output });
 				} catch (error) {
 					throw new Error(`Digest generation failed: ${toErrorMessage(error)}`);
 				}
