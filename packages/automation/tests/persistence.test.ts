@@ -53,19 +53,26 @@ describe("automation persistence", () => {
 	test("preserves every concurrent segment snapshot", async () => {
 		const { segmentStorePath } = await useTemporaryStores();
 		let requestCount = 0;
+		// Force the later capture to commit first without relying on competing timers.
+		let releaseFirstRequest = (): void => {};
+		const firstRequestGate = new Promise<void>((resolve) => {
+			releaseFirstRequest = resolve;
+		});
 		const client = {
 			list: {
 				list: async () => {
 					requestCount += 1;
-					const subscriberCount = requestCount * 10;
-					await Bun.sleep(requestCount === 1 ? 5 : 0);
+					const currentRequest = requestCount;
+					if (currentRequest === 1) {
+						await firstRequestGate;
+					}
 					return {
 						data: {
 							results: [
 								{
 									id: 1,
 									name: "Audience",
-									subscriber_count: subscriberCount,
+									subscriber_count: currentRequest * 10,
 								},
 							],
 						},
@@ -75,12 +82,16 @@ describe("automation persistence", () => {
 		} as unknown as ListmonkClient;
 
 		const firstSnapshot = runSegmentDriftSnapshot(client);
-		while (requestCount < 1) {
+		// Keep the captures on distinct clock ticks so chronological ordering is testable.
+		const firstCaptureUpperBound = Date.now();
+		while (requestCount < 1 || Date.now() <= firstCaptureUpperBound) {
 			await Bun.sleep(1);
 		}
-		await Bun.sleep(2);
-		const secondSnapshot = runSegmentDriftSnapshot(client);
-		const results = await Promise.all([firstSnapshot, secondSnapshot]);
+		const secondResult = await runSegmentDriftSnapshot(client).finally(
+			releaseFirstRequest,
+		);
+		const firstResult = await firstSnapshot;
+		const results = [firstResult, secondResult];
 		const persisted = JSON.parse(await readFile(segmentStorePath, "utf8")) as {
 			version: number;
 			snapshots: Array<{ subscriberCount: number }>;
