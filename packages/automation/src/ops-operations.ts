@@ -32,7 +32,14 @@ import {
 } from "@listmonk-ops/operations";
 
 export interface OpsOperationContext {
-	client: ListmonkClient;
+	client?: ListmonkClient;
+}
+
+function requireOpsClient(context: OpsOperationContext): ListmonkClient {
+	if (!context.client) {
+		throw new Error("This operation requires a Listmonk client");
+	}
+	return context.client;
 }
 
 const numberInput = () =>
@@ -356,9 +363,10 @@ const mutationSafety = {
 } as const;
 
 export async function executeCampaignPreflightOperation(
-	{ client }: OpsOperationContext,
+	context: OpsOperationContext,
 	input: z.output<typeof campaignPreflightInputSchema>,
 ): Promise<CampaignPreflightResult> {
+	const client = requireOpsClient(context);
 	return runCampaignPreflight(client, input.campaign_id, {
 		maxAudience: input.max_audience,
 		checkLinks: input.check_links,
@@ -367,9 +375,10 @@ export async function executeCampaignPreflightOperation(
 }
 
 export async function executeDeliverabilityGuardOperation(
-	{ client }: OpsOperationContext,
+	context: OpsOperationContext,
 	input: z.output<typeof deliverabilityGuardInputSchema>,
 ): Promise<DeliverabilityGuardResult> {
+	const client = requireOpsClient(context);
 	return evaluateDeliverabilityGuard(client, input.campaign_id, {
 		bounceThreshold: input.bounce_threshold,
 		openRateThreshold: input.open_threshold,
@@ -379,9 +388,10 @@ export async function executeDeliverabilityGuardOperation(
 }
 
 export async function executeSubscriberHygieneOperation(
-	{ client }: OpsOperationContext,
+	context: OpsOperationContext,
 	input: z.output<typeof subscriberHygieneInputSchema>,
 ): Promise<SubscriberHygieneResult> {
+	const client = requireOpsClient(context);
 	return runSubscriberHygiene(client, {
 		mode: input.mode,
 		inactivityDays: input.inactivity_days,
@@ -394,9 +404,10 @@ export async function executeSubscriberHygieneOperation(
 }
 
 export async function executeSegmentDriftOperation(
-	{ client }: OpsOperationContext,
+	context: OpsOperationContext,
 	input: z.output<typeof segmentDriftInputSchema>,
 ): Promise<SegmentDriftResult> {
+	const client = requireOpsClient(context);
 	return runSegmentDriftSnapshot(client, {
 		listIds: input.list_ids,
 		threshold: input.threshold,
@@ -406,9 +417,10 @@ export async function executeSegmentDriftOperation(
 }
 
 export async function executeTemplateRegistrySyncOperation(
-	{ client }: OpsOperationContext,
+	context: OpsOperationContext,
 	input: z.output<typeof templateRegistrySyncInputSchema>,
 ): Promise<TemplateRegistrySyncResult & { storePaths: ReturnType<typeof getOpsStorePaths> }> {
+	const client = requireOpsClient(context);
 	const result = await syncTemplateRegistry(client, {
 		templateIds: input.template_ids,
 		note: input.note,
@@ -424,23 +436,26 @@ export async function executeTemplateRegistryHistoryOperation(
 }
 
 export async function executeTemplateRegistryPromoteOperation(
-	{ client }: OpsOperationContext,
+	context: OpsOperationContext,
 	input: z.output<typeof templatePromoteInputSchema>,
 ): Promise<TemplatePromoteResult> {
+	const client = requireOpsClient(context);
 	return promoteTemplateVersion(client, input.template_id, input.version_id);
 }
 
 export async function executeTemplateRegistryRollbackOperation(
-	{ client }: OpsOperationContext,
+	context: OpsOperationContext,
 	input: z.output<typeof templateIdInputSchema>,
 ): Promise<TemplatePromoteResult> {
+	const client = requireOpsClient(context);
 	return rollbackTemplateVersion(client, input.template_id);
 }
 
 export async function executeDailyDigestOperation(
-	{ client }: OpsOperationContext,
+	context: OpsOperationContext,
 	input: z.output<typeof dailyDigestInputSchema>,
 ): Promise<DailyDigestResult & { storePaths: ReturnType<typeof getOpsStorePaths> }> {
+	const client = requireOpsClient(context);
 	const result = await generateDailyDigest(client, {
 		hours: input.hours,
 		bounceThreshold: input.bounce_threshold,
