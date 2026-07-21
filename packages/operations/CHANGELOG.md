@@ -1,5 +1,12 @@
 # @listmonk-ops/operations
 
+## 0.2.0 — 2026-07-21
+
+### Added
+
+- [1281fc3](https://github.com/imjlk/listmonk-ops/commit/1281fc3bc6e23347eb6785f078f9a8df17197429) Preserve transactional legacy text in shared MCP metadata — Thanks @imjlk!
+- [6aadc54](https://github.com/imjlk/listmonk-ops/commit/6aadc54de32b6685ed714477c699122334aeaa2e) Add shared campaign, subscriber, and template CRUD operations — Thanks @imjlk!
+
 ## 0.1.3 — 2026-07-21
 
 ### Changed

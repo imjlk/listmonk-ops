@@ -1,5 +1,21 @@
 # @listmonk-ops/mcp
 
+## 0.3.0 — 2026-07-21
+
+### Changed
+
+- [9128105](https://github.com/imjlk/listmonk-ops/commit/91281057d73e9ac0fa9195ad2f7432e753194d6c) Route CLI and MCP ops workflows through shared typed operation contracts — Thanks @imjlk!
+
+### Added
+
+- [cf17240](https://github.com/imjlk/listmonk-ops/commit/cf17240e4509c548a82cdf7ee816cdc5954d5352) Expose shared A/B test lifecycle operations across CLI and MCP — Thanks @imjlk!
+- [1281fc3](https://github.com/imjlk/listmonk-ops/commit/1281fc3bc6e23347eb6785f078f9a8df17197429) Centralize exact MCP tool registration and operation result metadata — Thanks @imjlk!
+- [53aa4dc](https://github.com/imjlk/listmonk-ops/commit/53aa4dcd210bbffde7d54b0309e5e14577375f6c) Expose shared campaign, subscriber, and template CRUD parity — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.3.0, automation@0.1.6, operations@0.2.0
+
 ## 0.2.2 — 2026-07-21
 
 ### Changed
