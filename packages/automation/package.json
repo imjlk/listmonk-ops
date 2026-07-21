@@ -24,7 +24,7 @@
 	],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/common --external:@listmonk-ops/openapi",
+		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/common --external:@listmonk-ops/openapi --external:@listmonk-ops/operations --external:zod",
 		"typecheck": "ttsc --noEmit",
 		"format": "ttsc format",
 		"lint": "ttsc --noEmit",
