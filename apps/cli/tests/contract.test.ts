@@ -81,6 +81,17 @@ describe("CLI contract", () => {
 		expect(result.output).toContain("--per-page");
 	});
 
+	test("exposes the shared transactional payload flags", () => {
+		const result = runCli(["tx", "send", "--help"]);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.output).toContain("--template-id");
+		expect(result.output).toContain("--subscriber-email");
+		expect(result.output).toContain("--subscriber-id");
+		expect(result.output).toContain("--content-type");
+		expect(result.output).toContain("--headers");
+	});
+
 	test("accepts documented numeric list page sizes", () => {
 		const result = runCli(["lists", "list", "--per-page", "5000"]);
 

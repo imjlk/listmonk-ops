@@ -20,6 +20,7 @@ import {
 	handleTemplatesTools,
 	handleTransactionalTools,
 	isListsToolName,
+	isTransactionalToolName,
 	listsTools,
 	mediaTools,
 	opsTools,
@@ -243,10 +244,7 @@ export class ListmonkMCPServer {
 				return await handleSettingsTools(request, this.client);
 			}
 
-			if (
-				name.startsWith("listmonk_send_transactional") ||
-				name.startsWith("listmonk_get_transactional_message")
-			) {
+			if (isTransactionalToolName(name)) {
 				return await handleTransactionalTools(request, this.client);
 			}
 
