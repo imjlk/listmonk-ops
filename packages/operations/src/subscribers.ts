@@ -169,17 +169,36 @@ async function findCreatedSubscriber(
 	client: Pick<ListmonkClient, "subscriber">,
 	email: string,
 ): Promise<Subscriber | undefined> {
-	const response = await client.subscriber.list({
-		query: { page: 1, per_page: 100, query: email },
+	const pageSize = 100;
+	const firstResponse = await client.subscriber.list({
+		query: { page: 1, per_page: pageSize, query: email },
 	});
 	const data = unwrapResourceResponse(
-		response,
+		firstResponse,
 		"Failed to resolve created subscriber",
 	);
 	const expectedEmail = email.toLowerCase();
-	return data.results?.find(
+	const firstMatch = data.results?.find(
 		(subscriber) => subscriber.email?.toLowerCase() === expectedEmail,
 	);
+	if (firstMatch) return firstMatch;
+
+	const pageCount = Math.max(1, Math.ceil((data.total ?? 0) / pageSize));
+	for (let page = 2; page <= pageCount; page += 1) {
+		const response = await client.subscriber.list({
+			query: { page, per_page: pageSize, query: email },
+		});
+		const pageData = unwrapResourceResponse(
+			response,
+			"Failed to resolve created subscriber",
+		);
+		const match = pageData.results?.find(
+			(subscriber) => subscriber.email?.toLowerCase() === expectedEmail,
+		);
+		if (match) return match;
+	}
+
+	return undefined;
 }
 
 export async function createSubscriber(

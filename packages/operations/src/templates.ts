@@ -93,6 +93,9 @@ type TemplateCreateBody = NonNullable<
 type TemplateUpdateBody = NonNullable<
 	Parameters<ListmonkClient["template"]["update"]>[0]["body"]
 >;
+type TemplateListOptions = Parameters<
+	ListmonkClient["template"]["list"]
+>[0];
 
 function asTemplate(value: Template): z.output<typeof templateSchema> {
 	return value as z.output<typeof templateSchema>;
@@ -128,12 +131,36 @@ async function findCreatedTemplate(
 	client: Pick<ListmonkClient, "template">,
 	name: string,
 ): Promise<Template | undefined> {
-	const response = await client.template.list();
-	const data = unwrapResourceResponse(
-		response,
+	const pageSize = 100;
+	const firstResponse = await client.template.list();
+	const firstPage = unwrapResourceResponse(
+		firstResponse,
 		"Failed to resolve created template",
 	);
-	return data.results?.find((template) => template.name === name);
+	const firstMatch = firstPage.results?.find(
+		(template) => template.name === name,
+	);
+	if (firstMatch) return firstMatch;
+
+	const pageCount = Math.max(
+		1,
+		Math.ceil(
+			(firstPage.total ?? 0) / Math.max(firstPage.per_page ?? pageSize, 1),
+		),
+	);
+	for (let page = 2; page <= pageCount; page += 1) {
+		const response = await client.template.list({
+			query: { page, per_page: pageSize },
+		} as TemplateListOptions);
+		const pageData = unwrapResourceResponse(
+			response,
+			"Failed to resolve created template",
+		);
+		const match = pageData.results?.find((template) => template.name === name);
+		if (match) return match;
+	}
+
+	return undefined;
 }
 
 export async function createTemplate(

@@ -7,6 +7,7 @@ import {
 	invokeGetCampaignsOperation,
 	invokeCampaignOperationByMcpName,
 	invokeCreateSubscriberOperation,
+	invokeCreateTemplateOperation,
 	invokeUpdateCampaignOperation,
 	invokeUpdateSubscriberOperation,
 	invokeUpdateTemplateOperation,
@@ -118,6 +119,44 @@ describe("shared CRUD resource operations", () => {
 		expect(subscriber).toMatchObject({ id: 11, email: "created@example.com" });
 	});
 
+	test("searches later pages when resolving created subscribers and templates", async () => {
+		const createSubscriber = mock(async () => ({ data: undefined }));
+		const listSubscribers = mock(async ({ query }: { query?: Record<string, unknown> }) => ({
+			data:
+				query?.page === 2
+					? { results: [{ id: 11, email: "created@example.com" }], total: 101, per_page: 100, page: 2 }
+					: { results: [], total: 101, per_page: 100, page: 1 },
+		}));
+		await expect(
+			invokeCreateSubscriberOperation(
+				subscriberContext({
+					create: createSubscriber as SubscriberClient["subscriber"]["create"],
+					list: listSubscribers as SubscriberClient["subscriber"]["list"],
+				}),
+				{ email: "created@example.com", name: "Created" },
+			),
+		).resolves.toMatchObject({ id: 11 });
+		expect(listSubscribers).toHaveBeenCalledTimes(2);
+
+		const createTemplate = mock(async () => ({ data: undefined }));
+		const listTemplates = mock(async ({ query }: { query?: Record<string, unknown> } = {}) => ({
+			data:
+				query?.page === 2
+					? { results: [{ id: 12, name: "Created template" }], total: 2, per_page: 1, page: 2 }
+					: { results: [], total: 2, per_page: 1, page: 1 },
+		}));
+		await expect(
+			invokeCreateTemplateOperation(
+				templateContext({
+					create: createTemplate as TemplateClient["template"]["create"],
+					list: listTemplates as TemplateClient["template"]["list"],
+				}),
+				{ name: "Created template", type: "campaign", body: "<p>Created</p>" },
+			),
+		).resolves.toMatchObject({ id: 12 });
+		expect(listTemplates).toHaveBeenCalledTimes(2);
+	});
+
 	test("rejects empty subscriber and campaign updates before API calls", async () => {
 		const campaignUpdate = mock(async () => ({ data: {} }));
 		await expect(
@@ -138,6 +177,7 @@ describe("shared CRUD resource operations", () => {
 				{ id: 5 },
 			),
 		).rejects.toBeInstanceOf(OperationInputError);
+		expect(campaignUpdate).not.toHaveBeenCalled();
 	});
 
 	test("merges current template fields before updating", async () => {
