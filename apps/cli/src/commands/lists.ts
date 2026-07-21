@@ -82,7 +82,7 @@ export async function renderSubscriberList(
 	context.output.json(list);
 }
 
-function parseListTags(value: string | undefined): string[] | undefined {
+export function parseListTags(value: string | undefined): string[] | undefined {
 	if (value === undefined) {
 		return undefined;
 	}
@@ -91,9 +91,6 @@ function parseListTags(value: string | undefined): string[] | undefined {
 		.split(",")
 		.map((tag) => tag.trim())
 		.filter((tag) => tag.length > 0);
-	if (tags.length === 0) {
-		throw new Error("Expected a comma-separated list of non-empty tags");
-	}
 	return tags;
 }
 

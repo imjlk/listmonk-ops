@@ -8,6 +8,7 @@ import {
 	renderSubscriberList,
 	renderSubscriberLists,
 	renderUpdateSubscriberList,
+	parseListTags,
 	type ListsCliContext,
 } from "../src/commands/lists";
 
@@ -26,6 +27,16 @@ function context(list: Partial<ListClient["list"]>) {
 }
 
 describe("lists CLI actions", () => {
+	test("parses an explicit empty tag list for clearing tags", () => {
+		expect(parseListTags(undefined)).toBeUndefined();
+		expect(parseListTags("")).toEqual([]);
+		expect(parseListTags(",")).toEqual([]);
+		expect(parseListTags("product, ,weekly")).toEqual([
+			"product",
+			"weekly",
+		]);
+	});
+
 	test("does not duplicate operation error context", () => {
 		const operationError = new OperationExecutionError(
 			"lists.get",
