@@ -265,6 +265,18 @@ source <(listmonk-cli complete zsh)
 
 The deprecated `completions` spelling remains an alias for migration compatibility.
 
+## Subscriber Lists
+
+The CLI exposes the same typed subscriber-list operations as the MCP server:
+
+```bash
+listmonk-cli lists list --page 1 --per-page 20
+listmonk-cli lists get --id 10
+listmonk-cli lists create --name "Product updates" --type private --optin single
+listmonk-cli lists update --id 10 --name "Product updates"
+listmonk-cli lists delete --id 10
+```
+
 ## Transactional Email
 
 The CLI and MCP server share one typed transactional-send operation. Both

@@ -135,7 +135,10 @@ export const sendTransactionalOperation = defineOperation({
 		idempotentHint: false,
 		openWorldHint: true,
 	},
-	mcp: { name: "listmonk_send_transactional" },
+	mcp: {
+		name: "listmonk_send_transactional",
+		legacySuccessText: (output) => String(output.sent),
+	},
 	execute: sendTransactionalMessage,
 });
 

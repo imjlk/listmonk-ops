@@ -114,5 +114,18 @@ describe("list operation MCP adapter", () => {
 		expect(apiFailure.content[0]?.text).toContain(
 			"Failed to update list: conflict",
 		);
+
+		const emptyUpdate = await handleListsTools(
+			request("listmonk_update_list", { id: 8 }),
+			clientWithList({
+				update: async () => ({
+					data: { id: 8, name: "Should not be called" },
+				}),
+			}),
+		);
+		expect(emptyUpdate.isError).toBe(true);
+		expect(emptyUpdate.content[0]?.text).toContain(
+			"At least one list field must be provided for update",
+		);
 	});
 });

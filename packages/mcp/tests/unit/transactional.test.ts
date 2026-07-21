@@ -76,6 +76,26 @@ describe("transactional operation MCP adapter", () => {
 		});
 	});
 
+	test("keeps legacy text aligned when Listmonk rejects the message", async () => {
+		const send = mock(async () => ({
+			data: false,
+			request: new Request("https://example.test"),
+			response: new Response(),
+		}));
+
+		const result = await handleTransactionalTools(
+			request("listmonk_send_transactional", {
+				template_id: 3,
+				subscriber_id: 42,
+			}),
+			clientWithTransactional({ send }),
+		);
+
+		expect(result.isError).toBeFalsy();
+		expect(result.content[0]?.text).toBe("false");
+		expect(result.structuredContent).toEqual({ sent: false });
+	});
+
 	test("returns shared validation and API failures as MCP errors", async () => {
 		const missingRecipient = await handleTransactionalTools(
 			request("listmonk_send_transactional", { template_id: 3 }),

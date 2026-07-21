@@ -265,6 +265,18 @@ source <(listmonk-cli complete zsh)
 
 마이그레이션 호환성을 위해 기존 `completions` 표기도 deprecated alias로 유지합니다.
 
+## 구독자 리스트
+
+CLI는 MCP 서버와 동일한 타입드 구독자 리스트 Operation을 제공합니다.
+
+```bash
+listmonk-cli lists list --page 1 --per-page 20
+listmonk-cli lists get --id 10
+listmonk-cli lists create --name "Product updates" --type private --optin single
+listmonk-cli lists update --id 10 --name "Product updates"
+listmonk-cli lists delete --id 10
+```
+
 ## 트랜잭셔널 이메일
 
 CLI와 MCP 서버는 하나의 타입드 트랜잭셔널 발송 Operation을 공유합니다. 두
