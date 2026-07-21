@@ -6,9 +6,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import {
-	abtestTools,
-	bouncesTools,
-	campaignsTools,
+	allTools,
 	handleAbTestTools,
 	handleBouncesTools,
 	handleCampaignsTools,
@@ -21,13 +19,7 @@ import {
 	handleTransactionalTools,
 	isListsToolName,
 	isTransactionalToolName,
-	listsTools,
-	mediaTools,
-	opsTools,
-	settingsTools,
-	subscribersTools,
-	templatesTools,
-	transactionalTools,
+	toolNameSets,
 } from "./handlers/index.js";
 import type {
 	CallToolRequest,
@@ -76,20 +68,6 @@ export class ListmonkMCPServer {
 		this.app.use("*", cors());
 	}
 	private registerTools() {
-		// Register all tools
-		const allTools = [
-			...listsTools,
-			...subscribersTools,
-			...campaignsTools,
-			...templatesTools,
-			...mediaTools,
-			...opsTools,
-			...bouncesTools,
-			...settingsTools,
-			...transactionalTools,
-			...abtestTools,
-		];
-
 		for (const tool of allTools) {
 			this.tools.set(tool.name, tool);
 		}
@@ -177,70 +155,27 @@ export class ListmonkMCPServer {
 				return await handleListsTools(request, this.client);
 			}
 
-			if (
-				name.startsWith("listmonk_get_subscribers") ||
-				name.startsWith("listmonk_get_subscriber") ||
-				name.startsWith("listmonk_create_subscriber") ||
-				name.startsWith("listmonk_update_subscriber") ||
-				name.startsWith("listmonk_delete_subscriber") ||
-				name.startsWith("listmonk_send_subscriber_optin") ||
-				name.startsWith("listmonk_delete_subscribers_by_query") ||
-				name.startsWith("listmonk_blocklist_subscribers_by_query")
-			) {
+			if (toolNameSets.subscribers.has(name)) {
 				return await handleSubscribersTools(request, this.client);
 			}
 
-			if (
-				name.startsWith("listmonk_get_campaigns") ||
-				name.startsWith("listmonk_get_campaign") ||
-				name.startsWith("listmonk_create_campaign") ||
-				name.startsWith("listmonk_update_campaign") ||
-				name.startsWith("listmonk_delete_campaign") ||
-				name.startsWith("listmonk_test_campaign") ||
-				name.startsWith("listmonk_get_campaign_running_stats") ||
-				name.startsWith("listmonk_get_campaign_analytics")
-			) {
+			if (toolNameSets.campaigns.has(name)) {
 				return await handleCampaignsTools(request, this.client);
 			}
 
-			if (
-				name.startsWith("listmonk_get_templates") ||
-				name.startsWith("listmonk_get_template") ||
-				name.startsWith("listmonk_create_template") ||
-				name.startsWith("listmonk_update_template") ||
-				name.startsWith("listmonk_delete_template") ||
-				name.startsWith("listmonk_set_default_template")
-			) {
+			if (toolNameSets.templates.has(name)) {
 				return await handleTemplatesTools(request, this.client);
 			}
 
-			if (
-				name.startsWith("listmonk_get_media") ||
-				name.startsWith("listmonk_get_media_file") ||
-				name.startsWith("listmonk_delete_media")
-			) {
+			if (toolNameSets.media.has(name)) {
 				return await handleMediaTools(request, this.client);
 			}
 
-			if (
-				name.startsWith("listmonk_get_bounces") ||
-				name.startsWith("listmonk_get_bounce") ||
-				name.startsWith("listmonk_delete_bounce")
-			) {
+			if (toolNameSets.bounces.has(name)) {
 				return await handleBouncesTools(request, this.client);
 			}
 
-			if (
-				name.startsWith("listmonk_health_check") ||
-				name.startsWith("listmonk_get_settings") ||
-				name.startsWith("listmonk_update_settings") ||
-				name.startsWith("listmonk_get_server_config") ||
-				name.startsWith("listmonk_get_dashboard_counts") ||
-				name.startsWith("listmonk_get_dashboard_charts") ||
-				name.startsWith("listmonk_test_smtp") ||
-				name.startsWith("listmonk_get_logs") ||
-				name.startsWith("listmonk_reload_app")
-			) {
+			if (toolNameSets.settings.has(name)) {
 				return await handleSettingsTools(request, this.client);
 			}
 
@@ -248,11 +183,11 @@ export class ListmonkMCPServer {
 				return await handleTransactionalTools(request, this.client);
 			}
 
-			if (name.startsWith("listmonk_ops_")) {
+			if (toolNameSets.ops.has(name)) {
 				return await handleOpsTools(request, this.client);
 			}
 
-			if (name.startsWith("listmonk_abtest_")) {
+			if (toolNameSets.abtest.has(name)) {
 				return await handleAbTestTools(request, this.client);
 			}
 
