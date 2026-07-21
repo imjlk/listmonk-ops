@@ -142,6 +142,7 @@ const opsOperationContracts: readonly CallPathContract[] = [
 	{
 		label: "MCP deliverability guard reaches the campaign automation action",
 		path: [
+			mcpCallTool,
 			mcpOpsHandler,
 			opsDispatcher,
 			"packages/automation/src/ops-operations.ts#invokeDeliverabilityGuardOperation:function",
@@ -161,6 +162,7 @@ const opsOperationContracts: readonly CallPathContract[] = [
 	{
 		label: "MCP subscriber hygiene reaches the automation action",
 		path: [
+			mcpCallTool,
 			mcpOpsHandler,
 			opsDispatcher,
 			"packages/automation/src/ops-operations.ts#invokeSubscriberHygieneOperation:function",
@@ -180,6 +182,7 @@ const opsOperationContracts: readonly CallPathContract[] = [
 	{
 		label: "MCP segment drift reaches the automation action",
 		path: [
+			mcpCallTool,
 			mcpOpsHandler,
 			opsDispatcher,
 			"packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
@@ -199,6 +202,7 @@ const opsOperationContracts: readonly CallPathContract[] = [
 	{
 		label: "MCP template sync reaches the automation action",
 		path: [
+			mcpCallTool,
 			mcpOpsHandler,
 			opsDispatcher,
 			"packages/automation/src/ops-operations.ts#invokeTemplateRegistrySyncOperation:function",
@@ -218,6 +222,7 @@ const opsOperationContracts: readonly CallPathContract[] = [
 	{
 		label: "MCP template history reaches the local registry action",
 		path: [
+			mcpCallTool,
 			mcpOpsHandler,
 			opsDispatcher,
 			"packages/automation/src/ops-operations.ts#invokeTemplateRegistryHistoryOperation:function",
@@ -237,6 +242,7 @@ const opsOperationContracts: readonly CallPathContract[] = [
 	{
 		label: "MCP template promotion reaches the registry action",
 		path: [
+			mcpCallTool,
 			mcpOpsHandler,
 			opsDispatcher,
 			"packages/automation/src/ops-operations.ts#invokeTemplateRegistryPromoteOperation:function",
@@ -256,6 +262,7 @@ const opsOperationContracts: readonly CallPathContract[] = [
 	{
 		label: "MCP template rollback reaches the registry action",
 		path: [
+			mcpCallTool,
 			mcpOpsHandler,
 			opsDispatcher,
 			"packages/automation/src/ops-operations.ts#invokeTemplateRegistryRollbackOperation:function",
@@ -275,6 +282,7 @@ const opsOperationContracts: readonly CallPathContract[] = [
 	{
 		label: "MCP daily digest reaches the automation action",
 		path: [
+			mcpCallTool,
 			mcpOpsHandler,
 			opsDispatcher,
 			"packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
