@@ -111,7 +111,7 @@ export async function renderUpdateSubscriberList(
 	input: UpdateListInput,
 ): Promise<void> {
 	const { id, ...changes } = input;
-	if (Object.keys(changes).length === 0) {
+	if (Object.values(changes).every((value) => value === undefined)) {
 		throw new Error("At least one list field must be provided for update");
 	}
 

@@ -158,6 +158,17 @@ describe("lists CLI actions", () => {
 		await expect(
 			renderUpdateSubscriberList(cliContext, { id: 12 }),
 		).rejects.toThrow("At least one list field must be provided");
+
+		await expect(
+			renderUpdateSubscriberList(cliContext, {
+				id: 12,
+				name: undefined,
+				type: undefined,
+				optin: undefined,
+				description: undefined,
+				tags: undefined,
+			}),
+		).rejects.toThrow("At least one list field must be provided");
 	});
 
 	test("deletes a list through the shared operation", async () => {
