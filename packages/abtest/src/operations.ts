@@ -6,16 +6,9 @@ import {
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
 import { z } from "zod";
-import { createAbTestExecutors } from "./factory";
+import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { AbTestNotFoundError, withStoredAbTestExecutors } from "./persistence";
-import type {
-	AbTest,
-	AbTestQueryParams,
-	AnalyzeAbTestInput,
-	CreateAbTestInput,
-	TestAnalysis,
-	TestValidationResult,
-} from "./types";
+import type { AbTest, TestAnalysis, TestValidationResult } from "./types";
 
 // Keep the lifecycle contracts in the domain package so CLI and MCP share the
 // same validation, persistence transaction, and Listmonk integration behavior.
@@ -294,13 +287,13 @@ function serializeTestAnalysis(analysis: TestAnalysis): TestAnalysisOperationRec
 async function withStoredOperation<Result>(
 	context: AbTestOperationContext,
 	mode: "read" | "write",
-	action: Parameters<typeof withStoredAbTestExecutors>[2],
+	action: (executors: AbTestExecutors) => Promise<Result> | Result,
 ): Promise<Result> {
 	return withStoredAbTestExecutors(
 		context.client,
 		{ mode, storePath: context.storePath },
 		action,
-	) as Promise<Result>;
+	);
 }
 
 export async function executeListAbTestsOperation(
@@ -310,7 +303,7 @@ export async function executeListAbTestsOperation(
 	const tests = await withStoredOperation<AbTest[]>(
 		context,
 		"read",
-		(executors) => executors.listAbTests(input as AbTestQueryParams),
+		(executors) => executors.listAbTests(input),
 	);
 	return {
 		tests: (input.status
@@ -343,9 +336,7 @@ export async function executeCreateAbTestOperation(
 		context,
 		"write",
 		async (executors) => {
-			const nextTest = await executors.createAbTest(
-				input as CreateAbTestInput,
-			);
+			const nextTest = await executors.createAbTest(input);
 			// `createAbTest` owns the service-level `auto_launch` behavior. Keep
 			// creation atomic and avoid attempting a second launch after the service
 			// has already transitioned the test out of draft status.
@@ -364,8 +355,7 @@ export async function executeAnalyzeAbTestOperation(
 			await withStoredOperation<TestAnalysis>(
 			context,
 			"read",
-			(executors) =>
-				executors.analyzeAbTest(input as AnalyzeAbTestInput),
+			(executors) => executors.analyzeAbTest(input),
 			),
 		),
 	};
@@ -375,14 +365,16 @@ export async function executeLaunchAbTestOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof testIdInputSchema>,
 ): Promise<LaunchAbTestOperationOutput> {
+	const launched = await withStoredOperation<AbTest | null>(
+		context,
+		"write",
+		(executors) => executors.launchAbTest(input.test_id),
+	);
+	if (!launched) {
+		throw new AbTestNotFoundError(input.test_id);
+	}
 	return {
-		test: serializeAbTest(
-			await withStoredOperation<AbTest>(
-			context,
-			"write",
-			(executors) => executors.launchAbTest(input.test_id),
-			),
-		),
+		test: serializeAbTest(launched),
 	};
 }
 
@@ -390,14 +382,16 @@ export async function executeStopAbTestOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof testIdInputSchema>,
 ): Promise<StopAbTestOperationOutput> {
+	const stopped = await withStoredOperation<AbTest | null>(
+		context,
+		"write",
+		(executors) => executors.stopAbTest(input.test_id),
+	);
+	if (!stopped) {
+		throw new AbTestNotFoundError(input.test_id);
+	}
 	return {
-		test: serializeAbTest(
-			await withStoredOperation<AbTest>(
-			context,
-			"write",
-			(executors) => executors.stopAbTest(input.test_id),
-			),
-		),
+		test: serializeAbTest(stopped),
 	};
 }
 

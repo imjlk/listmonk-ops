@@ -510,7 +510,7 @@ export default defineGroup({
 						variants: test.variants.length,
 						mode: test.testingMode,
 						testGroupPercentage: test.testGroupPercentage,
-					createdAt: new Date(test.createdAt).toISOString(),
+						createdAt: new Date(test.createdAt).toISOString(),
 					}));
 					OutputUtils.table(rows);
 				} catch (error) {
