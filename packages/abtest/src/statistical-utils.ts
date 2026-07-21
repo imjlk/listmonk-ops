@@ -92,14 +92,14 @@ function getSampleSizeRecommendation(
 	);
 
 	const totalMinimumSampleNeeded = minimumSamplePerVariant * variantCount;
-	const recommendedTestPercentage = Math.min(
-		100,
-		Math.ceil((totalMinimumSampleNeeded / totalSubscribers) * 100),
-	);
-	const minimumTestPercentage = Math.max(
-		1,
-		Math.ceil((totalMinimumSampleNeeded / totalSubscribers) * 100),
-	);
+	// A zero-subscriber list is already invalid for a test, but still needs a
+	// finite recommendation so operation output remains JSON-safe.
+	const requiredTestPercentage =
+		totalSubscribers > 0
+			? Math.ceil((totalMinimumSampleNeeded / totalSubscribers) * 100)
+			: 100;
+	const recommendedTestPercentage = Math.min(100, requiredTestPercentage);
+	const minimumTestPercentage = Math.max(1, requiredTestPercentage);
 	const statisticalPower = calculateStatisticalPower(
 		expectedSamplePerVariant,
 		baselineConversionRate,

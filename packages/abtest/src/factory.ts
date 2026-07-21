@@ -8,6 +8,7 @@ import {
 	ListAbTestsCommand,
 } from "./basic";
 import { ListmonkAbTestIntegration } from "./listmonk-integration";
+import { AbTestNotFoundError } from "./errors";
 import type {
 	AbTest,
 	AbTestQueryParams,
@@ -51,7 +52,7 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		launchAbTest: async (testId: string) => {
 			const test = await abTestService.getTest(testId);
 			if (!test) {
-				throw new Error(`Test with ID ${testId} not found`);
+				throw new AbTestNotFoundError(testId);
 			}
 
 			if (test.status !== "draft") {
@@ -71,7 +72,7 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		stopAbTest: async (testId: string) => {
 			const test = await abTestService.getTest(testId);
 			if (!test) {
-				throw new Error(`Test with ID ${testId} not found`);
+				throw new AbTestNotFoundError(testId);
 			}
 
 			if (test.status !== "running") {

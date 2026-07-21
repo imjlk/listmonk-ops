@@ -310,8 +310,14 @@ listmonk-cli abtest create ...
 listmonk-cli abtest launch --test-id <id>
 listmonk-cli abtest stop --test-id <id>
 listmonk-cli abtest analyze --test-id <id>
+listmonk-cli abtest recommend-sample-size \
+  --lists 123,456 --test-group-percentage 10 --variant-count 2
+listmonk-cli abtest deploy-winner --test-id <id>
 listmonk-cli abtest delete --test-id <id>
 ```
+
+`--auto-launch true`로 생성하면 backing campaign이 즉시 시작됩니다. 자동화에서
+사용하기 전에 발송 작업으로 검토하세요.
 
 MCP에서도 A/B 테스트 라이프사이클 도구를 제공합니다.
 

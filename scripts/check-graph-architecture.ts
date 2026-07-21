@@ -103,6 +103,297 @@ const findMailpitMessage =
 const fetchMailpitJson =
 	"packages/mcp/tests/e2e/transactional.test.ts#fetchMailpitJson:function";
 
+const cliOpsModule =
+	"apps/cli/src/commands/ops.ts#apps/cli/src/commands/ops.ts:module";
+const mcpOpsHandler = "packages/mcp/src/handlers/ops.ts#handleOpsTools:variable";
+const opsDispatcher =
+	"packages/automation/src/ops-operations.ts#invokeOpsOperationByMcpName:function";
+
+const cliAbTestModule =
+	"apps/cli/src/commands/abtest.ts#apps/cli/src/commands/abtest.ts:module";
+const mcpAbTestHandler =
+	"packages/mcp/src/handlers/abtest.ts#handleAbTestTools:variable";
+const abTestDispatcher =
+	"packages/abtest/src/operations.ts#invokeAbTestOperationByMcpName:function";
+
+const abTestOperationContracts: readonly CallPathContract[] = [
+	[
+		"list",
+		"invokeCliListAbTests",
+		"invokeListAbTestsOperation",
+		"executeListAbTestsOperation",
+	],
+	[
+		"get",
+		"invokeCliGetAbTest",
+		"invokeGetAbTestOperation",
+		"executeGetAbTestOperation",
+	],
+	[
+		"create",
+		"invokeCliCreateAbTest",
+		"invokeCreateAbTestOperation",
+		"executeCreateAbTestOperation",
+	],
+	[
+		"analyze",
+		"invokeCliAnalyzeAbTest",
+		"invokeAnalyzeAbTestOperation",
+		"executeAnalyzeAbTestOperation",
+	],
+	[
+		"launch",
+		"invokeCliLaunchAbTest",
+		"invokeLaunchAbTestOperation",
+		"executeLaunchAbTestOperation",
+	],
+	[
+		"stop",
+		"invokeCliStopAbTest",
+		"invokeStopAbTestOperation",
+		"executeStopAbTestOperation",
+	],
+	[
+		"delete",
+		"invokeCliDeleteAbTest",
+		"invokeDeleteAbTestOperation",
+		"executeDeleteAbTestOperation",
+	],
+	[
+		"recommend sample size",
+		"invokeCliRecommendAbTestSampleSize",
+		"invokeRecommendAbTestSampleSizeOperation",
+		"executeRecommendAbTestSampleSizeOperation",
+	],
+	[
+		"deploy winner",
+		"invokeCliDeployAbTestWinner",
+		"invokeDeployAbTestWinnerOperation",
+		"executeDeployAbTestWinnerOperation",
+	],
+].flatMap(([label, cliAdapter, invoker, executor]) => [
+	{
+		label: `CLI A/B ${label} reaches the named operation action`,
+		path: [
+			cliAbTestModule,
+			`apps/cli/src/commands/abtest.ts#${cliAdapter}:function`,
+			`packages/abtest/src/operations.ts#${invoker}:function`,
+			`packages/abtest/src/operations.ts#${executor}:function`,
+		],
+	},
+	{
+		label: `MCP A/B ${label} reaches the named operation action`,
+		path: [
+			mcpCallTool,
+			mcpAbTestHandler,
+			abTestDispatcher,
+			`packages/abtest/src/operations.ts#${invoker}:function`,
+			`packages/abtest/src/operations.ts#${executor}:function`,
+		],
+	},
+]);
+
+const abTestTestContracts: readonly CallPathContract[] = [
+	{
+		label: "A/B operation tests anchor the shared list invoker",
+		path: [
+			"packages/abtest/tests/operations.test.ts#packages/abtest/tests/operations.test.ts:module",
+			"packages/abtest/src/operations.ts#invokeListAbTestsOperation:function",
+		],
+	},
+	{
+		label: "MCP A/B tests anchor the shared handler path",
+		path: [
+			"packages/mcp/tests/unit/abtest.test.ts#packages/mcp/tests/unit/abtest.test.ts:module",
+			mcpAbTestHandler,
+			abTestDispatcher,
+		],
+	},
+];
+
+const opsOperationContracts: readonly CallPathContract[] = [
+	{
+		label: "CLI preflight reaches the campaign automation action",
+		path: [
+			cliOpsModule,
+			"packages/automation/src/ops-operations.ts#invokeCampaignPreflightOperation:function",
+			"packages/automation/src/ops-operations.ts#executeCampaignPreflightOperation:function",
+			"packages/automation/src/campaign.ts#runCampaignPreflight:function",
+		],
+	},
+	{
+		label: "MCP preflight reaches the campaign automation action",
+		path: [
+			mcpCallTool,
+			mcpOpsHandler,
+			opsDispatcher,
+			"packages/automation/src/ops-operations.ts#invokeCampaignPreflightOperation:function",
+			"packages/automation/src/ops-operations.ts#executeCampaignPreflightOperation:function",
+			"packages/automation/src/campaign.ts#runCampaignPreflight:function",
+		],
+	},
+	{
+		label: "CLI deliverability guard reaches the campaign automation action",
+		path: [
+			cliOpsModule,
+			"packages/automation/src/ops-operations.ts#invokeDeliverabilityGuardOperation:function",
+			"packages/automation/src/ops-operations.ts#executeDeliverabilityGuardOperation:function",
+			"packages/automation/src/campaign.ts#evaluateDeliverabilityGuard:function",
+		],
+	},
+	{
+		label: "MCP deliverability guard reaches the campaign automation action",
+		path: [
+			mcpCallTool,
+			mcpOpsHandler,
+			opsDispatcher,
+			"packages/automation/src/ops-operations.ts#invokeDeliverabilityGuardOperation:function",
+			"packages/automation/src/ops-operations.ts#executeDeliverabilityGuardOperation:function",
+			"packages/automation/src/campaign.ts#evaluateDeliverabilityGuard:function",
+		],
+	},
+	{
+		label: "CLI subscriber hygiene reaches the automation action",
+		path: [
+			cliOpsModule,
+			"packages/automation/src/ops-operations.ts#invokeSubscriberHygieneOperation:function",
+			"packages/automation/src/ops-operations.ts#executeSubscriberHygieneOperation:function",
+			"packages/automation/src/hygiene.ts#runSubscriberHygiene:function",
+		],
+	},
+	{
+		label: "MCP subscriber hygiene reaches the automation action",
+		path: [
+			mcpCallTool,
+			mcpOpsHandler,
+			opsDispatcher,
+			"packages/automation/src/ops-operations.ts#invokeSubscriberHygieneOperation:function",
+			"packages/automation/src/ops-operations.ts#executeSubscriberHygieneOperation:function",
+			"packages/automation/src/hygiene.ts#runSubscriberHygiene:function",
+		],
+	},
+	{
+		label: "CLI segment drift reaches the automation action",
+		path: [
+			cliOpsModule,
+			"packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
+			"packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function",
+			"packages/automation/src/segment-drift.ts#runSegmentDriftSnapshot:function",
+		],
+	},
+	{
+		label: "MCP segment drift reaches the automation action",
+		path: [
+			mcpCallTool,
+			mcpOpsHandler,
+			opsDispatcher,
+			"packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
+			"packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function",
+			"packages/automation/src/segment-drift.ts#runSegmentDriftSnapshot:function",
+		],
+	},
+	{
+		label: "CLI template sync reaches the automation action",
+		path: [
+			cliOpsModule,
+			"packages/automation/src/ops-operations.ts#invokeTemplateRegistrySyncOperation:function",
+			"packages/automation/src/ops-operations.ts#executeTemplateRegistrySyncOperation:function",
+			"packages/automation/src/template-registry.ts#syncTemplateRegistry:function",
+		],
+	},
+	{
+		label: "MCP template sync reaches the automation action",
+		path: [
+			mcpCallTool,
+			mcpOpsHandler,
+			opsDispatcher,
+			"packages/automation/src/ops-operations.ts#invokeTemplateRegistrySyncOperation:function",
+			"packages/automation/src/ops-operations.ts#executeTemplateRegistrySyncOperation:function",
+			"packages/automation/src/template-registry.ts#syncTemplateRegistry:function",
+		],
+	},
+	{
+		label: "CLI template history reaches the local registry action",
+		path: [
+			cliOpsModule,
+			"packages/automation/src/ops-operations.ts#invokeTemplateRegistryHistoryOperation:function",
+			"packages/automation/src/ops-operations.ts#executeTemplateRegistryHistoryOperation:function",
+			"packages/automation/src/template-registry.ts#getTemplateRegistryHistory:function",
+		],
+	},
+	{
+		label: "MCP template history reaches the local registry action",
+		path: [
+			mcpCallTool,
+			mcpOpsHandler,
+			opsDispatcher,
+			"packages/automation/src/ops-operations.ts#invokeTemplateRegistryHistoryOperation:function",
+			"packages/automation/src/ops-operations.ts#executeTemplateRegistryHistoryOperation:function",
+			"packages/automation/src/template-registry.ts#getTemplateRegistryHistory:function",
+		],
+	},
+	{
+		label: "CLI template promotion reaches the registry action",
+		path: [
+			cliOpsModule,
+			"packages/automation/src/ops-operations.ts#invokeTemplateRegistryPromoteOperation:function",
+			"packages/automation/src/ops-operations.ts#executeTemplateRegistryPromoteOperation:function",
+			"packages/automation/src/template-registry.ts#promoteTemplateVersion:function",
+		],
+	},
+	{
+		label: "MCP template promotion reaches the registry action",
+		path: [
+			mcpCallTool,
+			mcpOpsHandler,
+			opsDispatcher,
+			"packages/automation/src/ops-operations.ts#invokeTemplateRegistryPromoteOperation:function",
+			"packages/automation/src/ops-operations.ts#executeTemplateRegistryPromoteOperation:function",
+			"packages/automation/src/template-registry.ts#promoteTemplateVersion:function",
+		],
+	},
+	{
+		label: "CLI template rollback reaches the registry action",
+		path: [
+			cliOpsModule,
+			"packages/automation/src/ops-operations.ts#invokeTemplateRegistryRollbackOperation:function",
+			"packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function",
+			"packages/automation/src/template-registry.ts#rollbackTemplateVersion:function",
+		],
+	},
+	{
+		label: "MCP template rollback reaches the registry action",
+		path: [
+			mcpCallTool,
+			mcpOpsHandler,
+			opsDispatcher,
+			"packages/automation/src/ops-operations.ts#invokeTemplateRegistryRollbackOperation:function",
+			"packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function",
+			"packages/automation/src/template-registry.ts#rollbackTemplateVersion:function",
+		],
+	},
+	{
+		label: "CLI daily digest reaches the automation action",
+		path: [
+			cliOpsModule,
+			"packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
+			"packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function",
+			"packages/automation/src/digest.ts#generateDailyDigest:function",
+		],
+	},
+	{
+		label: "MCP daily digest reaches the automation action",
+		path: [
+			mcpCallTool,
+			mcpOpsHandler,
+			opsDispatcher,
+			"packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
+			"packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function",
+			"packages/automation/src/digest.ts#generateDailyDigest:function",
+		],
+	},
+];
+
 const listInvokers: readonly (readonly [label: string, invoker: string])[] = [
 	[
 		"get list",
@@ -326,6 +617,9 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	},
 	...listInvokerContracts,
 	...cliListMutationContracts,
+	...opsOperationContracts,
+	...abTestOperationContracts,
+	...abTestTestContracts,
 ];
 
 export function assertArchitectureCallPaths(

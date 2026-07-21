@@ -4,3 +4,4 @@ export * from "./digest";
 export * from "./hygiene";
 export * from "./segment-drift";
 export * from "./template-registry";
+export * from "./ops-operations";

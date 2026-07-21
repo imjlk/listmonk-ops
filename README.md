@@ -310,8 +310,14 @@ listmonk-cli abtest create ...
 listmonk-cli abtest launch --test-id <id>
 listmonk-cli abtest stop --test-id <id>
 listmonk-cli abtest analyze --test-id <id>
+listmonk-cli abtest recommend-sample-size \
+  --lists 123,456 --test-group-percentage 10 --variant-count 2
+listmonk-cli abtest deploy-winner --test-id <id>
 listmonk-cli abtest delete --test-id <id>
 ```
+
+Creating with `--auto-launch true` starts the backing campaigns immediately;
+review that flag as a sending operation before using it in automation.
 
 MCP now also exposes A/B test lifecycle tools:
 

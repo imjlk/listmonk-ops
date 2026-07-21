@@ -9,8 +9,11 @@ import {
 	writeJsonFileStore,
 } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { AbTestNotFoundError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import type { AbTest } from "./types";
+
+export { AbTestNotFoundError } from "./errors";
 
 const ABTEST_STORE_LOCK_TIMEOUT_MS = 120_000;
 const ABTEST_STATUSES = new Set<AbTest["status"]>([
@@ -44,13 +47,6 @@ export class AbTestWriteTransactionError extends Error {
 	constructor(message: string, cause: unknown) {
 		super(message, { cause });
 		this.name = "AbTestWriteTransactionError";
-	}
-}
-
-export class AbTestNotFoundError extends Error {
-	constructor(testId: string) {
-		super(`Test with ID ${testId} not found`);
-		this.name = "AbTestNotFoundError";
 	}
 }
 

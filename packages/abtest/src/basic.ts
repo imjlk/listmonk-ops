@@ -42,7 +42,10 @@ export class CreateAbTestCommand {
 			testingMode: input.testing_mode || "holdout",
 			testGroupPercentage: input.test_group_percentage || 10,
 			confidenceThreshold: input.confidence_threshold || 0.95,
+			minimumTestSampleSize: input.minimum_sample_size,
+			autoLaunch: input.auto_launch || false,
 			autoDeployWinner: input.auto_deploy_winner || false,
+			ignoreStatisticalWarnings: input.ignore_sample_size_warnings || false,
 		};
 
 		return await this.abTestService.createTest(config);
