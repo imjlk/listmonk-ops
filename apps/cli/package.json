@@ -1,6 +1,6 @@
 {
 	"name": "@listmonk-ops/cli",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"description": "Listmonk operations CLI built with Gunshi and Bun",
 	"type": "module",
 	"repository": {
