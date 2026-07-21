@@ -1,5 +1,15 @@
 # @listmonk-ops/abtest
 
+## 0.3.0 — 2026-07-21
+
+### Added
+
+- [cf17240](https://github.com/imjlk/listmonk-ops/commit/cf17240e4509c548a82cdf7ee816cdc5954d5352) Expose shared A/B test lifecycle operations across CLI and MCP — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: operations@0.2.0
+
 ## 0.2.0 — 2026-07-20
 
 ### Added

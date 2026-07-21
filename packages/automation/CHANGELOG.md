@@ -1,5 +1,15 @@
 # @listmonk-ops/automation
 
+## 0.1.6 — 2026-07-21
+
+### Added
+
+- [2d5f2f1](https://github.com/imjlk/listmonk-ops/commit/2d5f2f1849ee042d237ef7b31913bd48d957e080) Expose typed ops operation contracts for CLI and MCP parity — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: operations@0.2.0
+
 ## 0.1.5 — 2026-07-21
 
 ### Fixed
