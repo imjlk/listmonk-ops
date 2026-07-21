@@ -475,6 +475,11 @@ const destructiveSafety = {
 	openWorldHint: true,
 } as const;
 
+const destructiveNonIdempotentSafety = {
+	...destructiveSafety,
+	idempotentHint: false,
+} as const;
+
 export const listAbTestsOperation = defineOperation({
 	id: "abtest.list",
 	title: "List A/B tests",
@@ -551,7 +556,7 @@ export const stopAbTestOperation = defineOperation({
 	description: "Stop a running A/B test and clean up temporary resources",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
-	safety: mutationSafety,
+	safety: destructiveNonIdempotentSafety,
 	mcp: {
 		name: "listmonk_abtest_stop",
 		legacySuccessText: (output) => jsonValue(output["test"]),
@@ -593,7 +598,7 @@ export const deployAbTestWinnerOperation = defineOperation({
 	description: "Deploy a statistically significant winner to the holdout group",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ deployed: z.boolean() }),
-	safety: destructiveSafety,
+	safety: destructiveNonIdempotentSafety,
 	mcp: {
 		name: "listmonk_abtest_deploy_winner",
 		legacySuccessText: (output) => jsonValue(output),

@@ -29,10 +29,21 @@ describe("MCP A/B test operation adapter", () => {
 		const deleteTool = abtestTools.find(
 			(tool) => tool.name === "listmonk_abtest_delete",
 		);
+		const stopTool = abtestTools.find(
+			(tool) => tool.name === "listmonk_abtest_stop",
+		);
+		const deployWinnerTool = abtestTools.find(
+			(tool) => tool.name === "listmonk_abtest_deploy_winner",
+		);
 
 		expect(listTool?.outputSchema?.type).toBe("object");
 		expect(listTool?.annotations?.readOnlyHint).toBe(true);
 		expect(deleteTool?.annotations?.destructiveHint).toBe(true);
+		expect(stopTool?.annotations).toMatchObject({
+			destructiveHint: true,
+			idempotentHint: false,
+		});
+		expect(deployWinnerTool?.annotations?.idempotentHint).toBe(false);
 	});
 
 	test("returns structured content while preserving the legacy list text", async () => {

@@ -78,6 +78,17 @@ describe("A/B test operation registry", () => {
 			expect(operation.mcp.name).toStartWith("listmonk_abtest_");
 		}
 		expect(listAbTestsOperation.safety.readOnlyHint).toBe(true);
+		expect(
+			abTestOperations.find(
+				(operation) => operation.mcp.name === "listmonk_abtest_stop",
+			)?.safety,
+		).toMatchObject({ destructiveHint: true, idempotentHint: false });
+		expect(
+			abTestOperations.find(
+				(operation) =>
+					operation.mcp.name === "listmonk_abtest_deploy_winner",
+			)?.safety.idempotentHint,
+		).toBe(false);
 	});
 
 	test("filters and serializes persisted tests through the shared invoker", async () => {

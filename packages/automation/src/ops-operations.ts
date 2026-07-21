@@ -362,6 +362,16 @@ const mutationSafety = {
 	openWorldHint: true,
 } as const;
 
+const nonIdempotentLocalWriteSafety = {
+	...localWriteSafety,
+	idempotentHint: false,
+} as const;
+
+const nonIdempotentMutationSafety = {
+	...mutationSafety,
+	idempotentHint: false,
+} as const;
+
 export async function executeCampaignPreflightOperation(
 	context: OpsOperationContext,
 	input: z.output<typeof campaignPreflightInputSchema>,
@@ -510,7 +520,7 @@ export const segmentDriftOperation = defineOperation({
 	description: "Snapshot list sizes and detect subscriber-count drift",
 	inputSchema: segmentDriftInputSchema,
 	outputSchema: segmentDriftOutputSchema,
-	safety: localWriteSafety,
+	safety: nonIdempotentLocalWriteSafety,
 	mcp: { name: "listmonk_ops_segment_drift" },
 	execute: executeSegmentDriftOperation,
 });
@@ -554,7 +564,7 @@ export const templateRegistryRollbackOperation = defineOperation({
 	description: "Rollback a Listmonk template to its previous stored version",
 	inputSchema: templateIdInputSchema,
 	outputSchema: templatePromoteOutputSchema,
-	safety: mutationSafety,
+	safety: nonIdempotentMutationSafety,
 	mcp: { name: "listmonk_ops_template_registry_rollback" },
 	execute: executeTemplateRegistryRollbackOperation,
 });

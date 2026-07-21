@@ -14,6 +14,8 @@ import {
 	invokeTemplateRegistryRollbackOperation,
 	invokeTemplateRegistrySyncOperation,
 	opsOperations,
+	segmentDriftOperation,
+	templateRegistryRollbackOperation,
 } from "../src/ops-operations";
 
 const context = { client: {} as ListmonkClient };
@@ -29,6 +31,11 @@ describe("automation operation registry", () => {
 		);
 		expect(deliverabilityGuardOperation.safety.destructiveHint).toBe(true);
 		expect(campaignPreflightOperation.outputJsonSchema.type).toBe("object");
+		expect(segmentDriftOperation.safety.idempotentHint).toBe(false);
+		expect(templateRegistryRollbackOperation.safety).toMatchObject({
+			destructiveHint: true,
+			idempotentHint: false,
+		});
 	});
 
 	test("normalizes shared defaults and string inputs", () => {
