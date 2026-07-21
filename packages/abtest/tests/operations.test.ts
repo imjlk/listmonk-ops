@@ -85,6 +85,16 @@ describe("A/B test operation registry", () => {
 		).toMatchObject({ destructiveHint: true, idempotentHint: false });
 		expect(
 			abTestOperations.find(
+				(operation) => operation.mcp.name === "listmonk_abtest_launch",
+			)?.safety,
+		).toMatchObject({ destructiveHint: false, idempotentHint: false });
+		expect(
+			abTestOperations.find(
+				(operation) => operation.mcp.name === "listmonk_abtest_create",
+			)?.safety,
+		).toMatchObject({ destructiveHint: true, idempotentHint: false });
+		expect(
+			abTestOperations.find(
 				(operation) =>
 					operation.mcp.name === "listmonk_abtest_deploy_winner",
 			)?.safety.idempotentHint,

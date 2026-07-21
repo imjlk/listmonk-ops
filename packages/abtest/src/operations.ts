@@ -456,7 +456,9 @@ const readSafety = {
 
 const createSafety = {
 	readOnlyHint: false,
-	destructiveHint: false,
+	// `auto_launch` can start the backing campaigns as part of creation, so the
+	// static MCP annotation must cover that potentially destructive input path.
+	destructiveHint: true,
 	idempotentHint: false,
 	openWorldHint: true,
 } as const;
@@ -466,6 +468,11 @@ const mutationSafety = {
 	destructiveHint: false,
 	idempotentHint: true,
 	openWorldHint: true,
+} as const;
+
+const nonIdempotentMutationSafety = {
+	...mutationSafety,
+	idempotentHint: false,
 } as const;
 
 const destructiveSafety = {
@@ -511,7 +518,8 @@ export const getAbTestOperation = defineOperation({
 export const createAbTestOperation = defineOperation({
 	id: "abtest.create",
 	title: "Create A/B test",
-	description: "Create and persist an A/B test",
+	description:
+		"Create and persist an A/B test; auto-launch can start its campaigns",
 	inputSchema: createAbTestInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
 	safety: createSafety,
@@ -542,7 +550,7 @@ export const launchAbTestOperation = defineOperation({
 	description: "Launch a draft A/B test",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
-	safety: mutationSafety,
+	safety: nonIdempotentMutationSafety,
 	mcp: {
 		name: "listmonk_abtest_launch",
 		legacySuccessText: (output) => jsonValue(output["test"]),
