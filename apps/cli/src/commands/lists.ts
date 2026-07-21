@@ -1,8 +1,8 @@
 import { OutputUtils } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
-	getListOperation,
-	getListsOperation,
+	invokeGetListOperation,
+	invokeGetListsOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
 import { z } from "zod";
@@ -45,7 +45,7 @@ export async function renderSubscriberLists(
 	context: ListsCliContext,
 	input: ListListsInput,
 ): Promise<void> {
-	const page = await getListsOperation.invoke(context, input);
+	const page = await invokeGetListsOperation(context, input);
 	if (page.results.length === 0) {
 		context.output.info("No lists found");
 		return;
@@ -58,7 +58,7 @@ export async function renderSubscriberList(
 	context: ListsCliContext,
 	input: GetListInput,
 ): Promise<void> {
-	const list = await getListOperation.invoke(context, input);
+	const list = await invokeGetListOperation(context, input);
 	context.output.json(list);
 }
 

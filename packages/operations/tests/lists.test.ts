@@ -6,6 +6,12 @@ import {
 	getListOperation,
 	getListOperationByMcpName,
 	getListsOperation,
+	invokeCreateListOperation,
+	invokeDeleteListOperation,
+	invokeGetListOperation,
+	invokeGetListsOperation,
+	invokeListOperationByMcpName,
+	invokeUpdateListOperation,
 	listOperations,
 	OperationExecutionError,
 	OperationInputError,
@@ -24,7 +30,7 @@ describe("subscriber-list operations", () => {
 			data: { results: [{ id: 7, name: "News" }] },
 		})) as unknown as ListClient["list"]["list"];
 
-		const output = await getListsOperation.invoke(context({ list }), {});
+		const output = await invokeGetListsOperation(context({ list }), {});
 
 		expect(list).toHaveBeenCalledWith({ query: { page: 1, per_page: 20 } });
 		expect(output).toEqual({
@@ -35,13 +41,23 @@ describe("subscriber-list operations", () => {
 		});
 	});
 
+	test("keeps the generic invoke API compatible", async () => {
+		const list = mock(async () => ({
+			data: { results: [], total: 0, per_page: 20, page: 1 },
+		})) as unknown as ListClient["list"]["list"];
+
+		await expect(
+			getListsOperation.invoke(context({ list }), {}),
+		).resolves.toEqual({ results: [], total: 0, per_page: 20, page: 1 });
+	});
+
 	test("forwards documented numeric page sizes without a local cap", async () => {
 		const list = mock(async () => ({
 			data: { results: [], total: 0, page: 1, per_page: 5000 },
 		})) as unknown as ListClient["list"]["list"];
 
 		await expect(
-			getListsOperation.invoke(context({ list }), { per_page: 5000 }),
+			invokeGetListsOperation(context({ list }), { per_page: 5000 }),
 		).resolves.toMatchObject({ per_page: 5000 });
 		expect(list).toHaveBeenCalledWith({ query: { page: 1, per_page: 5000 } });
 	});
@@ -57,13 +73,16 @@ describe("subscriber-list operations", () => {
 		});
 
 		await expect(
-			getListOperation.invoke(clientContext, { id: "7" }),
+			invokeGetListOperation(clientContext, { id: "7" }),
 		).resolves.toMatchObject({ id: 7 });
 		await expect(
-			updateListOperation.invoke(clientContext, { id: "7", name: "Updates" }),
+			invokeUpdateListOperation(clientContext, {
+				id: "7",
+				name: "Updates",
+			}),
 		).resolves.toMatchObject({ name: "Updates" });
 		await expect(
-			deleteListOperation.invoke(clientContext, { id: "7" }),
+			invokeDeleteListOperation(clientContext, { id: "7" }),
 		).resolves.toEqual({ id: 7, deleted: true });
 
 		expect(getById).toHaveBeenCalledWith({ path: { list_id: 7 } });
@@ -85,7 +104,7 @@ describe("subscriber-list operations", () => {
 			},
 		}));
 
-		const output = await createListOperation.invoke(
+		const output = await invokeCreateListOperation(
 			context({
 				create: create as unknown as ListClient["list"]["create"],
 				list: list as unknown as ListClient["list"]["list"],
@@ -120,7 +139,7 @@ describe("subscriber-list operations", () => {
 			},
 		}));
 
-		const output = await createListOperation.invoke(
+		const output = await invokeCreateListOperation(
 			context({
 				create: create as unknown as ListClient["list"]["create"],
 				list: list as unknown as ListClient["list"]["list"],
@@ -138,7 +157,7 @@ describe("subscriber-list operations", () => {
 	test("does not turn an update API error into success", async () => {
 		const update = mock(async () => ({ error: { error: "conflict" } }));
 
-		const invocation = updateListOperation.invoke(
+		const invocation = invokeUpdateListOperation(
 			context({
 				update: update as unknown as ListClient["list"]["update"],
 			}),
@@ -152,6 +171,33 @@ describe("subscriber-list operations", () => {
 				message: "Failed to update list: conflict",
 			}),
 		);
+	});
+
+	test("dispatches MCP names through named operation invokers", async () => {
+		const list = mock(async () => ({
+			data: { results: [], total: 0, per_page: 20, page: 1 },
+		})) as unknown as ListClient["list"]["list"];
+
+		const invocation = await invokeListOperationByMcpName(
+			context({ list }),
+			"listmonk_get_lists",
+			{},
+		);
+
+		expect(invocation?.operation).toBe(getListsOperation);
+		expect(invocation?.output).toEqual({
+			results: [],
+			total: 0,
+			per_page: 20,
+			page: 1,
+		});
+		await expect(
+			invokeListOperationByMcpName(
+				context({}),
+				"listmonk_unknown_list_tool",
+				{},
+			),
+		).resolves.toBeUndefined();
 	});
 
 	test("exposes JSON schemas and safety metadata through the registry", () => {
@@ -172,7 +218,7 @@ describe("subscriber-list operations", () => {
 
 	test("reports a missing required top-level parameter consistently", async () => {
 		await expect(
-			getListOperation.invoke(context({}), {}),
+			invokeGetListOperation(context({}), {}),
 		).rejects.toEqual(
 			expect.objectContaining<Partial<OperationInputError>>({
 				name: "OperationInputError",
