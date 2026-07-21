@@ -17,7 +17,9 @@ export interface OperationSafety {
 
 export interface OperationMcpMetadata {
 	name: string;
-	legacySuccessText?: string;
+	legacySuccessText?:
+		| string
+		| ((output: Record<string, unknown>) => string);
 }
 
 export interface OperationDefinition<

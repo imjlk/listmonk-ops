@@ -137,7 +137,7 @@ export const sendTransactionalOperation = defineOperation({
 	},
 	mcp: {
 		name: "listmonk_send_transactional",
-		legacySuccessText: "true",
+		legacySuccessText: (output) => String(output.sent),
 	},
 	execute: sendTransactionalMessage,
 });

@@ -39,9 +39,11 @@ export function createOperationResult(
 	}
 
 	const structuredContent = output as Record<string, unknown>;
+	const legacySuccessText = operation.mcp.legacySuccessText;
 	const text =
-		operation.mcp.legacySuccessText ??
-		JSON.stringify(structuredContent, null, 2);
+		typeof legacySuccessText === "function"
+			? legacySuccessText(structuredContent)
+			: (legacySuccessText ?? JSON.stringify(structuredContent, null, 2));
 
 	return {
 		content: [{ type: "text", text }],
