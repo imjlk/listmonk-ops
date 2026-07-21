@@ -265,6 +265,28 @@ source <(listmonk-cli complete zsh)
 
 The deprecated `completions` spelling remains an alias for migration compatibility.
 
+## Transactional Email
+
+The CLI and MCP server share one typed transactional-send operation. Both
+surfaces accept the same recipient, template data, content type, and custom
+header payloads:
+
+```bash
+listmonk-cli tx send \
+  --template-id 42 \
+  --subscriber-email recipient@example.com \
+  --from-email "Ops <ops@example.com>" \
+  --content-type html \
+  --data '{"name":"Ada"}' \
+  --headers '[{"X-Trace-ID":"example-trace"}]'
+```
+
+The email or ID selector targets an existing Listmonk subscriber.
+
+The corresponding MCP tool is `listmonk_send_transactional`. It returns
+`{"sent": true}` as structured content while retaining the legacy boolean text
+result for existing clients.
+
 ## A/B Test Operations
 
 CLI `abtest` group now supports full lifecycle operations:

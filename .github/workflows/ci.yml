@@ -74,6 +74,9 @@ jobs:
           echo "Listmonk health check timed out"
           exit 1
 
+      - name: Configure Mailpit SMTP
+        run: ./setup-smtp.sh
+
       - name: Provision Listmonk API token
         run: bun run stack:bootstrap-auth
 
