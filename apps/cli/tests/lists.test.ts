@@ -3,8 +3,11 @@ import { OperationExecutionError } from "@listmonk-ops/operations";
 import { describe, expect, mock, test } from "bun:test";
 import {
 	createListCommandError,
+	renderCreateSubscriberList,
+	renderDeleteSubscriberList,
 	renderSubscriberList,
 	renderSubscriberLists,
+	renderUpdateSubscriberList,
 	type ListsCliContext,
 } from "../src/commands/lists";
 
@@ -16,6 +19,7 @@ function context(list: Partial<ListClient["list"]>) {
 		output: {
 			info: mock(() => undefined),
 			json: mock(() => undefined),
+			success: mock(() => undefined),
 			table: mock(() => undefined),
 		},
 	} satisfies ListsCliContext;
@@ -99,5 +103,76 @@ describe("lists CLI actions", () => {
 			renderSubscriberList(cliContext, { id: 404 }),
 		).rejects.toThrow("Failed to fetch list: not found");
 		expect(cliContext.output.json).not.toHaveBeenCalled();
+	});
+
+	test("creates a list through the shared operation", async () => {
+		const create = mock(async () => ({
+			data: { id: 12, name: "Product" },
+		})) as unknown as ListClient["list"]["create"];
+		const cliContext = context({ create });
+
+		await renderCreateSubscriberList(cliContext, {
+			name: "Product",
+			type: "public",
+			tags: ["product", "weekly"],
+		});
+
+		expect(create).toHaveBeenCalledWith({
+			body: {
+				name: "Product",
+				type: "public",
+				optin: "single",
+				description: "",
+				tags: ["product", "weekly"],
+			},
+		});
+		expect(cliContext.output.success).toHaveBeenCalledWith("List created: 12");
+		expect(cliContext.output.json).toHaveBeenCalledWith({
+			id: 12,
+			name: "Product",
+		});
+	});
+
+	test("updates a list through the shared operation", async () => {
+		const update = mock(async () => ({
+			data: { id: 12, name: "Product updates" },
+		})) as unknown as ListClient["list"]["update"];
+		const cliContext = context({ update });
+
+		await renderUpdateSubscriberList(cliContext, {
+			id: 12,
+			name: "Product updates",
+			tags: ["product"],
+		});
+
+		expect(update).toHaveBeenCalledWith({
+			path: { list_id: 12 },
+			body: { name: "Product updates", tags: ["product"] },
+		});
+		expect(cliContext.output.success).toHaveBeenCalledWith("List updated: 12");
+	});
+
+	test("requires at least one field for list updates", async () => {
+		const cliContext = context({});
+
+		await expect(
+			renderUpdateSubscriberList(cliContext, { id: 12 }),
+		).rejects.toThrow("At least one list field must be provided");
+	});
+
+	test("deletes a list through the shared operation", async () => {
+		const remove = mock(async () => ({
+			data: true,
+		})) as unknown as ListClient["list"]["delete"];
+		const cliContext = context({ delete: remove });
+
+		await renderDeleteSubscriberList(cliContext, { id: 12 });
+
+		expect(remove).toHaveBeenCalledWith({ path: { list_id: 12 } });
+		expect(cliContext.output.success).toHaveBeenCalledWith("List deleted: 12");
+		expect(cliContext.output.json).toHaveBeenCalledWith({
+			id: 12,
+			deleted: true,
+		});
 	});
 });

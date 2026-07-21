@@ -22,6 +22,18 @@ const cliListHandler =
 	"apps/cli/src/commands/lists.ts#handleListListsCommand:function";
 const cliListRenderer =
 	"apps/cli/src/commands/lists.ts#renderSubscriberLists:function";
+const cliCreateListHandler =
+	"apps/cli/src/commands/lists.ts#handleCreateListCommand:function";
+const cliCreateListRenderer =
+	"apps/cli/src/commands/lists.ts#renderCreateSubscriberList:function";
+const cliUpdateListHandler =
+	"apps/cli/src/commands/lists.ts#handleUpdateListCommand:function";
+const cliUpdateListRenderer =
+	"apps/cli/src/commands/lists.ts#renderUpdateSubscriberList:function";
+const cliDeleteListHandler =
+	"apps/cli/src/commands/lists.ts#handleDeleteListCommand:function";
+const cliDeleteListRenderer =
+	"apps/cli/src/commands/lists.ts#renderDeleteSubscriberList:function";
 const cliClientResolver =
 	"apps/cli/src/lib/listmonk.ts#getListmonkClient:function";
 const cliSessionResolver =
@@ -36,10 +48,28 @@ const listDispatcher =
 	"packages/operations/src/lists.ts#invokeListOperationByMcpName:function";
 const getListsInvoker =
 	"packages/operations/src/lists.ts#invokeGetListsOperation:function";
+const createListInvoker =
+	"packages/operations/src/lists.ts#invokeCreateListOperation:function";
+const updateListInvoker =
+	"packages/operations/src/lists.ts#invokeUpdateListOperation:function";
+const deleteListInvoker =
+	"packages/operations/src/lists.ts#invokeDeleteListOperation:function";
 const listAction =
 	"packages/operations/src/lists.ts#listSubscriberLists:function";
+const createListAction =
+	"packages/operations/src/lists.ts#createSubscriberList:function";
+const updateListAction =
+	"packages/operations/src/lists.ts#updateSubscriberList:function";
+const deleteListAction =
+	"packages/operations/src/lists.ts#deleteSubscriberList:function";
 const openapiListMethod =
 	"packages/openapi/src/client/crud.ts#CrudOperations.list:method";
+const openapiCreateMethod =
+	"packages/openapi/src/client/crud.ts#CrudOperations.create:method";
+const openapiUpdateMethod =
+	"packages/openapi/src/client/crud.ts#CrudOperations.update:method";
+const openapiDeleteMethod =
+	"packages/openapi/src/client/crud.ts#CrudOperations.delete:method";
 const openapiFactory =
 	"packages/openapi/src/client/factory.ts#createListmonkClient:function";
 const openapiListFactory =
@@ -98,6 +128,63 @@ const listInvokerContracts: CallPathContract[] = listInvokers.map(
 		path: [listDispatcher, invoker],
 	}),
 );
+
+const cliListMutationContracts: readonly CallPathContract[] = [
+	{
+		label: "CLI create-list command reaches the OpenAPI create method",
+		path: [
+			cliCreateListHandler,
+			cliCreateListRenderer,
+			createListInvoker,
+			createListAction,
+			openapiCreateMethod,
+		],
+	},
+	{
+		label: "CLI update-list command reaches the OpenAPI update method",
+		path: [
+			cliUpdateListHandler,
+			cliUpdateListRenderer,
+			updateListInvoker,
+			updateListAction,
+			openapiUpdateMethod,
+		],
+	},
+	{
+		label: "CLI delete-list command reaches the OpenAPI delete method",
+		path: [
+			cliDeleteListHandler,
+			cliDeleteListRenderer,
+			deleteListInvoker,
+			deleteListAction,
+			openapiDeleteMethod,
+		],
+	},
+	{
+		label: "CLI list mutation tests anchor create operation path",
+		path: [
+			"apps/cli/tests/lists.test.ts#apps/cli/tests/lists.test.ts:module",
+			cliCreateListRenderer,
+			createListInvoker,
+		],
+	},
+	{
+		label: "CLI list mutation tests anchor update operation path",
+		path: [
+			"apps/cli/tests/lists.test.ts#apps/cli/tests/lists.test.ts:module",
+			cliUpdateListRenderer,
+			updateListInvoker,
+		],
+	},
+	{
+		label: "CLI list mutation tests anchor delete operation path",
+		path: [
+			"apps/cli/tests/lists.test.ts#apps/cli/tests/lists.test.ts:module",
+			cliDeleteListRenderer,
+			deleteListInvoker,
+		],
+	},
+];
 
 export const architectureCallPaths: readonly CallPathContract[] = [
 	{
@@ -238,6 +325,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 		],
 	},
 	...listInvokerContracts,
+	...cliListMutationContracts,
 ];
 
 export function assertArchitectureCallPaths(

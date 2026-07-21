@@ -24,6 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/ins
 listmonk-cli --help
 listmonk-cli status
 listmonk-cli campaigns list
+listmonk-cli lists create --name "Product updates"
 listmonk-cli ops digest --hours 24
 ```
 

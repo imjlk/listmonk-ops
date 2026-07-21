@@ -81,6 +81,21 @@ describe("CLI contract", () => {
 		expect(result.output).toContain("--per-page");
 	});
 
+	test("exposes subscriber-list CRUD commands", () => {
+		const group = runCli(["lists", "--help"]);
+		const create = runCli(["lists", "create", "--help"]);
+		const update = runCli(["lists", "update", "--help"]);
+		const remove = runCli(["lists", "delete", "--help"]);
+
+		expect(group.exitCode).toBe(0);
+		for (const command of ["list", "get", "create", "update", "delete"]) {
+			expect(group.output).toContain(command);
+		}
+		expect(create.output).toContain("--name");
+		expect(update.output).toContain("--id");
+		expect(remove.output).toContain("--id");
+	});
+
 	test("exposes the shared transactional payload flags", () => {
 		const result = runCli(["tx", "send", "--help"]);
 
