@@ -142,7 +142,16 @@ bun run graph:view
 
 # 생성 OpenAPI SDK 파일을 명시적 debug root로 포함
 bun run graph:openapi:dump
+
+# graph root와 CLI/MCP -> operation -> OpenAPI 호출 계약 검증
+bun run graph:check
 ```
+
+list operation 파일럿은 의도적으로 named operation invoker를 노출합니다.
+기본 graph 계약은 CLI와 MCP 어댑터가 이 invoker, 수기 OpenAPI 경계,
+direct-import 테스트까지 실제 call edge로 연결되는지 검증합니다. registry를
+확장할 때도 이 named 경계를 유지하세요. callback 등록만으로는 컴파일러
+graph가 런타임 dispatch를 따라갈 수 없으므로 같은 계약을 대체하지 못합니다.
 
 Codex는 신뢰한 체크아웃의 `.codex/config.toml`에서 서버를 로드합니다. Claude
 Code 호환 클라이언트는 `.mcp.json`을 사용할 수 있습니다. 두 설정 모두 잠금된

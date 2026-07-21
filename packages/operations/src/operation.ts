@@ -118,6 +118,43 @@ function formatInputError(error: z.ZodError, input: unknown): string {
 	return `Invalid parameter ${parameter}: ${issue.message}`;
 }
 
+export function parseOperationInput<const InputSchema extends z.ZodType>(
+	schema: InputSchema,
+	input: unknown,
+): z.output<InputSchema> {
+	const parsedInput = schema.safeParse(input ?? {});
+	if (!parsedInput.success) {
+		throw new OperationInputError(
+			formatInputError(parsedInput.error, input ?? {}),
+		);
+	}
+	return parsedInput.data;
+}
+
+export function normalizeOperationExecutionError(
+	operationId: string,
+	error: unknown,
+): OperationExecutionError {
+	if (error instanceof OperationExecutionError) {
+		return error;
+	}
+	return new OperationExecutionError(operationId, error);
+}
+
+export function parseOperationOutput<const OutputSchema extends z.ZodType>(
+	operationId: string,
+	schema: OutputSchema,
+	output: unknown,
+): z.output<OutputSchema> {
+	const parsedOutput = schema.safeParse(output);
+	if (!parsedOutput.success) {
+		throw new OperationOutputError(
+			`${operationId} produced invalid output: ${parsedOutput.error.message}`,
+		);
+	}
+	return parsedOutput.data;
+}
+
 export function defineOperation<
 	Context,
 	const InputSchema extends z.ZodType,
@@ -146,29 +183,15 @@ export function defineOperation<
 		safety: config.safety,
 		mcp: config.mcp,
 		async invoke(context, input) {
-			const parsedInput = config.inputSchema.safeParse(input ?? {});
-			if (!parsedInput.success) {
-				throw new OperationInputError(
-					formatInputError(parsedInput.error, input ?? {}),
-				);
-			}
+			const parsedInput = parseOperationInput(config.inputSchema, input);
 
 			let output: z.output<OutputSchema>;
 			try {
-				output = await config.execute(context, parsedInput.data);
+				output = await config.execute(context, parsedInput);
 			} catch (error) {
-				if (error instanceof OperationExecutionError) {
-					throw error;
-				}
-				throw new OperationExecutionError(config.id, error);
+				throw normalizeOperationExecutionError(config.id, error);
 			}
-			const parsedOutput = config.outputSchema.safeParse(output);
-			if (!parsedOutput.success) {
-				throw new OperationOutputError(
-					`${config.id} produced invalid output: ${parsedOutput.error.message}`,
-				);
-			}
-			return parsedOutput.data;
+			return parseOperationOutput(config.id, config.outputSchema, output);
 		},
 	};
 }

@@ -1,0 +1,200 @@
+type GraphNode = {
+	id: string;
+};
+
+type GraphEdge = {
+	from: string;
+	to: string;
+	kind: string;
+};
+
+export type GraphDump = {
+	nodes: GraphNode[];
+	edges: GraphEdge[];
+};
+
+export type CallPathContract = {
+	label: string;
+	path: readonly string[];
+};
+
+const cliListHandler =
+	"apps/cli/src/commands/lists.ts#handleListListsCommand:function";
+const cliListRenderer =
+	"apps/cli/src/commands/lists.ts#renderSubscriberLists:function";
+const cliClientResolver =
+	"apps/cli/src/lib/listmonk.ts#getListmonkClient:function";
+const cliSessionResolver =
+	"apps/cli/src/lib/listmonk.ts#resolveListmonkSession:function";
+const mcpCallTool =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.callTool:method";
+const mcpConstructor =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.__constructor:method";
+const mcpListsHandler =
+	"packages/mcp/src/handlers/lists.ts#handleListsTools:variable";
+const listDispatcher =
+	"packages/operations/src/lists.ts#invokeListOperationByMcpName:function";
+const getListsInvoker =
+	"packages/operations/src/lists.ts#invokeGetListsOperation:function";
+const listAction =
+	"packages/operations/src/lists.ts#listSubscriberLists:function";
+const openapiListMethod =
+	"packages/openapi/src/client/crud.ts#CrudOperations.list:method";
+const openapiFactory =
+	"packages/openapi/src/client/factory.ts#createListmonkClient:function";
+const openapiListFactory =
+	"packages/openapi/src/client/resource-operations.ts#createListOperations:function";
+const openapiCrudFactory =
+	"packages/openapi/src/client/crud.ts#createCrudOperations:function";
+
+const listInvokers: readonly (readonly [label: string, invoker: string])[] = [
+	[
+		"get list",
+		"packages/operations/src/lists.ts#invokeGetListOperation:function",
+	],
+	[
+		"create list",
+		"packages/operations/src/lists.ts#invokeCreateListOperation:function",
+	],
+	[
+		"update list",
+		"packages/operations/src/lists.ts#invokeUpdateListOperation:function",
+	],
+	[
+		"delete list",
+		"packages/operations/src/lists.ts#invokeDeleteListOperation:function",
+	],
+];
+
+const listInvokerContracts: CallPathContract[] = listInvokers.map(
+	([label, invoker]) => ({
+		label: `MCP dispatcher reaches the named ${label} invoker`,
+		path: [listDispatcher, invoker],
+	}),
+);
+
+export const architectureCallPaths: readonly CallPathContract[] = [
+	{
+		label: "CLI list command reaches the handwritten OpenAPI list method",
+		path: [
+			cliListHandler,
+			cliListRenderer,
+			getListsInvoker,
+			listAction,
+			openapiListMethod,
+		],
+	},
+	{
+		label: "CLI list command constructs the shared OpenAPI client",
+		path: [
+			cliListHandler,
+			cliClientResolver,
+			cliSessionResolver,
+			openapiFactory,
+		],
+	},
+	{
+		label: "MCP list tool reaches the handwritten OpenAPI list method",
+		path: [
+			mcpCallTool,
+			mcpListsHandler,
+			listDispatcher,
+			getListsInvoker,
+			listAction,
+			openapiListMethod,
+		],
+	},
+	{
+		label: "MCP server constructs the shared OpenAPI list client",
+		path: [mcpConstructor, openapiFactory, openapiListFactory],
+	},
+	{
+		label: "operations tests anchor the named list invoker",
+		path: [
+			"packages/operations/tests/lists.test.ts#packages/operations/tests/lists.test.ts:module",
+			getListsInvoker,
+			listAction,
+		],
+	},
+	{
+		label: "CLI tests anchor the shared list operation path",
+		path: [
+			"apps/cli/tests/lists.test.ts#apps/cli/tests/lists.test.ts:module",
+			cliListRenderer,
+			getListsInvoker,
+		],
+	},
+	{
+		label: "MCP tests anchor the shared list operation path",
+		path: [
+			"packages/mcp/tests/unit/lists.test.ts#packages/mcp/tests/unit/lists.test.ts:module",
+			mcpListsHandler,
+			listDispatcher,
+		],
+	},
+	{
+		label: "OpenAPI tests anchor the handwritten list client factory",
+		path: [
+			"packages/openapi/tests/client.test.ts#packages/openapi/tests/client.test.ts:module",
+			openapiFactory,
+			openapiListFactory,
+			openapiCrudFactory,
+		],
+	},
+	...listInvokerContracts,
+];
+
+export function assertArchitectureCallPaths(
+	graph: GraphDump,
+	contracts: readonly CallPathContract[] = architectureCallPaths,
+): void {
+	const nodeIds = new Set(graph.nodes.map((node) => node.id));
+	const callEdges = new Set(
+		graph.edges
+			.filter((edge) => edge.kind === "calls")
+			.map((edge) => `${edge.from}\0${edge.to}`),
+	);
+	const failures: string[] = [];
+
+	for (const contract of contracts) {
+		const missingNodes = new Set(
+			contract.path.filter((nodeId) => !nodeIds.has(nodeId)),
+		);
+		for (const nodeId of missingNodes) {
+			failures.push(`${contract.label}: missing node ${nodeId}`);
+		}
+		for (let index = 0; index < contract.path.length - 1; index += 1) {
+			const from = contract.path[index];
+			const to = contract.path[index + 1];
+			if (
+				from !== undefined &&
+				to !== undefined &&
+				!missingNodes.has(from) &&
+				!missingNodes.has(to) &&
+				!callEdges.has(`${from}\0${to}`)
+			) {
+				failures.push(`${contract.label}: missing call edge ${from} -> ${to}`);
+			}
+		}
+	}
+
+	if (failures.length > 0) {
+		throw new Error(
+			`Main graph architecture contract failed:\n${failures
+				.map((failure) => `- ${failure}`)
+				.join("\n")}`,
+		);
+	}
+}
+
+if (import.meta.main) {
+	const graph = (await Bun.stdin.json()) as GraphDump;
+	assertArchitectureCallPaths(graph);
+	const edgeCount = architectureCallPaths.reduce(
+		(total, contract) => total + Math.max(0, contract.path.length - 1),
+		0,
+	);
+	console.log(
+		`Main graph preserves ${architectureCallPaths.length} architecture paths across ${edgeCount} direct call edges.`,
+	);
+}

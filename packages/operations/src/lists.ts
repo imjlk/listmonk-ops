@@ -1,6 +1,11 @@
 import type { List, ListmonkClient } from "@listmonk-ops/openapi";
 import { z } from "zod";
-import { defineOperation } from "./operation";
+import {
+	defineOperation,
+	normalizeOperationExecutionError,
+	parseOperationInput,
+	parseOperationOutput,
+} from "./operation";
 
 export interface ListOperationContext {
 	client: Pick<ListmonkClient, "list">;
@@ -335,6 +340,108 @@ export const deleteListOperation = defineOperation({
 	execute: deleteSubscriberList,
 });
 
+// Keep these invokers as explicit functions instead of a callback-based helper.
+// ttsc-graph can then preserve each adapter -> invoker -> domain action edge.
+// Their shared validation, error, and output rules stay centralized in operation.ts.
+export async function invokeGetListsOperation(
+	context: ListOperationContext,
+	input: unknown,
+): Promise<z.output<typeof listPageSchema>> {
+	const parsedInput = parseOperationInput(getListsOperation.inputSchema, input);
+	let output: ListPage;
+	try {
+		output = await listSubscriberLists(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(getListsOperation.id, error);
+	}
+	return parseOperationOutput(
+		getListsOperation.id,
+		getListsOperation.outputSchema,
+		output,
+	);
+}
+
+export async function invokeGetListOperation(
+	context: ListOperationContext,
+	input: unknown,
+): Promise<z.output<typeof subscriberListSchema>> {
+	const parsedInput = parseOperationInput(getListOperation.inputSchema, input);
+	let output: List;
+	try {
+		output = await getSubscriberList(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(getListOperation.id, error);
+	}
+	return parseOperationOutput(
+		getListOperation.id,
+		getListOperation.outputSchema,
+		output,
+	);
+}
+
+export async function invokeCreateListOperation(
+	context: ListOperationContext,
+	input: unknown,
+): Promise<z.output<typeof subscriberListSchema>> {
+	const parsedInput = parseOperationInput(
+		createListOperation.inputSchema,
+		input,
+	);
+	let output: List;
+	try {
+		output = await createSubscriberList(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(createListOperation.id, error);
+	}
+	return parseOperationOutput(
+		createListOperation.id,
+		createListOperation.outputSchema,
+		output,
+	);
+}
+
+export async function invokeUpdateListOperation(
+	context: ListOperationContext,
+	input: unknown,
+): Promise<z.output<typeof subscriberListSchema>> {
+	const parsedInput = parseOperationInput(
+		updateListOperation.inputSchema,
+		input,
+	);
+	let output: List;
+	try {
+		output = await updateSubscriberList(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(updateListOperation.id, error);
+	}
+	return parseOperationOutput(
+		updateListOperation.id,
+		updateListOperation.outputSchema,
+		output,
+	);
+}
+
+export async function invokeDeleteListOperation(
+	context: ListOperationContext,
+	input: unknown,
+): Promise<z.output<typeof deleteListOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		deleteListOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof deleteListOutputSchema>;
+	try {
+		output = await deleteSubscriberList(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(deleteListOperation.id, error);
+	}
+	return parseOperationOutput(
+		deleteListOperation.id,
+		deleteListOperation.outputSchema,
+		output,
+	);
+}
+
 export const listOperations = [
 	getListsOperation,
 	getListOperation,
@@ -353,4 +460,45 @@ export function getListOperationByMcpName(
 	name: string,
 ): ListOperation | undefined {
 	return listOperationsByMcpName.get(name);
+}
+
+export interface ListOperationInvocation {
+	operation: ListOperation;
+	output: Record<string, unknown>;
+}
+
+export async function invokeListOperationByMcpName(
+	context: ListOperationContext,
+	name: string,
+	input: unknown,
+): Promise<ListOperationInvocation | undefined> {
+	switch (name) {
+		case getListsOperation.mcp.name:
+			return {
+				operation: getListsOperation,
+				output: await invokeGetListsOperation(context, input),
+			};
+		case getListOperation.mcp.name:
+			return {
+				operation: getListOperation,
+				output: await invokeGetListOperation(context, input),
+			};
+		case createListOperation.mcp.name:
+			return {
+				operation: createListOperation,
+				output: await invokeCreateListOperation(context, input),
+			};
+		case updateListOperation.mcp.name:
+			return {
+				operation: updateListOperation,
+				output: await invokeUpdateListOperation(context, input),
+			};
+		case deleteListOperation.mcp.name:
+			return {
+				operation: deleteListOperation,
+				output: await invokeDeleteListOperation(context, input),
+			};
+		default:
+			return undefined;
+	}
 }

@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	getListOperationByMcpName,
+	invokeListOperationByMcpName,
 	listOperations,
 	type ListOperation,
 } from "@listmonk-ops/operations";
@@ -43,21 +44,18 @@ export function isListsToolName(name: string): boolean {
 
 export const handleListsTools: HandlerFunction = withErrorHandler(
 	async (
-		request: CallToolRequest,
-		client: ListmonkClient,
-	): Promise<CallToolResult> => {
-		const operation = getListOperationByMcpName(request.params.name);
-		if (!operation) {
+	request: CallToolRequest,
+	client: ListmonkClient,
+): Promise<CallToolResult> => {
+		const invocation = await invokeListOperationByMcpName(
+			{ client },
+			request.params.name,
+			request.params.arguments ?? {},
+		);
+		if (!invocation) {
 			return createErrorResult(`Unknown tool: ${request.params.name}`);
 		}
 
-		const output = await operation.invoke(
-			{ client },
-			request.params.arguments ?? {},
-		);
-		return createOperationResult(
-			operation,
-			output as Record<string, unknown>,
-		);
+		return createOperationResult(invocation.operation, invocation.output);
 	},
 );
