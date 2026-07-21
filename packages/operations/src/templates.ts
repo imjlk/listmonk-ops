@@ -111,10 +111,17 @@ export async function listTemplates(
 			: { query: { no_body: input.no_body } },
 	);
 	const data = unwrapResourceResponse(response, "Failed to fetch templates");
-	return normalizeResourceList(data, {
-		page: input.page,
-		per_page: input.per_page,
+	const normalized = normalizeResourceList(data, {
+		page: 1,
+		per_page: data.results?.length ?? 0,
 	});
+	const start = (input.page - 1) * input.per_page;
+	return {
+		results: normalized.results.slice(start, start + input.per_page),
+		total: normalized.total,
+		per_page: input.per_page,
+		page: input.page,
+	};
 }
 
 export async function getTemplate(

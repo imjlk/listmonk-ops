@@ -224,7 +224,7 @@ async function findCreatedCampaign(
 ): Promise<Campaign | undefined> {
 	const pageSize = 100;
 	const firstResponse = await client.campaign.list({
-		query: { page: 1, per_page: pageSize, query: name },
+		query: { page: 1, per_page: pageSize },
 	});
 	const firstPage = unwrapResourceResponse(
 		firstResponse,
@@ -238,7 +238,7 @@ async function findCreatedCampaign(
 	const pageCount = Math.max(1, Math.ceil((firstPage.total ?? 0) / pageSize));
 	for (let page = 2; page <= pageCount; page += 1) {
 		const response = await client.campaign.list({
-			query: { page, per_page: pageSize, query: name },
+			query: { page, per_page: pageSize },
 		});
 		const pageData = unwrapResourceResponse(
 			response,

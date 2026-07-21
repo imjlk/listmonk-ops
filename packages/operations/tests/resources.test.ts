@@ -8,6 +8,7 @@ import {
 	invokeCampaignOperationByMcpName,
 	invokeCreateSubscriberOperation,
 	invokeCreateTemplateOperation,
+	invokeGetTemplatesOperation,
 	invokeUpdateCampaignOperation,
 	invokeUpdateSubscriberOperation,
 	invokeUpdateTemplateOperation,
@@ -137,6 +138,12 @@ describe("shared CRUD resource operations", () => {
 			),
 		).resolves.toMatchObject({ id: 11 });
 		expect(listSubscribers).toHaveBeenCalledTimes(2);
+		expect(listSubscribers).toHaveBeenNthCalledWith(1, {
+			query: { page: 1, per_page: 100 },
+		});
+		expect(listSubscribers).toHaveBeenNthCalledWith(2, {
+			query: { page: 2, per_page: 100 },
+		});
 
 		const createTemplate = mock(async () => ({ data: undefined }));
 		const listTemplates = mock(async ({ query }: { query?: Record<string, unknown> } = {}) => ({
@@ -155,6 +162,35 @@ describe("shared CRUD resource operations", () => {
 			),
 		).resolves.toMatchObject({ id: 12 });
 		expect(listTemplates).toHaveBeenCalledTimes(2);
+	});
+
+	test("applies template pagination locally for the normalized response", async () => {
+		const list = mock(async () => ({
+			data: {
+				results: [
+					{ id: 1, name: "First" },
+					{ id: 2, name: "Second" },
+					{ id: 3, name: "Third" },
+				],
+				total: 3,
+				per_page: 3,
+				page: 1,
+			},
+		}));
+
+		await expect(
+			invokeGetTemplatesOperation(
+				templateContext({
+					list: list as TemplateClient["template"]["list"],
+				}),
+				{ page: "2", per_page: "1" },
+			),
+		).resolves.toEqual({
+			results: [{ id: 2, name: "Second" }],
+			total: 3,
+			per_page: 1,
+			page: 2,
+		});
 	});
 
 	test("rejects empty subscriber and campaign updates before API calls", async () => {

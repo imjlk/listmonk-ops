@@ -171,7 +171,7 @@ async function findCreatedSubscriber(
 ): Promise<Subscriber | undefined> {
 	const pageSize = 100;
 	const firstResponse = await client.subscriber.list({
-		query: { page: 1, per_page: pageSize, query: email },
+		query: { page: 1, per_page: pageSize },
 	});
 	const data = unwrapResourceResponse(
 		firstResponse,
@@ -186,7 +186,7 @@ async function findCreatedSubscriber(
 	const pageCount = Math.max(1, Math.ceil((data.total ?? 0) / pageSize));
 	for (let page = 2; page <= pageCount; page += 1) {
 		const response = await client.subscriber.list({
-			query: { page, per_page: pageSize, query: email },
+			query: { page, per_page: pageSize },
 		});
 		const pageData = unwrapResourceResponse(
 			response,
