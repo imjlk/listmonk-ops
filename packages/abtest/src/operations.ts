@@ -470,11 +470,6 @@ const mutationSafety = {
 	openWorldHint: true,
 } as const;
 
-const nonIdempotentMutationSafety = {
-	...mutationSafety,
-	idempotentHint: false,
-} as const;
-
 const destructiveSafety = {
 	readOnlyHint: false,
 	destructiveHint: true,
@@ -550,7 +545,7 @@ export const launchAbTestOperation = defineOperation({
 	description: "Launch a draft A/B test",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
-	safety: nonIdempotentMutationSafety,
+	safety: destructiveNonIdempotentSafety,
 	mcp: {
 		name: "listmonk_abtest_launch",
 		legacySuccessText: (output) => jsonValue(output["test"]),

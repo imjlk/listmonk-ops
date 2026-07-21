@@ -44,7 +44,7 @@ describe("MCP A/B test operation adapter", () => {
 			idempotentHint: false,
 		});
 		expect(abtestTools.find((tool) => tool.name === "listmonk_abtest_launch")?.annotations).toMatchObject({
-			destructiveHint: false,
+			destructiveHint: true,
 			idempotentHint: false,
 		});
 		expect(abtestTools.find((tool) => tool.name === "listmonk_abtest_create")?.annotations).toMatchObject({
