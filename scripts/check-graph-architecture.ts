@@ -157,15 +157,22 @@ export function assertArchitectureCallPaths(
 	const failures: string[] = [];
 
 	for (const contract of contracts) {
-		for (const nodeId of contract.path) {
-			if (!nodeIds.has(nodeId)) {
-				failures.push(`${contract.label}: missing node ${nodeId}`);
-			}
+		const missingNodes = new Set(
+			contract.path.filter((nodeId) => !nodeIds.has(nodeId)),
+		);
+		for (const nodeId of missingNodes) {
+			failures.push(`${contract.label}: missing node ${nodeId}`);
 		}
 		for (let index = 0; index < contract.path.length - 1; index += 1) {
 			const from = contract.path[index];
 			const to = contract.path[index + 1];
-			if (from && to && !callEdges.has(`${from}\0${to}`)) {
+			if (
+				from !== undefined &&
+				to !== undefined &&
+				!missingNodes.has(from) &&
+				!missingNodes.has(to) &&
+				!callEdges.has(`${from}\0${to}`)
+			) {
 				failures.push(`${contract.label}: missing call edge ${from} -> ${to}`);
 			}
 		}

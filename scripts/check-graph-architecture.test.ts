@@ -29,8 +29,14 @@ describe("graph architecture contract", () => {
 			edges: [{ from: "entry", to: "operation", kind: "accesses" }],
 		};
 
-		expect(() => assertArchitectureCallPaths(graph, [contract])).toThrow(
-			/missing call edge|missing node/,
-		);
+		try {
+			assertArchitectureCallPaths(graph, [contract]);
+			expect.unreachable("expected the graph architecture contract to fail");
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			expect(message).toContain("missing node client");
+			expect(message).toContain("missing call edge entry -> operation");
+			expect(message).not.toContain("missing call edge operation -> client");
+		}
 	});
 });
