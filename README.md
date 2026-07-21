@@ -277,6 +277,33 @@ listmonk-cli lists update --id 10 --name "Product updates"
 listmonk-cli lists delete --id 10
 ```
 
+Campaign, subscriber, and template CRUD now use the same typed operations on
+both surfaces. The CLI includes the full CRUD command set:
+
+```bash
+listmonk-cli campaigns list --page 1 --per-page 20
+listmonk-cli campaigns create --name "Weekly update" --subject "News" \
+  --from-email ops@example.com --body "<p>Hello</p>" \
+  --template-id 1 --lists 10
+listmonk-cli campaigns update --id 42 --subject "Updated news"
+listmonk-cli campaigns delete --id 42
+
+listmonk-cli subscribers create --email reader@example.com --name Reader
+listmonk-cli subscribers update --id 7 --status enabled
+listmonk-cli subscribers delete --id 7
+
+listmonk-cli templates create --name "Campaign HTML" --body "<p>Hello</p>"
+listmonk-cli templates update --id 3 --body "<p>Updated</p>"
+listmonk-cli templates delete --id 3
+```
+
+The corresponding MCP CRUD tools are
+`listmonk_get_campaigns`, `listmonk_get_campaign`,
+`listmonk_create_campaign`, `listmonk_update_campaign`,
+`listmonk_delete_campaign`, and the equivalent `subscriber` and `template`
+names. Their results include structured content while retaining compatible
+legacy success text for destructive mutations.
+
 ## Transactional Email
 
 The CLI and MCP server share one typed transactional-send operation. Both

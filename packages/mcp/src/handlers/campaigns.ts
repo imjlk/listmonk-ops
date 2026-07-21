@@ -1,22 +1,24 @@
-import type { Campaign, ListmonkClient } from "@listmonk-ops/openapi";
+import type { ListmonkClient } from "@listmonk-ops/openapi";
+import {
+	campaignOperations,
+	invokeCampaignOperationByMcpName,
+} from "@listmonk-ops/operations";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
+import { createOperationResult, toMcpTool } from "./operation-adapter.js";
 import {
 	createApiErrorResult,
 	createErrorResult,
-	createSuccessResult,
 	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
 import {
 	castCampaignStatus,
-	handleCrudResponse,
 	parseId,
-	parsePaginationParams,
 	withErrorHandler,
 } from "../utils/typeHelpers.js";
 
-export const campaignsTools: MCPTool[] = [
+const campaignLegacyTools: MCPTool[] = [
 	{
 		name: "listmonk_get_campaigns",
 		description: "Get all campaigns from Listmonk",
@@ -242,137 +244,32 @@ export const campaignsTools: MCPTool[] = [
 	},
 ];
 
+export const campaignsTools: MCPTool[] = [
+	...campaignOperations.map(toMcpTool),
+	...campaignLegacyTools.filter(
+		(tool) => !campaignOperations.some((operation) => operation.mcp.name === tool.name),
+	),
+];
+
 export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 	async (
 		request: CallToolRequest,
 		client: ListmonkClient,
 	): Promise<CallToolResult> => {
 		const { name, arguments: args = {} } = request.params;
+		const operationInvocation = await invokeCampaignOperationByMcpName(
+			{ client },
+			name,
+			args,
+		);
+		if (operationInvocation) {
+			return createOperationResult(
+				operationInvocation.operation,
+				operationInvocation.output,
+			);
+		}
 
 		switch (name) {
-			case "listmonk_get_campaigns": {
-				const pagination = parsePaginationParams(args);
-				const queryParams: Record<string, unknown> = { ...pagination };
-				if (args.status) {
-					queryParams.status = [args.status];
-				}
-				if (args.query) {
-					queryParams.query = String(args.query);
-				}
-				if (args.order_by) {
-					queryParams.order_by = String(args.order_by);
-				}
-				if (args.order) {
-					queryParams.order = String(args.order);
-				}
-				if (Array.isArray(args.tags) && args.tags.length > 0) {
-					queryParams.tags = args.tags.map((tag) => String(tag));
-				}
-
-				const hasQuery = Object.keys(queryParams).length > 0;
-				const response = await client.campaign.list(
-					hasQuery ? { query: queryParams } : undefined,
-				);
-				return handleDataResponse(response, "Failed to fetch campaigns");
-			}
-
-			case "listmonk_get_campaign": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const response = await client.campaign.getById({
-					path: { id: parseId(args.id) },
-				});
-
-				return handleCrudResponse(response, "Failed to fetch campaign");
-			}
-
-			case "listmonk_create_campaign": {
-				const validation = validateRequiredParams(request, [
-					"name",
-					"subject",
-					"from_email",
-					"body",
-					"template_id",
-					"lists",
-				]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const body: Record<string, unknown> = {
-					name: String(args.name),
-					subject: String(args.subject),
-					from_email: String(args.from_email),
-					body: String(args.body),
-					altbody: String(args.altbody || ""),
-					type: String(args.type || "regular"),
-					template_id: Number(args.template_id),
-					lists: Array.isArray(args.lists) ? args.lists : [],
-					tags: Array.isArray(args.tags) ? args.tags : [],
-					messenger: "email",
-				};
-
-				const response = await client.campaign.create({ body });
-				if ("error" in response && response.error !== undefined) {
-					return createApiErrorResult(
-						"Failed to create campaign",
-						response.error,
-					);
-				}
-				if (response.data !== undefined) {
-					return createSuccessResult(response.data);
-				}
-
-				let createdCampaign: Campaign | undefined;
-				const pageSize = 100;
-				const firstPage = await client.campaign.list({
-					query: { page: 1, per_page: pageSize },
-				});
-				if ("error" in firstPage && firstPage.error !== undefined) {
-					return createApiErrorResult(
-						"Failed to resolve created campaign",
-						firstPage.error,
-					);
-				}
-				createdCampaign = firstPage.data?.results?.find(
-					(campaign) => campaign.name === body.name,
-				);
-
-				if (!createdCampaign) {
-					const total = firstPage.data?.total ?? 0;
-					const lastPage = total > 0 ? Math.ceil(total / pageSize) : 1;
-
-					if (lastPage > 1) {
-						const lastPageResponse = await client.campaign.list({
-							query: { page: lastPage, per_page: pageSize },
-						});
-						if (
-							"error" in lastPageResponse &&
-							lastPageResponse.error !== undefined
-						) {
-							return createApiErrorResult(
-								"Failed to resolve created campaign",
-								lastPageResponse.error,
-							);
-						}
-						createdCampaign = lastPageResponse.data?.results?.find(
-							(campaign) => campaign.name === body.name,
-						);
-					}
-				}
-
-				if (!createdCampaign) {
-					return createErrorResult(
-						"Campaign was created but the created record could not be resolved",
-					);
-				}
-
-				return createSuccessResult(createdCampaign);
-			}
-
 			case "listmonk_update_campaign_status": {
 				const validation = validateRequiredParams(request, ["id", "status"]);
 				if (validation) {
@@ -384,18 +281,6 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					body: { status: castCampaignStatus(args.status) },
 				});
 				return handleDataResponse(response, "Failed to update campaign status");
-			}
-
-			case "listmonk_delete_campaign": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const response = await client.campaign.delete({
-					path: { id: parseId(args.id) },
-				});
-				return handleDataResponse(response, "Failed to delete campaign");
 			}
 
 			case "listmonk_test_campaign": {
