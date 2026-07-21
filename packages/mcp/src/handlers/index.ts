@@ -92,5 +92,3 @@ export function assertUniqueToolNames(
 		);
 	}
 }
-
-assertUniqueToolNames();

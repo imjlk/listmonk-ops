@@ -6,7 +6,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import {
-	allTools,
+	assertUniqueToolNames,
 	handleAbTestTools,
 	handleBouncesTools,
 	handleCampaignsTools,
@@ -20,6 +20,7 @@ import {
 	isListsToolName,
 	isTransactionalToolName,
 	toolNameSets,
+	toolRegistrations,
 } from "./handlers/index.js";
 import type {
 	CallToolRequest,
@@ -68,8 +69,11 @@ export class ListmonkMCPServer {
 		this.app.use("*", cors());
 	}
 	private registerTools() {
-		for (const tool of allTools) {
-			this.tools.set(tool.name, tool);
+		assertUniqueToolNames();
+		for (const registration of toolRegistrations) {
+			for (const tool of registration.tools) {
+				this.tools.set(tool.name, tool);
+			}
 		}
 	}
 
