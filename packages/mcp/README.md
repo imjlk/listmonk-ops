@@ -13,6 +13,13 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 
 ## Supported Operations
 
+### Shared Operation Discovery
+
+- `listmonk_list_operations` - Read-only catalog of typed contracts shared by
+  the CLI and MCP server. Pass an optional exact `family` filter (`lists`,
+  `subscribers`, `campaigns`, `templates`, `transactional`, `ops`, or
+  `abtest`) to discover operation schemas and safety hints.
+
 ### Lists
 
 - `listmonk_get_lists` - Get all subscriber lists

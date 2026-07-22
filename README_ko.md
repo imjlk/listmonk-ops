@@ -304,6 +304,21 @@ listmonk-cli templates delete --id 3
 적용됩니다. 결과는 structured content를 제공하면서 destructive mutation의
 기존 성공 텍스트도 호환성을 위해 유지합니다.
 
+## 공용 Operation 탐색
+
+인증 없이 사용하는 catalog 명령으로 CLI와 MCP가 함께 제공하는 타입드
+Operation을 확인할 수 있습니다. 각 항목에는 MCP 이름, input/output schema,
+그리고 safety hint가 포함됩니다.
+
+```bash
+listmonk-cli operations
+listmonk-cli operations --family campaigns
+```
+
+MCP 클라이언트에서는 같은 선택적 `family` 필터와 함께 read-only
+`listmonk_list_operations` 도구를 호출하면 됩니다. 이 catalog는 공용 타입드
+Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제공됩니다.
+
 ## 트랜잭셔널 이메일
 
 CLI와 MCP 서버는 하나의 타입드 트랜잭셔널 발송 Operation을 공유합니다. 두

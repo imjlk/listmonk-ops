@@ -304,6 +304,21 @@ The corresponding MCP CRUD tools are
 names. Their results include structured content while retaining compatible
 legacy success text for destructive mutations.
 
+## Shared Operation Discovery
+
+Use the credential-free catalog command to see the typed operations available
+through both surfaces, including each operation's MCP name, input/output
+schema, and safety hints:
+
+```bash
+listmonk-cli operations
+listmonk-cli operations --family campaigns
+```
+
+MCP clients can call the read-only `listmonk_list_operations` tool with the
+same optional `family` filter. The catalog intentionally covers shared typed
+operations only; legacy transport-specific tools remain available separately.
+
 ## Transactional Email
 
 The CLI and MCP server share one typed transactional-send operation. Both

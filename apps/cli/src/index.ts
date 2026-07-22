@@ -9,6 +9,7 @@ import campaignsCommand from "./commands/campaigns";
 import examplesCommand from "./commands/examples";
 import listsCommand from "./commands/lists";
 import opsCommand from "./commands/ops";
+import operationsCommand from "./commands/operations";
 import statusCommand from "./commands/status";
 import subscribersCommand from "./commands/subscribers";
 import templatesCommand from "./commands/templates";
@@ -31,6 +32,7 @@ const subCommands = {
 	tx: txCommand,
 	abtest: abtestCommand,
 	ops: opsCommand,
+	operations: operationsCommand,
 };
 
 await cli(prepareCliArgv(process.argv.slice(2)), entry, {

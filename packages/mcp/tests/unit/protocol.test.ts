@@ -32,9 +32,20 @@ describe("standard MCP protocol adapter", () => {
 				version: packageJson.version,
 			});
 			const result = await client.listTools();
-			expect(result.tools).toHaveLength(63);
+			expect(result.tools).toHaveLength(64);
 			expect(result.tools.map((tool) => tool.name)).toContain(
 				"listmonk_ops_preflight",
+			);
+			const catalogResult = await client.callTool({
+				name: "listmonk_list_operations",
+				arguments: { family: "campaigns" },
+			});
+			expect(catalogResult.structuredContent?.operations).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+					mcpName: "listmonk_get_campaigns",
+				}),
+			]),
 			);
 
 			const missingTool = await client.callTool({

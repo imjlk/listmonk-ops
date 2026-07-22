@@ -103,6 +103,31 @@ const findMailpitMessage =
 const fetchMailpitJson =
 	"packages/mcp/tests/e2e/transactional.test.ts#fetchMailpitJson:function";
 
+const cliOperationCatalogHandler =
+	"apps/cli/src/commands/operations.ts#handleListOperationsCommand:function";
+const cliOperationCatalogOutput =
+	"apps/cli/src/commands/operations.ts#getOperationCatalogOutput:function";
+const cliOperationCatalogSummary =
+	"apps/cli/src/operation-catalog.ts#listCliOperationCatalogSummaries:function";
+const cliOperationCatalogComposer =
+	"apps/cli/src/operation-catalog.ts#cliOperationCatalog:variable";
+const mcpOperationCatalogHandler =
+	"packages/mcp/src/handlers/catalog.ts#handleOperationCatalogTools:variable";
+const mcpOperationCatalogSummary =
+	"packages/mcp/src/operation-catalog.ts#listMcpOperationCatalogSummaries:function";
+const mcpOperationCatalogComposer =
+	"packages/mcp/src/operation-catalog.ts#mcpOperationCatalog:variable";
+const sharedOperationCatalogComposer =
+	"packages/operations/src/catalog.ts#composeOperationCatalogs:function";
+const sharedOperationCatalogSummary =
+	"packages/operations/src/catalog.ts#listOperationCatalogSummaries:function";
+const cliOperationCatalogTest =
+	"apps/cli/tests/operation-catalog.test.ts#apps/cli/tests/operation-catalog.test.ts:module";
+const mcpOperationCatalogTest =
+	"packages/mcp/tests/unit/catalog.test.ts#packages/mcp/tests/unit/catalog.test.ts:module";
+const operationCatalogParityTest =
+	"scripts/operation-coverage.test.ts#scripts/operation-coverage.test.ts:module";
+
 const cliOpsModule =
 	"apps/cli/src/commands/ops.ts#apps/cli/src/commands/ops.ts:module";
 const mcpOpsHandler = "packages/mcp/src/handlers/ops.ts#handleOpsTools:variable";
@@ -207,6 +232,67 @@ const abTestTestContracts: readonly CallPathContract[] = [
 			"packages/mcp/tests/unit/abtest.test.ts#packages/mcp/tests/unit/abtest.test.ts:module",
 			mcpAbTestHandler,
 			abTestDispatcher,
+		],
+	},
+];
+
+const operationCatalogContracts: readonly CallPathContract[] = [
+	{
+		label: "CLI operation discovery reaches the shared catalog summary",
+		path: [
+			cliOperationCatalogHandler,
+			cliOperationCatalogOutput,
+			cliOperationCatalogSummary,
+			sharedOperationCatalogSummary,
+		],
+	},
+	{
+		label: "MCP operation discovery reaches the shared catalog summary",
+		path: [
+			mcpCallTool,
+			mcpOperationCatalogHandler,
+			mcpOperationCatalogSummary,
+			sharedOperationCatalogSummary,
+		],
+	},
+	{
+		label: "CLI operation catalog composes shared family descriptors",
+		path: [cliOperationCatalogComposer, sharedOperationCatalogComposer],
+	},
+	{
+		label: "MCP operation catalog composes shared family descriptors",
+		path: [mcpOperationCatalogComposer, sharedOperationCatalogComposer],
+	},
+	{
+		label: "CLI operation catalog tests anchor the discovery output",
+		path: [
+			cliOperationCatalogTest,
+			cliOperationCatalogOutput,
+			cliOperationCatalogSummary,
+		],
+	},
+	{
+		label: "MCP operation catalog tests anchor the discovery handler",
+		path: [
+			mcpOperationCatalogTest,
+			mcpOperationCatalogHandler,
+			mcpOperationCatalogSummary,
+		],
+	},
+	{
+		label: "catalog parity tests anchor the CLI summary",
+		path: [
+			operationCatalogParityTest,
+			cliOperationCatalogSummary,
+			sharedOperationCatalogSummary,
+		],
+	},
+	{
+		label: "catalog parity tests anchor the MCP summary",
+		path: [
+			operationCatalogParityTest,
+			mcpOperationCatalogSummary,
+			sharedOperationCatalogSummary,
 		],
 	},
 ];
@@ -904,6 +990,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	...opsOperationContracts,
 	...abTestOperationContracts,
 	...abTestTestContracts,
+	...operationCatalogContracts,
 ];
 
 export function assertArchitectureCallPaths(

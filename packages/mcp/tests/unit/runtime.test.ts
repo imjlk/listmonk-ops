@@ -118,7 +118,15 @@ describe("mcp runtime entrypoint", () => {
 		try {
 			await client.connect(transport);
 			const tools = await client.listTools();
-			expect(tools.tools).toHaveLength(63);
+			expect(tools.tools).toHaveLength(64);
+			expect(tools.tools.map((tool) => tool.name)).toContain(
+				"listmonk_list_operations",
+			);
+			const catalogResult = await client.callTool({
+				name: "listmonk_list_operations",
+				arguments: { family: "transactional" },
+			});
+			expect(catalogResult.isError).not.toBe(true);
 		} finally {
 			await client.close();
 		}
@@ -133,7 +141,7 @@ describe("mcp runtime entrypoint", () => {
 		);
 		const legacyTools = await legacyResponse.json();
 		expect(legacyResponse.ok).toBe(true);
-			expect(legacyTools.tools).toHaveLength(63);
+		expect(legacyTools.tools).toHaveLength(64);
 	});
 
 	test("published bin serves MCP over stdio", async () => {
@@ -160,7 +168,15 @@ describe("mcp runtime entrypoint", () => {
 		try {
 			await client.connect(transport);
 			const tools = await client.listTools();
-			expect(tools.tools).toHaveLength(63);
+			expect(tools.tools).toHaveLength(64);
+			expect(tools.tools.map((tool) => tool.name)).toContain(
+				"listmonk_list_operations",
+			);
+			const catalogResult = await client.callTool({
+				name: "listmonk_list_operations",
+				arguments: { family: "transactional" },
+			});
+			expect(catalogResult.isError).not.toBe(true);
 		} finally {
 			await client.close();
 		}
