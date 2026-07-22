@@ -1,6 +1,7 @@
 import * as clack from "@clack/prompts";
 import { type ArgSchema, define, type SubCommandable } from "gunshi";
 import type { output, ZodType } from "zod";
+import { executeCliOperation } from "../operation-execution";
 
 type OptionConfig = {
 	description?: string;
@@ -21,6 +22,7 @@ type InferFlags<Options extends OptionMap> = {
 };
 
 type RuntimeFlags = {
+	confirm?: boolean;
 	interactive?: boolean;
 	tui?: boolean;
 };
@@ -110,6 +112,7 @@ export function defineCommand<
 	name: string;
 	description?: string;
 	options?: Options;
+	operationId?: string;
 	handler: (args: HandlerArgs<InferFlags<Options>>) => void | Promise<void>;
 }): CliCommand {
 	const args = Object.fromEntries(
@@ -124,7 +127,7 @@ export function defineCommand<
 		description: config.description,
 		args,
 		async run(context) {
-			await config.handler({
+			const handlerArgs: HandlerArgs<InferFlags<Options>> = {
 				flags: {
 					...context.values,
 					...runtimeFlags,
@@ -134,7 +137,19 @@ export function defineCommand<
 				terminal: {
 					isInteractive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
 				},
-			});
+			};
+
+			if (config.operationId) {
+				await executeCliOperation({
+					operationId: config.operationId,
+					input: handlerArgs.flags,
+					confirmed: handlerArgs.flags.confirm === true,
+					invoke: async () => config.handler(handlerArgs),
+				});
+				return;
+			}
+
+			await config.handler(handlerArgs);
 		},
 	}) as CliCommand;
 }
@@ -177,14 +192,16 @@ export function prepareCliArgv(input: string[]): string[] {
 			break;
 		}
 
-		const globalMatch = token.match(/^--(interactive|tui)(?:=(true|false))?$/);
+		const globalMatch = token.match(
+			/^--(confirm|interactive|tui)(?:=(true|false))?$/,
+		);
 		if (token === "-i" || globalMatch) {
 			const key = token === "-i" ? "interactive" : globalMatch?.[1];
 			const inlineValue = globalMatch?.[2];
 			const nextValue = input[index + 1];
 			const consumesNext =
 				inlineValue === undefined && /^(true|false)$/i.test(nextValue ?? "");
-			if (key === "interactive" || key === "tui") {
+			if (key === "confirm" || key === "interactive" || key === "tui") {
 				runtimeFlags[key] = parseBoolean(
 					inlineValue ?? (consumesNext ? nextValue : undefined),
 					true,
@@ -196,10 +213,10 @@ export function prepareCliArgv(input: string[]): string[] {
 			continue;
 		}
 
-		const negatedGlobalMatch = token.match(/^--no-(interactive|tui)$/);
+		const negatedGlobalMatch = token.match(/^--no-(confirm|interactive|tui)$/);
 		if (negatedGlobalMatch) {
 			const key = negatedGlobalMatch[1];
-			if (key === "interactive" || key === "tui") {
+			if (key === "confirm" || key === "interactive" || key === "tui") {
 				runtimeFlags[key] = false;
 			}
 			continue;

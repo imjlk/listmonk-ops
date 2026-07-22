@@ -155,6 +155,15 @@ const mcpOperationAuditRecorder =
 	"packages/mcp/src/server.ts#ListmonkMCPServer.recordMcpOperationAudit:method";
 const mcpOperationExecutionCompleter =
 	"packages/mcp/src/server.ts#ListmonkMCPServer.completeMcpOperationExecution:method";
+const cliDefineCommand = "apps/cli/src/lib/command.ts#defineCommand:function";
+const cliOperationExecutionTest =
+	"apps/cli/tests/operation-execution.test.ts#apps/cli/tests/operation-execution.test.ts:module";
+const cliOperationExecutionResolver =
+	"apps/cli/src/operation-execution.ts#getCliOperationExecution:function";
+const cliOperationExecutor =
+	"apps/cli/src/operation-execution.ts#executeCliOperation:function";
+const cliOperationAuditRecorder =
+	"apps/cli/src/operation-execution.ts#recordCliOperationAudit:function";
 const cliOperationCatalogTest =
 	"apps/cli/tests/operation-catalog.test.ts#apps/cli/tests/operation-catalog.test.ts:module";
 const mcpOperationCatalogTest =
@@ -1138,6 +1147,43 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			mcpCallTool,
 			mcpOperationExecutionResolver,
 		],
+	},
+	{
+		label: "CLI command adapter enters the shared execution-safety boundary",
+		path: [cliDefineCommand, cliOperationExecutor],
+	},
+	{
+		label: "CLI execution-safety tests anchor registry policy resolution",
+		path: [
+			cliOperationExecutionTest,
+			cliOperationExecutionResolver,
+			sharedOperationExecutionPolicy,
+		],
+	},
+	{
+		label: "CLI execution resolver applies shared dry-run defaults",
+		path: [
+			cliOperationExecutionTest,
+			cliOperationExecutionResolver,
+			sharedOperationEffectiveDryRun,
+		],
+	},
+	{
+		label: "CLI execution boundary enforces shared operation confirmation",
+		path: [cliOperationExecutor, sharedOperationConfirmation],
+	},
+	{
+		label: "CLI execution boundary writes audit events atomically",
+		path: [
+			cliOperationExecutor,
+			cliOperationAuditRecorder,
+			recordOperationAudit,
+			updateJsonFileStore,
+		],
+	},
+	{
+		label: "CLI execution-safety tests exercise the central enforcement boundary",
+		path: [cliOperationExecutionTest, cliOperationExecutor],
 	},
 	...listInvokerContracts,
 	...cliListMutationContracts,

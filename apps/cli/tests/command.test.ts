@@ -44,4 +44,21 @@ describe("CLI command adapter", () => {
 
 		expect(capturedFlags?.interactive).toBe(true);
 	});
+
+	test("makes the global confirm flag available to command handlers", async () => {
+		let capturedFlags: Record<string, unknown> | undefined;
+		const command = defineCommand({
+			name: "probe",
+			handler: ({ flags }) => {
+				capturedFlags = flags;
+			},
+		});
+
+		await cli(prepareCliArgv(["--confirm"]), command, {
+			name: "probe",
+			usageSilent: true,
+		});
+
+		expect(capturedFlags?.confirm).toBe(true);
+	});
 });
