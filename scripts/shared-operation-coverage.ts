@@ -15,7 +15,7 @@ import { templateOperations } from "../packages/operations/src/templates";
 import { transactionalOperations } from "../packages/operations/src/transactional";
 import type { MCPTool } from "../packages/mcp/src/types/mcp";
 
-type SharedOperation =
+export type SharedOperation =
 	| (typeof abTestOperations)[number]
 	| (typeof campaignOperations)[number]
 	| (typeof listOperations)[number]
@@ -30,12 +30,40 @@ const safetyKeys = [
 	"idempotentHint",
 	"openWorldHint",
 ] as const;
-const allToolNames = new Set(allTools.map((tool) => tool.name));
+function assertToolMatchesOperation(
+	operation: SharedOperation,
+	tool: MCPTool,
+	registry: string,
+): void {
+	if (tool.title !== operation.title || tool.description !== operation.description) {
+		throw new Error(
+			`${operation.mcp.name} ${registry} does not preserve MCP metadata`,
+		);
+	}
+	if (
+		JSON.stringify(tool.inputSchema) !==
+			JSON.stringify(operation.inputJsonSchema) ||
+		JSON.stringify(tool.outputSchema) !==
+			JSON.stringify(operation.outputJsonSchema)
+	) {
+		throw new Error(
+			`${operation.mcp.name} ${registry} does not preserve MCP schemas`,
+		);
+	}
+	for (const key of safetyKeys) {
+		if (tool.annotations?.[key] !== operation.safety[key]) {
+			throw new Error(
+				`${operation.mcp.name} ${registry} does not preserve ${key}`,
+			);
+		}
+	}
+}
 
-function assertOperationFamilyPublished(
+export function assertOperationFamilyPublished(
 	family: string,
 	operations: readonly SharedOperation[],
 	tools: readonly MCPTool[],
+	globalTools: readonly MCPTool[] = allTools,
 ): void {
 	const expectedNames = operations.map((operation) => operation.mcp.name);
 	const expectedNameSet = new Set(expectedNames);
@@ -62,28 +90,24 @@ function assertOperationFamilyPublished(
 		const tool = tools.find(
 			(candidate) => candidate.name === operation.mcp.name,
 		);
-		if (!allToolNames.has(operation.mcp.name)) {
-			throw new Error(`${operation.mcp.name} is not registered globally`);
-		}
 		if (!tool) {
 			throw new Error(`${operation.mcp.name} has no family tool`);
 		}
-		if (tool.title !== operation.title || tool.description !== operation.description) {
-			throw new Error(`${operation.mcp.name} does not preserve MCP metadata`);
+		const matchingGlobalTools = globalTools.filter(
+			(candidate) => candidate.name === operation.mcp.name,
+		);
+		if (matchingGlobalTools.length !== 1) {
+			throw new Error(
+				`${operation.mcp.name} must have exactly one global tool, found ${matchingGlobalTools.length}`,
+			);
 		}
-		if (
-			JSON.stringify(tool.inputSchema) !==
-				JSON.stringify(operation.inputJsonSchema) ||
-			JSON.stringify(tool.outputSchema) !==
-				JSON.stringify(operation.outputJsonSchema)
-		) {
-			throw new Error(`${operation.mcp.name} does not preserve MCP schemas`);
+		const globalTool = matchingGlobalTools[0];
+		if (!globalTool) {
+			throw new Error(`${operation.mcp.name} has no global tool`);
 		}
-		for (const key of safetyKeys) {
-			if (tool.annotations?.[key] !== operation.safety[key]) {
-				throw new Error(`${operation.mcp.name} does not preserve ${key}`);
-			}
-		}
+
+		assertToolMatchesOperation(operation, tool, "family tool");
+		assertToolMatchesOperation(operation, globalTool, "global tool");
 	}
 }
 

@@ -125,6 +125,12 @@ export function assertOperationCoverage(
 		coverageContracts.map((contract) => contract.registry),
 	);
 
+	for (const contract of coverageContracts) {
+		if (!nodeIds.has(contract.registry)) {
+			failures.push(`missing shared operation registry ${contract.registry}`);
+		}
+	}
+
 	for (const nodeId of nodeIds) {
 		if (
 			sharedOperationRegistryPattern.test(nodeId) &&

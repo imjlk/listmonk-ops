@@ -40,6 +40,21 @@ describe("shared operation graph coverage", () => {
 		);
 	});
 
+	test("rejects a declared shared operation registry missing from the graph", () => {
+		const graph = completeGraph();
+		const contract = operationCoverageContracts[0];
+		if (!contract) {
+			throw new Error("expected at least one shared operation coverage contract");
+		}
+		graph.nodes = graph.nodes.filter(
+			(node) => node.id !== contract.registry,
+		);
+
+		expect(() => assertOperationCoverage(graph)).toThrow(
+			"missing shared operation registry",
+		);
+	});
+
 	test("rejects a shared operation registry without a coverage contract", () => {
 		const graph = completeGraph();
 		graph.nodes.push({
