@@ -39,7 +39,10 @@ export async function findMailpitMessage(
 	recipient: string,
 	subject: string,
 ): Promise<MailpitMessageSummary | undefined> {
-	const mailbox = await fetchMailpitJson<MailpitMessageList>("/messages");
+	const query = encodeURIComponent(`to:"${recipient}" subject:"${subject}"`);
+	const mailbox = await fetchMailpitJson<MailpitMessageList>(
+		`/search?query=${query}`,
+	);
 	return mailbox.messages?.find(
 		(message) =>
 			message.Subject === subject &&

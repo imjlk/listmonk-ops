@@ -988,6 +988,14 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 		path: [mailpitHelperRegressionTest, fetchMailpitJson],
 	},
 	{
+		label: "Mailpit helper has a direct server-side search regression test",
+		path: [
+			mailpitHelperRegressionTest,
+			findMailpitMessage,
+			fetchMailpitJson,
+		],
+	},
+	{
 		label: "CLI/MCP transactional parity E2E invokes the CLI subprocess runner",
 		path: [cliMcpTransactionalParityE2eTest, cliTransactionalParityRunner],
 	},
