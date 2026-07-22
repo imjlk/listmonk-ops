@@ -10,6 +10,23 @@ export type {
 	JsonFileStore,
 	JsonFileStoreUpdate,
 } from "./json-file-store";
+export {
+	createOperationAuditExecutionId,
+	createOperationAuditStore,
+	DEFAULT_OPERATION_AUDIT_LIMIT,
+	getOperationAuditStorePath,
+	listOperationAuditEntries,
+	OPERATION_AUDIT_STORE_VERSION,
+	recordOperationAudit,
+} from "./operation-audit";
+export type {
+	OperationAuditEntry,
+	OperationAuditEvent,
+	OperationAuditStore,
+	OperationAuditStoreOptions,
+	OperationAuditSurface,
+	RecordOperationAuditInput,
+} from "./operation-audit";
 
 // Common validation utilities
 export const ValidationUtils = {
