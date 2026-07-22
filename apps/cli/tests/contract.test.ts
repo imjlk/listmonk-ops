@@ -187,12 +187,15 @@ describe("CLI contract", () => {
 			"1",
 			"--pause-on-breach",
 			"true",
+			"--confirm",
 		]);
 
 		expect(result.exitCode).not.toBe(0);
 		expect(result.output).toContain("Deliverability guard failed");
 		expect(result.output).toContain("Missing LISTMONK_API_TOKEN");
-		expect(result.output).not.toMatch(/unknown|unexpected/i);
+		expect(result.output).not.toMatch(
+			/unknown (option|argument|command)|unexpected (option|argument)/i,
+		);
 	});
 
 	test("accepts Gunshi negated boolean options", () => {
@@ -202,10 +205,13 @@ describe("CLI contract", () => {
 			"--campaign-id",
 			"1",
 			"--no-pause-on-breach",
+			"--confirm",
 		]);
 
 		expect(result.exitCode).not.toBe(0);
 		expect(result.output).toContain("Missing LISTMONK_API_TOKEN");
-		expect(result.output).not.toMatch(/unknown|unexpected/i);
+		expect(result.output).not.toMatch(
+			/unknown (option|argument|command)|unexpected (option|argument)/i,
+		);
 	});
 });

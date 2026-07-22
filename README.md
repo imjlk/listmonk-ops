@@ -279,8 +279,8 @@ The CLI exposes the same typed subscriber-list operations as the MCP server:
 listmonk-cli lists list --page 1 --per-page 20
 listmonk-cli lists get --id 10
 listmonk-cli lists create --name "Product updates" --type private --optin single
-listmonk-cli lists update --id 10 --name "Product updates"
-listmonk-cli lists delete --id 10
+listmonk-cli lists update --id 10 --name "Product updates" --confirm
+listmonk-cli lists delete --id 10 --confirm
 ```
 
 Campaign, subscriber, and template CRUD now use the same typed operations on
@@ -292,15 +292,15 @@ listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \
   --template-id 1 --lists 10
 listmonk-cli campaigns update --id 42 --subject "Updated news"
-listmonk-cli campaigns delete --id 42
+listmonk-cli campaigns delete --id 42 --confirm
 
 listmonk-cli subscribers create --email reader@example.com --name Reader
 listmonk-cli subscribers update --id 7 --status enabled
-listmonk-cli subscribers delete --id 7
+listmonk-cli subscribers delete --id 7 --confirm
 
 listmonk-cli templates create --name "Campaign HTML" --body "<p>Hello</p>"
 listmonk-cli templates update --id 3 --body "<p>Updated</p>"
-listmonk-cli templates delete --id 3
+listmonk-cli templates delete --id 3 --confirm
 ```
 
 The corresponding MCP CRUD tools are
@@ -335,6 +335,18 @@ operations append `started`, `blocked`, `succeeded`, or `failed` metadata-only
 events to `$HOME/.listmonk-ops/operation-audit.json` by default. The staged
 migration deliberately leaves legacy transport-specific MCP tools unchanged.
 
+The CLI applies the same policy to its shared operations. Pass the global
+`--confirm` flag for any cataloged command whose `confirmationRequired` policy
+is true; it is consumed at the CLI boundary and never forwarded to the domain
+input. Writes append the same metadata-only audit events to the same default
+store. Set `LISTMONK_OPS_AUDIT_STORE` to use a different local audit path.
+For example, the hygiene preview is still a destructive-capable operation and
+therefore needs explicit confirmation:
+
+```bash
+listmonk-cli ops hygiene --mode winback --dry-run true --confirm
+```
+
 ## Transactional Email
 
 The CLI and MCP server share one typed transactional-send operation. Both
@@ -364,14 +376,14 @@ CLI `abtest` group now supports full lifecycle operations:
 ```bash
 listmonk-cli abtest list
 listmonk-cli abtest get --test-id <id>
-listmonk-cli abtest create ...
-listmonk-cli abtest launch --test-id <id>
-listmonk-cli abtest stop --test-id <id>
+listmonk-cli abtest create ... --confirm
+listmonk-cli abtest launch --test-id <id> --confirm
+listmonk-cli abtest stop --test-id <id> --confirm
 listmonk-cli abtest analyze --test-id <id>
 listmonk-cli abtest recommend-sample-size \
   --lists 123,456 --test-group-percentage 10 --variant-count 2
-listmonk-cli abtest deploy-winner --test-id <id>
-listmonk-cli abtest delete --test-id <id>
+listmonk-cli abtest deploy-winner --test-id <id> --confirm
+listmonk-cli abtest delete --test-id <id> --confirm
 ```
 
 Creating with `--auto-launch true` starts the backing campaigns immediately;
@@ -398,10 +410,10 @@ listmonk_abtest_deploy_winner
 listmonk-cli ops preflight --campaign-id 123 --check-links true --fail-on-warn false
 
 # 2) Deliverability guard
-listmonk-cli ops guard --campaign-id 123 --pause-on-breach true
+listmonk-cli ops guard --campaign-id 123 --pause-on-breach true --confirm
 
 # 3) Subscriber hygiene (preview)
-listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90
+listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --confirm
 
 # 4) Segment drift snapshot
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
@@ -409,8 +421,8 @@ listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
 # 5) Template registry/versioning
 listmonk-cli ops templates-sync
 listmonk-cli ops templates-history --template-id 10
-listmonk-cli ops templates-promote --template-id 10 --version-id v_...
-listmonk-cli ops templates-rollback --template-id 10
+listmonk-cli ops templates-promote --template-id 10 --version-id v_... --confirm
+listmonk-cli ops templates-rollback --template-id 10 --confirm
 
 # 6) Daily digest
 listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md

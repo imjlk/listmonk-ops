@@ -1,7 +1,27 @@
-import { describe, expect, test } from "bun:test";
+import { listOperationAuditEntries } from "@listmonk-ops/common";
+import { afterEach, describe, expect, test } from "bun:test";
 import { cli } from "gunshi";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { z } from "zod";
 import { defineCommand, option, prepareCliArgv } from "../src/lib/command";
+
+const tempDirectories: string[] = [];
+
+afterEach(async () => {
+	await Promise.all(
+		tempDirectories.splice(0).map((directory) =>
+			rm(directory, { recursive: true, force: true }),
+		),
+	);
+});
+
+async function createAuditStorePath(): Promise<string> {
+	const directory = await mkdtemp(join(tmpdir(), "listmonk-ops-cli-command-"));
+	tempDirectories.push(directory);
+	return join(directory, "operation-audit.json");
+}
 
 describe("CLI command adapter", () => {
 	test("recognizes optional boolean schemas as boolean arguments", async () => {
@@ -60,5 +80,49 @@ describe("CLI command adapter", () => {
 		});
 
 		expect(capturedFlags?.confirm).toBe(true);
+	});
+
+	test("enforces shared operation confirmation before invoking a command handler", async () => {
+		const auditStorePath = await createAuditStorePath();
+		const previousAuditStorePath = process.env.LISTMONK_OPS_AUDIT_STORE;
+		let calls = 0;
+		const command = defineCommand({
+			name: "delete",
+			operationId: "lists.delete",
+			handler: () => {
+				calls += 1;
+			},
+		});
+
+		process.env.LISTMONK_OPS_AUDIT_STORE = auditStorePath;
+		try {
+			await expect(
+				cli(prepareCliArgv([]), command, {
+					name: "delete",
+					usageSilent: true,
+				}),
+			).rejects.toThrow("Operation lists.delete requires explicit confirmation");
+			expect(calls).toBe(0);
+
+			await cli(prepareCliArgv(["--confirm"]), command, {
+				name: "delete",
+				usageSilent: true,
+			});
+			expect(calls).toBe(1);
+
+			const entries = await listOperationAuditEntries({ path: auditStorePath });
+			expect(entries.map((entry) => entry.event)).toEqual([
+				"started",
+				"blocked",
+				"started",
+				"succeeded",
+			]);
+		} finally {
+			if (previousAuditStorePath === undefined) {
+				delete process.env.LISTMONK_OPS_AUDIT_STORE;
+			} else {
+				process.env.LISTMONK_OPS_AUDIT_STORE = previousAuditStorePath;
+			}
+		}
 	});
 });

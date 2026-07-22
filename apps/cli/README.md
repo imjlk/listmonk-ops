@@ -33,6 +33,12 @@ listmonk-cli operations --family campaigns
 both the CLI and MCP server. Use `--family` to filter by `lists`,
 `subscribers`, `campaigns`, `templates`, `transactional`, `ops`, or `abtest`.
 
+Shared operations with `confirmationRequired: true` need the global
+`--confirm` flag, for example `listmonk-cli lists delete --id 10 --confirm`.
+The CLI records metadata-only audit events for shared writes in
+`$HOME/.listmonk-ops/operation-audit.json` by default; set
+`LISTMONK_OPS_AUDIT_STORE` to use a different local path.
+
 ## Shell completion
 
 ```bash

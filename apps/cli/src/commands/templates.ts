@@ -230,6 +230,7 @@ export default defineGroup({
 	commands: [
 		defineCommand({
 			name: "list",
+			operationId: "templates.list",
 			description: "List templates",
 			options: {
 				page: option(z.coerce.number().int().positive().optional(), { description: "Page number" }),
@@ -240,12 +241,14 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "get",
+			operationId: "templates.get",
 			description: "Get template details",
 			options: { id: option(z.coerce.number().int().positive(), { description: "Template ID" }) },
 			handler: handleGetTemplateCommand,
 		}),
 		defineCommand({
 			name: "create",
+			operationId: "templates.create",
 			description: "Create a template",
 			options: {
 				name: option(z.string().trim().min(1), { description: "Template name" }),
@@ -258,6 +261,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "update",
+			operationId: "templates.update",
 			description: "Update a template",
 			options: {
 				id: option(z.coerce.number().int().positive(), { description: "Template ID" }),
@@ -271,6 +275,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "delete",
+			operationId: "templates.delete",
 			description: "Delete a template",
 			options: { id: option(z.coerce.number().int().positive(), { description: "Template ID" }) },
 			handler: handleDeleteTemplateCommand,

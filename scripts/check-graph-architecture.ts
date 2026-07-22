@@ -156,6 +156,8 @@ const mcpOperationAuditRecorder =
 const mcpOperationExecutionCompleter =
 	"packages/mcp/src/server.ts#ListmonkMCPServer.completeMcpOperationExecution:method";
 const cliDefineCommand = "apps/cli/src/lib/command.ts#defineCommand:function";
+const cliCommandAdapterTest =
+	"apps/cli/tests/command.test.ts#apps/cli/tests/command.test.ts:module";
 const cliOperationExecutionTest =
 	"apps/cli/tests/operation-execution.test.ts#apps/cli/tests/operation-execution.test.ts:module";
 const cliOperationExecutionResolver =
@@ -1151,6 +1153,14 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	{
 		label: "CLI command adapter enters the shared execution-safety boundary",
 		path: [cliDefineCommand, cliOperationExecutor],
+	},
+	{
+		label: "CLI command tests exercise configured execution safety",
+		path: [cliCommandAdapterTest, cliDefineCommand, cliOperationExecutor],
+	},
+	{
+		label: "Interactive A/B creation enters the shared execution-safety boundary",
+		path: [cliAbTestModule, cliOperationExecutor],
 	},
 	{
 		label: "CLI execution-safety tests anchor registry policy resolution",

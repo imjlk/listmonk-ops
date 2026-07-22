@@ -95,6 +95,7 @@ export default defineGroup({
 	commands: [
 		defineCommand({
 			name: "send",
+			operationId: "transactional.send",
 			description: "Send a transactional email",
 			options: {
 				"template-id": option(z.coerce.number().int().positive(), {
