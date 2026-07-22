@@ -172,6 +172,16 @@ const mcpOperationCatalogTest =
 	"packages/mcp/tests/unit/catalog.test.ts#packages/mcp/tests/unit/catalog.test.ts:module";
 const operationCatalogParityTest =
 	"scripts/operation-coverage.test.ts#scripts/operation-coverage.test.ts:module";
+const cliMcpTemplateParityE2eTest =
+	"packages/mcp/tests/e2e/templates-parity.test.ts#packages/mcp/tests/e2e/templates-parity.test.ts:module";
+const cliTemplateParityRunner =
+	"packages/mcp/tests/e2e/templates-parity.test.ts#runCliSetDefaultTemplate:function";
+const templateSetDefaultInvoker =
+	"packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function";
+const templateSetDefaultAction =
+	"packages/operations/src/templates.ts#setDefaultTemplate:function";
+const openapiTemplateSetDefaultMethod =
+	"packages/openapi/src/client/contracts.ts#TemplateOperations.setAsDefault:method";
 
 const cliOpsModule =
 	"apps/cli/src/commands/ops.ts#apps/cli/src/commands/ops.ts:module";
@@ -891,6 +901,78 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 	}),
 ];
 
+const templateSetDefaultContracts: readonly CallPathContract[] = [
+	{
+		label: "CLI template default selection reaches the shared action",
+		path: [
+			"apps/cli/src/commands/templates.ts#handleSetDefaultTemplateCommand:function",
+			"apps/cli/src/commands/templates.ts#renderSetDefaultTemplate:function",
+			templateSetDefaultInvoker,
+			templateSetDefaultAction,
+			openapiTemplateSetDefaultMethod,
+		],
+	},
+	{
+		label: "MCP template default selection reaches the shared action",
+		path: [
+			mcpCallTool,
+			"packages/mcp/src/handlers/templates.ts#handleTemplatesTools:function",
+			"packages/operations/src/templates.ts#invokeTemplateOperationByMcpName:function",
+			templateSetDefaultInvoker,
+			templateSetDefaultAction,
+			openapiTemplateSetDefaultMethod,
+		],
+	},
+	{
+		label: "CLI template default tests anchor the shared renderer",
+		path: [
+			"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+			"apps/cli/src/commands/templates.ts#renderSetDefaultTemplate:function",
+			templateSetDefaultInvoker,
+		],
+	},
+	{
+		label: "MCP template default tests anchor the shared dispatcher",
+		path: [
+			"packages/mcp/tests/unit/resources.test.ts#packages/mcp/tests/unit/resources.test.ts:module",
+			"packages/mcp/src/handlers/templates.ts#handleTemplatesTools:function",
+			"packages/operations/src/templates.ts#invokeTemplateOperationByMcpName:function",
+			templateSetDefaultInvoker,
+		],
+	},
+	{
+		label: "Template default operation tests anchor the named action",
+		path: [
+			"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+			templateSetDefaultInvoker,
+			templateSetDefaultAction,
+		],
+	},
+	{
+		label: "OpenAPI template default tests anchor the named client method",
+		path: [
+			"packages/openapi/tests/templates-contract.test.ts#packages/openapi/tests/templates-contract.test.ts:module",
+			openapiTemplateSetDefaultMethod,
+		],
+	},
+	{
+		label: "CLI/MCP template default parity E2E invokes the CLI subprocess runner",
+		path: [cliMcpTemplateParityE2eTest, cliTemplateParityRunner],
+	},
+	{
+		label: "CLI/MCP template default parity E2E reaches the shared MCP action",
+		path: [
+			cliMcpTemplateParityE2eTest,
+			mcpTestClientCallTool,
+			mcpCallTool,
+			"packages/mcp/src/handlers/templates.ts#handleTemplatesTools:function",
+			"packages/operations/src/templates.ts#invokeTemplateOperationByMcpName:function",
+			templateSetDefaultInvoker,
+			templateSetDefaultAction,
+		],
+	},
+];
+
 export const architectureCallPaths: readonly CallPathContract[] = [
 	{
 		label: "CLI list command reaches the handwritten OpenAPI list method",
@@ -1198,6 +1280,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	...listInvokerContracts,
 	...cliListMutationContracts,
 	...resourceCrudContracts,
+	...templateSetDefaultContracts,
 	...opsOperationContracts,
 	...abTestOperationContracts,
 	...abTestTestContracts,

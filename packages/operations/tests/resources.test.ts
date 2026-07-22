@@ -9,6 +9,7 @@ import {
 	invokeCreateSubscriberOperation,
 	invokeCreateTemplateOperation,
 	invokeGetTemplatesOperation,
+	invokeSetDefaultTemplateOperation,
 	invokeUpdateCampaignOperation,
 	invokeUpdateSubscriberOperation,
 	invokeUpdateTemplateOperation,
@@ -43,7 +44,7 @@ describe("shared CRUD resource operations", () => {
 	test("exposes object-root registries with safety metadata", () => {
 		expect(campaignOperations).toHaveLength(5);
 		expect(subscriberOperations).toHaveLength(5);
-		expect(templateOperations).toHaveLength(5);
+		expect(templateOperations).toHaveLength(6);
 		for (const operation of [
 			...campaignOperations,
 			...subscriberOperations,
@@ -55,6 +56,11 @@ describe("shared CRUD resource operations", () => {
 		expect(campaignOperations[0]?.safety.readOnlyHint).toBe(true);
 		expect(campaignOperations[2]?.safety.idempotentHint).toBe(false);
 		expect(campaignOperations[4]?.safety.destructiveHint).toBe(true);
+		expect(
+		templateOperations.find(
+			(operation) => operation.id === "templates.set-default",
+		)?.safety.destructiveHint,
+	).toBe(true);
 		expect(
 			getCampaignOperationByMcpName("listmonk_update_campaign"),
 		).toBe(campaignOperations[3]);
@@ -249,6 +255,22 @@ describe("shared CRUD resource operations", () => {
 				body_source: undefined,
 			},
 		});
+	});
+
+	test("sets a default template through the named shared operation", async () => {
+		const setAsDefault = mock(async () => ({
+			data: [],
+		}));
+
+		await expect(
+			invokeSetDefaultTemplateOperation(
+				templateContext({
+					setAsDefault: setAsDefault as TemplateClient["template"]["setAsDefault"],
+				}),
+				{ id: "12" },
+			),
+		).resolves.toEqual({ id: 12, set_default: true });
+		expect(setAsDefault).toHaveBeenCalledWith({ path: { id: 12 } });
 	});
 
 	test("returns undefined for unknown resource operation names", async () => {

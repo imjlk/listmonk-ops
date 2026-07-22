@@ -300,6 +300,7 @@ listmonk-cli subscribers delete --id 7 --confirm
 listmonk-cli templates create --name "Campaign HTML" --body "<p>Hello</p>"
 listmonk-cli templates update --id 3 --body "<p>Updated</p>"
 listmonk-cli templates delete --id 3 --confirm
+listmonk-cli templates set-default --id 3 --confirm
 ```
 
 대응하는 MCP CRUD 도구는

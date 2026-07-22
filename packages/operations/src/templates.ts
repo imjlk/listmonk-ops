@@ -86,6 +86,16 @@ const deleteTemplateOutputSchema = z.object({
 	deleted: z.boolean(),
 });
 
+const setDefaultTemplateOutputSchema = z.object({
+	id: z.number().int().positive(),
+	set_default: z.literal(true),
+});
+
+const setDefaultTemplateSafety = {
+	...updateResourceSafety,
+	destructiveHint: true,
+} as const;
+
 export type TemplateListPage = z.output<typeof templateListOutputSchema>;
 
 type TemplateCreateBody = NonNullable<
@@ -241,6 +251,20 @@ export async function deleteTemplate(
 	};
 }
 
+export async function setDefaultTemplate(
+	{ client }: TemplateOperationContext,
+	input: z.output<typeof templateIdInputSchema>,
+): Promise<z.output<typeof setDefaultTemplateOutputSchema>> {
+	const response = await client.template.setAsDefault({
+		path: { id: input.id },
+	});
+	// Listmonk 6.2 acknowledges this endpoint with an array even though its
+	// upstream OpenAPI document declares a Template. Keep that transport detail
+	// at the boundary and expose the stable requested-ID acknowledgement instead.
+	unwrapResourceResponse(response, "Failed to set default template");
+	return { id: input.id, set_default: true };
+}
+
 export const getTemplatesOperation = defineOperation({
 	id: "templates.list",
 	title: "List templates",
@@ -297,6 +321,20 @@ export const deleteTemplateOperation = defineOperation({
 		legacySuccessText: "Template deleted successfully",
 	},
 	execute: deleteTemplate,
+});
+
+export const setDefaultTemplateOperation = defineOperation({
+	id: "templates.set-default",
+	title: "Set default template",
+	description: "Set a template as the Listmonk default",
+	inputSchema: templateIdInputSchema,
+	outputSchema: setDefaultTemplateOutputSchema,
+	safety: setDefaultTemplateSafety,
+	mcp: {
+		name: "listmonk_set_default_template",
+		legacySuccessText: "Default template set successfully",
+	},
+	execute: setDefaultTemplate,
 });
 
 export async function invokeGetTemplatesOperation(
@@ -404,12 +442,37 @@ export async function invokeDeleteTemplateOperation(
 	);
 }
 
+export async function invokeSetDefaultTemplateOperation(
+	context: TemplateOperationContext,
+	input: unknown,
+): Promise<z.output<typeof setDefaultTemplateOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		setDefaultTemplateOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof setDefaultTemplateOutputSchema>;
+	try {
+		output = await setDefaultTemplate(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			setDefaultTemplateOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		setDefaultTemplateOperation.id,
+		setDefaultTemplateOperation.outputSchema,
+		output,
+	);
+}
+
 export const templateOperations = [
 	getTemplatesOperation,
 	getTemplateOperation,
 	createTemplateOperation,
 	updateTemplateOperation,
 	deleteTemplateOperation,
+	setDefaultTemplateOperation,
 ] as const;
 
 export const templateOperationCatalog = defineOperationCatalog({
@@ -465,6 +528,11 @@ export async function invokeTemplateOperationByMcpName(
 			return {
 				operation: deleteTemplateOperation,
 				output: await invokeDeleteTemplateOperation(context, input),
+			};
+		case setDefaultTemplateOperation.mcp.name:
+			return {
+				operation: setDefaultTemplateOperation,
+				output: await invokeSetDefaultTemplateOperation(context, input),
 			};
 		default:
 			return undefined;

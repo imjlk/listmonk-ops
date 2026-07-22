@@ -5,6 +5,7 @@ import {
 	invokeDeleteTemplateOperation,
 	invokeGetTemplateOperation,
 	invokeGetTemplatesOperation,
+	invokeSetDefaultTemplateOperation,
 	invokeUpdateTemplateOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
@@ -15,7 +16,7 @@ import {
 	type HandlerArgs,
 	option,
 } from "../lib/command";
-import { hasApiError, toErrorMessage } from "../lib/command-utils";
+import { toErrorMessage } from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
 
 type TemplatesOutput = Pick<
@@ -93,6 +94,15 @@ export async function renderDeleteTemplate(
 	const result = await invokeDeleteTemplateOperation(context, input);
 	context.output.success(`Template deleted: ${input.id}`);
 	context.output.json(result);
+}
+
+export async function renderSetDefaultTemplate(
+	context: TemplatesCliContext,
+	input: { id: number },
+): Promise<void> {
+	const template = await invokeSetDefaultTemplateOperation(context, input);
+	context.output.success(`Default template set: ${input.id}`);
+	context.output.json(template);
 }
 
 type ListCommandFlags = { page?: number; "per-page"?: number; "no-body"?: boolean };
@@ -209,12 +219,10 @@ export async function handleSetDefaultTemplateCommand({
 }: HandlerArgs<{ id: number }>): Promise<void> {
 	try {
 		const client = await getListmonkClient(args);
-		const response = await client.template.setAsDefault({
-			path: { id: flags.id },
-		});
-		if (hasApiError(response)) throw new Error(toErrorMessage(response.error));
-		OutputUtils.success(`Default template set: ${flags.id}`);
-		OutputUtils.json(response.data);
+		await renderSetDefaultTemplate(
+			{ client, output: OutputUtils },
+			{ id: flags.id },
+		);
 	} catch (error) {
 		throw createTemplateCommandError("Failed to set default template", error);
 	}
@@ -282,6 +290,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "set-default",
+			operationId: "templates.set-default",
 			description: "Set a template as default",
 			options: { id: option(z.coerce.number().int().positive(), { description: "Template ID" }) },
 			handler: handleSetDefaultTemplateCommand,

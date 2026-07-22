@@ -40,6 +40,7 @@ describe("MCP Server Integration", () => {
 		expect(toolNames).toContain("listmonk_create_template");
 		expect(toolNames).toContain("listmonk_update_template");
 		expect(toolNames).toContain("listmonk_delete_template");
+		expect(toolNames).toContain("listmonk_set_default_template");
 
 		// Settings tools
 		expect(toolNames).toContain("listmonk_health_check");

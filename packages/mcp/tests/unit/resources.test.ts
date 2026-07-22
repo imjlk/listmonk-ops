@@ -43,9 +43,14 @@ describe("campaign, subscriber, and template operation adapters", () => {
 		expect(templatesTools.map((tool) => tool.name)).toContain(
 			"listmonk_update_template",
 		);
+		expect(
+			templatesTools.find(
+				(tool) => tool.name === "listmonk_set_default_template",
+			)?.annotations?.destructiveHint,
+		).toBe(true);
 	});
 
-test("routes campaign reads through the shared operation result adapter", async () => {
+	test("routes campaign reads through the shared operation result adapter", async () => {
 		const client = {
 			campaign: {
 				list: async () => ({
@@ -70,7 +75,7 @@ test("routes campaign reads through the shared operation result adapter", async 
 		);
 	});
 
-test("rejects empty subscriber updates at the shared boundary", async () => {
+	test("rejects empty subscriber updates at the shared boundary", async () => {
 		let called = false;
 		const client = {
 			subscriber: {
@@ -93,7 +98,7 @@ test("rejects empty subscriber updates at the shared boundary", async () => {
 		expect(called).toBe(false);
 	});
 
-test("routes template creation through the shared operation", async () => {
+	test("routes template creation through the shared operation", async () => {
 		const client = {
 			template: {
 				create: async () => ({
@@ -113,5 +118,24 @@ test("routes template creation through the shared operation", async () => {
 
 		expect(result.isError).toBeFalsy();
 		expect(result.structuredContent).toMatchObject({ id: 12, name: "Campaign" });
+	});
+
+	test("routes default template changes through the shared operation", async () => {
+		const client = {
+			template: {
+				setAsDefault: async () => ({
+					data: [],
+				}),
+			},
+		} as unknown as ListmonkClient;
+
+		const result = await handleTemplatesTools(
+			request("listmonk_set_default_template", { id: "12" }),
+			client,
+		);
+
+		expect(result.isError).toBeFalsy();
+		expect(result.structuredContent).toEqual({ id: 12, set_default: true });
+		expect(result.content[0]?.text).toBe("Default template set successfully");
 	});
 });

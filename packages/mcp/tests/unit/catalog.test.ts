@@ -166,7 +166,7 @@ describe("operation catalog MCP adapter", () => {
 				idempotentHint: true,
 			},
 		});
-		expect(mcpOperationCatalog.entries).toHaveLength(39);
+		expect(mcpOperationCatalog.entries).toHaveLength(40);
 		expect(listMcpOperationCatalogSummaries("ops")).toHaveLength(9);
 
 		const result = await handleOperationCatalogTools(request({ family: "lists" }), {} as never);
