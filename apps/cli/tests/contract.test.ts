@@ -55,6 +55,7 @@ describe("CLI contract", () => {
 			"examples",
 			"campaigns",
 			"lists",
+			"media",
 			"subscribers",
 			"templates",
 			"tx",
@@ -113,6 +114,19 @@ describe("CLI contract", () => {
 		}
 		expect(create.output).toContain("--name");
 		expect(update.output).toContain("--id");
+		expect(remove.output).toContain("--id");
+	});
+
+	test("exposes shared media commands", () => {
+		const group = runCli(["media", "--help"]);
+		const get = runCli(["media", "get", "--help"]);
+		const remove = runCli(["media", "delete", "--help"]);
+
+		expect(group.exitCode).toBe(0);
+		for (const command of ["list", "get", "delete"]) {
+			expect(group.output).toContain(command);
+		}
+		expect(get.output).toContain("--id");
 		expect(remove.output).toContain("--id");
 	});
 

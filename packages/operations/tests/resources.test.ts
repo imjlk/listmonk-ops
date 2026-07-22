@@ -4,8 +4,13 @@ import {
 	campaignOperations,
 	createCampaignOperation,
 	getCampaignOperationByMcpName,
+	getMediaOperationByMcpName,
 	invokeGetCampaignsOperation,
+	invokeGetMediaFileOperation,
+	invokeGetMediaOperation,
 	invokeCampaignOperationByMcpName,
+	invokeDeleteMediaOperation,
+	invokeMediaOperationByMcpName,
 	invokeCreateSubscriberOperation,
 	invokeCreateTemplateOperation,
 	invokeGetTemplatesOperation,
@@ -14,6 +19,7 @@ import {
 	invokeUpdateSubscriberOperation,
 	invokeUpdateTemplateOperation,
 	subscriberOperations,
+	mediaOperations,
 	templateOperations,
 	OperationInputError,
 } from "../src";
@@ -21,6 +27,7 @@ import {
 type CampaignClient = Pick<ListmonkClient, "campaign">;
 type SubscriberClient = Pick<ListmonkClient, "subscriber">;
 type TemplateClient = Pick<ListmonkClient, "template">;
+type MediaClient = Pick<ListmonkClient, "media">;
 
 function campaignContext(
 	methods: Partial<CampaignClient["campaign"]>,
@@ -40,15 +47,23 @@ function templateContext(
 	return { client: { template: methods } as TemplateClient };
 }
 
+function mediaContext(methods: Partial<MediaClient["media"]>): {
+	client: MediaClient;
+} {
+	return { client: { media: methods } as MediaClient };
+}
+
 describe("shared CRUD resource operations", () => {
 	test("exposes object-root registries with safety metadata", () => {
 		expect(campaignOperations).toHaveLength(5);
 		expect(subscriberOperations).toHaveLength(5);
 		expect(templateOperations).toHaveLength(6);
+		expect(mediaOperations).toHaveLength(3);
 		for (const operation of [
 			...campaignOperations,
 			...subscriberOperations,
 			...templateOperations,
+			...mediaOperations,
 		]) {
 			expect(operation.inputJsonSchema.type).toBe("object");
 			expect(operation.outputJsonSchema.type).toBe("object");
@@ -56,19 +71,23 @@ describe("shared CRUD resource operations", () => {
 		expect(campaignOperations[0]?.safety.readOnlyHint).toBe(true);
 		expect(campaignOperations[2]?.safety.idempotentHint).toBe(false);
 		expect(campaignOperations[4]?.safety.destructiveHint).toBe(true);
-	expect(
-		templateOperations.find(
-			(operation) => operation.id === "templates.set-default",
-		)?.safety,
-	).toEqual({
-		readOnlyHint: false,
-		destructiveHint: false,
-		idempotentHint: true,
-		openWorldHint: true,
-	});
+		expect(
+			templateOperations.find(
+				(operation) => operation.id === "templates.set-default",
+			)?.safety,
+		).toEqual({
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
+		});
+		expect(mediaOperations[2]?.safety.destructiveHint).toBe(true);
 		expect(
 			getCampaignOperationByMcpName("listmonk_update_campaign"),
 		).toBe(campaignOperations[3]);
+		expect(getMediaOperationByMcpName("listmonk_delete_media")).toBe(
+			mediaOperations[2],
+		);
 	});
 
 	test("dispatches campaign list inputs through the named operation", async () => {
@@ -204,6 +223,58 @@ describe("shared CRUD resource operations", () => {
 		});
 	});
 
+	test("applies media pagination locally and invokes named media operations", async () => {
+		const list = mock(async () => ({
+			data: {
+				results: [
+					{ id: 1, filename: "first.png" },
+					{ id: 2, filename: "second.png" },
+					{ id: 3, filename: "third.png" },
+				],
+				total: 3,
+				per_page: 3,
+				page: 1,
+			},
+		}));
+
+		await expect(
+			invokeGetMediaOperation(
+				mediaContext({ list: list as MediaClient["media"]["list"] }),
+				{ page: "2", per_page: "1" },
+			),
+		).resolves.toEqual({
+			results: [{ id: 2, filename: "second.png" }],
+			total: 3,
+			per_page: 1,
+			page: 2,
+		});
+		expect(list).toHaveBeenCalledTimes(1);
+
+		const getById = mock(async () => ({
+			data: { id: 12, filename: "selected.png" },
+		}));
+		await expect(
+			invokeGetMediaFileOperation(
+				mediaContext({
+					getById: getById as MediaClient["media"]["getById"],
+				}),
+				{ id: "12" },
+			),
+		).resolves.toMatchObject({ id: 12, filename: "selected.png" });
+		expect(getById).toHaveBeenCalledWith({ path: { id: 12 } });
+
+		const deleteById = mock(async () => ({ data: true }));
+		await expect(
+			invokeDeleteMediaOperation(
+				mediaContext({
+					deleteById: deleteById as MediaClient["media"]["deleteById"],
+				}),
+				{ id: "12" },
+			),
+		).resolves.toEqual({ id: 12, deleted: true });
+		expect(deleteById).toHaveBeenCalledWith({ path: { id: 12 } });
+	});
+
 	test("rejects empty subscriber and campaign updates before API calls", async () => {
 		const campaignUpdate = mock(async () => ({ data: {} }));
 		await expect(
@@ -281,6 +352,9 @@ describe("shared CRUD resource operations", () => {
 	test("returns undefined for unknown resource operation names", async () => {
 		await expect(
 			invokeCampaignOperationByMcpName(campaignContext({}), "unknown", {}),
+		).resolves.toBeUndefined();
+		await expect(
+			invokeMediaOperationByMcpName(mediaContext({}), "unknown", {}),
 		).resolves.toBeUndefined();
 	});
 });

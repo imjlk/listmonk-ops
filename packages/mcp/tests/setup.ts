@@ -345,6 +345,26 @@ export async function cleanupTestData() {
 				}
 			}
 		}
+
+		// Clean up tagged media fixtures. The media endpoint does not expose
+		// pagination controls, so its normalized client result is already the
+		// complete local collection.
+		const media = await client.media.list();
+		if (hasResponseError(media)) {
+			throw new Error(formatError(media.error));
+		}
+		for (const mediaFile of media.data?.results ?? []) {
+			if (
+				isManagedTestName(mediaFile.filename) &&
+				typeof mediaFile.id === "number"
+			) {
+				try {
+					await client.media.deleteById({ path: { id: mediaFile.id } });
+				} catch {
+					// Ignore errors when cleaning up.
+				}
+			}
+		}
 	} catch {
 		console.warn("⚠️ Some cleanup operations failed, continuing...");
 	}

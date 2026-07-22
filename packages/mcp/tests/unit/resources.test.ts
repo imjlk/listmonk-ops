@@ -12,6 +12,7 @@ import {
 	handleTemplatesTools,
 	templatesTools,
 } from "../../src/handlers/templates.js";
+import { handleMediaTools, mediaTools } from "../../src/handlers/media.js";
 import type { CallToolRequest } from "../../src/types/mcp.js";
 
 function request(
@@ -24,7 +25,7 @@ function request(
 	};
 }
 
-describe("campaign, subscriber, and template operation adapters", () => {
+describe("campaign, subscriber, template, and media operation adapters", () => {
 	test("publishes shared CRUD metadata and the campaign update tool", () => {
 		expect(campaignsTools.map((tool) => tool.name)).toContain(
 			"listmonk_update_campaign",
@@ -43,11 +44,21 @@ describe("campaign, subscriber, and template operation adapters", () => {
 		expect(templatesTools.map((tool) => tool.name)).toContain(
 			"listmonk_update_template",
 		);
-	const setDefaultTemplateTool = templatesTools.find(
-		(tool) => tool.name === "listmonk_set_default_template",
-	);
-	expect(setDefaultTemplateTool?.annotations?.destructiveHint).toBe(false);
-	expect(setDefaultTemplateTool?.inputSchema.required).not.toContain("confirm");
+		const setDefaultTemplateTool = templatesTools.find(
+			(tool) => tool.name === "listmonk_set_default_template",
+		);
+		expect(setDefaultTemplateTool?.annotations?.destructiveHint).toBe(false);
+		expect(setDefaultTemplateTool?.inputSchema.required).not.toContain("confirm");
+		expect(mediaTools.map((tool) => tool.name)).toEqual([
+			"listmonk_get_media",
+			"listmonk_get_media_file",
+			"listmonk_delete_media",
+		]);
+		const deleteMediaTool = mediaTools.find(
+			(tool) => tool.name === "listmonk_delete_media",
+		);
+		expect(deleteMediaTool?.annotations?.destructiveHint).toBe(true);
+		expect(deleteMediaTool?.inputSchema.required).toContain("confirm");
 	});
 
 	test("routes campaign reads through the shared operation result adapter", async () => {
@@ -137,5 +148,39 @@ describe("campaign, subscriber, and template operation adapters", () => {
 		expect(result.isError).toBeFalsy();
 		expect(result.structuredContent).toEqual({ id: 12, set_default: true });
 		expect(result.content[0]?.text).toBe("Default template set successfully");
+	});
+
+	test("routes media reads through the shared operation result adapter", async () => {
+		const client = {
+			media: {
+				list: async () => ({
+					data: {
+						results: [
+							{ id: 7, filename: "newsletter.png" },
+							{ id: 8, filename: "archive.png" },
+						],
+						total: 2,
+						per_page: 2,
+						page: 1,
+					},
+				}),
+			},
+		} as unknown as ListmonkClient;
+
+		const result = await handleMediaTools(
+			request("listmonk_get_media", { page: "2", per_page: "1" }),
+			client,
+		);
+
+		expect(result.isError).toBeFalsy();
+		expect(result.structuredContent).toEqual({
+			results: [{ id: 8, filename: "archive.png" }],
+			total: 2,
+			per_page: 1,
+			page: 2,
+		});
+		expect(JSON.parse(result.content[0]?.text ?? "null")).toEqual(
+			result.structuredContent,
+		);
 	});
 });

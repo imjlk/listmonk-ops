@@ -17,7 +17,7 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 
 - `listmonk_list_operations` - Read-only catalog of typed contracts shared by
   the CLI and MCP server. Pass an optional exact `family` filter (`lists`,
-  `subscribers`, `campaigns`, `templates`, `transactional`, `ops`, or
+  `subscribers`, `campaigns`, `templates`, `media`, `transactional`, `ops`, or
   `abtest`) to discover operation schemas, safety hints, and execution policy.
 
 ### Execution Safety for Shared Operations
@@ -72,6 +72,13 @@ existing behavior until they are migrated.
 - `listmonk_test_campaign` - Send test campaign
 - `listmonk_get_campaign_running_stats` - Get live run metrics
 - `listmonk_get_campaign_analytics` - Get timeseries analytics
+
+### Media
+
+- `listmonk_get_media` - List uploaded media files
+- `listmonk_get_media_file` - Get an uploaded media file by ID
+- `listmonk_delete_media` - Delete an uploaded media file (requires
+  `confirm: true`)
 
 ### Transactional Email
 
@@ -347,6 +354,7 @@ The E2E tests cover:
 - **Campaigns**: Full campaign lifecycle including status updates
 - **Subscribers**: Subscriber management and validation
 - **Templates**: Template operations and default settings
+- **Media**: CLI/MCP read and confirmed-delete parity against Listmonk uploads
 - **Transactional Email**: Shared operation invocation and Mailpit delivery
 - **A/B Tests**: Create/list/get/analyze/launch/stop/delete lifecycle
 - **Ops Automation**: Preflight/guard/hygiene/drift/template-registry/digest workflows

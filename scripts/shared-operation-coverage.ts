@@ -6,6 +6,7 @@ import {
 	toolRegistrations,
 } from "../packages/mcp/src/handlers/index";
 import { listsTools } from "../packages/mcp/src/handlers/lists";
+import { mediaTools } from "../packages/mcp/src/handlers/media";
 import { opsTools } from "../packages/mcp/src/handlers/ops";
 import { subscribersTools } from "../packages/mcp/src/handlers/subscribers";
 import { templatesTools } from "../packages/mcp/src/handlers/templates";
@@ -14,6 +15,7 @@ import { withMcpOperationConfirmationInputSchema } from "../packages/mcp/src/ope
 import { opsOperations } from "../packages/automation/src/ops-operations";
 import { campaignOperations } from "../packages/operations/src/campaigns";
 import { listOperations } from "../packages/operations/src/lists";
+import { mediaOperations } from "../packages/operations/src/media";
 import { subscriberOperations } from "../packages/operations/src/subscribers";
 import { templateOperations } from "../packages/operations/src/templates";
 import { transactionalOperations } from "../packages/operations/src/transactional";
@@ -23,6 +25,7 @@ export type SharedOperation =
 	| (typeof abTestOperations)[number]
 	| (typeof campaignOperations)[number]
 	| (typeof listOperations)[number]
+	| (typeof mediaOperations)[number]
 	| (typeof opsOperations)[number]
 	| (typeof subscriberOperations)[number]
 	| (typeof templateOperations)[number]
@@ -164,6 +167,10 @@ export function assertTemplateOperationsPublished(): void {
 		templateOperations,
 		templatesTools,
 	);
+}
+
+export function assertMediaOperationsPublished(): void {
+	assertOperationFamilyPublished("media", mediaOperations, mediaTools);
 }
 
 export function assertTransactionalOperationsPublished(): void {

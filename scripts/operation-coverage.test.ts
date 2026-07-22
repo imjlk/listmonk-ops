@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { listOperations } from "../packages/operations/src/lists";
+import { mediaOperations } from "../packages/operations/src/media";
 import {
 	cliOperationCatalog,
 	listCliOperationCatalogSummaries,
@@ -13,11 +14,13 @@ import {
 	toolRegistrations,
 } from "../packages/mcp/src/handlers/index";
 import { listsTools } from "../packages/mcp/src/handlers/lists";
+import { mediaTools } from "../packages/mcp/src/handlers/media";
 import {
 	assertAbTestOperationsPublished,
 	assertCampaignOperationsPublished,
 	assertOperationFamilyPublished,
 	assertListOperationsPublished,
+	assertMediaOperationsPublished,
 	assertOpsOperationsPublished,
 	assertSubscriberOperationsPublished,
 	assertTemplateOperationsPublished,
@@ -62,8 +65,8 @@ const registeredServerTools = toolRegistrations.flatMap(
 
 describe("shared operation coverage", () => {
 	test("keeps CLI and MCP discovery catalogs in direct parity", () => {
-		expect(cliOperationCatalog.entries).toHaveLength(40);
-		expect(mcpOperationCatalog.entries).toHaveLength(40);
+		expect(cliOperationCatalog.entries).toHaveLength(43);
+		expect(mcpOperationCatalog.entries).toHaveLength(43);
 		expect(listCliOperationCatalogSummaries()).toEqual(
 			listMcpOperationCatalogSummaries(),
 		);
@@ -74,9 +77,27 @@ describe("shared operation coverage", () => {
 		assertCampaignOperationsPublished();
 		assertSubscriberOperationsPublished();
 		assertTemplateOperationsPublished();
+		assertMediaOperationsPublished();
 		assertTransactionalOperationsPublished();
 		assertOpsOperationsPublished();
 		assertAbTestOperationsPublished();
+	});
+
+	test("publishes media operations with matching shared metadata", () => {
+		const operation = mediaOperations[0];
+		if (!operation) {
+			throw new Error("expected a shared media operation");
+		}
+		const tool = mediaTools.find(
+			(candidate) => candidate.name === operation.mcp.name,
+		);
+		if (!tool) {
+			throw new Error("expected a matching media MCP tool");
+		}
+
+		expect(() =>
+			assertOperationFamilyPublished("media", [operation], [tool]),
+		).not.toThrow();
 	});
 
 	test("rejects a drifted global tool contract", () => {
