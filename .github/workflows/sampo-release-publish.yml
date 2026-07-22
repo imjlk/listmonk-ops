@@ -91,7 +91,6 @@ jobs:
           echo "pending=${pending}" >> "$GITHUB_OUTPUT"
 
       - name: Route Sampo publishes through npm OIDC
-        if: steps.changesets.outputs.pending == 'false'
         run: |
           set -euo pipefail
           real_bun="$(command -v bun)"
@@ -100,6 +99,21 @@ jobs:
           cat >"${wrapper_dir}/bun" <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
+
+          # Sampo asks Bun to refresh its lock with a path-valued
+          # --frozen-lockfile flag. Bun does not support that form, so let the
+          # release step run a normal install and record the released workspace
+          # versions before Bun packs npm artifacts.
+          if [[ "${1:-}" == "install" ]]; then
+            args=()
+            for arg in "$@"; do
+              if [[ "$arg" == --frozen-lockfile=* ]]; then
+                continue
+              fi
+              args+=("$arg")
+            done
+            exec "${REAL_BUN}" "${args[@]}"
+          fi
 
           if [[ "${1:-}" != "publish" ]]; then
             exec "${REAL_BUN}" "$@"
