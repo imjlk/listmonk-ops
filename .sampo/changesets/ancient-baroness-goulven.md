@@ -1,7 +1,7 @@
 ---
 npm/@listmonk-ops/cli: minor (Changed)
 npm/@listmonk-ops/mcp: minor (Changed)
-npm/@listmonk-ops/openapi: patch (Changed)
+npm/@listmonk-ops/openapi: minor (Changed)
 npm/@listmonk-ops/operations: minor (Changed)
 ---
 
