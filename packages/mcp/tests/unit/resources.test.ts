@@ -43,11 +43,11 @@ describe("campaign, subscriber, and template operation adapters", () => {
 		expect(templatesTools.map((tool) => tool.name)).toContain(
 			"listmonk_update_template",
 		);
-		expect(
-			templatesTools.find(
-				(tool) => tool.name === "listmonk_set_default_template",
-			)?.annotations?.destructiveHint,
-		).toBe(true);
+	const setDefaultTemplateTool = templatesTools.find(
+		(tool) => tool.name === "listmonk_set_default_template",
+	);
+	expect(setDefaultTemplateTool?.annotations?.destructiveHint).toBe(false);
+	expect(setDefaultTemplateTool?.inputSchema.required).not.toContain("confirm");
 	});
 
 	test("routes campaign reads through the shared operation result adapter", async () => {

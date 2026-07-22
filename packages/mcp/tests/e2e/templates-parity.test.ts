@@ -40,7 +40,6 @@ function runCliSetDefaultTemplate(templateId: number): CliResult {
 			"set-default",
 			"--id",
 			String(templateId),
-			"--confirm",
 		],
 		{
 			cwd: CLI_DIRECTORY,
@@ -117,14 +116,6 @@ describe("Template default CLI and MCP parity", () => {
 			"Failed to list templates before CLI/MCP parity selection",
 		);
 		const originalDefault = requireDefaultTemplate(templates.results);
-		const missingConfirmation = await client.callTool(
-			"listmonk_set_default_template",
-			{ id: originalDefault.id },
-		);
-		utils.assertError(
-			missingConfirmation,
-			"Operation templates.set-default requires explicit confirmation",
-		);
 		const createdResult = await client.callTool("listmonk_create_template", {
 			name: buildTestName("template-default-parity"),
 			type: "campaign",
@@ -144,7 +135,6 @@ describe("Template default CLI and MCP parity", () => {
 
 			const mcpResult = await client.callTool("listmonk_set_default_template", {
 				id: created.id,
-				confirm: true,
 			});
 			utils.assertSuccess(
 				mcpResult,
@@ -162,7 +152,7 @@ describe("Template default CLI and MCP parity", () => {
 		} finally {
 			const restoreResult = await client.callTool(
 				"listmonk_set_default_template",
-				{ id: originalDefault.id, confirm: true },
+				{ id: originalDefault.id },
 			);
 			utils.assertSuccess(
 				restoreResult,

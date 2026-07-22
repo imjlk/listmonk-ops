@@ -56,11 +56,16 @@ describe("shared CRUD resource operations", () => {
 		expect(campaignOperations[0]?.safety.readOnlyHint).toBe(true);
 		expect(campaignOperations[2]?.safety.idempotentHint).toBe(false);
 		expect(campaignOperations[4]?.safety.destructiveHint).toBe(true);
-		expect(
+	expect(
 		templateOperations.find(
 			(operation) => operation.id === "templates.set-default",
-		)?.safety.destructiveHint,
-	).toBe(true);
+		)?.safety,
+	).toEqual({
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	});
 		expect(
 			getCampaignOperationByMcpName("listmonk_update_campaign"),
 		).toBe(campaignOperations[3]);

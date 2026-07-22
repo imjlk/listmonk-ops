@@ -91,11 +91,6 @@ const setDefaultTemplateOutputSchema = z.object({
 	set_default: z.literal(true),
 });
 
-const setDefaultTemplateSafety = {
-	...updateResourceSafety,
-	destructiveHint: true,
-} as const;
-
 export type TemplateListPage = z.output<typeof templateListOutputSchema>;
 
 type TemplateCreateBody = NonNullable<
@@ -329,7 +324,7 @@ export const setDefaultTemplateOperation = defineOperation({
 	description: "Set a template as the Listmonk default",
 	inputSchema: templateIdInputSchema,
 	outputSchema: setDefaultTemplateOutputSchema,
-	safety: setDefaultTemplateSafety,
+	safety: updateResourceSafety,
 	mcp: {
 		name: "listmonk_set_default_template",
 		legacySuccessText: "Default template set successfully",
