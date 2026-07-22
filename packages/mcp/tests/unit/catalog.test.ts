@@ -33,6 +33,11 @@ type CatalogOperation = {
 	inputSchema: Record<string, unknown>;
 	outputSchema: Record<string, unknown>;
 	safety: Record<string, boolean>;
+	execution: {
+		confirmationRequired: boolean;
+		auditRequired: boolean;
+		dryRunSupported: boolean;
+	};
 };
 
 type CatalogOutput = {
@@ -125,6 +130,7 @@ function stableCatalogFields(output: CatalogOutput) {
 		inputSchema: operation.inputSchema,
 		outputSchema: operation.outputSchema,
 		safety: operation.safety,
+		execution: operation.execution,
 	}));
 }
 
@@ -135,7 +141,23 @@ describe("operation catalog MCP adapter", () => {
 			name: "listmonk_list_operations",
 			outputSchema: {
 				properties: {
-					operations: { type: "array", items: { type: "object" } },
+					operations: {
+						type: "array",
+						items: {
+							type: "object",
+							properties: {
+								execution: {
+									type: "object",
+									required: expect.arrayContaining([
+										"confirmationRequired",
+										"auditRequired",
+										"dryRunSupported",
+									]),
+								},
+							},
+							required: expect.arrayContaining(["execution"]),
+						},
+					},
 				},
 			},
 			annotations: {
@@ -154,6 +176,11 @@ describe("operation catalog MCP adapter", () => {
 				expect.objectContaining({
 					family: "lists",
 					mcpName: "listmonk_get_lists",
+					execution: {
+						confirmationRequired: false,
+						auditRequired: false,
+						dryRunSupported: false,
+					},
 				}),
 			]),
 		);

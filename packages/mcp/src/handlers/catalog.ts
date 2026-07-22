@@ -32,6 +32,19 @@ const operationSummarySchema = {
 				"openWorldHint",
 			],
 		},
+		execution: {
+			type: "object",
+			properties: {
+				confirmationRequired: { type: "boolean" },
+				auditRequired: { type: "boolean" },
+				dryRunSupported: { type: "boolean" },
+			},
+			required: [
+				"confirmationRequired",
+				"auditRequired",
+				"dryRunSupported",
+			],
+		},
 	},
 	required: [
 		"family",
@@ -43,6 +56,7 @@ const operationSummarySchema = {
 		"inputSchema",
 		"outputSchema",
 		"safety",
+		"execution",
 	],
 } as const;
 
