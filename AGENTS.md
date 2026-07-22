@@ -99,6 +99,7 @@ Useful local equivalents:
 bun run graph:dump
 bun run graph:view
 bun run graph:check
+bun run graph:coverage
 bun run graph:openapi
 bun run graph:openapi:dump
 bun run graph:openapi:view

@@ -949,14 +949,19 @@ export function assertArchitectureCallPaths(
 	}
 }
 
-if (import.meta.main) {
-	const graph = (await Bun.stdin.json()) as GraphDump;
-	assertArchitectureCallPaths(graph);
-	const edgeCount = architectureCallPaths.reduce(
+export function countArchitectureCallEdges(
+	contracts: readonly CallPathContract[] = architectureCallPaths,
+): number {
+	return contracts.reduce(
 		(total, contract) => total + Math.max(0, contract.path.length - 1),
 		0,
 	);
+}
+
+if (import.meta.main) {
+	const graph = (await Bun.stdin.json()) as GraphDump;
+	assertArchitectureCallPaths(graph);
 	console.log(
-		`Main graph preserves ${architectureCallPaths.length} architecture paths across ${edgeCount} direct call edges.`,
+		`Main graph preserves ${architectureCallPaths.length} architecture paths across ${countArchitectureCallEdges()} direct call edges.`,
 	);
 }

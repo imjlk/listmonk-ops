@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	assertArchitectureCallPaths,
+	countArchitectureCallEdges,
 	type CallPathContract,
 	type GraphDump,
 } from "./check-graph-architecture";
@@ -11,6 +12,10 @@ const contract: CallPathContract = {
 };
 
 describe("graph architecture contract", () => {
+	test("counts the direct call edges in a contract", () => {
+		expect(countArchitectureCallEdges([contract])).toBe(2);
+	});
+
 	test("accepts a complete direct call path", () => {
 		const graph: GraphDump = {
 			nodes: [{ id: "entry" }, { id: "operation" }, { id: "client" }],
