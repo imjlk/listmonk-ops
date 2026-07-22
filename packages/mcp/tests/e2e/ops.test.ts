@@ -18,11 +18,13 @@ describe("Ops MCP Tools", () => {
 		if (campaignId) {
 			await client.callTool("listmonk_delete_campaign", {
 				id: String(campaignId),
+				confirm: true,
 			});
 		}
 		if (templateId && templateId !== 3) {
 			await client.callTool("listmonk_delete_template", {
 				id: String(templateId),
+				confirm: true,
 			});
 		}
 		await rm(SEGMENT_STORE, { force: true });
@@ -68,6 +70,7 @@ describe("Ops MCP Tools", () => {
 			{
 				campaign_id: String(campaignId),
 				pause_on_breach: false,
+				confirm: true,
 			},
 		);
 		const guard = utils.assertSuccess<{
@@ -84,6 +87,7 @@ describe("Ops MCP Tools", () => {
 				dry_run: true,
 				inactivity_days: 30,
 				max_subscribers: 10,
+				confirm: true,
 			},
 		);
 		const hygiene = utils.assertSuccess<{ dryRun: boolean; mode: string }>(
@@ -132,6 +136,7 @@ describe("Ops MCP Tools", () => {
 				{
 					template_id: String(templateId),
 					version_id: latestVersion.versionId,
+					confirm: true,
 				},
 			);
 			const promoted = utils.assertSuccess<{ templateId: number }>(
@@ -160,7 +165,7 @@ describe("Ops MCP Tools", () => {
 			},
 			{
 				tool: "listmonk_ops_deliverability_guard",
-				args: {},
+				args: { confirm: true },
 				expectedError: "Missing required parameter: campaign_id",
 			},
 			{
@@ -170,7 +175,7 @@ describe("Ops MCP Tools", () => {
 			},
 			{
 				tool: "listmonk_ops_template_registry_promote",
-				args: { template_id: "1" },
+				args: { template_id: "1", confirm: true },
 				expectedError: "Missing required parameter: version_id",
 			},
 		];

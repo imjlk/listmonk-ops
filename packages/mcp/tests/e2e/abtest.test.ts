@@ -15,6 +15,7 @@ describe("A/B Test MCP Tools", () => {
 		if (createdTestId) {
 			await client.callTool("listmonk_abtest_delete", {
 				test_id: createdTestId,
+				confirm: true,
 			});
 		}
 		await rm(ABTEST_STORE_PATH, { force: true });
@@ -46,6 +47,7 @@ describe("A/B Test MCP Tools", () => {
 			],
 			testing_mode: "holdout",
 			test_group_percentage: 10,
+			confirm: true,
 		});
 
 		const created = utils.assertSuccess<{ id: string; status: string }>(
@@ -101,6 +103,7 @@ describe("A/B Test MCP Tools", () => {
 
 		const launchResult = await client.callTool("listmonk_abtest_launch", {
 			test_id: created.id,
+			confirm: true,
 		});
 		const launched = utils.assertSuccess<{ status: string }>(
 			launchResult,
@@ -110,6 +113,7 @@ describe("A/B Test MCP Tools", () => {
 
 		const stopResult = await client.callTool("listmonk_abtest_stop", {
 			test_id: created.id,
+			confirm: true,
 		});
 		const stopped = utils.assertSuccess<{ status: string }>(
 			stopResult,
@@ -119,6 +123,7 @@ describe("A/B Test MCP Tools", () => {
 
 		const deleteResult = await client.callTool("listmonk_abtest_delete", {
 			test_id: created.id,
+			confirm: true,
 		});
 		const deleted = utils.assertSuccess<{ deleted: boolean }>(
 			deleteResult,
@@ -137,12 +142,12 @@ describe("A/B Test MCP Tools", () => {
 			},
 			{
 				tool: "listmonk_abtest_create",
-				args: {},
+				args: { confirm: true },
 				expectedError: "Missing required parameter: name",
 			},
 			{
 				tool: "listmonk_abtest_launch",
-				args: {},
+				args: { confirm: true },
 				expectedError: "Missing required parameter: test_id",
 			},
 			{

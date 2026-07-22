@@ -33,6 +33,7 @@
 	"dependencies": {
 		"@listmonk-ops/abtest": "workspace:^",
 		"@listmonk-ops/automation": "workspace:^",
+		"@listmonk-ops/common": "workspace:^",
 		"@listmonk-ops/openapi": "^0.2.0",
 		"@listmonk-ops/operations": "workspace:^",
 		"@modelcontextprotocol/sdk": "1.27.1",

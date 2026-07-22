@@ -70,6 +70,7 @@ describe("Lists MCP Tools", () => {
 			name: updatedName,
 			description: "Updated description",
 			type: "public",
+			confirm: true,
 		});
 
 		utils.assertSuccess(result, "Failed to update list");
@@ -96,6 +97,7 @@ describe("Lists MCP Tools", () => {
 		// Delete it
 		const result = await client.callTool("listmonk_delete_list", {
 			id: testListId.toString(),
+			confirm: true,
 		});
 
 		utils.assertSuccess(result, "Failed to delete list");
@@ -106,6 +108,31 @@ describe("Lists MCP Tools", () => {
 			id: testListId,
 			deleted: true,
 		});
+	});
+
+	test("should reject unsupported dry-run input before deleting a list", async () => {
+		const createdList = await utils.createTestList();
+		const listId = (createdList as { id: number }).id;
+
+		try {
+			const result = await client.callTool("listmonk_delete_list", {
+				id: listId.toString(),
+				confirm: true,
+				dry_run: "true",
+			});
+
+			utils.assertError(result, "Operation lists.delete does not support dry_run");
+
+			const getResult = await client.callTool("listmonk_get_list", {
+				id: listId.toString(),
+			});
+			expect(utils.assertSuccess<{ id: number }>(getResult).id).toBe(listId);
+		} finally {
+			await client.callTool("listmonk_delete_list", {
+				id: listId.toString(),
+				confirm: true,
+			});
+		}
 	});
 
 	test("should handle validation errors", async () => {

@@ -42,11 +42,19 @@ describe("list operation MCP adapter", () => {
 		expect(deleteTool?.inputSchema.properties?.id).toMatchObject({
 			anyOf: [{ type: "integer" }, { type: "string" }],
 		});
+		expect(deleteTool?.inputSchema.properties?.confirm).toMatchObject({
+			type: "boolean",
+			const: true,
+		});
+		expect(deleteTool?.inputSchema.required).toEqual(
+			expect.arrayContaining(["id", "confirm"]),
+		);
 
 		const createTool = listsTools.find(
 			(tool) => tool.name === "listmonk_create_list",
 		);
 		expect(createTool?.inputSchema.required).toEqual(["name"]);
+		expect(createTool?.inputSchema.properties?.confirm).toBeUndefined();
 	});
 
 	test("returns validated structured output with compatible text content", async () => {

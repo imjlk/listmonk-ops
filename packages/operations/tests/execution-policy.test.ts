@@ -5,6 +5,7 @@ import {
 	defineOperation,
 	deleteListOperation,
 	getListOperation,
+	getOperationEffectiveDryRun,
 	getOperationExecutionPolicy,
 	OperationConfirmationRequiredError,
 } from "../src";
@@ -57,5 +58,15 @@ describe("operation execution policy", () => {
 		expect(() =>
 			assertOperationConfirmation(getListOperation, false),
 		).not.toThrow();
+	});
+
+	test("resolves dry-run values after input defaults", () => {
+		expect(getOperationEffectiveDryRun(dryRunOperation, {})).toBe(true);
+		expect(
+			getOperationEffectiveDryRun(dryRunOperation, { dry_run: false }),
+		).toBe(false);
+		expect(
+			getOperationEffectiveDryRun(dryRunOperation, { dry_run: "invalid" }),
+		).toBeUndefined();
 	});
 });

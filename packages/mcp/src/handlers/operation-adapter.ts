@@ -3,6 +3,7 @@ import type {
 	OperationMcpMetadata,
 	OperationSafety,
 } from "@listmonk-ops/operations";
+import { withMcpOperationConfirmationInputSchema } from "../operation-execution.js";
 import type { CallToolResult, MCPTool } from "../types/mcp.js";
 
 export type McpOperationMetadata = {
@@ -19,7 +20,10 @@ export function toMcpTool(operation: McpOperationMetadata): MCPTool {
 		name: operation.mcp.name,
 		title: operation.title,
 		description: operation.description,
-		inputSchema: operation.inputJsonSchema,
+		inputSchema: withMcpOperationConfirmationInputSchema(
+			operation.inputJsonSchema,
+			operation.safety,
+		),
 		outputSchema: operation.outputJsonSchema,
 		annotations: {
 			title: operation.title,

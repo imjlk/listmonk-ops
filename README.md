@@ -83,6 +83,8 @@ export LISTMONK_OPS_ABTEST_SILENT="1"
 export LISTMONK_OPS_ABTEST_STORE="$HOME/.listmonk-ops/abtests.json"
 export LISTMONK_OPS_SEGMENT_STORE="$HOME/.listmonk-ops/ops/segment-drift.json"
 export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry.json"
+# Optional: override the metadata-only MCP operation audit store
+export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 ```
 
 You can create/manage tokens in the Listmonk admin UI.
@@ -91,6 +93,10 @@ The A/B test, segment drift, and template registry stores use versioned JSON,
 atomic replacement, and cross-process write locks so CLI and MCP processes can
 share the same local state without losing concurrent updates. Invalid or newer
 schemas are rejected instead of being overwritten.
+
+Shared MCP operation audit events use the same atomic persistence mechanism.
+They retain execution metadata only, never request inputs, outputs,
+credentials, or remote error text.
 
 ## Workspace Commands
 
@@ -308,7 +314,8 @@ legacy success text for destructive mutations.
 
 Use the credential-free catalog command to see the typed operations available
 through both surfaces, including each operation's MCP name, input/output
-schema, and safety hints:
+schema, safety hints, and execution policy (`confirmationRequired`,
+`auditRequired`, and `dryRunSupported`):
 
 ```bash
 listmonk-cli operations
@@ -318,6 +325,15 @@ listmonk-cli operations --family campaigns
 MCP clients can call the read-only `listmonk_list_operations` tool with the
 same optional `family` filter. The catalog intentionally covers shared typed
 operations only; legacy transport-specific tools remain available separately.
+
+For a destructive shared MCP operation, include the MCP-only
+`"confirm": true` input. The adapter removes that control before invoking the
+typed domain operation. A `dry_run: true` request is accepted only when the
+cataloged operation explicitly supports a real dry run; unsupported dry-run
+requests are rejected instead of being simulated. Mutating shared MCP
+operations append `started`, `blocked`, `succeeded`, or `failed` metadata-only
+events to `$HOME/.listmonk-ops/operation-audit.json` by default. The staged
+migration deliberately leaves legacy transport-specific MCP tools unchanged.
 
 ## Transactional Email
 

@@ -187,6 +187,7 @@ describe("Campaigns MCP Tools", () => {
 		// Delete it
 		const result = await client.callTool("listmonk_delete_campaign", {
 			id: testCampaignId.toString(),
+			confirm: true,
 		});
 
 		utils.assertSuccess(result, "Failed to delete campaign");

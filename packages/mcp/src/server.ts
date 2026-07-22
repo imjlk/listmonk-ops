@@ -1,5 +1,12 @@
+import {
+	createOperationAuditExecutionId,
+	recordOperationAudit,
+	type OperationAuditEvent,
+	type OperationAuditStoreOptions,
+} from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { createListmonkClient } from "@listmonk-ops/openapi";
+import { assertOperationConfirmation } from "@listmonk-ops/operations";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -30,7 +37,12 @@ import type {
 	ListToolsResult,
 	MCPTool,
 } from "./types/mcp.js";
-import { createErrorResult } from "./utils/response.js";
+import {
+	assertMcpOperationDryRun,
+	getMcpOperationExecution,
+	type McpOperationExecution,
+} from "./operation-execution.js";
+import { createErrorResult, toErrorMessage } from "./utils/response.js";
 import { createMCPProtocolServer, MCP_SERVER_INFO } from "./protocol.js";
 
 export class ListmonkMCPServer {
@@ -38,16 +50,23 @@ export class ListmonkMCPServer {
 	private tools: Map<string, MCPTool>;
 	private client: ListmonkClient;
 	private baseUrl: string;
+	private auditStoreOptions: OperationAuditStoreOptions;
 
 	constructor(config: {
 		baseUrl: string;
 		username: string;
 		password: string;
 		apiToken?: string;
+		auditStorePath?: string;
+		auditStoreLimit?: number;
 	}) {
 		this.app = new Hono();
 		this.tools = new Map();
 		this.baseUrl = config.baseUrl;
+		this.auditStoreOptions = {
+			path: config.auditStorePath,
+			limit: config.auditStoreLimit,
+		};
 
 		// Create ListmonkClient instance
 		const credential = config.apiToken || config.password;
@@ -147,6 +166,49 @@ export class ListmonkMCPServer {
 		};
 	}
 
+	private async recordMcpOperationAudit(
+		execution: McpOperationExecution,
+		executionId: string,
+		event: OperationAuditEvent,
+	): Promise<void> {
+		await recordOperationAudit(
+			{
+				executionId,
+				surface: "mcp",
+				operationId: execution.operation.id,
+				event,
+				confirmationRequired: execution.policy.confirmationRequired,
+				confirmed: execution.confirmed,
+				dryRun: execution.dryRun,
+			},
+			this.auditStoreOptions,
+		);
+	}
+
+	private async completeMcpOperationExecution(
+		execution: McpOperationExecution | undefined,
+		executionId: string | undefined,
+		result: CallToolResult,
+	): Promise<CallToolResult> {
+		if (!execution || !executionId) {
+			return result;
+		}
+
+		const event: OperationAuditEvent = result.isError ? "failed" : "succeeded";
+		try {
+			await this.recordMcpOperationAudit(execution, executionId, event);
+		} catch (error) {
+			// The durable started event already prevents a remote mutation from
+			// becoming untraceable. Never replace a remote result with an audit
+			// write failure, which could cause an unsafe retry.
+			console.error(
+				`Unable to record MCP operation audit ${event} for ${execution.operation.id}: ${toErrorMessage(error)}`,
+			);
+		}
+
+		return result;
+	}
+
 	async callTool(request: CallToolRequest): Promise<CallToolResult> {
 		const { name } = request.params;
 
@@ -154,56 +216,88 @@ export class ListmonkMCPServer {
 			return createErrorResult(`Unknown tool: ${name}`);
 		}
 
+		const execution = getMcpOperationExecution(request);
+		let executionId: string | undefined;
+		if (execution?.policy.auditRequired) {
+			executionId = createOperationAuditExecutionId();
+			try {
+				await this.recordMcpOperationAudit(execution, executionId, "started");
+			} catch (error) {
+				return createErrorResult(
+					`Unable to start audit for operation ${execution.operation.id}: ${toErrorMessage(error)}`,
+				);
+			}
+		}
+
+		if (execution) {
+			try {
+				assertMcpOperationDryRun(execution);
+				assertOperationConfirmation(execution.operation, execution.confirmed);
+			} catch (error) {
+				if (executionId) {
+					try {
+						await this.recordMcpOperationAudit(
+							execution,
+							executionId,
+							"blocked",
+						);
+					} catch (auditError) {
+						return createErrorResult(
+							`${toErrorMessage(error)}; unable to record blocked audit event: ${toErrorMessage(auditError)}`,
+						);
+					}
+				}
+				return createErrorResult(toErrorMessage(error));
+			}
+		}
+
+		const operationRequest = execution?.request ?? request;
+
 		try {
 			// Route to appropriate handler based on tool name prefix
+			let result: CallToolResult;
 			if (isListsToolName(name)) {
-				return await handleListsTools(request, this.client);
+				result = await handleListsTools(operationRequest, this.client);
+			} else if (toolNameSets.subscribers.has(name)) {
+				result = await handleSubscribersTools(operationRequest, this.client);
+			} else if (toolNameSets.campaigns.has(name)) {
+				result = await handleCampaignsTools(operationRequest, this.client);
+			} else if (toolNameSets.templates.has(name)) {
+				result = await handleTemplatesTools(operationRequest, this.client);
+			} else if (toolNameSets.catalog.has(name)) {
+				result = await handleOperationCatalogTools(
+					operationRequest,
+					this.client,
+				);
+			} else if (toolNameSets.media.has(name)) {
+				result = await handleMediaTools(operationRequest, this.client);
+			} else if (toolNameSets.bounces.has(name)) {
+				result = await handleBouncesTools(operationRequest, this.client);
+			} else if (toolNameSets.settings.has(name)) {
+				result = await handleSettingsTools(operationRequest, this.client);
+			} else if (isTransactionalToolName(name)) {
+				result = await handleTransactionalTools(operationRequest, this.client);
+			} else if (toolNameSets.ops.has(name)) {
+				result = await handleOpsTools(operationRequest, this.client);
+			} else if (toolNameSets.abtest.has(name)) {
+				result = await handleAbTestTools(operationRequest, this.client);
+			} else {
+				result = createErrorResult(`No handler found for tool: ${name}`);
 			}
 
-			if (toolNameSets.subscribers.has(name)) {
-				return await handleSubscribersTools(request, this.client);
-			}
-
-			if (toolNameSets.campaigns.has(name)) {
-				return await handleCampaignsTools(request, this.client);
-			}
-
-			if (toolNameSets.templates.has(name)) {
-				return await handleTemplatesTools(request, this.client);
-			}
-
-			if (toolNameSets.catalog.has(name)) {
-				return await handleOperationCatalogTools(request, this.client);
-			}
-
-			if (toolNameSets.media.has(name)) {
-				return await handleMediaTools(request, this.client);
-			}
-
-			if (toolNameSets.bounces.has(name)) {
-				return await handleBouncesTools(request, this.client);
-			}
-
-			if (toolNameSets.settings.has(name)) {
-				return await handleSettingsTools(request, this.client);
-			}
-
-			if (isTransactionalToolName(name)) {
-				return await handleTransactionalTools(request, this.client);
-			}
-
-			if (toolNameSets.ops.has(name)) {
-				return await handleOpsTools(request, this.client);
-			}
-
-			if (toolNameSets.abtest.has(name)) {
-				return await handleAbTestTools(request, this.client);
-			}
-
-			return createErrorResult(`No handler found for tool: ${name}`);
+			return await this.completeMcpOperationExecution(
+				execution,
+				executionId,
+				result,
+			);
 		} catch (error) {
-			return createErrorResult(
-				`Error calling tool ${name}: ${error instanceof Error ? error.message : String(error)}`,
+			const result = createErrorResult(
+				`Error calling tool ${name}: ${toErrorMessage(error)}`,
+			);
+			return await this.completeMcpOperationExecution(
+				execution,
+				executionId,
+				result,
 			);
 		}
 	}
@@ -248,11 +342,15 @@ export function createListmonkMCPServer(config: {
 	username?: string;
 	password?: string;
 	apiToken?: string;
+	auditStorePath?: string;
+	auditStoreLimit?: number;
 }) {
 	return new ListmonkMCPServer({
 		baseUrl: config.baseUrl,
 		username: config.username || "admin",
 		password: config.password || "adminpass",
 		apiToken: config.apiToken,
+		auditStorePath: config.auditStorePath,
+		auditStoreLimit: config.auditStoreLimit,
 	});
 }

@@ -1,4 +1,5 @@
 import type { ObjectJsonSchema, OperationSafety } from "./operation";
+import type { z } from "zod";
 
 /**
  * The minimum metadata needed to derive execution requirements without
@@ -8,6 +9,10 @@ export type OperationExecutionPolicySource = Readonly<{
 	id: string;
 	safety: OperationSafety;
 	inputJsonSchema: ObjectJsonSchema;
+}>;
+
+export type OperationExecutionInputSource = Readonly<{
+	inputSchema: z.ZodType;
 }>;
 
 /**
@@ -43,6 +48,10 @@ function supportsDryRunInput(inputJsonSchema: ObjectJsonSchema): boolean {
 	return isBooleanSchema(inputJsonSchema.properties?.dry_run);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
  * Destructive operations require an explicit transport confirmation. Every
  * write is auditable, while dry-run support is opt-in through a real boolean
@@ -56,6 +65,24 @@ export function getOperationExecutionPolicy(
 		auditRequired: !operation.safety.readOnlyHint,
 		dryRunSupported: supportsDryRunInput(operation.inputJsonSchema),
 	};
+}
+
+/**
+ * Resolves the effective dry-run value after the operation's input schema has
+ * applied preprocessing and defaults. Invalid input intentionally returns
+ * undefined so the named operation invoker remains the validation authority.
+ */
+export function getOperationEffectiveDryRun(
+	operation: OperationExecutionInputSource,
+	input: unknown,
+): boolean | undefined {
+	const parsedInput = operation.inputSchema.safeParse(input ?? {});
+	if (!parsedInput.success || !isRecord(parsedInput.data)) {
+		return undefined;
+	}
+
+	const dryRun = parsedInput.data.dry_run;
+	return typeof dryRun === "boolean" ? dryRun : undefined;
 }
 
 export function assertOperationConfirmation(
