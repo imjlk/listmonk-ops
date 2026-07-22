@@ -316,7 +316,7 @@ listmonk-cli operations --family campaigns
 ```
 
 MCP 클라이언트에서는 같은 선택적 `family` 필터와 함께 read-only
-`listmonk_list_operations` 도구를 호출하면 됩니다. 이 catalog는 공용 타입드
+`listmonk_list_operations` 도구를 호출하면 됩니다. 이 카탈로그는 공용 타입드
 Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제공됩니다.
 
 ## 트랜잭셔널 이메일

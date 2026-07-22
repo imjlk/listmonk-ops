@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
 	handleOperationCatalogTools,
 	operationCatalogTools,
@@ -7,7 +11,33 @@ import {
 	mcpOperationCatalog,
 	listMcpOperationCatalogSummaries,
 } from "../../src/operation-catalog.js";
+import { connectMCPTransport } from "../../src/protocol.js";
+import { createListmonkMCPServer } from "../../src/server.js";
 import type { CallToolRequest } from "../../src/types/mcp.js";
+
+const MCP_PACKAGE_DIRECTORY = resolve(
+	dirname(fileURLToPath(import.meta.url)),
+	"../..",
+);
+const PROJECT_ROOT = resolve(MCP_PACKAGE_DIRECTORY, "../..");
+const CLI_DIRECTORY = resolve(PROJECT_ROOT, "apps/cli");
+const CLI_ENTRY = resolve(CLI_DIRECTORY, "src/index.ts");
+
+type CatalogOperation = {
+	family: string;
+	familyTitle: string;
+	id: string;
+	mcpName: string;
+	title: string;
+	description: string;
+	inputSchema: { type: string };
+	outputSchema: { type: string };
+	safety: Record<string, boolean>;
+};
+
+type CatalogOutput = {
+	operations: CatalogOperation[];
+};
 
 function request(
 	arguments_: Record<string, unknown> = {},
@@ -16,6 +46,86 @@ function request(
 		method: "tools/call",
 		params: { name: "listmonk_list_operations", arguments: arguments_ },
 	};
+}
+
+function parseCatalogOutput(output: string): CatalogOutput {
+	const jsonStart = output.indexOf("{");
+	if (jsonStart < 0) {
+		throw new Error(`Catalog command did not return JSON: ${output}`);
+	}
+	return JSON.parse(output.slice(jsonStart)) as CatalogOutput;
+}
+
+function runCliOperationCatalog(family: string): CatalogOutput {
+	const result = Bun.spawnSync(
+		["bun", CLI_ENTRY, "operations", "--family", family],
+		{
+			cwd: CLI_DIRECTORY,
+			env: {
+				...process.env,
+				BUN_FORCE_COLOR: "0",
+				LISTMONK_API_TOKEN: "",
+			},
+			stdout: "pipe",
+			stderr: "pipe",
+		},
+	);
+	const output = `${result.stdout.toString()}${result.stderr.toString()}`.trim();
+	if (result.exitCode !== 0) {
+		throw new Error(`Catalog CLI failed: ${output}`);
+	}
+	return parseCatalogOutput(output);
+}
+
+async function callMcpOperationCatalog(family: string): Promise<CatalogOutput> {
+	const provider = createListmonkMCPServer({
+		baseUrl: "http://127.0.0.1:9000/api",
+		username: "api-admin",
+		apiToken: "dummy-token",
+	});
+	const [clientTransport, serverTransport] =
+		InMemoryTransport.createLinkedPair();
+	const protocolServer = await connectMCPTransport(provider, serverTransport);
+	const client = new Client({
+		name: "listmonk-ops-catalog-parity-test",
+		version: "1.0.0",
+	});
+
+	try {
+		await client.connect(clientTransport);
+		const result = await client.callTool({
+			name: "listmonk_list_operations",
+			arguments: { family },
+		});
+		if (result.isError) {
+			throw new Error(`Catalog MCP call failed: ${result.content[0]?.text}`);
+		}
+		const structuredContent = result.structuredContent as CatalogOutput | undefined;
+		if (!structuredContent) {
+			throw new Error("Catalog MCP call did not return structured content");
+		}
+		expect(parseCatalogOutput(result.content[0]?.text ?? "")).toEqual(
+			structuredContent,
+		);
+		return structuredContent;
+	} finally {
+		await client.close();
+		await protocolServer.close();
+	}
+}
+
+function stableCatalogFields(output: CatalogOutput) {
+	return output.operations.map((operation) => ({
+		family: operation.family,
+		familyTitle: operation.familyTitle,
+		id: operation.id,
+		mcpName: operation.mcpName,
+		title: operation.title,
+		description: operation.description,
+		inputSchemaType: operation.inputSchema.type,
+		outputSchemaType: operation.outputSchema.type,
+		safety: operation.safety,
+	}));
 }
 
 describe("operation catalog MCP adapter", () => {
@@ -69,5 +179,17 @@ describe("operation catalog MCP adapter", () => {
 		);
 		expect(unknown.isError).toBe(true);
 		expect(unknown.content[0]?.text).toContain("Unknown tool");
+	});
+
+	test("keeps catalog output in parity at CLI and MCP boundaries", async () => {
+		// Catalog discovery is pure metadata and intentionally does not contact
+		// Listmonk. Compose/Mailpit parity is reserved for side-effecting flows.
+		const cliOutput = runCliOperationCatalog("campaigns");
+		const mcpOutput = await callMcpOperationCatalog("campaigns");
+
+		expect(cliOutput.operations).toHaveLength(5);
+		expect(stableCatalogFields(cliOutput)).toEqual(
+			stableCatalogFields(mcpOutput),
+		);
 	});
 });

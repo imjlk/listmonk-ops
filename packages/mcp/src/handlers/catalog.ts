@@ -58,6 +58,7 @@ export const operationCatalogTools: readonly MCPTool[] = [
 				family: {
 					type: "string",
 					minLength: 1,
+					pattern: "\\S",
 					description:
 						"Optional exact family: lists, subscribers, campaigns, templates, transactional, ops, or abtest",
 				},
