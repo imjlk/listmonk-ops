@@ -18,7 +18,8 @@ const HEADER_NAME = "X-Listmonk-Ops-Test";
 
 type CliResult = {
 	exitCode: number;
-	output: string;
+	stdout: string;
+	stderr: string;
 };
 
 type TransactionalCliInput = {
@@ -69,18 +70,31 @@ function runCliTransactionalSend(input: TransactionalCliInput): CliResult {
 
 	return {
 		exitCode: result.exitCode,
-		output: `${result.stdout.toString()}${result.stderr.toString()}`.trim(),
+		stdout: result.stdout.toString().trim(),
+		stderr: result.stderr.toString().trim(),
 	};
 }
 
 function parseCliSentOutput(result: CliResult): { sent: true } {
-	expect(result.exitCode).toBe(0);
-	const lastLine = result.output
+	const diagnosticOutput = [result.stdout, result.stderr]
+		.filter(Boolean)
+		.join("\n");
+	if (result.exitCode !== 0) {
+		throw new Error(
+			`CLI transactional send failed with exit ${result.exitCode}: ${diagnosticOutput}`,
+		);
+	}
+
+	const lastLine = result.stdout
 		.split(/\r?\n/)
 		.map((line) => line.trim())
 		.filter(Boolean)
 		.at(-1);
-	expect(lastLine).toBe("true");
+	if (lastLine !== "true") {
+		throw new Error(
+			`CLI transactional send did not return true: ${diagnosticOutput}`,
+		);
+	}
 	return { sent: true };
 }
 
@@ -94,6 +108,16 @@ describe("Transactional CLI and MCP parity", () => {
 				password: "legacy-password",
 			}),
 		).toBe("legacy-password");
+	});
+
+	test("parses successful CLI output without treating stderr as a result", () => {
+		expect(
+			parseCliSentOutput({
+				exitCode: 0,
+				stdout: "Transactional message sent\ntrue",
+				stderr: "runtime warning",
+			}),
+		).toEqual({ sent: true });
 	});
 
 	test("sends equivalent contracts through the local Mailpit stack", async () => {
