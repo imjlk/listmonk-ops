@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, setDefaultTimeout } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createListmonkClient } from "@listmonk-ops/openapi";
@@ -12,6 +14,14 @@ const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
 const CLEANUP_PAGE_SIZE = 200;
 const LOCAL_TOKEN_PATH =
 	process.env.LISTMONK_TEST_TOKEN_FILE || "/tmp/listmonk-ops-api-token";
+export const MCP_TEST_AUDIT_STORE_PATH = resolve(
+	tmpdir(),
+	`listmonk-ops-mcp-audit-${process.pid}.json`,
+);
+
+// E2E must not append local test activity to an operator's configured audit
+// file, even when their shell loads LISTMONK_OPS_AUDIT_STORE.
+process.env.LISTMONK_OPS_AUDIT_STORE = MCP_TEST_AUDIT_STORE_PATH;
 
 export const TEST_RESOURCE_PREFIX = "lmops-e2e";
 
@@ -356,4 +366,8 @@ beforeAll(async () => {
 afterAll(async () => {
 	console.log("🧹 Cleaning up after E2E tests...");
 	await cleanupTestData();
+	await Promise.all([
+		rm(MCP_TEST_AUDIT_STORE_PATH, { force: true }),
+		rm(`${MCP_TEST_AUDIT_STORE_PATH}.lock`, { force: true }),
+	]);
 });

@@ -83,6 +83,8 @@ export LISTMONK_OPS_ABTEST_SILENT="1"
 export LISTMONK_OPS_ABTEST_STORE="$HOME/.listmonk-ops/abtests.json"
 export LISTMONK_OPS_SEGMENT_STORE="$HOME/.listmonk-ops/ops/segment-drift.json"
 export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry.json"
+# 선택: 메타데이터 전용 MCP Operation 감사 저장소 경로 재정의
+export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 ```
 
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
@@ -91,6 +93,9 @@ A/B 테스트, segment drift, template registry 저장소는 버전이 지정된
 atomic 교체, 프로세스 간 쓰기 잠금을 사용합니다. 따라서 CLI와 MCP 프로세스가
 같은 로컬 상태를 공유해도 동시 업데이트를 잃지 않으며, 잘못되었거나 더 최신인
 스키마는 덮어쓰지 않고 거부합니다.
+
+공용 MCP Operation 감사 이벤트도 같은 atomic 저장 방식을 사용합니다. 요청 입력,
+출력, 자격 증명, 원격 오류 텍스트는 저장하지 않고 실행 메타데이터만 보관합니다.
 
 ## 워크스페이스 명령어
 
@@ -308,7 +313,8 @@ listmonk-cli templates delete --id 3
 
 인증 없이 사용하는 catalog 명령으로 CLI와 MCP가 함께 제공하는 타입드
 Operation을 확인할 수 있습니다. 각 항목에는 MCP 이름, input/output schema,
-그리고 safety hint가 포함됩니다.
+safety hint와 실행 정책(`confirmationRequired`, `auditRequired`,
+`dryRunSupported`)이 포함됩니다.
 
 ```bash
 listmonk-cli operations
@@ -318,6 +324,15 @@ listmonk-cli operations --family campaigns
 MCP 클라이언트에서는 같은 선택적 `family` 필터와 함께 read-only
 `listmonk_list_operations` 도구를 호출하면 됩니다. 이 카탈로그는 공용 타입드
 Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제공됩니다.
+
+destructive 공용 MCP Operation에는 MCP 전용 입력인 `"confirm": true`를
+반드시 포함해야 합니다. 어댑터는 타입드 도메인 Operation을 호출하기 전에 이
+제어 값을 제거합니다. `dry_run: true`는 카탈로그에서 실제 dry run을 명시한
+Operation에서만 허용되며, 지원하지 않는 요청을 가짜로 성공시키지 않고
+거부합니다. 변경을 수행하는 공용 MCP Operation은 기본적으로
+`$HOME/.listmonk-ops/operation-audit.json`에 `started`, `blocked`,
+`succeeded`, `failed` 메타데이터 이벤트를 남깁니다. 단계적 마이그레이션 동안
+기존 transport 전용 MCP 도구의 동작은 변경하지 않습니다.
 
 ## 트랜잭셔널 이메일
 

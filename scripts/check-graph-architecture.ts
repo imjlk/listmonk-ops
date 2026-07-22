@@ -133,6 +133,8 @@ const sharedOperationExecutionPolicy =
 	"packages/operations/src/execution-policy.ts#getOperationExecutionPolicy:function";
 const sharedOperationConfirmation =
 	"packages/operations/src/execution-policy.ts#assertOperationConfirmation:function";
+const sharedOperationCatalogLookup =
+	"packages/operations/src/catalog.ts#getOperationCatalogEntryByMcpName:function";
 const operationExecutionPolicyTest =
 	"packages/operations/tests/execution-policy.test.ts#packages/operations/tests/execution-policy.test.ts:module";
 const operationAuditTest =
@@ -141,6 +143,16 @@ const recordOperationAudit =
 	"packages/common/src/operation-audit.ts#recordOperationAudit:function";
 const updateJsonFileStore =
 	"packages/common/src/json-file-store.ts#updateJsonFileStore:function";
+const mcpOperationExecutionTest =
+	"packages/mcp/tests/unit/operation-execution.test.ts#packages/mcp/tests/unit/operation-execution.test.ts:module";
+const mcpOperationExecutionResolver =
+	"packages/mcp/src/operation-execution.ts#getMcpOperationExecution:function";
+const mcpOperationDryRunAssertion =
+	"packages/mcp/src/operation-execution.ts#assertMcpOperationDryRun:function";
+const mcpOperationAuditRecorder =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.recordMcpOperationAudit:method";
+const mcpOperationExecutionCompleter =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.completeMcpOperationExecution:method";
 const cliOperationCatalogTest =
 	"apps/cli/tests/operation-catalog.test.ts#apps/cli/tests/operation-catalog.test.ts:module";
 const mcpOperationCatalogTest =
@@ -1057,6 +1069,61 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	{
 		label: "Operation audit tests anchor atomic audit persistence",
 		path: [operationAuditTest, recordOperationAudit, updateJsonFileStore],
+	},
+	{
+		label: "MCP execution-safety tests anchor registry policy resolution",
+		path: [
+			mcpOperationExecutionTest,
+			mcpOperationExecutionResolver,
+			sharedOperationExecutionPolicy,
+		],
+	},
+	{
+		label: "MCP execution-safety tests anchor registry lookup",
+		path: [
+			mcpOperationExecutionTest,
+			mcpOperationExecutionResolver,
+			sharedOperationCatalogLookup,
+		],
+	},
+	{
+		label: "MCP central boundary resolves execution metadata before dispatch",
+		path: [mcpCallTool, mcpOperationExecutionResolver],
+	},
+	{
+		label: "MCP central boundary rejects unsupported dry runs",
+		path: [mcpCallTool, mcpOperationDryRunAssertion],
+	},
+	{
+		label: "MCP central boundary enforces shared operation confirmation",
+		path: [mcpCallTool, sharedOperationConfirmation],
+	},
+	{
+		label: "MCP central boundary writes started and blocked audit events atomically",
+		path: [
+			mcpCallTool,
+			mcpOperationAuditRecorder,
+			recordOperationAudit,
+			updateJsonFileStore,
+		],
+	},
+	{
+		label: "MCP completion writes terminal audit events atomically",
+		path: [
+			mcpCallTool,
+			mcpOperationExecutionCompleter,
+			mcpOperationAuditRecorder,
+			recordOperationAudit,
+			updateJsonFileStore,
+		],
+	},
+	{
+		label: "MCP execution-safety tests exercise the central enforcement boundary",
+		path: [
+			mcpOperationExecutionTest,
+			mcpCallTool,
+			mcpOperationExecutionResolver,
+		],
 	},
 	...listInvokerContracts,
 	...cliListMutationContracts,

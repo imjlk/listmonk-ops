@@ -18,7 +18,30 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_list_operations` - Read-only catalog of typed contracts shared by
   the CLI and MCP server. Pass an optional exact `family` filter (`lists`,
   `subscribers`, `campaigns`, `templates`, `transactional`, `ops`, or
-  `abtest`) to discover operation schemas and safety hints.
+  `abtest`) to discover operation schemas, safety hints, and execution policy.
+
+### Execution Safety for Shared Operations
+
+The catalog's `execution` object reports `confirmationRequired`,
+`auditRequired`, and `dryRunSupported` for each shared operation.
+
+Destructive shared operations require the MCP-only `confirm: true` argument:
+
+```json
+{
+  "name": "listmonk_delete_list",
+  "arguments": { "id": 10, "confirm": true }
+}
+```
+
+`confirm` is removed before the typed domain operation runs. `dry_run: true`
+is accepted only for operations that explicitly advertise a real dry run;
+unsupported dry-run requests are rejected rather than simulated. Mutating
+shared operations append metadata-only `started`, `blocked`, `succeeded`, or
+`failed` events to the audit store. Inputs, outputs, credentials, and remote
+error text are never persisted. This staged policy currently applies to the
+shared operation registry; legacy transport-specific MCP tools keep their
+existing behavior until they are migrated.
 
 ### Lists
 
@@ -123,6 +146,9 @@ LISTMONK_OPS_ABTEST_SILENT=1
 LISTMONK_OPS_ABTEST_STORE=/absolute/path/to/abtests.json
 LISTMONK_OPS_SEGMENT_STORE=/absolute/path/to/segment-drift.json
 LISTMONK_OPS_TEMPLATE_REGISTRY=/absolute/path/to/template-registry.json
+
+# Optional: override metadata-only operation audit persistence
+LISTMONK_OPS_AUDIT_STORE=/absolute/path/to/operation-audit.json
 
 # MCP Server Configuration
 MCP_SERVER_PORT=3000

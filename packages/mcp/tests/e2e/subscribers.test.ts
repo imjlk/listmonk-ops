@@ -156,6 +156,7 @@ describe("Subscribers MCP Tools", () => {
 		// Delete it
 		const result = await client.callTool("listmonk_delete_subscriber", {
 			id: testSubscriberId.toString(),
+			confirm: true,
 		});
 
 		utils.assertSuccess(result, "Failed to delete subscriber");

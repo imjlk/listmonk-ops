@@ -145,6 +145,7 @@ describe("MCP Server Integration", () => {
 		const updateResult = await client.callTool("listmonk_update_list", {
 			id: listId.toString(),
 			name: `${listName}-updated`,
+			confirm: true,
 		});
 
 		utils.assertSuccess(updateResult, "Failed to update list");
@@ -161,7 +162,10 @@ describe("MCP Server Integration", () => {
 		expect(updatedList.name).toBe(`${listName}-updated`);
 
 		// Clean up
-		await client.callTool("listmonk_delete_list", { id: listId.toString() });
+		await client.callTool("listmonk_delete_list", {
+			id: listId.toString(),
+			confirm: true,
+		});
 	});
 
 	test("should handle concurrent requests", async () => {

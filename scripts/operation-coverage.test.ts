@@ -39,6 +39,23 @@ function firstListOperationFixture() {
 	return { operation, familyTool };
 }
 
+function firstDestructiveListOperationFixture() {
+	const operation = listOperations.find(
+		(candidate) => candidate.safety.destructiveHint,
+	);
+	if (!operation) {
+		throw new Error("expected a destructive shared list operation");
+	}
+	const familyTool = listsTools.find(
+		(tool) => tool.name === operation.mcp.name,
+	);
+	if (!familyTool) {
+		throw new Error("expected a matching destructive list MCP tool");
+	}
+
+	return { operation, familyTool };
+}
+
 const registeredServerTools = toolRegistrations.flatMap(
 	(registration) => registration.tools,
 );
@@ -78,6 +95,22 @@ describe("shared operation coverage", () => {
 				driftedGlobalTools,
 			),
 		).toThrow("global tool does not preserve MCP metadata");
+	});
+
+	test("requires the MCP-only confirmation control for destructive operations", () => {
+		const { operation, familyTool } = firstDestructiveListOperationFixture();
+		const toolWithoutConfirmation = {
+			...familyTool,
+			inputSchema: operation.inputJsonSchema,
+		};
+
+		expect(() =>
+			assertOperationFamilyPublished(
+				"subscriber lists",
+				[operation],
+				[toolWithoutConfirmation],
+			),
+		).toThrow("family tool does not preserve MCP schemas");
 	});
 
 	test("requires exactly one global tool for every operation", () => {

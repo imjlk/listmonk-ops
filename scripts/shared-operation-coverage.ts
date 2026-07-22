@@ -10,6 +10,7 @@ import { opsTools } from "../packages/mcp/src/handlers/ops";
 import { subscribersTools } from "../packages/mcp/src/handlers/subscribers";
 import { templatesTools } from "../packages/mcp/src/handlers/templates";
 import { transactionalTools } from "../packages/mcp/src/handlers/transactional";
+import { withMcpOperationConfirmationInputSchema } from "../packages/mcp/src/operation-execution";
 import { opsOperations } from "../packages/automation/src/ops-operations";
 import { campaignOperations } from "../packages/operations/src/campaigns";
 import { listOperations } from "../packages/operations/src/lists";
@@ -49,7 +50,12 @@ function assertToolMatchesOperation(
 	}
 	if (
 		JSON.stringify(tool.inputSchema) !==
-			JSON.stringify(operation.inputJsonSchema) ||
+			JSON.stringify(
+				withMcpOperationConfirmationInputSchema(
+					operation.inputJsonSchema,
+					operation.safety,
+				),
+			) ||
 		JSON.stringify(tool.outputSchema) !==
 			JSON.stringify(operation.outputJsonSchema)
 	) {

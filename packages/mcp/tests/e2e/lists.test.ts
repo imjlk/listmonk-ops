@@ -70,6 +70,7 @@ describe("Lists MCP Tools", () => {
 			name: updatedName,
 			description: "Updated description",
 			type: "public",
+			confirm: true,
 		});
 
 		utils.assertSuccess(result, "Failed to update list");
@@ -96,6 +97,7 @@ describe("Lists MCP Tools", () => {
 		// Delete it
 		const result = await client.callTool("listmonk_delete_list", {
 			id: testListId.toString(),
+			confirm: true,
 		});
 
 		utils.assertSuccess(result, "Failed to delete list");
