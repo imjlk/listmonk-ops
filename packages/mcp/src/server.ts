@@ -292,7 +292,7 @@ export class ListmonkMCPServer {
 			);
 		} catch (error) {
 			const result = createErrorResult(
-				`Error calling tool ${name}: ${error instanceof Error ? error.message : String(error)}`,
+				`Error calling tool ${name}: ${toErrorMessage(error)}`,
 			);
 			return await this.completeMcpOperationExecution(
 				execution,
