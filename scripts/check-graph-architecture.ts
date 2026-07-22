@@ -127,6 +127,20 @@ const sharedOperationCatalogComposer =
 	"packages/operations/src/catalog.ts#composeOperationCatalogs:function";
 const sharedOperationCatalogSummary =
 	"packages/operations/src/catalog.ts#listOperationCatalogSummaries:function";
+const sharedOperationCatalogEntrySummary =
+	"packages/operations/src/catalog.ts#toSummary:function";
+const sharedOperationExecutionPolicy =
+	"packages/operations/src/execution-policy.ts#getOperationExecutionPolicy:function";
+const sharedOperationConfirmation =
+	"packages/operations/src/execution-policy.ts#assertOperationConfirmation:function";
+const operationExecutionPolicyTest =
+	"packages/operations/tests/execution-policy.test.ts#packages/operations/tests/execution-policy.test.ts:module";
+const operationAuditTest =
+	"packages/common/tests/operation-audit.test.ts#packages/common/tests/operation-audit.test.ts:module";
+const recordOperationAudit =
+	"packages/common/src/operation-audit.ts#recordOperationAudit:function";
+const updateJsonFileStore =
+	"packages/common/src/json-file-store.ts#updateJsonFileStore:function";
 const cliOperationCatalogTest =
 	"apps/cli/tests/operation-catalog.test.ts#apps/cli/tests/operation-catalog.test.ts:module";
 const mcpOperationCatalogTest =
@@ -1023,6 +1037,26 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			"packages/openapi/tests/listmonk-6.2-contract.test.ts#packages/openapi/tests/listmonk-6.2-contract.test.ts:module",
 			openapiTransactionalMethod,
 		],
+	},
+	{
+		label: "Operation catalog derives execution requirements from shared metadata",
+		path: [
+			sharedOperationCatalogSummary,
+			sharedOperationCatalogEntrySummary,
+			sharedOperationExecutionPolicy,
+		],
+	},
+	{
+		label: "Operation execution-policy tests anchor the policy derivation",
+		path: [operationExecutionPolicyTest, sharedOperationExecutionPolicy],
+	},
+	{
+		label: "Operation execution-policy tests anchor confirmation enforcement",
+		path: [operationExecutionPolicyTest, sharedOperationConfirmation],
+	},
+	{
+		label: "Operation audit tests anchor atomic audit persistence",
+		path: [operationAuditTest, recordOperationAudit, updateJsonFileStore],
 	},
 	...listInvokerContracts,
 	...cliListMutationContracts,
