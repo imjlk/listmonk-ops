@@ -3,6 +3,10 @@ import type {
 	OperationMcpMetadata,
 	OperationSafety,
 } from "./operation";
+import {
+	getOperationExecutionPolicy,
+	type OperationExecutionPolicy,
+} from "./execution-policy";
 
 /**
  * The metadata every shared operation already exposes. The catalog deliberately
@@ -49,6 +53,7 @@ export type OperationCatalogSummary = Readonly<{
 	inputSchema: ObjectJsonSchema;
 	outputSchema: ObjectJsonSchema;
 	safety: OperationSafety;
+	execution: OperationExecutionPolicy;
 }>;
 
 function assertNonBlank(value: string, label: string): void {
@@ -173,6 +178,7 @@ function toSummary(entry: OperationCatalogEntry): OperationCatalogSummary {
 		inputSchema: toTransportSchema(operation.inputJsonSchema),
 		outputSchema: toTransportSchema(operation.outputJsonSchema),
 		safety: { ...operation.safety },
+		execution: getOperationExecutionPolicy(operation),
 	};
 }
 
@@ -185,10 +191,11 @@ export function listOperationCatalogSummaries(
 	family?: string,
 ): readonly OperationCatalogSummary[] {
 	const normalizedFamily = family?.trim();
-	return catalog.entries
-		.filter(
-			(entry) =>
-				normalizedFamily === undefined || entry.family === normalizedFamily,
-		)
-		.map(toSummary);
+	const summaries: OperationCatalogSummary[] = [];
+	for (const entry of catalog.entries) {
+		if (normalizedFamily === undefined || entry.family === normalizedFamily) {
+			summaries.push(toSummary(entry));
+		}
+	}
+	return summaries;
 }

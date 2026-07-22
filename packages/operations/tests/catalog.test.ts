@@ -34,6 +34,11 @@ describe("operation catalog", () => {
 			outputSchema: { type: "object" },
 		});
 		expect(first?.safety).not.toBe(listOperations[0]?.safety);
+		expect(first?.execution).toEqual({
+			confirmationRequired: false,
+			auditRequired: false,
+			dryRunSupported: false,
+		});
 		expect(
 			getOperationCatalogEntryByMcpName(
 				catalog,
