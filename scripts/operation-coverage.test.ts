@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { listOperations } from "../packages/operations/src/lists";
+import {
+	allTools,
+	toolRegistrations,
+} from "../packages/mcp/src/handlers/index";
 import { listsTools } from "../packages/mcp/src/handlers/lists";
-import { allTools } from "../packages/mcp/src/handlers/index";
 import {
 	assertAbTestOperationsPublished,
 	assertCampaignOperationsPublished,
@@ -27,6 +30,10 @@ function firstListOperationFixture() {
 
 	return { operation, familyTool };
 }
+
+const registeredServerTools = toolRegistrations.flatMap(
+	(registration) => registration.tools,
+);
 
 describe("shared operation coverage", () => {
 	test("publishes every registered operation through its MCP tool family", () => {
@@ -68,5 +75,22 @@ describe("shared operation coverage", () => {
 				[...allTools, familyTool],
 			),
 		).toThrow("must have exactly one global tool");
+	});
+
+	test("rejects an operation missing from server registrations", () => {
+		const { operation, familyTool } = firstListOperationFixture();
+		const missingServerTools = registeredServerTools.filter(
+			(tool) => tool.name !== operation.mcp.name,
+		);
+
+		expect(() =>
+			assertOperationFamilyPublished(
+				"subscriber lists",
+				[operation],
+				[familyTool],
+				allTools,
+				missingServerTools,
+			),
+		).toThrow("must have exactly one server tool");
 	});
 });

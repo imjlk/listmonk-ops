@@ -1,7 +1,10 @@
 import { abTestOperations } from "../packages/abtest/src/operations";
 import { abtestTools } from "../packages/mcp/src/handlers/abtest";
 import { campaignsTools } from "../packages/mcp/src/handlers/campaigns";
-import { allTools } from "../packages/mcp/src/handlers/index";
+import {
+	allTools,
+	toolRegistrations,
+} from "../packages/mcp/src/handlers/index";
 import { listsTools } from "../packages/mcp/src/handlers/lists";
 import { opsTools } from "../packages/mcp/src/handlers/ops";
 import { subscribersTools } from "../packages/mcp/src/handlers/subscribers";
@@ -30,6 +33,10 @@ const safetyKeys = [
 	"idempotentHint",
 	"openWorldHint",
 ] as const;
+const serverTools: readonly MCPTool[] = toolRegistrations.flatMap(
+	(registration) => registration.tools,
+);
+
 function assertToolMatchesOperation(
 	operation: SharedOperation,
 	tool: MCPTool,
@@ -59,11 +66,29 @@ function assertToolMatchesOperation(
 	}
 }
 
+function assertRegistryToolMatchesOperation(
+	operation: SharedOperation,
+	tools: readonly MCPTool[],
+	registry: string,
+): void {
+	const [tool, ...extraTools] = tools.filter(
+		(candidate) => candidate.name === operation.mcp.name,
+	);
+	if (!tool || extraTools.length > 0) {
+		throw new Error(
+			`${operation.mcp.name} must have exactly one ${registry}, found ${extraTools.length + (tool ? 1 : 0)}`,
+		);
+	}
+
+	assertToolMatchesOperation(operation, tool, registry);
+}
+
 export function assertOperationFamilyPublished(
 	family: string,
 	operations: readonly SharedOperation[],
 	tools: readonly MCPTool[],
 	globalTools: readonly MCPTool[] = allTools,
+	registeredServerTools: readonly MCPTool[] = serverTools,
 ): void {
 	const expectedNames = operations.map((operation) => operation.mcp.name);
 	const expectedNameSet = new Set(expectedNames);
@@ -93,21 +118,13 @@ export function assertOperationFamilyPublished(
 		if (!tool) {
 			throw new Error(`${operation.mcp.name} has no family tool`);
 		}
-		const matchingGlobalTools = globalTools.filter(
-			(candidate) => candidate.name === operation.mcp.name,
-		);
-		if (matchingGlobalTools.length !== 1) {
-			throw new Error(
-				`${operation.mcp.name} must have exactly one global tool, found ${matchingGlobalTools.length}`,
-			);
-		}
-		const globalTool = matchingGlobalTools[0];
-		if (!globalTool) {
-			throw new Error(`${operation.mcp.name} has no global tool`);
-		}
-
 		assertToolMatchesOperation(operation, tool, "family tool");
-		assertToolMatchesOperation(operation, globalTool, "global tool");
+		assertRegistryToolMatchesOperation(operation, globalTools, "global tool");
+		assertRegistryToolMatchesOperation(
+			operation,
+			registeredServerTools,
+			"server tool",
+		);
 	}
 }
 

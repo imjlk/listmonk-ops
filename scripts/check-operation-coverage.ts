@@ -104,6 +104,11 @@ export const operationCoverageEdges: readonly GraphEdgeContract[] =
 			kind: "calls" as const,
 		},
 		{
+			from: contract.testAnchor,
+			to: contract.registry,
+			kind: "accesses" as const,
+		},
+		{
 			from: contract.mcpHandler,
 			to: contract.dispatcher,
 			kind: "calls" as const,

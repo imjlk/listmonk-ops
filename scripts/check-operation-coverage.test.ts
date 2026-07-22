@@ -40,6 +40,26 @@ describe("shared operation graph coverage", () => {
 		);
 	});
 
+	test("rejects a test helper that no longer accesses its registry", () => {
+		const graph = completeGraph();
+		const contract = operationCoverageContracts[0];
+		if (!contract) {
+			throw new Error("expected at least one shared operation coverage contract");
+		}
+		graph.edges = graph.edges.filter(
+			(edge) =>
+				!(
+					edge.kind === "accesses" &&
+					edge.from === contract.testAnchor &&
+					edge.to === contract.registry
+				),
+		);
+
+		expect(() => assertOperationCoverage(graph)).toThrow(
+			"missing accesses edge",
+		);
+	});
+
 	test("rejects a declared shared operation registry missing from the graph", () => {
 		const graph = completeGraph();
 		const contract = operationCoverageContracts[0];
