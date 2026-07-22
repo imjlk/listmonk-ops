@@ -30,8 +30,8 @@ type CatalogOperation = {
 	mcpName: string;
 	title: string;
 	description: string;
-	inputSchema: { type: string };
-	outputSchema: { type: string };
+	inputSchema: Record<string, unknown>;
+	outputSchema: Record<string, unknown>;
 	safety: Record<string, boolean>;
 };
 
@@ -122,8 +122,8 @@ function stableCatalogFields(output: CatalogOutput) {
 		mcpName: operation.mcpName,
 		title: operation.title,
 		description: operation.description,
-		inputSchemaType: operation.inputSchema.type,
-		outputSchemaType: operation.outputSchema.type,
+		inputSchema: operation.inputSchema,
+		outputSchema: operation.outputSchema,
 		safety: operation.safety,
 	}));
 }
