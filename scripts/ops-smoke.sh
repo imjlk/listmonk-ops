@@ -15,6 +15,7 @@ LISTMONK_API_URL="${LISTMONK_API_URL:-http://localhost:9000/api}"
 LISTMONK_USERNAME="${LISTMONK_USERNAME:-api-admin}"
 LISTMONK_API_TOKEN="${LISTMONK_API_TOKEN:-}"
 export LISTMONK_TEST_TOKEN_FILE="${LISTMONK_TEST_TOKEN_FILE:-/tmp/listmonk-ops-api-token}"
+export LISTMONK_OPS_AUDIT_STORE="${LISTMONK_OPS_AUDIT_STORE:-$LOG_DIR/operation-audit.json}"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -129,14 +130,14 @@ if [[ "$MODE" == "full" ]]; then
 	fi
 
 	export LISTMONK_OPS_ABTEST_STORE="${LISTMONK_OPS_ABTEST_STORE:-/tmp/listmonk-ops-abtests-smoke.json}"
-	run_cmd "abtest_create" bun run cli -- abtest create --name "$AB_NAME" --campaign-id 1 --variants '[{"name":"A","percentage":50},{"name":"B","percentage":50}]' --lists 1 --subject "Ops Smoke AB" --body "<p>Ops Smoke AB</p>" --testing-mode holdout --test-group-percentage 10 --ignore-sample-size-warnings true
+	run_cmd "abtest_create" bun run cli -- abtest create --name "$AB_NAME" --campaign-id 1 --variants '[{"name":"A","percentage":50},{"name":"B","percentage":50}]' --lists 1 --subject "Ops Smoke AB" --body "<p>Ops Smoke AB</p>" --testing-mode holdout --test-group-percentage 10 --ignore-sample-size-warnings true --confirm
 	TEST_ID="$(extract_first_test_id "$LOG_DIR/abtest_create.log")"
 	if [[ -n "$TEST_ID" ]]; then
 		run_cmd "abtest_get" bun run cli -- abtest get --test-id "$TEST_ID"
-		run_cmd "abtest_launch" bun run cli -- abtest launch --test-id "$TEST_ID"
+		run_cmd "abtest_launch" bun run cli -- abtest launch --test-id "$TEST_ID" --confirm
 		run_cmd "abtest_analyze" bun run cli -- abtest analyze --test-id "$TEST_ID"
-		run_cmd "abtest_stop" bun run cli -- abtest stop --test-id "$TEST_ID"
-		run_cmd "abtest_delete" bun run cli -- abtest delete --test-id "$TEST_ID"
+		run_cmd "abtest_stop" bun run cli -- abtest stop --test-id "$TEST_ID" --confirm
+		run_cmd "abtest_delete" bun run cli -- abtest delete --test-id "$TEST_ID" --confirm
 	fi
 fi
 

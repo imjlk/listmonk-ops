@@ -30,11 +30,11 @@ listmonk-cli tx send --template-id 10 --subscriber-email user@example.com --data
 
 # A/B test
 listmonk-cli abtest interactive --interactive
-listmonk-cli abtest create --name "Subject test" --campaign-id 100 --variants '[{"name":"A"},{"name":"B"}]'
+listmonk-cli abtest create --name "Subject test" --campaign-id 100 --variants '[{"name":"A"},{"name":"B"}]' --confirm
 
 # Ops automation
 listmonk-cli ops preflight --campaign-id 100
-listmonk-cli ops guard --campaign-id 100 --pause-on-breach true
+listmonk-cli ops guard --campaign-id 100 --pause-on-breach true --confirm
 listmonk-cli ops digest --hours 24
 
 # Shell completion
