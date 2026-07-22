@@ -1,51 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import {
+	fetchMailpitJson,
+	findMailpitMessage,
+	type MailpitMessage,
+	type MailpitMessageSummary,
+} from "./mailpit.js";
 import { createMCPTestSuite } from "../mcp-helper.js";
 import { buildTestEmail, buildTestName } from "../setup.js";
-
-type MailpitAddress = {
-	Address: string;
-};
-
-type MailpitMessageSummary = {
-	ID: string;
-	Subject: string;
-	To: MailpitAddress[] | null;
-};
-
-type MailpitMessageList = {
-	messages?: MailpitMessageSummary[];
-};
-
-type MailpitMessage = MailpitMessageSummary & {
-	From: MailpitAddress;
-	HTML: string;
-};
-
-const mailpitApiRoot = (
-	process.env.MAILPIT_API_URL?.trim() || "http://127.0.0.1:8025/api/v1"
-).replace(/\/$/, "");
-
-async function fetchMailpitJson<T>(path: string): Promise<T> {
-	const response = await fetch(`${mailpitApiRoot}${path}`);
-	if (!response.ok) {
-		throw new Error(
-			`Mailpit request ${path} failed: ${response.status} ${response.statusText}`,
-		);
-	}
-	return (await response.json()) as T;
-}
-
-async function findMessage(
-	recipient: string,
-	subject: string,
-): Promise<MailpitMessageSummary | undefined> {
-	const mailbox = await fetchMailpitJson<MailpitMessageList>("/messages");
-	return mailbox.messages?.find(
-		(message) =>
-			message.Subject === subject &&
-			message.To?.some((address) => address.Address === recipient),
-	);
-}
 
 describe("Transactional MCP Tool", () => {
 	const { client, utils } = createMCPTestSuite();
@@ -90,7 +51,7 @@ describe("Transactional MCP Tool", () => {
 		let delivered: MailpitMessageSummary | undefined;
 		await utils.waitFor(async () => {
 			try {
-				delivered = await findMessage(recipient, subject);
+				delivered = await findMailpitMessage(recipient, subject);
 				return delivered !== undefined;
 			} catch {
 				return false;

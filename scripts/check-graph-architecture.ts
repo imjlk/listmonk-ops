@@ -98,10 +98,14 @@ const mcpTestClientCallTool =
 	"packages/mcp/tests/mcp-helper.ts#MCPTestClient.callTool:method";
 const mcpTransactionalE2eTest =
 	"packages/mcp/tests/e2e/transactional.test.ts#packages/mcp/tests/e2e/transactional.test.ts:module";
+const cliMcpTransactionalParityE2eTest =
+	"packages/mcp/tests/e2e/transactional-parity.test.ts#packages/mcp/tests/e2e/transactional-parity.test.ts:module";
+const cliTransactionalParityRunner =
+	"packages/mcp/tests/e2e/transactional-parity.test.ts#runCliTransactionalSend:function";
 const findMailpitMessage =
-	"packages/mcp/tests/e2e/transactional.test.ts#findMessage:function";
+	"packages/mcp/tests/e2e/mailpit.ts#findMailpitMessage:function";
 const fetchMailpitJson =
-	"packages/mcp/tests/e2e/transactional.test.ts#fetchMailpitJson:function";
+	"packages/mcp/tests/e2e/mailpit.ts#fetchMailpitJson:function";
 
 const cliOperationCatalogHandler =
 	"apps/cli/src/commands/operations.ts#handleListOperationsCommand:function";
@@ -976,6 +980,28 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	{
 		label: "MCP transactional E2E tests inspect Mailpit delivery",
 		path: [mcpTransactionalE2eTest, findMailpitMessage, fetchMailpitJson],
+	},
+	{
+		label: "CLI/MCP transactional parity E2E invokes the CLI subprocess runner",
+		path: [cliMcpTransactionalParityE2eTest, cliTransactionalParityRunner],
+	},
+	{
+		label: "CLI/MCP transactional parity E2E reaches the MCP transactional adapter",
+		path: [
+			cliMcpTransactionalParityE2eTest,
+			mcpTestClientCallTool,
+			mcpCallTool,
+			mcpTransactionalHandler,
+			transactionalDispatcher,
+		],
+	},
+	{
+		label: "CLI/MCP transactional parity E2E inspects both Mailpit deliveries",
+		path: [
+			cliMcpTransactionalParityE2eTest,
+			findMailpitMessage,
+			fetchMailpitJson,
+		],
 	},
 	{
 		label: "OpenAPI tests anchor the transactional send method",
