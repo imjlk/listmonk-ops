@@ -283,7 +283,8 @@ listmonk-cli lists delete --id 10 --confirm
 ```
 
 campaign, subscriber, template CRUD도 CLI와 MCP에서 동일한 타입드 Operation을
-사용합니다. CLI에는 전체 CRUD 명령이 제공됩니다.
+사용합니다. 업로드된 media의 조회/삭제도 같은 계약을 사용합니다. Listmonk가
+제공하는 범위에서 CLI에는 전체 CRUD 명령이 제공됩니다.
 
 ```bash
 listmonk-cli campaigns list --page 1 --per-page 20
@@ -301,14 +302,19 @@ listmonk-cli templates create --name "Campaign HTML" --body "<p>Hello</p>"
 listmonk-cli templates update --id 3 --body "<p>Updated</p>"
 listmonk-cli templates delete --id 3 --confirm
 listmonk-cli templates set-default --id 3
+
+listmonk-cli media list --page 1 --per-page 20
+listmonk-cli media get --id 9
+listmonk-cli media delete --id 9 --confirm
 ```
 
-대응하는 MCP CRUD 도구는
+대응하는 MCP 리소스 도구에는
 `listmonk_get_campaigns`, `listmonk_get_campaign`,
 `listmonk_create_campaign`, `listmonk_update_campaign`,
 `listmonk_delete_campaign`이며, subscriber와 template에도 같은 이름 규칙이
-적용됩니다. 결과는 structured content를 제공하면서 destructive mutation의
-기존 성공 텍스트도 호환성을 위해 유지합니다.
+적용됩니다. 또한 `listmonk_get_media`, `listmonk_get_media_file`,
+`listmonk_delete_media`를 제공합니다. 결과는 structured content를 제공하면서
+destructive mutation의 기존 성공 텍스트도 호환성을 위해 유지합니다.
 
 ## 공용 Operation 탐색
 

@@ -284,7 +284,8 @@ listmonk-cli lists delete --id 10 --confirm
 ```
 
 Campaign, subscriber, and template CRUD now use the same typed operations on
-both surfaces. The CLI includes the full CRUD command set:
+both surfaces. Uploaded media read/delete operations use the same contracts as
+well. The CLI includes the full CRUD command set where Listmonk exposes it:
 
 ```bash
 listmonk-cli campaigns list --page 1 --per-page 20
@@ -302,14 +303,19 @@ listmonk-cli templates create --name "Campaign HTML" --body "<p>Hello</p>"
 listmonk-cli templates update --id 3 --body "<p>Updated</p>"
 listmonk-cli templates delete --id 3 --confirm
 listmonk-cli templates set-default --id 3
+
+listmonk-cli media list --page 1 --per-page 20
+listmonk-cli media get --id 9
+listmonk-cli media delete --id 9 --confirm
 ```
 
-The corresponding MCP CRUD tools are
+The corresponding MCP resource tools include
 `listmonk_get_campaigns`, `listmonk_get_campaign`,
 `listmonk_create_campaign`, `listmonk_update_campaign`,
-`listmonk_delete_campaign`, and the equivalent `subscriber` and `template`
-names. Their results include structured content while retaining compatible
-legacy success text for destructive mutations.
+`listmonk_delete_campaign`, the equivalent `subscriber` and `template` names,
+and `listmonk_get_media`, `listmonk_get_media_file`, and
+`listmonk_delete_media`. Their results include structured content while
+retaining compatible legacy success text for destructive mutations.
 
 ## Shared Operation Discovery
 

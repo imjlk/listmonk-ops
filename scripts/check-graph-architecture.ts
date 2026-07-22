@@ -176,12 +176,31 @@ const cliMcpTemplateParityE2eTest =
 	"packages/mcp/tests/e2e/templates-parity.test.ts#packages/mcp/tests/e2e/templates-parity.test.ts:module";
 const cliTemplateParityRunner =
 	"packages/mcp/tests/e2e/templates-parity.test.ts#runCliSetDefaultTemplate:function";
+const cliMcpMediaParityE2eTest =
+	"packages/mcp/tests/e2e/media-parity.test.ts#packages/mcp/tests/e2e/media-parity.test.ts:module";
+const cliMediaGetParityRunner =
+	"packages/mcp/tests/e2e/media-parity.test.ts#runCliGetMediaFile:function";
+const cliMediaDeleteParityRunner =
+	"packages/mcp/tests/e2e/media-parity.test.ts#runCliDeleteMedia:function";
+const mediaGetInvoker =
+	"packages/operations/src/media.ts#invokeGetMediaFileOperation:function";
+const mediaGetAction = "packages/operations/src/media.ts#getMediaFile:function";
+const mediaDeleteInvoker =
+	"packages/operations/src/media.ts#invokeDeleteMediaOperation:function";
+const mediaDeleteAction =
+	"packages/operations/src/media.ts#deleteMediaFile:function";
 const templateSetDefaultInvoker =
 	"packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function";
 const templateSetDefaultAction =
 	"packages/operations/src/templates.ts#setDefaultTemplate:function";
 const openapiTemplateSetDefaultMethod =
 	"packages/openapi/src/client/contracts.ts#TemplateOperations.setAsDefault:method";
+const openapiMediaListMethod =
+	"packages/openapi/src/client/contracts.ts#MediaOperations.list:method";
+const openapiMediaGetByIdMethod =
+	"packages/openapi/src/client/contracts.ts#MediaOperations.getById:method";
+const openapiMediaDeleteByIdMethod =
+	"packages/openapi/src/client/contracts.ts#MediaOperations.deleteById:method";
 
 const cliOpsModule =
 	"apps/cli/src/commands/ops.ts#apps/cli/src/commands/ops.ts:module";
@@ -899,6 +918,55 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 			},
 		],
 	}),
+	...resourceOperationContracts({
+		resource: "media",
+		cliModule:
+			"apps/cli/src/commands/media.ts#apps/cli/src/commands/media.ts:module",
+		cliTestModule:
+			"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+		mcpHandler: "packages/mcp/src/handlers/media.ts#handleMediaTools:function",
+		dispatcher:
+			"packages/operations/src/media.ts#invokeMediaOperationByMcpName:function",
+		operationTestModule:
+			"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+		mcpTestModule:
+			"packages/mcp/tests/unit/resources.test.ts#packages/mcp/tests/unit/resources.test.ts:module",
+		testAnchor: {
+			invoker:
+				"packages/operations/src/media.ts#invokeGetMediaOperation:function",
+			action: "packages/operations/src/media.ts#listMedia:function",
+		},
+		invokers: [
+			{
+				label: "list",
+				cliHandler: "handleListMediaCommand",
+				cliRender: "renderMedia",
+				invoker:
+					"packages/operations/src/media.ts#invokeGetMediaOperation:function",
+				action: "packages/operations/src/media.ts#listMedia:function",
+				openapi: openapiMediaListMethod,
+			},
+			{
+				label: "get",
+				cliHandler: "handleGetMediaFileCommand",
+				cliRender: "renderMediaFile",
+				invoker:
+					"packages/operations/src/media.ts#invokeGetMediaFileOperation:function",
+				action: "packages/operations/src/media.ts#getMediaFile:function",
+				openapi: openapiMediaGetByIdMethod,
+			},
+			{
+				label: "delete",
+				cliHandler: "handleDeleteMediaCommand",
+				cliRender: "renderDeleteMedia",
+				invoker:
+					"packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
+				action:
+					"packages/operations/src/media.ts#deleteMediaFile:function",
+				openapi: openapiMediaDeleteByIdMethod,
+			},
+		],
+	}),
 ];
 
 const templateSetDefaultContracts: readonly CallPathContract[] = [
@@ -969,6 +1037,41 @@ const templateSetDefaultContracts: readonly CallPathContract[] = [
 			"packages/operations/src/templates.ts#invokeTemplateOperationByMcpName:function",
 			templateSetDefaultInvoker,
 			templateSetDefaultAction,
+		],
+	},
+];
+
+const mediaParityContracts: readonly CallPathContract[] = [
+	{
+		label: "CLI/MCP media parity E2E invokes the CLI read runner",
+		path: [cliMcpMediaParityE2eTest, cliMediaGetParityRunner],
+	},
+	{
+		label: "CLI/MCP media parity E2E invokes the CLI delete runner",
+		path: [cliMcpMediaParityE2eTest, cliMediaDeleteParityRunner],
+	},
+	{
+		label: "CLI/MCP media parity E2E reaches the shared MCP read action",
+		path: [
+			cliMcpMediaParityE2eTest,
+			mcpTestClientCallTool,
+			mcpCallTool,
+			"packages/mcp/src/handlers/media.ts#handleMediaTools:function",
+			"packages/operations/src/media.ts#invokeMediaOperationByMcpName:function",
+			mediaGetInvoker,
+			mediaGetAction,
+		],
+	},
+	{
+		label: "CLI/MCP media parity E2E reaches the shared MCP delete action",
+		path: [
+			cliMcpMediaParityE2eTest,
+			mcpTestClientCallTool,
+			mcpCallTool,
+			"packages/mcp/src/handlers/media.ts#handleMediaTools:function",
+			"packages/operations/src/media.ts#invokeMediaOperationByMcpName:function",
+			mediaDeleteInvoker,
+			mediaDeleteAction,
 		],
 	},
 ];
@@ -1281,6 +1384,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	...cliListMutationContracts,
 	...resourceCrudContracts,
 	...templateSetDefaultContracts,
+	...mediaParityContracts,
 	...opsOperationContracts,
 	...abTestOperationContracts,
 	...abTestTestContracts,

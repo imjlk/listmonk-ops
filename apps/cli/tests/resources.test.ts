@@ -13,6 +13,11 @@ import {
 	renderUpdateTemplate,
 	type TemplatesCliContext,
 } from "../src/commands/templates";
+import {
+	renderDeleteMedia,
+	renderMedia,
+	type MediaCliContext,
+} from "../src/commands/media";
 
 function output() {
 	return {
@@ -23,7 +28,7 @@ function output() {
 	};
 }
 
-describe("campaign, subscriber, and template CLI actions", () => {
+describe("campaign, subscriber, template, and media CLI actions", () => {
 	test("renders campaigns through the shared operation", async () => {
 		const list = mock(async () => ({
 			data: { results: [{ id: 3, name: "Newsletter" }], total: 1 },
@@ -131,5 +136,40 @@ describe("campaign, subscriber, and template CLI actions", () => {
 		expect(cliContext.output.json).toHaveBeenCalledWith(
 			{ id: 5, set_default: true },
 		);
+	});
+
+	test("lists and deletes media through shared operations", async () => {
+		const list = mock(async () => ({
+			data: {
+				results: [{ id: 14, filename: "newsletter.png" }],
+				total: 1,
+				per_page: 1,
+				page: 1,
+			},
+		}));
+		const deleteById = mock(async () => ({ data: true }));
+		const cliContext = {
+			client: { media: { list, deleteById } } as unknown as Pick<
+				ListmonkClient,
+				"media"
+			>,
+			output: output(),
+		} satisfies MediaCliContext;
+
+		await renderMedia(cliContext, { page: 1, per_page: 20 });
+		await renderDeleteMedia(cliContext, { id: 14 });
+
+		expect(list).toHaveBeenCalledTimes(1);
+		expect(cliContext.output.table).toHaveBeenCalledWith([
+			{ id: 14, filename: "newsletter.png" },
+		]);
+		expect(deleteById).toHaveBeenCalledWith({ path: { id: 14 } });
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Media file deleted: 14",
+		);
+		expect(cliContext.output.json).toHaveBeenCalledWith({
+			id: 14,
+			deleted: true,
+		});
 	});
 });

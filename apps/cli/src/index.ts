@@ -8,6 +8,7 @@ import abtestCommand from "./commands/abtest";
 import campaignsCommand from "./commands/campaigns";
 import examplesCommand from "./commands/examples";
 import listsCommand from "./commands/lists";
+import mediaCommand from "./commands/media";
 import opsCommand from "./commands/ops";
 import operationsCommand from "./commands/operations";
 import statusCommand from "./commands/status";
@@ -27,6 +28,7 @@ const subCommands = {
 	examples: examplesCommand,
 	campaigns: campaignsCommand,
 	lists: listsCommand,
+	media: mediaCommand,
 	subscribers: subscribersCommand,
 	templates: templatesCommand,
 	tx: txCommand,

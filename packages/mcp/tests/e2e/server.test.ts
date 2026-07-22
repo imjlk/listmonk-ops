@@ -53,6 +53,7 @@ describe("MCP Server Integration", () => {
 
 		// Media tools
 		expect(toolNames).toContain("listmonk_get_media");
+		expect(toolNames).toContain("listmonk_get_media_file");
 		expect(toolNames).toContain("listmonk_delete_media");
 
 		// Bounce tools
