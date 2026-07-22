@@ -31,10 +31,10 @@
 		"prepublishOnly": "bun run test"
 	},
 	"dependencies": {
-		"@listmonk-ops/abtest": "^0.3.0",
-		"@listmonk-ops/automation": "^0.1.3",
+		"@listmonk-ops/abtest": "workspace:^",
+		"@listmonk-ops/automation": "workspace:^",
 		"@listmonk-ops/openapi": "^0.2.0",
-		"@listmonk-ops/operations": "^0.2.0",
+		"@listmonk-ops/operations": "workspace:^",
 		"@modelcontextprotocol/sdk": "1.27.1",
 		"hono": "4.12.7"
 	},

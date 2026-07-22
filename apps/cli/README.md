@@ -26,7 +26,12 @@ listmonk-cli status
 listmonk-cli campaigns list
 listmonk-cli lists create --name "Product updates"
 listmonk-cli ops digest --hours 24
+listmonk-cli operations --family campaigns
 ```
+
+`listmonk-cli operations` lists the shared typed contracts available through
+both the CLI and MCP server. Use `--family` to filter by `lists`,
+`subscribers`, `campaigns`, `templates`, `transactional`, `ops`, or `abtest`.
 
 ## Shell completion
 

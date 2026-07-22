@@ -12,6 +12,7 @@ import {
 	unwrapResourceResponse,
 	updateResourceSafety,
 } from "./resource-helpers";
+import { defineOperationCatalog } from "./catalog";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
@@ -410,6 +411,12 @@ export const templateOperations = [
 	updateTemplateOperation,
 	deleteTemplateOperation,
 ] as const;
+
+export const templateOperationCatalog = defineOperationCatalog({
+	id: "templates",
+	title: "Templates",
+	operations: templateOperations,
+});
 
 export type TemplateOperation = (typeof templateOperations)[number];
 

@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { listOperations } from "../packages/operations/src/lists";
 import {
+	cliOperationCatalog,
+	listCliOperationCatalogSummaries,
+} from "../apps/cli/src/operation-catalog";
+import {
+	listMcpOperationCatalogSummaries,
+	mcpOperationCatalog,
+} from "../packages/mcp/src/operation-catalog";
+import {
 	allTools,
 	toolRegistrations,
 } from "../packages/mcp/src/handlers/index";
@@ -36,6 +44,14 @@ const registeredServerTools = toolRegistrations.flatMap(
 );
 
 describe("shared operation coverage", () => {
+	test("keeps CLI and MCP discovery catalogs in direct parity", () => {
+		expect(cliOperationCatalog.entries).toHaveLength(39);
+		expect(mcpOperationCatalog.entries).toHaveLength(39);
+		expect(listCliOperationCatalogSummaries()).toEqual(
+			listMcpOperationCatalogSummaries(),
+		);
+	});
+
 	test("publishes every registered operation through its MCP tool family", () => {
 		assertListOperationsPublished();
 		assertCampaignOperationsPublished();

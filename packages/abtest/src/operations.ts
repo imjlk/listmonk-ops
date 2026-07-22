@@ -1,5 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	defineOperationCatalog,
 	defineOperation,
 	normalizeOperationExecutionError,
 	parseOperationInput,
@@ -620,6 +621,12 @@ export const abTestOperations = [
 	recommendAbTestSampleSizeOperation,
 	deployAbTestWinnerOperation,
 ] as const;
+
+export const abTestOperationCatalog = defineOperationCatalog({
+	id: "abtest",
+	title: "A/B tests",
+	operations: abTestOperations,
+});
 
 export type AbTestOperation = (typeof abTestOperations)[number];
 

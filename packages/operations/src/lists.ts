@@ -1,5 +1,6 @@
 import type { List, ListmonkClient } from "@listmonk-ops/openapi";
 import { z } from "zod";
+import { defineOperationCatalog } from "./catalog";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
@@ -458,6 +459,12 @@ export const listOperations = [
 	updateListOperation,
 	deleteListOperation,
 ] as const;
+
+export const listOperationCatalog = defineOperationCatalog({
+	id: "lists",
+	title: "Subscriber lists",
+	operations: listOperations,
+});
 
 export type ListOperation = (typeof listOperations)[number];
 

@@ -11,6 +11,7 @@ import {
 	unwrapResourceResponse,
 	updateResourceSafety,
 } from "./resource-helpers";
+import { defineOperationCatalog } from "./catalog";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
@@ -467,6 +468,12 @@ export const campaignOperations = [
 	updateCampaignOperation,
 	deleteCampaignOperation,
 ] as const;
+
+export const campaignOperationCatalog = defineOperationCatalog({
+	id: "campaigns",
+	title: "Campaigns",
+	operations: campaignOperations,
+});
 
 export type CampaignOperation = (typeof campaignOperations)[number];
 

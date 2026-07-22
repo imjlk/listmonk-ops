@@ -3,6 +3,10 @@ import type { HandlerFunction } from "../types/shared.js";
 import { abtestTools, handleAbTestTools } from "./abtest.js";
 import { bouncesTools, handleBouncesTools } from "./bounces.js";
 import { campaignsTools, handleCampaignsTools } from "./campaigns.js";
+import {
+	handleOperationCatalogTools,
+	operationCatalogTools,
+} from "./catalog.js";
 import { handleListsTools, listsTools } from "./lists.js";
 import { handleMediaTools, mediaTools } from "./media.js";
 import { handleOpsTools, opsTools } from "./ops.js";
@@ -17,6 +21,7 @@ import {
 export * from "./abtest.js";
 export * from "./bounces.js";
 export * from "./campaigns.js";
+export * from "./catalog.js";
 export * from "./lists.js";
 export * from "./media.js";
 export * from "./ops.js";
@@ -30,6 +35,7 @@ export const allTools: readonly MCPTool[] = [
 	...subscribersTools,
 	...campaignsTools,
 	...templatesTools,
+	...operationCatalogTools,
 	...mediaTools,
 	...opsTools,
 	...bouncesTools,
@@ -46,6 +52,7 @@ export const toolNameSets = {
 	abtest: createToolNameSet(abtestTools),
 	bounces: createToolNameSet(bouncesTools),
 	campaigns: createToolNameSet(campaignsTools),
+	catalog: createToolNameSet(operationCatalogTools),
 	lists: createToolNameSet(listsTools),
 	media: createToolNameSet(mediaTools),
 	ops: createToolNameSet(opsTools),
@@ -65,6 +72,7 @@ export const toolRegistrations: readonly ToolRegistration[] = [
 	{ tools: subscribersTools, handler: handleSubscribersTools },
 	{ tools: campaignsTools, handler: handleCampaignsTools },
 	{ tools: templatesTools, handler: handleTemplatesTools },
+	{ tools: operationCatalogTools, handler: handleOperationCatalogTools },
 	{ tools: mediaTools, handler: handleMediaTools },
 	{ tools: opsTools, handler: handleOpsTools },
 	{ tools: bouncesTools, handler: handleBouncesTools },

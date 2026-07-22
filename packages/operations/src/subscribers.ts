@@ -11,6 +11,7 @@ import {
 	unwrapResourceResponse,
 	updateResourceSafety,
 } from "./resource-helpers";
+import { defineOperationCatalog } from "./catalog";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
@@ -419,6 +420,12 @@ export const subscriberOperations = [
 	updateSubscriberOperation,
 	deleteSubscriberOperation,
 ] as const;
+
+export const subscriberOperationCatalog = defineOperationCatalog({
+	id: "subscribers",
+	title: "Subscribers",
+	operations: subscriberOperations,
+});
 
 export type SubscriberOperation = (typeof subscriberOperations)[number];
 

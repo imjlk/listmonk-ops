@@ -14,6 +14,7 @@ export type { AbTestExecutors } from "./factory";
 export { createAbTestExecutors } from "./factory";
 export { ListmonkAbTestIntegration } from "./listmonk-integration";
 export {
+	abTestOperationCatalog,
 	abTestOperations,
 	getAbTestOperationByMcpName,
 	invokeAbTestOperationByMcpName,

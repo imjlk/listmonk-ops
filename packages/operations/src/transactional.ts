@@ -1,5 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { z } from "zod";
+import { defineOperationCatalog } from "./catalog";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
@@ -167,6 +168,12 @@ export async function invokeSendTransactionalOperation(
 }
 
 export const transactionalOperations = [sendTransactionalOperation] as const;
+
+export const transactionalOperationCatalog = defineOperationCatalog({
+	id: "transactional",
+	title: "Transactional mail",
+	operations: transactionalOperations,
+});
 
 export type TransactionalOperation = (typeof transactionalOperations)[number];
 

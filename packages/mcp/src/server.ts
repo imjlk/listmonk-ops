@@ -10,6 +10,7 @@ import {
 	handleAbTestTools,
 	handleBouncesTools,
 	handleCampaignsTools,
+	handleOperationCatalogTools,
 	handleListsTools,
 	handleMediaTools,
 	handleOpsTools,
@@ -169,6 +170,10 @@ export class ListmonkMCPServer {
 
 			if (toolNameSets.templates.has(name)) {
 				return await handleTemplatesTools(request, this.client);
+			}
+
+			if (toolNameSets.catalog.has(name)) {
+				return await handleOperationCatalogTools(request, this.client);
 			}
 
 			if (toolNameSets.media.has(name)) {

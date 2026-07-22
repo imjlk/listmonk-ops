@@ -49,10 +49,19 @@ describe("CLI contract", () => {
 			"tx",
 			"abtest",
 			"ops",
+			"operations",
 		]) {
 			expect(result.output).toContain(command);
 		}
 		expect(result.output).toMatch(/completions?|complete/);
+	});
+
+	test("lists shared operation contracts without Listmonk credentials", () => {
+		const result = runCli(["operations", "--family", "campaigns"]);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.output).toContain('"family": "campaigns"');
+		expect(result.output).toContain('"mcpName": "listmonk_get_campaigns"');
 	});
 
 	test("prints the package version", () => {

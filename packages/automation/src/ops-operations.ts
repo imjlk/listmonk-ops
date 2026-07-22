@@ -25,6 +25,7 @@ import {
 } from "./template-registry.js";
 import { getOpsStorePaths } from "./core.js";
 import {
+	defineOperationCatalog,
 	defineOperation,
 	normalizeOperationExecutionError,
 	parseOperationInput,
@@ -591,6 +592,12 @@ export const opsOperations = [
 	templateRegistryRollbackOperation,
 	dailyDigestOperation,
 ] as const;
+
+export const opsOperationCatalog = defineOperationCatalog({
+	id: "ops",
+	title: "Operations workflows",
+	operations: opsOperations,
+});
 
 export type OpsOperation = (typeof opsOperations)[number];
 

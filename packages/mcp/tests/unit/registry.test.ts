@@ -16,7 +16,7 @@ describe("MCP tool registry", () => {
 		expect(new Set(allTools.map((tool) => tool.name)).size).toBe(
 			allTools.length,
 		);
-		expect(allTools.length).toBe(63);
+		expect(allTools.length).toBe(64);
 	});
 
 	test("keeps tool-name matching exact", () => {
@@ -27,6 +27,7 @@ describe("MCP tool registry", () => {
 		expect(toolNameSets.settings.has("listmonk_get_settings_extra")).toBe(
 			false,
 		);
+		expect(toolNameSets.catalog.has("listmonk_list_operations")).toBe(true);
 	});
 
 	test("rejects duplicate registrations", () => {
