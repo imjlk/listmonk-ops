@@ -17,11 +17,15 @@ export type MailpitMessage = MailpitMessageSummary & {
 	HTML: string;
 };
 
-const mailpitApiRoot = (
-	process.env.MAILPIT_API_URL?.trim() || "http://127.0.0.1:8025/api/v1"
-).replace(/\/$/, "");
+function resolveMailpitApiRoot(): string {
+	return (
+		process.env.MAILPIT_API_URL?.trim() ||
+		"http://127.0.0.1:8025/api/v1"
+	).replace(/\/$/, "");
+}
 
 export async function fetchMailpitJson<T>(path: string): Promise<T> {
+	const mailpitApiRoot = resolveMailpitApiRoot();
 	const response = await fetch(`${mailpitApiRoot}${path}`);
 	if (!response.ok) {
 		throw new Error(

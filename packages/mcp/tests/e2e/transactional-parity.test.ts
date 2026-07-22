@@ -27,6 +27,12 @@ type TransactionalCliInput = {
 	traceId: string;
 };
 
+function resolveCliE2eCredential(
+	config: Pick<typeof TEST_CONFIG, "apiToken" | "password">,
+): string {
+	return config.apiToken || config.password;
+}
+
 function runCliTransactionalSend(input: TransactionalCliInput): CliResult {
 	const result = Bun.spawnSync(
 		[
@@ -54,7 +60,7 @@ function runCliTransactionalSend(input: TransactionalCliInput): CliResult {
 				BUN_FORCE_COLOR: "0",
 				LISTMONK_API_URL: TEST_CONFIG.baseUrl,
 				LISTMONK_USERNAME: TEST_CONFIG.username,
-				LISTMONK_API_TOKEN: TEST_CONFIG.apiToken ?? "",
+				LISTMONK_API_TOKEN: resolveCliE2eCredential(TEST_CONFIG),
 			},
 			stdout: "pipe",
 			stderr: "pipe",
@@ -80,6 +86,15 @@ function parseCliSentOutput(result: CliResult): { sent: true } {
 
 describe("Transactional CLI and MCP parity", () => {
 	const { client, utils } = createMCPTestSuite();
+
+	test("uses the legacy password when the E2E token is unavailable", () => {
+		expect(
+			resolveCliE2eCredential({
+				apiToken: undefined,
+				password: "legacy-password",
+			}),
+		).toBe("legacy-password");
+	});
 
 	test("sends equivalent contracts through the local Mailpit stack", async () => {
 		const cliRecipient = buildTestEmail("transactional-cli");

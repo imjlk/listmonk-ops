@@ -106,6 +106,8 @@ const findMailpitMessage =
 	"packages/mcp/tests/e2e/mailpit.ts#findMailpitMessage:function";
 const fetchMailpitJson =
 	"packages/mcp/tests/e2e/mailpit.ts#fetchMailpitJson:function";
+const mailpitHelperRegressionTest =
+	"packages/mcp/tests/unit/mailpit.test.ts#packages/mcp/tests/unit/mailpit.test.ts:module";
 
 const cliOperationCatalogHandler =
 	"apps/cli/src/commands/operations.ts#handleListOperationsCommand:function";
@@ -980,6 +982,10 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	{
 		label: "MCP transactional E2E tests inspect Mailpit delivery",
 		path: [mcpTransactionalE2eTest, findMailpitMessage, fetchMailpitJson],
+	},
+	{
+		label: "Mailpit helper has a direct request-time URL regression test",
+		path: [mailpitHelperRegressionTest, fetchMailpitJson],
 	},
 	{
 		label: "CLI/MCP transactional parity E2E invokes the CLI subprocess runner",
