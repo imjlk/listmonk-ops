@@ -110,6 +110,31 @@ describe("Lists MCP Tools", () => {
 		});
 	});
 
+	test("should reject unsupported dry-run input before deleting a list", async () => {
+		const createdList = await utils.createTestList();
+		const listId = (createdList as { id: number }).id;
+
+		try {
+			const result = await client.callTool("listmonk_delete_list", {
+				id: listId.toString(),
+				confirm: true,
+				dry_run: "true",
+			});
+
+			utils.assertError(result, "Operation lists.delete does not support dry_run");
+
+			const getResult = await client.callTool("listmonk_get_list", {
+				id: listId.toString(),
+			});
+			expect(utils.assertSuccess<{ id: number }>(getResult).id).toBe(listId);
+		} finally {
+			await client.callTool("listmonk_delete_list", {
+				id: listId.toString(),
+				confirm: true,
+			});
+		}
+	});
+
 	test("should handle validation errors", async () => {
 		// Test missing required fields
 		const result = await client.callTool("listmonk_create_list", {

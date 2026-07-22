@@ -87,6 +87,24 @@ describe("MCP operation execution safety", () => {
 			McpOperationDryRunUnsupportedError,
 		);
 
+		const unsupportedStringDryRun = getMcpOperationExecution(
+			request("listmonk_delete_list", {
+				id: "8",
+				confirm: true,
+				dry_run: "true",
+			}),
+		);
+		expect(unsupportedStringDryRun).toMatchObject({
+			dryRunProvided: true,
+			dryRunRequested: false,
+		});
+		if (!unsupportedStringDryRun) {
+			throw new Error("Expected shared delete operation metadata");
+		}
+		expect(() => assertMcpOperationDryRun(unsupportedStringDryRun)).toThrow(
+			McpOperationDryRunUnsupportedError,
+		);
+
 		const actualDryRun = getMcpOperationExecution(
 			request("listmonk_ops_subscriber_hygiene", {
 				confirm: true,

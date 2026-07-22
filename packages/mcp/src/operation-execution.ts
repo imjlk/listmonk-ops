@@ -16,6 +16,7 @@ export type McpOperationExecution = Readonly<{
 	operation: OperationCatalogItem;
 	policy: OperationExecutionPolicy;
 	confirmed: boolean;
+	dryRunProvided: boolean;
 	dryRunRequested: boolean;
 	dryRun: boolean;
 	request: CallToolRequest;
@@ -102,6 +103,7 @@ export function getMcpOperationExecution(
 	const operationRequest = policy.confirmationRequired
 		? withoutMcpOperationConfirmation(request)
 		: request;
+	const dryRunProvided = Object.hasOwn(arguments_, "dry_run");
 	const dryRunRequested = arguments_.dry_run === true;
 	const effectiveDryRun = policy.dryRunSupported
 		? getOperationEffectiveDryRun(operation, operationRequest.params.arguments)
@@ -112,6 +114,7 @@ export function getMcpOperationExecution(
 		operation,
 		policy,
 		confirmed,
+		dryRunProvided,
 		dryRunRequested,
 		dryRun,
 		request: operationRequest,
@@ -119,7 +122,7 @@ export function getMcpOperationExecution(
 }
 
 export function assertMcpOperationDryRun(execution: McpOperationExecution): void {
-	if (execution.dryRunRequested && !execution.policy.dryRunSupported) {
+	if (execution.dryRunProvided && !execution.policy.dryRunSupported) {
 		throw new McpOperationDryRunUnsupportedError(execution.operation.id);
 	}
 }
