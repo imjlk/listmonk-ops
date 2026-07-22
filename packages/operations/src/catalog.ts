@@ -3,20 +3,24 @@ import type {
 	OperationMcpMetadata,
 	OperationSafety,
 } from "./operation";
+import type { z } from "zod";
 import {
 	getOperationExecutionPolicy,
 	type OperationExecutionPolicy,
 } from "./execution-policy";
 
 /**
- * The metadata every shared operation already exposes. The catalog deliberately
- * omits `invoke`: each surface keeps using its named domain invokers so the
- * runtime architecture stays explicit and graph-visible.
+ * The runtime metadata every shared operation already exposes. The catalog
+ * deliberately omits `invoke`: each surface keeps using its named domain
+ * invokers so the runtime architecture stays explicit and graph-visible.
+ * Input schemas remain available only for transport-side safety controls that
+ * must account for preprocessing and defaults.
  */
 export type OperationCatalogItem = Readonly<{
 	id: string;
 	title: string;
 	description: string;
+	inputSchema: z.ZodType;
 	inputJsonSchema: ObjectJsonSchema;
 	outputJsonSchema: ObjectJsonSchema;
 	safety: OperationSafety;

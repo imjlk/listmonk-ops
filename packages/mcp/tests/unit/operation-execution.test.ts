@@ -100,6 +100,16 @@ describe("MCP operation execution safety", () => {
 			dryRun: true,
 			request: { params: { arguments: { dry_run: true } } },
 		});
+
+		const defaultDryRun = getMcpOperationExecution(
+			request("listmonk_ops_subscriber_hygiene", { confirm: true }),
+		);
+		expect(defaultDryRun).toMatchObject({
+			operation: { id: "ops.subscribers.hygiene" },
+			dryRunRequested: false,
+			dryRun: true,
+			request: { params: { arguments: {} } },
+		});
 	});
 
 	test("blocks an unconfirmed destructive operation before it reaches Listmonk", async () => {
@@ -148,6 +158,31 @@ describe("MCP operation execution safety", () => {
 			}),
 		]);
 		expect(entries[0]?.executionId).toBe(entries[1]?.executionId);
+	});
+
+	test("records a defaulted hygiene preview as a dry run", async () => {
+		const { auditStorePath, server } = await createAuditedServer();
+		replaceServerClient(
+			server,
+			{
+				subscriber: {
+					list: async () => ({ data: [] }),
+				},
+			} as unknown as ListmonkClient,
+		);
+
+		const result = await server.callTool(
+			request("listmonk_ops_subscriber_hygiene", { confirm: true }),
+		);
+
+		expect(result.isError).not.toBe(true);
+		expect(result.structuredContent).toMatchObject({ dryRun: true });
+		const entries = await listOperationAuditEntries({ path: auditStorePath });
+		expect(entries.map((entry) => entry.event)).toEqual([
+			"started",
+			"succeeded",
+		]);
+		expect(entries.every((entry) => entry.dryRun)).toBe(true);
 	});
 
 	test("blocks an unsupported dry run before it reaches Listmonk", async () => {

@@ -131,6 +131,8 @@ const sharedOperationCatalogEntrySummary =
 	"packages/operations/src/catalog.ts#toSummary:function";
 const sharedOperationExecutionPolicy =
 	"packages/operations/src/execution-policy.ts#getOperationExecutionPolicy:function";
+const sharedOperationEffectiveDryRun =
+	"packages/operations/src/execution-policy.ts#getOperationEffectiveDryRun:function";
 const sharedOperationConfirmation =
 	"packages/operations/src/execution-policy.ts#assertOperationConfirmation:function";
 const sharedOperationCatalogLookup =
@@ -1067,6 +1069,10 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 		path: [operationExecutionPolicyTest, sharedOperationConfirmation],
 	},
 	{
+		label: "Operation execution-policy tests anchor effective dry-run resolution",
+		path: [operationExecutionPolicyTest, sharedOperationEffectiveDryRun],
+	},
+	{
 		label: "Operation audit tests anchor atomic audit persistence",
 		path: [operationAuditTest, recordOperationAudit, updateJsonFileStore],
 	},
@@ -1089,6 +1095,14 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	{
 		label: "MCP central boundary resolves execution metadata before dispatch",
 		path: [mcpCallTool, mcpOperationExecutionResolver],
+	},
+	{
+		label: "MCP execution resolver applies shared dry-run defaults",
+		path: [
+			mcpOperationExecutionTest,
+			mcpOperationExecutionResolver,
+			sharedOperationEffectiveDryRun,
+		],
 	},
 	{
 		label: "MCP central boundary rejects unsupported dry runs",

@@ -1,5 +1,6 @@
 import {
 	getOperationCatalogEntryByMcpName,
+	getOperationEffectiveDryRun,
 	getOperationExecutionPolicy,
 	type ObjectJsonSchema,
 	type OperationCatalogItem,
@@ -98,8 +99,14 @@ export function getMcpOperationExecution(
 	const arguments_ = request.params.arguments ?? {};
 	const confirmed =
 		arguments_[MCP_OPERATION_CONFIRMATION_ARGUMENT] === true;
+	const operationRequest = policy.confirmationRequired
+		? withoutMcpOperationConfirmation(request)
+		: request;
 	const dryRunRequested = arguments_.dry_run === true;
-	const dryRun = policy.dryRunSupported && dryRunRequested;
+	const effectiveDryRun = policy.dryRunSupported
+		? getOperationEffectiveDryRun(operation, operationRequest.params.arguments)
+		: undefined;
+	const dryRun = policy.dryRunSupported && (effectiveDryRun ?? dryRunRequested);
 
 	return {
 		operation,
@@ -107,9 +114,7 @@ export function getMcpOperationExecution(
 		confirmed,
 		dryRunRequested,
 		dryRun,
-		request: policy.confirmationRequired
-			? withoutMcpOperationConfirmation(request)
-			: request,
+		request: operationRequest,
 	};
 }
 
