@@ -49,6 +49,20 @@ type TemplateTypes = ResourceTypes<
 	t.DeleteTemplateByIdData
 >;
 
+export interface TemplateOperations
+	extends CrudOperations<
+		t.Template,
+		TemplateTypes["create"],
+		TemplateTypes["update"],
+		TemplateTypes["get"],
+		TemplateTypes["getById"],
+		TemplateTypes["delete"]
+	> {
+	setAsDefault(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<unknown>>;
+}
+
 interface MediaOperations {
 	list(options?: t.GetMediaData): Promise<ListResult<t.MediaFileObject>>;
 	getById(options: {
@@ -269,18 +283,7 @@ export interface EnhancedListmonkClient {
 			query: { from: string; to: string; id: string };
 		}): Promise<FlattenedResponse<Record<string, unknown>>>;
 	};
-	template: CrudOperations<
-		t.Template,
-		TemplateTypes["create"],
-		TemplateTypes["update"],
-		TemplateTypes["get"],
-		TemplateTypes["getById"],
-		TemplateTypes["delete"]
-	> & {
-		setAsDefault(options: {
-			path: { id: number };
-		}): Promise<FlattenedResponse<t.Template>>;
-	};
+	template: TemplateOperations;
 	media: MediaOperations & {
 		upload(options: {
 			body: File | Blob;

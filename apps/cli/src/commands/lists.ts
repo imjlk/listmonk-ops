@@ -243,6 +243,7 @@ export default defineGroup({
 	commands: [
 		defineCommand({
 			name: "list",
+			operationId: "lists.list",
 			description: "List subscriber lists",
 			options: {
 				page: option(z.coerce.number().int().positive().optional(), {
@@ -257,6 +258,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "get",
+			operationId: "lists.get",
 			description: "Get list details",
 			options: {
 				id: option(z.coerce.number().int().positive(), {
@@ -267,6 +269,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "create",
+			operationId: "lists.create",
 			description: "Create a subscriber list",
 			options: {
 				name: option(z.string().trim().min(1), {
@@ -289,6 +292,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "update",
+			operationId: "lists.update",
 			description: "Update a subscriber list",
 			options: {
 				id: option(z.coerce.number().int().positive(), {
@@ -314,6 +318,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "delete",
+			operationId: "lists.delete",
 			description: "Delete a subscriber list",
 			options: {
 				id: option(z.coerce.number().int().positive(), {

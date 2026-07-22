@@ -155,12 +155,33 @@ const mcpOperationAuditRecorder =
 	"packages/mcp/src/server.ts#ListmonkMCPServer.recordMcpOperationAudit:method";
 const mcpOperationExecutionCompleter =
 	"packages/mcp/src/server.ts#ListmonkMCPServer.completeMcpOperationExecution:method";
+const cliDefineCommand = "apps/cli/src/lib/command.ts#defineCommand:function";
+const cliCommandAdapterTest =
+	"apps/cli/tests/command.test.ts#apps/cli/tests/command.test.ts:module";
+const cliOperationExecutionTest =
+	"apps/cli/tests/operation-execution.test.ts#apps/cli/tests/operation-execution.test.ts:module";
+const cliOperationExecutionResolver =
+	"apps/cli/src/operation-execution.ts#getCliOperationExecution:function";
+const cliOperationExecutor =
+	"apps/cli/src/operation-execution.ts#executeCliOperation:function";
+const cliOperationAuditRecorder =
+	"apps/cli/src/operation-execution.ts#recordCliOperationAudit:function";
 const cliOperationCatalogTest =
 	"apps/cli/tests/operation-catalog.test.ts#apps/cli/tests/operation-catalog.test.ts:module";
 const mcpOperationCatalogTest =
 	"packages/mcp/tests/unit/catalog.test.ts#packages/mcp/tests/unit/catalog.test.ts:module";
 const operationCatalogParityTest =
 	"scripts/operation-coverage.test.ts#scripts/operation-coverage.test.ts:module";
+const cliMcpTemplateParityE2eTest =
+	"packages/mcp/tests/e2e/templates-parity.test.ts#packages/mcp/tests/e2e/templates-parity.test.ts:module";
+const cliTemplateParityRunner =
+	"packages/mcp/tests/e2e/templates-parity.test.ts#runCliSetDefaultTemplate:function";
+const templateSetDefaultInvoker =
+	"packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function";
+const templateSetDefaultAction =
+	"packages/operations/src/templates.ts#setDefaultTemplate:function";
+const openapiTemplateSetDefaultMethod =
+	"packages/openapi/src/client/contracts.ts#TemplateOperations.setAsDefault:method";
 
 const cliOpsModule =
 	"apps/cli/src/commands/ops.ts#apps/cli/src/commands/ops.ts:module";
@@ -880,6 +901,78 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 	}),
 ];
 
+const templateSetDefaultContracts: readonly CallPathContract[] = [
+	{
+		label: "CLI template default selection reaches the shared action",
+		path: [
+			"apps/cli/src/commands/templates.ts#handleSetDefaultTemplateCommand:function",
+			"apps/cli/src/commands/templates.ts#renderSetDefaultTemplate:function",
+			templateSetDefaultInvoker,
+			templateSetDefaultAction,
+			openapiTemplateSetDefaultMethod,
+		],
+	},
+	{
+		label: "MCP template default selection reaches the shared action",
+		path: [
+			mcpCallTool,
+			"packages/mcp/src/handlers/templates.ts#handleTemplatesTools:function",
+			"packages/operations/src/templates.ts#invokeTemplateOperationByMcpName:function",
+			templateSetDefaultInvoker,
+			templateSetDefaultAction,
+			openapiTemplateSetDefaultMethod,
+		],
+	},
+	{
+		label: "CLI template default tests anchor the shared renderer",
+		path: [
+			"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+			"apps/cli/src/commands/templates.ts#renderSetDefaultTemplate:function",
+			templateSetDefaultInvoker,
+		],
+	},
+	{
+		label: "MCP template default tests anchor the shared dispatcher",
+		path: [
+			"packages/mcp/tests/unit/resources.test.ts#packages/mcp/tests/unit/resources.test.ts:module",
+			"packages/mcp/src/handlers/templates.ts#handleTemplatesTools:function",
+			"packages/operations/src/templates.ts#invokeTemplateOperationByMcpName:function",
+			templateSetDefaultInvoker,
+		],
+	},
+	{
+		label: "Template default operation tests anchor the named action",
+		path: [
+			"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+			templateSetDefaultInvoker,
+			templateSetDefaultAction,
+		],
+	},
+	{
+		label: "OpenAPI template default tests anchor the named client method",
+		path: [
+			"packages/openapi/tests/templates-contract.test.ts#packages/openapi/tests/templates-contract.test.ts:module",
+			openapiTemplateSetDefaultMethod,
+		],
+	},
+	{
+		label: "CLI/MCP template default parity E2E invokes the CLI subprocess runner",
+		path: [cliMcpTemplateParityE2eTest, cliTemplateParityRunner],
+	},
+	{
+		label: "CLI/MCP template default parity E2E reaches the shared MCP action",
+		path: [
+			cliMcpTemplateParityE2eTest,
+			mcpTestClientCallTool,
+			mcpCallTool,
+			"packages/mcp/src/handlers/templates.ts#handleTemplatesTools:function",
+			"packages/operations/src/templates.ts#invokeTemplateOperationByMcpName:function",
+			templateSetDefaultInvoker,
+			templateSetDefaultAction,
+		],
+	},
+];
+
 export const architectureCallPaths: readonly CallPathContract[] = [
 	{
 		label: "CLI list command reaches the handwritten OpenAPI list method",
@@ -1139,9 +1232,55 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			mcpOperationExecutionResolver,
 		],
 	},
+	{
+		label: "CLI command adapter enters the shared execution-safety boundary",
+		path: [cliDefineCommand, cliOperationExecutor],
+	},
+	{
+		label: "CLI command tests exercise configured execution safety",
+		path: [cliCommandAdapterTest, cliDefineCommand, cliOperationExecutor],
+	},
+	{
+		label: "Interactive A/B creation enters the shared execution-safety boundary",
+		path: [cliAbTestModule, cliOperationExecutor],
+	},
+	{
+		label: "CLI execution-safety tests anchor registry policy resolution",
+		path: [
+			cliOperationExecutionTest,
+			cliOperationExecutionResolver,
+			sharedOperationExecutionPolicy,
+		],
+	},
+	{
+		label: "CLI execution resolver applies shared dry-run defaults",
+		path: [
+			cliOperationExecutionTest,
+			cliOperationExecutionResolver,
+			sharedOperationEffectiveDryRun,
+		],
+	},
+	{
+		label: "CLI execution boundary enforces shared operation confirmation",
+		path: [cliOperationExecutor, sharedOperationConfirmation],
+	},
+	{
+		label: "CLI execution boundary writes audit events atomically",
+		path: [
+			cliOperationExecutor,
+			cliOperationAuditRecorder,
+			recordOperationAudit,
+			updateJsonFileStore,
+		],
+	},
+	{
+		label: "CLI execution-safety tests exercise the central enforcement boundary",
+		path: [cliOperationExecutionTest, cliOperationExecutor],
+	},
 	...listInvokerContracts,
 	...cliListMutationContracts,
 	...resourceCrudContracts,
+	...templateSetDefaultContracts,
 	...opsOperationContracts,
 	...abTestOperationContracts,
 	...abTestTestContracts,

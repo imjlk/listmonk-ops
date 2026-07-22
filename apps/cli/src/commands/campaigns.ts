@@ -335,6 +335,7 @@ export default defineGroup({
 	commands: [
 		defineCommand({
 			name: "list",
+			operationId: "campaigns.list",
 			description: "List campaigns",
 			options: {
 				page: option(z.coerce.number().int().positive().optional(), {
@@ -354,6 +355,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "get",
+			operationId: "campaigns.get",
 			description: "Get campaign details",
 			options: {
 				id: option(z.coerce.number().int().positive(), { description: "Campaign ID" }),
@@ -363,6 +365,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "create",
+			operationId: "campaigns.create",
 			description: "Create a campaign",
 			options: {
 				name: option(z.string().trim().min(1), { description: "Campaign name" }),
@@ -390,6 +393,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "update",
+			operationId: "campaigns.update",
 			description: "Update a campaign",
 			options: {
 				id: option(z.coerce.number().int().positive(), { description: "Campaign ID" }),
@@ -418,6 +422,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "delete",
+			operationId: "campaigns.delete",
 			description: "Delete a campaign",
 			options: {
 				id: option(z.coerce.number().int().positive(), { description: "Campaign ID" }),

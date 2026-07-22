@@ -9,6 +9,7 @@ import {
 	type SubscribersCliContext,
 } from "../src/commands/subscribers";
 import {
+	renderSetDefaultTemplate,
 	renderUpdateTemplate,
 	type TemplatesCliContext,
 } from "../src/commands/templates";
@@ -107,5 +108,28 @@ describe("campaign, subscriber, and template CLI actions", () => {
 				body_source: undefined,
 			},
 		});
+	});
+
+	test("sets a default template through the shared operation", async () => {
+		const setAsDefault = mock(async () => ({
+			data: [],
+		}));
+		const cliContext = {
+			client: { template: { setAsDefault } } as unknown as Pick<
+				ListmonkClient,
+				"template"
+			>,
+			output: output(),
+		} satisfies TemplatesCliContext;
+
+		await renderSetDefaultTemplate(cliContext, { id: 5 });
+
+		expect(setAsDefault).toHaveBeenCalledWith({ path: { id: 5 } });
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Default template set: 5",
+		);
+		expect(cliContext.output.json).toHaveBeenCalledWith(
+			{ id: 5, set_default: true },
+		);
 	});
 });

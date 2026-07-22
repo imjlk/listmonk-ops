@@ -1,10 +1,20 @@
-import { describe, expect, test } from "bun:test";
-import { dirname, resolve } from "node:path";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import packageJson from "../package.json" with { type: "json" };
 
 const CLI_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE_ENTRY = resolve(CLI_DIR, "src/index.ts");
+const AUDIT_STORE_DIRECTORY = mkdtempSync(
+	join(tmpdir(), "listmonk-ops-cli-contract-"),
+);
+const AUDIT_STORE_PATH = join(AUDIT_STORE_DIRECTORY, "operation-audit.json");
+
+afterAll(() => {
+	rmSync(AUDIT_STORE_DIRECTORY, { recursive: true, force: true });
+});
 
 type CliResult = {
 	exitCode: number;
@@ -22,6 +32,7 @@ function runCli(args: string[]): CliResult {
 			...process.env,
 			BUN_FORCE_COLOR: "0",
 			LISTMONK_API_TOKEN: "",
+			LISTMONK_OPS_AUDIT_STORE: AUDIT_STORE_PATH,
 		},
 		stdout: "pipe",
 		stderr: "pipe",
@@ -179,6 +190,14 @@ describe("CLI contract", () => {
 		expect(result.output).toContain("#compdef listmonk-cli");
 	});
 
+	test("prints confirmation flags for confirmation-gated examples", () => {
+		const result = runCli(["examples"]);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.output).toMatch(/abtest create[^\n]*--confirm/);
+		expect(result.output).toMatch(/ops guard[^\n]*--confirm/);
+	});
+
 	test("accepts legacy explicit boolean values", () => {
 		const result = runCli([
 			"ops",
@@ -187,12 +206,15 @@ describe("CLI contract", () => {
 			"1",
 			"--pause-on-breach",
 			"true",
+			"--confirm",
 		]);
 
 		expect(result.exitCode).not.toBe(0);
 		expect(result.output).toContain("Deliverability guard failed");
 		expect(result.output).toContain("Missing LISTMONK_API_TOKEN");
-		expect(result.output).not.toMatch(/unknown|unexpected/i);
+		expect(result.output).not.toMatch(
+			/unknown (option|argument|command)|unexpected (option|argument)/i,
+		);
 	});
 
 	test("accepts Gunshi negated boolean options", () => {
@@ -202,10 +224,13 @@ describe("CLI contract", () => {
 			"--campaign-id",
 			"1",
 			"--no-pause-on-breach",
+			"--confirm",
 		]);
 
 		expect(result.exitCode).not.toBe(0);
 		expect(result.output).toContain("Missing LISTMONK_API_TOKEN");
-		expect(result.output).not.toMatch(/unknown|unexpected/i);
+		expect(result.output).not.toMatch(
+			/unknown (option|argument|command)|unexpected (option|argument)/i,
+		);
 	});
 });

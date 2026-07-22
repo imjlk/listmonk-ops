@@ -258,6 +258,7 @@ export default defineGroup({
 	commands: [
 		defineCommand({
 			name: "list",
+			operationId: "subscribers.list",
 			description: "List subscribers",
 			options: {
 				page: option(z.coerce.number().int().positive().optional(), { description: "Page number" }),
@@ -272,12 +273,14 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "get",
+			operationId: "subscribers.get",
 			description: "Get subscriber details",
 			options: { id: option(z.coerce.number().int().positive(), { description: "Subscriber ID" }) },
 			handler: handleGetSubscriberCommand,
 		}),
 		defineCommand({
 			name: "create",
+			operationId: "subscribers.create",
 			description: "Create a subscriber",
 			options: {
 				email: option(z.string().trim().email(), { description: "Subscriber email" }),
@@ -292,6 +295,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "update",
+			operationId: "subscribers.update",
 			description: "Update a subscriber",
 			options: {
 				id: option(z.coerce.number().int().positive(), { description: "Subscriber ID" }),
@@ -307,6 +311,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "delete",
+			operationId: "subscribers.delete",
 			description: "Delete a subscriber",
 			options: { id: option(z.coerce.number().int().positive(), { description: "Subscriber ID" }) },
 			handler: handleDeleteSubscriberCommand,

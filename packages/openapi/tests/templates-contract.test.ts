@@ -73,13 +73,7 @@ describe("Template Operations Contract", () => {
 					url.pathname === "/api/templates/1/default"
 				) {
 					return Response.json({
-						data: {
-							id: 1,
-							name: "Template A",
-							body: "<p>Hello</p>",
-							type: "campaign",
-							is_default: true,
-						},
+						data: [],
 					});
 				}
 
@@ -142,13 +136,12 @@ describe("Template Operations Contract", () => {
 		expect(requests[0]?.pathname).toBe("/api/templates/1");
 	});
 
-	test("template.setAsDefault should call PUT /api/templates/{id}/default", async () => {
+	test("template.setAsDefault preserves the endpoint acknowledgement", async () => {
 		const response = await client.template.setAsDefault({
 			path: { id: 1 },
 		});
 
-		expect(response.data.id).toBe(1);
-		expect(response.data.is_default).toBe(true);
+		expect(response.data).toEqual([]);
 		expect(requests[0]?.method).toBe("PUT");
 		expect(requests[0]?.pathname).toBe("/api/templates/1/default");
 	});

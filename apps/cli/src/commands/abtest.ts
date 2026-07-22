@@ -29,6 +29,7 @@ import {
 	toErrorMessage,
 } from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
+import { executeCliOperation } from "../operation-execution";
 
 type VariantInput = {
 	name: string;
@@ -491,6 +492,7 @@ export default defineGroup({
 	commands: [
 		defineCommand({
 			name: "list",
+			operationId: "abtest.list",
 			description: "List A/B tests from persisted state",
 			handler: async (args) => {
 				try {
@@ -529,10 +531,18 @@ export default defineGroup({
 					const { input, autoLaunch } = await promptInteractiveInput(
 						prompt.clack,
 					);
-					const { test: created } = await invokeCliCreateAbTest(
-						args,
-						{ ...input, auto_launch: autoLaunch },
-					);
+					const { test: created } = await executeCliOperation({
+						operationId: "abtest.create",
+						input: { ...input, auto_launch: autoLaunch },
+						// The interactive flow has already received an explicit create
+						// confirmation immediately before this operation boundary.
+						confirmed: true,
+						invoke: () =>
+							invokeCliCreateAbTest(args, {
+								...input,
+								auto_launch: autoLaunch,
+							}),
+					});
 
 					OutputUtils.success(`A/B test created: ${created.id}`);
 					OutputUtils.json(created);
@@ -545,6 +555,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "create",
+			operationId: "abtest.create",
 			description: "Create an A/B test from JSON variant config",
 			options: {
 				name: option(z.string().trim().min(1), {
@@ -606,6 +617,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "analyze",
+			operationId: "abtest.analyze",
 			description: "Analyze A/B test results",
 			options: {
 				"test-id": option(z.string().trim().min(1), {
@@ -644,6 +656,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "recommend-sample-size",
+			operationId: "abtest.recommend-sample-size",
 			description: "Recommend A/B test sample size",
 			options: {
 				lists: option(z.string().trim().min(1), {
@@ -680,6 +693,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "get",
+			operationId: "abtest.get",
 			description: "Get A/B test details",
 			options: {
 				"test-id": option(z.string().trim().min(1), {
@@ -700,6 +714,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "launch",
+			operationId: "abtest.launch",
 			description: "Launch a draft A/B test",
 			options: {
 				"test-id": option(z.string().trim().min(1), {
@@ -723,6 +738,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "stop",
+			operationId: "abtest.stop",
 			description: "Stop a running A/B test",
 			options: {
 				"test-id": option(z.string().trim().min(1), {
@@ -744,6 +760,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "deploy-winner",
+			operationId: "abtest.deploy-winner",
 			description: "Deploy the statistically significant winner",
 			options: {
 				"test-id": option(z.string().trim().min(1), {
@@ -770,6 +787,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "delete",
+			operationId: "abtest.delete",
 			description: "Delete an A/B test from persisted store",
 			options: {
 				"test-id": option(z.string().trim().min(1), {

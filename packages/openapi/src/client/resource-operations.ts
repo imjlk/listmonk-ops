@@ -6,6 +6,7 @@ import type {
 	EnhancedListmonkClient,
 	List,
 	Subscriber,
+	TemplateOperations,
 } from "./contracts";
 import { createCrudOperations, type SdkOptions } from "./crud";
 import type { CrudResult, FlattenedResponse } from "./response";
@@ -231,7 +232,7 @@ export function createCampaignOperations(
 
 export function createTemplateOperations(
 	sdkOptions: SdkOptions,
-): EnhancedListmonkClient["template"] {
+): TemplateOperations {
 	return {
 		...createCrudOperations<t.Template>("Template", sdkOptions),
 		async setAsDefault(options: { path: { id: number } }) {
@@ -239,7 +240,7 @@ export function createTemplateOperations(
 				...sdkOptions,
 				...options,
 			});
-			return (await transformResponse(result)) as FlattenedResponse<t.Template>;
+			return (await transformResponse(result)) as FlattenedResponse<unknown>;
 		},
 	};
 }

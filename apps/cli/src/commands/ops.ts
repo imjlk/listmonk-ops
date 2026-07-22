@@ -28,6 +28,7 @@ export default defineGroup({
 	commands: [
 		defineCommand({
 			name: "preflight",
+			operationId: "ops.campaign.preflight",
 			description: "Run pre-send campaign preflight checks",
 			options: {
 				"campaign-id": option(z.coerce.number().int().positive(), {
@@ -71,6 +72,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "guard",
+			operationId: "ops.campaign.deliverability-guard",
 			description:
 				"Evaluate deliverability guard and optionally pause campaign",
 			options: {
@@ -123,6 +125,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "hygiene",
+			operationId: "ops.subscribers.hygiene",
 			description: "Run subscriber hygiene workflow (winback/sunset)",
 			options: {
 				mode: option(z.enum(["winback", "sunset"]).default("winback"), {
@@ -185,6 +188,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "segment-drift",
+			operationId: "ops.segments.drift",
 			description: "Snapshot list sizes and detect segment drift",
 			options: {
 				"list-ids": option(z.string().trim().optional(), {
@@ -231,6 +235,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "templates-sync",
+			operationId: "ops.templates.registry-sync",
 			description: "Sync Listmonk templates into local version registry",
 			options: {
 				"template-ids": option(z.string().trim().optional(), {
@@ -263,6 +268,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "templates-history",
+			operationId: "ops.templates.registry-history",
 			description: "Show template version history from local registry",
 			options: {
 				"template-id": option(z.coerce.number().int().positive(), {
@@ -285,6 +291,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "templates-promote",
+			operationId: "ops.templates.registry-promote",
 			description: "Promote a stored template version to active content",
 			options: {
 				"template-id": option(z.coerce.number().int().positive(), {
@@ -312,6 +319,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "templates-rollback",
+			operationId: "ops.templates.registry-rollback",
 			description: "Rollback template to previous stored version",
 			options: {
 				"template-id": option(z.coerce.number().int().positive(), {
@@ -333,6 +341,7 @@ export default defineGroup({
 		}),
 		defineCommand({
 			name: "digest",
+			operationId: "ops.digest.daily",
 			description: "Generate daily operations digest",
 			options: {
 				hours: option(z.coerce.number().int().positive().default(24), {
