@@ -140,6 +140,9 @@ bun run graph:dump
 # Open the local interactive graph viewer
 bun run graph:view
 
+# Verify shared operation registry, MCP adapter, and direct test anchors
+bun run graph:coverage
+
 # Include generated OpenAPI SDK files as explicit debugging roots
 bun run graph:openapi:dump
 

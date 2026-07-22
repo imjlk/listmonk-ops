@@ -401,10 +401,15 @@ bun run --cwd packages/openapi generate
 - `packages/openapi/generated/*`
 
 기본 컴파일러 graph는 수기 OpenAPI 모듈과 TypeScript 테스트를 명시적
-root로 사용합니다. 생성 SDK 내부까지 graph root로 조사할 때는 별도 debug
-설정을 사용합니다.
+root로 사용합니다. `bun run graph:coverage`로 공유 operation registry가 MCP
+어댑터와 direct-import 테스트에 계속 연결되는지 검증할 수 있습니다. 생성 SDK
+내부까지 graph root로 조사할 때는 별도 debug 설정을 사용합니다.
 
 ```bash
+# 공유 operation registry·MCP 어댑터·직접 테스트 앵커 검사
+bun run graph:coverage
+
+# 생성 SDK 내부를 명시적 graph root로 조사
 bun run graph:openapi:dump
 bun run graph:openapi:view
 ```

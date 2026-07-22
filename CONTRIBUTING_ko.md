@@ -140,6 +140,9 @@ bun run graph:dump
 # 로컬 인터랙티브 그래프 뷰어 실행
 bun run graph:view
 
+# 공유 operation registry·MCP 어댑터·직접 테스트 앵커 검사
+bun run graph:coverage
+
 # 생성 OpenAPI SDK 파일을 명시적 debug root로 포함
 bun run graph:openapi:dump
 

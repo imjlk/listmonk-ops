@@ -401,10 +401,16 @@ Generated artifacts are written to:
 - `packages/openapi/generated/*`
 
 The default compiler graph keeps handwritten OpenAPI modules and TypeScript
-tests as explicit roots. To inspect generated SDK internals as graph roots, use
-the separate debug configuration:
+tests as explicit roots. Use `bun run graph:coverage` to verify that shared
+operation registries remain connected to MCP adapters and direct-import tests.
+To inspect generated SDK internals as graph roots, use the separate debug
+configuration:
 
 ```bash
+# Verify shared operation registry, MCP adapter, and direct test anchors
+bun run graph:coverage
+
+# Inspect generated SDK internals as explicit graph roots
 bun run graph:openapi:dump
 bun run graph:openapi:view
 ```
