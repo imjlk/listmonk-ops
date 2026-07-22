@@ -52,19 +52,6 @@ export class CliOperationAuditStartError extends Error {
 	}
 }
 
-export class CliOperationAuditBlockedError extends Error {
-	public readonly operationId: string;
-
-	public constructor(operationId: string, cause: unknown) {
-		super(
-			`Unable to record blocked audit event for operation ${operationId}: ${toErrorMessage(cause)}`,
-			{ cause },
-		);
-		this.name = "CliOperationAuditBlockedError";
-		this.operationId = operationId;
-	}
-}
-
 function normalizeCliOperationInput(
 	input: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
@@ -103,7 +90,7 @@ export function getCliOperationExecution(
 		: undefined;
 	const dryRun =
 		policy.dryRunSupported &&
-		(resolvedDryRun ?? operationInput.dry_run === true);
+		(resolvedDryRun ?? (operationInput.dry_run === true));
 
 	return { operation, policy, confirmed, dryRun };
 }
@@ -155,9 +142,25 @@ async function completeCliOperationExecution(
 		// A durable started event already records the remote attempt. Replacing a
 		// remote result or error with a terminal audit failure could invite an
 		// unsafe retry, so report it without changing command semantics.
-		onAuditError(
+		reportCliOperationAuditError(
+			onAuditError,
 			`Unable to record CLI operation audit ${event} for ${execution.operation.id}: ${toErrorMessage(error)}`,
 		);
+	}
+}
+
+function reportCliOperationAuditError(
+	onAuditError: (message: string) => void,
+	message: string,
+): void {
+	try {
+		onAuditError(message);
+	} catch {
+		try {
+			console.error(message);
+		} catch {
+			// Error reporting must not shadow a remote operation result or error.
+		}
 	}
 }
 
@@ -177,7 +180,9 @@ export async function executeCliOperation<Result>(config: {
 	);
 	const auditStoreOptions = config.auditStoreOptions ?? {};
 	const recordAudit = config.recordAudit;
-	const onAuditError = config.onAuditError ?? console.error;
+	const onAuditError = config.onAuditError ?? ((message: string) => console.error(
+		message,
+	));
 	let executionId: string | undefined;
 
 	if (execution.policy.auditRequired) {
@@ -208,9 +213,9 @@ export async function executeCliOperation<Result>(config: {
 					auditStoreOptions,
 				);
 			} catch (auditError) {
-				throw new CliOperationAuditBlockedError(
-					execution.operation.id,
-					auditError,
+				reportCliOperationAuditError(
+					onAuditError,
+					`Unable to record blocked CLI operation audit for ${execution.operation.id}: ${toErrorMessage(auditError)}`,
 				);
 			}
 		}

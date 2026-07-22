@@ -1,4 +1,5 @@
 import { listOperationAuditEntries } from "@listmonk-ops/common";
+import { OperationConfirmationRequiredError } from "@listmonk-ops/operations";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -123,6 +124,34 @@ describe("CLI operation execution safety", () => {
 			}),
 		).rejects.toThrow(CliOperationAuditStartError);
 		expect(invoked).toBe(false);
+	});
+
+	test("preserves the confirmation error when the blocked audit event fails", async () => {
+		const events: string[] = [];
+		const auditErrors: string[] = [];
+		let invoked = false;
+
+		await expect(
+			executeCliOperation({
+				operationId: "lists.delete",
+				input: { id: 8 },
+				invoke: async () => {
+					invoked = true;
+				},
+				recordAudit: async (input) => {
+					events.push(input.event);
+					if (input.event === "blocked") {
+						throw new Error("blocked audit unavailable");
+					}
+				},
+				onAuditError: (message) => auditErrors.push(message),
+			}),
+		).rejects.toBeInstanceOf(OperationConfirmationRequiredError);
+		expect(invoked).toBe(false);
+		expect(events).toEqual(["started", "blocked"]);
+		expect(auditErrors).toEqual([
+			expect.stringContaining("blocked audit unavailable"),
+		]);
 	});
 
 	test("preserves a remote result when its terminal audit event fails", async () => {
