@@ -150,23 +150,25 @@ describe("Template default CLI and MCP parity", () => {
 				set_default: true,
 			});
 		} finally {
-			const restoreResult = await client.callTool(
-				"listmonk_set_default_template",
-				{ id: originalDefault.id },
-			);
-			utils.assertSuccess(
-				restoreResult,
-				"Failed to restore the original local default template",
-			);
-
-			const deleteResult = await client.callTool("listmonk_delete_template", {
-				id: created.id,
-				confirm: true,
-			});
-			utils.assertSuccess(
-				deleteResult,
-				"Failed to delete the CLI/MCP parity template after restoration",
-			);
+			try {
+				const restoreResult = await client.callTool(
+					"listmonk_set_default_template",
+					{ id: originalDefault.id },
+				);
+				utils.assertSuccess(
+					restoreResult,
+					"Failed to restore the original local default template",
+				);
+			} finally {
+				const deleteResult = await client.callTool("listmonk_delete_template", {
+					id: created.id,
+					confirm: true,
+				});
+				utils.assertSuccess(
+					deleteResult,
+					"Failed to delete the CLI/MCP parity template after restoration",
+				);
+			}
 		}
 	});
 });
