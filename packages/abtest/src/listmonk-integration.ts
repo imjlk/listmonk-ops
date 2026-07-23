@@ -201,9 +201,12 @@ export class ListmonkAbTestIntegration {
 			);
 			createdListIds.push(holdoutListId);
 
-			for (const subscriber of holdoutGroupSubscribers) {
-				await this.addSubscriberToList(subscriber.id, holdoutListId);
-			}
+			// Bulk-add the holdout group via manageLists chunks rather than a
+			// per-subscriber GET+UPDATE loop.
+			await this.addSubscribersToListBulk(
+				holdoutGroupSubscribers.map((subscriber) => subscriber.id),
+				holdoutListId,
+			);
 
 			const testListMappings: { variantId: string; listId: number }[] = [];
 
@@ -234,9 +237,11 @@ export class ListmonkAbTestIntegration {
 				);
 				createdListIds.push(testListId);
 
-				for (const subscriber of variantSubscribers) {
-					await this.addSubscriberToList(subscriber.id, testListId);
-				}
+				// Bulk-add this variant's slice via manageLists chunks.
+				await this.addSubscribersToListBulk(
+					variantSubscribers.map((subscriber) => subscriber.id),
+					testListId,
+				);
 
 				testListMappings.push({
 					variantId: variant.id,
@@ -313,9 +318,11 @@ export class ListmonkAbTestIntegration {
 				);
 				createdListIds.push(listId);
 
-				for (const subscriber of variantSubscribers) {
-					await this.addSubscriberToList(subscriber.id, listId);
-				}
+				// Bulk-add this variant's slice via manageLists chunks.
+				await this.addSubscribersToListBulk(
+					variantSubscribers.map((subscriber) => subscriber.id),
+					listId,
+				);
 
 				segmentedLists.push({
 					variantId: variant.id,
@@ -661,6 +668,51 @@ export class ListmonkAbTestIntegration {
 				`Failed to add subscriber ${subscriberId} to list ${listId}: ${updateResult.error}`,
 			);
 		}
+	}
+
+	/**
+	 * Add many subscribers to a single temporary list in chunks via the bulk
+	 * manageLists endpoint (PUT /subscribers/lists). This replaces the
+	 * per-subscriber GET+UPDATE loop for variant/holdout list population.
+	 *
+	 * The Listmonk v6.2.0 spike (package README) confirmed that:
+	 *   - target_list_ids must be an array ([listId]).
+	 *   - re-adding the same chunk is idempotent (no duplicate memberships).
+	 * So chunked retries are safe without per-subscriber idempotency records.
+	 *
+	 * The caller may pass an onProgress callback to checkpoint after each
+	 * chunk, so a provisioning retry can resume from the last committed chunk.
+	 */
+	async addSubscribersToListBulk(
+		subscriberIds: number[],
+		listId: number,
+		options: {
+			chunkSize?: number;
+			onProgress?: (addedCount: number) => void;
+		} = {},
+	): Promise<{ addedCount: number }> {
+		const chunkSize = options.chunkSize ?? 500;
+		let addedCount = 0;
+		for (let offset = 0; offset < subscriberIds.length; offset += chunkSize) {
+			const chunk = subscriberIds.slice(offset, offset + chunkSize);
+			const result = await this.listmonkClient.subscriber.manageLists({
+				body: {
+					action: "add",
+					ids: chunk,
+					target_list_ids: [listId],
+				},
+			});
+			if ("error" in result && result.error !== undefined) {
+				throw new Error(
+					`Failed to bulk-add subscribers to list ${listId} (chunk at offset ${offset}): ${String(
+						result.error,
+					)}`,
+				);
+			}
+			addedCount += chunk.length;
+			options.onProgress?.(addedCount);
+		}
+		return { addedCount };
 	}
 
 	shuffleArray<T>(array: T[]): T[] {
