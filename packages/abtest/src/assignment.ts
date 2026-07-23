@@ -77,6 +77,34 @@ export function groupChecksum(uuids: readonly string[]): string {
 }
 
 /**
+ * Rank every audience member by its deterministic digest, tie-breaking by
+ * UUID. Shared by buildAssignmentManifest and the group-index lookups so the
+ * ranking algorithm cannot drift between them. The comparator returns 0 for
+ * identical (digest, uuid) pairs to honor the comparator contract even when
+ * upstream data contains duplicate UUIDs.
+ */
+function rankMembers(
+	testId: string,
+	seed: string,
+	members: readonly AudienceMember[],
+): { member: AudienceMember; digest: string }[] {
+	return members
+		.map((member) => ({
+			member,
+			digest: assignmentDigest(testId, seed, member.subscriberUuid),
+		}))
+		.sort((a, b) => {
+			if (a.digest !== b.digest) {
+				return a.digest < b.digest ? -1 : 1;
+			}
+			if (a.member.subscriberUuid === b.member.subscriberUuid) {
+				return 0;
+			}
+			return a.member.subscriberUuid < b.member.subscriberUuid ? -1 : 1;
+		});
+}
+
+/**
  * Build a deterministic assignment manifest from a resolved audience. The
  * manifest assigns every audience member to exactly one group (a variant or
  * the holdout) using:
@@ -112,19 +140,9 @@ export function buildAssignmentManifest(params: {
 		throw new AssignmentError("at least one variant is required");
 	}
 
-	// Rank every member by its deterministic digest, tie-breaking by UUID so
-	// the order is fully determined by (testId, seed, audience).
-	const ranked = members
-		.map((member) => ({
-			member,
-			digest: assignmentDigest(testId, seed, member.subscriberUuid),
-		}))
-		.sort((a, b) => {
-			if (a.digest !== b.digest) {
-				return a.digest < b.digest ? -1 : 1;
-			}
-			return a.member.subscriberUuid < b.member.subscriberUuid ? -1 : 1;
-		});
+	// Rank every member by its deterministic digest via the shared helper,
+	// so the manifest and the group-index lookups share one ranking.
+	const ranked = rankMembers(testId, seed, members);
 
 	const total = ranked.length;
 
@@ -191,11 +209,14 @@ export function buildAssignmentManifest(params: {
 
 /**
  * Resolve which group a single subscriber UUID belongs to under a manifest.
- * Returns the group index, or null if the UUID is not covered by the manifest
+ * Returns the group index, or -1 if the UUID is not covered by the manifest
  * (used by reconcile checks to detect drift). This re-derives the digest and
- * re-ranks, so it is only valid when the caller can reproduce the full member
- * set; for membership lookups during provisioning, slice the manifest groups
- * directly instead.
+ * re-ranks via the shared rankMembers helper, so it is only valid when the
+ * caller can reproduce the full member set; for membership lookups during
+ * provisioning, slice the manifest groups directly instead.
+ *
+ * For bulk lookups, prefer groupIndexForUuids, which ranks once and answers
+ * many queries.
  */
 export function groupIndexForUuid(
 	manifest: AssignmentManifest,
@@ -203,17 +224,34 @@ export function groupIndexForUuid(
 	members: readonly AudienceMember[],
 	subscriberUuid: string,
 ): number {
-	const ranked = members
-		.map((member) => ({
-			member,
-			digest: assignmentDigest(testId, manifest.seed, member.subscriberUuid),
-		}))
-		.sort((a, b) => {
-			if (a.digest !== b.digest) {
-				return a.digest < b.digest ? -1 : 1;
-			}
-			return a.member.subscriberUuid < b.member.subscriberUuid ? -1 : 1;
-		});
+	const ranked = rankMembers(testId, manifest.seed, members);
+	return groupIndexOfRanked(ranked, manifest, subscriberUuid);
+}
+
+/**
+ * Batch variant: rank the audience once and resolve every requested UUID to
+ * its group index (-1 if not in the audience). O(n log n + m) rather than
+ * O(m × n log n) when many lookups are needed during reconciliation.
+ */
+export function groupIndexForUuids(
+	manifest: AssignmentManifest,
+	testId: string,
+	members: readonly AudienceMember[],
+	subscriberUuids: readonly string[],
+): Map<string, number> {
+	const ranked = rankMembers(testId, manifest.seed, members);
+	const result = new Map<string, number>();
+	for (const uuid of subscriberUuids) {
+		result.set(uuid, groupIndexOfRanked(ranked, manifest, uuid));
+	}
+	return result;
+}
+
+function groupIndexOfRanked(
+	ranked: { member: AudienceMember; digest: string }[],
+	manifest: AssignmentManifest,
+	subscriberUuid: string,
+): number {
 	let cursor = 0;
 	for (let index = 0; index < manifest.groups.length; index += 1) {
 		const group = manifest.groups[index];

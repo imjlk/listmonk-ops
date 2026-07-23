@@ -5,6 +5,7 @@ import {
 	generateAssignmentSeed,
 	groupChecksum,
 	groupIndexForUuid,
+	groupIndexForUuids,
 } from "../src/assignment";
 import { buildAudienceSnapshot, type AudienceMember } from "../src/audience";
 import type { Variant } from "../src/types";
@@ -239,6 +240,54 @@ describe("buildAssignmentManifest", () => {
 			testGroupPercentage: 30,
 		});
 		expect(b).toEqual(a);
+	});
+});
+
+describe("groupIndexForUuids (batch)", () => {
+	it("ranks once and answers every query", () => {
+		const members = makeMembers(60);
+		const snapshot = buildAudienceSnapshot([10], members);
+		const manifest = buildAssignmentManifest({
+			testId: "test-batch",
+			seed: "seed-batch",
+			audience: snapshot,
+			members,
+			variants: makeVariants(),
+			testGroupPercentage: 50,
+		});
+		const queries = members.map((member) => member.subscriberUuid).slice(0, 20);
+		const result = groupIndexForUuids(manifest, "test-batch", members, queries);
+		expect(result.size).toBe(20);
+		// every queried uuid should resolve to a valid group index
+		for (const uuid of queries) {
+			const index = result.get(uuid);
+			expect(index).toBeGreaterThanOrEqual(0);
+		}
+		// batch result must agree with single-lookup result
+		for (const uuid of queries) {
+			expect(result.get(uuid)).toBe(
+				groupIndexForUuid(manifest, "test-batch", members, uuid),
+			);
+		}
+	});
+
+	it("returns -1 for uuids not in the audience", () => {
+		const members = makeMembers(10);
+		const snapshot = buildAudienceSnapshot([10], members);
+		const manifest = buildAssignmentManifest({
+			testId: "test-1",
+			seed: "seed",
+			audience: snapshot,
+			members,
+			variants: makeVariants(),
+			testGroupPercentage: 50,
+		});
+		const result = groupIndexForUuids(manifest, "test-1", members, [
+			"missing-1",
+			"missing-2",
+		]);
+		expect(result.get("missing-1")).toBe(-1);
+		expect(result.get("missing-2")).toBe(-1);
 	});
 });
 
