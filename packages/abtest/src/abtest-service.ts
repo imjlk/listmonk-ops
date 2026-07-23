@@ -363,15 +363,17 @@ export class AbTestService {
 
 		// Prefer an injected MetricsCollector (test-only simulated collector
 		// or a future production collector). Otherwise fall back to the
-		// ListmonkAbTestIntegration, which is now fail-closed.
+		// ListmonkAbTestIntegration, which is now fail-closed. Use `return
+		// await` so this frame stays on the stack if the promise rejects,
+		// making AbTestMetricsUnavailableError easier to trace.
 		if (this.metricsCollector) {
-			return this.metricsCollector.collect(test);
+			return await this.metricsCollector.collect(test);
 		}
 
 		if (this.listmonkIntegration) {
 			// collectTestResults throws AbTestMetricsUnavailableError on any
 			// fetch failure; do not swallow it into mock data.
-			return this.listmonkIntegration.collectTestResults(
+			return await this.listmonkIntegration.collectTestResults(
 				testId,
 				test.campaignMappings,
 			);
@@ -418,13 +420,10 @@ export class AbTestService {
 			throw new Error("Invalid test results data: missing control group");
 		}
 
-		// Pick the comparison metric. Conversion rate is preferred when it is
-		// actually measured (non-zero somewhere); until a conversion event
-		// store exists, conversions are zero everywhere, so we fall back to
-		// click rate rather than treating every variant as tied at 0%.
+		// Pick the comparison metric via the shared selector so the
+		// significance test and the winner selection cannot diverge.
+		const metricRate = this.pickMetricRate(results);
 		const anyConversionMeasured = results.some((r) => r.conversions > 0);
-		const metricRate = (r: TestResults): number =>
-			anyConversionMeasured ? r.conversionRate : r.clickRate;
 		const metricCount = (r: TestResults): number =>
 			anyConversionMeasured ? r.conversions : r.clicks;
 
@@ -435,22 +434,23 @@ export class AbTestService {
 
 		// If control is the best, compare against the true second-best
 		// (highest-scoring non-control), not just the first non-control that
-		// happens to appear in the array.
+		// happens to appear in the array. Guard against the data-integrity
+		// edge case where every result shares the control's variantId.
 		let testGroup: TestResults;
 		if (bestVariant.variantId === controlGroup.variantId) {
 			const nonControl = results.filter(
 				(r) => r.variantId !== controlGroup.variantId,
 			);
-			const secondBest = nonControl.reduce((best, current) =>
+			if (nonControl.length === 0) {
+				throw new Error(
+					"Invalid test results data: no non-control variant found for comparison",
+				);
+			}
+			testGroup = nonControl.reduce((best, current) =>
 				metricRate(current) > metricRate(best) ? current : best,
 			);
-			testGroup = secondBest;
 		} else {
 			testGroup = bestVariant;
-		}
-
-		if (!testGroup) {
-			throw new Error("Invalid test results data: missing test group");
 		}
 
 		// Two-proportion Z-test on the chosen metric.
@@ -500,6 +500,19 @@ export class AbTestService {
 		};
 	}
 
+	/**
+	 * Build the metric selector used by both the significance test and the
+	 * winner selection. Prefers conversion rate when any conversions are
+	 * actually measured; otherwise falls back to click rate, since
+	 * conversions are zero everywhere until a conversion event store exists.
+	 */
+	private pickMetricRate(results: TestResults[]): (r: TestResults) => number {
+		const anyConversionMeasured = results.some((r) => r.conversions > 0);
+		return anyConversionMeasured
+			? (r) => r.conversionRate
+			: (r) => r.clickRate;
+	}
+
 	private standardNormalCDF(z: number): number {
 		// Approximation of standard normal CDF
 		return 0.5 * (1 + this.erf(z / Math.sqrt(2)));
@@ -537,13 +550,9 @@ export class AbTestService {
 			test.confidenceThreshold,
 		);
 
-		// Pick the winner on the same metric the significance test used:
-		// conversion rate when any conversions are measured, otherwise click
-		// rate (since conversions are zero everywhere until a conversion
-		// event store exists).
-		const anyConversionMeasured = results.some((r) => r.conversions > 0);
-		const metricRate = (r: TestResults): number =>
-			anyConversionMeasured ? r.conversionRate : r.clickRate;
+		// Pick the winner on the same metric the significance test used, via
+		// the shared selector so the two cannot drift apart.
+		const metricRate = this.pickMetricRate(results);
 		const bestRate = Math.max(...results.map(metricRate));
 
 		const winner = analysis.isSignificant

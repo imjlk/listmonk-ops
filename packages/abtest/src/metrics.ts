@@ -39,10 +39,12 @@ export class AbTestMetricsUnavailableError extends Error {
 	constructor(testId: string, cause: unknown) {
 		const causeMessage =
 			cause instanceof Error ? cause.message : String(cause);
-		super(
-			`Metrics unavailable for A/B test ${testId}: ${causeMessage}`,
-			cause instanceof Error ? { cause } : undefined,
-		);
+		// Always forward `cause` (even when it is not an Error) so the
+		// declared `cause: unknown` matches the runtime value and callers
+		// can inspect the original thrown value regardless of its type.
+		super(`Metrics unavailable for A/B test ${testId}: ${causeMessage}`, {
+			cause,
+		});
 		this.name = "AbTestMetricsUnavailableError";
 		this.testId = testId;
 	}

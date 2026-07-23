@@ -585,12 +585,13 @@ export class ListmonkAbTestIntegration {
 	 * Resolved audience members for the given source lists. Backed by the
 	 * paginated AudienceResolver, which filters by list_id server-side,
 	 * keeps only status==='enabled' subscribers, validates id+uuid presence,
-	 * and deduplicates by UUID. The returned shape preserves the historical
-	 * {id, email} form for the caller's per-subscriber list membership loop.
+	 * and deduplicates by UUID.
 	 *
-	 * Note: email is included only because callers downstream need a stable
-	 * per-subscriber record for the sequential update fallback; the audience
-	 * resolver itself does not persist or log email.
+	 * Note: email is always returned as an empty string. Downstream code
+	 * (addSubscriberToList) fetches subscriber details by id from the API,
+	 * so the email field here is never consumed. The {id, email} shape is
+	 * retained solely for backward compatibility with existing callers of
+	 * getAllSubscribers.
 	 */
 	private async resolveAudience(
 		listIds: number[],
@@ -609,12 +610,12 @@ export class ListmonkAbTestIntegration {
 	}
 
 	async getTotalSubscribers(listIds: number[]): Promise<number> {
-		// Use the exact deduplicated audience rather than summing per-list
-		// subscriber_count, which double-counts subscribers present in
-		// multiple lists and reports stale UI counts.
-		const resolver = createListmonkAudienceResolver(this.listmonkClient);
-		const snapshot = await resolver.resolve(listIds);
-		return snapshot.subscriberCount;
+		// Delegate to resolveAudience so a caller that first checks the
+		// audience size and then fetches the members does not trigger two
+		// independent paginated resolutions of the same lists. The
+		// deduplicated count is the length of the resolved member list.
+		const audience = await this.resolveAudience(listIds);
+		return audience.length;
 	}
 
 	async getAllSubscribers(
