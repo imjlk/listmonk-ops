@@ -35,6 +35,47 @@ export interface AbTest {
 	testListMappings: { variantId: string; listId: number }[];
 	holdoutListId?: number;
 	winnerCampaignId?: number;
+	// Deterministic provisioning fields (stage 2). All optional so existing
+	// v1 records remain valid; a v2 write fills them in once provisioning runs.
+	/**
+	 * Cryptographic random seed stored at create time so the assignment
+	 * manifest is reproducible across retries and reconciliation.
+	 */
+	assignmentSeed?: string;
+	/**
+	 * Immutable snapshot of the resolved audience (size + checksum) at
+	 * provisioning time. Pre-sample validation, provisioning, and analysis
+	 * all reference this same snapshot.
+	 */
+	audienceSnapshot?: {
+		capturedAt: string;
+		sourceListIds: number[];
+		subscriberCount: number;
+		subscriberChecksum: string;
+		eligibilityPolicyVersion: 1;
+	};
+	/**
+	 * Deterministic assignment manifest produced from the seed + audience.
+	 * Once stored, retries and reconciliation reuse it rather than
+	 * re-splitting the audience.
+	 */
+	assignmentManifest?: {
+		algorithm: "sha256-order-largest-remainder-v1";
+		seed: string;
+		audienceChecksum: string;
+		groups: {
+			kind: "variant" | "holdout";
+			variantId?: string;
+			expectedCount: number;
+			subscriberChecksum: string;
+		}[];
+		assignedCount: number;
+	};
+	/**
+	 * Monotonic revision counter for optimistic concurrency. Bumped on every
+	 * persisted transition so concurrent writers can detect stale updates.
+	 */
+	revision?: number;
 }
 
 export interface Variant {
