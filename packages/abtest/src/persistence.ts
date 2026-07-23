@@ -19,11 +19,15 @@ const ABTEST_STORE_LOCK_TIMEOUT_MS = 120_000;
 const ABTEST_STATUSES = new Set<AbTest["status"]>([
 	"draft",
 	"testing",
+	"scheduled",
 	"running",
 	"analyzing",
 	"deploying",
+	"cancelling",
 	"completed",
+	"inconclusive",
 	"cancelled",
+	"failed",
 ]);
 const METRIC_TYPES = new Set([
 	"open_rate",
@@ -223,7 +227,13 @@ function isStoredAbTest(value: unknown): boolean {
 			isStoredAudienceSnapshot(value.audienceSnapshot)) &&
 		(value.assignmentManifest === undefined ||
 			isStoredAssignmentManifest(value.assignmentManifest)) &&
-		(value.revision === undefined || isNonNegativeInteger(value.revision))
+		(value.revision === undefined || isNonNegativeInteger(value.revision)) &&
+		// Stage 3 orchestration fields: optional, validated when present.
+		(value.durationHours === undefined ||
+			(isFiniteNumber(value.durationHours) && value.durationHours > 0)) &&
+		(value.launchAt === undefined || typeof value.launchAt === "string") &&
+		(value.startedAt === undefined || typeof value.startedAt === "string") &&
+		(value.endsAt === undefined || typeof value.endsAt === "string")
 	);
 }
 

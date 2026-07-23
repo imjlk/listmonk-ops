@@ -46,6 +46,8 @@ export class CreateAbTestCommand {
 			autoLaunch: input.auto_launch || false,
 			autoDeployWinner: input.auto_deploy_winner || false,
 			ignoreStatisticalWarnings: input.ignore_sample_size_warnings || false,
+			durationHours: input.duration_hours,
+			launchAt: input.launch_at,
 		};
 
 		return await this.abTestService.createTest(config);

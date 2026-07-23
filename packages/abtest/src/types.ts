@@ -7,11 +7,15 @@ export interface AbTest {
 	status:
 		| "draft"
 		| "testing"
+		| "scheduled"
 		| "running"
 		| "analyzing"
 		| "deploying"
+		| "cancelling"
 		| "completed"
-		| "cancelled";
+		| "inconclusive"
+		| "cancelled"
+		| "failed";
 	metrics: Metric[];
 	winnerVariantId?: string;
 	createdAt: Date;
@@ -76,6 +80,16 @@ export interface AbTest {
 	 * persisted transition so concurrent writers can detect stale updates.
 	 */
 	revision?: number;
+	// Orchestration timestamps (stage 3). All optional so existing records
+	// remain valid.
+	/** Planned duration in hours, used to compute endsAt from startedAt. */
+	durationHours?: number;
+	/** ISO timestamp when the test is scheduled to start. */
+	launchAt?: string;
+	/** ISO timestamp when the test actually started (campaigns launched). */
+	startedAt?: string;
+	/** ISO timestamp when the test is due to end (startedAt + durationHours). */
+	endsAt?: string;
 }
 
 export interface Variant {
@@ -146,6 +160,9 @@ export interface AbTestConfig {
 	autoLaunch?: boolean;
 	autoDeployWinner?: boolean; // Auto-deploy winner to holdout group (holdout mode only)
 	ignoreStatisticalWarnings?: boolean; // Skip statistical validation warnings
+	// Orchestration settings (stage 3)
+	durationHours?: number; // Planned test duration in hours
+	launchAt?: string; // ISO timestamp for scheduled launch
 }
 
 export interface AbTestInput {
@@ -176,6 +193,7 @@ export interface CreateAbTestInput {
 	confidence_threshold?: number; // Default 0.95
 	minimum_sample_size?: number; // Minimum per variant
 	duration_hours?: number;
+	launch_at?: string; // ISO timestamp for scheduled launch
 	auto_deploy_winner?: boolean; // Auto-deploy to holdout group (holdout mode only)
 	ignore_sample_size_warnings?: boolean; // Skip sample size validation warnings
 }
@@ -189,11 +207,15 @@ export interface AbTestQueryParams {
 	status?:
 		| "draft"
 		| "testing"
+		| "scheduled"
 		| "running"
 		| "analyzing"
 		| "deploying"
+		| "cancelling"
 		| "completed"
-		| "cancelled";
+		| "inconclusive"
+		| "cancelled"
+		| "failed";
 	order_by?: "name" | "status" | "created_at" | "updated_at";
 	order?: "asc" | "desc";
 	page?: number;

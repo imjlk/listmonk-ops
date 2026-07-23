@@ -23,11 +23,15 @@ export interface AbTestOperationContext {
 const ABTEST_STATUSES = [
 	"draft",
 	"testing",
+	"scheduled",
 	"running",
 	"analyzing",
 	"deploying",
+	"cancelling",
 	"completed",
+	"inconclusive",
 	"cancelled",
+	"failed",
 ] as const;
 
 const abTestStatusSchema = z.enum(ABTEST_STATUSES);
@@ -144,9 +148,14 @@ const abTestSchema = z.object({
 					subscriberChecksum: z.string(),
 				}),
 			),
-			assignedCount: z.number().int().nonnegative(),
-		})
+		assignedCount: z.number().int().nonnegative(),
+	})
 		.optional(),
+	// Stage 3 orchestration fields.
+	durationHours: z.number().finite().positive().optional(),
+	launchAt: z.string().optional(),
+	startedAt: z.string().optional(),
+	endsAt: z.string().optional(),
 });
 
 const testResultsSchema = z.object({
