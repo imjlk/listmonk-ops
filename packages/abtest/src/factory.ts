@@ -18,7 +18,7 @@ import type {
 	CreateAbTestInput,
 	TestAnalysis,
 } from "./types";
-import { ABTEST_SAFETY_LEAD_SECONDS } from "./types";
+import { ABTEST_SAFETY_LEAD_SECONDS, TERMINAL_STATUSES } from "./types";
 
 // A/B Test command executors factory with Listmonk integration
 export function createAbTestExecutors(listmonkClient: ListmonkClient) {
@@ -34,13 +34,6 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		listmonkIntegration,
 		metricsCollector,
 	);
-
-	const TERMINAL_STATUSES: ReadonlySet<AbTest["status"]> = new Set([
-		"completed",
-		"inconclusive",
-		"cancelled",
-		"failed",
-	]);
 
 	// Launch is shared between the manual launchAbTest method and the
 	// orchestration runAbTest step, so define it once as a named helper.

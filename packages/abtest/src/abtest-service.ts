@@ -14,7 +14,7 @@ import type {
 	TestValidationResult,
 	Variant,
 } from "./types";
-import { ABTEST_SAFETY_LEAD_SECONDS } from "./types";
+import { ABTEST_SAFETY_LEAD_SECONDS, TERMINAL_STATUSES } from "./types";
 
 /**
  * A/B/C Testing Service - supports up to 3 variants (A, B, C)
@@ -352,21 +352,11 @@ export class AbTestService {
 		// Use rollbackProvisioning which deletes both campaigns and lists,
 		// rather than the legacy cleanup that only renames campaigns and may
 		// leave scheduled campaigns still able to fire.
-		const TERMINAL_FOR_CLEANUP = new Set([
-			"completed",
-			"cancelled",
-			"inconclusive",
-			"failed",
-		]);
 		if (
 			this.listmonkIntegration &&
-			!TERMINAL_FOR_CLEANUP.has(test.status) &&
+			!TERMINAL_STATUSES.has(test.status) &&
 			test.campaignMappings.length > 0
 		) {
-			const listIds = test.testListMappings.map((m) => m.listId);
-			if (test.holdoutListId !== undefined) {
-				listIds.push(test.holdoutListId);
-			}
 			try {
 				await this.listmonkIntegration.rollbackProvisioning({
 					testId,
@@ -376,8 +366,8 @@ export class AbTestService {
 							? [test.winnerCampaignId]
 							: []),
 					],
-					testListIds: listIds,
-					holdoutListId: undefined,
+					testListIds: test.testListMappings.map((m) => m.listId),
+					holdoutListId: test.holdoutListId,
 				});
 			} catch (cleanupError) {
 				console.error(
