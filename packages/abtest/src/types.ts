@@ -1,4 +1,13 @@
 // A/B Testing domain models
+
+/**
+ * Safety lead time (seconds) added to "now" when computing a default
+ * send_at for shared variant campaign scheduling. Ensures all variant
+ * campaigns receive the same future timestamp even when launched
+ * immediately. Shared between createTest auto-launch and launchAbTest.
+ */
+export const ABTEST_SAFETY_LEAD_SECONDS = 60;
+
 export interface AbTest {
 	id: string;
 	name: string;

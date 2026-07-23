@@ -18,6 +18,7 @@ import type {
 	CreateAbTestInput,
 	TestAnalysis,
 } from "./types";
+import { ABTEST_SAFETY_LEAD_SECONDS } from "./types";
 
 // A/B Test command executors factory with Listmonk integration
 export function createAbTestExecutors(listmonkClient: ListmonkClient) {
@@ -58,13 +59,12 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		}
 
 		// Compute the shared send_at for all variant campaigns. Prefer
-		// the test's launchAt; otherwise use now + 60s safety lead time
+		// the test's launchAt; otherwise use now + safety lead time
 		// so all variants send simultaneously rather than sequentially.
-		const DEFAULT_SAFETY_LEAD_SECONDS = 60;
 		const sendAt =
 			test.launchAt ??
 			new Date(
-				Date.now() + DEFAULT_SAFETY_LEAD_SECONDS * 1000,
+				Date.now() + ABTEST_SAFETY_LEAD_SECONDS * 1000,
 			).toISOString();
 
 		// Launch with the shared send_at so every variant campaign

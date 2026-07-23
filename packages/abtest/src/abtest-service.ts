@@ -14,6 +14,7 @@ import type {
 	TestValidationResult,
 	Variant,
 } from "./types";
+import { ABTEST_SAFETY_LEAD_SECONDS } from "./types";
 
 /**
  * A/B/C Testing Service - supports up to 3 variants (A, B, C)
@@ -248,17 +249,21 @@ export class AbTestService {
 				if (config.durationHours !== undefined) {
 					abTest.durationHours = config.durationHours;
 				}
+				// Persist launchAt on the record regardless of autoLaunch so
+				// a draft with a planned launch time retains it for later
+				// explicit launch via launchAbTest.
+				if (config.launchAt !== undefined) {
+					abTest.launchAt = config.launchAt;
+				}
 
 				// Auto-launch: schedule campaigns with a shared send_at and
 				// transition to 'scheduled'. When launchAt is provided, use it
-				// directly; otherwise use now + safety lead time. Both paths
-				// share the same post-launch timestamp logic.
+				// directly; otherwise use now + safety lead time.
 				if (config.autoLaunch) {
-					const SAFETY_LEAD_SECONDS = 60;
 					const sendAt =
 						config.launchAt ??
 						new Date(
-							Date.now() + SAFETY_LEAD_SECONDS * 1000,
+							Date.now() + ABTEST_SAFETY_LEAD_SECONDS * 1000,
 						).toISOString();
 					await this.listmonkIntegration.launchTest(
 						campaignMappings,
