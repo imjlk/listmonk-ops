@@ -369,7 +369,7 @@ export async function saveStoredAbTests(
 	storePath = getAbTestStorePath(),
 ): Promise<void> {
 	await writeJsonFileStore(createAbTestStore(storePath), {
-		version: 1,
+		version: 2,
 		tests,
 	});
 }

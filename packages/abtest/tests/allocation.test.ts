@@ -91,7 +91,6 @@ describe("allocateByLargestRemainder", () => {
 			allocateByLargestRemainder({ total: -1, weights: [1] }),
 		).toThrow(AllocationValueError);
 		expect(() =>
-			// biome-ignore lint/suspicious/noSparseArray: testing sparse array rejection
 			allocateByLargestRemainder({ total: 1.5, weights: [1] }),
 		).toThrow(AllocationValueError);
 		expect(() =>

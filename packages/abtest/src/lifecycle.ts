@@ -523,13 +523,12 @@ export async function cancelAbTest(
 	test: AbTest,
 	options?: { deleteTerminalCampaigns?: boolean },
 ): Promise<CancelExecutionResult> {
+	// Only fetch statuses for the backing variant campaigns — the winner
+	// campaign is separately managed and planCancelAbTest always adds it to
+	// campaignsBlockingListDeletion unconditionally, so fetching its status
+	// would only risk a spurious hadFetchFailures if it is unobservable.
 	const campaignIds = [
-		...new Set([
-			...test.campaignMappings.map((m) => m.campaignId),
-			...(test.winnerCampaignId !== undefined
-				? [test.winnerCampaignId]
-				: []),
-		]),
+		...new Set(test.campaignMappings.map((m) => m.campaignId)),
 	];
 	const { statuses: observedStatuses, unobservable } =
 		await fetchCampaignStatuses(client, campaignIds);
