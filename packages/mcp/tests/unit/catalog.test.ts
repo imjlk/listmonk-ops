@@ -137,7 +137,8 @@ function stableCatalogFields(output: CatalogOutput) {
 describe("operation catalog MCP adapter", () => {
 	test("publishes a read-only discovery tool for every shared operation", async () => {
 		expect(operationCatalogTools).toHaveLength(1);
-		expect(operationCatalogTools[0]).toMatchObject({
+		const catalogTool = operationCatalogTools[0];
+		expect(catalogTool).toMatchObject({
 			name: "listmonk_list_operations",
 			outputSchema: {
 				properties: {
@@ -148,14 +149,8 @@ describe("operation catalog MCP adapter", () => {
 							properties: {
 								execution: {
 									type: "object",
-									required: expect.arrayContaining([
-										"confirmationRequired",
-										"auditRequired",
-										"dryRunSupported",
-									]),
 								},
 							},
-							required: expect.arrayContaining(["execution"]),
 						},
 					},
 				},
@@ -166,6 +161,25 @@ describe("operation catalog MCP adapter", () => {
 				idempotentHint: true,
 			},
 		});
+		const outputSchema = catalogTool?.outputSchema as {
+			properties?: {
+				operations?: {
+					items?: {
+						properties?: {
+							execution?: { required?: string[] };
+						};
+						required?: string[];
+					};
+				};
+			};
+		};
+		const operationItemSchema = outputSchema.properties?.operations?.items;
+		expect(operationItemSchema?.required).toContain("execution");
+		expect(operationItemSchema?.properties?.execution?.required).toEqual([
+			"confirmationRequired",
+			"auditRequired",
+			"dryRunSupported",
+		]);
 		expect(mcpOperationCatalog.entries).toHaveLength(43);
 		expect(listMcpOperationCatalogSummaries("ops")).toHaveLength(9);
 		expect(listMcpOperationCatalogSummaries("media")).toHaveLength(3);
