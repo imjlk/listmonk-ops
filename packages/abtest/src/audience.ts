@@ -86,7 +86,9 @@ export function buildAudienceSnapshot(
 	members: readonly AudienceMember[],
 	capturedAt: string = new Date().toISOString(),
 ): AudienceSnapshot {
-	const checksum = computeAudienceChecksum(members.map((m) => m.subscriberUuid));
+	const checksum = computeAudienceChecksum(
+		members.map((m) => m.subscriberUuid),
+	);
 	return {
 		capturedAt,
 		sourceListIds: [...sourceListIds].sort((a, b) => a - b),

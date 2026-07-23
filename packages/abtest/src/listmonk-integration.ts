@@ -1,6 +1,9 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { AbTest, TestResults, Variant } from "./types";
-import { allocateByLargestRemainder, allocateTestAndHoldout } from "./allocation";
+import {
+	allocateByLargestRemainder,
+	allocateTestAndHoldout,
+} from "./allocation";
 import {
 	createListmonkAudienceResolver,
 	type AudienceMember,

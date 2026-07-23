@@ -384,9 +384,7 @@ export class AbTestService {
 		// inject a SimulatedMetricsCollector.
 		throw new AbTestMetricsUnavailableError(
 			testId,
-			new Error(
-				"no metrics collector or Listmonk integration is configured",
-			),
+			new Error("no metrics collector or Listmonk integration is configured"),
 		);
 	}
 
@@ -508,9 +506,7 @@ export class AbTestService {
 	 */
 	private pickMetricRate(results: TestResults[]): (r: TestResults) => number {
 		const anyConversionMeasured = results.some((r) => r.conversions > 0);
-		return anyConversionMeasured
-			? (r) => r.conversionRate
-			: (r) => r.clickRate;
+		return anyConversionMeasured ? (r) => r.conversionRate : (r) => r.clickRate;
 	}
 
 	private standardNormalCDF(z: number): number {
