@@ -457,8 +457,15 @@ export async function fetchCampaignStatuses(
 				});
 				const envelopeError = errorEnvelopeMessage(response);
 				if (envelopeError !== undefined) {
-					// Could not read this campaign; record it as unobservable so
-					// the caller knows the stop is not authoritative.
+					// A 404 envelope means the campaign is gone — it cannot
+					// still send, so classify it as already-stopped (terminal)
+					// rather than unobservable. This lets stopAbTest proceed
+					// when a previous stop deleted the campaign but the local
+					// state write failed, or an operator deleted it manually.
+					if (isNotFoundError(envelopeError)) {
+						statuses.set(campaignId, "cancelled");
+						return;
+					}
 					console.error(
 						`Failed to fetch status for campaign ${campaignId}:`,
 						envelopeError,
@@ -478,6 +485,11 @@ export async function fetchCampaignStatuses(
 					unobservable.push(campaignId);
 				}
 			} catch (error) {
+				// A thrown 404 (network-level not-found) is also already-stopped.
+				if (isNotFoundError(error)) {
+					statuses.set(campaignId, "cancelled");
+					return;
+				}
 				// Log per-campaign fetch errors so a systemic failure (auth
 				// token expired, network partition, Listmonk down) does not
 				// silently make every campaign unobservable — which would

@@ -590,25 +590,19 @@ export class ListmonkAbTestIntegration {
 	 * keeps only status==='enabled' subscribers, validates id+uuid presence,
 	 * and deduplicates by UUID.
 	 *
-	 * Note: email is always returned as an empty string. Downstream code
-	 * (addSubscriberToList) fetches subscriber details by id from the API,
-	 * so the email field here is never consumed. The {id, email} shape is
-	 * retained solely for backward compatibility with existing callers of
-	 * getAllSubscribers.
+	 * Note: email is not carried by AudienceMember, so it is returned as
+	 * undefined rather than a misleading empty string. Downstream code uses
+	 * subscriber id only; callers that need the email can fetch the
+	 * subscriber record by id.
 	 */
 	private async resolveAudience(
 		listIds: number[],
-	): Promise<{ id: number; email: string }[]> {
+	): Promise<{ id: number; email?: string }[]> {
 		const resolver = createListmonkAudienceResolver(this.listmonkClient);
 		await resolver.resolve(listIds);
 		const members: readonly AudienceMember[] = resolver.members();
-		// Email is not carried by AudienceMember; fetch lazily is unnecessary
-		// because the membership path uses subscriber id only. Keep email
-		// empty to avoid an extra round trip; callers that need it can read
-		// it from the subscriber record directly.
 		return members.map((member) => ({
 			id: member.subscriberId,
-			email: "",
 		}));
 	}
 
@@ -623,7 +617,7 @@ export class ListmonkAbTestIntegration {
 
 	async getAllSubscribers(
 		listIds: number[],
-	): Promise<{ id: number; email: string }[]> {
+	): Promise<{ id: number; email?: string }[]> {
 		return this.resolveAudience(listIds);
 	}
 

@@ -407,4 +407,29 @@ describe("cancelAbTest orchestration", () => {
 		// Both campaigns unobservable -> planner leaves them -> hadFetchFailures
 		expect(result.hadFetchFailures).toBe(true);
 	});
+
+	it("treats a 404 campaign as already-stopped (not unobservable)", async () => {
+		// A missing campaign cannot still send, so a 404 on status fetch
+		// classifies it as terminal 'cancelled' rather than unobservable.
+		const getById = mock(async ({ path }: { path: { id: number } }) => {
+			if (path.id === 101) {
+				return { error: "Campaign not found" };
+			}
+			return { data: { id: path.id, status: "running" } };
+		});
+		const updateStatus = mock(async () => ({ data: true }));
+		const deleteCampaign = mock(async () => ({ data: true }));
+		const deleteList = mock(async () => ({ data: true }));
+		const client = {
+			campaign: { getById, updateStatus, delete: deleteCampaign },
+			list: { delete: deleteList },
+		} as unknown as ListmonkClient;
+		const result = await cancelAbTest(client, makeTest());
+		// 100 running -> cancel; 101 not found -> treated as cancelled (leave).
+		expect(result.hadFetchFailures).toBe(false);
+		expect(result.campaignResults).toEqual([
+			expect.objectContaining({ campaignId: 100, action: "cancel" }),
+			expect.objectContaining({ campaignId: 101, action: "leave" }),
+		]);
+	});
 });
