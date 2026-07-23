@@ -8,6 +8,8 @@ import {
 	ListAbTestsCommand,
 } from "./basic";
 import { ListmonkAbTestIntegration } from "./listmonk-integration";
+import { ListmonkMetricsCollector } from "./metrics";
+import { cancelAbTest } from "./lifecycle";
 import { AbTestNotFoundError } from "./errors";
 import type {
 	AbTest,
@@ -22,8 +24,15 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 	// Create Listmonk integration
 	const listmonkIntegration = new ListmonkAbTestIntegration(listmonkClient);
 
-	// Create A/B test service with Listmonk integration
-	const abTestService = new AbTestService(listmonkIntegration);
+	// Create A/B test service with Listmonk integration. Wire the
+	// ListmonkMetricsCollector so production uses the same fail-closed
+	// collector that tests exercise, rather than the legacy
+	// collectTestResults path on the integration.
+	const metricsCollector = new ListmonkMetricsCollector(listmonkClient);
+	const abTestService = new AbTestService(
+		listmonkIntegration,
+		metricsCollector,
+	);
 	return {
 		// Basic CRUD operations
 		listAbTests: (params?: AbTestQueryParams): Promise<AbTest[]> =>
@@ -79,25 +88,55 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				throw new Error(`Test ${testId} is not running`);
 			}
 
-			// Stop campaigns and cleanup
-			if (test.testingMode === "holdout" && test.holdoutListId) {
-				await listmonkIntegration.cleanupHoldoutTest(
-					testId,
-					test.testListMappings.map((m) => m.listId),
-					test.holdoutListId,
-					test.campaignMappings.map((m) => m.campaignId),
-					false,
-				);
-			} else {
-				await listmonkIntegration.cleanup(
-					testId,
-					test.testListMappings.map((m) => m.listId),
-					test.campaignMappings.map((m) => m.campaignId),
+			// Stop via the status-aware lifecycle executor: it fetches each
+			// backing campaign's remote status, cancels running campaigns,
+			// deletes draft/scheduled ones (which cannot be cancelled on
+			// Listmonk v6.2.0), leaves terminal campaigns in place, and only
+			// deletes temporary lists when no campaign still references them.
+			// This replaces the legacy cleanup paths that renamed campaigns
+			// and ignored remote status.
+			const result = await cancelAbTest(listmonkClient, test);
+
+			// Hard failures (network error, permission denied, 5xx) or fetch
+			// failures (could not read a campaign's status) mean the stop is
+			// not authoritative — the test may still hold active resources.
+			// Surface it rather than silently marking the test cancelled.
+			if (result.hadFailures || result.hadFetchFailures) {
+				const failedCampaigns = result.campaignResults.filter(
+					(r) => r.outcome === "failed",
+				).length;
+				const failedLists = result.listResults.filter(
+					(r) => r.outcome === "failed",
+				).length;
+				const reasons: string[] = [];
+				if (result.hadFailures) {
+					reasons.push(
+						`${failedCampaigns} campaign action(s) and ${failedLists} list action(s) failed`,
+					);
+				}
+				if (result.hadFetchFailures) {
+					reasons.push("campaign status could not be verified");
+				}
+				throw new Error(
+					`A/B test ${testId} stop is non-authoritative: ${reasons.join("; ")}; inspect remote resources before retrying`,
 				);
 			}
 
-			// Update test status
-			return await abTestService.updateTestStatus(testId, "completed");
+			// No hard failures, but some lists may have been intentionally
+			// retained because campaigns survived (unobservable, or terminal
+			// campaigns left for delivery history). Log them so operators
+			// have a trace for reconciliation.
+			if (result.hadRetainedResources) {
+				const retained = result.listResults
+					.filter((r) => r.outcome === "skipped_active_reference")
+					.map((r) => r.listId);
+				console.warn(
+					`A/B test ${testId} cancelled with retained lists: ${retained.join(", ")}`,
+				);
+			}
+
+			// Update test status to cancelled (stop is a terminal intent).
+			return await abTestService.updateTestStatus(testId, "cancelled");
 		},
 
 		getTestResults: async (testId: string) => {

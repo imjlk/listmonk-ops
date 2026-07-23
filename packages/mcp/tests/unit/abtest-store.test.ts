@@ -46,6 +46,27 @@ describe("mcp abtest persistence", () => {
 					data: { id: 1, subscriber_count: 1000 },
 				}),
 			},
+			subscriber: {
+				// The audience resolver paginates /subscribers by list_id.
+				// Return one enabled subscriber so provisioning proceeds to
+				// the campaign create step, which is where this test injects
+				// its failure.
+				list: async () => ({
+					data: {
+						results: [
+							{
+								id: 1,
+								uuid: "unit-test-uuid-1",
+								email: "unit@test",
+								status: "enabled",
+							},
+						],
+						total: 1,
+						per_page: 500,
+						page: 1,
+					},
+				}),
+			},
 			campaign: {
 				create: async () => ({ error: "campaign creation failed" }),
 			},

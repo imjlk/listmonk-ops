@@ -332,6 +332,45 @@ const abTestTestContracts: readonly CallPathContract[] = [
 			`packages/abtest/src/operations.ts#${invoker}:function`,
 		],
 	})),
+	// Direct-import anchors for the new domain modules introduced by the
+	// correctness hotfix. Each test file imports its source module by name so
+	// the graph keeps the symbol edge alive even when no operation executor
+	// references it yet.
+	{
+		label: "Allocation tests anchor the largest-remainder helper",
+		path: [
+			"packages/abtest/tests/allocation.test.ts#packages/abtest/tests/allocation.test.ts:module",
+			"packages/abtest/src/allocation.ts#allocateByLargestRemainder:function",
+		],
+	},
+	{
+		label: "Audience tests anchor the audience resolver",
+		path: [
+			"packages/abtest/tests/audience.test.ts#packages/abtest/tests/audience.test.ts:module",
+			"packages/abtest/src/audience.ts#createListmonkAudienceResolver:function",
+		],
+	},
+	{
+		label: "Metrics tests anchor the metrics collector",
+		path: [
+			"packages/abtest/tests/metrics.test.ts#packages/abtest/tests/metrics.test.ts:module",
+			"packages/abtest/src/metrics.ts#ListmonkMetricsCollector.collect:method",
+		],
+	},
+	{
+		label: "Lifecycle tests anchor the cancel plan helper",
+		path: [
+			"packages/abtest/tests/lifecycle.test.ts#packages/abtest/tests/lifecycle.test.ts:module",
+			"packages/abtest/src/lifecycle.ts#planCancelAbTest:function",
+		],
+	},
+	{
+		label: "Service tests anchor the fail-closed metrics path",
+		path: [
+			"packages/abtest/tests/abtest-service.test.ts#packages/abtest/tests/abtest-service.test.ts:module",
+			"packages/abtest/src/abtest-service.ts#AbTestService.getTestResults:method",
+		],
+	},
 	{
 		label: "CLI A/B tests anchor flag normalization",
 		path: [

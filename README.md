@@ -416,6 +416,34 @@ listmonk_abtest_recommend_sample_size
 listmonk_abtest_deploy_winner
 ```
 
+### A/B test correctness hardening
+
+The A/B test domain fixed several correctness issues that could distort
+send results. Summary of the current behavior:
+
+- **Exact allocation**: test/holdout and per-variant sizes are computed with
+  the largest-remainder method so they always sum to the audience total.
+  The previous `Math.floor` equal split ignored variant percentages and
+  dropped leftover recipients.
+- **Paginated audience resolution**: each source list is paginated with the
+  `list_id` server filter, deduplicated by UUID, and filtered to
+  `status === "enabled"`. This replaces summing `subscriber_count` (which
+  double-counted) and the `per_page: "all"` fetch-then-client-filter.
+- **Fail-closed metrics**: a Listmonk fetch failure throws
+  `AbTestMetricsUnavailableError` instead of falling back to `Math.random()`
+  mock data. Clicks are no longer copied into conversions.
+- **Status-aware cleanup**: stop/cleanup branches on each campaign's actual
+  status. Listmonk v6.2.0 only allows cancelling `running` campaigns, so
+  `draft`/`scheduled` campaigns are deleted instead. Campaign names are
+  preserved. Temporary lists are retained as long as any campaign still
+  references them (unobservable, preserved-terminal, or failed-delete
+  campaigns); 404 responses are treated as idempotent success.
+- **Confidence threshold honored**: the stored `confidenceThreshold` drives
+  alpha so the significance decision and reported confidence level match.
+
+See [`packages/abtest/README.md`](packages/abtest/README.md) for the
+underlying Listmonk API behavior and spike rationale.
+
 ## Ops Automation Commands
 
 ```bash

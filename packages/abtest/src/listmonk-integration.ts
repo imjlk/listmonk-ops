@@ -1,5 +1,14 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import type { AbTest, TestResults, Variant } from "./types";
+import {
+	allocateByLargestRemainder,
+	allocateTestAndHoldout,
+} from "./allocation";
+import {
+	createListmonkAudienceResolver,
+	type AudienceMember,
+} from "./audience";
+import { AbTestMetricsUnavailableError } from "./metrics";
 
 export interface ProvisionedAbTestResources {
 	testId: string;
@@ -148,11 +157,20 @@ export class ListmonkAbTestIntegration {
 		const allSubscribers = await this.getAllSubscribers(originalLists);
 		const totalSubscribers = allSubscribers.length;
 
-		// Calculate group sizes
-		const testGroupSize = Math.floor(
-			(totalSubscribers * testGroupPercentage) / 100,
-		);
-		const holdoutGroupSize = totalSubscribers - testGroupSize;
+		// Exact test/holdout split via largest-remainder, so the two sizes
+		// always sum to the audience total regardless of rounding.
+		const { testGroupSize, holdoutGroupSize } = allocateTestAndHoldout({
+			audienceSize: totalSubscribers,
+			testGroupPercentage,
+		});
+
+		// Variant-level sizes also via largest-remainder, using each variant's
+		// declared percentage (instead of the old equal split that ignored
+		// variant.percentage and dropped leftover recipients).
+		const variantSizes = allocateByLargestRemainder({
+			total: testGroupSize,
+			weights: variants.map((variant) => variant.percentage),
+		}).counts;
 
 		// Shuffle subscribers for random distribution
 		const shuffledSubscribers = this.shuffleArray([...allSubscribers]);
@@ -188,13 +206,13 @@ export class ListmonkAbTestIntegration {
 			}
 
 			const testListMappings: { variantId: string; listId: number }[] = [];
-			const testGroupPerVariant = Math.floor(testGroupSize / variants.length);
 
 			let currentIndex = 0;
-			for (const variant of variants) {
+			for (const [variantIndex, variant] of variants.entries()) {
+				const variantCount = variantSizes[variantIndex] ?? 0;
 				const variantSubscribers = testGroupSubscribers.slice(
 					currentIndex,
-					currentIndex + testGroupPerVariant,
+					currentIndex + variantCount,
 				);
 
 				const testListResult = await this.listmonkClient.list.create({
@@ -225,7 +243,7 @@ export class ListmonkAbTestIntegration {
 					listId: testListId,
 				});
 
-				currentIndex += testGroupPerVariant;
+				currentIndex += variantCount;
 			}
 
 			return {
@@ -258,12 +276,18 @@ export class ListmonkAbTestIntegration {
 		// Shuffle subscribers for random distribution
 		const shuffledSubscribers = this.shuffleArray([...allSubscribers]);
 
+		// Exact per-variant sizes via largest-remainder using each variant's
+		// declared percentage; the previous Math.floor dropped the remainder
+		// and could leave subscribers unassigned.
+		const variantSizes = allocateByLargestRemainder({
+			total: shuffledSubscribers.length,
+			weights: variants.map((variant) => variant.percentage),
+		}).counts;
+
 		let currentIndex = 0;
 		try {
-			for (const variant of variants) {
-				const variantCount = Math.floor(
-					(shuffledSubscribers.length * variant.percentage) / 100,
-				);
+			for (const [variantIndex, variant] of variants.entries()) {
+				const variantCount = variantSizes[variantIndex] ?? 0;
 
 				const variantSubscribers = shuffledSubscribers.slice(
 					currentIndex,
@@ -383,45 +407,51 @@ export class ListmonkAbTestIntegration {
 	 * Collects actual test results from Listmonk campaigns
 	 */
 	async collectTestResults(
-		_testId: string,
+		testId: string,
 		campaignMappings: { variantId: string; campaignId: number }[],
 	): Promise<TestResults[]> {
-		const results: TestResults[] = [];
-
-		for (const mapping of campaignMappings) {
-			const campaignResult = await this.listmonkClient.campaign.getById({
-				path: { id: mapping.campaignId },
-			});
-			const campaign = this.unwrapData(
-				campaignResult,
-				`Failed to get campaign ${mapping.campaignId}`,
+		// Fail closed: any fetch failure aborts the whole collection with a
+		// typed error rather than falling back to mock data. Conversions are
+		// reported as zero; click-through is not a conversion proxy and a
+		// dedicated conversion event store is required to measure them.
+		if (campaignMappings.length === 0) {
+			throw new AbTestMetricsUnavailableError(
+				testId,
+				new Error("test has no backing campaign mappings"),
 			);
-
-			// Calculate metrics from campaign data
-			const sampleSize = campaign.sent || 0;
-			const opens = campaign.views || 0;
-			const clicks = campaign.clicks || 0;
-
-			// For conversion tracking, we'd need additional integration
-			// For now, use click-through as a proxy for conversions
-			const conversions = clicks;
-
-			const openRate = sampleSize > 0 ? (opens / sampleSize) * 100 : 0;
-			const clickRate = sampleSize > 0 ? (clicks / sampleSize) * 100 : 0;
-			const conversionRate =
-				sampleSize > 0 ? (conversions / sampleSize) * 100 : 0;
-
-			results.push({
-				variantId: mapping.variantId,
-				sampleSize,
-				opens,
-				clicks,
-				conversions,
-				openRate,
-				clickRate,
-				conversionRate,
-			});
 		}
+
+		const results = await Promise.all(
+			campaignMappings.map(async (mapping): Promise<TestResults> => {
+				try {
+					const campaignResult = await this.listmonkClient.campaign.getById({
+						path: { id: mapping.campaignId },
+					});
+					const campaign = this.unwrapData(
+						campaignResult,
+						`Failed to get campaign ${mapping.campaignId}`,
+					);
+
+					const sampleSize = campaign.sent || 0;
+					const opens = campaign.views || 0;
+					const clicks = campaign.clicks || 0;
+					const conversions = 0;
+
+					return {
+						variantId: mapping.variantId,
+						sampleSize,
+						opens,
+						clicks,
+						conversions,
+						openRate: sampleSize > 0 ? (opens / sampleSize) * 100 : 0,
+						clickRate: sampleSize > 0 ? (clicks / sampleSize) * 100 : 0,
+						conversionRate: 0,
+					};
+				} catch (error) {
+					throw new AbTestMetricsUnavailableError(testId, error);
+				}
+			}),
+		);
 
 		return results;
 	}
@@ -554,71 +584,41 @@ export class ListmonkAbTestIntegration {
 		}
 	}
 
+	/**
+	 * Resolved audience members for the given source lists. Backed by the
+	 * paginated AudienceResolver, which filters by list_id server-side,
+	 * keeps only status==='enabled' subscribers, validates id+uuid presence,
+	 * and deduplicates by UUID.
+	 *
+	 * Note: email is not carried by AudienceMember, so it is returned as
+	 * undefined rather than a misleading empty string. Downstream code uses
+	 * subscriber id only; callers that need the email can fetch the
+	 * subscriber record by id.
+	 */
+	private async resolveAudience(
+		listIds: number[],
+	): Promise<{ id: number; email?: string }[]> {
+		const resolver = createListmonkAudienceResolver(this.listmonkClient);
+		await resolver.resolve(listIds);
+		const members: readonly AudienceMember[] = resolver.members();
+		return members.map((member) => ({
+			id: member.subscriberId,
+		}));
+	}
+
 	async getTotalSubscribers(listIds: number[]): Promise<number> {
-		let total = 0;
-		for (const listId of listIds) {
-			const listResult = await this.listmonkClient.list.getById({
-				path: { list_id: listId },
-			});
-			const list = this.unwrapData(listResult, `Failed to get list ${listId}`);
-			total += Math.max(0, Number(list.subscriber_count ?? 0));
-		}
-
-		// Some Listmonk setups can return stale/zero subscriber_count for API users.
-		// Fall back to direct subscriber enumeration to avoid false validation failures.
-		if (total === 0) {
-			const subscribers = await this.getAllSubscribers(listIds);
-			return subscribers.length;
-		}
-
-		return total;
+		// Delegate to resolveAudience so a caller that first checks the
+		// audience size and then fetches the members does not trigger two
+		// independent paginated resolutions of the same lists. The
+		// deduplicated count is the length of the resolved member list.
+		const audience = await this.resolveAudience(listIds);
+		return audience.length;
 	}
 
 	async getAllSubscribers(
 		listIds: number[],
-	): Promise<{ id: number; email: string }[]> {
-		const subscribersById = new Map<number, { id: number; email: string }>();
-		const targetListIds = new Set(listIds);
-
-		// Get subscribers from all lists
-		const subscribersResult = await this.listmonkClient.subscriber.list({
-			query: {
-				per_page: "all",
-				// Note: lists parameter might need to be handled differently
-				// For now, we'll get all subscribers and filter later
-			},
-		});
-		const subscribers = this.unwrapData(
-			subscribersResult,
-			"Failed to get subscribers",
-		);
-
-		for (const subscriber of subscribers.results) {
-			const subscriberId = subscriber.id;
-			const subscriberEmail = subscriber.email;
-			if (!subscriberId || !subscriberEmail) {
-				continue;
-			}
-
-			if (targetListIds.size > 0) {
-				const subscriberListIds = this.extractSubscriberListIds(
-					subscriber.lists,
-				);
-				if (
-					subscriberListIds.size > 0 &&
-					![...subscriberListIds].some((listId) => targetListIds.has(listId))
-				) {
-					continue;
-				}
-			}
-
-			subscribersById.set(subscriberId, {
-				id: subscriberId,
-				email: subscriberEmail,
-			});
-		}
-
-		return Array.from(subscribersById.values());
+	): Promise<{ id: number; email?: string }[]> {
+		return this.resolveAudience(listIds);
 	}
 
 	async addSubscriberToList(

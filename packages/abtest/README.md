@@ -557,6 +557,80 @@ try {
 3. Make changes with tests
 4. Submit a pull request
 
+## Listmonk v6.2.0 API behavior (spike notes)
+
+The following observations were verified against the pinned local Compose
+stack (`listmonk/listmonk:v6.2.0`, build `ef0a7587`, 2026-06-26) before the
+correctness hotfix was designed. They override several assumptions in earlier
+planning documents and are the reason some planned behavior had to change.
+
+### Bulk list membership (`PUT /subscribers/lists`)
+
+- `target_list_ids` **must be an array** of integers, for example
+  `"target_list_ids": [2361]`. Sending a scalar number
+  (`"target_list_ids": 2361`) is rejected with HTTP 400:
+  `Unmarshal type error: expected=[]int, got=number`. This contradicts the
+  OpenAPI overlay and the handwritten client, which both type the field as
+  scalar `number`. The client boundary and the generated spec must be fixed
+  to `number[]` before bulk membership is wired into provisioning.
+- Re-adding the same chunk to the same list is idempotent: a second
+  `PUT /subscribers/lists` with the same `ids` and `target_list_ids` returns
+  `{"data":true}` and does not duplicate list memberships.
+- After a bulk add, the subscriber's top-level `status` stays `enabled`, but
+  the new list membership's `subscription_status` is `unconfirmed`, even on a
+  single-optin (`"optin": "single"`) list. Listmonk does not auto-confirm
+  programmatically added memberships.
+- The `/subscribers` `subscription_status` query parameter does filter when
+  combined with `list_id`, but because freshly added memberships are
+  `unconfirmed`, filtering by `subscription_status=confirmed` excludes every
+  programmatically added recipient. Audience resolvers therefore must
+  **not** rely on `subscription_status=confirmed` as the eligibility gate; use
+  the subscriber's top-level `status === "enabled"` instead and treat
+  list-level `subscription_status` as informational.
+
+### Campaign lifecycle and status transitions
+
+- `PUT /campaigns/{id}/status` accepts only `scheduled`, `running`, `paused`,
+  `cancelled`. A campaign created with a future `send_at` starts in `draft`
+  and becomes `scheduled` only after this call.
+- **`cancelled` and `paused` are only accepted when the campaign is `running`
+  ("active")**. Attempting either on a `draft` or `scheduled` campaign is
+  rejected with HTTP 400 `Only active campaigns can be cancelled` /
+  `Only active campaigns can be paused`. The earlier "stop = cancel-first"
+  design does not work for not-yet-running campaigns and must branch on
+  status: `running` → cancel; `draft`/`scheduled` → delete (or leave
+  scheduled, which will still fire at `send_at`).
+- `DELETE /campaigns/{id}` succeeds from `draft` and `scheduled` states, so
+  deletion is the safe path to discard a not-yet-running campaign. The same
+  endpoint returns 404 for an already-deleted campaign (idempotent from the
+  caller's perspective if 404 is treated as success).
+- `campaign.clicks`, `campaign.views`, `campaign.sent`, and `campaign.to_send`
+  are aggregate counts returned on the campaign object. No local fixture in
+  the spike stack produced `clicks > 0`, so whether `clicks` is a unique
+  recipient count or a raw event count could not be confirmed here; it
+  remains flagged as unresolved. The analytics endpoints under
+  `/campaigns/{id}/analytics/...` described in the overlay returned 404 on
+  this server, so click uniqueness must be verified another way before being
+  relied on for statistics.
+
+### Tag-based discovery
+
+- `GET /lists?tag=<tag>` filters precisely and supports multiple `tag=`
+  repeats, combined with AND semantics (a list must carry every requested
+  tag).
+- `GET /campaigns?tags=<tag>` (plural, as the overlay types it) **does not
+  filter** — it returns every campaign. The server expects `tag=` (singular):
+  `GET /campaigns?tag=<tag>` returns only campaigns carrying that tag. The
+  client boundary must use the singular parameter name.
+
+### Campaign `subscribers` field
+
+- `POST /campaigns` accepts a `subscribers` field in the request body without
+  error, but this field is for campaign **test sends**
+  (`POST /campaigns/{id}/test`), not general audience targeting. General
+  campaigns target lists via `lists`. This package does not implement direct
+  subscriber-UUID targeting through `subscribers`.
+
 ## License
 
 MIT License - see LICENSE file for details.

@@ -415,6 +415,32 @@ listmonk_abtest_recommend_sample_size
 listmonk_abtest_deploy_winner
 ```
 
+### A/B 테스트 정확성 하드닝
+
+A/B 테스트 도메인은 발송 결과를 왜곡할 수 있는 여러 정확성 문제를 수정했습니다.
+현재 동작 요약:
+
+- **정확 분할**: test/holdout과 variant별 크기를 최대 잔여법(largest-remainder)
+  으로 계산하여 항상 audience 총합과 일치합니다. 이전 `Math.floor` 동등 분할은
+  variant 백분율을 무시하고 남은 구독자를 유실했습니다.
+- **페이지네이션된 audience 조회**: `list_id` 서버 필터로 페이지 단위 조회 후
+  UUID로 dedupe하고 `status === "enabled"` 구독자만 포함합니다. `subscriber_count`
+  합산(중복 계산)과 `per_page: "all"` 후 클라이언트 필터를 대체합니다.
+- **Fail-closed metrics**: Listmonk 조회 실패 시 `Math.random()` mock으로
+  떨어지지 않고 `AbTestMetricsUnavailableError`를 던집니다. clicks를 conversions으로
+  복사하지 않습니다.
+- **상태 인식 정리**: stop/cleanup은 각 campaign의 실제 상태를 보고 분기합니다.
+  Listmonk v6.2.0은 `running` campaign만 cancel을 허용하므로, `draft`/`scheduled`
+  campaign은 delete로 처리합니다. campaign 이름을 덮어쓰지 않습니다.
+  임시 list는 해당 list를 참조하는 campaign이 하나라도 살아있으면(관측 불가,
+  종료 상태로 보존 중, 삭제 실패) 삭제되지 않으며, 404 응답은 멱등 성공으로
+  취급합니다.
+- **신뢰도 임계값 반영**: 저장된 `confidenceThreshold`로 alpha를 계산하여
+  유의성 판정과 결과에 반영합니다.
+
+자세한 Listmonk API 동작과 spike 근거는
+[`packages/abtest/README.md`](packages/abtest/README.md)를 참고하세요.
+
 ## 운영 자동화 명령
 
 ```bash
