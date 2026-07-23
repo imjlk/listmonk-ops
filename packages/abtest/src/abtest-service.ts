@@ -243,7 +243,10 @@ export class AbTestService {
 				abTest.holdoutListId = holdoutListId;
 				abTest.testGroupSize = testGroupSize;
 				abTest.holdoutGroupSize = holdoutGroupSize;
-				abTest.status = config.autoLaunch ? "running" : "draft";
+				abTest.status =
+					config.autoLaunch && config.launchAt === undefined
+						? "running"
+						: "draft";
 				// Persist orchestration metadata from the config.
 				if (config.durationHours !== undefined) {
 					abTest.durationHours = config.durationHours;

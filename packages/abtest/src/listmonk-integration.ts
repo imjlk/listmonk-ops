@@ -656,13 +656,20 @@ export class ListmonkAbTestIntegration {
 			}
 
 			// Transition to 'scheduled' when a send_at is set, otherwise
-			// launch immediately as 'running'.
-			await this.listmonkClient.campaign.updateStatus({
+			// launch immediately as 'running'. Check the result so a failed
+			// status transition does not leave the campaign in draft with a
+			// future send_at (which would never fire).
+			const statusResult = await this.listmonkClient.campaign.updateStatus({
 				path: { id: campaign.campaignId },
 				body: {
 					status: options.sendAt !== undefined ? "scheduled" : "running",
 				},
 			});
+			if ("error" in statusResult) {
+				throw new Error(
+					`Failed to update status for campaign ${campaign.campaignId}: ${this.formatError(statusResult.error)}`,
+				);
+			}
 		}
 	}
 

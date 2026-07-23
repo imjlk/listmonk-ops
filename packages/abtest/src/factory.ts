@@ -75,13 +75,15 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 			{ sendAt },
 		);
 
-		// Record the startedAt and compute endsAt from durationHours.
+			// Record timestamps. startedAt marks when the launch was initiated;
+			// endsAt is computed from sendAt (when campaigns actually fire),
+			// not Date.now(), so the test end aligns with the actual send time.
 		const startedAt = new Date().toISOString();
 		test.startedAt = startedAt;
 		if (test.durationHours !== undefined) {
 			test.endsAt = new Date(
-				Date.now() + test.durationHours * 3600 * 1000,
-			).toISOString();
+					new Date(sendAt).getTime() + test.durationHours * 3600 * 1000,
+				).toISOString();
 		}
 		test.launchAt = sendAt;
 
