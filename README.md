@@ -435,7 +435,9 @@ send results. Summary of the current behavior:
 - **Status-aware cleanup**: stop/cleanup branches on each campaign's actual
   status. Listmonk v6.2.0 only allows cancelling `running` campaigns, so
   `draft`/`scheduled` campaigns are deleted instead. Campaign names are
-  preserved.
+  preserved. Temporary lists are retained as long as any campaign still
+  references them (unobservable, preserved-terminal, or failed-delete
+  campaigns); 404 responses are treated as idempotent success.
 - **Confidence threshold honored**: the stored `confidenceThreshold` drives
   alpha so the significance decision and reported confidence level match.
 

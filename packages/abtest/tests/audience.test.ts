@@ -287,6 +287,27 @@ describe("createListmonkAudienceResolver", () => {
 		);
 	});
 
+	it("fails closed when the same numeric id maps to two uuids", async () => {
+		// Schema drift / inconsistent page read: id 1 appears under two uuids.
+		const a: Subscriber = {
+			id: 1,
+			uuid: "uuid-one",
+			status: "enabled",
+			email: "a@y",
+		};
+		const b: Subscriber = {
+			id: 1,
+			uuid: "uuid-two",
+			status: "enabled",
+			email: "a@y",
+		};
+		const client = makeClient({ 10: [a], 11: [b] });
+		const resolver = createListmonkAudienceResolver(client);
+		await expect(resolver.resolve([10, 11])).rejects.toThrow(
+			AudienceResolutionError,
+		);
+	});
+
 	it("rejects empty or invalid sourceListIds", async () => {
 		const client = makeClient({});
 		const resolver = createListmonkAudienceResolver(client);

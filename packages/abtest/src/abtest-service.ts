@@ -549,6 +549,7 @@ export class AbTestService {
 		// Pick the winner on the same metric the significance test used, via
 		// the shared selector so the two cannot drift apart.
 		const metricRate = this.pickMetricRate(results);
+		const anyConversionMeasured = results.some((r) => r.conversions > 0);
 		const bestRate = Math.max(...results.map(metricRate));
 
 		const winner = analysis.isSignificant
@@ -559,11 +560,18 @@ export class AbTestService {
 				) || null
 			: null;
 
-		// Generate recommendations
+		// Generate recommendations, reporting the metric actually used for
+		// winner selection so users do not see a 0.00% conversion rate for a
+		// click-rate winner.
+		const metricLabel = anyConversionMeasured
+			? ("conversion rate" as const)
+			: ("click rate" as const);
 		const recommendations = this.generateRecommendations(
 			results,
 			analysis,
 			winner,
+			metricLabel,
+			metricRate,
 		);
 
 		return {
@@ -655,6 +663,8 @@ export class AbTestService {
 		results: TestResults[],
 		analysis: StatisticalAnalysis,
 		winner: Variant | null,
+		metricLabel: "conversion rate" | "click rate",
+		metricRate: (r: TestResults) => number,
 	): string[] {
 		const recommendations: string[] = [];
 
@@ -668,7 +678,7 @@ export class AbTestService {
 			const winnerResult = results.find((r) => r.variantId === winner.id);
 			if (winnerResult) {
 				recommendations.push(
-					`Variant ${winner.name} is the winner with ${winnerResult.conversionRate.toFixed(2)}% conversion rate.`,
+					`Variant ${winner.name} is the winner with ${metricRate(winnerResult).toFixed(2)}% ${metricLabel}.`,
 				);
 			}
 		}

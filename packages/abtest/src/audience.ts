@@ -117,6 +117,7 @@ export function createListmonkAudienceResolver(
 
 	function assertUniqueUuid(
 		seen: Map<string, number>,
+		idToUuid: Map<number, string>,
 		subscriber: Subscriber,
 	): void {
 		const uuid = subscriber.uuid;
@@ -141,6 +142,16 @@ export function createListmonkAudienceResolver(
 		if (previousId !== undefined && previousId !== id) {
 			throw new AudienceResolutionError(
 				`subscriber uuid ${uuid} maps to two numeric ids: ${previousId} and ${id}`,
+			);
+		}
+		// Reverse guard: the same numeric id must always map to the same uuid.
+		// Schema drift or an inconsistent page read could otherwise surface one
+		// subscriber under two uuid keys, and segmentation would add the same
+		// numeric id to multiple variant/holdout lists.
+		const previousUuid = idToUuid.get(id);
+		if (previousUuid !== undefined && previousUuid !== uuid) {
+			throw new AudienceResolutionError(
+				`subscriber id ${id} maps to two uuids: ${previousUuid} and ${uuid}`,
 			);
 		}
 	}
@@ -178,6 +189,7 @@ export function createListmonkAudienceResolver(
 			}
 
 			const seen = new Map<string, number>();
+			const idToUuid = new Map<number, string>();
 			const collected: AudienceMember[] = [];
 
 			for (const listId of dedupedListIds) {
@@ -207,12 +219,14 @@ export function createListmonkAudienceResolver(
 						if (!isEligibleSubscriber(subscriber)) {
 							continue;
 						}
-						assertUniqueUuid(seen, subscriber);
+						assertUniqueUuid(seen, idToUuid, subscriber);
 						const uuid = subscriber.uuid as string;
+						const numericId = subscriber.id as number;
 						if (!seen.has(uuid)) {
-							seen.set(uuid, subscriber.id as number);
+							seen.set(uuid, numericId);
+							idToUuid.set(numericId, uuid);
 							collected.push({
-								subscriberId: subscriber.id as number,
+								subscriberId: numericId,
 								subscriberUuid: uuid,
 							});
 						}
