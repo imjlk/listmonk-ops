@@ -153,13 +153,33 @@ describe("A/B test persistence", () => {
 
 	test("rejects an unsupported store version without overwriting it", async () => {
 		const storePath = await createStorePath();
-		const unsupported = '{"version":2,"tests":[]}\n';
+		// version 1 and 2 are supported; a future version 3 must be rejected
+		// so a newer writer cannot silently overwrite an older reader's data.
+		const unsupported = '{"version":3,"tests":[]}\n';
 		await writeFile(storePath, unsupported, "utf8");
 
 		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
-			"Invalid A/B test store: expected schema version 1",
+			"Invalid A/B test store: unsupported schema version 3",
 		);
 		expect(await readFile(storePath, "utf8")).toBe(unsupported);
+	});
+
+	test("reads a version 1 store and upgrades it to version 2 on next write", async () => {
+		const storePath = await createStorePath();
+		const v1Doc = JSON.stringify({ version: 1, tests: [] });
+		await writeFile(storePath, v1Doc, "utf8");
+
+		// Reading a v1 document succeeds.
+		await expect(loadStoredAbTests(storePath)).resolves.toEqual([]);
+
+		// A v1 document with valid tests also reads cleanly.
+		const test = createTest("v1-test");
+		await writeFile(
+			storePath,
+			`${JSON.stringify({ version: 1, tests: [test] })}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).resolves.toHaveLength(1);
 	});
 
 	test("rejects malformed collection entries", async () => {

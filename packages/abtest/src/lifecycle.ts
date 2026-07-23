@@ -117,6 +117,13 @@ export interface PlanCancelOptions {
 
 const DEFAULT_ACTIVE_STATUSES = ["running"];
 const DEFAULT_TERMINAL_STATUSES = ["finished", "sent", "cancelled"];
+/**
+ * Pseudo-status used when a campaign's status fetch returned a 404 — the
+ * campaign is gone and cannot reference its lists anymore, so the planner
+ * should treat it as terminal (no action needed) but NOT add it to
+ * campaignsBlockingListDeletion (it does not block list cleanup).
+ */
+const ALREADY_DELETED_STATUS = "already_deleted";
 
 /**
  * Inspect each backing campaign's remote status and produce a deterministic
@@ -147,6 +154,18 @@ export function planCancelAbTest(
 				reason: "status could not be observed",
 			});
 			survivingCampaignIds.push(mapping.campaignId);
+			continue;
+		}
+		if (status === ALREADY_DELETED_STATUS) {
+			// The campaign was deleted (404 on status fetch). It cannot send
+			// and no longer references any temporary list, so leave it without
+			// adding it to campaignsBlockingListDeletion — lists can still be
+			// cleaned up.
+			campaignActions.push({
+				kind: "leave",
+				campaignId: mapping.campaignId,
+				reason: "campaign already deleted (404)",
+			});
 			continue;
 		}
 		if (active.includes(status)) {
@@ -260,7 +279,11 @@ export function isNotFoundError(error: unknown): boolean {
 						typeof error === "object" &&
 						"message" in error
 					? String((error as { message: unknown }).message)
-					: "";
+					: error &&
+							typeof error === "object" &&
+							"error" in error
+						? String((error as { error?: unknown }).error)
+						: "";
 	return /not found|404/i.test(message);
 }
 
@@ -457,13 +480,14 @@ export async function fetchCampaignStatuses(
 				});
 				const envelopeError = errorEnvelopeMessage(response);
 				if (envelopeError !== undefined) {
-					// A 404 envelope means the campaign is gone — it cannot
-					// still send, so classify it as already-stopped (terminal)
-					// rather than unobservable. This lets stopAbTest proceed
-					// when a previous stop deleted the campaign but the local
-					// state write failed, or an operator deleted it manually.
-					if (isNotFoundError(envelopeError)) {
-						statuses.set(campaignId, "cancelled");
+					// A 404 means the campaign is gone — it cannot still send,
+					// so classify it as already_deleted. This is terminal (no
+					// action needed from the planner) but does NOT block list
+					// cleanup because the campaign no longer references any
+					// list. Pass the full response to isNotFoundError so the
+					// structured response.status is the primary signal.
+					if (isNotFoundError(response)) {
+						statuses.set(campaignId, ALREADY_DELETED_STATUS);
 						return;
 					}
 					console.error(
@@ -485,9 +509,9 @@ export async function fetchCampaignStatuses(
 					unobservable.push(campaignId);
 				}
 			} catch (error) {
-				// A thrown 404 (network-level not-found) is also already-stopped.
+				// A thrown 404 (network-level not-found) is also already-deleted.
 				if (isNotFoundError(error)) {
-					statuses.set(campaignId, "cancelled");
+					statuses.set(campaignId, ALREADY_DELETED_STATUS);
 					return;
 				}
 				// Log per-campaign fetch errors so a systemic failure (auth
@@ -523,13 +547,12 @@ export async function cancelAbTest(
 	test: AbTest,
 	options?: { deleteTerminalCampaigns?: boolean },
 ): Promise<CancelExecutionResult> {
+	// Only fetch statuses for the backing variant campaigns — the winner
+	// campaign is separately managed and planCancelAbTest always adds it to
+	// campaignsBlockingListDeletion unconditionally, so fetching its status
+	// would only risk a spurious hadFetchFailures if it is unobservable.
 	const campaignIds = [
-		...new Set([
-			...test.campaignMappings.map((m) => m.campaignId),
-			...(test.winnerCampaignId !== undefined
-				? [test.winnerCampaignId]
-				: []),
-		]),
+		...new Set(test.campaignMappings.map((m) => m.campaignId)),
 	];
 	const { statuses: observedStatuses, unobservable } =
 		await fetchCampaignStatuses(client, campaignIds);

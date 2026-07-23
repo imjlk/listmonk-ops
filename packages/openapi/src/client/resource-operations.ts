@@ -30,7 +30,7 @@ export function createSubscriberOperations(
 		async manageLists(options: {
 			body: {
 				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number;
+				target_list_ids?: number[];
 				query?: string;
 				ids?: number[];
 			};
@@ -45,7 +45,7 @@ export function createSubscriberOperations(
 			path: { id: number };
 			body: {
 				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number;
+				target_list_ids?: number[];
 				query?: string;
 				ids?: number[];
 			};
@@ -124,7 +124,7 @@ export function createSubscriberOperations(
 		async manageListsByQuery(options: {
 			body: {
 				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number;
+				target_list_ids?: number[];
 				query?: string;
 			};
 		}) {

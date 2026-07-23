@@ -199,18 +199,24 @@ export class AbTestService {
 				let holdoutGroupSize: number;
 
 				if (testingMode === "holdout") {
-					// Use holdout methodology
+					// Use holdout methodology with deterministic assignment.
 					const segmentationResult =
 						await this.listmonkIntegration.segmentSubscribersForHoldout(
 							config.baseConfig.lists,
 							variants,
 							testGroupPercentage,
+							{ testId: abTest.id },
 						);
 
 					testListMappings = segmentationResult.testListMappings;
 					holdoutListId = segmentationResult.holdoutListId;
 					testGroupSize = segmentationResult.testGroupSize;
 					holdoutGroupSize = segmentationResult.holdoutGroupSize;
+					// Persist the deterministic-provisioning metadata so
+					// retries and reconciliation reuse the same split.
+					abTest.assignmentSeed = segmentationResult.assignmentSeed;
+					abTest.audienceSnapshot = segmentationResult.audienceSnapshot;
+					abTest.assignmentManifest = segmentationResult.assignmentManifest;
 				} else {
 					// Use full-split methodology (legacy)
 					testListMappings = await this.listmonkIntegration.segmentSubscribers(

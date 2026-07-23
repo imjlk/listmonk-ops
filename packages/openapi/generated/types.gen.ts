@@ -859,7 +859,7 @@ export type SubscriberQueryRequest = {
     /**
      * The ids of the lists to be modified.
      */
-    target_list_ids?: number;
+    target_list_ids?: Array<number>;
     /**
      * confirmed, unconfirmed, or unsubscribed status.
      */

@@ -112,7 +112,7 @@ export async function runSubscriberHygiene(
 						path: { id },
 						body: {
 							action: "add",
-							target_list_ids: options.targetListId,
+							target_list_ids: [options.targetListId],
 						},
 					});
 				}

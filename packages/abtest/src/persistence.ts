@@ -33,10 +33,27 @@ const METRIC_TYPES = new Set([
 	"custom",
 ]);
 
-export interface AbTestStore {
-	version: 1;
+/**
+ * On-disk document shape for the persisted A/B test store.
+ *
+ * Version 1 is the original shape (no deterministic-provisioning fields).
+ * Version 2 adds the optional provisioning fields on AbTest
+ * (assignmentSeed, audienceSnapshot, assignmentManifest, revision) and is
+ * written by every new write. A version 1 document is read transparently:
+ * the v1 tests are re-validated and the next successful write upgrades the
+ * document to version 2 without re-splitting any audience.
+ */
+export interface StoredAbTestDocument {
+	version: 2;
 	tests: AbTest[];
 }
+
+/**
+ * Backward-compatible alias for the persisted document shape. Callers that
+ * imported `AbTestStore` continue to compile; the canonical name is now
+ * `StoredAbTestDocument`.
+ */
+export type AbTestStore = StoredAbTestDocument;
 
 export interface StoredAbTestAccessOptions {
 	mode: "read" | "write";
@@ -77,10 +94,11 @@ function isNonNegativeNumber(value: unknown): value is number {
 }
 
 function isConfidenceThreshold(value: unknown): value is number {
-	// Match analyzeStatisticalSignificance's (0, 1) open range so a stored
-	// or input threshold of exactly 1 (or 0) is rejected consistently,
-	// rather than accepted at persistence time only to throw at analysis.
-	return isFiniteNumber(value) && value > 0 && value < 1;
+	// Accept (0, 1] on read so legacy v1 stores that persisted exactly 1.0
+	// remain loadable. The parse step normalizes 1.0 to 0.99 so analysis-time
+	// validation (which requires (0, 1)) never sees the invalid value. New
+	// writes come from CreateAbTestCommand which defaults to 0.95.
+	return isFiniteNumber(value) && value > 0 && value <= 1;
 }
 
 function isStoredVariant(value: unknown): boolean {
@@ -197,13 +215,85 @@ function isStoredAbTest(value: unknown): boolean {
 		(value.winnerCampaignId === undefined ||
 			isPositiveInteger(value.winnerCampaignId)) &&
 		(value.winnerVariantId === undefined ||
-			typeof value.winnerVariantId === "string")
+			typeof value.winnerVariantId === "string") &&
+		// Stage 2 provisioning fields: optional, but validated when present.
+		(value.assignmentSeed === undefined ||
+			typeof value.assignmentSeed === "string") &&
+		(value.audienceSnapshot === undefined ||
+			isStoredAudienceSnapshot(value.audienceSnapshot)) &&
+		(value.assignmentManifest === undefined ||
+			isStoredAssignmentManifest(value.assignmentManifest)) &&
+		(value.revision === undefined || isNonNegativeInteger(value.revision))
 	);
 }
 
-function parseAbTestStore(value: unknown): AbTestStore {
-	if (!isRecord(value) || value.version !== 1) {
-		throw new Error("Invalid A/B test store: expected schema version 1");
+function isNonNegativeInteger(value: unknown): value is number {
+	return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isStoredAudienceSnapshot(value: unknown): boolean {
+	if (!isRecord(value)) {
+		return false;
+	}
+	return (
+		typeof value.capturedAt === "string" &&
+		Array.isArray(value.sourceListIds) &&
+		value.sourceListIds.every(
+			(id): id is number => typeof id === "number" && Number.isInteger(id),
+		) &&
+		typeof value.subscriberCount === "number" &&
+		Number.isInteger(value.subscriberCount) &&
+		value.subscriberCount >= 0 &&
+		typeof value.subscriberChecksum === "string" &&
+		value.eligibilityPolicyVersion === 1
+	);
+}
+
+function isStoredAssignmentManifest(value: unknown): boolean {
+	if (!isRecord(value)) {
+		return false;
+	}
+	return (
+		value.algorithm === "sha256-order-largest-remainder-v1" &&
+		typeof value.seed === "string" &&
+		typeof value.audienceChecksum === "string" &&
+		Array.isArray(value.groups) &&
+		value.groups.every(isStoredAssignmentGroup) &&
+		typeof value.assignedCount === "number" &&
+		Number.isInteger(value.assignedCount) &&
+		value.assignedCount >= 0
+	);
+}
+
+function isStoredAssignmentGroup(value: unknown): boolean {
+	if (!isRecord(value)) {
+		return false;
+	}
+	return (
+		(value.kind === "variant" || value.kind === "holdout") &&
+		(value.variantId === undefined || typeof value.variantId === "string") &&
+		typeof value.expectedCount === "number" &&
+		Number.isInteger(value.expectedCount) &&
+		value.expectedCount >= 0 &&
+		typeof value.subscriberChecksum === "string"
+	);
+}
+
+function parseAbTestStore(value: unknown): StoredAbTestDocument {
+	if (!isRecord(value)) {
+		throw new Error("Invalid A/B test store: expected an object");
+	}
+	// Accept version 1 (legacy) and version 2 (current). v1 is transparently
+	// upgraded: the optional provisioning fields stay undefined, and the next
+	// successful write persists version 2. An unknown future version is
+	// rejected so a newer writer does not silently overwrite an older
+	// reader's data.
+	if (value.version !== 1 && value.version !== 2) {
+		throw new Error(
+			`Invalid A/B test store: unsupported schema version ${String(
+				value.version,
+			)} (expected 1 or 2)`,
+		);
 	}
 	if (!Array.isArray(value.tests)) {
 		throw new Error("Invalid A/B test store: tests must be an array");
@@ -217,9 +307,17 @@ function parseAbTestStore(value: unknown): AbTestStore {
 	}
 
 	return {
-		version: 1,
+		// Always upgrade to version 2 on read; the next write persists it.
+		version: 2,
 		tests: (value.tests as unknown as AbTest[]).map((test) => ({
 			...test,
+			// Normalize a legacy confidenceThreshold of exactly 1.0 (which
+			// analyzeStatisticalSignificance rejects) to 0.99 so the read
+			// remains backward-compatible with v1 stores that allowed it.
+			confidenceThreshold:
+				test.confidenceThreshold >= 1
+					? 0.99
+					: test.confidenceThreshold,
 			createdAt: new Date(test.createdAt),
 			updatedAt: new Date(test.updatedAt),
 			variants: test.variants.map((variant) => ({
@@ -245,10 +343,10 @@ export function getAbTestStorePath(): string {
 
 function createAbTestStore(
 	storePath = getAbTestStorePath(),
-): JsonFileStore<AbTestStore> {
+): JsonFileStore<StoredAbTestDocument> {
 	return {
 		path: storePath,
-		createDefault: () => ({ version: 1, tests: [] }),
+		createDefault: () => ({ version: 2, tests: [] }),
 		parse: parseAbTestStore,
 		lock: { timeoutMs: ABTEST_STORE_LOCK_TIMEOUT_MS },
 	};
@@ -271,7 +369,7 @@ export async function saveStoredAbTests(
 	storePath = getAbTestStorePath(),
 ): Promise<void> {
 	await writeJsonFileStore(createAbTestStore(storePath), {
-		version: 1,
+		version: 2,
 		tests,
 	});
 }
@@ -306,7 +404,7 @@ export async function withStoredAbTestExecutors<Result>(
 			actionCompleted = true;
 			return commitJsonFileStoreUpdate(
 				{
-					version: 1,
+					version: 2,
 					tests: executors.abTestService.snapshotTests(),
 				},
 				result,

@@ -3835,7 +3835,7 @@ components:
           enum: [add, remove, unsubscribe]
           description: Whether to add, remove, or unsubscribe the users.
         target_list_ids:
-          type: integer
+          type: array
           description: The ids of the lists to be modified.
           items:
             type: integer

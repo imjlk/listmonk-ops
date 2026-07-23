@@ -365,6 +365,20 @@ const abTestTestContracts: readonly CallPathContract[] = [
 		],
 	},
 	{
+		label: "Assignment tests anchor the deterministic manifest builder",
+		path: [
+			"packages/abtest/tests/assignment.test.ts#packages/abtest/tests/assignment.test.ts:module",
+			"packages/abtest/src/assignment.ts#buildAssignmentManifest:function",
+		],
+	},
+	{
+		label: "Bulk membership tests anchor the chunked manageLists adapter",
+		path: [
+			"packages/abtest/tests/bulk-membership.test.ts#packages/abtest/tests/bulk-membership.test.ts:module",
+			"packages/abtest/src/listmonk-integration.ts#ListmonkAbTestIntegration.addSubscribersToListBulk:method",
+		],
+	},
+	{
 		label: "Service tests anchor the fail-closed metrics path",
 		path: [
 			"packages/abtest/tests/abtest-service.test.ts#packages/abtest/tests/abtest-service.test.ts:module",

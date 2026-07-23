@@ -137,7 +137,8 @@ describe("ListmonkMetricsCollector", () => {
 		await expect(collector.collect(makeTest())).rejects.toBeInstanceOf(
 			AbTestMetricsUnavailableError,
 		);
-		// Only the first campaign was fetched before the throw.
+		// Promise.all fetches both campaigns concurrently before the
+		// rejection is observed, so both calls are counted.
 		expect(callCount.value).toBe(2);
 	});
 

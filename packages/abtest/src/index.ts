@@ -19,6 +19,13 @@ export {
 	AbTestMetricsUnavailableError,
 	type MetricsCollector,
 } from "./metrics";
+// Export the deterministic assignment builder so consumers can inspect or
+// re-derive an assignment manifest from a stored seed + audience.
+export {
+	buildAssignmentManifest,
+	generateAssignmentSeed,
+	type AssignmentManifest,
+} from "./assignment";
 export {
 	abTestOperationCatalog,
 	abTestOperations,
