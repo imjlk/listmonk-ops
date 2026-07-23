@@ -445,9 +445,18 @@ export async function fetchCampaignStatuses(
 				if (typeof status === "string") {
 					statuses.set(campaignId, status);
 				}
-			} catch {
-				// Swallow per-campaign fetch errors; the planner will treat
-				// the missing entry as unobservable and retain its list.
+			} catch (error) {
+				// Log per-campaign fetch errors so a systemic failure (auth
+				// token expired, network partition, Listmonk down) does not
+				// silently make every campaign unobservable — which would
+				// otherwise cause the planner to leave everything and the
+				// caller to mark the test cancelled while nothing was cleaned.
+				// The planner still treats the missing entry as unobservable
+				// and retains its list.
+				console.error(
+					`Failed to fetch status for campaign ${campaignId}:`,
+					error instanceof Error ? error.message : String(error),
+				);
 			}
 		}),
 	);
@@ -469,10 +478,14 @@ export async function cancelAbTest(
 	test: AbTest,
 	options?: { deleteTerminalCampaigns?: boolean },
 ): Promise<CancelExecutionResult> {
-	const campaignIds = test.campaignMappings.map((m) => m.campaignId);
-	if (test.winnerCampaignId !== undefined) {
-		campaignIds.push(test.winnerCampaignId);
-	}
+	const campaignIds = [
+		...new Set([
+			...test.campaignMappings.map((m) => m.campaignId),
+			...(test.winnerCampaignId !== undefined
+				? [test.winnerCampaignId]
+				: []),
+		]),
+	];
 	const observedStatuses = await fetchCampaignStatuses(client, campaignIds);
 	const plan = planCancelAbTest(test, observedStatuses, options);
 	return executeCancelPlan(client, plan);

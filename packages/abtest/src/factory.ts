@@ -97,24 +97,31 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 			// and ignored remote status.
 			const result = await cancelAbTest(listmonkClient, test);
 
-			// If cleanup could not fully complete (campaign survived, fetch
-			// failed, or list delete failed), surface the partial state
-			// rather than silently marking the test completed.
-			if (!result.fullyCleaned) {
-				if (result.hadFailures) {
-					throw new Error(
-						`A/B test ${testId} stop left resources in a partial state: ${
-							result.campaignResults.filter((r) => r.outcome === "failed")
-								.length
-						} campaign action(s) and ${
-							result.listResults.filter((r) => r.outcome === "failed").length
-						} list action(s) failed; inspect remote resources before retrying`,
-					);
-				}
-				// No hard failures, but some lists were intentionally retained
-				// because campaigns survived (e.g. terminal campaigns left for
-				// delivery history). The test is stopped; retained lists remain
-				// for reconciliation.
+			// Hard failures (network error, permission denied, 5xx) mean the
+			// test still holds resources in an unknown state; surface it
+			// rather than silently marking the test cancelled.
+			if (result.hadFailures) {
+				throw new Error(
+					`A/B test ${testId} stop left resources in a partial state: ${
+						result.campaignResults.filter((r) => r.outcome === "failed")
+							.length
+					} campaign action(s) and ${
+						result.listResults.filter((r) => r.outcome === "failed").length
+					} list action(s) failed; inspect remote resources before retrying`,
+				);
+			}
+
+			// No hard failures, but some lists may have been intentionally
+			// retained because campaigns survived (unobservable, or terminal
+			// campaigns left for delivery history). Log them so operators
+			// have a trace for reconciliation.
+			if (result.hadRetainedResources) {
+				const retained = result.listResults
+					.filter((r) => r.outcome === "skipped_active_reference")
+					.map((r) => r.listId);
+				console.warn(
+					`A/B test ${testId} cancelled with retained lists: ${retained.join(", ")}`,
+				);
 			}
 
 			// Update test status to cancelled (stop is a terminal intent).
