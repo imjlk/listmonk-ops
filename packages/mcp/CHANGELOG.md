@@ -1,5 +1,28 @@
 # @listmonk-ops/mcp
 
+## 0.4.0 — 2026-07-23
+
+### Changed
+
+- [1150985](https://github.com/imjlk/listmonk-ops/commit/115098571442844ea837e4a851869a0ca0f7eee3) Route default-template selection through shared CLI and MCP operations with a stable Listmonk acknowledgement — Thanks @imjlk!
+- [6de0c57](https://github.com/imjlk/listmonk-ops/commit/6de0c578fb2ede2451f98fa0bbb4d22f3c992167) Expose shared media read and delete operations through CLI and MCP with consistent confirmation safety. — Thanks @imjlk!
+- [f529994](https://github.com/imjlk/listmonk-ops/commit/f5299940f0ebfe38100d112edc970340d06753d4) Harden Streamable HTTP with Host and Origin validation, optional Bearer authentication, and safe non-loopback binding requirements. — Thanks @imjlk!
+- [eb86a20](https://github.com/imjlk/listmonk-ops/commit/eb86a20e586f5431d6682c0c893039dba46a0b69) Require explicit confirmation and metadata-only auditing for destructive shared MCP operations — Thanks @imjlk!
+
+### Added
+
+- [71af85e](https://github.com/imjlk/listmonk-ops/commit/71af85ed805d93159c97d30c6035c36b48b3563c) Add local CLI and MCP transactional delivery parity coverage with Mailpit. — Thanks @imjlk!
+- [9c1e818](https://github.com/imjlk/listmonk-ops/commit/9c1e81837c354d1718da51f5ef46c515cdbc8f79) Add shared operation catalog discovery for CLI and MCP parity — Thanks @imjlk!
+
+### Fixed
+
+- [85f71e0](https://github.com/imjlk/listmonk-ops/commit/85f71e083d556b6399f2eae178b148fa3e4f0d51) Keep MCP catalog schema assertions isolated so protocol validation remains deterministic across test orderings. — Thanks @imjlk!
+- [e2a4483](https://github.com/imjlk/listmonk-ops/commit/e2a4483a64f3f4e95f7a6242351dd521be3a421f) Expose execution policy metadata in MCP operation catalog schema — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.3.1, automation@0.1.7, common@0.3.0, openapi@0.3.0, operations@0.3.0
+
 ## 0.3.0 — 2026-07-21
 
 ### Changed

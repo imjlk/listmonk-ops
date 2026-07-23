@@ -1,5 +1,11 @@
 # @listmonk-ops/openapi
 
+## 0.3.0 — 2026-07-23
+
+### Changed
+
+- [1150985](https://github.com/imjlk/listmonk-ops/commit/115098571442844ea837e4a851869a0ca0f7eee3) Route default-template selection through shared CLI and MCP operations with a stable Listmonk acknowledgement — Thanks @imjlk!
+
 ## 0.2.0 — 2026-07-20
 
 ### Changed
