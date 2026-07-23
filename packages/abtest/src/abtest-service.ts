@@ -357,6 +357,12 @@ export class AbTestService {
 			!TERMINAL_STATUSES.has(test.status) &&
 			test.campaignMappings.length > 0
 		) {
+			// For running campaigns, Listmonk v6.2.0 requires cancel before
+			// delete. rollbackProvisioning uses deleteCampaignsBestEffort
+			// which tries DELETE — a running campaign may reject that. We
+			// attempt the rollback and if it fails, re-throw so the local
+			// record persists for retry/reconcile rather than orphaning
+			// active campaigns.
 			try {
 				await this.listmonkIntegration.rollbackProvisioning({
 					testId,
@@ -370,9 +376,11 @@ export class AbTestService {
 					holdoutListId: test.holdoutListId,
 				});
 			} catch (cleanupError) {
-				console.error(
-					`Failed to cleanup Listmonk resources for test ${testId}:`,
-					cleanupError,
+				// Do NOT swallow — if remote cleanup failed the test record
+				// must persist so the operator can retry or reconcile. The
+				// caller (deleteTest executor) surfaces this as an error.
+				throw new Error(
+					`Failed to cleanup Listmonk resources for test ${testId}; the local record was not deleted so the operator can retry or reconcile. Cause: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
 				);
 			}
 		}
