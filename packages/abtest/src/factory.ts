@@ -102,17 +102,23 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 			// not authoritative — the test may still hold active resources.
 			// Surface it rather than silently marking the test cancelled.
 			if (result.hadFailures || result.hadFetchFailures) {
+				const failedCampaigns = result.campaignResults.filter(
+					(r) => r.outcome === "failed",
+				).length;
+				const failedLists = result.listResults.filter(
+					(r) => r.outcome === "failed",
+				).length;
+				const reasons: string[] = [];
+				if (result.hadFailures) {
+					reasons.push(
+						`${failedCampaigns} campaign action(s) and ${failedLists} list action(s) failed`,
+					);
+				}
+				if (result.hadFetchFailures) {
+					reasons.push("campaign status could not be verified");
+				}
 				throw new Error(
-					`A/B test ${testId} stop left resources in a partial state: ${
-						result.campaignResults.filter((r) => r.outcome === "failed")
-							.length
-					} campaign action(s) and ${
-						result.listResults.filter((r) => r.outcome === "failed").length
-					} list action(s) failed${
-						result.hadFetchFailures
-							? " (plus campaign status fetch failures)"
-							: ""
-					}; inspect remote resources before retrying`,
+					`A/B test ${testId} stop is non-authoritative: ${reasons.join("; ")}; inspect remote resources before retrying`,
 				);
 			}
 

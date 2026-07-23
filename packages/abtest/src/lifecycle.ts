@@ -472,6 +472,9 @@ export async function fetchCampaignStatuses(
 				if (typeof status === "string") {
 					statuses.set(campaignId, status);
 				} else {
+					console.error(
+						`Status for campaign ${campaignId} was missing or not a string`,
+					);
 					unobservable.push(campaignId);
 				}
 			} catch (error) {
