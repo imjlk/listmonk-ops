@@ -243,57 +243,36 @@ export class AbTestService {
 				abTest.holdoutListId = holdoutListId;
 				abTest.testGroupSize = testGroupSize;
 				abTest.holdoutGroupSize = holdoutGroupSize;
-				abTest.status =
-					config.autoLaunch && config.launchAt === undefined
-						? "running"
-						: "draft";
+				abTest.status = "draft";
 				// Persist orchestration metadata from the config.
 				if (config.durationHours !== undefined) {
 					abTest.durationHours = config.durationHours;
 				}
-				if (config.launchAt !== undefined) {
-					abTest.launchAt = config.launchAt;
-				}
 
-				// Auto-launch handling. Two cases:
-				// - autoLaunch + no launchAt: launch immediately (running).
-				// - autoLaunch + launchAt: schedule campaigns with send_at and
-				//   set status to 'scheduled' so tick progresses it at launchAt.
+				// Auto-launch: schedule campaigns with a shared send_at and
+				// transition to 'scheduled'. When launchAt is provided, use it
+				// directly; otherwise use now + safety lead time. Both paths
+				// share the same post-launch timestamp logic.
 				if (config.autoLaunch) {
-					if (config.launchAt !== undefined) {
-						// Schedule with the provided launchAt as send_at.
-						await this.listmonkIntegration.launchTest(
-							campaignMappings,
-							testListMappings,
-							{ sendAt: config.launchAt },
-						);
-						abTest.status = "scheduled";
-						abTest.startedAt = new Date().toISOString();
-						if (abTest.durationHours !== undefined) {
-							abTest.endsAt = new Date(
-								new Date(config.launchAt).getTime() +
-									abTest.durationHours * 3600 * 1000,
-							).toISOString();
-						}
-					} else {
-						// Immediate launch with shared send_at (now + 60s safety).
-						const sendAt = new Date(
-							Date.now() + 60 * 1000,
+					const SAFETY_LEAD_SECONDS = 60;
+					const sendAt =
+						config.launchAt ??
+						new Date(
+							Date.now() + SAFETY_LEAD_SECONDS * 1000,
 						).toISOString();
-						await this.listmonkIntegration.launchTest(
-							campaignMappings,
-							testListMappings,
-							{ sendAt },
-						);
-						abTest.status = "scheduled";
-						abTest.startedAt = new Date().toISOString();
-						abTest.launchAt = sendAt;
-						if (abTest.durationHours !== undefined) {
-							abTest.endsAt = new Date(
-								new Date(sendAt).getTime() +
-									abTest.durationHours * 3600 * 1000,
-							).toISOString();
-						}
+					await this.listmonkIntegration.launchTest(
+						campaignMappings,
+						testListMappings,
+						{ sendAt },
+					);
+					abTest.status = "scheduled";
+					abTest.launchAt = sendAt;
+					abTest.startedAt = new Date().toISOString();
+					if (abTest.durationHours !== undefined) {
+						abTest.endsAt = new Date(
+							new Date(sendAt).getTime() +
+								abTest.durationHours * 3600 * 1000,
+						).toISOString();
 					}
 				}
 			} catch (error) {

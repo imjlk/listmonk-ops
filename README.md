@@ -397,10 +397,20 @@ listmonk-cli abtest recommend-sample-size \
   --lists 123,456 --test-group-percentage 10 --variant-count 2
 listmonk-cli abtest deploy-winner --test-id <id> --confirm
 listmonk-cli abtest delete --test-id <id> --confirm
+listmonk-cli abtest run --test-id <id> --confirm
+listmonk-cli abtest tick --dry-run true
+listmonk-cli abtest tick --confirm
+listmonk-cli abtest reconcile --test-id <id>
+listmonk-cli abtest reconcile --all --repair --confirm
 ```
 
 Creating with `--auto-launch true` starts the backing campaigns immediately;
 review that flag as a sending operation before using it in automation.
+
+`abtest tick` advances every non-terminal test one lifecycle step (for
+cron/systemd timers). Use `--dry-run true` to preview without mutating.
+`abtest run` progresses a single test. `abtest reconcile` reports local
+drift and can repair with `--repair --confirm`.
 
 MCP now also exposes A/B test lifecycle tools:
 

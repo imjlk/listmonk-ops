@@ -843,11 +843,21 @@ export default defineGroup({
 			name: "tick",
 			operationId: "abtest.tick",
 			description: "Advance every non-terminal A/B test one lifecycle step",
+			options: {
+				"dry-run": option(z.coerce.boolean().default(false), {
+					description: "Preview what tick would do without mutating state",
+				}),
+			},
 			handler: async (args) => {
 				try {
-					const result = await invokeCliTickAbTests(args, {});
+					const dryRun = Boolean(args.flags["dry-run"]);
+					const result = await invokeCliTickAbTests(args, {
+						dry_run: dryRun,
+					});
 					OutputUtils.success(
-						`Ticked ${result.processed} A/B test(s)`,
+						dryRun
+							? `Dry-run: ${result.processed} A/B test(s) would be progressed`
+							: `Ticked ${result.processed} A/B test(s)`,
 					);
 					OutputUtils.json(result);
 				} catch (error) {
