@@ -23,11 +23,15 @@ export interface AbTestOperationContext {
 const ABTEST_STATUSES = [
 	"draft",
 	"testing",
+	"scheduled",
 	"running",
 	"analyzing",
 	"deploying",
+	"cancelling",
 	"completed",
+	"inconclusive",
 	"cancelled",
+	"failed",
 ] as const;
 
 const abTestStatusSchema = z.enum(ABTEST_STATUSES);
@@ -144,9 +148,14 @@ const abTestSchema = z.object({
 					subscriberChecksum: z.string(),
 				}),
 			),
-			assignedCount: z.number().int().nonnegative(),
-		})
+		assignedCount: z.number().int().nonnegative(),
+	})
 		.optional(),
+	// Stage 3 orchestration fields.
+	durationHours: z.number().finite().positive().optional(),
+	launchAt: z.string().datetime().optional(),
+	startedAt: z.string().datetime().optional(),
+	endsAt: z.string().datetime().optional(),
 });
 
 const testResultsSchema = z.object({
@@ -239,6 +248,7 @@ const createAbTestInputSchema = z.object({
 		z.number().int().positive().optional(),
 	),
 	duration_hours: optionalNumberSchema.pipe(z.number().gt(0).optional()),
+	launch_at: z.string().datetime().optional(),
 	auto_launch: optionalBooleanSchema,
 	auto_deploy_winner: optionalBooleanSchema,
 	ignore_sample_size_warnings: optionalBooleanSchema,
@@ -246,6 +256,35 @@ const createAbTestInputSchema = z.object({
 
 const analyzeAbTestInputSchema = testIdInputSchema.extend({
 	include_recommendations: z.boolean().default(true),
+});
+
+const runAbTestInputSchema = z.object({
+	test_id: z.string().trim().min(1).describe("A/B test ID"),
+	confirm: optionalBooleanSchema.describe(
+		"Confirm destructive side effects before running",
+	),
+});
+
+const tickAbTestsInputSchema = z.object({
+	confirm: optionalBooleanSchema.describe(
+		"Confirm destructive side effects before ticking",
+	),
+	dry_run: optionalBooleanSchema.describe(
+		"Report the actions a tick would take without executing them",
+	),
+});
+
+const reconcileAbTestInputSchema = z.object({
+	test_id: z.string().trim().min(1).optional().describe("A/B test ID"),
+	all: optionalBooleanSchema.describe(
+		"Reconcile every persisted test regardless of status",
+	),
+	repair: optionalBooleanSchema.describe(
+		"Apply repairs for detected drift (destructive when true)",
+	),
+	confirm: optionalBooleanSchema.describe(
+		"Confirm destructive repairs before applying them",
+	),
 });
 
 const recommendSampleSizeInputSchema = z.object({
@@ -273,6 +312,23 @@ export type RecommendAbTestSampleSizeOperationOutput = {
 	recommendation: TestValidationResult;
 };
 export type DeployAbTestWinnerOperationOutput = { deployed: boolean };
+export type RunAbTestOperationOutput = { test: AbTestOperationRecord };
+export type TickAbTestsOperationOutput = {
+	processed: number;
+	results: Array<{
+		test_id: string;
+		status: AbTestOperationRecord["status"];
+		action: string;
+	}>;
+};
+export type ReconcileAbTestOperationOutput = {
+	reconciled: number;
+	results: Array<{
+		test_id: string;
+		status: AbTestOperationRecord["status"];
+		drift: string;
+	}>;
+};
 
 function jsonValue(value: unknown): string {
 	return JSON.stringify(value, null, 2);
@@ -476,6 +532,58 @@ export async function executeDeployAbTestWinnerOperation(
 	return { deployed: true };
 }
 
+export async function executeRunAbTestOperation(
+	context: AbTestOperationContext,
+	input: z.output<typeof runAbTestInputSchema>,
+): Promise<RunAbTestOperationOutput> {
+	return {
+		test: serializeAbTest(
+			await withStoredOperation<AbTest>(
+				context,
+				"write",
+				async (executors) => {
+					const run = await executors.runAbTest(input.test_id);
+					if (!run) {
+						throw new AbTestNotFoundError(input.test_id);
+					}
+					return run;
+				},
+			),
+		),
+	};
+}
+
+export async function executeTickAbTestsOperation(
+	context: AbTestOperationContext,
+	input: z.output<typeof tickAbTestsInputSchema>,
+): Promise<TickAbTestsOperationOutput> {
+	const dryRun = input.dry_run === true;
+	const tickResults = await withStoredOperation<
+		Awaited<ReturnType<AbTestExecutors["tickAbTests"]>>
+	>(context, dryRun ? "read" : "write", (executors) =>
+		executors.tickAbTests(dryRun),
+	);
+	return {
+		processed: tickResults.length,
+		results: tickResults,
+	};
+}
+
+export async function executeReconcileAbTestOperation(
+	context: AbTestOperationContext,
+	input: z.output<typeof reconcileAbTestInputSchema>,
+): Promise<ReconcileAbTestOperationOutput> {
+	const reconcileResults = await withStoredOperation<
+		Awaited<ReturnType<AbTestExecutors["reconcileAbTest"]>>
+	>(context, input.repair ? "write" : "read", (executors) =>
+		executors.reconcileAbTest(input.test_id, input.repair === true),
+	);
+	return {
+		reconciled: reconcileResults.length,
+		results: reconcileResults,
+	};
+}
+
 const readSafety = {
 	readOnlyHint: true,
 	destructiveHint: false,
@@ -638,6 +746,71 @@ export const deployAbTestWinnerOperation = defineOperation({
 	execute: executeDeployAbTestWinnerOperation,
 });
 
+const tickResultSchema = z.object({
+	test_id: z.string(),
+	status: abTestStatusSchema,
+	action: z.string(),
+});
+
+const reconcileResultSchema = z.object({
+	test_id: z.string(),
+	status: abTestStatusSchema,
+	drift: z.string(),
+});
+
+export const runAbTestOperation = defineOperation({
+	id: "abtest.run",
+	title: "Run A/B test step",
+	description:
+		"Advance a single A/B test one lifecycle step based on its current status",
+	inputSchema: runAbTestInputSchema,
+	outputSchema: z.object({ test: abTestSchema }),
+	safety: destructiveNonIdempotentSafety,
+	mcp: {
+		name: "listmonk_abtest_run",
+		legacySuccessText: (output) => jsonValue(output["test"]),
+	},
+	execute: executeRunAbTestOperation,
+});
+
+export const tickAbTestsOperation = defineOperation({
+	id: "abtest.tick",
+	title: "Tick A/B tests",
+	description:
+		"Advance every non-terminal A/B test one lifecycle step and report the actions taken",
+	inputSchema: tickAbTestsInputSchema,
+	outputSchema: z.object({
+		processed: z.number().int().nonnegative(),
+		results: z.array(tickResultSchema),
+	}),
+	safety: destructiveNonIdempotentSafety,
+	mcp: {
+		name: "listmonk_abtest_tick",
+		legacySuccessText: (output) => jsonValue(output),
+	},
+	execute: executeTickAbTestsOperation,
+});
+
+export const reconcileAbTestOperation = defineOperation({
+	id: "abtest.reconcile",
+	title: "Reconcile A/B test state",
+	description:
+		"Reconcile persisted A/B test state against expected lifecycle state; repairs are destructive when enabled",
+	inputSchema: reconcileAbTestInputSchema,
+	outputSchema: z.object({
+		reconciled: z.number().int().nonnegative(),
+		results: z.array(reconcileResultSchema),
+	}),
+	// Reconcile is read-only by default but becomes destructive when `repair`
+	// is requested, so the static annotation must cover the destructive path.
+	safety: destructiveSafety,
+	mcp: {
+		name: "listmonk_abtest_reconcile",
+		legacySuccessText: (output) => jsonValue(output),
+	},
+	execute: executeReconcileAbTestOperation,
+});
+
 export const abTestOperations = [
 	listAbTestsOperation,
 	getAbTestOperation,
@@ -648,6 +821,9 @@ export const abTestOperations = [
 	deleteAbTestOperation,
 	recommendAbTestSampleSizeOperation,
 	deployAbTestWinnerOperation,
+	runAbTestOperation,
+	tickAbTestsOperation,
+	reconcileAbTestOperation,
 ] as const;
 
 export const abTestOperationCatalog = defineOperationCatalog({
@@ -863,6 +1039,72 @@ export async function invokeDeployAbTestWinnerOperation(
 		});
 }
 
+export async function invokeRunAbTestOperation(
+	context: AbTestOperationContext,
+	input: unknown,
+): Promise<RunAbTestOperationOutput> {
+	const parsedInput = parseOperationInput(
+		runAbTestOperation.inputSchema,
+		input,
+	);
+	return executeRunAbTestOperation(context, parsedInput)
+		.then((output) =>
+			parseOperationOutput(
+				runAbTestOperation.id,
+				runAbTestOperation.outputSchema,
+				output,
+			),
+		)
+		.catch((error) => {
+			throw normalizeOperationExecutionError(runAbTestOperation.id, error);
+		});
+}
+
+export async function invokeTickAbTestsOperation(
+	context: AbTestOperationContext,
+	input: unknown,
+): Promise<TickAbTestsOperationOutput> {
+	const parsedInput = parseOperationInput(
+		tickAbTestsOperation.inputSchema,
+		input,
+	);
+	return executeTickAbTestsOperation(context, parsedInput)
+		.then((output) =>
+			parseOperationOutput(
+				tickAbTestsOperation.id,
+				tickAbTestsOperation.outputSchema,
+				output,
+			),
+		)
+		.catch((error) => {
+			throw normalizeOperationExecutionError(tickAbTestsOperation.id, error);
+		});
+}
+
+export async function invokeReconcileAbTestOperation(
+	context: AbTestOperationContext,
+	input: unknown,
+): Promise<ReconcileAbTestOperationOutput> {
+	const parsedInput = parseOperationInput(
+		reconcileAbTestOperation.inputSchema,
+		input,
+	);
+	return executeReconcileAbTestOperation(context, parsedInput)
+		.then((output) =>
+			parseOperationOutput(
+				reconcileAbTestOperation.id,
+				reconcileAbTestOperation.outputSchema,
+				output,
+			),
+		)
+		.catch((error) => {
+			throw normalizeOperationExecutionError(
+				reconcileAbTestOperation.id,
+				error,
+			);
+		});
+}
+
 export type AbTestOperationInvocation =
 	| { operation: typeof listAbTestsOperation; output: ListAbTestsOperationOutput }
 	| { operation: typeof getAbTestOperation; output: GetAbTestOperationOutput }
@@ -881,6 +1123,12 @@ export type AbTestOperationInvocation =
 	| {
 			operation: typeof deployAbTestWinnerOperation;
 			output: DeployAbTestWinnerOperationOutput;
+	  }
+	| { operation: typeof runAbTestOperation; output: RunAbTestOperationOutput }
+	| { operation: typeof tickAbTestsOperation; output: TickAbTestsOperationOutput }
+	| {
+			operation: typeof reconcileAbTestOperation;
+			output: ReconcileAbTestOperationOutput;
 	  };
 
 export async function invokeAbTestOperationByMcpName(
@@ -935,6 +1183,21 @@ export async function invokeAbTestOperationByMcpName(
 			return {
 				operation: deployAbTestWinnerOperation,
 				output: await invokeDeployAbTestWinnerOperation(context, input),
+			};
+		case runAbTestOperation.mcp.name:
+			return {
+				operation: runAbTestOperation,
+				output: await invokeRunAbTestOperation(context, input),
+			};
+		case tickAbTestsOperation.mcp.name:
+			return {
+				operation: tickAbTestsOperation,
+				output: await invokeTickAbTestsOperation(context, input),
+			};
+		case reconcileAbTestOperation.mcp.name:
+			return {
+				operation: reconcileAbTestOperation,
+				output: await invokeReconcileAbTestOperation(context, input),
 			};
 		default:
 			return undefined;

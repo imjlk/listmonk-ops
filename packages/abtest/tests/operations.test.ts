@@ -12,8 +12,11 @@ import {
 	invokeGetAbTestOperation,
 	invokeLaunchAbTestOperation,
 	invokeListAbTestsOperation,
+	invokeReconcileAbTestOperation,
 	invokeRecommendAbTestSampleSizeOperation,
+	invokeRunAbTestOperation,
 	invokeStopAbTestOperation,
+	invokeTickAbTestsOperation,
 	listAbTestsOperation,
 } from "../src/operations";
 import { AbTestNotFoundError, saveStoredAbTests } from "../src/persistence";
@@ -66,7 +69,7 @@ afterEach(async () => {
 
 describe("A/B test operation registry", () => {
 	test("publishes all lifecycle tools with object schemas and safety metadata", () => {
-		expect(abTestOperations).toHaveLength(9);
+		expect(abTestOperations).toHaveLength(12);
 		expect(abTestOperations.map((operation) => operation.mcp.name)).toEqual([
 			"listmonk_abtest_list",
 			"listmonk_abtest_get",
@@ -77,6 +80,9 @@ describe("A/B test operation registry", () => {
 			"listmonk_abtest_delete",
 			"listmonk_abtest_recommend_sample_size",
 			"listmonk_abtest_deploy_winner",
+			"listmonk_abtest_run",
+			"listmonk_abtest_tick",
+			"listmonk_abtest_reconcile",
 		]);
 		for (const operation of abTestOperations) {
 			expect(operation.inputJsonSchema.type).toBe("object");
@@ -158,6 +164,17 @@ describe("A/B test operation registry", () => {
 		await expect(
 			invokeDeployAbTestWinnerOperation(context, {}),
 		).rejects.toThrow("Missing required parameter: test_id");
+		await expect(invokeRunAbTestOperation(context, {})).rejects.toThrow(
+			"Missing required parameter: test_id",
+		);
+		// tick and reconcile have all-optional inputs, so drive them through a
+		// deliberate validation failure to keep each invoker anchored.
+		await expect(
+			invokeTickAbTestsOperation(context, { confirm: "not-boolean" }),
+		).rejects.toThrow("Invalid parameter confirm");
+		await expect(
+			invokeReconcileAbTestOperation(context, { confirm: "not-boolean" }),
+		).rejects.toThrow("Invalid parameter confirm");
 	});
 
 	test("preserves typed not-found errors for lifecycle transitions", async () => {

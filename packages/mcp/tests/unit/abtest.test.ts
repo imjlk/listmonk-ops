@@ -22,7 +22,7 @@ afterEach(async () => {
 
 describe("MCP A/B test operation adapter", () => {
 	test("publishes the shared lifecycle metadata", () => {
-		expect(abtestTools).toHaveLength(9);
+		expect(abtestTools).toHaveLength(12);
 		const listTool = abtestTools.find(
 			(tool) => tool.name === "listmonk_abtest_list",
 		);

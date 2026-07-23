@@ -14,6 +14,7 @@ import type {
 	TestValidationResult,
 	Variant,
 } from "./types";
+import { ABTEST_SAFETY_LEAD_SECONDS } from "./types";
 
 /**
  * A/B/C Testing Service - supports up to 3 variants (A, B, C)
@@ -243,14 +244,41 @@ export class AbTestService {
 				abTest.holdoutListId = holdoutListId;
 				abTest.testGroupSize = testGroupSize;
 				abTest.holdoutGroupSize = holdoutGroupSize;
-				abTest.status = config.autoLaunch ? "running" : "draft";
+				abTest.status = "draft";
+				// Persist orchestration metadata from the config.
+				if (config.durationHours !== undefined) {
+					abTest.durationHours = config.durationHours;
+				}
+				// Persist launchAt on the record regardless of autoLaunch so
+				// a draft with a planned launch time retains it for later
+				// explicit launch via launchAbTest.
+				if (config.launchAt !== undefined) {
+					abTest.launchAt = config.launchAt;
+				}
 
-				// Auto-launch if configured
+				// Auto-launch: schedule campaigns with a shared send_at and
+				// transition to 'scheduled'. When launchAt is provided, use it
+				// directly; otherwise use now + safety lead time.
 				if (config.autoLaunch) {
+					const sendAt =
+						config.launchAt ??
+						new Date(
+							Date.now() + ABTEST_SAFETY_LEAD_SECONDS * 1000,
+						).toISOString();
 					await this.listmonkIntegration.launchTest(
 						campaignMappings,
 						testListMappings,
+						{ sendAt },
 					);
+					abTest.status = "scheduled";
+					abTest.launchAt = sendAt;
+					abTest.startedAt = new Date().toISOString();
+					if (abTest.durationHours !== undefined) {
+						abTest.endsAt = new Date(
+							new Date(sendAt).getTime() +
+								abTest.durationHours * 3600 * 1000,
+						).toISOString();
+					}
 				}
 			} catch (error) {
 				try {
@@ -320,8 +348,13 @@ export class AbTestService {
 			return false;
 		}
 
-		// Cleanup Listmonk resources
-		if (this.listmonkIntegration && test.status === "running") {
+		// Cleanup Listmonk resources for any test that has remote resources
+		// (running, scheduled, or any non-terminal state with campaigns).
+		if (
+			this.listmonkIntegration &&
+			(test.status === "running" || test.status === "scheduled") &&
+			test.campaignMappings.length > 0
+		) {
 			if (test.testingMode === "holdout" && test.holdoutListId) {
 				// Use holdout cleanup
 				await this.listmonkIntegration.cleanupHoldoutTest(

@@ -126,7 +126,7 @@ describe("mcp runtime entrypoint", () => {
 		try {
 			await client.connect(transport);
 			const tools = await client.listTools();
-			expect(tools.tools).toHaveLength(64);
+			expect(tools.tools).toHaveLength(67);
 			expect(tools.tools.map((tool) => tool.name)).toContain(
 				"listmonk_list_operations",
 			);
@@ -149,7 +149,7 @@ describe("mcp runtime entrypoint", () => {
 		);
 		const legacyTools = await legacyResponse.json();
 		expect(legacyResponse.ok).toBe(true);
-		expect(legacyTools.tools).toHaveLength(64);
+		expect(legacyTools.tools).toHaveLength(67);
 	});
 
 	test("published bin applies HTTP bearer authentication", async () => {
@@ -226,7 +226,7 @@ describe("mcp runtime entrypoint", () => {
 		try {
 			await client.connect(transport);
 			const tools = await client.listTools();
-			expect(tools.tools).toHaveLength(64);
+			expect(tools.tools).toHaveLength(67);
 			expect(tools.tools.map((tool) => tool.name)).toContain(
 				"listmonk_list_operations",
 			);

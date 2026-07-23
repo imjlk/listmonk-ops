@@ -38,8 +38,11 @@ export {
 	invokeGetAbTestOperation,
 	invokeLaunchAbTestOperation,
 	invokeListAbTestsOperation,
+	invokeReconcileAbTestOperation,
 	invokeRecommendAbTestSampleSizeOperation,
+	invokeRunAbTestOperation,
 	invokeStopAbTestOperation,
+	invokeTickAbTestsOperation,
 } from "./operations";
 export type {
 	AbTestOperation,
@@ -53,9 +56,12 @@ export type {
 	GetAbTestOperationOutput,
 	LaunchAbTestOperationOutput,
 	ListAbTestsOperationOutput,
+	ReconcileAbTestOperationOutput,
 	RecommendAbTestSampleSizeOperationOutput,
+	RunAbTestOperationOutput,
 	StopAbTestOperationOutput,
 	TestAnalysisOperationRecord,
+	TickAbTestsOperationOutput,
 } from "./operations";
 export {
 	AbTestNotFoundError,

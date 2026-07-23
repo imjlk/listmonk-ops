@@ -109,7 +109,9 @@ describe("A/B Test MCP Tools", () => {
 			launchResult,
 			"Failed to launch A/B test",
 		);
-		expect(launched.status).toBe("running");
+		// launchAbTest now transitions to 'scheduled' (shared send_at) rather
+		// than immediately 'running'.
+		expect(launched.status).toBe("scheduled");
 
 		const stopResult = await client.callTool("listmonk_abtest_stop", {
 			test_id: created.id,

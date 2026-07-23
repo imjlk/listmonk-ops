@@ -294,6 +294,24 @@ const abTestOperationDefinitions = [
 		"invokeDeployAbTestWinnerOperation",
 		"executeDeployAbTestWinnerOperation",
 	],
+	[
+		"run",
+		"invokeCliRunAbTest",
+		"invokeRunAbTestOperation",
+		"executeRunAbTestOperation",
+	],
+	[
+		"tick",
+		"invokeCliTickAbTests",
+		"invokeTickAbTestsOperation",
+		"executeTickAbTestsOperation",
+	],
+	[
+		"reconcile",
+		"invokeCliReconcileAbTest",
+		"invokeReconcileAbTestOperation",
+		"executeReconcileAbTestOperation",
+	],
 ] as const;
 
 const abTestOperationContracts: readonly CallPathContract[] =

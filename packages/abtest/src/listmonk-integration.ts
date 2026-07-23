@@ -614,6 +614,15 @@ export class ListmonkAbTestIntegration {
 	async launchTest(
 		campaignMappings: { variantId: string; campaignId: number }[],
 		listMappings: { variantId: string; listId: number }[],
+		options: {
+			/**
+			 * When provided, every variant campaign receives the same send_at
+			 * and is transitioned to 'scheduled' instead of 'running'. This
+			 * ensures all variants send simultaneously. The Listmonk v6.2.0
+			 * spike confirmed send_at + scheduled works for future timestamps.
+			 */
+			sendAt?: string;
+		} = {},
 	): Promise<void> {
 		// Apply segmented list mapping and launch each campaign.
 		for (const campaign of campaignMappings) {
@@ -627,24 +636,40 @@ export class ListmonkAbTestIntegration {
 				);
 			}
 
+			const body: Record<string, unknown> = {
+				lists: [listMapping.listId],
+			};
+			// When a shared send_at is provided, stamp every variant campaign
+			// with the same future timestamp so they all send simultaneously.
+			if (options.sendAt !== undefined) {
+				body.send_at = options.sendAt;
+			}
+
 			const updateResult = await this.listmonkClient.campaign.update({
 				path: { id: campaign.campaignId },
-				body: {
-					lists: [listMapping.listId],
-				},
+				body,
 			});
 			if ("error" in updateResult) {
 				throw new Error(
-					`Failed to update campaign ${campaign.campaignId}: ${updateResult.error}`,
+					`Failed to update campaign ${campaign.campaignId}: ${this.formatError(updateResult.error)}`,
 				);
 			}
 
-			await this.listmonkClient.campaign.updateStatus({
+			// Transition to 'scheduled' when a send_at is set, otherwise
+			// launch immediately as 'running'. Check the result so a failed
+			// status transition does not leave the campaign in draft with a
+			// future send_at (which would never fire).
+			const statusResult = await this.listmonkClient.campaign.updateStatus({
 				path: { id: campaign.campaignId },
 				body: {
-					status: "running",
+					status: options.sendAt !== undefined ? "scheduled" : "running",
 				},
 			});
+			if ("error" in statusResult) {
+				throw new Error(
+					`Failed to update status for campaign ${campaign.campaignId}: ${this.formatError(statusResult.error)}`,
+				);
+			}
 		}
 	}
 
