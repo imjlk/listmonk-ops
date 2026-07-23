@@ -11,6 +11,8 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { timingSafeEqual } from "node:crypto";
+import { isIP } from "node:net";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import {
 	assertUniqueToolNames,
@@ -45,12 +47,104 @@ import {
 import { createErrorResult, toErrorMessage } from "./utils/response.js";
 import { createMCPProtocolServer, MCP_SERVER_INFO } from "./protocol.js";
 
+const HTTP_TOOL_PATHS = new Set(["/mcp", "/tools/list", "/tools/call"]);
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
+
+function normalizeHostname(hostname: string): string {
+	return hostname
+		.trim()
+		.toLowerCase()
+		.replace(/^\[/, "")
+		.replace(/\]$/, "")
+		.replace(/\.$/, "");
+}
+
+function isLoopbackHostname(hostname: string): boolean {
+	return LOOPBACK_HOSTNAMES.has(normalizeHostname(hostname));
+}
+
+function normalizeAllowedHost(host: string): string {
+	const normalized = normalizeHostname(host);
+	if (
+		!normalized ||
+		normalized.includes("/") ||
+		normalized.includes("://") ||
+		(normalized.includes(":") && isIP(normalized) !== 6)
+	) {
+		throw new TypeError(
+			`Invalid MCP HTTP allowed host: ${host}. Use a hostname without a scheme, path, or port.`,
+		);
+	}
+	return normalized;
+}
+
+function parseHttpOrigin(origin: string): URL | undefined {
+	let parsed: URL;
+	try {
+		parsed = new URL(origin.trim());
+	} catch {
+		return undefined;
+	}
+	if (
+		(parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
+		parsed.username !== "" ||
+		parsed.password !== "" ||
+		parsed.pathname !== "/" ||
+		parsed.search !== "" ||
+		parsed.hash !== ""
+	) {
+		return undefined;
+	}
+	return parsed;
+}
+
+function normalizeAllowedOrigin(origin: string): string {
+	const parsed = parseHttpOrigin(origin);
+	if (!parsed) {
+		throw new TypeError(
+			`Invalid MCP HTTP allowed origin: ${origin}. Use an exact http(s) origin without a path.`,
+		);
+	}
+	return parsed.origin;
+}
+
+function requestHostname(request: Request): string | undefined {
+	const host = request.headers.get("Host") ?? new URL(request.url).host;
+	try {
+		return normalizeHostname(new URL(`http://${host}`).hostname);
+	} catch {
+		return undefined;
+	}
+}
+
+function bearerTokenMatches(
+	authorization: string | undefined,
+	expectedToken: string,
+): boolean {
+	if (!authorization) {
+		return false;
+	}
+	const match = /^Bearer\s+(.+)$/i.exec(authorization.trim());
+	if (!match?.[1]) {
+		return false;
+	}
+	const actual = new TextEncoder().encode(match[1]);
+	const expected = new TextEncoder().encode(expectedToken);
+	return actual.byteLength === expected.byteLength && timingSafeEqual(
+		actual,
+		expected,
+	);
+}
+
 export class ListmonkMCPServer {
 	private app: Hono;
 	private tools: Map<string, MCPTool>;
 	private client: ListmonkClient;
 	private baseUrl: string;
 	private auditStoreOptions: OperationAuditStoreOptions;
+	private httpAuthToken: string | undefined;
+	private allowedHttpHosts: Set<string>;
+	private allowedHttpOrigins: Set<string>;
 
 	constructor(config: {
 		baseUrl: string;
@@ -59,6 +153,9 @@ export class ListmonkMCPServer {
 		apiToken?: string;
 		auditStorePath?: string;
 		auditStoreLimit?: number;
+		httpAuthToken?: string;
+		allowedHttpHosts?: readonly string[];
+		allowedHttpOrigins?: readonly string[];
 	}) {
 		this.app = new Hono();
 		this.tools = new Map();
@@ -67,6 +164,21 @@ export class ListmonkMCPServer {
 			path: config.auditStorePath,
 			limit: config.auditStoreLimit,
 		};
+		this.httpAuthToken = config.httpAuthToken;
+		this.allowedHttpHosts = new Set(
+			(config.allowedHttpHosts ?? []).map(normalizeAllowedHost),
+		);
+		this.allowedHttpOrigins = new Set(
+			(config.allowedHttpOrigins ?? []).map(normalizeAllowedOrigin),
+		);
+		if (
+			(this.allowedHttpHosts.size > 0 || this.allowedHttpOrigins.size > 0) &&
+			!this.httpAuthToken
+		) {
+			throw new TypeError(
+				"MCP HTTP allowed hosts and origins require MCP_HTTP_AUTH_TOKEN",
+			);
+		}
 
 		// Create ListmonkClient instance
 		const credential = config.apiToken || config.password;
@@ -84,9 +196,80 @@ export class ListmonkMCPServer {
 		this.setupRoutes();
 	}
 
+	private isAllowedHttpOrigin(origin: string): boolean {
+		const parsed = parseHttpOrigin(origin);
+		if (!parsed) {
+			return false;
+		}
+		return (
+			isLoopbackHostname(parsed.hostname) ||
+			this.allowedHttpOrigins.has(parsed.origin)
+		);
+	}
+
+	private validateHttpRequest(request: Request): Response | undefined {
+		const hostname = requestHostname(request);
+		if (
+			!hostname ||
+			(!isLoopbackHostname(hostname) && !this.allowedHttpHosts.has(hostname))
+		) {
+			return Response.json({ error: "Forbidden host" }, { status: 403 });
+		}
+
+		const origin = request.headers.get("Origin");
+		if (origin && !this.isAllowedHttpOrigin(origin)) {
+			return Response.json({ error: "Forbidden origin" }, { status: 403 });
+		}
+
+		if (
+			this.httpAuthToken &&
+			HTTP_TOOL_PATHS.has(
+				new URL(request.url).pathname.replace(/\/+$/, "") || "/",
+			) &&
+			request.method !== "OPTIONS" &&
+			!bearerTokenMatches(
+				request.headers.get("Authorization") ?? undefined,
+				this.httpAuthToken,
+			)
+		) {
+			return Response.json(
+				{ error: "Unauthorized" },
+				{
+					status: 401,
+					headers: { "WWW-Authenticate": 'Bearer realm="listmonk-ops-mcp"' },
+				},
+			);
+		}
+
+		return undefined;
+	}
+
 	private setupMiddleware() {
 		this.app.use("*", logger());
-		this.app.use("*", cors());
+		this.app.use("*", async (c, next) => {
+			const rejection = this.validateHttpRequest(c.req.raw);
+			if (rejection) {
+				return rejection;
+			}
+			return next();
+		});
+		this.app.use(
+			"*",
+			cors({
+				origin: (origin) =>
+					origin && this.isAllowedHttpOrigin(origin) ? origin : undefined,
+				allowMethods: ["GET", "POST", "OPTIONS"],
+				allowHeaders: [
+					"Accept",
+					"Authorization",
+					"Content-Type",
+					"Last-Event-ID",
+					"MCP-Protocol-Version",
+					"Mcp-Session-Id",
+				],
+				exposeHeaders: ["Mcp-Session-Id"],
+			}),
+		);
 	}
 	private registerTools() {
 		assertUniqueToolNames();
@@ -305,7 +488,28 @@ export class ListmonkMCPServer {
 	getApp() {
 		return this.app;
 	}
+
+	private assertSecureHttpBinding(hostname: string): void {
+		if (isLoopbackHostname(hostname)) {
+			return;
+		}
+		if (!this.httpAuthToken) {
+			throw new Error(
+				"Refusing non-loopback MCP HTTP binding without MCP_HTTP_AUTH_TOKEN",
+			);
+		}
+		if (
+			this.allowedHttpHosts.size === 0 ||
+			this.allowedHttpOrigins.size === 0
+		) {
+			throw new Error(
+				"Non-loopback MCP HTTP binding requires MCP_HTTP_ALLOWED_HOSTS and MCP_HTTP_ALLOWED_ORIGINS",
+			);
+		}
+	}
+
 	async listen(port: number, hostname = "localhost") {
+		this.assertSecureHttpBinding(hostname);
 		if (typeof Bun === "undefined") {
 			throw new Error(
 				"@listmonk-ops/mcp requires the Bun runtime. Start it with `bun` or the installed `listmonk-mcp` launcher.",
@@ -344,6 +548,9 @@ export function createListmonkMCPServer(config: {
 	apiToken?: string;
 	auditStorePath?: string;
 	auditStoreLimit?: number;
+	httpAuthToken?: string;
+	allowedHttpHosts?: readonly string[];
+	allowedHttpOrigins?: readonly string[];
 }) {
 	return new ListmonkMCPServer({
 		baseUrl: config.baseUrl,
@@ -352,5 +559,8 @@ export function createListmonkMCPServer(config: {
 		apiToken: config.apiToken,
 		auditStorePath: config.auditStorePath,
 		auditStoreLimit: config.auditStoreLimit,
+		httpAuthToken: config.httpAuthToken,
+		allowedHttpHosts: config.allowedHttpHosts,
+		allowedHttpOrigins: config.allowedHttpOrigins,
 	});
 }

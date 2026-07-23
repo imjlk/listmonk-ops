@@ -19,6 +19,9 @@ type MCPServerConfig = {
 	username: string;
 	password: string;
 	apiToken: string;
+	httpAuthToken?: string;
+	allowedHttpHosts?: string[];
+	allowedHttpOrigins?: string[];
 };
 
 async function createMCPServer(
@@ -77,6 +80,15 @@ function loadRuntimeEnv(): void {
 	loadFileEnv(resolve(process.cwd(), ".env"));
 }
 
+function parseCommaSeparatedEnv(value: string | undefined): string[] {
+	return value
+		? value
+				.split(",")
+				.map((entry) => entry.trim())
+				.filter(Boolean)
+		: [];
+}
+
 function printHelp(): void {
 	console.log(`listmonk-mcp
 
@@ -101,6 +113,9 @@ Environment fallback:
   LISTMONK_API_TOKEN
   MCP_SERVER_HOST
   MCP_SERVER_PORT
+  MCP_HTTP_AUTH_TOKEN          Optional Bearer token for HTTP tool endpoints
+  MCP_HTTP_ALLOWED_HOSTS       Comma-separated hostnames for non-loopback HTTP
+  MCP_HTTP_ALLOWED_ORIGINS     Comma-separated browser origins for non-loopback HTTP
 `);
 }
 
@@ -215,6 +230,9 @@ export async function main() {
 		return;
 	}
 
+	const port = runtimeArgs.port || Number(process.env.MCP_SERVER_PORT) || 3000;
+	const host = runtimeArgs.host || process.env.MCP_SERVER_HOST || "localhost";
+	const transport = runtimeArgs.transport || "http";
 	const config = {
 		baseUrl:
 			runtimeArgs.baseUrl ||
@@ -224,11 +242,17 @@ export async function main() {
 			runtimeArgs.username || process.env.LISTMONK_USERNAME || "api-admin",
 		password: runtimeArgs.password || process.env.LISTMONK_PASSWORD || "",
 		apiToken: runtimeArgs.apiToken || process.env.LISTMONK_API_TOKEN || "",
+		httpAuthToken:
+			transport === "http" ? process.env.MCP_HTTP_AUTH_TOKEN : undefined,
+		allowedHttpHosts:
+			transport === "http"
+				? parseCommaSeparatedEnv(process.env.MCP_HTTP_ALLOWED_HOSTS)
+				: [],
+		allowedHttpOrigins:
+			transport === "http"
+				? parseCommaSeparatedEnv(process.env.MCP_HTTP_ALLOWED_ORIGINS)
+				: [],
 	};
-
-	const port = runtimeArgs.port || Number(process.env.MCP_SERVER_PORT) || 3000;
-	const host = runtimeArgs.host || process.env.MCP_SERVER_HOST || "localhost";
-	const transport = runtimeArgs.transport || "http";
 
 	// Validate required config
 	if (
