@@ -33,6 +33,262 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		listmonkIntegration,
 		metricsCollector,
 	);
+
+	const TERMINAL_STATUSES: ReadonlySet<AbTest["status"]> = new Set([
+		"completed",
+		"inconclusive",
+		"cancelled",
+		"failed",
+	]);
+
+	// Launch is shared between the manual launchAbTest method and the
+	// orchestration runAbTest step, so define it once as a named helper.
+	const launchAbTestImpl = async (
+		testId: string,
+	): Promise<AbTest | null> => {
+		const test = await abTestService.getTest(testId);
+		if (!test) {
+			throw new AbTestNotFoundError(testId);
+		}
+
+		if (test.status !== "draft" && test.status !== "scheduled") {
+			throw new Error(
+				`Test ${testId} is not in draft or scheduled status (current: ${test.status})`,
+			);
+		}
+
+		// Compute the shared send_at for all variant campaigns. Prefer
+		// the test's launchAt; otherwise use now + 60s safety lead time
+		// so all variants send simultaneously rather than sequentially.
+		const DEFAULT_SAFETY_LEAD_SECONDS = 60;
+		const sendAt =
+			test.launchAt ??
+			new Date(
+				Date.now() + DEFAULT_SAFETY_LEAD_SECONDS * 1000,
+			).toISOString();
+
+		// Launch with the shared send_at so every variant campaign
+		// transitions to 'scheduled' simultaneously.
+		await listmonkIntegration.launchTest(
+			test.campaignMappings,
+			test.testListMappings,
+			{ sendAt },
+		);
+
+		// Record the startedAt and compute endsAt from durationHours.
+		const startedAt = new Date().toISOString();
+		test.startedAt = startedAt;
+		if (test.durationHours !== undefined) {
+			test.endsAt = new Date(
+				Date.now() + test.durationHours * 3600 * 1000,
+			).toISOString();
+		}
+		test.launchAt = sendAt;
+
+		// The test is now scheduled — the campaigns will fire at sendAt.
+		return await abTestService.updateTestStatus(testId, "scheduled");
+	};
+
+	const stopAbTestImpl = async (
+		testId: string,
+	): Promise<AbTest | null> => {
+		const test = await abTestService.getTest(testId);
+		if (!test) {
+			throw new AbTestNotFoundError(testId);
+		}
+
+		if (test.status !== "running" && test.status !== "scheduled") {
+			throw new Error(
+				`Test ${testId} is not running or scheduled (current: ${test.status})`,
+			);
+		}
+
+		// Stop via the status-aware lifecycle executor: it fetches each
+		// backing campaign's remote status, cancels running campaigns,
+		// deletes draft/scheduled ones (which cannot be cancelled on
+		// Listmonk v6.2.0), leaves terminal campaigns in place, and only
+		// deletes temporary lists when no campaign still references them.
+		// This replaces the legacy cleanup paths that renamed campaigns
+		// and ignored remote status.
+		const result = await cancelAbTest(listmonkClient, test);
+
+		// Hard failures (network error, permission denied, 5xx) or fetch
+		// failures (could not read a campaign's status) mean the stop is
+		// not authoritative — the test may still hold active resources.
+		// Surface it rather than silently marking the test cancelled.
+		if (result.hadFailures || result.hadFetchFailures) {
+			const failedCampaigns = result.campaignResults.filter(
+				(r) => r.outcome === "failed",
+			).length;
+			const failedLists = result.listResults.filter(
+				(r) => r.outcome === "failed",
+			).length;
+			const reasons: string[] = [];
+			if (result.hadFailures) {
+				reasons.push(
+					`${failedCampaigns} campaign action(s) and ${failedLists} list action(s) failed`,
+				);
+			}
+			if (result.hadFetchFailures) {
+				reasons.push("campaign status could not be verified");
+			}
+			throw new Error(
+				`A/B test ${testId} stop is non-authoritative: ${reasons.join("; ")}; inspect remote resources before retrying`,
+			);
+		}
+
+		// No hard failures, but some lists may have been intentionally
+		// retained because campaigns survived (unobservable, or terminal
+		// campaigns left for delivery history). Log them so operators
+		// have a trace for reconciliation.
+		if (result.hadRetainedResources) {
+			const retained = result.listResults
+				.filter((r) => r.outcome === "skipped_active_reference")
+				.map((r) => r.listId);
+			console.warn(
+				`A/B test ${testId} cancelled with retained lists: ${retained.join(", ")}`,
+			);
+		}
+
+		// Update test status to cancelled (stop is a terminal intent).
+		return await abTestService.updateTestStatus(testId, "cancelled");
+	};
+
+	// Orchestration operations. These are intentionally lightweight stubs
+	// that perform a single status-based progression step; full scheduling,
+	// duration checks, and reconciliation logic land in later stages.
+	const runAbTestImpl = async (
+		testId: string,
+	): Promise<AbTest | null> => {
+		const test = await abTestService.getTest(testId);
+		if (!test) {
+			throw new AbTestNotFoundError(testId);
+		}
+
+		if (TERMINAL_STATUSES.has(test.status)) {
+			return test;
+		}
+
+		// Progress the test one step based on its current status. This
+		// delegates to the existing lifecycle methods so the orchestration
+		// layer stays consistent with the manual launch/stop paths.
+		switch (test.status) {
+			case "draft":
+			case "scheduled": {
+				return await launchAbTestImpl(testId);
+			}
+			case "running": {
+				// A running test has reached its send window; advance it to
+				// analyzing so the next tick can pick up metrics. Full
+				// endsAt enforcement lands in a later stage.
+				return await abTestService.updateTestStatus(testId, "analyzing");
+			}
+			case "analyzing": {
+				// Deploy the winner if the test is configured for auto-deploy;
+				// otherwise mark it completed once analysis has run.
+				if (test.autoDeployWinner) {
+					await abTestService.deployWinner(testId);
+				}
+				return await abTestService.updateTestStatus(testId, "completed");
+			}
+			default: {
+				// `testing`, `deploying`, and `cancelling` are transitional
+				// states that this stub does not drive yet.
+				return test;
+			}
+		}
+	};
+
+	const tickAbTestsImpl = async (): Promise<
+		Array<{
+			test_id: string;
+			status: AbTest["status"];
+			action: string;
+		}>
+	> => {
+		const tests = await abTestService.getAllTests();
+		const results: Array<{
+			test_id: string;
+			status: AbTest["status"];
+			action: string;
+		}> = [];
+		for (const test of tests) {
+			if (TERMINAL_STATUSES.has(test.status)) {
+				continue;
+			}
+			const action = `progress:${test.status}`;
+			try {
+				// runAbTest owns the single-step progression; re-read the
+				// resulting status so the tick report reflects the new state.
+				const updated = await runAbTestImpl(test.id);
+				results.push({
+					test_id: test.id,
+					status: updated?.status ?? test.status,
+					action,
+				});
+			} catch (error) {
+				// Keep ticking even if one test fails so operators see every
+				// progression attempt in a single report.
+				results.push({
+					test_id: test.id,
+					status: test.status,
+					action: `error:${error instanceof Error ? error.message : String(error)}`,
+				});
+			}
+		}
+		return results;
+	};
+
+	const reconcileAbTestImpl = async (
+		testId?: string,
+	): Promise<
+		Array<{
+			test_id: string;
+			status: AbTest["status"];
+			drift: string;
+		}>
+	> => {
+		const tests = testId
+			? [
+					(() => {
+						const found = abTestService
+							.snapshotTests()
+							.find((candidate) => candidate.id === testId);
+						if (!found) {
+							throw new AbTestNotFoundError(testId);
+						}
+						return found;
+					})(),
+				]
+			: abTestService.snapshotTests();
+
+		return tests.map((test) => {
+			// Simple drift heuristic: terminal tests are expected to have no
+			// future endsAt; non-terminal tests are expected to have a
+			// startedAt once they reach running/analyzing. Full drift
+			// detection lands later.
+			let drift = "none";
+			if (
+				!TERMINAL_STATUSES.has(test.status) &&
+				!test.startedAt &&
+				(test.status === "running" || test.status === "analyzing")
+			) {
+				drift = "missing_startedAt";
+			} else if (
+				TERMINAL_STATUSES.has(test.status) &&
+				test.endsAt &&
+				new Date(test.endsAt).getTime() > Date.now()
+			) {
+				drift = "terminal_with_future_endsAt";
+			}
+			return {
+				test_id: test.id,
+				status: test.status,
+				drift,
+			};
+		});
+	};
+
 	return {
 		// Basic CRUD operations
 		listAbTests: (params?: AbTestQueryParams): Promise<AbTest[]> =>
@@ -58,112 +314,9 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 			}),
 
 		// Advanced operations
-		launchAbTest: async (testId: string) => {
-			const test = await abTestService.getTest(testId);
-			if (!test) {
-				throw new AbTestNotFoundError(testId);
-			}
+		launchAbTest: launchAbTestImpl,
 
-			if (test.status !== "draft" && test.status !== "scheduled") {
-				throw new Error(
-					`Test ${testId} is not in draft or scheduled status (current: ${test.status})`,
-				);
-			}
-
-			// Compute the shared send_at for all variant campaigns. Prefer
-			// the test's launchAt; otherwise use now + 60s safety lead time
-			// so all variants send simultaneously rather than sequentially.
-			const DEFAULT_SAFETY_LEAD_SECONDS = 60;
-			const sendAt =
-				test.launchAt ??
-				new Date(
-					Date.now() + DEFAULT_SAFETY_LEAD_SECONDS * 1000,
-				).toISOString();
-
-			// Launch with the shared send_at so every variant campaign
-			// transitions to 'scheduled' simultaneously.
-			await listmonkIntegration.launchTest(
-				test.campaignMappings,
-				test.testListMappings,
-				{ sendAt },
-			);
-
-			// Record the startedAt and compute endsAt from durationHours.
-			const startedAt = new Date().toISOString();
-			test.startedAt = startedAt;
-			if (test.durationHours !== undefined) {
-				test.endsAt = new Date(
-					Date.now() + test.durationHours * 3600 * 1000,
-				).toISOString();
-			}
-			test.launchAt = sendAt;
-
-			// The test is now scheduled — the campaigns will fire at sendAt.
-			return await abTestService.updateTestStatus(testId, "scheduled");
-		},
-
-		stopAbTest: async (testId: string) => {
-			const test = await abTestService.getTest(testId);
-			if (!test) {
-				throw new AbTestNotFoundError(testId);
-			}
-
-			if (test.status !== "running" && test.status !== "scheduled") {
-				throw new Error(
-					`Test ${testId} is not running or scheduled (current: ${test.status})`,
-				);
-			}
-
-			// Stop via the status-aware lifecycle executor: it fetches each
-			// backing campaign's remote status, cancels running campaigns,
-			// deletes draft/scheduled ones (which cannot be cancelled on
-			// Listmonk v6.2.0), leaves terminal campaigns in place, and only
-			// deletes temporary lists when no campaign still references them.
-			// This replaces the legacy cleanup paths that renamed campaigns
-			// and ignored remote status.
-			const result = await cancelAbTest(listmonkClient, test);
-
-			// Hard failures (network error, permission denied, 5xx) or fetch
-			// failures (could not read a campaign's status) mean the stop is
-			// not authoritative — the test may still hold active resources.
-			// Surface it rather than silently marking the test cancelled.
-			if (result.hadFailures || result.hadFetchFailures) {
-				const failedCampaigns = result.campaignResults.filter(
-					(r) => r.outcome === "failed",
-				).length;
-				const failedLists = result.listResults.filter(
-					(r) => r.outcome === "failed",
-				).length;
-				const reasons: string[] = [];
-				if (result.hadFailures) {
-					reasons.push(
-						`${failedCampaigns} campaign action(s) and ${failedLists} list action(s) failed`,
-					);
-				}
-				if (result.hadFetchFailures) {
-					reasons.push("campaign status could not be verified");
-				}
-				throw new Error(
-					`A/B test ${testId} stop is non-authoritative: ${reasons.join("; ")}; inspect remote resources before retrying`,
-				);
-			}
-
-			// No hard failures, but some lists may have been intentionally
-			// retained because campaigns survived (unobservable, or terminal
-			// campaigns left for delivery history). Log them so operators
-			// have a trace for reconciliation.
-			if (result.hadRetainedResources) {
-				const retained = result.listResults
-					.filter((r) => r.outcome === "skipped_active_reference")
-					.map((r) => r.listId);
-				console.warn(
-					`A/B test ${testId} cancelled with retained lists: ${retained.join(", ")}`,
-				);
-			}
-
-			// Update test status to cancelled (stop is a terminal intent).
-			return await abTestService.updateTestStatus(testId, "cancelled");
-		},
+		stopAbTest: stopAbTestImpl,
 
 		getTestResults: async (testId: string) => {
 			return await abTestService.getTestResults(testId);
@@ -185,6 +338,11 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		deployWinner: async (testId: string) => {
 			return await abTestService.deployWinner(testId);
 		},
+
+		// Orchestration operations exposed to the shared operation executors.
+		runAbTest: runAbTestImpl,
+		tickAbTests: tickAbTestsImpl,
+		reconcileAbTest: reconcileAbTestImpl,
 
 		// Convenience methods for common A/B test scenarios
 		createSimpleAbTest: async (params: {

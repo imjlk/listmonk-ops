@@ -7,8 +7,11 @@ import {
 	type GetAbTestOperationOutput,
 	type LaunchAbTestOperationOutput,
 	type ListAbTestsOperationOutput,
+	type ReconcileAbTestOperationOutput,
 	type RecommendAbTestSampleSizeOperationOutput,
+	type RunAbTestOperationOutput,
 	type StopAbTestOperationOutput,
+	type TickAbTestsOperationOutput,
 	invokeAnalyzeAbTestOperation,
 	invokeCreateAbTestOperation,
 	invokeDeleteAbTestOperation,
@@ -16,8 +19,11 @@ import {
 	invokeGetAbTestOperation,
 	invokeLaunchAbTestOperation,
 	invokeListAbTestsOperation,
+	invokeReconcileAbTestOperation,
 	invokeRecommendAbTestSampleSizeOperation,
+	invokeRunAbTestOperation,
 	invokeStopAbTestOperation,
+	invokeTickAbTestsOperation,
 	validateStoredAbTestStore,
 } from "@listmonk-ops/abtest";
 import { OutputUtils } from "@listmonk-ops/common";
@@ -263,6 +269,30 @@ async function invokeCliDeployAbTestWinner(
 ): Promise<DeployAbTestWinnerOperationOutput> {
 	const client = await getListmonkClient(args);
 	return invokeDeployAbTestWinnerOperation({ client }, input);
+}
+
+async function invokeCliRunAbTest(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<RunAbTestOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeRunAbTestOperation({ client }, input);
+}
+
+async function invokeCliTickAbTests(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<TickAbTestsOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeTickAbTestsOperation({ client }, input);
+}
+
+async function invokeCliReconcileAbTest(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<ReconcileAbTestOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeReconcileAbTestOperation({ client }, input);
 }
 
 async function promptInteractiveInput(
@@ -781,6 +811,81 @@ export default defineGroup({
 				} catch (error) {
 					throw new Error(
 						`Failed to deploy A/B test winner: ${toErrorMessage(error)}`,
+					);
+				}
+			},
+		}),
+		defineCommand({
+			name: "run",
+			operationId: "abtest.run",
+			description: "Advance a single A/B test one lifecycle step",
+			options: {
+				"test-id": option(z.string().trim().min(1), {
+					description: "Test ID",
+				}),
+			},
+			handler: async ({ flags, ...args }) => {
+				try {
+					const { test: run } = await invokeCliRunAbTest(
+						args,
+						{ test_id: flags["test-id"] },
+					);
+					OutputUtils.success(`A/B test advanced: ${flags["test-id"]}`);
+					OutputUtils.json(run);
+				} catch (error) {
+					throw new Error(
+						`Failed to run A/B test: ${toErrorMessage(error)}`,
+					);
+				}
+			},
+		}),
+		defineCommand({
+			name: "tick",
+			operationId: "abtest.tick",
+			description: "Advance every non-terminal A/B test one lifecycle step",
+			handler: async (args) => {
+				try {
+					const result = await invokeCliTickAbTests(args, {});
+					OutputUtils.success(
+						`Ticked ${result.processed} A/B test(s)`,
+					);
+					OutputUtils.json(result);
+				} catch (error) {
+					throw new Error(
+						`Failed to tick A/B tests: ${toErrorMessage(error)}`,
+					);
+				}
+			},
+		}),
+		defineCommand({
+			name: "reconcile",
+			operationId: "abtest.reconcile",
+			description: "Reconcile persisted A/B test state against expected lifecycle",
+			options: {
+				"test-id": option(z.string().trim().min(1).optional(), {
+					description: "Test ID (omit to reconcile all tests)",
+				}),
+				all: option(z.coerce.boolean().default(false), {
+					description: "Reconcile every persisted test",
+				}),
+				repair: option(z.coerce.boolean().default(false), {
+					description: "Apply repairs for detected drift (destructive)",
+				}),
+			},
+			handler: async ({ flags, ...args }) => {
+				try {
+					const result = await invokeCliReconcileAbTest(args, {
+						test_id: flags["test-id"],
+						all: flags.all,
+						repair: flags.repair,
+					});
+					OutputUtils.success(
+						`Reconciled ${result.reconciled} A/B test(s)`,
+					);
+					OutputUtils.json(result);
+				} catch (error) {
+					throw new Error(
+						`Failed to reconcile A/B tests: ${toErrorMessage(error)}`,
 					);
 				}
 			},

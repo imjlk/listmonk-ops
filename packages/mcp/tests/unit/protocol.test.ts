@@ -32,7 +32,7 @@ describe("standard MCP protocol adapter", () => {
 				version: packageJson.version,
 			});
 			const result = await client.listTools();
-			expect(result.tools).toHaveLength(64);
+			expect(result.tools).toHaveLength(67);
 			expect(result.tools.map((tool) => tool.name)).toContain(
 				"listmonk_ops_preflight",
 			);
