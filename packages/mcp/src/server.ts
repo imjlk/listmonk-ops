@@ -11,7 +11,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import {
@@ -47,7 +47,6 @@ import {
 import { createErrorResult, toErrorMessage } from "./utils/response.js";
 import { createMCPProtocolServer, MCP_SERVER_INFO } from "./protocol.js";
 
-const HTTP_TOOL_PATHS = new Set(["/mcp", "/tools/list", "/tools/call"]);
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
 
 function normalizeHostname(hostname: string): string {
@@ -128,12 +127,14 @@ function bearerTokenMatches(
 	if (!match?.[1]) {
 		return false;
 	}
-	const actual = new TextEncoder().encode(match[1]);
-	const expected = new TextEncoder().encode(expectedToken);
-	return actual.byteLength === expected.byteLength && timingSafeEqual(
-		actual,
-		expected,
-	);
+	const actual = createHash("sha256").update(match[1], "utf8").digest();
+	const expected = createHash("sha256").update(expectedToken, "utf8").digest();
+	return timingSafeEqual(actual, expected);
+}
+
+function requiresHttpAuthentication(pathname: string): boolean {
+	const normalized = pathname.replace(/\/+$/, "") || "/";
+	return normalized === "/mcp" || normalized.startsWith("/tools/");
 }
 
 export class ListmonkMCPServer {
@@ -223,9 +224,7 @@ export class ListmonkMCPServer {
 
 		if (
 			this.httpAuthToken &&
-			HTTP_TOOL_PATHS.has(
-				new URL(request.url).pathname.replace(/\/+$/, "") || "/",
-			) &&
+			requiresHttpAuthentication(new URL(request.url).pathname) &&
 			request.method !== "OPTIONS" &&
 			!bearerTokenMatches(
 				request.headers.get("Authorization") ?? undefined,

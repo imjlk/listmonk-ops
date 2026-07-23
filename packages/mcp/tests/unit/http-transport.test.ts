@@ -88,6 +88,10 @@ describe("MCP HTTP transport boundary", () => {
 			Authorization: "Bearer wrong-secret",
 		});
 		expect(invalid.status).toBe(401);
+		const futureToolRoute = await server
+			.getApp()
+			.request("http://localhost/tools/future");
+		expect(futureToolRoute.status).toBe(401);
 
 		const authorized = await listToolsRequest(server, {
 			Authorization: "Bearer http-test-secret",
