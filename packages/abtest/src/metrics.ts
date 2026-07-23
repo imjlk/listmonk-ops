@@ -67,42 +67,47 @@ export class ListmonkMetricsCollector implements MetricsCollector {
 			);
 		}
 
-		const results: TestResults[] = [];
-		for (const mapping of test.campaignMappings) {
-			try {
-				const response = await this.client.campaign.getById({
-					path: { id: mapping.campaignId },
-				});
-				if ("error" in response || response.data === undefined) {
-					throw new Error(
-						`campaign ${mapping.campaignId} returned no data${
-							"error" in response ? `: ${String(response.error)}` : ""
-						}`,
-					);
-				}
-				const campaign = response.data;
-				const sampleSize = campaign.sent ?? 0;
-				const opens = campaign.views ?? 0;
-				const clicks = campaign.clicks ?? 0;
-				// Conversions are NOT click-through. Until a conversion event
-				// store is wired in, conversions stay at zero so analysis does
-				// not mistake clicks for conversions.
-				const conversions = 0;
+		// Fetch every backing campaign in parallel. Each fetch is independent,
+		// and Promise.all rejects on the first failure, which preserves the
+		// fail-closed semantics (no partial results escape) while improving
+		// latency when multiple variants exist.
+		const results = await Promise.all(
+			test.campaignMappings.map(async (mapping): Promise<TestResults> => {
+				try {
+					const response = await this.client.campaign.getById({
+						path: { id: mapping.campaignId },
+					});
+					if ("error" in response || response.data === undefined) {
+						throw new Error(
+							`campaign ${mapping.campaignId} returned no data${
+								"error" in response ? `: ${String(response.error)}` : ""
+							}`,
+						);
+					}
+					const campaign = response.data;
+					const sampleSize = campaign.sent ?? 0;
+					const opens = campaign.views ?? 0;
+					const clicks = campaign.clicks ?? 0;
+					// Conversions are NOT click-through. Until a conversion event
+					// store is wired in, conversions stay at zero so analysis does
+					// not mistake clicks for conversions.
+					const conversions = 0;
 
-				results.push({
-					variantId: mapping.variantId,
-					sampleSize,
-					opens,
-					clicks,
-					conversions,
-					openRate: sampleSize > 0 ? (opens / sampleSize) * 100 : 0,
-					clickRate: sampleSize > 0 ? (clicks / sampleSize) * 100 : 0,
-					conversionRate: 0,
-				});
-			} catch (error) {
-				throw new AbTestMetricsUnavailableError(test.id, error);
-			}
-		}
+					return {
+						variantId: mapping.variantId,
+						sampleSize,
+						opens,
+						clicks,
+						conversions,
+						openRate: sampleSize > 0 ? (opens / sampleSize) * 100 : 0,
+						clickRate: sampleSize > 0 ? (clicks / sampleSize) * 100 : 0,
+						conversionRate: 0,
+					};
+				} catch (error) {
+					throw new AbTestMetricsUnavailableError(test.id, error);
+				}
+			}),
+		);
 
 		return results;
 	}
@@ -124,7 +129,10 @@ export class SimulatedMetricsCollector implements MetricsCollector {
 				new Error("no simulated results registered for this test"),
 			);
 		}
-		// Return deep copies so tests cannot mutate the registered fixture.
+		// Return shallow copies so tests cannot mutate the registered fixture's
+		// primitive fields. TestResults currently holds only primitives, so a
+		// shallow copy is sufficient; switch to structuredClone if a nested
+		// object/array field is ever added.
 		return results.map((result) => ({ ...result }));
 	}
 }

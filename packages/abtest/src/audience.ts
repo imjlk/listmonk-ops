@@ -119,7 +119,16 @@ export function createListmonkAudienceResolver(
 	): void {
 		const uuid = subscriber.uuid;
 		const id = subscriber.id;
-		if (uuid === undefined || id === undefined) {
+		// Guard against undefined, null, and empty-string identities. An empty
+		// uuid would otherwise collide on the "" key and silently dedupe
+		// distinct subscribers.
+		if (
+			uuid === undefined ||
+			uuid === null ||
+			uuid === "" ||
+			id === undefined ||
+			id === null
+		) {
 			throw new AudienceResolutionError(
 				`subscriber is missing id or uuid; id=${JSON.stringify(
 					id,
@@ -137,7 +146,7 @@ export function createListmonkAudienceResolver(
 	async function resolvePage(
 		listId: number,
 		page: number,
-	): Promise<{ subscribers: Subscriber[]; total: number }> {
+	): Promise<{ subscribers: Subscriber[] }> {
 		const response = await client.subscriber.list({
 			query: {
 				list_id: [listId],
@@ -146,8 +155,7 @@ export function createListmonkAudienceResolver(
 			},
 		});
 		const subscribers = response.results ?? [];
-		const total = typeof response.total === "number" ? response.total : 0;
-		return { subscribers, total };
+		return { subscribers };
 	}
 
 	return {
@@ -164,7 +172,6 @@ export function createListmonkAudienceResolver(
 
 			const seen = new Map<string, number>();
 			const collected: AudienceMember[] = [];
-			let firstTotal: number | null = null;
 
 			for (const listId of dedupedListIds) {
 				let page = 1;
@@ -173,20 +180,22 @@ export function createListmonkAudienceResolver(
 				// reasonable upper bound derived from the reported total.
 				const maxPages = 10_000;
 				while (page <= maxPages) {
-					const { subscribers, total } = await resolvePage(listId, page);
-					if (firstTotal === null) {
-						firstTotal = total;
-					}
+					const { subscribers } = await resolvePage(listId, page);
 					if (subscribers.length === 0) {
-						// Some Listmonk deployments return an empty page before the
-						// final page; tolerate a single empty page then stop.
+						// Some Listmonk deployments return an intermittent empty
+						// page before the final page; tolerate a single empty
+						// page, then stop after two consecutive empties. Crucially,
+						// advance the page and continue so an empty page does not
+						// hit the `subscribers.length < pageSize` break below and
+						// silently truncate the audience.
 						emptyPages += 1;
 						if (emptyPages >= 2) {
 							break;
 						}
-					} else {
-						emptyPages = 0;
+						page += 1;
+						continue;
 					}
+					emptyPages = 0;
 					for (const subscriber of subscribers) {
 						if (!isEligibleSubscriber(subscriber)) {
 							continue;

@@ -201,6 +201,56 @@ describe("createListmonkAudienceResolver", () => {
 		);
 	});
 
+	it("fails closed when a subscriber has an empty-string uuid", async () => {
+		const broken: Subscriber = {
+			id: 5,
+			uuid: "",
+			email: "x@y",
+			status: "enabled",
+		};
+		const client = makeClient({ 10: [broken] });
+		const resolver = createListmonkAudienceResolver(client);
+		await expect(resolver.resolve([10])).rejects.toThrow(
+			AudienceResolutionError,
+		);
+	});
+
+	it("fails closed when a subscriber has a null id", async () => {
+		const broken = { id: null, uuid: "u1", email: "x@y", status: "enabled" } as unknown as Subscriber;
+		const client = makeClient({ 10: [broken] });
+		const resolver = createListmonkAudienceResolver(client);
+		await expect(resolver.resolve([10])).rejects.toThrow(
+			AudienceResolutionError,
+		);
+	});
+
+	it("tolerates a single intermittent empty page without truncating", async () => {
+		// Page 1 returns 2 subscribers, page 2 returns empty (intermittent),
+		// page 3 returns 2 more. Resolver should collect all 4.
+		const sub1 = makeSubscriber(1, "u1", "enabled", [10]);
+		const sub2 = makeSubscriber(2, "u2", "enabled", [10]);
+		const sub3 = makeSubscriber(3, "u3", "enabled", [10]);
+		const sub4 = makeSubscriber(4, "u4", "enabled", [10]);
+		const pages = [
+			[sub1, sub2],
+			[],
+			[sub3, sub4],
+		];
+		const list = mock((options: MockListOptions) => {
+			const page = options.query?.page ?? 1;
+			const slice = pages[page - 1] ?? [];
+			return mockListResponse(slice, 4);
+		});
+		const client = { subscriber: { list } } as unknown as ListmonkClient;
+		const resolver = createListmonkAudienceResolver(client, { pageSize: 2 });
+		const snapshot = await resolver.resolve([10]);
+		expect(snapshot.subscriberCount).toBe(4);
+		// Page 3 fills exactly to pageSize (2), so the resolver queries page 4
+		// to check for more; page 4 and 5 both return empty, breaking on the
+		// second consecutive empty page. Total calls: 5.
+		expect(list).toHaveBeenCalledTimes(5);
+	});
+
 	it("fails closed when a subscriber is missing a numeric id", async () => {
 		const broken: Subscriber = {
 			id: undefined,
