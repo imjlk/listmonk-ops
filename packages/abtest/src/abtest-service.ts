@@ -348,28 +348,41 @@ export class AbTestService {
 			return false;
 		}
 
-		// Cleanup Listmonk resources for any test that has remote resources
-		// (running, scheduled, or any non-terminal state with campaigns).
+		// Cleanup Listmonk resources for any test that has remote campaigns.
+		// Use rollbackProvisioning which deletes both campaigns and lists,
+		// rather than the legacy cleanup that only renames campaigns and may
+		// leave scheduled campaigns still able to fire.
+		const TERMINAL_FOR_CLEANUP = new Set([
+			"completed",
+			"cancelled",
+			"inconclusive",
+			"failed",
+		]);
 		if (
 			this.listmonkIntegration &&
-			(test.status === "running" || test.status === "scheduled") &&
+			!TERMINAL_FOR_CLEANUP.has(test.status) &&
 			test.campaignMappings.length > 0
 		) {
-			if (test.testingMode === "holdout" && test.holdoutListId) {
-				// Use holdout cleanup
-				await this.listmonkIntegration.cleanupHoldoutTest(
+			const listIds = test.testListMappings.map((m) => m.listId);
+			if (test.holdoutListId !== undefined) {
+				listIds.push(test.holdoutListId);
+			}
+			try {
+				await this.listmonkIntegration.rollbackProvisioning({
 					testId,
-					test.testListMappings.map((m) => m.listId),
-					test.holdoutListId,
-					test.campaignMappings.map((m) => m.campaignId),
-					false, // Don't keep winner campaign during cleanup
-				);
-			} else {
-				// Use legacy cleanup for full-split
-				await this.listmonkIntegration.cleanup(
-					testId,
-					test.testListMappings.map((m) => m.listId),
-					test.campaignMappings.map((m) => m.campaignId),
+					campaignIds: [
+						...test.campaignMappings.map((m) => m.campaignId),
+						...(test.winnerCampaignId !== undefined
+							? [test.winnerCampaignId]
+							: []),
+					],
+					testListIds: listIds,
+					holdoutListId: undefined,
+				});
+			} catch (cleanupError) {
+				console.error(
+					`Failed to cleanup Listmonk resources for test ${testId}:`,
+					cleanupError,
 				);
 			}
 		}

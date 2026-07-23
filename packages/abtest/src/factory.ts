@@ -194,13 +194,17 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				return test;
 			}
 			case "running": {
-				// A running test has reached its send window; advance it to
-				// analyzing so the next tick can pick up metrics. Check endsAt
-				// if set so we don't analyze prematurely.
-				const now = Date.now();
-				const endTime = test.endsAt ? new Date(test.endsAt).getTime() : 0;
-				if (endTime === 0 || now >= endTime) {
-					return await abTestService.updateTestStatus(testId, "analyzing");
+				// A running test should only advance to analyzing after its
+				// endsAt has passed. If endsAt is not set (no durationHours),
+				// do NOT auto-advance — the operator must explicitly trigger
+				// analysis or set a duration. This prevents tick from marking
+				// experiments inconclusive/completed on the very next run
+				// after launch.
+				if (test.endsAt) {
+					const now = Date.now();
+					if (now >= new Date(test.endsAt).getTime()) {
+						return await abTestService.updateTestStatus(testId, "analyzing");
+					}
 				}
 				return test;
 			}
