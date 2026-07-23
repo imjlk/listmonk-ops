@@ -252,8 +252,10 @@ export class AbTestService {
 					abTest.launchAt = config.launchAt;
 				}
 
-				// Auto-launch if configured
-				if (config.autoLaunch) {
+				// Auto-launch only when no scheduled launch time is set. If
+				// launchAt is provided, the test stays in draft/scheduled and
+				// the caller (or tick) launches it at the scheduled time.
+				if (config.autoLaunch && config.launchAt === undefined) {
 					await this.listmonkIntegration.launchTest(
 						campaignMappings,
 						testListMappings,

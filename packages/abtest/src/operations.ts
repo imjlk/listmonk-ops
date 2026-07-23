@@ -153,9 +153,9 @@ const abTestSchema = z.object({
 		.optional(),
 	// Stage 3 orchestration fields.
 	durationHours: z.number().finite().positive().optional(),
-	launchAt: z.string().optional(),
-	startedAt: z.string().optional(),
-	endsAt: z.string().optional(),
+	launchAt: z.string().datetime().optional(),
+	startedAt: z.string().datetime().optional(),
+	endsAt: z.string().datetime().optional(),
 });
 
 const testResultsSchema = z.object({

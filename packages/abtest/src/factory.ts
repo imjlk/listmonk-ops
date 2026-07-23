@@ -64,18 +64,42 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				throw new AbTestNotFoundError(testId);
 			}
 
-			if (test.status !== "draft") {
-				throw new Error(`Test ${testId} is not in draft status`);
+			if (test.status !== "draft" && test.status !== "scheduled") {
+				throw new Error(
+					`Test ${testId} is not in draft or scheduled status (current: ${test.status})`,
+				);
 			}
 
-			// Launch the test
+			// Compute the shared send_at for all variant campaigns. Prefer
+			// the test's launchAt; otherwise use now + 60s safety lead time
+			// so all variants send simultaneously rather than sequentially.
+			const DEFAULT_SAFETY_LEAD_SECONDS = 60;
+			const sendAt =
+				test.launchAt ??
+				new Date(
+					Date.now() + DEFAULT_SAFETY_LEAD_SECONDS * 1000,
+				).toISOString();
+
+			// Launch with the shared send_at so every variant campaign
+			// transitions to 'scheduled' simultaneously.
 			await listmonkIntegration.launchTest(
 				test.campaignMappings,
 				test.testListMappings,
+				{ sendAt },
 			);
 
-			// Update test status
-			return await abTestService.updateTestStatus(testId, "running");
+			// Record the startedAt and compute endsAt from durationHours.
+			const startedAt = new Date().toISOString();
+			test.startedAt = startedAt;
+			if (test.durationHours !== undefined) {
+				test.endsAt = new Date(
+					Date.now() + test.durationHours * 3600 * 1000,
+				).toISOString();
+			}
+			test.launchAt = sendAt;
+
+			// The test is now scheduled — the campaigns will fire at sendAt.
+			return await abTestService.updateTestStatus(testId, "scheduled");
 		},
 
 		stopAbTest: async (testId: string) => {
@@ -84,8 +108,10 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				throw new AbTestNotFoundError(testId);
 			}
 
-			if (test.status !== "running") {
-				throw new Error(`Test ${testId} is not running`);
+			if (test.status !== "running" && test.status !== "scheduled") {
+				throw new Error(
+					`Test ${testId} is not running or scheduled (current: ${test.status})`,
+				);
 			}
 
 			// Stop via the status-aware lifecycle executor: it fetches each

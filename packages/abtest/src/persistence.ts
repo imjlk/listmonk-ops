@@ -231,9 +231,9 @@ function isStoredAbTest(value: unknown): boolean {
 		// Stage 3 orchestration fields: optional, validated when present.
 		(value.durationHours === undefined ||
 			(isFiniteNumber(value.durationHours) && value.durationHours > 0)) &&
-		(value.launchAt === undefined || typeof value.launchAt === "string") &&
-		(value.startedAt === undefined || typeof value.startedAt === "string") &&
-		(value.endsAt === undefined || typeof value.endsAt === "string")
+		(value.launchAt === undefined || isValidTimestamp(value.launchAt)) &&
+		(value.startedAt === undefined || isValidTimestamp(value.startedAt)) &&
+		(value.endsAt === undefined || isValidTimestamp(value.endsAt))
 	);
 }
 
