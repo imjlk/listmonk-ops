@@ -1,5 +1,11 @@
 # @listmonk-ops/common
 
+## 0.3.0 — 2026-07-23
+
+### Added
+
+- [b52b7f1](https://github.com/imjlk/listmonk-ops/commit/b52b7f1fa9e3a34c4c3c99e70eca7a2b094d38c1) Add execution policy metadata and atomic operation audit storage — Thanks @imjlk!
+
 ## 0.2.0 — 2026-07-20
 
 ### Added

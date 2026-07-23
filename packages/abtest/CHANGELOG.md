@@ -1,5 +1,19 @@
 # @listmonk-ops/abtest
 
+## 0.3.1 — 2026-07-23
+
+### Added
+
+- [9c1e818](https://github.com/imjlk/listmonk-ops/commit/9c1e81837c354d1718da51f5ef46c515cdbc8f79) Add shared operation catalog discovery for CLI and MCP parity — Thanks @imjlk!
+
+### Changed
+
+- [06c1bd0](https://github.com/imjlk/listmonk-ops/commit/06c1bd090f0ad8f5b5e651408491077730da8cd2) Add graph-enforced direct regression coverage for A/B test CLI input and every shared operation invoker. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: common@0.3.0, openapi@0.3.0, operations@0.3.0
+
 ## 0.3.0 — 2026-07-21
 
 ### Added
