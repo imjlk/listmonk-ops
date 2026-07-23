@@ -83,7 +83,7 @@ export function groupChecksum(uuids: readonly string[]): string {
  * identical (digest, uuid) pairs to honor the comparator contract even when
  * upstream data contains duplicate UUIDs.
  */
-function rankMembers(
+export function rankMembers(
 	testId: string,
 	seed: string,
 	members: readonly AudienceMember[],
@@ -198,10 +198,26 @@ export function buildAssignmentManifest(params: {
 		);
 	}
 
+	// Recompute the member UUID checksum and verify it matches the snapshot.
+	// If the audience changed (even if the count stayed the same), the
+	// persisted checksum would describe a different audience than the one we
+	// just assigned, making later drift checks trust the wrong baseline.
+	const recomputedChecksum = groupChecksum(
+		members.map((member) => member.subscriberUuid),
+	);
+	if (
+		audience.subscriberChecksum !== "" &&
+		recomputedChecksum !== audience.subscriberChecksum
+	) {
+		throw new AssignmentError(
+			`audience checksum mismatch: snapshot=${audience.subscriberChecksum} recomputed=${recomputedChecksum}`,
+		);
+	}
+
 	return {
 		algorithm: "sha256-order-largest-remainder-v1",
 		seed,
-		audienceChecksum: audience.subscriberChecksum,
+		audienceChecksum: recomputedChecksum,
 		groups,
 		assignedCount: total,
 	};
@@ -224,7 +240,7 @@ export function groupIndexForUuid(
 	members: readonly AudienceMember[],
 	subscriberUuid: string,
 ): number {
-	const ranked = rankMembers(testId, manifest.seed, members);
+	const ranked = rankAndVerifyMembers(testId, manifest, members);
 	return groupIndexOfRanked(ranked, manifest, subscriberUuid);
 }
 
@@ -239,12 +255,34 @@ export function groupIndexForUuids(
 	members: readonly AudienceMember[],
 	subscriberUuids: readonly string[],
 ): Map<string, number> {
-	const ranked = rankMembers(testId, manifest.seed, members);
+	const ranked = rankAndVerifyMembers(testId, manifest, members);
 	const result = new Map<string, number>();
 	for (const uuid of subscriberUuids) {
 		result.set(uuid, groupIndexOfRanked(ranked, manifest, uuid));
 	}
 	return result;
+}
+
+/**
+ * Rank members and verify the audience has not drifted from the manifest's
+ * recorded checksum. If the current members' checksum differs from the
+ * manifest's audienceChecksum, the caller is resolving a different audience
+ * than the one that was originally assigned, so every lookup returns -1
+ * rather than a misleading group index.
+ */
+function rankAndVerifyMembers(
+	testId: string,
+	manifest: AssignmentManifest,
+	members: readonly AudienceMember[],
+): { member: AudienceMember; digest: string }[] {
+	const checksum = groupChecksum(
+		members.map((member) => member.subscriberUuid),
+	);
+	if (checksum !== manifest.audienceChecksum) {
+		// Audience drift: return an empty ranked list so every lookup yields -1.
+		return [];
+	}
+	return rankMembers(testId, manifest.seed, members);
 }
 
 function groupIndexOfRanked(

@@ -94,10 +94,11 @@ function isNonNegativeNumber(value: unknown): value is number {
 }
 
 function isConfidenceThreshold(value: unknown): value is number {
-	// Match analyzeStatisticalSignificance's (0, 1) open range so a stored
-	// or input threshold of exactly 1 (or 0) is rejected consistently,
-	// rather than accepted at persistence time only to throw at analysis.
-	return isFiniteNumber(value) && value > 0 && value < 1;
+	// Accept (0, 1] on read so legacy v1 stores that persisted exactly 1.0
+	// remain loadable. The parse step normalizes 1.0 to 0.99 so analysis-time
+	// validation (which requires (0, 1)) never sees the invalid value. New
+	// writes come from CreateAbTestCommand which defaults to 0.95.
+	return isFiniteNumber(value) && value > 0 && value <= 1;
 }
 
 function isStoredVariant(value: unknown): boolean {
@@ -310,6 +311,13 @@ function parseAbTestStore(value: unknown): StoredAbTestDocument {
 		version: 2,
 		tests: (value.tests as unknown as AbTest[]).map((test) => ({
 			...test,
+			// Normalize a legacy confidenceThreshold of exactly 1.0 (which
+			// analyzeStatisticalSignificance rejects) to 0.99 so the read
+			// remains backward-compatible with v1 stores that allowed it.
+			confidenceThreshold:
+				test.confidenceThreshold >= 1
+					? 0.99
+					: test.confidenceThreshold,
 			createdAt: new Date(test.createdAt),
 			updatedAt: new Date(test.updatedAt),
 			variants: test.variants.map((variant) => ({
