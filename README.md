@@ -150,7 +150,7 @@ Use `listmonk-mcp --stdio` for command-based MCP clients. The default HTTP
 runtime exposes the standard Streamable HTTP endpoint at `/mcp` while retaining
 the legacy REST endpoints. Local HTTP keeps working without extra settings.
 Non-loopback binding requires a separate MCP Bearer token plus explicit allowed
-hosts and browser origins; tool requests must send that token in the
+hosts and browser origins; MCP and tool requests must send that token in the
 `Authorization` header. Use TLS at the reverse proxy when exposing HTTP.
 
 ## Sampo Changesets + npm OIDC Publish

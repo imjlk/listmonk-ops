@@ -109,8 +109,24 @@ function normalizeAllowedOrigin(origin: string): string {
 
 function requestHostname(request: Request): string | undefined {
 	const host = request.headers.get("Host") ?? new URL(request.url).host;
+	if (
+		host.length === 0 ||
+		/[\u0000-\u0020\u007f/?#@\\]/u.test(host)
+	) {
+		return undefined;
+	}
 	try {
-		return normalizeHostname(new URL(`http://${host}`).hostname);
+		const parsed = new URL(`http://${host}`);
+		if (
+			parsed.username !== "" ||
+			parsed.password !== "" ||
+			parsed.pathname !== "/" ||
+			parsed.search !== "" ||
+			parsed.hash !== ""
+		) {
+			return undefined;
+		}
+		return normalizeHostname(parsed.hostname);
 	} catch {
 		return undefined;
 	}

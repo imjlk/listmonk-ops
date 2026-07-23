@@ -149,8 +149,8 @@ listmonk-mcp \
 HTTP 런타임은 기존 REST 엔드포인트를 유지하면서 `/mcp`에서 표준
 Streamable HTTP MCP를 제공합니다. 로컬 HTTP는 추가 설정 없이 계속 동작합니다.
 loopback 외부에 바인딩하려면 별도의 MCP Bearer token, 허용 Host, 브라우저
-Origin을 모두 명시해야 하며 도구 요청의 `Authorization` 헤더에 해당 token을
-보내야 합니다. 외부에 HTTP를 노출할 때는 TLS reverse proxy를 사용하세요.
+Origin을 모두 명시해야 하며 MCP 및 도구 요청 모두 `Authorization` 헤더에 해당
+token을 보내야 합니다. 외부에 HTTP를 노출할 때는 TLS reverse proxy를 사용하세요.
 
 ## Sampo 체인지셋 + npm OIDC 배포
 

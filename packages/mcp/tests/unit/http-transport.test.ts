@@ -39,6 +39,14 @@ describe("MCP HTTP transport boundary", () => {
 		expect(untrustedHost.status).toBe(403);
 		expect(await untrustedHost.json()).toEqual({ error: "Forbidden host" });
 
+		const userinfoHost = await server
+			.getApp()
+			.request("http://127.0.0.1/health", {
+				headers: { Host: "attacker.example@127.0.0.1" },
+			});
+		expect(userinfoHost.status).toBe(403);
+		expect(await userinfoHost.json()).toEqual({ error: "Forbidden host" });
+
 		const untrustedOrigin = await listToolsRequest(server, {
 			Origin: "https://attacker.example",
 		});

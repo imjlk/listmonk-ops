@@ -60,6 +60,8 @@ const mcpValidateHttpRequest =
 	"packages/mcp/src/server.ts#ListmonkMCPServer.validateHttpRequest:method";
 const mcpAllowedHttpOrigin =
 	"packages/mcp/src/server.ts#ListmonkMCPServer.isAllowedHttpOrigin:method";
+const mcpBearerTokenMatches =
+	"packages/mcp/src/server.ts#bearerTokenMatches:function";
 const mcpSetupRoutes =
 	"packages/mcp/src/server.ts#ListmonkMCPServer.setupRoutes:method";
 const mcpHandleHttpRequest =
@@ -1128,12 +1130,21 @@ const mcpHttpTransportContracts: readonly CallPathContract[] = [
 		path: [mcpHttpTransportTest, mcpListen, mcpSecureHttpBinding],
 	},
 	{
-		label: "MCP server construction wires Host, Origin, and auth validation",
+		label: "MCP server construction wires Host and Origin validation",
 		path: [
 			mcpConstructor,
 			mcpSetupMiddleware,
 			mcpValidateHttpRequest,
 			mcpAllowedHttpOrigin,
+		],
+	},
+	{
+		label: "MCP server construction wires bearer authentication",
+		path: [
+			mcpConstructor,
+			mcpSetupMiddleware,
+			mcpValidateHttpRequest,
+			mcpBearerTokenMatches,
 		],
 	},
 	{
