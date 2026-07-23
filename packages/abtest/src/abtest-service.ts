@@ -2,6 +2,8 @@ import type {
 	ListmonkAbTestIntegration,
 	ProvisionedAbTestResources,
 } from "./listmonk-integration";
+import type { MetricsCollector } from "./metrics";
+import { AbTestMetricsUnavailableError } from "./metrics";
 import { StatisticalUtils } from "./statistical-utils";
 import type {
 	AbTest,
@@ -21,7 +23,10 @@ export class AbTestService {
 	private static readonly VARIANT_LABELS = ["A", "B", "C"];
 	private tests: Map<string, AbTest> = new Map();
 
-	constructor(private listmonkIntegration?: ListmonkAbTestIntegration) {}
+	constructor(
+		private listmonkIntegration?: ListmonkAbTestIntegration,
+		private metricsCollector?: MetricsCollector,
+	) {}
 
 	async createTest(config: AbTestConfig): Promise<AbTest> {
 		// Validate number of variants (2-3 variants allowed)
@@ -356,42 +361,36 @@ export class AbTestService {
 			throw new Error(`Test with ID ${testId} not found`);
 		}
 
-		// If Listmonk integration is available, get real results
-		if (this.listmonkIntegration && test.campaignMappings.length > 0) {
-			try {
-				return await this.listmonkIntegration.collectTestResults(
-					testId,
-					test.campaignMappings,
-				);
-			} catch (error) {
-				console.error("Failed to collect test results:", error);
-				// Fall back to mock data
-			}
+		// Prefer an injected MetricsCollector (test-only simulated collector
+		// or a future production collector). Otherwise fall back to the
+		// ListmonkAbTestIntegration, which is now fail-closed.
+		if (this.metricsCollector) {
+			return this.metricsCollector.collect(test);
 		}
 
-		// Return mock data for testing
-		return test.variants.map((variant) => {
-			const baseRate = 25 + Math.random() * 10;
-			const sampleSize = 1000 + Math.floor(Math.random() * 500);
-			const opens = Math.floor(sampleSize * (baseRate / 100));
-			const clicks = Math.floor(opens * 0.2);
-			const conversions = Math.floor(clicks * 0.15);
+		if (this.listmonkIntegration) {
+			// collectTestResults throws AbTestMetricsUnavailableError on any
+			// fetch failure; do not swallow it into mock data.
+			return this.listmonkIntegration.collectTestResults(
+				testId,
+				test.campaignMappings,
+			);
+		}
 
-			return {
-				variantId: variant.id,
-				sampleSize,
-				opens,
-				clicks,
-				conversions,
-				openRate: (opens / sampleSize) * 100,
-				clickRate: (clicks / sampleSize) * 100,
-				conversionRate: (conversions / sampleSize) * 100,
-			};
-		});
+		// No collector and no integration: fail closed. Production factories
+		// always wire a ListmonkAbTestIntegration; tests that need metrics
+		// inject a SimulatedMetricsCollector.
+		throw new AbTestMetricsUnavailableError(
+			testId,
+			new Error(
+				"no metrics collector or Listmonk integration is configured",
+			),
+		);
 	}
 
 	async analyzeStatisticalSignificance(
 		results: TestResults[],
+		confidenceThreshold: number = 0.95,
 	): Promise<StatisticalAnalysis> {
 		if (results.length < 2) {
 			throw new Error("At least 2 variants required for statistical analysis");
@@ -401,6 +400,17 @@ export class AbTestService {
 				`Maximum ${AbTestService.MAX_VARIANTS} variants supported for analysis`,
 			);
 		}
+		if (
+			!Number.isFinite(confidenceThreshold) ||
+			confidenceThreshold <= 0 ||
+			confidenceThreshold >= 1
+		) {
+			throw new Error(
+				`confidenceThreshold must be a finite number in (0, 1), received ${confidenceThreshold}`,
+			);
+		}
+
+		const alpha = 1 - confidenceThreshold;
 
 		// For A/B/C testing, we compare the best performing variant against the control (first variant)
 		const controlGroup = results[0];
@@ -408,25 +418,44 @@ export class AbTestService {
 			throw new Error("Invalid test results data: missing control group");
 		}
 
-		// Find the best performing variant (highest conversion rate)
+		// Pick the comparison metric. Conversion rate is preferred when it is
+		// actually measured (non-zero somewhere); until a conversion event
+		// store exists, conversions are zero everywhere, so we fall back to
+		// click rate rather than treating every variant as tied at 0%.
+		const anyConversionMeasured = results.some((r) => r.conversions > 0);
+		const metricRate = (r: TestResults): number =>
+			anyConversionMeasured ? r.conversionRate : r.clickRate;
+		const metricCount = (r: TestResults): number =>
+			anyConversionMeasured ? r.conversions : r.clicks;
+
+		// Find the best performing variant by the chosen metric.
 		const bestVariant = results.reduce((best, current) =>
-			current.conversionRate > best.conversionRate ? current : best,
+			metricRate(current) > metricRate(best) ? current : best,
 		);
 
-		// If control is the best, compare with second best
-		const testGroup =
-			bestVariant.variantId === controlGroup.variantId
-				? results.find((r) => r.variantId !== controlGroup.variantId) ||
-					results[1]
-				: bestVariant;
+		// If control is the best, compare against the true second-best
+		// (highest-scoring non-control), not just the first non-control that
+		// happens to appear in the array.
+		let testGroup: TestResults;
+		if (bestVariant.variantId === controlGroup.variantId) {
+			const nonControl = results.filter(
+				(r) => r.variantId !== controlGroup.variantId,
+			);
+			const secondBest = nonControl.reduce((best, current) =>
+				metricRate(current) > metricRate(best) ? current : best,
+			);
+			testGroup = secondBest;
+		} else {
+			testGroup = bestVariant;
+		}
 
 		if (!testGroup) {
 			throw new Error("Invalid test results data: missing test group");
 		}
 
-		// Simple Z-test implementation for conversion rates
-		const p1 = controlGroup.conversionRate / 100;
-		const p2 = testGroup.conversionRate / 100;
+		// Two-proportion Z-test on the chosen metric.
+		const p1 = metricRate(controlGroup) / 100;
+		const p2 = metricRate(testGroup) / 100;
 		const n1 = controlGroup.sampleSize;
 		const n2 = testGroup.sampleSize;
 		const totalSampleSize = n1 + n2;
@@ -437,13 +466,13 @@ export class AbTestService {
 				zScore: 0,
 				pValue: 1,
 				isSignificant: false,
-				confidenceLevel: 0.95,
+				confidenceLevel: confidenceThreshold,
 				sampleSize: totalSampleSize,
 			};
 		}
 
 		const pooledP =
-			(controlGroup.conversions + testGroup.conversions) / totalSampleSize;
+			(metricCount(controlGroup) + metricCount(testGroup)) / totalSampleSize;
 		const standardError = Math.sqrt(
 			pooledP * (1 - pooledP) * (1 / n1 + 1 / n2),
 		);
@@ -452,21 +481,21 @@ export class AbTestService {
 				zScore: 0,
 				pValue: 1,
 				isSignificant: false,
-				confidenceLevel: 0.95,
+				confidenceLevel: confidenceThreshold,
 				sampleSize: totalSampleSize,
 			};
 		}
 
 		const zScore = Math.abs(p1 - p2) / standardError;
 
-		// Calculate p-value (simplified)
+		// Calculate p-value (two-tailed)
 		const pValue = 2 * (1 - this.standardNormalCDF(Math.abs(zScore)));
 
 		return {
 			zScore,
 			pValue,
-			isSignificant: pValue < 0.05,
-			confidenceLevel: 0.95,
+			isSignificant: pValue < alpha,
+			confidenceLevel: confidenceThreshold,
 			sampleSize: n1 + n2,
 		};
 	}
@@ -503,16 +532,24 @@ export class AbTestService {
 		}
 
 		const results = await this.getTestResults(testId);
-		const analysis = await this.analyzeStatisticalSignificance(results);
+		const analysis = await this.analyzeStatisticalSignificance(
+			results,
+			test.confidenceThreshold,
+		);
 
-		// Determine winner based on conversion rate and statistical significance
+		// Pick the winner on the same metric the significance test used:
+		// conversion rate when any conversions are measured, otherwise click
+		// rate (since conversions are zero everywhere until a conversion
+		// event store exists).
+		const anyConversionMeasured = results.some((r) => r.conversions > 0);
+		const metricRate = (r: TestResults): number =>
+			anyConversionMeasured ? r.conversionRate : r.clickRate;
+		const bestRate = Math.max(...results.map(metricRate));
+
 		const winner = analysis.isSignificant
 			? test.variants.find((v) =>
 					results.find(
-						(r) =>
-							r.variantId === v.id &&
-							r.conversionRate ===
-								Math.max(...results.map((res) => res.conversionRate)),
+						(r) => r.variantId === v.id && metricRate(r) === bestRate,
 					),
 				) || null
 			: null;
