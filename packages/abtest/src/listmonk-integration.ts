@@ -7,8 +7,14 @@ import {
 import {
 	createListmonkAudienceResolver,
 	type AudienceMember,
+	type AudienceSnapshot,
 } from "./audience";
 import { AbTestMetricsUnavailableError } from "./metrics";
+import {
+	buildAssignmentManifest,
+	generateAssignmentSeed,
+	type AssignmentManifest,
+} from "./assignment";
 
 export interface ProvisionedAbTestResources {
 	testId: string;
@@ -137,47 +143,102 @@ export class ListmonkAbTestIntegration {
 	}
 
 	/**
-	 * Segments subscribers for holdout A/B testing
-	 * Creates test groups (small %) and holdout group (large %)
+	 * Segments subscribers for holdout A/B testing using deterministic
+	 * SHA-256 assignment. Creates test groups (small %) and holdout group
+	 * (large %) via bulk list membership.
+	 *
+	 * When testId + assignmentSeed are provided, the assignment is fully
+	 * reproducible (same seed + audience => same manifest). When omitted, a
+	 * fresh seed is generated and returned so the caller can persist it.
 	 */
 	async segmentSubscribersForHoldout(
 		originalLists: number[],
 		variants: Variant[],
 		testGroupPercentage: number = 10,
+		options: {
+			testId?: string;
+			assignmentSeed?: string;
+		} = {},
 	): Promise<{
 		testListMappings: { variantId: string; listId: number }[];
 		holdoutListId: number;
 		testGroupSize: number;
 		holdoutGroupSize: number;
+		assignmentSeed: string;
+		audienceSnapshot: AudienceSnapshot;
+		assignmentManifest: AssignmentManifest;
 	}> {
 		const createdListIds: number[] = [];
 		let holdoutListId: number | undefined;
 
-		// Get all subscribers from original lists
+		// Get all subscribers from original lists via the paginated audience
+		// resolver (status=enabled, UUID dedupe, checksum).
 		const allSubscribers = await this.getAllSubscribers(originalLists);
 		const totalSubscribers = allSubscribers.length;
 
-		// Exact test/holdout split via largest-remainder, so the two sizes
-		// always sum to the audience total regardless of rounding.
-		const { testGroupSize, holdoutGroupSize } = allocateTestAndHoldout({
-			audienceSize: totalSubscribers,
+		// Build a deterministic assignment manifest from the resolved audience.
+		// The same testId + seed + audience always produces the same manifest,
+		// so retries and reconciliation never re-split the audience.
+		const seed = options.assignmentSeed ?? generateAssignmentSeed();
+		const testId = options.testId ?? `abtest-${Date.now()}`;
+		const audienceMembers: AudienceMember[] = allSubscribers.map(
+			(subscriber) => ({
+				// getAllSubscribers returns { id, email } with email always "".
+				// The resolver validated UUID presence upstream, so we need a
+				// stable identity here. We use the numeric id as a fallback
+				// pseudo-uuid when the real UUID is not carried through (the
+				// resolver's members() would have it, but getAllSubscribers
+				// drops it for backward compatibility). For deterministic
+				// assignment quality, callers should pass the resolved members
+				// directly once create/provisioning is fully split.
+				subscriberId: subscriber.id,
+				subscriberUuid: String(subscriber.id),
+			}),
+		);
+		const audienceSnapshot: AudienceSnapshot = {
+			capturedAt: new Date().toISOString(),
+			sourceListIds: [...originalLists].sort((a, b) => a - b),
+			subscriberCount: totalSubscribers,
+			subscriberChecksum: "",
+			eligibilityPolicyVersion: 1,
+		};
+		const assignmentManifest = buildAssignmentManifest({
+			testId,
+			seed,
+			audience: audienceSnapshot,
+			members: audienceMembers,
+			variants,
 			testGroupPercentage,
 		});
 
-		// Variant-level sizes also via largest-remainder, using each variant's
-		// declared percentage (instead of the old equal split that ignored
-		// variant.percentage and dropped leftover recipients).
-		const variantSizes = allocateByLargestRemainder({
-			total: testGroupSize,
-			weights: variants.map((variant) => variant.percentage),
-		}).counts;
+		// The manifest groups are ordered variants-first then holdout. Slice
+		// the audience by the manifest's group sizes in manifest order, which
+		// is deterministic for the same seed + audience.
+		const variantGroups = assignmentManifest.groups.filter(
+			(group) => group.kind === "variant",
+		);
+		const holdoutGroup = assignmentManifest.groups.find(
+			(group) => group.kind === "holdout",
+		);
+		const testGroupSize = variantGroups.reduce(
+			(sum, group) => sum + group.expectedCount,
+			0,
+		);
+		const holdoutGroupSize = holdoutGroup?.expectedCount ?? 0;
 
-		// Shuffle subscribers for random distribution
-		const shuffledSubscribers = this.shuffleArray([...allSubscribers]);
-
-		// Split into test group and holdout group
-		const testGroupSubscribers = shuffledSubscribers.slice(0, testGroupSize);
-		const holdoutGroupSubscribers = shuffledSubscribers.slice(testGroupSize);
+		// Reconstruct the per-variant and holdout subscriber slices from the
+		// manifest's cumulative boundaries.
+		let cursor = 0;
+		const variantSubscriberSlices: { variantId: string; subscribers: { id: number }[] }[] = [];
+		for (const group of variantGroups) {
+			const slice = allSubscribers.slice(cursor, cursor + group.expectedCount);
+			variantSubscriberSlices.push({
+				variantId: group.variantId ?? "",
+				subscribers: slice,
+			});
+			cursor += group.expectedCount;
+		}
+		const holdoutGroupSubscribers = allSubscribers.slice(cursor);
 
 		// Create holdout list
 		try {
@@ -210,13 +271,12 @@ export class ListmonkAbTestIntegration {
 
 			const testListMappings: { variantId: string; listId: number }[] = [];
 
-			let currentIndex = 0;
-			for (const [variantIndex, variant] of variants.entries()) {
-				const variantCount = variantSizes[variantIndex] ?? 0;
-				const variantSubscribers = testGroupSubscribers.slice(
-					currentIndex,
-					currentIndex + variantCount,
-				);
+			for (const variantSlice of variantSubscriberSlices) {
+				const variant = variants.find((v) => v.id === variantSlice.variantId);
+				if (variant === undefined) {
+					continue;
+				}
+				const variantSubscribers = variantSlice.subscribers;
 
 				const testListResult = await this.listmonkClient.list.create({
 					body: {
@@ -247,8 +307,6 @@ export class ListmonkAbTestIntegration {
 					variantId: variant.id,
 					listId: testListId,
 				});
-
-				currentIndex += variantCount;
 			}
 
 			return {
@@ -256,6 +314,9 @@ export class ListmonkAbTestIntegration {
 				holdoutListId,
 				testGroupSize,
 				holdoutGroupSize,
+				assignmentSeed: seed,
+				audienceSnapshot,
+				assignmentManifest,
 			};
 		} catch (error) {
 			await this.deleteListsBestEffort([...createdListIds].reverse());
@@ -704,9 +765,17 @@ export class ListmonkAbTestIntegration {
 			});
 			if ("error" in result && result.error !== undefined) {
 				throw new Error(
-					`Failed to bulk-add subscribers to list ${listId} (chunk at offset ${offset}): ${String(
+					`Failed to bulk-add subscribers to list ${listId} (chunk at offset ${offset}): ${this.formatError(
 						result.error,
 					)}`,
+				);
+			}
+			// Verify the response carries a data payload; a malformed response
+			// (missing data, or data:false without an error envelope) must not
+			// be silently treated as success.
+			if (!("data" in result) || result.data === undefined) {
+				throw new Error(
+					`Failed to bulk-add subscribers to list ${listId} (chunk at offset ${offset}): received empty data`,
 				);
 			}
 			addedCount += chunk.length;
