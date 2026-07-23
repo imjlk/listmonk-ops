@@ -3,6 +3,7 @@ import {
 	allocateByLargestRemainder,
 	allocateTestAndHoldout,
 	AllocationInputError,
+	AllocationValueError,
 } from "../src/allocation";
 
 describe("allocateByLargestRemainder", () => {
@@ -85,17 +86,17 @@ describe("allocateByLargestRemainder", () => {
 		expect(result.total).toBe(0);
 	});
 
-	it("throws AllocationInputError for invalid total", () => {
+	it("throws AllocationValueError for invalid total", () => {
 		expect(() =>
 			allocateByLargestRemainder({ total: -1, weights: [1] }),
-		).toThrow(AllocationInputError);
+		).toThrow(AllocationValueError);
 		expect(() =>
 			// biome-ignore lint/suspicious/noSparseArray: testing sparse array rejection
 			allocateByLargestRemainder({ total: 1.5, weights: [1] }),
-		).toThrow(AllocationInputError);
+		).toThrow(AllocationValueError);
 		expect(() =>
 			allocateByLargestRemainder({ total: Number.NaN, weights: [1] }),
-		).toThrow(AllocationInputError);
+		).toThrow(AllocationValueError);
 	});
 
 	it("throws AllocationInputError for empty weights", () => {
@@ -184,21 +185,21 @@ describe("allocateTestAndHoldout", () => {
 	it("rejects percentage outside [0, 100]", () => {
 		expect(() =>
 			allocateTestAndHoldout({ audienceSize: 100, testGroupPercentage: -1 }),
-		).toThrow(AllocationInputError);
+		).toThrow(AllocationValueError);
 		expect(() =>
 			allocateTestAndHoldout({ audienceSize: 100, testGroupPercentage: 101 }),
-		).toThrow(AllocationInputError);
+		).toThrow(AllocationValueError);
 		expect(() =>
 			allocateTestAndHoldout({
 				audienceSize: 100,
 				testGroupPercentage: Number.NaN,
 			}),
-		).toThrow(AllocationInputError);
+		).toThrow(AllocationValueError);
 	});
 
 	it("rejects non-integer audience size", () => {
 		expect(() =>
 			allocateTestAndHoldout({ audienceSize: 1.5, testGroupPercentage: 10 }),
-		).toThrow(AllocationInputError);
+		).toThrow(AllocationValueError);
 	});
 });

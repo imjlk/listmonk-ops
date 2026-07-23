@@ -42,6 +42,19 @@ export class AllocationInputError extends Error {
 	}
 }
 
+/**
+ * Validation error for a single numeric value (not an `AllocationInput`).
+ * Used by `allocateTestAndHoldout` for percentage bounds and by the shared
+ * non-negative-integer helper, where the failing argument is a scalar rather
+ * than the full allocation input.
+ */
+export class AllocationValueError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "AllocationValueError";
+	}
+}
+
 export class AllocationInvariantError extends Error {
 	constructor(message: string) {
 		super(message);
@@ -75,13 +88,9 @@ export function allocateByLargestRemainder(
 		return { counts: weights.map(() => 0), total: 0 };
 	}
 
+	// validateAllocationInput guarantees every weight is finite and strictly
+	// positive, so the sum is always positive; no extra guard needed here.
 	const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
-	if (weightSum <= 0) {
-		throw new AllocationInputError(
-			"weights must have a positive sum",
-			input,
-		);
-	}
 
 	const quotas = weights.map((weight) => (total * weight) / weightSum);
 	const baseSeats = quotas.map((quota) => Math.floor(quota));
@@ -150,9 +159,8 @@ export function allocateTestAndHoldout(params: {
 		params.testGroupPercentage < 0 ||
 		params.testGroupPercentage > 100
 	) {
-		throw new AllocationInputError(
+		throw new AllocationValueError(
 			`testGroupPercentage must be a finite number in [0, 100], received ${params.testGroupPercentage}`,
-			{ total: params.audienceSize, weights: [params.testGroupPercentage] },
 		);
 	}
 
@@ -198,9 +206,8 @@ function validateAllocationInput(input: AllocationInput): void {
 
 function validateNonNegativeInteger(name: string, value: number): void {
 	if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
-		throw new AllocationInputError(
+		throw new AllocationValueError(
 			`${name} must be a non-negative integer, received ${value}`,
-			{ total: value, weights: [] },
 		);
 	}
 }
