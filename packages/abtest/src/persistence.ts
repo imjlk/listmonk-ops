@@ -77,7 +77,10 @@ function isNonNegativeNumber(value: unknown): value is number {
 }
 
 function isConfidenceThreshold(value: unknown): value is number {
-	return isFiniteNumber(value) && value > 0 && value <= 1;
+	// Match analyzeStatisticalSignificance's (0, 1) open range so a stored
+	// or input threshold of exactly 1 (or 0) is rejected consistently,
+	// rather than accepted at persistence time only to throw at analysis.
+	return isFiniteNumber(value) && value > 0 && value < 1;
 }
 
 function isStoredVariant(value: unknown): boolean {

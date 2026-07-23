@@ -97,17 +97,22 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 			// and ignored remote status.
 			const result = await cancelAbTest(listmonkClient, test);
 
-			// Hard failures (network error, permission denied, 5xx) mean the
-			// test still holds resources in an unknown state; surface it
-			// rather than silently marking the test cancelled.
-			if (result.hadFailures) {
+			// Hard failures (network error, permission denied, 5xx) or fetch
+			// failures (could not read a campaign's status) mean the stop is
+			// not authoritative — the test may still hold active resources.
+			// Surface it rather than silently marking the test cancelled.
+			if (result.hadFailures || result.hadFetchFailures) {
 				throw new Error(
 					`A/B test ${testId} stop left resources in a partial state: ${
 						result.campaignResults.filter((r) => r.outcome === "failed")
 							.length
 					} campaign action(s) and ${
 						result.listResults.filter((r) => r.outcome === "failed").length
-					} list action(s) failed; inspect remote resources before retrying`,
+					} list action(s) failed${
+						result.hadFetchFailures
+							? " (plus campaign status fetch failures)"
+							: ""
+					}; inspect remote resources before retrying`,
 				);
 			}
 

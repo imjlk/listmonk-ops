@@ -13,6 +13,12 @@ export type { AbTestExecutors } from "./factory";
 // Export factory function
 export { createAbTestExecutors } from "./factory";
 export { ListmonkAbTestIntegration } from "./listmonk-integration";
+// Export the fail-closed metrics error so consumers can catch it with
+// instanceof when getTestResults/analyzeAbTest cannot reach Listmonk.
+export {
+	AbTestMetricsUnavailableError,
+	type MetricsCollector,
+} from "./metrics";
 export {
 	abTestOperationCatalog,
 	abTestOperations,

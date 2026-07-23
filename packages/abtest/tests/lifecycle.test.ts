@@ -179,7 +179,10 @@ describe("executeCancelPlan", () => {
 		} as unknown as ListmonkClient;
 	}
 
-	it("cancels running campaigns and deletes lists when nothing survives", async () => {
+	it("cancels running campaigns and retains their lists", async () => {
+		// Cancelled campaigns still reference their temporary lists, so the
+		// planner retains every list and fullyCleaned is false. The lists can
+		// be cleaned up by an explicit reconcile later.
 		const client = makeClient();
 		const plan = planCancelAbTest(
 			makeTest(),
@@ -187,8 +190,9 @@ describe("executeCancelPlan", () => {
 		);
 		const result = await executeCancelPlan(client, plan);
 		expect(result.campaignResults.every((r) => r.outcome === "success")).toBe(true);
-		expect(result.listResults.every((r) => r.outcome === "success")).toBe(true);
-		expect(result.fullyCleaned).toBe(true);
+		expect(result.listResults.every((r) => r.outcome === "skipped_active_reference")).toBe(true);
+		expect(result.fullyCleaned).toBe(false);
+		expect(result.hadRetainedResources).toBe(true);
 	});
 
 	it("treats a 404 on campaign delete as success", async () => {
@@ -269,7 +273,9 @@ describe("executeCancelPlan", () => {
 		expect(result.hadFailures).toBe(false);
 	});
 
-	it("repeated execution is idempotent: a second run reports not_found", async () => {
+	it("repeated execution is idempotent: a second run reports not_found for campaigns", async () => {
+		// Cancelled campaigns retain their lists, so the second run sees the
+		// campaigns as not_found (idempotent) and skips the retained lists.
 		const client = makeClient({
 			updateStatus: async () => {
 				throw new Error("Campaign not found");
@@ -287,8 +293,10 @@ describe("executeCancelPlan", () => {
 		);
 		const result = await executeCancelPlan(client, plan);
 		expect(result.campaignResults.every((r) => r.outcome === "not_found")).toBe(true);
-		expect(result.listResults.every((r) => r.outcome === "not_found")).toBe(true);
-		expect(result.fullyCleaned).toBe(true);
+		// Lists are retained (cancelled campaigns still reference them), so
+		// they are skipped, not deleted.
+		expect(result.listResults.every((r) => r.outcome === "skipped_active_reference")).toBe(true);
+		expect(result.fullyCleaned).toBe(false);
 	});
 });
 
@@ -342,13 +350,16 @@ describe("executeCancelPlan error envelopes", () => {
 
 	it("marks a list delete failed when Listmonk returns a non-404 error envelope", async () => {
 		// A permission-denied envelope has no recognizable 404 signal, so it
-		// must be classified as failed (not silently success).
+		// must be classified as failed (not silently success). Use draft
+		// campaigns so the planner does not retain lists for cancelled
+		// campaigns — drafts are deleted, which removes the surviving
+		// reference and lets the list delete action actually run.
 		const client = makeEnvelopeClient({
 			deleteList: async () => ({ error: "permission denied" }),
 		});
 		const plan = planCancelAbTest(
 			makeTest(),
-			new Map([[100, "running"], [101, "running"]]),
+			new Map([[100, "draft"], [101, "draft"]]),
 		);
 		const result = await executeCancelPlan(client, plan);
 		expect(result.listResults.every((r) => r.outcome === "failed")).toBe(true);
@@ -374,6 +385,26 @@ describe("cancelAbTest orchestration", () => {
 			expect.objectContaining({ campaignId: 100, action: "cancel", outcome: "success" }),
 			expect.objectContaining({ campaignId: 101, action: "delete", outcome: "success" }),
 		]);
-		expect(result.fullyCleaned).toBe(true);
+		// The cancelled campaign (100) still references its list, so lists are
+		// retained and fullyCleaned is false. No fetch failures here.
+		expect(result.hadFetchFailures).toBe(false);
+		expect(result.hadRetainedResources).toBe(true);
+		expect(result.fullyCleaned).toBe(false);
+	});
+
+	it("reports hadFetchFailures when a campaign status cannot be read", async () => {
+		const getById = mock(async () => {
+			throw new Error("network down");
+		});
+		const updateStatus = mock(async () => ({ data: true }));
+		const deleteCampaign = mock(async () => ({ data: true }));
+		const deleteList = mock(async () => ({ data: true }));
+		const client = {
+			campaign: { getById, updateStatus, delete: deleteCampaign },
+			list: { delete: deleteList },
+		} as unknown as ListmonkClient;
+		const result = await cancelAbTest(client, makeTest());
+		// Both campaigns unobservable -> planner leaves them -> hadFetchFailures
+		expect(result.hadFetchFailures).toBe(true);
 	});
 });

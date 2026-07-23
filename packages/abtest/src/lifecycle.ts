@@ -88,6 +88,15 @@ export interface CancelExecutionResult {
 	 * hadRetainedResources and from fullyCleaned.
 	 */
 	hadFailures: boolean;
+	/**
+	 * True when at least one backing campaign's remote status could not be
+	 * read before planning. The planner leaves unobservable campaigns in
+	 * place, so a stop with fetch failures is not authoritative — the caller
+	 * must not persist the test as fully cancelled. Distinct from hadFailures
+	 * (which covers the mutation actions) but callers should treat both as
+	 * "stop is not authoritative".
+	 */
+	hadFetchFailures: boolean;
 }
 
 export interface PlanCancelOptions {
@@ -142,7 +151,12 @@ export function planCancelAbTest(
 		}
 		if (active.includes(status)) {
 			campaignActions.push({ kind: "cancel", campaignId: mapping.campaignId });
-			// Cancelled campaigns no longer reference their list for delivery.
+			// A cancelled campaign still references its temporary list for any
+			// partial delivery history and Listmonk's own reporting, so retain
+			// the list rather than deleting it out from under the campaign
+			// record. The list can be cleaned up by an explicit reconcile once
+			// the caller confirms the delivery history is no longer needed.
+			survivingCampaignIds.push(mapping.campaignId);
 			continue;
 		}
 		if (terminal.includes(status)) {
@@ -413,6 +427,8 @@ export async function executeCancelPlan(
 		fullyCleaned,
 		hadRetainedResources,
 		hadFailures,
+		// executeCancelPlan does not fetch statuses; only cancelAbTest does.
+		hadFetchFailures: false,
 	};
 }
 
@@ -426,8 +442,13 @@ export async function executeCancelPlan(
 export async function fetchCampaignStatuses(
 	client: ListmonkClient,
 	campaignIds: number[],
-): Promise<Map<number, string>> {
+): Promise<{
+	statuses: Map<number, string>;
+	/** Campaigns whose status could not be read (fetch error or envelope). */
+	unobservable: number[];
+}> {
 	const statuses = new Map<number, string>();
+	const unobservable: number[] = [];
 	await Promise.all(
 		campaignIds.map(async (campaignId) => {
 			try {
@@ -436,7 +457,13 @@ export async function fetchCampaignStatuses(
 				});
 				const envelopeError = errorEnvelopeMessage(response);
 				if (envelopeError !== undefined) {
-					// Could not read this campaign; leave it unobservable.
+					// Could not read this campaign; record it as unobservable so
+					// the caller knows the stop is not authoritative.
+					console.error(
+						`Failed to fetch status for campaign ${campaignId}:`,
+						envelopeError,
+					);
+					unobservable.push(campaignId);
 					return;
 				}
 				const status = (
@@ -444,6 +471,8 @@ export async function fetchCampaignStatuses(
 				)?.data?.status;
 				if (typeof status === "string") {
 					statuses.set(campaignId, status);
+				} else {
+					unobservable.push(campaignId);
 				}
 			} catch (error) {
 				// Log per-campaign fetch errors so a systemic failure (auth
@@ -451,16 +480,17 @@ export async function fetchCampaignStatuses(
 				// silently make every campaign unobservable — which would
 				// otherwise cause the planner to leave everything and the
 				// caller to mark the test cancelled while nothing was cleaned.
-				// The planner still treats the missing entry as unobservable
-				// and retains its list.
+				// Record the failure so the caller treats the stop as
+				// non-authoritative rather than persisted-cancelled.
 				console.error(
 					`Failed to fetch status for campaign ${campaignId}:`,
 					error instanceof Error ? error.message : String(error),
 				);
+				unobservable.push(campaignId);
 			}
 		}),
 	);
-	return statuses;
+	return { statuses, unobservable };
 }
 
 /**
@@ -486,7 +516,11 @@ export async function cancelAbTest(
 				: []),
 		]),
 	];
-	const observedStatuses = await fetchCampaignStatuses(client, campaignIds);
+	const { statuses: observedStatuses, unobservable } =
+		await fetchCampaignStatuses(client, campaignIds);
 	const plan = planCancelAbTest(test, observedStatuses, options);
-	return executeCancelPlan(client, plan);
+	const result = await executeCancelPlan(client, plan);
+	// Surface fetch failures so the caller does not persist the test as
+	// fully cancelled when a campaign's status could not be verified.
+	return { ...result, hadFetchFailures: unobservable.length > 0 };
 }
