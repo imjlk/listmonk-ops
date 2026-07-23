@@ -44,8 +44,14 @@ export interface CancelPlan {
 	testId: string;
 	campaignActions: RemoteCampaignAction[];
 	listActions: RemoteListAction[];
-	/** Campaigns still referencing each list after the campaign actions run. */
-	listsReferencedByActiveCampaign: number[];
+	/**
+	 * Numeric campaign IDs that still reference their temporary lists after
+	 * the campaign actions run (unobservable, left-terminal, or winner
+	 * campaigns). The executor blocks list deletion while any of these
+	 * survive. Despite the "list" theme of cleanup, this array carries
+	 * campaign IDs, not list IDs.
+	 */
+	campaignsBlockingListDeletion: number[];
 }
 
 export interface CancelExecutionResult {
@@ -151,6 +157,11 @@ export function planCancelAbTest(
 					campaignId: mapping.campaignId,
 					reason: `terminal status ${status}`,
 				});
+				// A finished/sent/cancelled campaign still references its
+				// temporary list, so retain the list alongside the campaign
+				// rather than deleting it out from under the preserved
+				// delivery history.
+				survivingCampaignIds.push(mapping.campaignId);
 			}
 			continue;
 		}
@@ -182,8 +193,28 @@ export function planCancelAbTest(
 		testId: test.id,
 		campaignActions,
 		listActions,
-		listsReferencedByActiveCampaign: survivingCampaignIds,
+		campaignsBlockingListDeletion: survivingCampaignIds,
 	};
+}
+
+/**
+ * If a Listmonk client response is an error envelope (`{ error, response }`,
+ * return a string describing the error; otherwise return `undefined`. The
+ * generated client returns non-2xx mutations as envelopes rather than
+ * throwing, so callers must inspect the response before treating a mutation
+ * as successful.
+ */
+export function errorEnvelopeMessage(response: unknown): string | undefined {
+	if (
+		response &&
+		typeof response === "object" &&
+		"error" in response &&
+		(response as { error?: unknown }).error !== undefined
+	) {
+		const error = (response as { error?: unknown }).error;
+		return error instanceof Error ? error.message : String(error);
+	}
+	return undefined;
 }
 
 /**
@@ -246,15 +277,31 @@ export async function executeCancelPlan(
 					};
 				}
 				try {
+					let response: unknown;
 					if (action.kind === "cancel") {
-						await client.campaign.updateStatus({
+						response = await client.campaign.updateStatus({
 							path: { id: action.campaignId },
 							body: { status: "cancelled" },
 						});
 					} else {
-						await client.campaign.delete({
+						response = await client.campaign.delete({
 							path: { id: action.campaignId },
 						});
+					}
+					// The generated Listmonk client returns non-2xx mutations as
+					// { error, response } envelopes instead of throwing. Treat
+					// any error envelope as a failure so we never mark a
+					// campaign action successful while Listmonk rejected it.
+					const envelopeError = errorEnvelopeMessage(response);
+					if (envelopeError !== undefined) {
+						return {
+							campaignId: action.campaignId,
+							action: action.kind,
+							outcome: isNotFoundError(response)
+								? ("not_found" as const)
+								: ("failed" as const),
+							detail: envelopeError,
+						};
 					}
 					return {
 						campaignId: action.campaignId,
@@ -278,7 +325,7 @@ export async function executeCancelPlan(
 	// A list is safe to delete only if no surviving campaign still references
 	// it. Surviving references include:
 	//   - campaigns the plan could not observe or chose to leave (encoded in
-	//     plan.listsReferencedByActiveCampaign and not subsequently deleted);
+	//     plan.campaignsBlockingListDeletion and not subsequently deleted);
 	//   - campaigns whose cancel/delete action failed (they may still be
 	//     active in Listmonk).
 	const survivingListReferences = new Set<number>();
@@ -287,7 +334,7 @@ export async function executeCancelPlan(
 			.filter((r) => r.outcome === "success" && r.action === "delete")
 			.map((r) => r.campaignId),
 	);
-	for (const id of plan.listsReferencedByActiveCampaign) {
+	for (const id of plan.campaignsBlockingListDeletion) {
 		if (!deletedCampaignIds.has(id)) {
 			survivingListReferences.add(id);
 		}
@@ -312,7 +359,19 @@ export async function executeCancelPlan(
 				};
 			}
 			try {
-				await client.list.delete({ path: { list_id: action.listId } });
+				const response = await client.list.delete({
+					path: { list_id: action.listId },
+				});
+				const envelopeError = errorEnvelopeMessage(response);
+				if (envelopeError !== undefined) {
+					return {
+						listId: action.listId,
+						outcome: isNotFoundError(response)
+							? ("not_found" as const)
+							: ("failed" as const),
+						detail: envelopeError,
+					};
+				}
 				return { listId: action.listId, outcome: "success" as const };
 			} catch (error) {
 				const outcome = isNotFoundError(error)
@@ -355,4 +414,66 @@ export async function executeCancelPlan(
 		hadRetainedResources,
 		hadFailures,
 	};
+}
+
+/**
+ * Fetch each backing campaign's current status from Listmonk. A campaign
+ * that cannot be fetched (network error, permission, envelope error) is
+ * omitted from the returned map, which `planCancelAbTest` treats as
+ * "unobservable" and leaves alone. This is the bridge between the pure
+ * planner and the live Listmonk API.
+ */
+export async function fetchCampaignStatuses(
+	client: ListmonkClient,
+	campaignIds: number[],
+): Promise<Map<number, string>> {
+	const statuses = new Map<number, string>();
+	await Promise.all(
+		campaignIds.map(async (campaignId) => {
+			try {
+				const response = await client.campaign.getById({
+					path: { id: campaignId },
+				});
+				const envelopeError = errorEnvelopeMessage(response);
+				if (envelopeError !== undefined) {
+					// Could not read this campaign; leave it unobservable.
+					return;
+				}
+				const status = (
+					response as { data?: { status?: string } }
+				)?.data?.status;
+				if (typeof status === "string") {
+					statuses.set(campaignId, status);
+				}
+			} catch {
+				// Swallow per-campaign fetch errors; the planner will treat
+				// the missing entry as unobservable and retain its list.
+			}
+		}),
+	);
+	return statuses;
+}
+
+/**
+ * Top-level cancellation orchestration: fetch each backing campaign's remote
+ * status, build a status-aware cancel plan, and execute it. Returns the full
+ * execution result so the caller can decide whether to mark the test
+ * cancelled, failed, or reconcile-required.
+ *
+ * This is the production entry point that `stopAbTest` should call instead
+ * of the legacy cleanup paths, so that scheduled/draft campaigns are deleted
+ * and running campaigns are cancelled per the observed remote status.
+ */
+export async function cancelAbTest(
+	client: ListmonkClient,
+	test: AbTest,
+	options?: { deleteTerminalCampaigns?: boolean },
+): Promise<CancelExecutionResult> {
+	const campaignIds = test.campaignMappings.map((m) => m.campaignId);
+	if (test.winnerCampaignId !== undefined) {
+		campaignIds.push(test.winnerCampaignId);
+	}
+	const observedStatuses = await fetchCampaignStatuses(client, campaignIds);
+	const plan = planCancelAbTest(test, observedStatuses, options);
+	return executeCancelPlan(client, plan);
 }

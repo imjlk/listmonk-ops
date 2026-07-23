@@ -119,7 +119,9 @@ describe("A/B Test MCP Tools", () => {
 			stopResult,
 			"Failed to stop A/B test",
 		);
-		expect(stopped.status).toBe("completed");
+		// stop is a terminal intent: campaigns are cancelled/deleted per their
+		// remote status, so the test lands in `cancelled` (not `completed`).
+		expect(stopped.status).toBe("cancelled");
 
 		const deleteResult = await client.callTool("listmonk_abtest_delete", {
 			test_id: created.id,

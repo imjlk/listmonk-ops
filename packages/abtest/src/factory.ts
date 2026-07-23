@@ -8,6 +8,8 @@ import {
 	ListAbTestsCommand,
 } from "./basic";
 import { ListmonkAbTestIntegration } from "./listmonk-integration";
+import { ListmonkMetricsCollector } from "./metrics";
+import { cancelAbTest } from "./lifecycle";
 import { AbTestNotFoundError } from "./errors";
 import type {
 	AbTest,
@@ -22,8 +24,15 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 	// Create Listmonk integration
 	const listmonkIntegration = new ListmonkAbTestIntegration(listmonkClient);
 
-	// Create A/B test service with Listmonk integration
-	const abTestService = new AbTestService(listmonkIntegration);
+	// Create A/B test service with Listmonk integration. Wire the
+	// ListmonkMetricsCollector so production uses the same fail-closed
+	// collector that tests exercise, rather than the legacy
+	// collectTestResults path on the integration.
+	const metricsCollector = new ListmonkMetricsCollector(listmonkClient);
+	const abTestService = new AbTestService(
+		listmonkIntegration,
+		metricsCollector,
+	);
 	return {
 		// Basic CRUD operations
 		listAbTests: (params?: AbTestQueryParams): Promise<AbTest[]> =>
@@ -79,25 +88,37 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				throw new Error(`Test ${testId} is not running`);
 			}
 
-			// Stop campaigns and cleanup
-			if (test.testingMode === "holdout" && test.holdoutListId) {
-				await listmonkIntegration.cleanupHoldoutTest(
-					testId,
-					test.testListMappings.map((m) => m.listId),
-					test.holdoutListId,
-					test.campaignMappings.map((m) => m.campaignId),
-					false,
-				);
-			} else {
-				await listmonkIntegration.cleanup(
-					testId,
-					test.testListMappings.map((m) => m.listId),
-					test.campaignMappings.map((m) => m.campaignId),
-				);
+			// Stop via the status-aware lifecycle executor: it fetches each
+			// backing campaign's remote status, cancels running campaigns,
+			// deletes draft/scheduled ones (which cannot be cancelled on
+			// Listmonk v6.2.0), leaves terminal campaigns in place, and only
+			// deletes temporary lists when no campaign still references them.
+			// This replaces the legacy cleanup paths that renamed campaigns
+			// and ignored remote status.
+			const result = await cancelAbTest(listmonkClient, test);
+
+			// If cleanup could not fully complete (campaign survived, fetch
+			// failed, or list delete failed), surface the partial state
+			// rather than silently marking the test completed.
+			if (!result.fullyCleaned) {
+				if (result.hadFailures) {
+					throw new Error(
+						`A/B test ${testId} stop left resources in a partial state: ${
+							result.campaignResults.filter((r) => r.outcome === "failed")
+								.length
+						} campaign action(s) and ${
+							result.listResults.filter((r) => r.outcome === "failed").length
+						} list action(s) failed; inspect remote resources before retrying`,
+					);
+				}
+				// No hard failures, but some lists were intentionally retained
+				// because campaigns survived (e.g. terminal campaigns left for
+				// delivery history). The test is stopped; retained lists remain
+				// for reconciliation.
 			}
 
-			// Update test status
-			return await abTestService.updateTestStatus(testId, "completed");
+			// Update test status to cancelled (stop is a terminal intent).
+			return await abTestService.updateTestStatus(testId, "cancelled");
 		},
 
 		getTestResults: async (testId: string) => {

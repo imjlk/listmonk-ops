@@ -1,6 +1,8 @@
 import { describe, expect, it, mock } from "bun:test";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	cancelAbTest,
+	errorEnvelopeMessage,
 	executeCancelPlan,
 	isNotFoundError,
 	planCancelAbTest,
@@ -64,6 +66,17 @@ describe("planCancelAbTest", () => {
 		expect(plan.campaignActions[0]).toMatchObject({ reason: "terminal status finished" });
 	});
 
+	it("retains lists when terminal campaigns are left (they still reference their lists)", () => {
+		// Both campaigns terminal -> both left -> both must block list deletion
+		// so the preserved delivery history keeps its list context.
+		const plan = planCancelAbTest(
+			makeTest(),
+			new Map([[100, "finished"], [101, "sent"]]),
+		);
+		expect(plan.campaignsBlockingListDeletion).toContain(100);
+		expect(plan.campaignsBlockingListDeletion).toContain(101);
+	});
+
 	it("deletes terminal campaigns when deleteTerminalCampaigns is set", () => {
 		const plan = planCancelAbTest(
 			makeTest(),
@@ -84,7 +97,7 @@ describe("planCancelAbTest", () => {
 			campaignId: 101,
 			reason: "status could not be observed",
 		});
-		expect(plan.listsReferencedByActiveCampaign).toContain(101);
+		expect(plan.campaignsBlockingListDeletion).toContain(101);
 	});
 
 	it("does not produce any rename action (campaign names are preserved)", () => {
@@ -111,7 +124,7 @@ describe("planCancelAbTest", () => {
 			makeTest({ winnerCampaignId: 999 }),
 			new Map([[100, "running"], [101, "running"]]),
 		);
-		expect(plan.listsReferencedByActiveCampaign).toContain(999);
+		expect(plan.campaignsBlockingListDeletion).toContain(999);
 	});
 });
 
@@ -275,6 +288,92 @@ describe("executeCancelPlan", () => {
 		const result = await executeCancelPlan(client, plan);
 		expect(result.campaignResults.every((r) => r.outcome === "not_found")).toBe(true);
 		expect(result.listResults.every((r) => r.outcome === "not_found")).toBe(true);
+		expect(result.fullyCleaned).toBe(true);
+	});
+});
+
+describe("errorEnvelopeMessage", () => {
+	it("returns the message from an error envelope", () => {
+		expect(errorEnvelopeMessage({ error: "boom" })).toBe("boom");
+		expect(errorEnvelopeMessage({ error: new Error("nope") })).toBe("nope");
+	});
+	it("returns undefined for success responses", () => {
+		expect(errorEnvelopeMessage({ data: true })).toBeUndefined();
+		expect(errorEnvelopeMessage(undefined)).toBeUndefined();
+	});
+});
+
+describe("executeCancelPlan error envelopes", () => {
+	function makeEnvelopeClient(overrides: {
+		updateStatus?: (...args: unknown[]) => Promise<unknown>;
+		deleteCampaign?: (...args: unknown[]) => Promise<unknown>;
+		deleteList?: (...args: unknown[]) => Promise<unknown>;
+	} = {}): ListmonkClient {
+		const updateStatus = mock(
+			overrides.updateStatus ?? (async () => ({ data: true })),
+		);
+		const deleteCampaign = mock(
+			overrides.deleteCampaign ?? (async () => ({ data: true })),
+		);
+		const deleteList = mock(
+			overrides.deleteList ?? (async () => ({ data: true })),
+		);
+		return {
+			campaign: { updateStatus, delete: deleteCampaign },
+			list: { delete: deleteList },
+		} as unknown as ListmonkClient;
+	}
+
+	it("marks a campaign cancel failed when Listmonk returns an error envelope", async () => {
+		// cancel on a scheduled campaign -> Listmonk returns 400 as an envelope
+		const client = makeEnvelopeClient({
+			updateStatus: async () => ({ error: "Only active campaigns can be cancelled" }),
+		});
+		const plan = planCancelAbTest(
+			makeTest(),
+			new Map([[100, "running"], [101, "running"]]),
+		);
+		const result = await executeCancelPlan(client, plan);
+		expect(result.campaignResults.every((r) => r.outcome === "failed")).toBe(true);
+		expect(result.fullyCleaned).toBe(false);
+		// lists must be retained since campaigns survived
+		expect(result.listResults.every((r) => r.outcome === "skipped_active_reference")).toBe(true);
+	});
+
+	it("marks a list delete failed when Listmonk returns a non-404 error envelope", async () => {
+		// A permission-denied envelope has no recognizable 404 signal, so it
+		// must be classified as failed (not silently success).
+		const client = makeEnvelopeClient({
+			deleteList: async () => ({ error: "permission denied" }),
+		});
+		const plan = planCancelAbTest(
+			makeTest(),
+			new Map([[100, "running"], [101, "running"]]),
+		);
+		const result = await executeCancelPlan(client, plan);
+		expect(result.listResults.every((r) => r.outcome === "failed")).toBe(true);
+		expect(result.fullyCleaned).toBe(false);
+	});
+});
+
+describe("cancelAbTest orchestration", () => {
+	it("fetches statuses, plans, and executes end-to-end", async () => {
+		const getById = mock(async ({ path }: { path: { id: number } }) => ({
+			data: { id: path.id, status: path.id === 100 ? "running" : "draft" },
+		}));
+		const updateStatus = mock(async () => ({ data: true }));
+		const deleteCampaign = mock(async () => ({ data: true }));
+		const deleteList = mock(async () => ({ data: true }));
+		const client = {
+			campaign: { getById, updateStatus, delete: deleteCampaign },
+			list: { delete: deleteList },
+		} as unknown as ListmonkClient;
+		const result = await cancelAbTest(client, makeTest());
+		// 100 running -> cancel, 101 draft -> delete
+		expect(result.campaignResults).toEqual([
+			expect.objectContaining({ campaignId: 100, action: "cancel", outcome: "success" }),
+			expect.objectContaining({ campaignId: 101, action: "delete", outcome: "success" }),
+		]);
 		expect(result.fullyCleaned).toBe(true);
 	});
 });
