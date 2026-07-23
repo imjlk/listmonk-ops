@@ -35,6 +35,25 @@ try {
 		);
 	}
 
+	// Post-process: the upstream SubscriberQueryRequest.target_list_ids is
+	// mistyped as `type: integer` (with a dangling `items:` clause), but the
+	// Listmonk v6.2.0 server rejects scalar values and requires an array
+	// (`Unmarshal type error: expected=[]int, got=number`). Correct the type
+	// to `array` so the generated client sends `target_list_ids: [id]`.
+	// This is a verified server behavior, not a speculative change.
+	let composed = readFileSync(temporaryOutput, "utf8");
+	const before =
+		"target_list_ids:\n          type: integer\n          description: The ids of the lists to be modified.\n          items:\n            type: integer";
+	const after =
+		"target_list_ids:\n          type: array\n          description: The ids of the lists to be modified.\n          items:\n            type: integer";
+	if (!composed.includes(before)) {
+		throw new Error(
+			"Could not post-process target_list_ids: expected substring not found in composed spec",
+		);
+	}
+	composed = composed.replace(before, after);
+	Bun.write(temporaryOutput, composed);
+
 	renameSync(temporaryOutput, OUTPUT_SPEC);
 } finally {
 	rmSync(temporaryDirectory, { recursive: true, force: true });

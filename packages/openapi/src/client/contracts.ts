@@ -193,7 +193,7 @@ export interface EnhancedListmonkClient {
 		manageLists(options: {
 			body: {
 				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number;
+				target_list_ids?: number[];
 				query?: string;
 				ids?: number[];
 			};
@@ -202,7 +202,7 @@ export interface EnhancedListmonkClient {
 			path: { id: number };
 			body: {
 				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number;
+				target_list_ids?: number[];
 				query?: string;
 				ids?: number[];
 			};
@@ -235,7 +235,7 @@ export interface EnhancedListmonkClient {
 		manageListsByQuery(options: {
 			body: {
 				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number;
+				target_list_ids?: number[];
 				query?: string;
 			};
 		}): Promise<FlattenedResponse<boolean>>;
