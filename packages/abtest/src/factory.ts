@@ -205,10 +205,16 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				return test;
 			}
 			case "analyzing": {
-				// Run analysis, then deploy the winner if configured, or mark
-				// inconclusive/completed based on the significance result.
+				// Run analysis, then deploy the winner if configured for a
+				// holdout test, or mark inconclusive/completed based on the
+				// significance result. Full-split tests do not support
+				// winner deployment.
 				const analysis = await abTestService.analyzeTest(testId);
-				if (test.autoDeployWinner && analysis.winner) {
+				if (
+					test.autoDeployWinner &&
+					analysis.winner &&
+					test.testingMode === "holdout"
+				) {
 					await abTestService.deployWinner(testId);
 					return await abTestService.updateTestStatus(testId, "completed");
 				}

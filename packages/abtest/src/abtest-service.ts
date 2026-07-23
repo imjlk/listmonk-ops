@@ -255,21 +255,45 @@ export class AbTestService {
 					abTest.launchAt = config.launchAt;
 				}
 
-				// Auto-launch only when no scheduled launch time is set. If
-				// launchAt is provided, the test stays in draft/scheduled and
-				// the caller (or tick) launches it at the scheduled time.
-				if (config.autoLaunch && config.launchAt === undefined) {
-					await this.listmonkIntegration.launchTest(
-						campaignMappings,
-						testListMappings,
-					);
-					// Record orchestration timestamps for the immediate launch
-					// so reconciliation does not report missing startedAt.
-					abTest.startedAt = new Date().toISOString();
-					if (abTest.durationHours !== undefined) {
-						abTest.endsAt = new Date(
-							Date.now() + abTest.durationHours * 3600 * 1000,
+				// Auto-launch handling. Two cases:
+				// - autoLaunch + no launchAt: launch immediately (running).
+				// - autoLaunch + launchAt: schedule campaigns with send_at and
+				//   set status to 'scheduled' so tick progresses it at launchAt.
+				if (config.autoLaunch) {
+					if (config.launchAt !== undefined) {
+						// Schedule with the provided launchAt as send_at.
+						await this.listmonkIntegration.launchTest(
+							campaignMappings,
+							testListMappings,
+							{ sendAt: config.launchAt },
+						);
+						abTest.status = "scheduled";
+						abTest.startedAt = new Date().toISOString();
+						if (abTest.durationHours !== undefined) {
+							abTest.endsAt = new Date(
+								new Date(config.launchAt).getTime() +
+									abTest.durationHours * 3600 * 1000,
+							).toISOString();
+						}
+					} else {
+						// Immediate launch with shared send_at (now + 60s safety).
+						const sendAt = new Date(
+							Date.now() + 60 * 1000,
 						).toISOString();
+						await this.listmonkIntegration.launchTest(
+							campaignMappings,
+							testListMappings,
+							{ sendAt },
+						);
+						abTest.status = "scheduled";
+						abTest.startedAt = new Date().toISOString();
+						abTest.launchAt = sendAt;
+						if (abTest.durationHours !== undefined) {
+							abTest.endsAt = new Date(
+								new Date(sendAt).getTime() +
+									abTest.durationHours * 3600 * 1000,
+							).toISOString();
+						}
 					}
 				}
 			} catch (error) {
