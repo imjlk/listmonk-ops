@@ -109,12 +109,12 @@ export async function runSubscriberHygiene(
 			try {
 				if (options.targetListId) {
 					await client.subscriber.manageListById({
-					path: { id },
-					body: {
-						action: "add",
-						target_list_ids: [options.targetListId],
-					},
-				});
+						path: { id },
+						body: {
+							action: "add",
+							target_list_ids: [options.targetListId],
+						},
+					});
 				}
 
 				if (mode === "sunset" && blocklist) {

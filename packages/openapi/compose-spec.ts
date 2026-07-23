@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, renameSync, rmSync } from "node:fs";
+import {
+	mkdtempSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -52,7 +58,7 @@ try {
 		);
 	}
 	composed = composed.replace(before, after);
-	Bun.write(temporaryOutput, composed);
+	writeFileSync(temporaryOutput, composed);
 
 	renameSync(temporaryOutput, OUTPUT_SPEC);
 } finally {
