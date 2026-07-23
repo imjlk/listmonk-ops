@@ -154,7 +154,12 @@ export function createListmonkAudienceResolver(
 				per_page: pageSize,
 			},
 		});
-		const subscribers = response.results ?? [];
+		if ("error" in response && response.error !== undefined) {
+			throw new AudienceResolutionError(
+				`list ${listId} page ${page} query failed: ${String(response.error)}`,
+			);
+		}
+		const subscribers = response.data?.results ?? [];
 		return { subscribers };
 	}
 

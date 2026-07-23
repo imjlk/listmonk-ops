@@ -30,10 +30,13 @@ export interface MetricsCollector {
 }
 
 export class AbTestMetricsUnavailableError extends Error {
-	constructor(
-		readonly testId: string,
-		readonly cause: unknown,
-	) {
+	readonly testId: string;
+	// `cause` is a built-in property of Error (ES2022). Use `declare` so the
+	// constructor's super(... { cause }) assignment types correctly without a
+	// conflicting parameter-property declaration.
+	declare readonly cause: unknown;
+
+	constructor(testId: string, cause: unknown) {
 		const causeMessage =
 			cause instanceof Error ? cause.message : String(cause);
 		super(
@@ -41,6 +44,7 @@ export class AbTestMetricsUnavailableError extends Error {
 			cause instanceof Error ? { cause } : undefined,
 		);
 		this.name = "AbTestMetricsUnavailableError";
+		this.testId = testId;
 	}
 }
 

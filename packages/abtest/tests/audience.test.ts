@@ -41,10 +41,12 @@ function makeSubscriber(
 
 function mockListResponse(results: Subscriber[], total: number) {
 	return {
-		results,
-		total,
-		per_page: results.length,
-		page: 1,
+		data: {
+			results,
+			total,
+			per_page: results.length,
+			page: 1,
+		},
 	};
 }
 

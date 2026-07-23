@@ -106,8 +106,9 @@ export function allocateByLargestRemainder(
 
 	// Rank each group by its fractional remainder, breaking ties by the
 	// original index so the result is deterministic for identical inputs.
-	const rankings = weights.map((_, index) => {
-		const remainder = quotas[index] - baseSeats[index];
+	const rankings = quotas.map((quota, index) => {
+		const base = baseSeats[index];
+		const remainder = quota - (base ?? 0);
 		return { index, remainder };
 	});
 	rankings.sort((a, b) => {
@@ -122,7 +123,7 @@ export function allocateByLargestRemainder(
 		if (remaining <= 0) {
 			break;
 		}
-		counts[index] += 1;
+		counts[index] = (counts[index] ?? 0) + 1;
 		remaining -= 1;
 	}
 
