@@ -161,6 +161,11 @@ LISTMONK_OPS_AUDIT_STORE=/absolute/path/to/operation-audit.json
 MCP_SERVER_PORT=3000
 MCP_SERVER_HOST=localhost
 
+# Required together when binding HTTP beyond loopback
+# MCP_HTTP_AUTH_TOKEN=<separate-random-bearer-token>
+# MCP_HTTP_ALLOWED_HOSTS=mcp.example.com
+# MCP_HTTP_ALLOWED_ORIGINS=https://mcp.example.com
+
 # Enable debug logging
 DEBUG=false
 ```
@@ -210,9 +215,12 @@ LISTMONK_API_URL=http://localhost:9000/api \
  listmonk-mcp
 ```
 
-#### Run With Runtime Flags (for remote Listmonk endpoint)
+#### Bind Beyond Loopback
 
 ```bash
+MCP_HTTP_AUTH_TOKEN=<separate-random-bearer-token> \
+MCP_HTTP_ALLOWED_HOSTS=mcp.example.com \
+MCP_HTTP_ALLOWED_ORIGINS=https://mcp.example.com \
 listmonk-mcp \
   --listmonk-url https://listmonk.example.com/api \
   --listmonk-username api-admin \
@@ -221,8 +229,18 @@ listmonk-mcp \
   --port 3000
 ```
 
-CLI flags override environment values. This allows running MCP against a remote Listmonk instance without any local Docker setup.
-Pass `--transport http` explicitly when runtime configuration benefits from an explicit transport selection.
+The HTTP listener refuses a non-loopback host unless all three MCP HTTP
+security variables are configured. Allowed hosts are comma-separated hostnames
+without schemes or ports; allowed origins are comma-separated exact `http(s)`
+origins. Put a TLS reverse proxy in front of the listener and send
+`Authorization: Bearer <MCP_HTTP_AUTH_TOKEN>` to `/mcp`, `/tools/list`, and
+`/tools/call`. `GET /health` and `GET /` remain unauthenticated and expose no
+Listmonk data.
+
+All HTTP modes reject untrusted `Host` and browser `Origin` headers. Loopback
+hosts and origins are allowed by default so existing local clients need no new
+configuration. CLI flags still override Listmonk and listener settings, and
+`--transport http` may be passed explicitly.
 
 ### Development
 

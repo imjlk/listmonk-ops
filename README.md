@@ -135,6 +135,9 @@ curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/ins
 The published npm package still requires `bun` on `PATH` at runtime:
 
 ```bash
+MCP_HTTP_AUTH_TOKEN=<separate-random-bearer-token> \
+MCP_HTTP_ALLOWED_HOSTS=mcp.example.com \
+MCP_HTTP_ALLOWED_ORIGINS=https://mcp.example.com \
 listmonk-mcp \
   --listmonk-url https://listmonk.example.com/api \
   --listmonk-username api-admin \
@@ -145,7 +148,10 @@ listmonk-mcp \
 
 Use `listmonk-mcp --stdio` for command-based MCP clients. The default HTTP
 runtime exposes the standard Streamable HTTP endpoint at `/mcp` while retaining
-the legacy REST endpoints.
+the legacy REST endpoints. Local HTTP keeps working without extra settings.
+Non-loopback binding requires a separate MCP Bearer token plus explicit allowed
+hosts and browser origins; MCP and tool requests must send that token in the
+`Authorization` header. Use TLS at the reverse proxy when exposing HTTP.
 
 ## Sampo Changesets + npm OIDC Publish
 

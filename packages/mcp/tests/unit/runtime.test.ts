@@ -8,6 +8,14 @@ import { fileURLToPath } from "node:url";
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const runningProcesses: Bun.Subprocess[] = [];
 
+function runtimeEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
+	const env = { ...process.env };
+	delete env.MCP_HTTP_AUTH_TOKEN;
+	delete env.MCP_HTTP_ALLOWED_HOSTS;
+	delete env.MCP_HTTP_ALLOWED_ORIGINS;
+	return { ...env, ...overrides };
+}
+
 function reservePort(): number {
 	const server = Bun.serve({
 		port: 0,
@@ -58,7 +66,7 @@ describe("mcp runtime entrypoint", () => {
 			cwd: PACKAGE_ROOT,
 			stdout: "pipe",
 			stderr: "pipe",
-			env: process.env,
+			env: runtimeEnv(),
 		});
 
 		const exitCode = await proc.exited;
@@ -92,7 +100,7 @@ describe("mcp runtime entrypoint", () => {
 			cwd: PACKAGE_ROOT,
 			stdout: "pipe",
 			stderr: "pipe",
-			env: process.env,
+			env: runtimeEnv(),
 		});
 		runningProcesses.push(proc);
 
@@ -144,6 +152,55 @@ describe("mcp runtime entrypoint", () => {
 		expect(legacyTools.tools).toHaveLength(64);
 	});
 
+	test("published bin applies HTTP bearer authentication", async () => {
+		const port = reservePort();
+		const proc = Bun.spawn({
+			cmd: [
+				"bun",
+				"./bin/listmonk-mcp.js",
+				"--listmonk-url",
+				"http://127.0.0.1:9000/api",
+				"--listmonk-username",
+				"api-admin",
+				"--listmonk-api-token",
+				"dummy-token",
+				"--host",
+				"127.0.0.1",
+				"--port",
+				String(port),
+			],
+			cwd: PACKAGE_ROOT,
+			stdout: "pipe",
+			stderr: "pipe",
+			env: runtimeEnv({ MCP_HTTP_AUTH_TOKEN: "runtime-http-secret" }),
+		});
+		runningProcesses.push(proc);
+
+		await waitForHealth(`http://127.0.0.1:${port}/health`);
+		const unauthenticated = await fetch(
+			`http://127.0.0.1:${port}/tools/list`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ method: "tools/list" }),
+			},
+		);
+		expect(unauthenticated.status).toBe(401);
+
+		const authenticated = await fetch(
+			`http://127.0.0.1:${port}/tools/list`,
+			{
+				method: "POST",
+				headers: {
+					Authorization: "Bearer runtime-http-secret",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ method: "tools/list" }),
+			},
+		);
+		expect(authenticated.status).toBe(200);
+	});
+
 	test("published bin serves MCP over stdio", async () => {
 		const transport = new StdioClientTransport({
 			command: "bun",
@@ -159,6 +216,7 @@ describe("mcp runtime entrypoint", () => {
 			],
 			cwd: PACKAGE_ROOT,
 			stderr: "pipe",
+			env: runtimeEnv({ MCP_HTTP_ALLOWED_HOSTS: "mcp.example.com" }),
 		});
 		const client = new Client({
 			name: "listmonk-ops-stdio-test",

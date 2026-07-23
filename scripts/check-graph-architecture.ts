@@ -42,6 +42,30 @@ const mcpCallTool =
 	"packages/mcp/src/server.ts#ListmonkMCPServer.callTool:method";
 const mcpConstructor =
 	"packages/mcp/src/server.ts#ListmonkMCPServer.__constructor:method";
+const mcpHttpTransportTest =
+	"packages/mcp/tests/unit/http-transport.test.ts#packages/mcp/tests/unit/http-transport.test.ts:module";
+const mcpHttpTestServerFactory =
+	"packages/mcp/tests/unit/http-transport.test.ts#createServer:function";
+const mcpServerFactory =
+	"packages/mcp/src/server.ts#createListmonkMCPServer:function";
+const mcpGetApp =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.getApp:method";
+const mcpListen =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.listen:method";
+const mcpSecureHttpBinding =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.assertSecureHttpBinding:method";
+const mcpSetupMiddleware =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.setupMiddleware:method";
+const mcpValidateHttpRequest =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.validateHttpRequest:method";
+const mcpAllowedHttpOrigin =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.isAllowedHttpOrigin:method";
+const mcpBearerTokenMatches =
+	"packages/mcp/src/server.ts#bearerTokenMatches:function";
+const mcpSetupRoutes =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.setupRoutes:method";
+const mcpHandleHttpRequest =
+	"packages/mcp/src/server.ts#ListmonkMCPServer.handleMCPHttpRequest:method";
 const mcpListsHandler =
 	"packages/mcp/src/handlers/lists.ts#handleListsTools:variable";
 const listDispatcher =
@@ -1092,6 +1116,43 @@ const mediaParityContracts: readonly CallPathContract[] = [
 	},
 ];
 
+const mcpHttpTransportContracts: readonly CallPathContract[] = [
+	{
+		label: "MCP HTTP tests instantiate the public server factory",
+		path: [mcpHttpTransportTest, mcpHttpTestServerFactory, mcpServerFactory],
+	},
+	{
+		label: "MCP HTTP tests exercise the public Hono application boundary",
+		path: [mcpHttpTransportTest, mcpGetApp],
+	},
+	{
+		label: "MCP HTTP tests exercise secure listener startup",
+		path: [mcpHttpTransportTest, mcpListen, mcpSecureHttpBinding],
+	},
+	{
+		label: "MCP server construction wires Host and Origin validation",
+		path: [
+			mcpConstructor,
+			mcpSetupMiddleware,
+			mcpValidateHttpRequest,
+			mcpAllowedHttpOrigin,
+		],
+	},
+	{
+		label: "MCP server construction wires bearer authentication",
+		path: [
+			mcpConstructor,
+			mcpSetupMiddleware,
+			mcpValidateHttpRequest,
+			mcpBearerTokenMatches,
+		],
+	},
+	{
+		label: "MCP server construction wires the Streamable HTTP handler",
+		path: [mcpConstructor, mcpSetupRoutes, mcpHandleHttpRequest],
+	},
+];
+
 export const architectureCallPaths: readonly CallPathContract[] = [
 	{
 		label: "CLI list command reaches the handwritten OpenAPI list method",
@@ -1401,6 +1462,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	...resourceCrudContracts,
 	...templateSetDefaultContracts,
 	...mediaParityContracts,
+	...mcpHttpTransportContracts,
 	...opsOperationContracts,
 	...abTestOperationContracts,
 	...abTestTestContracts,
