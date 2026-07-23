@@ -120,6 +120,17 @@ describe("isNotFoundError", () => {
 		expect(isNotFoundError(new Error("Campaign not found"))).toBe(true);
 		expect(isNotFoundError(new Error("404 page not found"))).toBe(true);
 	});
+	it("prefers a structured response.status over the message text", () => {
+		// A 404 response with a message that does not contain "not found"
+		// still classifies as not-found via the structured status.
+		expect(isNotFoundError({ response: { status: 404 }, message: "nope" })).toBe(
+			true,
+		);
+		// A 500 response is not a not-found even if the message mentions "404".
+		expect(
+			isNotFoundError({ response: { status: 500 }, message: "saw a 404 once" }),
+		).toBe(false);
+	});
 	it("does not match unrelated errors", () => {
 		expect(isNotFoundError(new Error("internal server error"))).toBe(false);
 		expect(isNotFoundError(new Error("Only active campaigns can be cancelled"))).toBe(false);
@@ -213,8 +224,9 @@ describe("executeCancelPlan", () => {
 	});
 
 	it("does not delete lists before the campaigns that reference them", async () => {
-		// If a campaign delete fails, the list must be retained even when
-		// the plan did not initially flag a surviving reference.
+		// If a campaign delete fails, the list must be retained. The failed
+		// campaign id is now added to survivingListReferences, so every list
+		// is skipped rather than deleted.
 		const client = makeClient({
 			deleteCampaign: async () => {
 				throw new Error("permission denied");
@@ -226,11 +238,22 @@ describe("executeCancelPlan", () => {
 		);
 		const result = await executeCancelPlan(client, plan);
 		expect(result.campaignResults.every((r) => r.outcome === "failed")).toBe(true);
-		// Both draft campaigns failed to delete, so they still reference their
-		// lists indirectly through the plan; list deletion is skipped because
-		// the campaigns were not successfully removed.
-		expect(result.listResults.length).toBeGreaterThan(0);
+		expect(result.listResults.every((r) => r.outcome === "skipped_active_reference")).toBe(true);
 		expect(result.fullyCleaned).toBe(false);
+		expect(result.hadRetainedResources).toBe(true);
+		expect(result.hadFailures).toBe(true);
+	});
+
+	it("reports fullyCleaned=false but hadFailures=false when lists are only retained", async () => {
+		// An unobservable campaign (left) causes lists to be skipped, but no
+		// action actually failed. fullyCleaned=false because lists remain,
+		// but hadFailures=false and hadRetainedResources=true.
+		const client = makeClient();
+		const plan = planCancelAbTest(makeTest(), new Map([[100, "running"]]));
+		const result = await executeCancelPlan(client, plan);
+		expect(result.fullyCleaned).toBe(false);
+		expect(result.hadRetainedResources).toBe(true);
+		expect(result.hadFailures).toBe(false);
 	});
 
 	it("repeated execution is idempotent: a second run reports not_found", async () => {

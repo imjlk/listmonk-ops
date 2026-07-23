@@ -62,8 +62,26 @@ export interface CancelExecutionResult {
 		outcome: "success" | "not_found" | "skipped_active_reference" | "failed";
 		detail?: string;
 	}[];
-	/** True when every campaign and list action reached a terminal state. */
+	/**
+	 * True only when every campaign reached a terminal state AND every list
+	 * was actually deleted. A `skipped_active_reference` list outcome means a
+	 * campaign survived, so the test still holds resources; fullyCleaned is
+	 * false in that case. Use `hadRetainedResources` to distinguish
+	 * "intentionally retained for safety" from a genuine failure.
+	 */
 	fullyCleaned: boolean;
+	/**
+	 * True when one or more lists were intentionally retained because a
+	 * campaign survived (was left, unobservable, or failed to delete). This
+	 * is not itself an error; callers may need to reconcile later.
+	 */
+	hadRetainedResources: boolean;
+	/**
+	 * True when at least one campaign or list action genuinely failed
+	 * (network error, permission denied, 5xx). Distinct from
+	 * hadRetainedResources and from fullyCleaned.
+	 */
+	hadFailures: boolean;
 }
 
 export interface PlanCancelOptions {
@@ -172,18 +190,33 @@ export function planCancelAbTest(
  * Whether a fetch error should be treated as "resource already gone"
  * (idempotent success). Listmonk returns 404 with a JSON body for missing
  * campaigns and lists.
+ *
+ * Prefers the structured HTTP status carried by OpenAPI client errors
+ * (their `response.status`); falls back to the error message text only when
+ * no structured status is available, since some throw sites wrap the
+ * response into a plain Error.
  */
 export function isNotFoundError(error: unknown): boolean {
-	if (error instanceof Error) {
-		return /not found|404/i.test(error.message);
+	if (error && typeof error === "object" && "response" in error) {
+		const response = (error as { response?: { status?: unknown } }).response;
+		if (response && typeof response === "object" && "status" in response) {
+			const status = (response as { status?: unknown }).status;
+			if (typeof status === "number") {
+				return status === 404;
+			}
+		}
 	}
-	if (typeof error === "string") {
-		return /not found|404/i.test(error);
-	}
-	if (error && typeof error === "object" && "message" in error) {
-		return /not found|404/i.test(String((error as { message: unknown }).message));
-	}
-	return false;
+	const message =
+		error instanceof Error
+			? error.message
+			: typeof error === "string"
+				? error
+				: error &&
+						typeof error === "object" &&
+						"message" in error
+					? String((error as { message: unknown }).message)
+					: "";
+	return /not found|404/i.test(message);
 }
 
 /**
@@ -198,61 +231,60 @@ export async function executeCancelPlan(
 	client: ListmonkClient,
 	plan: CancelPlan,
 ): Promise<CancelExecutionResult> {
-	const campaignResults: CancelExecutionResult["campaignResults"] = [];
-
-	for (const action of plan.campaignActions) {
-		if (action.kind === "leave") {
-			campaignResults.push({
-				campaignId: action.campaignId,
-				action: "leave",
-				outcome: "success",
-				detail: action.reason,
-			});
-			continue;
-		}
-		try {
-			if (action.kind === "cancel") {
-				await client.campaign.updateStatus({
-					path: { id: action.campaignId },
-					body: { status: "cancelled" },
-				});
-			} else {
-				await client.campaign.delete({ path: { id: action.campaignId } });
-			}
-			campaignResults.push({
-				campaignId: action.campaignId,
-				action: action.kind,
-				outcome: "success",
-			});
-		} catch (error) {
-			if (isNotFoundError(error)) {
-				campaignResults.push({
-					campaignId: action.campaignId,
-					action: action.kind,
-					outcome: "not_found",
-					detail: error instanceof Error ? error.message : String(error),
-				});
-			} else {
-				campaignResults.push({
-					campaignId: action.campaignId,
-					action: action.kind,
-					outcome: "failed",
-					detail: error instanceof Error ? error.message : String(error),
-				});
-			}
-		}
-	}
+	// Campaign actions are independent API calls; run them concurrently so
+	// total latency is the slowest call rather than the sum. A failure in
+	// one action does not abort the others — each settles to its own result.
+	const campaignResults: CancelExecutionResult["campaignResults"] =
+		await Promise.all(
+			plan.campaignActions.map(async (action) => {
+				if (action.kind === "leave") {
+					return {
+						campaignId: action.campaignId,
+						action: "leave" as const,
+						outcome: "success" as const,
+						detail: action.reason,
+					};
+				}
+				try {
+					if (action.kind === "cancel") {
+						await client.campaign.updateStatus({
+							path: { id: action.campaignId },
+							body: { status: "cancelled" },
+						});
+					} else {
+						await client.campaign.delete({
+							path: { id: action.campaignId },
+						});
+					}
+					return {
+						campaignId: action.campaignId,
+						action: action.kind,
+						outcome: "success" as const,
+					};
+				} catch (error) {
+					const outcome = isNotFoundError(error)
+						? ("not_found" as const)
+						: ("failed" as const);
+					return {
+						campaignId: action.campaignId,
+						action: action.kind,
+						outcome,
+						detail: error instanceof Error ? error.message : String(error),
+					};
+				}
+			}),
+		);
 
 	// A list is safe to delete only if no surviving campaign still references
-	// it. survivingCampaignIds may include unobservable campaigns and the
-	// winner campaign; for the purposes of list cleanup we treat any
-	// non-deleted campaign as a surviving reference.
+	// it. Surviving references include:
+	//   - campaigns the plan could not observe or chose to leave (encoded in
+	//     plan.listsReferencedByActiveCampaign and not subsequently deleted);
+	//   - campaigns whose cancel/delete action failed (they may still be
+	//     active in Listmonk).
 	const survivingListReferences = new Set<number>();
 	const deletedCampaignIds = new Set(
 		campaignResults
-			.filter(
-				(r) => r.outcome === "success" && r.action === "delete",
-			)
+			.filter((r) => r.outcome === "success" && r.action === "delete")
 			.map((r) => r.campaignId),
 	);
 	for (const id of plan.listsReferencedByActiveCampaign) {
@@ -260,44 +292,59 @@ export async function executeCancelPlan(
 			survivingListReferences.add(id);
 		}
 	}
-
-	const listResults: CancelExecutionResult["listResults"] = [];
-	for (const action of plan.listActions) {
-		// We do not have a per-list "referenced by" map here; the caller's
-		// plan already encoded surviving references. If any campaign survived
-		// (was left or could not be observed), skip list deletion entirely to
-		// avoid detaching a list a still-active campaign may need.
-		if (plan.listsReferencedByActiveCampaign.length > 0) {
-			listResults.push({
-				listId: action.listId,
-				outcome: "skipped_active_reference",
-				detail: "one or more campaigns survived cancel; list retained",
-			});
-			continue;
-		}
-		try {
-			await client.list.delete({ path: { list_id: action.listId } });
-			listResults.push({ listId: action.listId, outcome: "success" });
-		} catch (error) {
-			if (isNotFoundError(error)) {
-				listResults.push({
-					listId: action.listId,
-					outcome: "not_found",
-					detail: error instanceof Error ? error.message : String(error),
-				});
-			} else {
-				listResults.push({
-					listId: action.listId,
-					outcome: "failed",
-					detail: error instanceof Error ? error.message : String(error),
-				});
-			}
+	for (const result of campaignResults) {
+		if (result.outcome === "failed") {
+			survivingListReferences.add(result.campaignId);
 		}
 	}
 
+	const anySurvivingReference = survivingListReferences.size > 0;
+	const listResults: CancelExecutionResult["listResults"] = await Promise.all(
+		plan.listActions.map(async (action) => {
+			// If any campaign survived (left, unobservable, or failed to
+			// delete), retain every list to avoid detaching a list a
+			// still-active campaign may need.
+			if (anySurvivingReference) {
+				return {
+					listId: action.listId,
+					outcome: "skipped_active_reference" as const,
+					detail: "one or more campaigns survived cancel; list retained",
+				};
+			}
+			try {
+				await client.list.delete({ path: { list_id: action.listId } });
+				return { listId: action.listId, outcome: "success" as const };
+			} catch (error) {
+				const outcome = isNotFoundError(error)
+					? ("not_found" as const)
+					: ("failed" as const);
+				return {
+					listId: action.listId,
+					outcome,
+					detail: error instanceof Error ? error.message : String(error),
+				};
+			}
+		}),
+	);
+
+	// fullyCleaned is true only when every campaign reached a terminal state
+	// AND every list was actually deleted. skipped_active_reference means a
+	// campaign survived, so the test still holds resources and is not fully
+	// cleaned. hadRetainedResources / hadFailures let callers distinguish
+	// intentional retention from genuine errors.
 	const fullyCleaned =
-		campaignResults.every((r) => r.outcome === "success" || r.outcome === "not_found") &&
-		listResults.every((r) => r.outcome === "success" || r.outcome === "not_found");
+		campaignResults.every(
+			(r) => r.outcome === "success" || r.outcome === "not_found",
+		) &&
+		listResults.every(
+			(r) => r.outcome === "success" || r.outcome === "not_found",
+		);
+	const hadRetainedResources = listResults.some(
+		(r) => r.outcome === "skipped_active_reference",
+	);
+	const hadFailures =
+		campaignResults.some((r) => r.outcome === "failed") ||
+		listResults.some((r) => r.outcome === "failed");
 
 	return {
 		testId: plan.testId,
@@ -305,5 +352,7 @@ export async function executeCancelPlan(
 		campaignResults,
 		listResults,
 		fullyCleaned,
+		hadRetainedResources,
+		hadFailures,
 	};
 }
