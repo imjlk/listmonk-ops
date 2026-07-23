@@ -420,8 +420,9 @@ export class AbTestService {
 
 		// Pick the comparison metric via the shared selector so the
 		// significance test and the winner selection cannot diverge.
-		const metricRate = this.pickMetricRate(results);
-		const anyConversionMeasured = results.some((r) => r.conversions > 0);
+		const { rate: metricRate, label: metricLabel } =
+			this.pickMetricRate(results);
+		const anyConversionMeasured = metricLabel === "conversion rate";
 		const metricCount = (r: TestResults): number =>
 			anyConversionMeasured ? r.conversions : r.clicks;
 
@@ -504,9 +505,14 @@ export class AbTestService {
 	 * actually measured; otherwise falls back to click rate, since
 	 * conversions are zero everywhere until a conversion event store exists.
 	 */
-	private pickMetricRate(results: TestResults[]): (r: TestResults) => number {
+	private pickMetricRate(results: TestResults[]): {
+		rate: (r: TestResults) => number;
+		label: "conversion rate" | "click rate";
+	} {
 		const anyConversionMeasured = results.some((r) => r.conversions > 0);
-		return anyConversionMeasured ? (r) => r.conversionRate : (r) => r.clickRate;
+		return anyConversionMeasured
+			? { rate: (r) => r.conversionRate, label: "conversion rate" }
+			: { rate: (r) => r.clickRate, label: "click rate" };
 	}
 
 	private standardNormalCDF(z: number): number {
@@ -547,9 +553,12 @@ export class AbTestService {
 		);
 
 		// Pick the winner on the same metric the significance test used, via
-		// the shared selector so the two cannot drift apart.
-		const metricRate = this.pickMetricRate(results);
-		const anyConversionMeasured = results.some((r) => r.conversions > 0);
+		// the shared selector so the two cannot drift apart. The selector
+		// returns both the rate function and its label so recommendations
+		// report the metric actually used (no 0.00% conversion rate for a
+		// click-rate winner).
+		const { rate: metricRate, label: metricLabel } =
+			this.pickMetricRate(results);
 		const bestRate = Math.max(...results.map(metricRate));
 
 		const winner = analysis.isSignificant
@@ -560,12 +569,7 @@ export class AbTestService {
 				) || null
 			: null;
 
-		// Generate recommendations, reporting the metric actually used for
-		// winner selection so users do not see a 0.00% conversion rate for a
-		// click-rate winner.
-		const metricLabel = anyConversionMeasured
-			? ("conversion rate" as const)
-			: ("click rate" as const);
+		// Generate recommendations, reporting the selected metric.
 		const recommendations = this.generateRecommendations(
 			results,
 			analysis,
