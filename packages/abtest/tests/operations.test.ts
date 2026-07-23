@@ -5,8 +5,14 @@ import { join } from "node:path";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	abTestOperations,
+	invokeAnalyzeAbTestOperation,
+	invokeCreateAbTestOperation,
+	invokeDeleteAbTestOperation,
+	invokeDeployAbTestWinnerOperation,
+	invokeGetAbTestOperation,
 	invokeLaunchAbTestOperation,
 	invokeListAbTestsOperation,
+	invokeRecommendAbTestSampleSizeOperation,
 	invokeStopAbTestOperation,
 	listAbTestsOperation,
 } from "../src/operations";
@@ -122,13 +128,36 @@ describe("A/B test operation registry", () => {
 		);
 	});
 
-	test("uses shared input diagnostics for missing lifecycle identifiers", async () => {
+	test("uses shared input diagnostics across every named invoker", async () => {
+		const context = { client: {} as ListmonkClient };
+
 		await expect(
-			invokeListAbTestsOperation(
-				{ client: {} as ListmonkClient },
-				{ status: "not-a-status" },
-			),
+			invokeListAbTestsOperation(context, { status: "not-a-status" }),
 		).rejects.toThrow("Invalid parameter status");
+		await expect(invokeGetAbTestOperation(context, {})).rejects.toThrow(
+			"Missing required parameter: test_id",
+		);
+		await expect(invokeCreateAbTestOperation(context, {})).rejects.toThrow(
+			"Missing required parameter: name",
+		);
+		await expect(invokeAnalyzeAbTestOperation(context, {})).rejects.toThrow(
+			"Missing required parameter: test_id",
+		);
+		await expect(invokeLaunchAbTestOperation(context, {})).rejects.toThrow(
+			"Missing required parameter: test_id",
+		);
+		await expect(invokeStopAbTestOperation(context, {})).rejects.toThrow(
+			"Missing required parameter: test_id",
+		);
+		await expect(invokeDeleteAbTestOperation(context, {})).rejects.toThrow(
+			"Missing required parameter: test_id",
+		);
+		await expect(
+			invokeRecommendAbTestSampleSizeOperation(context, {}),
+		).rejects.toThrow("Missing required parameter: lists");
+		await expect(
+			invokeDeployAbTestWinnerOperation(context, {}),
+		).rejects.toThrow("Missing required parameter: test_id");
 	});
 
 	test("preserves typed not-found errors for lifecycle transitions", async () => {

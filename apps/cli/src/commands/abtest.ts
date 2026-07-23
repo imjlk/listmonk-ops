@@ -147,7 +147,7 @@ function normalizeVariants(
 	}));
 }
 
-function buildCreateInputFromFlags(flags: {
+export function buildCreateInputFromFlags(flags: {
 	name: string;
 	"campaign-id": number;
 	variants: string;

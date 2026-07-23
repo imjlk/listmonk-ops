@@ -215,7 +215,7 @@ const mcpAbTestHandler =
 const abTestDispatcher =
 	"packages/abtest/src/operations.ts#invokeAbTestOperationByMcpName:function";
 
-const abTestOperationContracts: readonly CallPathContract[] = [
+const abTestOperationDefinitions = [
 	[
 		"list",
 		"invokeCliListAbTests",
@@ -270,7 +270,10 @@ const abTestOperationContracts: readonly CallPathContract[] = [
 		"invokeDeployAbTestWinnerOperation",
 		"executeDeployAbTestWinnerOperation",
 	],
-].flatMap(([label, cliAdapter, invoker, executor]) => [
+] as const;
+
+const abTestOperationContracts: readonly CallPathContract[] =
+	abTestOperationDefinitions.flatMap(([label, cliAdapter, invoker, executor]) => [
 	{
 		label: `CLI A/B ${label} reaches the named operation action`,
 		path: [
@@ -292,12 +295,25 @@ const abTestOperationContracts: readonly CallPathContract[] = [
 	},
 ]);
 
+const abTestOperationTestModule =
+	"packages/abtest/tests/operations.test.ts#packages/abtest/tests/operations.test.ts:module";
+const cliAbTestInputTestModule =
+	"apps/cli/tests/abtest.test.ts#apps/cli/tests/abtest.test.ts:module";
+
 const abTestTestContracts: readonly CallPathContract[] = [
-	{
-		label: "A/B operation tests anchor the shared list invoker",
+	...abTestOperationDefinitions.map(([label, , invoker]) => ({
+		label: `A/B operation tests anchor the shared ${label} invoker`,
 		path: [
-			"packages/abtest/tests/operations.test.ts#packages/abtest/tests/operations.test.ts:module",
-			"packages/abtest/src/operations.ts#invokeListAbTestsOperation:function",
+			abTestOperationTestModule,
+			`packages/abtest/src/operations.ts#${invoker}:function`,
+		],
+	})),
+	{
+		label: "CLI A/B tests anchor flag normalization",
+		path: [
+			cliAbTestInputTestModule,
+			"apps/cli/src/commands/abtest.ts#buildCreateInputFromFlags:function",
+			"apps/cli/src/commands/abtest.ts#normalizeVariants:function",
 		],
 	},
 	{
