@@ -240,7 +240,8 @@ export class ListmonkAbTestIntegration {
 		}
 		const holdoutGroupSubscribers = allSubscribers.slice(cursor);
 
-		// Create holdout list
+		// Create holdout list with canonical tags so reconcile can discover
+		// it by abtest:<id> + abtest-role:holdout even if local mapping is lost.
 		try {
 			const holdoutListResult = await this.listmonkClient.list.create({
 				body: {
@@ -249,6 +250,7 @@ export class ListmonkAbTestIntegration {
 					optin: "single",
 					description:
 						"Holdout group for A/B test - will receive winner variant",
+					tags: [`abtest:${testId}`, "abtest-role:holdout"],
 				},
 			});
 
@@ -284,6 +286,11 @@ export class ListmonkAbTestIntegration {
 						type: "private",
 						optin: "single",
 						description: `Test group for A/B test variant ${variant.name}`,
+						tags: [
+							`abtest:${testId}`,
+							"abtest-role:variant",
+							`abtest-variant:${variant.id}`,
+						],
 					},
 				});
 

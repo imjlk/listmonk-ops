@@ -631,6 +631,33 @@ planning documents and are the reason some planned behavior had to change.
   campaigns target lists via `lists`. This package does not implement direct
   subscriber-UUID targeting through `subscribers`.
 
+## Deterministic provisioning (stage 2)
+
+Stage 2 replaces `Math.random()` shuffling with deterministic, reproducible
+assignment and chunked bulk list membership:
+
+- **Assignment manifest**: `buildAssignmentManifest()` ranks every audience
+  member by a SHA-256 digest derived from `(assignmentVersion, testId, seed,
+  uuid)` and slices the ranked list by exact largest-remainder counts. The
+  same `testId + seed + audience` always produces the same manifest, so
+  provisioning retries and reconciliation never re-split the audience or
+  land a subscriber in a different variant's list. The manifest (seed,
+  audience snapshot, per-group expected counts and checksums) is persisted
+  on the `AbTest` record.
+- **Bulk membership**: `addSubscribersToListBulk()` populates each variant
+  and holdout list via the bulk `manageLists` endpoint
+  (`PUT /subscribers/lists`) in chunks of 500, with an `onProgress`
+  callback for checkpointing. The spike confirmed `target_list_ids` must be
+  an array and re-adding the same chunk is idempotent.
+- **Canonical tags**: every temporary list is created with
+  `abtest:<testId>`, `abtest-role:variant`/`abtest-role:holdout`, and
+  `abtest-variant:<variantId>` tags so reconcile can discover resources by
+  tag even if the local mapping is lost.
+- **Store schema v2**: the on-disk document is now version 2 with optional
+  `assignmentSeed`, `audienceSnapshot`, `assignmentManifest`, and
+  `revision` fields. Version 1 documents are read transparently and
+  upgraded to v2 on the next write.
+
 ## License
 
 MIT License - see LICENSE file for details.
