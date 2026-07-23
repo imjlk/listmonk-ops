@@ -396,6 +396,56 @@ export class ListmonkAbTestIntegration {
 		}
 	}
 
+	/**
+	 * Status-aware cleanup for test deletion. For each campaign, fetch its
+	 * remote status and cancel running campaigns before deleting (Listmonk
+	 * v6.2.0 rejects DELETE on running campaigns). Draft/scheduled/terminal
+	 * campaigns are deleted directly. Throws on any campaign that cannot be
+	 * cancelled or deleted so the caller does not remove the local record.
+	 */
+	async deleteTestResources(resources: {
+		campaignIds: number[];
+		listIds: number[];
+	}): Promise<void> {
+		for (const campaignId of resources.campaignIds) {
+			try {
+				const response = await this.listmonkClient.campaign.getById({
+					path: { id: campaignId },
+				});
+				if ("error" in response) {
+					// Campaign may already be gone — treat 404 as success.
+					continue;
+				}
+				const status = (response as { data?: { status?: string } })
+					?.data?.status;
+				if (status === "running") {
+					// Cancel running campaigns before deleting.
+					const cancelResult =
+						await this.listmonkClient.campaign.updateStatus({
+							path: { id: campaignId },
+							body: { status: "cancelled" },
+						});
+					if ("error" in cancelResult) {
+						throw new Error(
+							`Failed to cancel running campaign ${campaignId}: ${this.formatError(cancelResult.error)}`,
+						);
+					}
+				}
+				// Now safe to delete.
+				await this.listmonkClient.campaign.delete({
+					path: { id: campaignId },
+				});
+			} catch (error) {
+				// Re-throw so the caller does not delete the local record.
+				throw new Error(
+					`Failed to cleanup campaign ${campaignId}: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}
+		// Delete lists after campaigns are cleaned up.
+		await this.deleteListsBestEffort([...resources.listIds].reverse());
+	}
+
 	async rollbackProvisioning(
 		resources: ProvisionedAbTestResources,
 	): Promise<void> {

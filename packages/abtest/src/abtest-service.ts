@@ -349,40 +349,28 @@ export class AbTestService {
 		}
 
 		// Cleanup Listmonk resources for any test that has remote campaigns.
-		// Use rollbackProvisioning which deletes both campaigns and lists,
-		// rather than the legacy cleanup that only renames campaigns and may
-		// leave scheduled campaigns still able to fire.
+		// Use deleteTestResources which is status-aware: it cancels running
+		// campaigns before deleting (Listmonk v6.2.0 rejects DELETE on
+		// running campaigns), and throws on failure so the local record
+		// persists for retry/reconcile.
 		if (
 			this.listmonkIntegration &&
 			!TERMINAL_STATUSES.has(test.status) &&
 			test.campaignMappings.length > 0
 		) {
-			// For running campaigns, Listmonk v6.2.0 requires cancel before
-			// delete. rollbackProvisioning uses deleteCampaignsBestEffort
-			// which tries DELETE — a running campaign may reject that. We
-			// attempt the rollback and if it fails, re-throw so the local
-			// record persists for retry/reconcile rather than orphaning
-			// active campaigns.
-			try {
-				await this.listmonkIntegration.rollbackProvisioning({
-					testId,
-					campaignIds: [
-						...test.campaignMappings.map((m) => m.campaignId),
-						...(test.winnerCampaignId !== undefined
-							? [test.winnerCampaignId]
-							: []),
-					],
-					testListIds: test.testListMappings.map((m) => m.listId),
-					holdoutListId: test.holdoutListId,
-				});
-			} catch (cleanupError) {
-				// Do NOT swallow — if remote cleanup failed the test record
-				// must persist so the operator can retry or reconcile. The
-				// caller (deleteTest executor) surfaces this as an error.
-				throw new Error(
-					`Failed to cleanup Listmonk resources for test ${testId}; the local record was not deleted so the operator can retry or reconcile. Cause: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
-				);
+			const listIds = test.testListMappings.map((m) => m.listId);
+			if (test.holdoutListId !== undefined) {
+				listIds.push(test.holdoutListId);
 			}
+			await this.listmonkIntegration.deleteTestResources({
+				campaignIds: [
+					...test.campaignMappings.map((m) => m.campaignId),
+					...(test.winnerCampaignId !== undefined
+						? [test.winnerCampaignId]
+						: []),
+				],
+				listIds,
+			});
 		}
 
 		this.tests.delete(testId);

@@ -258,22 +258,24 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				continue;
 			}
 			if (dryRun) {
-				// Report what would happen without mutating state. For running
-				// tests without endsAt, runAbTestImpl is a no-op, so report
-				// that accurately instead of claiming it would progress.
+				// Report what would happen without mutating state. Mirror
+				// runAbTestImpl's no-op conditions so the preview is accurate.
 				if (
 					test.status === "running" &&
-					!test.endsAt
+					(!test.endsAt ||
+						Date.now() < new Date(test.endsAt).getTime())
 				) {
 					results.push({
 						test_id: test.id,
 						status: test.status,
-						action: "dry-run:noop:running-no-endsAt",
+						action: !test.endsAt
+							? "dry-run:noop:running-no-endsAt"
+							: "dry-run:noop:running-before-endsAt",
 					});
 				} else if (
 					test.status === "scheduled" &&
-					test.launchAt &&
-					Date.now() < new Date(test.launchAt).getTime()
+					(!test.launchAt ||
+						Date.now() < new Date(test.launchAt).getTime())
 				) {
 					results.push({
 						test_id: test.id,
