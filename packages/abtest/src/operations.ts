@@ -119,6 +119,34 @@ const abTestSchema = z.object({
 	),
 	holdoutListId: positiveIntegerSchema.optional(),
 	winnerCampaignId: positiveIntegerSchema.optional(),
+	// Deterministic provisioning metadata (stage 2). Optional so existing
+	// records without these fields still parse.
+	assignmentSeed: z.string().optional(),
+	audienceSnapshot: z
+		.object({
+			capturedAt: z.string(),
+			sourceListIds: z.array(z.number().int().positive()),
+			subscriberCount: z.number().int().nonnegative(),
+			subscriberChecksum: z.string(),
+			eligibilityPolicyVersion: z.literal(1),
+		})
+		.optional(),
+	assignmentManifest: z
+		.object({
+			algorithm: z.literal("sha256-order-largest-remainder-v1"),
+			seed: z.string(),
+			audienceChecksum: z.string(),
+			groups: z.array(
+				z.object({
+					kind: z.enum(["variant", "holdout"]),
+					variantId: z.string().optional(),
+					expectedCount: z.number().int().nonnegative(),
+					subscriberChecksum: z.string(),
+				}),
+			),
+			assignedCount: z.number().int().nonnegative(),
+		})
+		.optional(),
 });
 
 const testResultsSchema = z.object({

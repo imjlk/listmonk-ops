@@ -166,6 +166,7 @@ export class ListmonkAbTestIntegration {
 		testGroupSize: number;
 		holdoutGroupSize: number;
 		assignmentSeed: string;
+		assignmentTestId: string;
 		audienceSnapshot: AudienceSnapshot;
 		assignmentManifest: AssignmentManifest;
 	}> {
@@ -309,6 +310,7 @@ export class ListmonkAbTestIntegration {
 				testGroupSize,
 				holdoutGroupSize,
 				assignmentSeed: seed,
+				assignmentTestId: testId,
 				audienceSnapshot: resolvedSnapshot,
 				assignmentManifest,
 			};
