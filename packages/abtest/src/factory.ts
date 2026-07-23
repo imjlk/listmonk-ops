@@ -175,23 +175,47 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		// delegates to the existing lifecycle methods so the orchestration
 		// layer stays consistent with the manual launch/stop paths.
 		switch (test.status) {
-			case "draft":
+			case "draft": {
+				// Only auto-launch drafts that were created with autoLaunch.
+				// A plain draft must be launched explicitly.
+				return test;
+			}
 			case "scheduled": {
-				return await launchAbTestImpl(testId);
+				// Do not re-launch an already-scheduled test. Wait until the
+				// sendAt/launchAt time has passed, then advance to running
+				// so the next tick can move it to analyzing.
+				const now = Date.now();
+				const launchTime = test.launchAt
+					? new Date(test.launchAt).getTime()
+					: Number.POSITIVE_INFINITY;
+				if (now >= launchTime) {
+					return await abTestService.updateTestStatus(testId, "running");
+				}
+				return test;
 			}
 			case "running": {
 				// A running test has reached its send window; advance it to
-				// analyzing so the next tick can pick up metrics. Full
-				// endsAt enforcement lands in a later stage.
-				return await abTestService.updateTestStatus(testId, "analyzing");
+				// analyzing so the next tick can pick up metrics. Check endsAt
+				// if set so we don't analyze prematurely.
+				const now = Date.now();
+				const endTime = test.endsAt ? new Date(test.endsAt).getTime() : 0;
+				if (endTime === 0 || now >= endTime) {
+					return await abTestService.updateTestStatus(testId, "analyzing");
+				}
+				return test;
 			}
 			case "analyzing": {
-				// Deploy the winner if the test is configured for auto-deploy;
-				// otherwise mark it completed once analysis has run.
-				if (test.autoDeployWinner) {
+				// Run analysis, then deploy the winner if configured, or mark
+				// inconclusive/completed based on the significance result.
+				const analysis = await abTestService.analyzeTest(testId);
+				if (test.autoDeployWinner && analysis.winner) {
 					await abTestService.deployWinner(testId);
+					return await abTestService.updateTestStatus(testId, "completed");
 				}
-				return await abTestService.updateTestStatus(testId, "completed");
+				return await abTestService.updateTestStatus(
+					testId,
+					analysis.analysis.isSignificant ? "completed" : "inconclusive",
+				);
 			}
 			default: {
 				// `testing`, `deploying`, and `cancelling` are transitional
@@ -201,7 +225,9 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		}
 	};
 
-	const tickAbTestsImpl = async (): Promise<
+	const tickAbTestsImpl = async (
+		dryRun: boolean,
+	): Promise<
 		Array<{
 			test_id: string;
 			status: AbTest["status"];
@@ -218,10 +244,27 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 			if (TERMINAL_STATUSES.has(test.status)) {
 				continue;
 			}
+			// Skip plain drafts — they must be launched explicitly. Only
+			// scheduled/running/analyzing tests are progressed by tick.
+			if (test.status === "draft") {
+				results.push({
+					test_id: test.id,
+					status: test.status,
+					action: "skip:draft-not-launched",
+				});
+				continue;
+			}
+			if (dryRun) {
+				// Report what would happen without mutating state.
+				results.push({
+					test_id: test.id,
+					status: test.status,
+					action: `dry-run:would-progress:${test.status}`,
+				});
+				continue;
+			}
 			const action = `progress:${test.status}`;
 			try {
-				// runAbTest owns the single-step progression; re-read the
-				// resulting status so the tick report reflects the new state.
 				const updated = await runAbTestImpl(test.id);
 				results.push({
 					test_id: test.id,
@@ -243,6 +286,7 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 
 	const reconcileAbTestImpl = async (
 		testId?: string,
+		repair: boolean = false,
 	): Promise<
 		Array<{
 			test_id: string;
@@ -264,7 +308,13 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				]
 			: abTestService.snapshotTests();
 
-		return tests.map((test) => {
+		const results: Array<{
+			test_id: string;
+			status: AbTest["status"];
+			drift: string;
+		}> = [];
+
+		for (const test of tests) {
 			// Simple drift heuristic: terminal tests are expected to have no
 			// future endsAt; non-terminal tests are expected to have a
 			// startedAt once they reach running/analyzing. Full drift
@@ -276,19 +326,28 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				(test.status === "running" || test.status === "analyzing")
 			) {
 				drift = "missing_startedAt";
+				if (repair) {
+					test.startedAt = new Date().toISOString();
+					drift = "repaired:startedAt";
+				}
 			} else if (
 				TERMINAL_STATUSES.has(test.status) &&
 				test.endsAt &&
 				new Date(test.endsAt).getTime() > Date.now()
 			) {
 				drift = "terminal_with_future_endsAt";
+				if (repair) {
+					test.endsAt = undefined;
+					drift = "repaired:endsAt";
+				}
 			}
-			return {
+			results.push({
 				test_id: test.id,
 				status: test.status,
 				drift,
-			};
-		});
+			});
+		}
+		return results;
 	};
 
 	return {
@@ -343,8 +402,9 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 
 		// Orchestration operations exposed to the shared operation executors.
 		runAbTest: runAbTestImpl,
-		tickAbTests: tickAbTestsImpl,
-		reconcileAbTest: reconcileAbTestImpl,
+		tickAbTests: (dryRun: boolean = false) => tickAbTestsImpl(dryRun),
+		reconcileAbTest: (testId?: string, repair: boolean = false) =>
+			reconcileAbTestImpl(testId, repair),
 
 		// Convenience methods for common A/B test scenarios
 		createSimpleAbTest: async (params: {

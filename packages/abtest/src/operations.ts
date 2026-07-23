@@ -248,6 +248,7 @@ const createAbTestInputSchema = z.object({
 		z.number().int().positive().optional(),
 	),
 	duration_hours: optionalNumberSchema.pipe(z.number().gt(0).optional()),
+	launch_at: z.string().datetime().optional(),
 	auto_launch: optionalBooleanSchema,
 	auto_deploy_winner: optionalBooleanSchema,
 	ignore_sample_size_warnings: optionalBooleanSchema,
@@ -556,9 +557,12 @@ export async function executeTickAbTestsOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof tickAbTestsInputSchema>,
 ): Promise<TickAbTestsOperationOutput> {
+	const dryRun = input.dry_run === true;
 	const tickResults = await withStoredOperation<
 		Awaited<ReturnType<AbTestExecutors["tickAbTests"]>>
-	>(context, "write", (executors) => executors.tickAbTests());
+	>(context, dryRun ? "read" : "write", (executors) =>
+		executors.tickAbTests(dryRun),
+	);
 	return {
 		processed: tickResults.length,
 		results: tickResults,
@@ -572,7 +576,7 @@ export async function executeReconcileAbTestOperation(
 	const reconcileResults = await withStoredOperation<
 		Awaited<ReturnType<AbTestExecutors["reconcileAbTest"]>>
 	>(context, input.repair ? "write" : "read", (executors) =>
-		executors.reconcileAbTest(input.test_id),
+		executors.reconcileAbTest(input.test_id, input.repair === true),
 	);
 	return {
 		reconciled: reconcileResults.length,

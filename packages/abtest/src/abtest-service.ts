@@ -263,6 +263,14 @@ export class AbTestService {
 						campaignMappings,
 						testListMappings,
 					);
+					// Record orchestration timestamps for the immediate launch
+					// so reconciliation does not report missing startedAt.
+					abTest.startedAt = new Date().toISOString();
+					if (abTest.durationHours !== undefined) {
+						abTest.endsAt = new Date(
+							Date.now() + abTest.durationHours * 3600 * 1000,
+						).toISOString();
+					}
 				}
 			} catch (error) {
 				try {
@@ -332,8 +340,13 @@ export class AbTestService {
 			return false;
 		}
 
-		// Cleanup Listmonk resources
-		if (this.listmonkIntegration && test.status === "running") {
+		// Cleanup Listmonk resources for any test that has remote resources
+		// (running, scheduled, or any non-terminal state with campaigns).
+		if (
+			this.listmonkIntegration &&
+			(test.status === "running" || test.status === "scheduled") &&
+			test.campaignMappings.length > 0
+		) {
 			if (test.testingMode === "holdout" && test.holdoutListId) {
 				// Use holdout cleanup
 				await this.listmonkIntegration.cleanupHoldoutTest(
