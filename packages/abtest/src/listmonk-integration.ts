@@ -5,7 +5,6 @@ import {
 	allocateTestAndHoldout,
 } from "./allocation";
 import {
-	buildAudienceSnapshot,
 	createListmonkAudienceResolver,
 	type AudienceMember,
 	type AudienceSnapshot,

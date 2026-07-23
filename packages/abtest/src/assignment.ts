@@ -202,9 +202,7 @@ export function buildAssignmentManifest(params: {
 	// If the audience changed (even if the count stayed the same), the
 	// persisted checksum would describe a different audience than the one we
 	// just assigned, making later drift checks trust the wrong baseline.
-	const recomputedChecksum = groupChecksum(
-		members.map((member) => member.subscriberUuid),
-	);
+	const recomputedChecksum = computeAudienceChecksum(members);
 	if (
 		audience.subscriberChecksum !== "" &&
 		recomputedChecksum !== audience.subscriberChecksum
@@ -275,14 +273,23 @@ function rankAndVerifyMembers(
 	manifest: AssignmentManifest,
 	members: readonly AudienceMember[],
 ): { member: AudienceMember; digest: string }[] {
-	const checksum = groupChecksum(
-		members.map((member) => member.subscriberUuid),
-	);
+	const checksum = computeAudienceChecksum(members);
 	if (checksum !== manifest.audienceChecksum) {
 		// Audience drift: return an empty ranked list so every lookup yields -1.
 		return [];
 	}
 	return rankMembers(testId, manifest.seed, members);
+}
+
+/**
+ * Compute the SHA-256 audience checksum from member UUIDs. Shared by
+ * buildAssignmentManifest (to stamp the manifest) and rankAndVerifyMembers
+ * (to detect drift) so the two call sites cannot diverge.
+ */
+function computeAudienceChecksum(
+	members: readonly AudienceMember[],
+): string {
+	return groupChecksum(members.map((member) => member.subscriberUuid));
 }
 
 function groupIndexOfRanked(
