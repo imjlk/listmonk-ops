@@ -408,9 +408,10 @@ describe("cancelAbTest orchestration", () => {
 		expect(result.hadFetchFailures).toBe(true);
 	});
 
-	it("treats a 404 campaign as already-stopped (not unobservable)", async () => {
-		// A missing campaign cannot still send, so a 404 on status fetch
-		// classifies it as terminal 'cancelled' rather than unobservable.
+	it("treats a 404 campaign as already-deleted (not blocking list cleanup)", async () => {
+		// A missing campaign cannot still send or reference lists, so a 404
+		// classifies it as already_deleted — terminal, but NOT added to
+		// campaignsBlockingListDeletion.
 		const getById = mock(async ({ path }: { path: { id: number } }) => {
 			if (path.id === 101) {
 				return { error: "Campaign not found" };
@@ -425,11 +426,20 @@ describe("cancelAbTest orchestration", () => {
 			list: { delete: deleteList },
 		} as unknown as ListmonkClient;
 		const result = await cancelAbTest(client, makeTest());
-		// 100 running -> cancel; 101 not found -> treated as cancelled (leave).
+		// 100 running -> cancel; 101 not found -> already_deleted (leave, no block).
 		expect(result.hadFetchFailures).toBe(false);
 		expect(result.campaignResults).toEqual([
 			expect.objectContaining({ campaignId: 100, action: "cancel" }),
-			expect.objectContaining({ campaignId: 101, action: "leave" }),
+			expect.objectContaining({
+				campaignId: 101,
+				action: "leave",
+				detail: "campaign already deleted (404)",
+			}),
 		]);
+		// The already-deleted campaign (101) must NOT appear in the plan's
+		// campaignsBlockingListDeletion — only the cancelled campaign (100)
+		// blocks list cleanup.
+		expect(result.plan.campaignsBlockingListDeletion).toContain(100);
+		expect(result.plan.campaignsBlockingListDeletion).not.toContain(101);
 	});
 });
