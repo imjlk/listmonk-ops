@@ -447,7 +447,8 @@ export class ListmonkAbTestIntegration {
 						});
 					if (
 						"error" in cancelResult &&
-						cancelResult.error !== undefined
+						cancelResult.error !== undefined &&
+						!isNotFound(cancelResult)
 					) {
 						throw new Error(
 							`Failed to cancel running campaign ${campaignId}: ${this.formatError(cancelResult.error)}`,
@@ -471,22 +472,26 @@ export class ListmonkAbTestIntegration {
 			}
 		}
 
-		for (const listId of [...resources.listIds].reverse()) {
-			try {
-				const deleteResult = await this.listmonkClient.list.delete({
-					path: { list_id: listId },
-				});
-				if (
+		// Only delete lists if no campaign errors — a surviving campaign
+		// may still reference its audience list.
+		if (errors.length === 0) {
+			for (const listId of [...resources.listIds].reverse()) {
+				try {
+					const deleteResult = await this.listmonkClient.list.delete({
+						path: { list_id: listId },
+					});
+					if (
 					"error" in deleteResult &&
 					deleteResult.error !== undefined &&
 					!isNotFound(deleteResult)
 				) {
-					throw new Error(
+						throw new Error(
 						`Failed to delete list ${listId}: ${this.formatError(deleteResult.error)}`,
 					);
+					}
+				} catch (error) {
+					errors.push(error instanceof Error ? error.message : String(error));
 				}
-			} catch (error) {
-				errors.push(error instanceof Error ? error.message : String(error));
 			}
 		}
 

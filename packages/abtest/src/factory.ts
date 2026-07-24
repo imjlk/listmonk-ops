@@ -282,6 +282,16 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 						status: test.status,
 						action: "dry-run:noop:scheduled-not-due",
 					});
+				} else if (
+					test.status === "testing" ||
+					test.status === "deploying" ||
+					test.status === "cancelling"
+				) {
+					results.push({
+						test_id: test.id,
+						status: test.status,
+						action: `dry-run:noop:${test.status}-transitional`,
+					});
 				} else {
 					results.push({
 						test_id: test.id,
