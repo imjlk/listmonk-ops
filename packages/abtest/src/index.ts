@@ -27,6 +27,12 @@ export {
 	type AssignmentManifest,
 } from "./assignment";
 export {
+	bumpRevision,
+	type AbTestStoreAdapter,
+	type AbTestStoreQuery,
+} from "./store-adapter";
+export { InMemoryAbTestStore, JsonFileAbTestStore } from "./store-adapters";
+export {
 	abTestOperationCatalog,
 	abTestOperations,
 	getAbTestOperationByMcpName,

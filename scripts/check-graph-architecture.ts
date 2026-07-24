@@ -411,6 +411,13 @@ const abTestTestContracts: readonly CallPathContract[] = [
 		],
 	},
 	{
+		label: "Store adapter tests anchor the InMemory store",
+		path: [
+			"packages/abtest/tests/store-adapter.test.ts#packages/abtest/tests/store-adapter.test.ts:module",
+			"packages/abtest/src/store-adapters.ts#InMemoryAbTestStore.transaction:method",
+		],
+	},
+	{
 		label: "CLI A/B tests anchor flag normalization",
 		path: [
 			cliAbTestInputTestModule,
