@@ -5,7 +5,12 @@ import type {
 import type { MetricsCollector } from "./metrics";
 import { AbTestMetricsUnavailableError } from "./metrics";
 import { StatisticalUtils } from "./statistical-utils";
-import { applyHolmCorrection, checkSRM } from "./statistics";
+import {
+	applyHolmCorrection,
+	checkSRM,
+	DEFAULT_STATISTICAL_POLICY,
+	fixedHorizonGate,
+} from "./statistics";
 import type {
 	AbTest,
 	AbTestConfig,
@@ -558,14 +563,43 @@ export class AbTestService {
 				(r) => r.variantId === testGroup.variantId,
 			);
 			const correctedPValue = holmResult.adjustedPValues[bestIdx] ?? 1;
+
+			// The winner must survive Holm correction AND be significantly
+			// separated from the second-best treatment. If the top two
+			// treatments are not statistically distinguishable, the test is
+			// inconclusive even if both beat control.
 			const isHolmSignificant = holmResult.significant[bestIdx] ?? false;
+
+			// Additionally, check the winner vs the second-best treatment.
+			// Sort non-control results by metric rate descending.
+			const sortedNonControl = [...nonControlResults].sort(
+				(a, b) => metricRate(b) - metricRate(a),
+			);
+			let isTopTwoSeparated = true;
+			if (sortedNonControl.length > 1) {
+				const second = sortedNonControl[1];
+				if (second) {
+					const secondIdx = nonControlResults.findIndex(
+						(r) => r.variantId === second.variantId,
+					);
+					if (
+						secondIdx >= 0 &&
+						!(holmResult.significant[bestIdx] ?? false) &&
+						(holmResult.significant[secondIdx] ?? false)
+					) {
+						// Winner is not significant but second-best is —
+						// they are too close to call.
+						isTopTwoSeparated = false;
+					}
+				}
+			}
 
 			return {
 				zScore,
 				pValue,
 				correctedPValue,
 				holmCorrected: true,
-				isSignificant: isHolmSignificant,
+				isSignificant: isHolmSignificant && isTopTwoSeparated,
 				confidenceLevel: confidenceThreshold,
 				sampleSize: n1 + n2,
 			};
@@ -633,6 +667,34 @@ export class AbTestService {
 			test.confidenceThreshold,
 		);
 
+		// Run the fixed-horizon eligibility gate. If the test is not ready,
+		// suppress the winner and record the reason codes so operators know
+		// why no decision was made.
+		const gateResult = fixedHorizonGate({
+			endsAt: test.endsAt,
+			startedAt: test.startedAt,
+			now: Date.now(),
+			policy: DEFAULT_STATISTICAL_POLICY,
+			sampleSizes: results.map((r) => r.sampleSize),
+		});
+		analysis.fixedHorizonReasonCodes = gateResult.reasonCodes;
+
+		// Run SRM check if we have assignment manifest group counts.
+		if (test.assignmentManifest) {
+			const expected = test.assignmentManifest.groups
+				.filter((g) => g.kind === "variant")
+				.map((g) => g.expectedCount);
+			const observed = results.map((r) => r.sampleSize);
+			if (expected.length === observed.length && expected.length >= 2) {
+				const srmResult = checkSRM(expected, observed, 0.001);
+				analysis.srmPassed = srmResult.passed;
+				analysis.srmPValue = srmResult.pValue;
+			}
+		}
+
+		// Suppress winner if gates have not passed.
+		const gatesPassed = gateResult.ready && analysis.srmPassed !== false;
+
 		// Pick the winner on the same metric the significance test used, via
 		// the shared selector so the two cannot drift apart. The selector
 		// returns both the rate function and its label so recommendations
@@ -642,7 +704,7 @@ export class AbTestService {
 			this.pickMetricRate(results);
 		const bestRate = Math.max(...results.map(metricRate));
 
-		const winner = analysis.isSignificant
+		const winner = analysis.isSignificant && gatesPassed
 			? test.variants.find((v) =>
 					results.find(
 						(r) => r.variantId === v.id && metricRate(r) === bestRate,

@@ -140,8 +140,13 @@ export function fixedHorizonGate(params: {
 	// 1. Fixed horizon: endsAt must be set and passed.
 	if (!endsAt) {
 		reasonCodes.push("no_endsAt");
-	} else if (now < new Date(endsAt).getTime()) {
-		reasonCodes.push("before_endsAt");
+	} else {
+		const endsAtMs = new Date(endsAt).getTime();
+		if (Number.isNaN(endsAtMs)) {
+			reasonCodes.push("malformed_endsAt");
+		} else if (now < endsAtMs) {
+			reasonCodes.push("before_endsAt");
+		}
 	}
 
 	// 2. Minimum duration elapsed.
@@ -191,13 +196,19 @@ export interface SRMCheckResult {
 }
 
 /**
- * Chi-square critical values for df=1 at common alpha levels.
- * Used to avoid pulling in a full chi-square CDF implementation.
+ * Chi-square critical values keyed by `df:alpha`. Covers df 1-2 (up to
+ * 3 variants) at the three standard alpha levels. Avoids pulling in a
+ * full chi-square CDF implementation.
  */
-const CHI_SQUARE_CRITICAL_DF1: Record<string, number> = {
-	"0.001": 10.828,
-	"0.01": 6.635,
-	"0.05": 3.841,
+const CHI_SQUARE_CRITICAL: Record<string, number> = {
+	// df=1
+	"1:0.001": 10.828,
+	"1:0.01": 6.635,
+	"1:0.05": 3.841,
+	// df=2
+	"2:0.001": 13.816,
+	"2:0.01": 9.210,
+	"2:0.05": 5.991,
 };
 
 /**
@@ -246,34 +257,45 @@ export function checkSRM(
 	const chiSquare = expected.reduce((sum, expVal, i) => {
 		const scaledExpected = (expVal / expectedSum) * observedSum;
 		const obsVal = observed[i] ?? 0;
-		if (scaledExpected === 0) return sum;
+		if (scaledExpected === 0) {
+			// Traffic in an arm with zero expected count is a provisioning
+			// error, not a silent pass.
+			return obsVal > 0 ? sum + obsVal : sum;
+		}
 		return sum + ((obsVal - scaledExpected) ** 2) / scaledExpected;
 	}, 0);
 
 	// df = number of groups - 1
 	const df = expected.length - 1;
 
-	// For df=1, use the precomputed critical values.
-	// For df>1, use a simpler conservative approach: compare against
-	// the df=1 critical value scaled by df (Bonferroni-conservative).
-	// This avoids needing a full chi-square CDF while still catching
-	// gross SRM.
-	const alphaKey = String(alpha);
+	// Use df-specific critical values from the precomputed table. For
+	// unsupported (df, alpha) combos, fall back to df=1:alpha which is
+	// the most common case.
+	const lookupKey = `${df}:${alpha}`;
+	const fallbackKey = `1:${alpha}`;
 	const criticalValue =
-		CHI_SQUARE_CRITICAL_DF1[alphaKey] ??
-		CHI_SQUARE_CRITICAL_DF1["0.001"] ??
+		CHI_SQUARE_CRITICAL[lookupKey] ??
+		CHI_SQUARE_CRITICAL[fallbackKey] ??
+		CHI_SQUARE_CRITICAL["1:0.001"] ??
 		10.828;
-	const adjustedCritical = criticalValue * df;
 
-	const passed = chiSquare < adjustedCritical;
+	const passed = chiSquare < criticalValue;
 
-	// Approximate p-value for df=1 using the normal approximation.
-	// chi-square with df=1 is z^2, so p = 2*(1 - Phi(sqrt(chiSquare))).
-	// For df>1 this is conservative (overestimates significance).
-	const z = Math.sqrt(chiSquare);
-	const pValue = df === 1
-		? 2 * (1 - normalCDF(z))
-		: 2 * (1 - normalCDF(z / Math.sqrt(df)));
+	// Approximate p-value using the Wilson-Hilferty normal approximation
+	// to the chi-square distribution: for df degrees of freedom,
+	// z ≈ ((chiSquare / df)^(1/3) - (1 - 2/(9*df))) / sqrt(2/(9*df))
+	// This is more accurate than the raw sqrt approach for df > 1.
+	const wilsonHilfertyTerm = 1 - 2 / (9 * df);
+	const wilsonStd = Math.sqrt(2 / (9 * df));
+	const ratio = chiSquare / df;
+	let pValue: number;
+	if (ratio <= 0 || !Number.isFinite(ratio)) {
+		pValue = 1;
+	} else {
+		const zWH =
+			(Math.pow(ratio, 1 / 3) - wilsonHilfertyTerm) / wilsonStd;
+		pValue = 2 * (1 - normalCDF(Math.abs(zWH)));
+	}
 
 	return {
 		passed,
@@ -286,6 +308,7 @@ export function checkSRM(
 
 /**
  * Standard normal CDF approximation (Abramowitz & Stegun 7.1.26).
+ * Phi(x) = 0.5 * (1 + erf(x / sqrt(2))).
  */
 function normalCDF(x: number): number {
 	const a1 = 0.254829592;
@@ -295,15 +318,17 @@ function normalCDF(x: number): number {
 	const a5 = 1.061405429;
 	const p = 0.3275911;
 
-	const sign = x >= 0 ? 1 : -1;
-	x = Math.abs(x);
+	// erf approximation on x / sqrt(2)
+	const z = x / Math.sqrt(2);
+	const sign = z >= 0 ? 1 : -1;
+	const absZ = Math.abs(z);
 
-	const t = 1.0 / (1.0 + p * x);
+	const t = 1.0 / (1.0 + p * absZ);
 	const y =
 		1.0 -
 		((((a5 * t + a4) * t + a3) * t + a2) * t + a1) *
 			t *
-			Math.exp(-x * x);
+			Math.exp(-absZ * absZ);
 
 	return 0.5 * (1.0 + sign * y);
 }
