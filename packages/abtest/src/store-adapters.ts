@@ -84,18 +84,22 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 			const current = Array.from(this.tests.values()).map((t) =>
 				structuredClone(t),
 			);
-			const currentMap = new Map(current.map((t) => [t.id, t]));
+			// Snapshot pre-call state as JSON strings for dirty detection.
+			const preSnapshots = new Map(
+				current.map((t) => [t.id, JSON.stringify(t)]),
+			);
 			const { next, result } = await fn(current);
-			// Bump revision for tests that changed.
+			// Bump revision for tests whose serialized state changed.
 			for (const test of next) {
-				const old = currentMap.get(test.id);
-				if (old !== test) {
+				const pre = preSnapshots.get(test.id);
+				const post = JSON.stringify(test);
+				if (pre !== post) {
 					bumpRevision(test);
 				}
 			}
 			this.tests.clear();
 			for (const test of next) {
-				this.tests.set(test.id, test);
+				this.tests.set(test.id, structuredClone(test));
 			}
 			return result;
 		});
@@ -191,10 +195,17 @@ export class JsonFileAbTestStore implements AbTestStoreAdapter {
 		) => Promise<{ next: AbTest[]; result: T }>,
 	): Promise<T> {
 		const current = await this.readAll();
+		// Snapshot pre-call state for revision bump detection.
+		const preSnapshots = new Map(current.map((t) => [t.id, JSON.stringify(t)]));
 		const { next, result } = await fn(current);
-		// Always write — defensive copies mean same-reference no-op does
-		// not apply for the JSON adapter. The file store's own dedup
-		// (if any) handles redundant writes.
+		// Bump revisions for changed tests, matching the InMemory adapter.
+		for (const test of next) {
+			const pre = preSnapshots.get(test.id);
+			const post = JSON.stringify(test);
+			if (pre !== post) {
+				bumpRevision(test);
+			}
+		}
 		await this.writeAll(next);
 		return result;
 	}
