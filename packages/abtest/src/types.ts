@@ -21,6 +21,11 @@ export const TERMINAL_STATUSES: ReadonlySet<AbTest["status"]> = new Set([
 	"failed",
 ]);
 
+/**
+ * Add minimumTestSampleSize to AbTest so the fixed-horizon gate can use
+ * the per-test configured minimum instead of only the default.
+ */
+
 export interface AbTest {
 	id: string;
 	name: string;
@@ -80,6 +85,8 @@ export interface AbTest {
 		subscriberChecksum: string;
 		eligibilityPolicyVersion: 1;
 	};
+	/** Per-test minimum sample size for the fixed-horizon gate. */
+	minimumTestSampleSize?: number;
 	/**
 	 * Deterministic assignment manifest produced from the seed + audience.
 	 * Once stored, retries and reconciliation reuse it rather than
@@ -160,6 +167,17 @@ export interface StatisticalAnalysis {
 	isSignificant: boolean;
 	confidenceLevel: number;
 	sampleSize: number;
+	// Stage 4 fields — all optional so existing callers/tests stay valid.
+	/** Holm-Bonferroni corrected p-value (same as pValue for 2-variant tests). */
+	correctedPValue?: number;
+	/** Whether Holm correction was applied (3+ variants). */
+	holmCorrected?: boolean;
+	/** Whether the SRM (Sample Ratio Mismatch) check passed. */
+	srmPassed?: boolean;
+	/** SRM p-value if the check was run. */
+	srmPValue?: number;
+	/** Fixed-horizon gate reason codes if the test was not ready. */
+	fixedHorizonReasonCodes?: string[];
 }
 
 export interface AbTestConfig {

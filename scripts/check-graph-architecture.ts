@@ -404,6 +404,13 @@ const abTestTestContracts: readonly CallPathContract[] = [
 		],
 	},
 	{
+		label: "Statistics tests anchor the Holm correction helper",
+		path: [
+			"packages/abtest/tests/statistics.test.ts#packages/abtest/tests/statistics.test.ts:module",
+			"packages/abtest/src/statistics.ts#applyHolmCorrection:function",
+		],
+	},
+	{
 		label: "CLI A/B tests anchor flag normalization",
 		path: [
 			cliAbTestInputTestModule,

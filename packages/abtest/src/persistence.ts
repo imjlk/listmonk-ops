@@ -233,7 +233,9 @@ function isStoredAbTest(value: unknown): boolean {
 			(isFiniteNumber(value.durationHours) && value.durationHours > 0)) &&
 		(value.launchAt === undefined || isValidTimestamp(value.launchAt)) &&
 		(value.startedAt === undefined || isValidTimestamp(value.startedAt)) &&
-		(value.endsAt === undefined || isValidTimestamp(value.endsAt))
+		(value.endsAt === undefined || isValidTimestamp(value.endsAt)) &&
+		(value.minimumTestSampleSize === undefined ||
+			isPositiveInteger(value.minimumTestSampleSize))
 	);
 }
 

@@ -453,6 +453,14 @@ send results. Summary of the current behavior:
   campaigns); 404 responses are treated as idempotent success.
 - **Confidence threshold honored**: the stored `confidenceThreshold` drives
   alpha so the significance decision and reported confidence level match.
+- **Statistical hardening**: Holm-Bonferroni correction for A/B/C (3+
+  variant) tests, fixed-horizon eligibility gate (endsAt, minimum
+  duration, minimum sample per variant), and SRM (Sample Ratio
+  Mismatch) detection via chi-square goodness-of-fit. When the gate
+  fails or SRM is detected, `isSignificant` is suppressed and no winner
+  is declared. The `analyze` output includes `correctedPValue`,
+  `holmCorrected`, `srmPassed`, `srmPValue`, and
+  `fixedHorizonReasonCodes` fields for operator diagnostics.
 
 See [`packages/abtest/README.md`](packages/abtest/README.md) for the
 underlying Listmonk API behavior and spike rationale.

@@ -5,6 +5,12 @@ import type {
 import type { MetricsCollector } from "./metrics";
 import { AbTestMetricsUnavailableError } from "./metrics";
 import { StatisticalUtils } from "./statistical-utils";
+import {
+	applyHolmCorrection,
+	checkSRM,
+	DEFAULT_STATISTICAL_POLICY,
+	fixedHorizonGate,
+} from "./statistics";
 import type {
 	AbTest,
 	AbTestConfig,
@@ -248,6 +254,9 @@ export class AbTestService {
 				// Persist orchestration metadata from the config.
 				if (config.durationHours !== undefined) {
 					abTest.durationHours = config.durationHours;
+				}
+				if (config.minimumTestSampleSize !== undefined) {
+					abTest.minimumTestSampleSize = config.minimumTestSampleSize;
 				}
 				// Persist launchAt on the record regardless of autoLaunch so
 				// a draft with a planned launch time retains it for later
@@ -528,6 +537,102 @@ export class AbTestService {
 		// Calculate p-value (two-tailed)
 		const pValue = 2 * (1 - this.standardNormalCDF(Math.abs(zScore)));
 
+		// For A/B/C (3+ variants), apply Holm-Bonferroni correction to the
+		// family of pairwise comparisons. The winner must survive correction
+		// against every non-control variant to be declared significant.
+		if (results.length > 2) {
+			// Compute pairwise p-values: control vs each non-control variant.
+			const nonControlResults = results.filter(
+				(r) => r.variantId !== controlGroup.variantId,
+			);
+			const pairwisePValues = nonControlResults.map((variant) => {
+				const pv = metricRate(variant) / 100;
+				const nv = variant.sampleSize;
+				if (nv === 0 || n1 === 0) return 1;
+				const pooled =
+					(metricCount(controlGroup) + metricCount(variant)) /
+					(n1 + nv);
+				const se = Math.sqrt(
+					pooled * (1 - pooled) * (1 / n1 + 1 / nv),
+				);
+				if (!Number.isFinite(se) || se === 0) return 1;
+				const z = Math.abs(metricRate(controlGroup) / 100 - pv) / se;
+				return 2 * (1 - this.standardNormalCDF(z));
+			});
+
+			const holmResult = applyHolmCorrection(pairwisePValues, alpha);
+			// Find the best variant's index in the pairwise array.
+			const bestIdx = nonControlResults.findIndex(
+				(r) => r.variantId === testGroup.variantId,
+			);
+			const correctedPValue = holmResult.adjustedPValues[bestIdx] ?? 1;
+
+			// The winner must survive Holm correction AND be significantly
+			// separated from the second-best treatment. If the top two
+			// treatments are not statistically distinguishable, the test is
+			// inconclusive even if both beat control.
+			const isHolmSignificant = holmResult.significant[bestIdx] ?? false;
+
+			// Direct winner vs runner-up comparison across ALL variants
+			// (including control), so the head-to-head test covers the
+			// actual top two performers. Include the top-two p-value in the
+			// Holm family so the comparison survives multiple-comparison
+			// correction alongside the control-vs-treatment tests.
+			const sortedAll = [...results].sort(
+				(a, b) => metricRate(b) - metricRate(a),
+			);
+			let isTopTwoSeparated = true;
+			if (sortedAll.length > 1) {
+				const bestTreatment = sortedAll[0];
+				const secondTreatment = sortedAll[1];
+				if (bestTreatment && secondTreatment) {
+					const pBest = metricRate(bestTreatment) / 100;
+					const pSecond = metricRate(secondTreatment) / 100;
+					const nBest = bestTreatment.sampleSize;
+					const nSecond = secondTreatment.sampleSize;
+					if (nBest > 0 && nSecond > 0) {
+						const pooledTwo =
+							(metricCount(bestTreatment) +
+								metricCount(secondTreatment)) /
+							(nBest + nSecond);
+						const seTwo = Math.sqrt(
+							pooledTwo *
+								(1 - pooledTwo) *
+								(1 / nBest + 1 / nSecond),
+						);
+						if (
+							Number.isFinite(seTwo) &&
+							seTwo > 0
+						) {
+							const zTwo =
+								Math.abs(pBest - pSecond) / seTwo;
+							const pTwo = 2 * (1 - this.standardNormalCDF(zTwo));
+							// Apply Holm correction including the top-two
+							// comparison in the family.
+							const allPValues = [...pairwisePValues, pTwo];
+							const allHolm = applyHolmCorrection(allPValues, alpha);
+							// The top-two p-value is the last entry.
+							isTopTwoSeparated =
+								allHolm.significant[allPValues.length - 1] ??
+								false;
+						} else if (pBest === pSecond) {
+							isTopTwoSeparated = false;
+						}
+					}
+				}
+			}
+
+			return {
+				zScore,
+				pValue,
+				correctedPValue,
+				holmCorrected: true,
+				isSignificant: isHolmSignificant && isTopTwoSeparated,
+				confidenceLevel: confidenceThreshold,
+				sampleSize: n1 + n2,
+			};
+		}
+
 		return {
 			zScore,
 			pValue,
@@ -590,6 +695,71 @@ export class AbTestService {
 			test.confidenceThreshold,
 		);
 
+		// Run the fixed-horizon eligibility gate. If the test is not ready,
+		// suppress the winner and record the reason codes so operators know
+		// why no decision was made.
+		// Build a per-test policy from the test's own settings.
+		const testPolicy: typeof DEFAULT_STATISTICAL_POLICY = {
+			...DEFAULT_STATISTICAL_POLICY,
+			confidenceLevel: test.confidenceThreshold,
+			minimumDurationHours:
+				test.durationHours ?? DEFAULT_STATISTICAL_POLICY.minimumDurationHours,
+			minimumSamplePerVariant:
+				test.minimumTestSampleSize ??
+				DEFAULT_STATISTICAL_POLICY.minimumSamplePerVariant,
+		};
+		// Use launchAt as the duration reference when available, since it
+		// represents when the campaigns actually started sending. Fall back
+		// to startedAt for backward compatibility.
+		const durationRef = test.launchAt ?? test.startedAt;
+		const gateResult = fixedHorizonGate({
+			endsAt: test.endsAt,
+			startedAt: durationRef,
+			now: Date.now(),
+			policy: testPolicy,
+			sampleSizes: results.map((r) => r.sampleSize),
+		});
+		analysis.fixedHorizonReasonCodes = gateResult.reasonCodes;
+
+		// Run SRM check. Prefer assignment manifest group counts; for
+		// full-split tests without a manifest, derive expected counts from
+		// variant percentages and the total test group size.
+		let srmExpected: number[] | null = null;
+		if (test.assignmentManifest) {
+			srmExpected = test.assignmentManifest.groups
+				.filter((g) => g.kind === "variant")
+				.map((g) => g.expectedCount);
+		} else if (test.testingMode === "full-split") {
+			// Derive expected from variant percentages and total sample.
+			const totalSample = results.reduce((sum, r) => sum + r.sampleSize, 0);
+			srmExpected = test.variants.map(
+				(v) => Math.round((v.percentage / 100) * totalSample),
+			);
+		}
+		if (srmExpected) {
+			const observed = results.map((r) => r.sampleSize);
+			if (srmExpected.length === observed.length && srmExpected.length >= 2) {
+				const srmResult = checkSRM(srmExpected, observed, 0.001);
+				analysis.srmPassed = srmResult.passed;
+				analysis.srmPValue = srmResult.pValue;
+			} else {
+				analysis.srmPassed = false;
+				analysis.srmPValue = 1;
+				analysis.fixedHorizonReasonCodes = [
+					...(analysis.fixedHorizonReasonCodes ?? []),
+					"srm_input_mismatch",
+				];
+			}
+		}
+
+		// Suppress winner if gates have not passed. Also suppress
+		// isSignificant so the lifecycle tick does not mark the test
+		// 'completed' when the gate says no decision should be made.
+		const gatesPassed = gateResult.ready && analysis.srmPassed !== false;
+		if (!gatesPassed) {
+			analysis.isSignificant = false;
+		}
+
 		// Pick the winner on the same metric the significance test used, via
 		// the shared selector so the two cannot drift apart. The selector
 		// returns both the rate function and its label so recommendations
@@ -599,7 +769,7 @@ export class AbTestService {
 			this.pickMetricRate(results);
 		const bestRate = Math.max(...results.map(metricRate));
 
-		const winner = analysis.isSignificant
+		const winner = analysis.isSignificant && gatesPassed
 			? test.variants.find((v) =>
 					results.find(
 						(r) => r.variantId === v.id && metricRate(r) === bestRate,

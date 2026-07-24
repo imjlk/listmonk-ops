@@ -42,6 +42,10 @@ function makeTest(overrides: Partial<AbTest> = {}): AbTest {
 		holdoutGroupSize: 90,
 		confidenceThreshold: 0.95,
 		autoDeployWinner: false,
+		// Fixed-horizon gate: set past endsAt and sufficient startedAt so
+		// analyzeTest does not suppress the winner.
+		startedAt: "2026-07-01T00:00:00Z",
+		endsAt: "2026-07-23T00:00:00Z",
 		campaignMappings: [
 			{ variantId: "A", campaignId: 100 },
 			{ variantId: "B", campaignId: 101 },
