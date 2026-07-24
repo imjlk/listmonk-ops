@@ -44,17 +44,32 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 		return this.serialize(async () => {
 			const current = this.tests.get(id);
 			const currentCopy = current ? structuredClone(current) : null;
+			// Snapshot the pre-call state as a JSON string so in-place
+			// mutations of currentCopy are detected even if the callback
+			// returns the same reference.
+			const preSnapshot = currentCopy
+				? JSON.stringify(currentCopy)
+				: null;
 			const { next, result } = await fn(currentCopy);
 			if (next === null) {
 				this.tests.delete(id);
-			} else if (next !== currentCopy) {
+			} else {
 				if (next.id !== id) {
 					throw new Error(
 						`transaction id mismatch: expected ${id}, got ${next.id}`,
 					);
 				}
-				bumpRevision(next);
-				this.tests.set(id, next);
+				// Detect changes by comparing the post-call serialized
+				// state against the pre-call snapshot. This catches both
+				// new-object returns and in-place mutations of currentCopy.
+				const postSnapshot = JSON.stringify(next);
+				if (postSnapshot !== preSnapshot) {
+					bumpRevision(next);
+					this.tests.set(
+						id,
+						structuredClone(next),
+					);
+				}
 			}
 			return result;
 		});
@@ -142,25 +157,29 @@ export class JsonFileAbTestStore implements AbTestStoreAdapter {
 	): Promise<T> {
 		return this.transactionAll(async (tests) => {
 			const current = tests.find((t) => t.id === id) ?? null;
+			const preSnapshot = current ? JSON.stringify(current) : null;
 			const { next, result } = await fn(current);
 			let updated: AbTest[];
 			if (next === null) {
 				updated = tests.filter((t) => t.id !== id);
-			} else if (next !== current) {
+			} else {
 				if (next.id !== id) {
 					throw new Error(
 						`transaction id mismatch: expected ${id}, got ${next.id}`,
 					);
 				}
-				bumpRevision(next);
-				updated = tests.map((t) =>
-					t.id === next.id ? next : t,
-				);
-				if (!updated.some((t) => t.id === next.id)) {
-					updated.push(next);
+				const postSnapshot = JSON.stringify(next);
+				if (postSnapshot !== preSnapshot) {
+					bumpRevision(next);
+					updated = tests.map((t) =>
+						t.id === next.id ? next : t,
+					);
+					if (!updated.some((t) => t.id === next.id)) {
+						updated.push(next);
+					}
+				} else {
+					updated = tests;
 				}
-			} else {
-				updated = tests;
 			}
 			return { next: updated, result };
 		});
