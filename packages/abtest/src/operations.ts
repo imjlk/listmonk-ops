@@ -304,6 +304,17 @@ const recommendSampleSizeInputSchema = z.object({
 	variant_count: z.coerce.number().int().min(2).max(3).default(2),
 });
 
+const exportAssignmentInputSchema = z.object({
+	test_id: z
+		.string()
+		.trim()
+		.min(1)
+		.describe("A/B test ID whose assignment manifest to export"),
+	confirm: optionalBooleanSchema.describe(
+		"Confirm export of potentially sensitive assignment data",
+	),
+});
+
 export type AbTestOperationRecord = z.output<typeof abTestSchema>;
 export type TestAnalysisOperationRecord = z.output<typeof testAnalysisSchema>;
 export type ListAbTestsOperationOutput = { tests: AbTestOperationRecord[] };
@@ -335,6 +346,9 @@ export type ReconcileAbTestOperationOutput = {
 		status: AbTestOperationRecord["status"];
 		drift: string;
 	}>;
+};
+export type ExportAbTestAssignmentOperationOutput = {
+	manifest: unknown;
 };
 
 function jsonValue(value: unknown): string {
@@ -598,6 +612,23 @@ export async function executeReconcileAbTestOperation(
 	};
 }
 
+export async function executeExportAbTestAssignmentOperation(
+	context: AbTestOperationContext,
+	input: z.output<typeof exportAssignmentInputSchema>,
+): Promise<ExportAbTestAssignmentOperationOutput> {
+	const test = await withStoredOperation<AbTest>(
+		context,
+		"read",
+		(executors) => executors.getAbTest(input.test_id),
+	);
+	if (!test.assignmentManifest) {
+		throw new Error(
+			`Test ${input.test_id} has no assignment manifest. Only tests created with deterministic provisioning (stage 2+) have exportable manifests.`,
+		);
+	}
+	return { manifest: test.assignmentManifest };
+}
+
 const readSafety = {
 	readOnlyHint: true,
 	destructiveHint: false,
@@ -825,6 +856,28 @@ export const reconcileAbTestOperation = defineOperation({
 	execute: executeReconcileAbTestOperation,
 });
 
+export const exportAbTestAssignmentOperation = defineOperation({
+	id: "abtest.export-assignment",
+	title: "Export A/B test assignment manifest",
+	description:
+		"Export the subscriber assignment manifest for a test with deterministic provisioning. Contains subscriber group assignments (no email/PII).",
+	inputSchema: exportAssignmentInputSchema,
+	outputSchema: z.object({
+		manifest: z.unknown(),
+	}),
+	safety: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	} as const,
+	mcp: {
+		name: "listmonk_abtest_export_assignment",
+		legacySuccessText: (output) => jsonValue(output),
+	},
+	execute: executeExportAbTestAssignmentOperation,
+});
+
 export const abTestOperations = [
 	listAbTestsOperation,
 	getAbTestOperation,
@@ -838,6 +891,7 @@ export const abTestOperations = [
 	runAbTestOperation,
 	tickAbTestsOperation,
 	reconcileAbTestOperation,
+	exportAbTestAssignmentOperation,
 ] as const;
 
 export const abTestOperationCatalog = defineOperationCatalog({
@@ -1119,6 +1173,30 @@ export async function invokeReconcileAbTestOperation(
 		});
 }
 
+export async function invokeExportAbTestAssignmentOperation(
+	context: AbTestOperationContext,
+	input: unknown,
+): Promise<ExportAbTestAssignmentOperationOutput> {
+	const parsedInput = parseOperationInput(
+		exportAbTestAssignmentOperation.inputSchema,
+		input,
+	);
+	return executeExportAbTestAssignmentOperation(context, parsedInput)
+		.then((output) =>
+			parseOperationOutput(
+				exportAbTestAssignmentOperation.id,
+				exportAbTestAssignmentOperation.outputSchema,
+				output,
+			),
+		)
+		.catch((error) => {
+			throw normalizeOperationExecutionError(
+				exportAbTestAssignmentOperation.id,
+				error,
+			);
+		});
+}
+
 export type AbTestOperationInvocation =
 	| { operation: typeof listAbTestsOperation; output: ListAbTestsOperationOutput }
 	| { operation: typeof getAbTestOperation; output: GetAbTestOperationOutput }
@@ -1143,6 +1221,10 @@ export type AbTestOperationInvocation =
 	| {
 			operation: typeof reconcileAbTestOperation;
 			output: ReconcileAbTestOperationOutput;
+	  }
+	| {
+			operation: typeof exportAbTestAssignmentOperation;
+			output: ExportAbTestAssignmentOperationOutput;
 	  };
 
 export async function invokeAbTestOperationByMcpName(
@@ -1212,6 +1294,14 @@ export async function invokeAbTestOperationByMcpName(
 			return {
 				operation: reconcileAbTestOperation,
 				output: await invokeReconcileAbTestOperation(context, input),
+			};
+		case exportAbTestAssignmentOperation.mcp.name:
+			return {
+				operation: exportAbTestAssignmentOperation,
+				output: await invokeExportAbTestAssignmentOperation(
+					context,
+					input,
+				),
 			};
 		default:
 			return undefined;

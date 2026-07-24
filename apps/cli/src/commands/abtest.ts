@@ -4,6 +4,7 @@ import {
 	type CreateAbTestOperationOutput,
 	type DeleteAbTestOperationOutput,
 	type DeployAbTestWinnerOperationOutput,
+	type ExportAbTestAssignmentOperationOutput,
 	type GetAbTestOperationOutput,
 	type LaunchAbTestOperationOutput,
 	type ListAbTestsOperationOutput,
@@ -16,6 +17,7 @@ import {
 	invokeCreateAbTestOperation,
 	invokeDeleteAbTestOperation,
 	invokeDeployAbTestWinnerOperation,
+	invokeExportAbTestAssignmentOperation,
 	invokeGetAbTestOperation,
 	invokeLaunchAbTestOperation,
 	invokeListAbTestsOperation,
@@ -293,6 +295,14 @@ async function invokeCliReconcileAbTest(
 ): Promise<ReconcileAbTestOperationOutput> {
 	const client = await getListmonkClient(args);
 	return invokeReconcileAbTestOperation({ client }, input);
+}
+
+async function invokeCliExportAbTestAssignment(
+	args: CliAbTestArgs,
+	input: unknown,
+): Promise<ExportAbTestAssignmentOperationOutput> {
+	const client = await getListmonkClient(args);
+	return invokeExportAbTestAssignmentOperation({ client }, input);
 }
 
 async function promptInteractiveInput(
@@ -896,6 +906,33 @@ export default defineGroup({
 				} catch (error) {
 					throw new Error(
 						`Failed to reconcile A/B tests: ${toErrorMessage(error)}`,
+					);
+				}
+			},
+		}),
+		defineCommand({
+			name: "export-assignment",
+			operationId: "abtest.export-assignment",
+			description:
+				"Export the assignment manifest for a test with deterministic provisioning",
+			options: {
+				"test-id": option(z.string().trim().min(1), {
+					description: "A/B test ID",
+				}),
+			},
+			handler: async (args) => {
+				try {
+					const result = await invokeCliExportAbTestAssignment(
+						args,
+						{ test_id: args.flags["test-id"] },
+					);
+					OutputUtils.success(
+						`Exported assignment manifest for test ${args.flags["test-id"]}`,
+					);
+					OutputUtils.json(result);
+				} catch (error) {
+					throw new Error(
+						`Failed to export assignment: ${toErrorMessage(error)}`,
 					);
 				}
 			},
