@@ -412,8 +412,16 @@ export class ListmonkAbTestIntegration {
 				const response = await this.listmonkClient.campaign.getById({
 					path: { id: campaignId },
 				});
-				if ("error" in response) {
-					// Campaign may already be gone — treat 404 as success.
+				if ("error" in response && response.error !== undefined) {
+					// Only treat 404/not-found as "already gone". Any other
+					// error (expired token, 5xx, permission) must throw so
+					// the local record persists for retry/reconcile.
+					const errMsg = this.formatError(response.error);
+					if (!/not found|404/i.test(errMsg)) {
+						throw new Error(
+							`Failed to fetch campaign ${campaignId}: ${errMsg}`,
+						);
+					}
 					continue;
 				}
 				const status = (response as { data?: { status?: string } })
@@ -425,25 +433,59 @@ export class ListmonkAbTestIntegration {
 							path: { id: campaignId },
 							body: { status: "cancelled" },
 						});
-					if ("error" in cancelResult) {
+					if ("error" in cancelResult && cancelResult.error !== undefined) {
 						throw new Error(
 							`Failed to cancel running campaign ${campaignId}: ${this.formatError(cancelResult.error)}`,
 						);
 					}
 				}
-				// Now safe to delete.
-				await this.listmonkClient.campaign.delete({
+				// Now safe to delete. Check the response envelope — the
+				// generated client returns { error } instead of throwing.
+				const deleteResult = await this.listmonkClient.campaign.delete({
 					path: { id: campaignId },
 				});
+				if ("error" in deleteResult && deleteResult.error !== undefined) {
+					const errMsg = this.formatError(deleteResult.error);
+					// 404 is idempotent — campaign already gone.
+					if (!/not found|404/i.test(errMsg)) {
+						throw new Error(
+							`Failed to delete campaign ${campaignId}: ${errMsg}`,
+						);
+					}
+				}
 			} catch (error) {
-				// Re-throw so the caller does not delete the local record.
+				// Avoid double-wrapping errors already thrown with context.
+				if (
+					error instanceof Error &&
+					/^Failed to (cancel|delete|fetch) campaign/.test(error.message)
+				) {
+					throw error;
+				}
 				throw new Error(
 					`Failed to cleanup campaign ${campaignId}: ${error instanceof Error ? error.message : String(error)}`,
 				);
 			}
 		}
-		// Delete lists after campaigns are cleaned up.
-		await this.deleteListsBestEffort([...resources.listIds].reverse());
+		// Delete lists after campaigns are cleaned up. Use a throwing
+		// path (not best-effort) so list delete failures also prevent
+		// the local record from being removed.
+		for (const listId of [...resources.listIds].reverse()) {
+			try {
+				const deleteResult = await this.listmonkClient.list.delete({
+					path: { list_id: listId },
+				});
+				if ("error" in deleteResult && deleteResult.error !== undefined) {
+					const errMsg = this.formatError(deleteResult.error);
+					if (!/not found|404/i.test(errMsg)) {
+						throw new Error(`Failed to delete list ${listId}: ${errMsg}`);
+					}
+				}
+			} catch (error) {
+				throw new Error(
+					`Failed to cleanup list ${listId}: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}
 	}
 
 	async rollbackProvisioning(

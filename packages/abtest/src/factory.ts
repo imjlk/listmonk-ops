@@ -291,12 +291,19 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				}
 				continue;
 			}
-			const action = `progress:${test.status}`;
 			try {
 				const updated = await runAbTestImpl(test.id);
+				const newStatus = updated?.status ?? test.status;
+				// Derive the action from whether the status actually changed,
+				// so a no-op tick (e.g. running before endsAt) is reported as
+				// such rather than implying a progression.
+				const action =
+					newStatus === test.status
+						? `noop:${test.status}`
+						: `progress:${test.status}->${newStatus}`;
 				results.push({
 					test_id: test.id,
-					status: updated?.status ?? test.status,
+					status: newStatus,
 					action,
 				});
 			} catch (error) {
