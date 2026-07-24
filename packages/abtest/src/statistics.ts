@@ -296,19 +296,25 @@ export function checkSRM(
 		return sum + ((obsVal - scaledExpected) ** 2) / scaledExpected;
 	}, 0);
 
-	// df = number of groups - 1
-	const df = expected.length - 1;
+	// df = number of active groups - 1 (after filtering zero/zero arms).
+	const df = activeIndices.length - 1;
 
-	// Use df-specific critical values from the precomputed table. For
-	// unsupported (df, alpha) combos, fall back to df=1:alpha which is
-	// the most common case.
+	// Use df-specific critical values from the precomputed table.
+	// Reject unsupported alpha levels rather than silently falling back.
 	const lookupKey = `${df}:${alpha}`;
 	const fallbackKey = `1:${alpha}`;
 	const criticalValue =
 		CHI_SQUARE_CRITICAL[lookupKey] ??
-		CHI_SQUARE_CRITICAL[fallbackKey] ??
-		CHI_SQUARE_CRITICAL["1:0.001"] ??
-		10.828;
+		CHI_SQUARE_CRITICAL[fallbackKey];
+	if (criticalValue === undefined) {
+		return {
+			passed: false,
+			status: "indeterminate" as const,
+			chiSquare: 0,
+			pValue: 1,
+			reasonCode: `unsupported_alpha:${alpha}`,
+		};
+	}
 
 	const passed = chiSquare < criticalValue;
 

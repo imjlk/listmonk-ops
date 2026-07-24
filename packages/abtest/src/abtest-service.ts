@@ -570,11 +570,9 @@ export class AbTestService {
 			// inconclusive even if both beat control.
 			const isHolmSignificant = holmResult.significant[bestIdx] ?? false;
 
-			// Additionally, check the winner vs the second-best treatment.
-			// Sort non-control results by metric rate descending.
 			// Direct winner vs runner-up comparison across ALL variants
 			// (including control), so the head-to-head test covers the
-			// actual top two performers, not just non-control arms.
+			// actual top two performers.
 			const sortedAll = [...results].sort(
 				(a, b) => metricRate(b) - metricRate(a),
 			);
@@ -598,15 +596,15 @@ export class AbTestService {
 								(1 / nBest + 1 / nSecond),
 						);
 						if (
-							Number.isFinite(seTwo) &&
-							seTwo > 0
-						) {
+								Number.isFinite(seTwo) &&
+								seTwo > 0
+							) {
 							const zTwo =
-								Math.abs(pBest - pSecond) / seTwo;
+									Math.abs(pBest - pSecond) / seTwo;
 							const pTwo = 2 * (1 - this.standardNormalCDF(zTwo));
-							// If the winner and runner-up are not significantly
-							// different, the test is inconclusive.
 							isTopTwoSeparated = pTwo < alpha;
+						} else if (pBest === pSecond) {
+							isTopTwoSeparated = false;
 						}
 					}
 				}
