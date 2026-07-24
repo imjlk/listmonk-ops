@@ -67,7 +67,7 @@ export function buildExperimentReport(
 		updatedAt: test.updatedAt.toISOString(),
 		startedAt: test.startedAt,
 		endsAt: test.endsAt,
-		winnerVariantId: undefined,
+		winnerVariantId: test.winnerVariantId,
 		analysis,
 		variants,
 		srmPassed: analysis.srmPassed,

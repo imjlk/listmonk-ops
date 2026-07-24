@@ -131,11 +131,14 @@ export class InMemoryConversionEventStore implements ConversionEventStore {
 	async record(
 		input: ConversionEventInput,
 	): Promise<"created" | "duplicate"> {
-		validateConversionEvent(input);
-
+		// Check idempotency before validation — a retry should succeed
+		// even if the assignment or window config changed since the
+		// original write.
 		if (this.events.has(input.eventId)) {
 			return "duplicate";
 		}
+
+		validateConversionEvent(input);
 
 		if (this.assignmentLookup) {
 			if (
@@ -152,6 +155,16 @@ export class InMemoryConversionEventStore implements ConversionEventStore {
 		}
 
 		if (this.attributionWindow) {
+			if (
+				!Number.isFinite(this.attributionWindow.startTime) ||
+				!Number.isFinite(this.attributionWindow.endTime) ||
+				this.attributionWindow.startTime >
+					this.attributionWindow.endTime
+			) {
+				throw new ConversionEventValidationError(
+					"attribution window is malformed (non-finite or reversed)",
+				);
+			}
 			const occurredMs = new Date(input.occurredAt).getTime();
 			if (
 				occurredMs < this.attributionWindow.startTime ||
@@ -163,9 +176,20 @@ export class InMemoryConversionEventStore implements ConversionEventStore {
 			}
 		}
 
-		this.events.set(input.eventId, input);
+		// Clone only the allowed fields to enforce PII-free storage.
+		const sanitized: ConversionEventInput = {
+			eventId: input.eventId,
+			testId: input.testId,
+			variantId: input.variantId,
+			subscriberUuid: input.subscriberUuid,
+			event: input.event,
+			value: input.value,
+			currency: input.currency,
+			occurredAt: input.occurredAt,
+		};
+		this.events.set(input.eventId, sanitized);
 		const list = this.byTest.get(input.testId) ?? [];
-		list.push(input);
+		list.push(sanitized);
 		this.byTest.set(input.testId, list);
 		return "created";
 	}
@@ -188,6 +212,12 @@ export class InMemoryConversionEventStore implements ConversionEventStore {
 				variantEvents.map((e) => e.subscriberUuid),
 			);
 			const revenueEvents = variantEvents.filter((e) => e.value !== undefined);
+			const currencies = new Set(revenueEvents.map((e) => e.currency));
+			if (currencies.size > 1) {
+				throw new ConversionEventValidationError(
+					`variant ${variantId} has mixed currencies: ${[...currencies].join(", ")}`,
+				);
+			}
 			const totalValue = revenueEvents.reduce(
 				(sum, e) => sum + (e.value ?? 0),
 				0,
