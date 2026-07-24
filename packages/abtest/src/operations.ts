@@ -152,11 +152,12 @@ const abTestSchema = z.object({
 	})
 		.optional(),
 	// Stage 3 orchestration fields.
-	durationHours: z.number().finite().positive().optional(),
-	launchAt: z.string().datetime().optional(),
-	startedAt: z.string().datetime().optional(),
-	endsAt: z.string().datetime().optional(),
-});
+		durationHours: z.number().finite().positive().optional(),
+		launchAt: z.string().datetime().optional(),
+		startedAt: z.string().datetime().optional(),
+		endsAt: z.string().datetime().optional(),
+		minimumTestSampleSize: z.number().int().positive().optional(),
+	});
 
 const testResultsSchema = z.object({
 	variantId: z.string(),
