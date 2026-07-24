@@ -1,5 +1,26 @@
 # @listmonk-ops/abtest
 
+## 0.4.0 — 2026-07-24
+
+### Fixed
+
+- [9fa34f7](https://github.com/imjlk/listmonk-ops/commit/9fa34f7c9e4c4d6b441e60a92c0607a87677a3c3) Fix top-two Holm family duplicate when control is a top performer, and expose minimumTestSampleSize in the operation output schema. — Thanks @imjlk!
+- [5cc0780](https://github.com/imjlk/listmonk-ops/commit/5cc0780801c728528e5ddb2542112aaed9e8937f) Fix PR-44 review findings: idempotency check before validation, PII field sanitization on store, mixed-currency rejection in aggregate, attribution window NaN guard, and report winnerVariantId population from test. — Thanks @imjlk!
+- [352ffa1](https://github.com/imjlk/listmonk-ops/commit/352ffa10f582fa72f97c42a5f69d66d9359437d2) Fix PR-3 followup issues: deleteTest now uses status-aware rollback for scheduled/running campaigns, reconcile --repair requires explicit scope, running tests without endsAt no longer auto-advance to analyzing, and README docs are updated with the new lifecycle commands and MCP tools. — Thanks @imjlk!
+- [6c97283](https://github.com/imjlk/listmonk-ops/commit/6c972835651e058de589a89d51f43174eabd4964) Harden A/B test correctness: exact largest-remainder allocation, paginated UUID-deduped audience resolution, fail-closed metrics collection, status-aware cancel/cleanup planning, and confidence-threshold-driven statistics. Document the Listmonk v6.2.0 API behavior (bulk membership requires target_list_ids as an array, scheduled/draft campaigns cannot be cancelled only deleted, campaign tag filter uses the singular param) that informed these fixes. — Thanks @imjlk!
+
+### Added
+
+- [2c30522](https://github.com/imjlk/listmonk-ops/commit/2c30522e92ea4e9d1895c253b40fc25c341d818d) Add Holm-Bonferroni multiple-comparison correction, fixed-horizon eligibility gate, and Sample Ratio Mismatch (SRM) detection for A/B/C test analysis. StatisticalAnalysis output now includes correctedPValue, holmCorrected, srmPassed, and fixedHorizonReasonCodes fields. — Thanks @imjlk!
+- [db9a23c](https://github.com/imjlk/listmonk-ops/commit/db9a23cb9015fce0f00d7995f55c19568d6fa7f9) Add orchestration lifecycle (scheduled launches, tick-based progression, reconcile), new lifecycle statuses, and shared send_at scheduling so all variant campaigns fire simultaneously. CLI gains `abtest run`, `abtest tick --dry-run`, and `abtest reconcile` commands. — Thanks @imjlk!
+- [f041da1](https://github.com/imjlk/listmonk-ops/commit/f041da1db58263845f938712e87030cba048b22e) Add ConversionEventStore for conversion/revenue attribution, Experiment report generator (Markdown/JSON), and weighted sample-size validation that respects per-variant percentages. — Thanks @imjlk!
+- [769ed92](https://github.com/imjlk/listmonk-ops/commit/769ed92f319ff70243d0ba22e6cb68c077ca3c44) Add deterministic SHA-256 assignment and chunked bulk membership to A/B test provisioning so retries and reconciliation never re-split the audience, and correct the subscriber manageLists `target_list_ids` type to an array (the Listmonk v6.2.0 server rejects scalars). Migrate the on-disk store to schema version 2 with backward-compatible v1 reads. Update automation hygiene to wrap targetListId in an array for the corrected manageLists signature. — Thanks @imjlk!
+- [39930bf](https://github.com/imjlk/listmonk-ops/commit/39930bf29ac3f563b229eada16f192772424ad17) Add pluggable AbTestStoreAdapter interface with InMemoryAbTestStore and JsonFileAbTestStore implementations, plus revision bumping for optimistic concurrency control. This enables swapping persistence backends (JSON file, Postgres) without changing domain code. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: openapi@0.3.1, operations@0.3.1
+
 ## 0.3.1 — 2026-07-23
 
 ### Added
