@@ -44,9 +44,6 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 		return this.serialize(async () => {
 			const current = this.tests.get(id);
 			const currentCopy = current ? structuredClone(current) : null;
-			// Snapshot the pre-call state as a JSON string so in-place
-			// mutations of currentCopy are detected even if the callback
-			// returns the same reference.
 			const preSnapshot = currentCopy
 				? JSON.stringify(currentCopy)
 				: null;
@@ -59,16 +56,10 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 						`transaction id mismatch: expected ${id}, got ${next.id}`,
 					);
 				}
-				// Detect changes by comparing the post-call serialized
-				// state against the pre-call snapshot. This catches both
-				// new-object returns and in-place mutations of currentCopy.
 				const postSnapshot = JSON.stringify(next);
 				if (postSnapshot !== preSnapshot) {
 					bumpRevision(next);
-					this.tests.set(
-						id,
-						structuredClone(next),
-					);
+					this.tests.set(id, structuredClone(next));
 				}
 			}
 			return result;
@@ -84,12 +75,10 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 			const current = Array.from(this.tests.values()).map((t) =>
 				structuredClone(t),
 			);
-			// Snapshot pre-call state as JSON strings for dirty detection.
 			const preSnapshots = new Map(
 				current.map((t) => [t.id, JSON.stringify(t)]),
 			);
 			const { next, result } = await fn(current);
-			// Bump revision for tests whose serialized state changed.
 			for (const test of next) {
 				const pre = preSnapshots.get(test.id);
 				const post = JSON.stringify(test);
@@ -105,11 +94,6 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 		});
 	}
 
-	/**
-	 * Serialize transaction callbacks so concurrent transactions on the
-	 * same or different tests cannot interleave while awaiting the
-	 * callback. This is the single-threaded equivalent of a mutex.
-	 */
 	private serialize<T>(fn: () => Promise<T>): Promise<T> {
 		const result = this.txQueue.then(fn, fn);
 		this.txQueue = result.then(
@@ -121,32 +105,57 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 }
 
 /**
- * JSON file-backed store. Wraps the existing @listmonk-ops/common
- * JsonFileStore primitives with the AbTestStoreAdapter interface.
+ * JSON file-backed store. Wraps a single locked update callback that
+ * reads, mutates, and writes the document atomically under one file
+ * lock. The caller provides updateAll which must hold the lock across
+ * the entire read-modify-write cycle (like updateJsonFileStore).
  *
- * The file lock from JsonFileStore provides cross-process mutual
- * exclusion for single-host deployments. For multi-node, use
- * PostgresAbTestStore (planned).
- *
- * transactionAll delegates to the caller-provided read/write pair.
- * The caller is responsible for holding the file lock across both
- * operations. The existing withStoredAbTestExecutors does this via
- * updateJsonFileStore; a direct caller must use the same pattern or
- * provide a single locked read-write callback.
+ * For backward compatibility, a separate read/write constructor is
+ * also available, but it does NOT provide atomicity — callers using
+ * it must ensure no concurrent writes (e.g., single-process test only).
  */
 export class JsonFileAbTestStore implements AbTestStoreAdapter {
+	private readonly updateAll?: <T>(
+		fn: (tests: AbTest[]) => Promise<{ next: AbTest[]; result: T }>,
+	) => Promise<T>;
+	private readonly readAllFn?: () => Promise<AbTest[]>;
+	private readonly writeAllFn?: (tests: AbTest[]) => Promise<void>;
+
+	/**
+	 * Preferred constructor: provides a single locked update callback.
+	 * Use this when wiring to updateJsonFileStore for cross-process
+	 * atomicity.
+	 */
+	static withLockedUpdate(
+		updateAll: <T>(
+			fn: (tests: AbTest[]) => Promise<{ next: AbTest[]; result: T }>,
+		) => Promise<T>,
+	): JsonFileAbTestStore {
+		const store = Object.create(JsonFileAbTestStore.prototype);
+		store.updateAll = updateAll;
+		return store;
+	}
+
+	/**
+	 * Legacy constructor: separate read/write. Does NOT provide atomicity
+	 * between the read and write. Only safe for single-process scenarios
+	 * (e.g., tests). Production callers should use withLockedUpdate().
+	 */
 	constructor(
-		private readonly readAll: () => Promise<AbTest[]>,
-		private readonly writeAll: (tests: AbTest[]) => Promise<void>,
-	) {}
+		readAll: () => Promise<AbTest[]>,
+		writeAll: (tests: AbTest[]) => Promise<void>,
+	) {
+		this.readAllFn = readAll;
+		this.writeAllFn = writeAll;
+	}
 
 	async get(id: string): Promise<AbTest | null> {
-		const tests = await this.readAll();
+		const tests = await this.readOnly();
 		return tests.find((t) => t.id === id) ?? null;
 	}
 
 	async list(query?: AbTestStoreQuery): Promise<AbTest[]> {
-		const tests = await this.readAll();
+		const tests = await this.readOnly();
 		if (query?.status) {
 			return tests.filter((t) => t.status === query.status);
 		}
@@ -174,7 +183,8 @@ export class JsonFileAbTestStore implements AbTestStoreAdapter {
 				}
 				const postSnapshot = JSON.stringify(next);
 				if (postSnapshot !== preSnapshot) {
-					bumpRevision(next);
+					// bumpRevision is called by the enclosing transactionAll,
+					// so do NOT double-bump here.
 					updated = tests.map((t) =>
 						t.id === next.id ? next : t,
 					);
@@ -194,11 +204,27 @@ export class JsonFileAbTestStore implements AbTestStoreAdapter {
 			tests: AbTest[],
 		) => Promise<{ next: AbTest[]; result: T }>,
 	): Promise<T> {
-		const current = await this.readAll();
-		// Snapshot pre-call state for revision bump detection.
+		if (this.updateAll) {
+			// Atomic path: the updateAll callback holds the file lock.
+			return this.updateAll(async (tests) => {
+				const preSnapshots = new Map(
+					tests.map((t) => [t.id, JSON.stringify(t)]),
+				);
+				const { next, result } = await fn(tests);
+				for (const test of next) {
+					const pre = preSnapshots.get(test.id);
+					const post = JSON.stringify(test);
+					if (pre !== post) {
+						bumpRevision(test);
+					}
+				}
+				return { next, result };
+			});
+		}
+		// Legacy path: separate read/write, no lock.
+		const current = await this.readOnly();
 		const preSnapshots = new Map(current.map((t) => [t.id, JSON.stringify(t)]));
 		const { next, result } = await fn(current);
-		// Bump revisions for changed tests, matching the InMemory adapter.
 		for (const test of next) {
 			const pre = preSnapshots.get(test.id);
 			const post = JSON.stringify(test);
@@ -206,7 +232,18 @@ export class JsonFileAbTestStore implements AbTestStoreAdapter {
 				bumpRevision(test);
 			}
 		}
-		await this.writeAll(next);
+		await this.writeAllFn!(next);
 		return result;
+	}
+
+	private async readOnly(): Promise<AbTest[]> {
+		if (this.updateAll) {
+			// Use the locked update path with a no-op mutation.
+			return this.updateAll(async (tests) => ({
+				next: tests,
+				result: tests,
+			}));
+		}
+		return this.readAllFn!();
 	}
 }
