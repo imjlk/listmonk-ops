@@ -572,24 +572,43 @@ export class AbTestService {
 
 			// Additionally, check the winner vs the second-best treatment.
 			// Sort non-control results by metric rate descending.
+			// Direct winner vs second-best treatment comparison.
+			// Holm correction covers control-vs-treatment; this adds a
+			// head-to-head test so the winner is actually separated from
+			// the runner-up.
 			const sortedNonControl = [...nonControlResults].sort(
 				(a, b) => metricRate(b) - metricRate(a),
 			);
 			let isTopTwoSeparated = true;
 			if (sortedNonControl.length > 1) {
-				const second = sortedNonControl[1];
-				if (second) {
-					const secondIdx = nonControlResults.findIndex(
-						(r) => r.variantId === second.variantId,
-					);
-					if (
-						secondIdx >= 0 &&
-						!(holmResult.significant[bestIdx] ?? false) &&
-						(holmResult.significant[secondIdx] ?? false)
-					) {
-						// Winner is not significant but second-best is —
-						// they are too close to call.
-						isTopTwoSeparated = false;
+				const bestTreatment = sortedNonControl[0];
+				const secondTreatment = sortedNonControl[1];
+				if (bestTreatment && secondTreatment) {
+					const pBest = metricRate(bestTreatment) / 100;
+					const pSecond = metricRate(secondTreatment) / 100;
+					const nBest = bestTreatment.sampleSize;
+					const nSecond = secondTreatment.sampleSize;
+					if (nBest > 0 && nSecond > 0) {
+						const pooledTwo =
+							(metricCount(bestTreatment) +
+								metricCount(secondTreatment)) /
+							(nBest + nSecond);
+						const seTwo = Math.sqrt(
+							pooledTwo *
+								(1 - pooledTwo) *
+								(1 / nBest + 1 / nSecond),
+						);
+						if (
+							Number.isFinite(seTwo) &&
+							seTwo > 0
+						) {
+							const zTwo =
+								Math.abs(pBest - pSecond) / seTwo;
+							const pTwo = 2 * (1 - this.standardNormalCDF(zTwo));
+							// If the winner and runner-up are not significantly
+							// different, the test is inconclusive.
+							isTopTwoSeparated = pTwo < alpha;
+						}
 					}
 				}
 			}
@@ -670,11 +689,22 @@ export class AbTestService {
 		// Run the fixed-horizon eligibility gate. If the test is not ready,
 		// suppress the winner and record the reason codes so operators know
 		// why no decision was made.
+		// Build a per-test policy from the test's own settings.
+		const testPolicy: typeof DEFAULT_STATISTICAL_POLICY = {
+			...DEFAULT_STATISTICAL_POLICY,
+			confidenceLevel: test.confidenceThreshold,
+			minimumDurationHours: test.durationHours
+				? Math.min(
+						test.durationHours,
+						DEFAULT_STATISTICAL_POLICY.minimumDurationHours,
+					)
+				: DEFAULT_STATISTICAL_POLICY.minimumDurationHours,
+		};
 		const gateResult = fixedHorizonGate({
 			endsAt: test.endsAt,
 			startedAt: test.startedAt,
 			now: Date.now(),
-			policy: DEFAULT_STATISTICAL_POLICY,
+			policy: testPolicy,
 			sampleSizes: results.map((r) => r.sampleSize),
 		});
 		analysis.fixedHorizonReasonCodes = gateResult.reasonCodes;
@@ -689,11 +719,21 @@ export class AbTestService {
 				const srmResult = checkSRM(expected, observed, 0.001);
 				analysis.srmPassed = srmResult.passed;
 				analysis.srmPValue = srmResult.pValue;
+			} else {
+				// Input mismatch — fail closed so analysis does not proceed
+				// from incomplete data.
+				analysis.srmPassed = false;
+				analysis.srmPValue = 1;
 			}
 		}
 
-		// Suppress winner if gates have not passed.
+		// Suppress winner if gates have not passed. Also suppress
+		// isSignificant so the lifecycle tick does not mark the test
+		// 'completed' when the gate says no decision should be made.
 		const gatesPassed = gateResult.ready && analysis.srmPassed !== false;
+		if (!gatesPassed) {
+			analysis.isSignificant = false;
+		}
 
 		// Pick the winner on the same metric the significance test used, via
 		// the shared selector so the two cannot drift apart. The selector

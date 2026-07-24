@@ -150,16 +150,20 @@ export function fixedHorizonGate(params: {
 	}
 
 	// 2. Minimum duration elapsed.
-	if (startedAt) {
-		const elapsedHours =
-			(now - new Date(startedAt).getTime()) / (3600 * 1000);
-		if (elapsedHours < policy.minimumDurationHours) {
-			reasonCodes.push(
-				`minimum_duration_not_met:${elapsedHours.toFixed(1)}h/${policy.minimumDurationHours}h`,
-			);
-		}
-	} else {
+	if (!startedAt) {
 		reasonCodes.push("no_startedAt");
+	} else {
+		const startedMs = new Date(startedAt).getTime();
+		if (Number.isNaN(startedMs)) {
+			reasonCodes.push("malformed_startedAt");
+		} else {
+			const elapsedHours = (now - startedMs) / (3600 * 1000);
+			if (elapsedHours < policy.minimumDurationHours) {
+				reasonCodes.push(
+					`minimum_duration_not_met:${elapsedHours.toFixed(1)}h/${policy.minimumDurationHours}h`,
+				);
+			}
+		}
 	}
 
 	// 3. Minimum sample per variant.
@@ -253,15 +257,25 @@ export function checkSRM(
 		};
 	}
 
+	// Check for traffic in zero-expected arms before computing chi-square.
+	for (let i = 0; i < expected.length; i += 1) {
+		const expVal = expected[i] ?? 0;
+		const obsVal = observed[i] ?? 0;
+		if (expVal === 0 && obsVal > 0) {
+			return {
+				passed: false,
+				status: "fail" as const,
+				chiSquare: Number.POSITIVE_INFINITY,
+				pValue: 0,
+				reasonCode: "traffic_in_zero_expected_arm",
+			};
+		}
+	}
+
 	// Scale expected to match observed total for the goodness-of-fit test.
 	const chiSquare = expected.reduce((sum, expVal, i) => {
 		const scaledExpected = (expVal / expectedSum) * observedSum;
 		const obsVal = observed[i] ?? 0;
-		if (scaledExpected === 0) {
-			// Traffic in an arm with zero expected count is a provisioning
-			// error, not a silent pass.
-			return obsVal > 0 ? sum + obsVal : sum;
-		}
 		return sum + ((obsVal - scaledExpected) ** 2) / scaledExpected;
 	}, 0);
 
@@ -294,7 +308,9 @@ export function checkSRM(
 	} else {
 		const zWH =
 			(Math.pow(ratio, 1 / 3) - wilsonHilfertyTerm) / wilsonStd;
-		pValue = 2 * (1 - normalCDF(Math.abs(zWH)));
+		// Chi-square p-value is the upper tail: P(X > chiSquare).
+		// Wilson-Hilferty approximates this as 1 - Phi(zWH).
+		pValue = 1 - normalCDF(zWH);
 	}
 
 	return {
