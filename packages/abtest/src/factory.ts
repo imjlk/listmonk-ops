@@ -292,15 +292,17 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				continue;
 			}
 			try {
+				// Capture the status before runAbTestImpl, because the service
+				// stores and returns object references — runAbTestImpl mutates
+				// the same AbTest in place, so test.status would already be
+				// the new status by the time we compare.
+				const oldStatus = test.status;
 				const updated = await runAbTestImpl(test.id);
-				const newStatus = updated?.status ?? test.status;
-				// Derive the action from whether the status actually changed,
-				// so a no-op tick (e.g. running before endsAt) is reported as
-				// such rather than implying a progression.
+				const newStatus = updated?.status ?? oldStatus;
 				const action =
-					newStatus === test.status
-						? `noop:${test.status}`
-						: `progress:${test.status}->${newStatus}`;
+					newStatus === oldStatus
+						? `noop:${oldStatus}`
+						: `progress:${oldStatus}->${newStatus}`;
 				results.push({
 					test_id: test.id,
 					status: newStatus,
