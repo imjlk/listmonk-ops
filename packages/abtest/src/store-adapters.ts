@@ -16,17 +16,19 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 
 	constructor(initial: AbTest[] = []) {
 		for (const test of initial) {
-			this.tests.set(test.id, { ...test });
+			this.tests.set(test.id, structuredClone(test));
 		}
 	}
 
 	async get(id: string): Promise<AbTest | null> {
 		const test = this.tests.get(id);
-		return test ? { ...test } : null;
+		return test ? structuredClone(test) : null;
 	}
 
 	async list(query?: AbTestStoreQuery): Promise<AbTest[]> {
-		const all = Array.from(this.tests.values()).map((t) => ({ ...t }));
+		const all = Array.from(this.tests.values()).map((t) =>
+			structuredClone(t),
+		);
 		if (query?.status) {
 			return all.filter((t) => t.status === query.status);
 		}
@@ -41,7 +43,7 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 	): Promise<T> {
 		return this.serialize(async () => {
 			const current = this.tests.get(id);
-			const currentCopy = current ? { ...current } : null;
+			const currentCopy = current ? structuredClone(current) : null;
 			const { next, result } = await fn(currentCopy);
 			if (next === null) {
 				this.tests.delete(id);
@@ -64,10 +66,18 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 		) => Promise<{ next: AbTest[]; result: T }>,
 	): Promise<T> {
 		return this.serialize(async () => {
-			const current = Array.from(this.tests.values()).map((t) => ({
-				...t,
-			}));
+			const current = Array.from(this.tests.values()).map((t) =>
+				structuredClone(t),
+			);
+			const currentMap = new Map(current.map((t) => [t.id, t]));
 			const { next, result } = await fn(current);
+			// Bump revision for tests that changed.
+			for (const test of next) {
+				const old = currentMap.get(test.id);
+				if (old !== test) {
+					bumpRevision(test);
+				}
+			}
 			this.tests.clear();
 			for (const test of next) {
 				this.tests.set(test.id, test);
