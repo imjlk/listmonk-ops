@@ -575,7 +575,9 @@ export class AbTestService {
 
 			// Direct winner vs runner-up comparison across ALL variants
 			// (including control), so the head-to-head test covers the
-			// actual top two performers.
+			// actual top two performers. Include the top-two p-value in the
+			// Holm family so the comparison survives multiple-comparison
+			// correction alongside the control-vs-treatment tests.
 			const sortedAll = [...results].sort(
 				(a, b) => metricRate(b) - metricRate(a),
 			);
@@ -599,13 +601,20 @@ export class AbTestService {
 								(1 / nBest + 1 / nSecond),
 						);
 						if (
-								Number.isFinite(seTwo) &&
-								seTwo > 0
-							) {
+							Number.isFinite(seTwo) &&
+							seTwo > 0
+						) {
 							const zTwo =
-									Math.abs(pBest - pSecond) / seTwo;
+								Math.abs(pBest - pSecond) / seTwo;
 							const pTwo = 2 * (1 - this.standardNormalCDF(zTwo));
-							isTopTwoSeparated = pTwo < alpha;
+							// Apply Holm correction including the top-two
+							// comparison in the family.
+							const allPValues = [...pairwisePValues, pTwo];
+							const allHolm = applyHolmCorrection(allPValues, alpha);
+							// The top-two p-value is the last entry.
+							isTopTwoSeparated =
+								allHolm.significant[allPValues.length - 1] ??
+								false;
 						} else if (pBest === pSecond) {
 							isTopTwoSeparated = false;
 						}
@@ -699,28 +708,41 @@ export class AbTestService {
 				test.minimumTestSampleSize ??
 				DEFAULT_STATISTICAL_POLICY.minimumSamplePerVariant,
 		};
+		// Use launchAt as the duration reference when available, since it
+		// represents when the campaigns actually started sending. Fall back
+		// to startedAt for backward compatibility.
+		const durationRef = test.launchAt ?? test.startedAt;
 		const gateResult = fixedHorizonGate({
 			endsAt: test.endsAt,
-			startedAt: test.startedAt,
+			startedAt: durationRef,
 			now: Date.now(),
 			policy: testPolicy,
 			sampleSizes: results.map((r) => r.sampleSize),
 		});
 		analysis.fixedHorizonReasonCodes = gateResult.reasonCodes;
 
-		// Run SRM check if we have assignment manifest group counts.
+		// Run SRM check. Prefer assignment manifest group counts; for
+		// full-split tests without a manifest, derive expected counts from
+		// variant percentages and the total test group size.
+		let srmExpected: number[] | null = null;
 		if (test.assignmentManifest) {
-			const expected = test.assignmentManifest.groups
+			srmExpected = test.assignmentManifest.groups
 				.filter((g) => g.kind === "variant")
 				.map((g) => g.expectedCount);
+		} else if (test.testingMode === "full-split") {
+			// Derive expected from variant percentages and total sample.
+			const totalSample = results.reduce((sum, r) => sum + r.sampleSize, 0);
+			srmExpected = test.variants.map(
+				(v) => Math.round((v.percentage / 100) * totalSample),
+			);
+		}
+		if (srmExpected) {
 			const observed = results.map((r) => r.sampleSize);
-			if (expected.length === observed.length && expected.length >= 2) {
-				const srmResult = checkSRM(expected, observed, 0.001);
+			if (srmExpected.length === observed.length && srmExpected.length >= 2) {
+				const srmResult = checkSRM(srmExpected, observed, 0.001);
 				analysis.srmPassed = srmResult.passed;
 				analysis.srmPValue = srmResult.pValue;
 			} else {
-				// Input mismatch — fail closed so analysis does not proceed
-				// from incomplete data.
 				analysis.srmPassed = false;
 				analysis.srmPValue = 1;
 				analysis.fixedHorizonReasonCodes = [
