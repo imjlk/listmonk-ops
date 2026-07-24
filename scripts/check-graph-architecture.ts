@@ -312,6 +312,12 @@ const abTestOperationDefinitions = [
 		"invokeReconcileAbTestOperation",
 		"executeReconcileAbTestOperation",
 	],
+	[
+		"export assignment",
+		"invokeCliExportAbTestAssignment",
+		"invokeExportAbTestAssignmentOperation",
+		"executeExportAbTestAssignmentOperation",
+	],
 ] as const;
 
 const abTestOperationContracts: readonly CallPathContract[] =

@@ -17,6 +17,7 @@ import {
 	invokeRunAbTestOperation,
 	invokeStopAbTestOperation,
 	invokeTickAbTestsOperation,
+	invokeExportAbTestAssignmentOperation,
 	listAbTestsOperation,
 } from "../src/operations";
 import { AbTestNotFoundError, saveStoredAbTests } from "../src/persistence";
@@ -69,7 +70,7 @@ afterEach(async () => {
 
 describe("A/B test operation registry", () => {
 	test("publishes all lifecycle tools with object schemas and safety metadata", () => {
-		expect(abTestOperations).toHaveLength(12);
+		expect(abTestOperations).toHaveLength(13);
 		expect(abTestOperations.map((operation) => operation.mcp.name)).toEqual([
 			"listmonk_abtest_list",
 			"listmonk_abtest_get",
@@ -83,6 +84,7 @@ describe("A/B test operation registry", () => {
 			"listmonk_abtest_run",
 			"listmonk_abtest_tick",
 			"listmonk_abtest_reconcile",
+			"listmonk_abtest_export_assignment",
 		]);
 		for (const operation of abTestOperations) {
 			expect(operation.inputJsonSchema.type).toBe("object");
@@ -172,9 +174,12 @@ describe("A/B test operation registry", () => {
 		await expect(
 			invokeTickAbTestsOperation(context, { confirm: "not-boolean" }),
 		).rejects.toThrow("Invalid parameter confirm");
-		await expect(
-			invokeReconcileAbTestOperation(context, { confirm: "not-boolean" }),
-		).rejects.toThrow("Invalid parameter confirm");
+			await expect(
+				invokeReconcileAbTestOperation(context, { confirm: "not-boolean" }),
+			).rejects.toThrow("Invalid parameter confirm");
+			await expect(
+				invokeExportAbTestAssignmentOperation(context, { test_id: 123 }),
+			).rejects.toThrow();
 	});
 
 	test("preserves typed not-found errors for lifecycle transitions", async () => {
