@@ -1,5 +1,11 @@
 # @listmonk-ops/operations
 
+## 0.3.1 — 2026-07-24
+
+### Patch changes
+
+- Updated dependencies: openapi@0.3.1
+
 ## 0.3.0 — 2026-07-23
 
 ### Changed

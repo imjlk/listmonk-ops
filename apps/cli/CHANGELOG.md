@@ -1,5 +1,15 @@
 # @listmonk-ops/cli
 
+## 0.6.0 — 2026-07-24
+
+### Added
+
+- [db9a23c](https://github.com/imjlk/listmonk-ops/commit/db9a23cb9015fce0f00d7995f55c19568d6fa7f9) Add orchestration lifecycle (scheduled launches, tick-based progression, reconcile), new lifecycle statuses, and shared send_at scheduling so all variant campaigns fire simultaneously. CLI gains `abtest run`, `abtest tick --dry-run`, and `abtest reconcile` commands. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.4.0, automation@0.1.8, openapi@0.3.1, operations@0.3.1
+
 ## 0.5.0 — 2026-07-23
 
 ### Changed
