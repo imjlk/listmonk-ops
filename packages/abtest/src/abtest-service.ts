@@ -574,10 +574,9 @@ export class AbTestService {
 			const isHolmSignificant = holmResult.significant[bestIdx] ?? false;
 
 			// Direct winner vs runner-up comparison across ALL variants
-			// (including control), so the head-to-head test covers the
-			// actual top two performers. Include the top-two p-value in the
-			// Holm family so the comparison survives multiple-comparison
-			// correction alongside the control-vs-treatment tests.
+			// (including control). Only append the top-two p-value to the
+			// Holm family when it is a treatment-vs-treatment comparison
+			// (not already in pairwisePValues as a control-vs-treatment).
 			const sortedAll = [...results].sort(
 				(a, b) => metricRate(b) - metricRate(a),
 			);
@@ -586,6 +585,11 @@ export class AbTestService {
 				const bestTreatment = sortedAll[0];
 				const secondTreatment = sortedAll[1];
 				if (bestTreatment && secondTreatment) {
+					// Check if either top performer is the control — if so,
+					// the comparison is already in pairwisePValues.
+					const involvesControl =
+						bestTreatment.variantId === controlGroup.variantId ||
+						secondTreatment.variantId === controlGroup.variantId;
 					const pBest = metricRate(bestTreatment) / 100;
 					const pSecond = metricRate(secondTreatment) / 100;
 					const nBest = bestTreatment.sampleSize;
@@ -607,14 +611,28 @@ export class AbTestService {
 							const zTwo =
 								Math.abs(pBest - pSecond) / seTwo;
 							const pTwo = 2 * (1 - this.standardNormalCDF(zTwo));
-							// Apply Holm correction including the top-two
-							// comparison in the family.
-							const allPValues = [...pairwisePValues, pTwo];
-							const allHolm = applyHolmCorrection(allPValues, alpha);
-							// The top-two p-value is the last entry.
-							isTopTwoSeparated =
-								allHolm.significant[allPValues.length - 1] ??
-								false;
+							if (involvesControl) {
+								// Already in pairwisePValues — use the
+								// existing Holm result.
+								const existingIdx = nonControlResults.findIndex(
+									(r) =>
+										r.variantId ===
+										(bestTreatment.variantId ===
+										controlGroup.variantId
+											? secondTreatment.variantId
+											: bestTreatment.variantId),
+								);
+								isTopTwoSeparated =
+									holmResult.significant[existingIdx] ?? false;
+							} else {
+								// Treatment-vs-treatment: append to the
+								// Holm family.
+								const allPValues = [...pairwisePValues, pTwo];
+								const allHolm = applyHolmCorrection(allPValues, alpha);
+								isTopTwoSeparated =
+									allHolm.significant[allPValues.length - 1] ??
+									false;
+							}
 						} else if (pBest === pSecond) {
 							isTopTwoSeparated = false;
 						}
