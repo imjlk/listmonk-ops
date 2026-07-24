@@ -572,17 +572,16 @@ export class AbTestService {
 
 			// Additionally, check the winner vs the second-best treatment.
 			// Sort non-control results by metric rate descending.
-			// Direct winner vs second-best treatment comparison.
-			// Holm correction covers control-vs-treatment; this adds a
-			// head-to-head test so the winner is actually separated from
-			// the runner-up.
-			const sortedNonControl = [...nonControlResults].sort(
+			// Direct winner vs runner-up comparison across ALL variants
+			// (including control), so the head-to-head test covers the
+			// actual top two performers, not just non-control arms.
+			const sortedAll = [...results].sort(
 				(a, b) => metricRate(b) - metricRate(a),
 			);
 			let isTopTwoSeparated = true;
-			if (sortedNonControl.length > 1) {
-				const bestTreatment = sortedNonControl[0];
-				const secondTreatment = sortedNonControl[1];
+			if (sortedAll.length > 1) {
+				const bestTreatment = sortedAll[0];
+				const secondTreatment = sortedAll[1];
 				if (bestTreatment && secondTreatment) {
 					const pBest = metricRate(bestTreatment) / 100;
 					const pSecond = metricRate(secondTreatment) / 100;
@@ -693,12 +692,8 @@ export class AbTestService {
 		const testPolicy: typeof DEFAULT_STATISTICAL_POLICY = {
 			...DEFAULT_STATISTICAL_POLICY,
 			confidenceLevel: test.confidenceThreshold,
-			minimumDurationHours: test.durationHours
-				? Math.min(
-						test.durationHours,
-						DEFAULT_STATISTICAL_POLICY.minimumDurationHours,
-					)
-				: DEFAULT_STATISTICAL_POLICY.minimumDurationHours,
+			minimumDurationHours:
+				test.durationHours ?? DEFAULT_STATISTICAL_POLICY.minimumDurationHours,
 		};
 		const gateResult = fixedHorizonGate({
 			endsAt: test.endsAt,
@@ -724,6 +719,10 @@ export class AbTestService {
 				// from incomplete data.
 				analysis.srmPassed = false;
 				analysis.srmPValue = 1;
+				analysis.fixedHorizonReasonCodes = [
+					...(analysis.fixedHorizonReasonCodes ?? []),
+					"srm_input_mismatch",
+				];
 			}
 		}
 

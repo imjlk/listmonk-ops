@@ -81,15 +81,16 @@ describe("fixedHorizonGate", () => {
 		expect(result.reasonCodes).toEqual([]);
 	});
 
-	it("fails when endsAt is not set", () => {
+	it("passes when endsAt is not set (open-ended test)", () => {
+		// No endsAt = no duration_hours = open-ended; the gate skips the
+		// horizon check and only checks startedAt and samples.
 		const result = fixedHorizonGate({
+			startedAt: "2026-07-23T10:00:00Z",
 			now,
 			policy,
 			sampleSizes: [200, 200],
 		});
-		expect(result.ready).toBe(false);
-		expect(result.reasonCodes).toContain("no_endsAt");
-		expect(result.reasonCodes).toContain("no_startedAt");
+		expect(result.ready).toBe(true);
 	});
 
 	it("fails when endsAt has not passed yet", () => {
@@ -130,12 +131,14 @@ describe("fixedHorizonGate", () => {
 
 	it("accumulates multiple reason codes", () => {
 		const result = fixedHorizonGate({
+			endsAt: "2026-07-25T00:00:00Z", // future — before_endsAt
 			now,
 			policy,
 			sampleSizes: [10],
 		});
 		expect(result.ready).toBe(false);
-		expect(result.reasonCodes.length).toBeGreaterThanOrEqual(3);
+		expect(result.reasonCodes.length).toBeGreaterThanOrEqual(2);
+		expect(result.reasonCodes).toContain("before_endsAt");
 	});
 });
 

@@ -138,9 +138,8 @@ export function fixedHorizonGate(params: {
 	const reasonCodes: string[] = [];
 
 	// 1. Fixed horizon: endsAt must be set and passed.
-	if (!endsAt) {
-		reasonCodes.push("no_endsAt");
-	} else {
+	//    If endsAt is not set (no duration_hours), skip — open-ended test.
+	if (endsAt) {
 		const endsAtMs = new Date(endsAt).getTime();
 		if (Number.isNaN(endsAtMs)) {
 			reasonCodes.push("malformed_endsAt");
@@ -272,10 +271,28 @@ export function checkSRM(
 		}
 	}
 
+	// Filter out zero-expected + zero-observed arms.
+	const activeIndices: number[] = [];
+	for (let i = 0; i < expected.length; i += 1) {
+		if ((expected[i] ?? 0) > 0 || (observed[i] ?? 0) > 0) {
+			activeIndices.push(i);
+		}
+	}
+	if (activeIndices.length < 2) {
+		return {
+			passed: false,
+			status: "indeterminate" as const,
+			chiSquare: 0,
+			pValue: 1,
+			reasonCode: "insufficient_active_arms",
+		};
+	}
+
 	// Scale expected to match observed total for the goodness-of-fit test.
-	const chiSquare = expected.reduce((sum, expVal, i) => {
+	const chiSquare = activeIndices.reduce((sum, idx) => {
+		const expVal = expected[idx] ?? 0;
 		const scaledExpected = (expVal / expectedSum) * observedSum;
-		const obsVal = observed[i] ?? 0;
+		const obsVal = observed[idx] ?? 0;
 		return sum + ((obsVal - scaledExpected) ** 2) / scaledExpected;
 	}, 0);
 
