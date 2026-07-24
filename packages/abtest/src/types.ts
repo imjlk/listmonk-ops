@@ -8,6 +8,19 @@
  */
 export const ABTEST_SAFETY_LEAD_SECONDS = 60;
 
+/**
+ * Terminal statuses from which a test never transitions further without
+ * external intervention. Shared between factory.ts (tick/run progression)
+ * and abtest-service.ts (deleteTest cleanup) so both agree on what counts
+ * as "done".
+ */
+export const TERMINAL_STATUSES: ReadonlySet<AbTest["status"]> = new Set([
+	"completed",
+	"cancelled",
+	"inconclusive",
+	"failed",
+]);
+
 export interface AbTest {
 	id: string;
 	name: string;

@@ -398,7 +398,7 @@ listmonk-cli abtest recommend-sample-size \
 listmonk-cli abtest deploy-winner --test-id <id> --confirm
 listmonk-cli abtest delete --test-id <id> --confirm
 listmonk-cli abtest run --test-id <id> --confirm
-listmonk-cli abtest tick --dry-run true
+listmonk-cli abtest tick --dry-run true --confirm
 listmonk-cli abtest tick --confirm
 listmonk-cli abtest reconcile --test-id <id>
 listmonk-cli abtest reconcile --all --repair --confirm
@@ -424,6 +424,9 @@ listmonk_abtest_stop
 listmonk_abtest_delete
 listmonk_abtest_recommend_sample_size
 listmonk_abtest_deploy_winner
+listmonk_abtest_run
+listmonk_abtest_tick
+listmonk_abtest_reconcile
 ```
 
 ### A/B test correctness hardening

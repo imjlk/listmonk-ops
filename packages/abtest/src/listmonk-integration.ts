@@ -396,6 +396,112 @@ export class ListmonkAbTestIntegration {
 		}
 	}
 
+	/**
+	 * Status-aware cleanup for test deletion. For each campaign, fetch its
+	 * remote status and cancel running campaigns before deleting (Listmonk
+	 * v6.2.0 rejects DELETE on running campaigns). Draft/scheduled/terminal
+	 * campaigns are deleted directly. Collects per-resource failures and
+	 * throws after attempting all resources so a single transient failure
+	 * does not leave other campaigns/lists un-attempted.
+	 */
+	async deleteTestResources(resources: {
+		campaignIds: number[];
+		listIds: number[];
+	}): Promise<void> {
+		const errors: string[] = [];
+
+		const isNotFound = (resp: unknown): boolean => {
+			if (resp && typeof resp === "object" && "response" in resp) {
+				const r = (resp as { response?: { status?: unknown } }).response;
+				if (r && typeof r === "object" && "status" in r) {
+					if ((r as { status?: unknown }).status === 404) {
+						return true;
+					}
+				}
+			}
+			const errMsg = this.formatError((resp as { error?: unknown })?.error);
+			return /not found|404/i.test(errMsg);
+		};
+
+		for (const campaignId of resources.campaignIds) {
+			try {
+				const response = await this.listmonkClient.campaign.getById({
+					path: { id: campaignId },
+				});
+				if ("error" in response && response.error !== undefined) {
+					if (!isNotFound(response)) {
+						throw new Error(
+							`Failed to fetch campaign ${campaignId}: ${this.formatError(response.error)}`,
+						);
+					}
+					continue;
+				}
+				const status = (
+					response as { data?: { status?: string } }
+				)?.data?.status;
+				if (status === "running") {
+					const cancelResult =
+						await this.listmonkClient.campaign.updateStatus({
+							path: { id: campaignId },
+							body: { status: "cancelled" },
+						});
+					if (
+						"error" in cancelResult &&
+						cancelResult.error !== undefined &&
+						!isNotFound(cancelResult)
+					) {
+						throw new Error(
+							`Failed to cancel running campaign ${campaignId}: ${this.formatError(cancelResult.error)}`,
+						);
+					}
+				}
+				const deleteResult = await this.listmonkClient.campaign.delete({
+					path: { id: campaignId },
+				});
+				if (
+					"error" in deleteResult &&
+					deleteResult.error !== undefined &&
+					!isNotFound(deleteResult)
+				) {
+					throw new Error(
+						`Failed to delete campaign ${campaignId}: ${this.formatError(deleteResult.error)}`,
+					);
+				}
+			} catch (error) {
+				errors.push(error instanceof Error ? error.message : String(error));
+			}
+		}
+
+		// Only delete lists if no campaign errors — a surviving campaign
+		// may still reference its audience list.
+		if (errors.length === 0) {
+			for (const listId of [...resources.listIds].reverse()) {
+				try {
+					const deleteResult = await this.listmonkClient.list.delete({
+						path: { list_id: listId },
+					});
+					if (
+					"error" in deleteResult &&
+					deleteResult.error !== undefined &&
+					!isNotFound(deleteResult)
+				) {
+						throw new Error(
+						`Failed to delete list ${listId}: ${this.formatError(deleteResult.error)}`,
+					);
+					}
+				} catch (error) {
+					errors.push(error instanceof Error ? error.message : String(error));
+				}
+			}
+		}
+
+		if (errors.length > 0) {
+			throw new Error(
+				`Failed to cleanup some Listmonk resources for test deletion (${errors.length} failure(s)): ${errors.join("; ")}`,
+			);
+		}
+	}
+
 	async rollbackProvisioning(
 		resources: ProvisionedAbTestResources,
 	): Promise<void> {

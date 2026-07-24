@@ -18,7 +18,7 @@ import type {
 	CreateAbTestInput,
 	TestAnalysis,
 } from "./types";
-import { ABTEST_SAFETY_LEAD_SECONDS } from "./types";
+import { ABTEST_SAFETY_LEAD_SECONDS, TERMINAL_STATUSES } from "./types";
 
 // A/B Test command executors factory with Listmonk integration
 export function createAbTestExecutors(listmonkClient: ListmonkClient) {
@@ -34,13 +34,6 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		listmonkIntegration,
 		metricsCollector,
 	);
-
-	const TERMINAL_STATUSES: ReadonlySet<AbTest["status"]> = new Set([
-		"completed",
-		"inconclusive",
-		"cancelled",
-		"failed",
-	]);
 
 	// Launch is shared between the manual launchAbTest method and the
 	// orchestration runAbTest step, so define it once as a named helper.
@@ -194,13 +187,17 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				return test;
 			}
 			case "running": {
-				// A running test has reached its send window; advance it to
-				// analyzing so the next tick can pick up metrics. Check endsAt
-				// if set so we don't analyze prematurely.
-				const now = Date.now();
-				const endTime = test.endsAt ? new Date(test.endsAt).getTime() : 0;
-				if (endTime === 0 || now >= endTime) {
-					return await abTestService.updateTestStatus(testId, "analyzing");
+				// A running test should only advance to analyzing after its
+				// endsAt has passed. If endsAt is not set (no durationHours),
+				// do NOT auto-advance — the operator must explicitly trigger
+				// analysis or set a duration. This prevents tick from marking
+				// experiments inconclusive/completed on the very next run
+				// after launch.
+				if (test.endsAt) {
+					const now = Date.now();
+					if (now >= new Date(test.endsAt).getTime()) {
+						return await abTestService.updateTestStatus(testId, "analyzing");
+					}
 				}
 				return test;
 			}
@@ -261,20 +258,64 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				continue;
 			}
 			if (dryRun) {
-				// Report what would happen without mutating state.
-				results.push({
-					test_id: test.id,
-					status: test.status,
-					action: `dry-run:would-progress:${test.status}`,
-				});
+				// Report what would happen without mutating state. Mirror
+				// runAbTestImpl's no-op conditions so the preview is accurate.
+				if (
+					test.status === "running" &&
+					(!test.endsAt ||
+						Date.now() < new Date(test.endsAt).getTime())
+				) {
+					results.push({
+						test_id: test.id,
+						status: test.status,
+						action: !test.endsAt
+							? "dry-run:noop:running-no-endsAt"
+							: "dry-run:noop:running-before-endsAt",
+					});
+				} else if (
+					test.status === "scheduled" &&
+					(!test.launchAt ||
+						Date.now() < new Date(test.launchAt).getTime())
+				) {
+					results.push({
+						test_id: test.id,
+						status: test.status,
+						action: "dry-run:noop:scheduled-not-due",
+					});
+				} else if (
+					test.status === "testing" ||
+					test.status === "deploying" ||
+					test.status === "cancelling"
+				) {
+					results.push({
+						test_id: test.id,
+						status: test.status,
+						action: `dry-run:noop:${test.status}-transitional`,
+					});
+				} else {
+					results.push({
+						test_id: test.id,
+						status: test.status,
+						action: `dry-run:would-progress:${test.status}`,
+					});
+				}
 				continue;
 			}
-			const action = `progress:${test.status}`;
 			try {
+				// Capture the status before runAbTestImpl, because the service
+				// stores and returns object references — runAbTestImpl mutates
+				// the same AbTest in place, so test.status would already be
+				// the new status by the time we compare.
+				const oldStatus = test.status;
 				const updated = await runAbTestImpl(test.id);
+				const newStatus = updated?.status ?? oldStatus;
+				const action =
+					newStatus === oldStatus
+						? `noop:${oldStatus}`
+						: `progress:${oldStatus}->${newStatus}`;
 				results.push({
 					test_id: test.id,
-					status: updated?.status ?? test.status,
+					status: newStatus,
 					action,
 				});
 			} catch (error) {

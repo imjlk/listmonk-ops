@@ -573,6 +573,13 @@ export async function executeReconcileAbTestOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof reconcileAbTestInputSchema>,
 ): Promise<ReconcileAbTestOperationOutput> {
+	// Guard: repair without an explicit scope (test_id or all) would mutate
+	// every persisted test silently. Reject so the caller must opt in.
+	if (input.repair && !input.test_id && !input.all) {
+		throw new Error(
+			"reconcile --repair requires an explicit scope: --test-id <id> or --all",
+		);
+	}
 	const reconcileResults = await withStoredOperation<
 		Awaited<ReturnType<AbTestExecutors["reconcileAbTest"]>>
 	>(context, input.repair ? "write" : "read", (executors) =>
