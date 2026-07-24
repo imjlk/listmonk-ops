@@ -21,6 +21,11 @@ export const TERMINAL_STATUSES: ReadonlySet<AbTest["status"]> = new Set([
 	"failed",
 ]);
 
+/**
+ * Add minimumTestSampleSize to AbTest so the fixed-horizon gate can use
+ * the per-test configured minimum instead of only the default.
+ */
+
 export interface AbTest {
 	id: string;
 	name: string;
@@ -80,6 +85,8 @@ export interface AbTest {
 		subscriberChecksum: string;
 		eligibilityPolicyVersion: 1;
 	};
+	/** Per-test minimum sample size for the fixed-horizon gate. */
+	minimumTestSampleSize?: number;
 	/**
 	 * Deterministic assignment manifest produced from the seed + audience.
 	 * Once stored, retries and reconciliation reuse it rather than

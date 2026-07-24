@@ -255,6 +255,9 @@ export class AbTestService {
 				if (config.durationHours !== undefined) {
 					abTest.durationHours = config.durationHours;
 				}
+				if (config.minimumTestSampleSize !== undefined) {
+					abTest.minimumTestSampleSize = config.minimumTestSampleSize;
+				}
 				// Persist launchAt on the record regardless of autoLaunch so
 				// a draft with a planned launch time retains it for later
 				// explicit launch via launchAbTest.
@@ -692,6 +695,9 @@ export class AbTestService {
 			confidenceLevel: test.confidenceThreshold,
 			minimumDurationHours:
 				test.durationHours ?? DEFAULT_STATISTICAL_POLICY.minimumDurationHours,
+			minimumSamplePerVariant:
+				test.minimumTestSampleSize ??
+				DEFAULT_STATISTICAL_POLICY.minimumSamplePerVariant,
 		};
 		const gateResult = fixedHorizonGate({
 			endsAt: test.endsAt,
