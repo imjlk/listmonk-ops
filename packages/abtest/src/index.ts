@@ -33,6 +33,19 @@ export {
 } from "./store-adapter";
 export { InMemoryAbTestStore, JsonFileAbTestStore } from "./store-adapters";
 export {
+	ConversionEventValidationError,
+	InMemoryConversionEventStore,
+	type ConversionEventInput,
+	type ConversionEventStore,
+	type VariantConversionAggregate,
+} from "./conversion-events";
+export {
+	buildExperimentReport,
+	reportToMarkdown,
+	reportToJSON,
+	type ExperimentReport,
+} from "./report";
+export {
 	abTestOperationCatalog,
 	abTestOperations,
 	getAbTestOperationByMcpName,

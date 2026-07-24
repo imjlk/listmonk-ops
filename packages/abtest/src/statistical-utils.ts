@@ -74,6 +74,13 @@ function getSampleSizeRecommendation(
 	variantCount: number = 2,
 	baselineConversionRate: number = 0.05,
 	minimumDetectableEffect: number = 0.2,
+	/**
+	 * Optional variant percentages. When provided, the expected sample
+	 * per variant is computed from the smallest percentage instead of
+	 * an equal split. This gives a more accurate recommendation for
+	 * uneven splits like 90/10.
+	 */
+	variantPercentages?: number[],
 ): SampleSizeRecommendation {
 	const minimumSamplePerVariant = calculateMinimumSampleSize(
 		baselineConversionRate,
@@ -87,9 +94,23 @@ function getSampleSizeRecommendation(
 	const currentTestGroupSize = Math.floor(
 		(totalSubscribers * currentTestPercentage) / 100,
 	);
-	const expectedSamplePerVariant = Math.floor(
-		currentTestGroupSize / variantCount,
-	);
+
+	// If variant percentages are provided, compute the expected sample
+	// for the smallest variant (the binding constraint). Otherwise fall
+	// back to an equal split.
+	let expectedSamplePerVariant: number;
+	if (
+		variantPercentages &&
+		variantPercentages.length === variantCount &&
+		variantPercentages.every((p) => p > 0)
+	) {
+		const minPercentage = Math.min(...variantPercentages);
+		expectedSamplePerVariant = Math.floor(
+			(currentTestGroupSize * minPercentage) / 100,
+		);
+	} else {
+		expectedSamplePerVariant = Math.floor(currentTestGroupSize / variantCount);
+	}
 
 	const totalMinimumSampleNeeded = minimumSamplePerVariant * variantCount;
 	// A zero-subscriber list is already invalid for a test, but still needs a
@@ -165,6 +186,12 @@ function validateTestConfiguration(
 	testPercentage: number,
 	variantCount: number,
 	ignoreWarnings: boolean = false,
+	/**
+	 * Optional variant percentages for weighted sample size calculation.
+	 * When provided, the recommendation uses the smallest variant's share
+	 * instead of an equal split.
+	 */
+	variantPercentages?: number[],
 ): TestValidationResult {
 	const errors: string[] = [];
 	const warnings: string[] = [];
@@ -185,6 +212,9 @@ function validateTestConfiguration(
 		totalSubscribers,
 		testPercentage,
 		variantCount,
+		undefined,
+		undefined,
+		variantPercentages,
 	);
 
 	if (!ignoreWarnings) {
