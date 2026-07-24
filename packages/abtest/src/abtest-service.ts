@@ -5,6 +5,7 @@ import type {
 import type { MetricsCollector } from "./metrics";
 import { AbTestMetricsUnavailableError } from "./metrics";
 import { StatisticalUtils } from "./statistical-utils";
+import { applyHolmCorrection, checkSRM } from "./statistics";
 import type {
 	AbTest,
 	AbTestConfig,
@@ -527,6 +528,48 @@ export class AbTestService {
 
 		// Calculate p-value (two-tailed)
 		const pValue = 2 * (1 - this.standardNormalCDF(Math.abs(zScore)));
+
+		// For A/B/C (3+ variants), apply Holm-Bonferroni correction to the
+		// family of pairwise comparisons. The winner must survive correction
+		// against every non-control variant to be declared significant.
+		if (results.length > 2) {
+			// Compute pairwise p-values: control vs each non-control variant.
+			const nonControlResults = results.filter(
+				(r) => r.variantId !== controlGroup.variantId,
+			);
+			const pairwisePValues = nonControlResults.map((variant) => {
+				const pv = metricRate(variant) / 100;
+				const nv = variant.sampleSize;
+				if (nv === 0 || n1 === 0) return 1;
+				const pooled =
+					(metricCount(controlGroup) + metricCount(variant)) /
+					(n1 + nv);
+				const se = Math.sqrt(
+					pooled * (1 - pooled) * (1 / n1 + 1 / nv),
+				);
+				if (!Number.isFinite(se) || se === 0) return 1;
+				const z = Math.abs(metricRate(controlGroup) / 100 - pv) / se;
+				return 2 * (1 - this.standardNormalCDF(z));
+			});
+
+			const holmResult = applyHolmCorrection(pairwisePValues, alpha);
+			// Find the best variant's index in the pairwise array.
+			const bestIdx = nonControlResults.findIndex(
+				(r) => r.variantId === testGroup.variantId,
+			);
+			const correctedPValue = holmResult.adjustedPValues[bestIdx] ?? 1;
+			const isHolmSignificant = holmResult.significant[bestIdx] ?? false;
+
+			return {
+				zScore,
+				pValue,
+				correctedPValue,
+				holmCorrected: true,
+				isSignificant: isHolmSignificant,
+				confidenceLevel: confidenceThreshold,
+				sampleSize: n1 + n2,
+			};
+		}
 
 		return {
 			zScore,

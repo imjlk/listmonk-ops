@@ -176,6 +176,12 @@ const statisticalAnalysisSchema = z.object({
 	isSignificant: z.boolean(),
 	confidenceLevel: z.number().finite(),
 	sampleSize: z.number().finite().nonnegative(),
+	// Stage 4 fields — optional so existing callers stay valid.
+	correctedPValue: z.number().finite().min(0).max(1).optional(),
+	holmCorrected: z.boolean().optional(),
+	srmPassed: z.boolean().optional(),
+	srmPValue: z.number().finite().min(0).max(1).optional(),
+	fixedHorizonReasonCodes: z.array(z.string()).optional(),
 });
 
 const testAnalysisSchema = z.object({

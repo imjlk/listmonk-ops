@@ -160,6 +160,17 @@ export interface StatisticalAnalysis {
 	isSignificant: boolean;
 	confidenceLevel: number;
 	sampleSize: number;
+	// Stage 4 fields — all optional so existing callers/tests stay valid.
+	/** Holm-Bonferroni corrected p-value (same as pValue for 2-variant tests). */
+	correctedPValue?: number;
+	/** Whether Holm correction was applied (3+ variants). */
+	holmCorrected?: boolean;
+	/** Whether the SRM (Sample Ratio Mismatch) check passed. */
+	srmPassed?: boolean;
+	/** SRM p-value if the check was run. */
+	srmPValue?: number;
+	/** Fixed-horizon gate reason codes if the test was not ready. */
+	fixedHorizonReasonCodes?: string[];
 }
 
 export interface AbTestConfig {

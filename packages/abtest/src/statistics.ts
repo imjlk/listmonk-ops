@@ -179,6 +179,13 @@ export interface SRMCheckResult {
 	chiSquare: number;
 	/** p-value from the chi-square distribution. */
 	pValue: number;
+	/**
+	 * Distinct from `passed`: "pass" (ratios consistent), "fail" (SRM
+	 * detected), or "indeterminate" (data quality issue — cannot run
+	 * the check). Callers should check `status` rather than `passed`
+	 * alone to distinguish genuine SRM from input errors.
+	 */
+	status: "pass" | "fail" | "indeterminate";
 	/** Reason code if the check could not be completed. */
 	reasonCode?: string;
 }
@@ -207,9 +214,15 @@ export function checkSRM(
 	observed: number[],
 	alpha: number = 0.001,
 ): SRMCheckResult {
+	if (!Number.isFinite(alpha) || alpha <= 0 || alpha >= 1) {
+		throw new Error(
+			`alpha must be a finite number in (0, 1), received ${alpha}`,
+		);
+	}
 	if (expected.length !== observed.length || expected.length < 2) {
 		return {
 			passed: false,
+			status: "indeterminate" as const,
 			chiSquare: 0,
 			pValue: 1,
 			reasonCode: "invalid_input",
@@ -222,6 +235,7 @@ export function checkSRM(
 	if (expectedSum === 0 || observedSum === 0) {
 		return {
 			passed: false,
+			status: "indeterminate" as const,
 			chiSquare: 0,
 			pValue: 1,
 			reasonCode: "insufficient_sample",
@@ -263,6 +277,7 @@ export function checkSRM(
 
 	return {
 		passed,
+		status: (passed ? "pass" : "fail") as "pass" | "fail",
 		chiSquare,
 		pValue,
 		reasonCode: passed ? undefined : "srm_detected",
