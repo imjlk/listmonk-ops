@@ -465,6 +465,33 @@ send results. Summary of the current behavior:
 See [`packages/abtest/README.md`](packages/abtest/README.md) for the
 underlying Listmonk API behavior and spike rationale.
 
+### Hypothesis pre-registration and recipient-domain stratification
+
+`abtest create` accepts two advanced experimentation inputs:
+
+- `--hypothesis '{...}'` — a pre-registration hypothesis (objective, primary
+  metric, expected lift, owner, experiment scope). The service locks it
+  (SHA-256 checksum) before recipient assignment so the metadata cannot
+  change after recipients are set.
+- `--enable-stratification` — classify subscribers by email-domain provider
+  and compute a constrained quota matrix so each provider stratum gets a
+  proportional share of every variant/holdout group. The quota matrix is
+  computed and stored on the test for reporting/validation; applying it to
+  the actual assignment slices is deferred to a follow-up change set.
+
+```bash
+listmonk-cli abtest create \
+  --name "Subject Line Test" \
+  --campaign-id 1 \
+  --variants '[...]' --lists 1,2 \
+  --enable-stratification \
+  --hypothesis '{"objective":"Increase CTR","hypothesis":"Shorter subject lifts CTR","primary_metric":{"type":"click_rate","direction":"maximize"},"expected_lift":{"kind":"relative","value":0.1},"owner":{"id":"user-1"},"experiment_scope":{"channel":"email","experiment_family_key":"onboarding.welcome","attribution_window_hours":72,"exclusion_window_hours":168}}'
+```
+
+See [`packages/abtest/README.md`](packages/abtest/README.md) for the full
+validation rules, the stratified quota solver, and bilingual (EN/KO)
+guidance.
+
 ## Ops Automation Commands
 
 ```bash

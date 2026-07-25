@@ -417,6 +417,20 @@ const abTestTestContracts: readonly CallPathContract[] = [
 		],
 	},
 	{
+		label: "Hypothesis tests anchor the checksum helper",
+		path: [
+			"packages/abtest/tests/hypothesis.test.ts#packages/abtest/tests/hypothesis.test.ts:module",
+			"packages/abtest/src/hypothesis.ts#computeHypothesisChecksum:function",
+		],
+	},
+	{
+		label: "Stratification tests anchor the quota matrix solver",
+		path: [
+			"packages/abtest/tests/stratification.test.ts#packages/abtest/tests/stratification.test.ts:module",
+			"packages/abtest/src/stratification.ts#computeStratifiedQuotas:function",
+		],
+	},
+	{
 		label: "Store adapter tests anchor the InMemory store",
 		path: [
 			"packages/abtest/tests/store-adapter.test.ts#packages/abtest/tests/store-adapter.test.ts:module",

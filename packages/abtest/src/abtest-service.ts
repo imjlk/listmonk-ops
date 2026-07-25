@@ -11,6 +11,12 @@ import {
 	DEFAULT_STATISTICAL_POLICY,
 	fixedHorizonGate,
 } from "./statistics";
+import {
+	isStrictIsoTimestamp,
+	lockHypothesis,
+	validateHypothesisMetadata,
+	verifyHypothesisChecksum,
+} from "./hypothesis";
 import type {
 	AbTest,
 	AbTestConfig,
@@ -178,6 +184,31 @@ export class AbTestService {
 			autoDeployWinner,
 			campaignMappings: [],
 			testListMappings: [],
+			// Lock the pre-registration hypothesis before any provisioning so the
+			// assignment manifest is bound to a frozen, checksummed hypothesis.
+			// When a caller supplies an already-locked hypothesis, validate it
+			// strictly and verify its checksum before accepting it, so tampered
+			// or malformed metadata cannot reach remote campaign/list provisioning.
+				hypothesis: config.hypothesis
+					? config.hypothesis.lockedAt
+						? (() => {
+								validateHypothesisMetadata(config.hypothesis!, true);
+								if (
+									!isStrictIsoTimestamp(config.hypothesis!.lockedAt)
+								) {
+									throw new Error(
+										"Pre-locked hypothesis lockedAt is not a valid ISO 8601 timestamp",
+									);
+								}
+								if (!verifyHypothesisChecksum(config.hypothesis!)) {
+									throw new Error(
+										"Pre-locked hypothesis checksum verification failed; the metadata may have been tampered with",
+									);
+								}
+								return config.hypothesis!;
+							})()
+						: lockHypothesis(config.hypothesis)
+					: undefined,
 		};
 
 		// Create Listmonk campaigns if integration is available
@@ -212,7 +243,10 @@ export class AbTestService {
 							config.baseConfig.lists,
 							variants,
 							testGroupPercentage,
-							{ testId: abTest.id },
+							{
+								testId: abTest.id,
+								stratificationPolicy: config.stratificationPolicy,
+							},
 						);
 
 					testListMappings = segmentationResult.testListMappings;
@@ -224,6 +258,14 @@ export class AbTestService {
 					abTest.assignmentSeed = segmentationResult.assignmentSeed;
 					abTest.audienceSnapshot = segmentationResult.audienceSnapshot;
 					abTest.assignmentManifest = segmentationResult.assignmentManifest;
+					// Record that recipients were assigned through a deterministic
+					// manifest, so consumers can distinguish it from legacy splits.
+					abTest.assignmentProvenance = "manifest_v1";
+					// Capture the stratified quota matrix when a stratification
+					// policy produced one, so reports can show per-provider shares.
+					if (segmentationResult.stratification) {
+						abTest.stratification = segmentationResult.stratification;
+					}
 				} else {
 					// Use full-split methodology (legacy)
 					testListMappings = await this.listmonkIntegration.segmentSubscribers(
@@ -238,6 +280,8 @@ export class AbTestService {
 						);
 					testGroupSize = totalSubscribers;
 					holdoutGroupSize = 0;
+					// Full-split provisioning predates deterministic manifests.
+					abTest.assignmentProvenance = "legacy_unavailable";
 				}
 				provisionedResources = {
 					...provisionedResources,

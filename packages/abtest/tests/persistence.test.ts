@@ -11,6 +11,7 @@ import {
 	saveStoredAbTests,
 	withStoredAbTestExecutors,
 } from "../src/persistence";
+import { lockHypothesis } from "../src/hypothesis";
 import type { AbTest } from "../src/types";
 
 const temporaryDirectories: string[] = [];
@@ -240,5 +241,174 @@ describe("A/B test persistence", () => {
 				"test 0 failed schema validation",
 			);
 		}
+	});
+
+	test("rejects malformed persisted hypothesis metadata", async () => {
+		const storePath = await createStorePath();
+		const validTest = createTest("one");
+		const validHypothesis = {
+			objective: "Increase CTR",
+			hypothesis: "Shorter subject lifts CTR",
+			primaryMetric: {
+				type: "click_rate",
+				direction: "maximize",
+			},
+			expectedLift: { kind: "relative", value: 0.1 },
+			owner: { id: "user-1" },
+			experimentScope: {
+				channel: "email",
+				experimentFamilyKey: "onboarding.welcome",
+				attributionWindowHours: 72,
+				exclusionWindowHours: 168,
+			},
+			createdAt: "2026-07-24T00:00:00.000Z",
+		};
+		// A valid hypothesis round-trips through the store.
+		await saveStoredAbTests([validTest], storePath);
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [{ ...validTest, hypothesis: validHypothesis }],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).resolves.toHaveLength(1);
+
+		// A hypothesis with a bogus metric type is rejected.
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [
+					{
+						...validTest,
+						hypothesis: {
+							...validHypothesis,
+							primaryMetric: {
+								type: "bogus",
+								direction: "maximize",
+							},
+						},
+					},
+				],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
+			"test 0 failed schema validation",
+		);
+
+		// A hypothesis locked without a checksum is rejected.
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [
+					{
+						...validTest,
+						hypothesis: {
+							...validHypothesis,
+							lockedAt: "2026-07-24T01:00:00.000Z",
+						},
+					},
+				],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
+			"test 0 failed schema validation",
+		);
+
+		// A properly locked hypothesis round-trips through the store.
+		const locked = lockHypothesis(
+			validHypothesis as Parameters<typeof lockHypothesis>[0],
+			"2026-07-24T01:00:00.000Z",
+		);
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [{ ...validTest, hypothesis: locked }],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).resolves.toHaveLength(1);
+
+		// A locked hypothesis whose content was tampered after locking
+		// (checksum no longer matches) is rejected at load time.
+		const tamperedLocked = {
+			...locked,
+			objective: "Tampered objective",
+		};
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [{ ...validTest, hypothesis: tamperedLocked }],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
+			"test 0 failed schema validation",
+		);
+
+		// A hypothesis with a malformed family key is rejected at load time,
+		// mirroring the creation-time segment rules.
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [
+					{
+						...validTest,
+						hypothesis: {
+							...validHypothesis,
+							experimentScope: {
+								...validHypothesis.experimentScope,
+								experimentFamilyKey: "foo..bar",
+							},
+						},
+					},
+				],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
+			"test 0 failed schema validation",
+		);
+
+		// A legacy v2 record with an assignment manifest but no hypothesis
+		// (predating pre-registration) must still load — the manifest+lock
+		// invariant applies only when BOTH are present.
+		const legacyWithManifest = {
+			...validTest,
+			assignmentManifest: {
+				algorithm: "sha256-order-largest-remainder-v1",
+				seed: "seed-1",
+				audienceChecksum: "abc",
+				groups: [
+					{
+						kind: "variant" as const,
+						variantId: "v1",
+						expectedCount: 50,
+						subscriberChecksum: "x",
+					},
+					{
+						kind: "holdout" as const,
+						expectedCount: 50,
+						subscriberChecksum: "y",
+					},
+				],
+				assignedCount: 100,
+			},
+			assignmentProvenance: "manifest_v1" as const,
+		};
+		await writeFile(
+			storePath,
+			`${JSON.stringify({ version: 1, tests: [legacyWithManifest] })}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).resolves.toHaveLength(1);
 	});
 });

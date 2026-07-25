@@ -11,6 +11,7 @@ import {
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { AbTestNotFoundError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
+import { isStrictIsoTimestamp, verifyHypothesisChecksum } from "./hypothesis";
 import type { AbTest } from "./types";
 
 export { AbTestNotFoundError } from "./errors";
@@ -235,8 +236,279 @@ function isStoredAbTest(value: unknown): boolean {
 		(value.startedAt === undefined || isValidTimestamp(value.startedAt)) &&
 		(value.endsAt === undefined || isValidTimestamp(value.endsAt)) &&
 		(value.minimumTestSampleSize === undefined ||
-			isPositiveInteger(value.minimumTestSampleSize))
+			isPositiveInteger(value.minimumTestSampleSize)) &&
+		(value.assignmentProvenance === undefined ||
+			value.assignmentProvenance === "manifest_v1" ||
+			value.assignmentProvenance === "legacy_unavailable") &&
+		// manifest_v1 provenance requires an actual assignment manifest.
+		(value.assignmentProvenance !== "manifest_v1" ||
+			value.assignmentManifest !== undefined) &&
+		// Pre-registration hypothesis: optional, but the nested shape and the
+		// locked-state checksum invariant are validated when present so that
+		// loadStoredAbTests never hydrates malformed or tampered metadata.
+		(value.hypothesis === undefined || isStoredHypothesis(value.hypothesis)) &&
+		// When BOTH a manifest and a hypothesis are present, the hypothesis
+		// must be locked. This enforces the pre-registration guarantee for new
+		// records without retroactively rejecting legacy v2 records that carry
+		// a manifest but predate hypothesis pre-registration.
+		(value.assignmentManifest === undefined ||
+			value.hypothesis === undefined ||
+			(isRecord(value.hypothesis) &&
+				value.hypothesis.lockedAt !== undefined &&
+				isStoredHypothesis(value.hypothesis))) &&
+		// Stratification quota matrix: optional, structurally validated when
+		// present so corrupt state (negative quotas, malformed cells) is
+		// rejected at the file boundary.
+		(value.stratification === undefined ||
+			isStoredStratification(value.stratification))
 	);
+}
+
+/**
+ * Validate a persisted stratification quota matrix. Requires non-negative
+ * quotas and ideals, and that every cell references a known stratum/group.
+ */
+function isStoredStratification(value: unknown): boolean {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const quotas = value.quotas;
+	const cells = value.cells;
+	const stratumSizes = value.stratumSizes;
+	if (!isRecord(quotas) || !Array.isArray(cells) || !isRecord(stratumSizes)) {
+		return false;
+	}
+	// Every quota row must map group keys to non-negative finite numbers, and
+	// every row must cover the same set of group keys.
+	const quotaRows = Object.values(quotas);
+	const referenceGroupKeys = quotaRows.length > 0
+		? new Set(Object.keys(quotaRows[0] ?? {}))
+		: new Set<string>();
+	for (const row of quotaRows) {
+		if (!isRecord(row)) return false;
+		const groupKeys = new Set(Object.keys(row));
+		if (groupKeys.size !== referenceGroupKeys.size) return false;
+		for (const gk of groupKeys) {
+			if (!referenceGroupKeys.has(gk)) return false;
+		}
+		for (const n of Object.values(row)) {
+			if (
+				typeof n !== "number" ||
+				!Number.isFinite(n) ||
+				n < 0 ||
+				!Number.isInteger(n)
+			) {
+				return false;
+			}
+		}
+	}
+	// stratumSizes must be non-negative integers.
+	for (const n of Object.values(stratumSizes)) {
+		if (
+			typeof n !== "number" ||
+			!Number.isFinite(n) ||
+			n < 0 ||
+			!Number.isInteger(n)
+		) {
+			return false;
+		}
+	}
+	// Each cell must have the required shape with non-negative values, and
+	// must reference a known stratum/group and agree with the quotas matrix.
+	const seenCells = new Set<string>();
+	for (const cell of cells) {
+		if (
+			!isRecord(cell) ||
+			typeof cell.stratumKey !== "string" ||
+			typeof cell.groupKey !== "string" ||
+			typeof cell.quota !== "number" ||
+			!Number.isFinite(cell.quota) ||
+			cell.quota < 0 ||
+			!Number.isInteger(cell.quota) ||
+			typeof cell.ideal !== "number" ||
+			!Number.isFinite(cell.ideal) ||
+			cell.ideal < 0
+		) {
+			return false;
+		}
+		// Reject cells referencing unknown strata/groups.
+		if (
+			!(cell.stratumKey in quotas) ||
+			!(cell.stratumKey in stratumSizes)
+		) {
+			return false;
+		}
+		const row = quotas[cell.stratumKey];
+		if (!isRecord(row) || !(cell.groupKey in row)) {
+			return false;
+		}
+		// Reject cells whose quota disagrees with the quotas matrix.
+		if (row[cell.groupKey] !== cell.quota) {
+			return false;
+		}
+		// Reject duplicate cells.
+		const cellKey = `${cell.stratumKey}:${cell.groupKey}`;
+		if (seenCells.has(cellKey)) return false;
+		seenCells.add(cellKey);
+	}
+	// Every quota row must sum to its stratum size.
+	for (const [sk, row] of Object.entries(quotas)) {
+		if (!isRecord(row)) return false;
+		const rowSum = Object.values(row).reduce<number>(
+			(sum, n) => sum + (typeof n === "number" ? n : 0),
+			0,
+		);
+		const expected = stratumSizes[sk];
+		if (typeof expected !== "number" || rowSum !== expected) {
+			return false;
+		}
+	}
+	// Every stratum in stratumSizes must have a corresponding quota row.
+	for (const sk of Object.keys(stratumSizes)) {
+		if (!(sk in quotas)) return false;
+	}
+	// Every quota matrix entry must have a matching cell (no truncated cells).
+	for (const [sk, row] of Object.entries(quotas)) {
+		if (!isRecord(row)) return false;
+		for (const gk of Object.keys(row)) {
+			if (!seenCells.has(`${sk}:${gk}`)) return false;
+		}
+	}
+	return true;
+}
+
+const HYPOTHESIS_METRIC_TYPES = new Set([
+	"click_rate",
+	"conversion_rate",
+	"revenue_per_recipient",
+]);
+const HYPOTHESIS_DIRECTIONS = new Set(["maximize", "minimize"]);
+const HYPOTHESIS_ABSOLUTE_UNITS = new Set([
+	"percentage_point",
+	"currency_per_recipient",
+]);
+
+/**
+ * Validate a persisted hypothesis record. Mirrors the runtime validation in
+ * hypothesis.ts but as a structural guard so loadStoredAbTests rejects
+ * malformed or tampered metadata before it reaches launch/report code.
+ * When lockedAt is present, checksum must also be present and match the
+ * recomputed canonical checksum.
+ */
+function isStoredHypothesis(value: unknown): boolean {
+	if (!isRecord(value)) {
+		return false;
+	}
+	if (typeof value.objective !== "string" || value.objective.trim() === "") {
+		return false;
+	}
+	if (typeof value.hypothesis !== "string" || value.hypothesis.trim() === "") {
+		return false;
+	}
+	if (!isStrictIsoTimestamp(value.createdAt)) {
+		return false;
+	}
+	// primaryMetric
+	const pm = value.primaryMetric;
+	if (
+		!isRecord(pm) ||
+		typeof pm.type !== "string" ||
+		!HYPOTHESIS_METRIC_TYPES.has(pm.type) ||
+		typeof pm.direction !== "string" ||
+		!HYPOTHESIS_DIRECTIONS.has(pm.direction)
+	) {
+		return false;
+	}
+	// expectedLift discriminated union
+	const lift = value.expectedLift;
+	if (!isRecord(lift)) {
+		return false;
+	}
+	if (lift.kind === "relative") {
+		if (
+			typeof lift.value !== "number" ||
+			!Number.isFinite(lift.value) ||
+			lift.value <= 0
+		) {
+			return false;
+		}
+	} else if (lift.kind === "absolute") {
+		if (
+			typeof lift.value !== "number" ||
+			!Number.isFinite(lift.value) ||
+			lift.value <= 0 ||
+			typeof lift.unit !== "string" ||
+			!HYPOTHESIS_ABSOLUTE_UNITS.has(lift.unit)
+		) {
+			return false;
+		}
+	} else {
+		return false;
+	}
+	// metric/unit coupling for absolute lifts
+	if (
+		lift.kind === "absolute" &&
+		typeof lift.unit === "string" &&
+		typeof pm.type === "string"
+	) {
+		if (pm.type === "revenue_per_recipient" && lift.unit !== "currency_per_recipient") {
+			return false;
+		}
+		if (
+			(pm.type === "click_rate" || pm.type === "conversion_rate") &&
+			lift.unit !== "percentage_point"
+		) {
+			return false;
+		}
+	}
+	// owner
+	const owner = value.owner;
+	if (
+		!isRecord(owner) ||
+		typeof owner.id !== "string" ||
+		owner.id.trim() === "" ||
+		(owner.displayName !== undefined && typeof owner.displayName !== "string")
+	) {
+		return false;
+	}
+	// experimentScope
+	const scope = value.experimentScope;
+	if (
+		!isRecord(scope) ||
+		scope.channel !== "email" ||
+		typeof scope.experimentFamilyKey !== "string" ||
+		// Mirror the runtime segment rules so load-time validation is at least
+		// as strict as creation-time validation.
+		!/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(scope.experimentFamilyKey) ||
+		typeof scope.attributionWindowHours !== "number" ||
+		!Number.isFinite(scope.attributionWindowHours) ||
+		scope.attributionWindowHours <= 0 ||
+		typeof scope.exclusionWindowHours !== "number" ||
+		!Number.isFinite(scope.exclusionWindowHours) ||
+		scope.exclusionWindowHours < 0
+	) {
+		return false;
+	}
+	// locked-state invariant: when lockedAt is present the checksum must be a
+	// 64-character hex string AND must cryptographically match the recomputed
+	// canonical checksum, so tampered records are rejected at load time.
+	if (value.lockedAt !== undefined) {
+		if (!isStrictIsoTimestamp(value.lockedAt)) {
+			return false;
+		}
+		if (
+			typeof value.checksum !== "string" ||
+			value.checksum.length !== 64 ||
+			// The record has been structurally validated above; verify the
+			// checksum cryptographically rejects tampered locked hypotheses.
+			!verifyHypothesisChecksum(
+				value as unknown as Parameters<typeof verifyHypothesisChecksum>[0],
+			)
+		) {
+			return false;
+		}
+	}
+	return true;
 }
 
 function isNonNegativeInteger(value: unknown): value is number {

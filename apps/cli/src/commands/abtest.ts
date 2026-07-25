@@ -26,6 +26,7 @@ import {
 	invokeRunAbTestOperation,
 	invokeStopAbTestOperation,
 	invokeTickAbTestsOperation,
+	validateHypothesisMetadata,
 	validateStoredAbTestStore,
 } from "@listmonk-ops/abtest";
 import { OutputUtils } from "@listmonk-ops/common";
@@ -166,6 +167,8 @@ export function buildCreateInputFromFlags(flags: {
 	"test-group-percentage"?: number;
 	"auto-deploy-winner": boolean;
 	"ignore-sample-size-warnings": boolean;
+	"enable-stratification"?: boolean;
+	hypothesis?: string;
 }): CreateAbTestInput {
 	const parsedVariants = parseJson<VariantInput[]>(flags.variants, "variants");
 	if (!Array.isArray(parsedVariants)) {
@@ -179,6 +182,27 @@ export function buildCreateInputFromFlags(flags: {
 		flags["test-group-percentage"] ?? (testingMode === "holdout" ? 10 : 100);
 	const baseSubject = flags.subject?.trim() ?? "";
 	const baseBody = flags.body?.trim() ?? "";
+
+	// The hypothesis is a JSON document matching the CreateAbTestInput
+	// hypothesis shape (objective, primary_metric, expected_lift, owner,
+	// experiment_scope). Parsed here so CLI/MCP share the same contract.
+	// Reject non-object JSON (e.g. "null") so the shared schema validates it
+	// the same way MCP does, rather than silently dropping it.
+	let hypothesis: CreateAbTestInput["hypothesis"] | undefined;
+	if (flags.hypothesis !== undefined) {
+		const parsed = parseJson<CreateAbTestInput["hypothesis"]>(
+			flags.hypothesis,
+			"hypothesis",
+		);
+		if (parsed === null || typeof parsed !== "object" || Array.isArray(
+			parsed,
+		)) {
+			throw new Error(
+				"hypothesis must be a JSON object matching the pre-registration shape",
+			);
+		}
+		hypothesis = parsed;
+	}
 
 	return {
 		name: flags.name,
@@ -196,6 +220,8 @@ export function buildCreateInputFromFlags(flags: {
 		test_group_percentage: testGroupPercentage,
 		auto_deploy_winner: flags["auto-deploy-winner"],
 		ignore_sample_size_warnings: flags["ignore-sample-size-warnings"],
+		enable_stratification: flags["enable-stratification"] ?? undefined,
+		hypothesis,
 	};
 }
 
@@ -476,6 +502,29 @@ async function promptInteractiveInput(
 		throw new Error("Prompt cancelled by user");
 	}
 
+	const stratifyResult = await clack.confirm({
+		message:
+			"Enable recipient-domain stratification during holdout provisioning?",
+		initialValue: false,
+	});
+	if (clack.isCancel(stratifyResult)) {
+		clack.cancel("Cancelled");
+		throw new Error("Prompt cancelled by user");
+	}
+
+	// Optional pre-registration hypothesis as a JSON document. Empty input
+	// skips it; the shared service locks whatever is provided.
+	const hypothesisResult = await clack.text({
+		message:
+			"Pre-registration hypothesis JSON (leave empty to skip)?",
+		placeholder: '{"objective": "...", "primary_metric": {...}, ...}',
+		defaultValue: "",
+	});
+	if (clack.isCancel(hypothesisResult)) {
+		clack.cancel("Cancelled");
+		throw new Error("Prompt cancelled by user");
+	}
+
 	const input = buildCreateInputFromFlags({
 		name: nameResult,
 		"campaign-id": Number(campaignIdResult),
@@ -487,7 +536,48 @@ async function promptInteractiveInput(
 		"test-group-percentage": Number(testGroupResult),
 		"auto-deploy-winner": autoDeployResult,
 		"ignore-sample-size-warnings": ignoreWarningsResult,
+		"enable-stratification": stratifyResult,
+		hypothesis:
+			hypothesisResult.trim().length > 0 ? hypothesisResult.trim() : undefined,
 	});
+
+	// Validate the hypothesis shape before showing the summary so malformed
+	// input fails early with a clear error rather than after confirmation.
+	if (input.hypothesis) {
+		validateHypothesisMetadata(
+			{
+				objective: input.hypothesis.objective,
+				hypothesis: input.hypothesis.hypothesis,
+				primaryMetric: {
+					type: input.hypothesis.primary_metric.type,
+					direction: input.hypothesis.primary_metric.direction,
+				},
+				expectedLift:
+					input.hypothesis.expected_lift.kind === "relative"
+						? {
+								kind: "relative",
+								value: input.hypothesis.expected_lift.value,
+							}
+						: {
+								kind: "absolute",
+								value: input.hypothesis.expected_lift.value,
+								unit: input.hypothesis.expected_lift.unit,
+							},
+				owner: { id: input.hypothesis.owner.id },
+				experimentScope: {
+					channel: input.hypothesis.experiment_scope.channel,
+					experimentFamilyKey:
+						input.hypothesis.experiment_scope.experiment_family_key,
+					attributionWindowHours:
+						input.hypothesis.experiment_scope.attribution_window_hours,
+					exclusionWindowHours:
+						input.hypothesis.experiment_scope.exclusion_window_hours,
+				},
+				createdAt: new Date().toISOString(),
+			},
+			true,
+		);
+	}
 
 	clack.note(
 		JSON.stringify(
@@ -502,6 +592,16 @@ async function promptInteractiveInput(
 				testingMode: input.testing_mode,
 				testGroupPercentage: input.test_group_percentage,
 				autoDeployWinner: input.auto_deploy_winner,
+				enableStratification: input.enable_stratification ?? false,
+				hypothesis: input.hypothesis
+					? {
+							objective: input.hypothesis.objective,
+							primaryMetric: input.hypothesis.primary_metric.type,
+							direction: input.hypothesis.primary_metric.direction,
+							familyKey:
+								input.hypothesis.experiment_scope.experiment_family_key,
+						}
+					: undefined,
 			},
 			null,
 			2,
@@ -638,6 +738,14 @@ export default defineGroup({
 						description: "Ignore sample-size warnings",
 					},
 				),
+				"enable-stratification": option(z.coerce.boolean().default(false), {
+					description:
+						"Enable recipient-domain stratification during holdout provisioning",
+				}),
+				hypothesis: option(z.string().optional(), {
+					description:
+						"Pre-registration hypothesis as JSON (objective, primary_metric, expected_lift, owner, experiment_scope)",
+				}),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {

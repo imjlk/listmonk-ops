@@ -16,6 +16,13 @@ import {
 	rankMembers,
 	type AssignmentManifest,
 } from "./assignment";
+import {
+	computeStratifiedQuotas,
+	createStratumClassifier,
+	DEFAULT_STRATIFICATION_POLICY,
+	type StratificationPolicyV1,
+	type StratificationResult,
+} from "./stratification";
 
 export interface ProvisionedAbTestResources {
 	testId: string;
@@ -159,6 +166,7 @@ export class ListmonkAbTestIntegration {
 		options: {
 			testId?: string;
 			assignmentSeed?: string;
+			stratificationPolicy?: StratificationPolicyV1;
 		} = {},
 	): Promise<{
 		testListMappings: { variantId: string; listId: number }[];
@@ -169,6 +177,9 @@ export class ListmonkAbTestIntegration {
 		assignmentTestId: string;
 		audienceSnapshot: AudienceSnapshot;
 		assignmentManifest: AssignmentManifest;
+		/** Stratified quota matrix computed from the resolved audience. Present
+		 * when a stratification policy is supplied and emails are available. */
+		stratification?: StratificationResult;
 	}> {
 		const createdListIds: number[] = [];
 		let holdoutListId: number | undefined;
@@ -304,6 +315,87 @@ export class ListmonkAbTestIntegration {
 				});
 			}
 
+			// Optionally compute the recipient-domain stratified quota matrix
+			// from the resolved audience so each provider stratum gets a
+			// proportional share of every variant/holdout group. This is a
+			// reporting/validation enrichment; the assignment itself remains
+			// the deterministic largest-remainder manifest above. A failure
+			// here must not tear down provisioning, so it is isolated in its
+			// own try/catch and degrades to an undefined stratification.
+			const stratificationPolicy =
+				options.stratificationPolicy ?? DEFAULT_STRATIFICATION_POLICY;
+			let stratification: StratificationResult | undefined;
+			if (stratificationPolicy.enabled) {
+				// Require every member to carry an email so the quota matrix
+				// reflects the full audience. Partial coverage would silently
+				// bucket email-less subscribers into "unknown" and skew the
+				// proportions.
+				const allMembersHaveEmail =
+						resolvedMembers.length > 0 &&
+						resolvedMembers.every(
+							(member) =>
+								typeof member.email === "string" &&
+								member.email.trim().length > 0,
+						);
+				if (allMembersHaveEmail) {
+					try {
+						// Build the provider-domain lookup once and classify each
+						// member in a single pass, tallying stratum sizes.
+						const classifier = createStratumClassifier(stratificationPolicy);
+						const stratumSizes: Record<string, number> = {};
+						for (const member of resolvedMembers) {
+							const stratum = classifier(member.email ?? "");
+							stratumSizes[stratum] = (stratumSizes[stratum] ?? 0) + 1;
+						}
+						// Apply the configured small-stratum fallback: any stratum
+						// (including unknown) below minimumStratumSize is merged into
+						// "other" so the quota matrix matches the documented policy.
+						if (
+							stratificationPolicy.minimumStratumSize > 0 &&
+							stratificationPolicy.smallStratumFallback ===
+								"merge_into_other"
+						) {
+							const otherKey = stratificationPolicy.otherStratumKey;
+							for (const [stratum, size] of Object.entries(stratumSizes)) {
+								if (stratum !== otherKey && size < stratificationPolicy.minimumStratumSize) {
+									stratumSizes[otherKey] =
+										(stratumSizes[otherKey] ?? 0) + size;
+									delete stratumSizes[stratum];
+								}
+							}
+						}
+						// Build exact group counts from the manifest groups.
+						const groupExactCounts: Record<string, number> = {};
+						const groupOrder: string[] = [];
+						for (const group of assignmentManifest.groups) {
+							const key =
+								group.kind === "variant"
+									? `variant:${group.variantId ?? ""}`
+									: "holdout";
+							groupOrder.push(key);
+							groupExactCounts[key] = group.expectedCount;
+						}
+						stratification = computeStratifiedQuotas({
+							stratumSizes,
+							groupExactCounts,
+							groupOrder,
+							// Use resolvedMembers.length, not the snapshot count,
+							// so the divisor matches the stratum tally exactly.
+							totalAudience: resolvedMembers.length,
+						});
+					} catch (stratificationError) {
+						// Log the invariant violation instead of silently swallowing
+						// it, then fall back to an undefined stratification so
+						// provisioning proceeds with the manifest assignment.
+						console.warn(
+							`Stratification computation failed: ${(stratificationError as Error).message}`,
+						);
+						// provisioning proceeds with the manifest assignment.
+						stratification = undefined;
+					}
+				}
+			}
+
 			return {
 				testListMappings,
 				holdoutListId,
@@ -313,6 +405,7 @@ export class ListmonkAbTestIntegration {
 				assignmentTestId: testId,
 				audienceSnapshot: resolvedSnapshot,
 				assignmentManifest,
+				stratification,
 			};
 		} catch (error) {
 			await this.deleteListsBestEffort([...createdListIds].reverse());

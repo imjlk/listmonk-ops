@@ -8,6 +8,7 @@ import type {
 	CreateAbTestInput,
 	TestAnalysis,
 } from "./types";
+import { DEFAULT_STRATIFICATION_POLICY } from "./stratification";
 
 // Simple A/B Test command wrappers (no longer extending BaseCommand)
 export class CreateAbTestCommand {
@@ -48,6 +49,50 @@ export class CreateAbTestCommand {
 			ignoreStatisticalWarnings: input.ignore_sample_size_warnings || false,
 			durationHours: input.duration_hours,
 			launchAt: input.launch_at,
+			hypothesis: input.hypothesis
+				? {
+						objective: input.hypothesis.objective,
+						hypothesis: input.hypothesis.hypothesis,
+						primaryMetric: {
+							type: input.hypothesis.primary_metric.type,
+							direction: input.hypothesis.primary_metric.direction,
+						},
+						expectedLift:
+							input.hypothesis.expected_lift.kind === "relative"
+								? {
+										kind: "relative",
+										value: input.hypothesis.expected_lift.value,
+									}
+								: input.hypothesis.expected_lift.kind === "absolute"
+									? {
+											kind: "absolute",
+											value: input.hypothesis.expected_lift.value,
+											unit: input.hypothesis.expected_lift.unit,
+										}
+									: (() => {
+											throw new ValidationError(
+												`expected_lift.kind must be "relative" or "absolute", received ${JSON.stringify((input.hypothesis?.expected_lift as { kind?: unknown } | undefined)?.kind)}`,
+											);
+										})(),
+						owner: {
+							id: input.hypothesis.owner.id,
+							displayName: input.hypothesis.owner.display_name,
+						},
+						experimentScope: {
+							channel: input.hypothesis.experiment_scope.channel,
+							experimentFamilyKey:
+								input.hypothesis.experiment_scope.experiment_family_key,
+							attributionWindowHours:
+								input.hypothesis.experiment_scope.attribution_window_hours,
+							exclusionWindowHours:
+								input.hypothesis.experiment_scope.exclusion_window_hours,
+						},
+						createdAt: new Date().toISOString(),
+					}
+				: undefined,
+			stratificationPolicy: input.enable_stratification
+				? { ...DEFAULT_STRATIFICATION_POLICY, enabled: true }
+				: undefined,
 		};
 
 		return await this.abTestService.createTest(config);

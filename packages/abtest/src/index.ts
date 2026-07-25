@@ -40,6 +40,27 @@ export {
 	type VariantConversionAggregate,
 } from "./conversion-events";
 export {
+	computeHypothesisChecksum,
+	HypothesisValidationError,
+	lockHypothesis,
+	validateHypothesisMetadata,
+	verifyHypothesisChecksum,
+	type ExpectedLift,
+	type ExperimentOwner,
+	type ExperimentScope,
+	type HypothesisMetadata,
+} from "./hypothesis";
+export {
+	classifyStratum,
+	computeStratifiedQuotas,
+	createStratumClassifier,
+	DEFAULT_STRATIFICATION_POLICY,
+	normalizeDomain,
+	type StratificationPolicyV1,
+	type StratificationResult,
+	type StratumQuotaCell,
+} from "./stratification";
+export {
 	buildExperimentReport,
 	reportToMarkdown,
 	reportToJSON,

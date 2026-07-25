@@ -661,3 +661,155 @@ assignment and chunked bulk list membership:
 ## License
 
 MIT License - see LICENSE file for details.
+
+## Hypothesis pre-registration (advanced experimentation)
+
+An A/B test can carry a **pre-registered hypothesis** that is locked
+(checksummed) before recipient assignment. After locking, the hypothesis
+cannot change without discarding the assignment manifest and provisioning.
+This prevents post-hoc hypothesis adjustment (p-hacking) and gives reports a
+stable reference.
+
+### Locking and verification
+
+```typescript
+import {
+  lockHypothesis,
+  verifyHypothesisChecksum,
+  validateHypothesisMetadata,
+} from "@listmonk-ops/abtest";
+
+const metadata = {
+  objective: "Increase click-through rate on the welcome email",
+  hypothesis: "A shorter subject line will increase CTR by 10%",
+  primaryMetric: { type: "click_rate", direction: "maximize" },
+  expectedLift: { kind: "relative", value: 0.1 },
+  owner: { id: "user-1", displayName: "Test User" },
+  experimentScope: {
+    channel: "email",
+    experimentFamilyKey: "onboarding.welcome.subject",
+    attributionWindowHours: 72,
+    exclusionWindowHours: 168,
+  },
+  createdAt: new Date().toISOString(),
+};
+
+validateHypothesisMetadata(metadata, true); // strict launch check
+const locked = lockHypothesis(metadata);
+verifyHypothesisChecksum(locked); // true
+```
+
+The checksum recursively canonicalizes nested fields
+(`primaryMetric`, `expectedLift`, `owner`, `experimentScope`, `createdAt`),
+so any change after locking invalidates it.
+
+### Wiring through creation
+
+Pass a `hypothesis` field to `createAbTest`. The service locks it before
+provisioning, so the assignment manifest is always bound to a frozen
+hypothesis:
+
+```typescript
+const test = await abTestExecutors.createAbTest({
+  name: "Subject Line Test",
+  variants: [/* ... */],
+  lists: [1, 2],
+  hypothesis: {
+    objective: "Increase CTR",
+    hypothesis: "Shorter subject lifts CTR",
+    primary_metric: { type: "click_rate", direction: "maximize" },
+    expected_lift: { kind: "relative", value: 0.1 },
+    owner: { id: "user-1" },
+    experiment_scope: {
+      channel: "email",
+      experiment_family_key: "onboarding.welcome",
+      attribution_window_hours: 72,
+      exclusion_window_hours: 168,
+    },
+  },
+});
+```
+
+### Validation rules
+
+- `createdAt` and `lockedAt` must be strict ISO 8601 timestamps (the year-zero
+  string `"0"`, localized formats like `"01/02/03"`, and overflowed dates like
+  `"2026-02-30"` are rejected).
+- `primaryMetric.type` ∈ `click_rate | conversion_rate | revenue_per_recipient`.
+- `primaryMetric.direction` ∈ `maximize | minimize`.
+- `expectedLift.kind` ∈ `relative | absolute`. Absolute lifts require a `unit`
+  ∈ `percentage_point | currency_per_recipient`.
+- Metric/unit coupling: `revenue_per_recipient` requires
+  `currency_per_recipient` absolute lift; `click_rate`/`conversion_rate`
+  require `percentage_point`. Relative lift is unit-agnostic.
+- `experimentScope.experimentFamilyKey` must be lowercase alphanumeric segments
+  joined by single `.` / `_` / `-` separators (e.g.
+  `onboarding.activation.day1`, `cart-recovery_24h`); `.`, `foo.`, and
+  `foo..bar` are rejected.
+
+### 가설 사전 등록 (Korean)
+
+A/B 테스트에 **사전 등록된 가설**을 설정하면 수신자 할당 전에 잠금(체크섬)
+처리됩니다. 잠금 후에는 할당 매니페스트와 프로비저닝을 폐기하지 않는 한
+가설을 변경할 수 없습니다. 이는 사후 가설 조정(p-hacking)을 방지하고
+보고서에 안정적인 기준점을 제공합니다.
+
+- `createAbTest`에 `hypothesis` 필드를 전달하면 서비스가 프로비저닝 전에
+  잠금 처리합니다.
+- 체크섬은 중첩 필드(`primaryMetric`, `expectedLift`, `owner`,
+  `experimentScope`, `createdAt`)를 재귀적으로 정규화하므로 잠금 후 어떤
+  변경도 무효화됩니다.
+- `createdAt`/`lockedAt`은 엄격한 ISO 8601이어야 합니다.
+- `experimentFamilyKey`는 `.` / `_` / `-` 로 구분된 소문자 영숫자 세그먼트여야 합니다.
+
+## Recipient-domain stratification (advanced experimentation)
+
+Stratification classifies subscribers by email-domain provider and computes a
+**constrained quota matrix** so each provider stratum gets a proportional share
+of every variant/holdout group. The quota matrix is computed and stored for
+reporting and validation. Note: applying these quotas to the actual recipient
+assignment slices is a planned follow-up; today the assignment itself remains
+the deterministic largest-remainder manifest, and the quota matrix documents
+the target proportional allocation.
+
+```typescript
+import {
+  classifyStratum,
+  computeStratifiedQuotas,
+  DEFAULT_STRATIFICATION_POLICY,
+} from "@listmonk-ops/abtest";
+
+const policy = { ...DEFAULT_STRATIFICATION_POLICY, enabled: true };
+const stratum = classifyStratum("user@gmail.com", policy); // "gmail"
+
+const result = computeStratifiedQuotas({
+  stratumSizes: { gmail: 600, naver: 300, other: 100 },
+  groupExactCounts: { "variant:A": 500, "variant:B": 500 },
+  groupOrder: ["variant:A", "variant:B"],
+  totalAudience: 1000,
+});
+```
+
+The solver uses the largest-remainder method per stratum row, then a paired-swap
+column correction that preserves row sums while matching exact group column
+counts. Configured domains in the provider map are normalized with the same
+rules applied to subscriber emails, so mixed-case entries like `"GMAIL.COM"`
+match correctly.
+
+During holdout provisioning, when a stratification policy is enabled and the
+resolved audience carries emails, the quota matrix is computed and stored on
+the `AbTest.stratification` field for reporting and validation.
+
+### 수신자 도메인 층화 (Korean)
+
+층화는 구독자를 이메일 도메인 제공자별로 분류하고, 각 제공자 층(stratum)이
+모든 변형/홀드아웃 그룹의 비례 배분을 받도록 **제약된 할당량 행렬**을
+계산합니다. 할당량 행렬은 보고/검증을 위해 계산되어 저장됩니다. 참고:
+이 할당량을 실제 수신자 할당 슬라이스에 적용하는 것은 후속 작업이며,
+현재 할당 자체는 결정론적 largest-remainder 매니페스트를 그대로 사용하고
+할당량 행렬은 목표 비례 배분을 문서화합니다.
+
+- `classifyStratum`으로 구독자를 분류하고, `computeStratifiedQuotas`로
+  할당량 행렬을 계산합니다.
+- 홀드아웃 프로비저닝 시 층화 정책이 활성화되어 있으면 할당량 행렬이
+  `AbTest.stratification`에 저장되어 보고/검증에 사용됩니다.
