@@ -309,9 +309,9 @@ export function createSeedSendRun(params: {
 	) {
 		return existingRun;
 	}
-	if (campaignIds.length < variantIds.length) {
+	if (campaignIds.length !== variantIds.length) {
 		throw new PreviewValidationError(
-			`campaignIds length (${campaignIds.length}) does not match variantIds length (${variantIds.length})`,
+			`campaignIds length (${campaignIds.length}) must equal variantIds length (${variantIds.length})`,
 		);
 	}
 	return {
