@@ -493,6 +493,11 @@ winner를 선택합니다. 보고서에는 가설 목표, 기대 효과, 사전 
 (`verified`/`not_available`/`checksum_mismatch`)가 포함됩니다. checksum이
 일치하지 않는 가설은 분석 전에 거부됩니다.
 
+revenue 데이터가 있으면 보고서에 `Revenue`와 `Rev/Recipient` 컬럼이
+포함되며, 통화 접미사(예: `Revenue (USD)`)가 표시될 수 있습니다.
+`revenue_per_recipient` 주요 지표는 metrics 수집 전에도 항상 이 컬럼들을
+표시합니다.
+
 ### 프리뷰 및 seed 발송 게이트
 
 프리뷰 게이트는 launch 전에 콘텐츠 프리뷰 검사와 선택적 seed 발송을

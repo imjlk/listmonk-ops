@@ -206,7 +206,9 @@ export class AbTestService {
 										"Pre-locked hypothesis checksum verification failed; the metadata may have been tampered with",
 									);
 								}
-								return config.hypothesis!;
+								// Deep-clone so the stored test's hypothesis is
+								// detached from the caller's config object.
+								return structuredClone(config.hypothesis!);
 							})()
 						: lockHypothesis(config.hypothesis)
 					: undefined,

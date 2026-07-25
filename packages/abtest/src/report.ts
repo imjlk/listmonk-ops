@@ -46,7 +46,11 @@ export interface ExperimentReport {
 		clickRate: number;
 		conversionRate: number;
 		openRate: number;
+		revenue?: number;
+		revenuePerRecipient?: number;
 	}>;
+	/** ISO 4217 currency code when revenue is reported (e.g. "USD", "KRW"). */
+	revenueCurrency?: string;
 	srmPassed?: boolean;
 	srmPValue?: number;
 	fixedHorizonReasonCodes?: string[];
@@ -116,6 +120,11 @@ export function buildExperimentReport(
 			clickRate: r.clickRate,
 			conversionRate: r.conversionRate,
 			openRate: r.openRate,
+			revenue: r.revenue,
+			revenuePerRecipient:
+				r.revenue !== undefined && r.sampleSize > 0
+					? r.revenue / r.sampleSize
+					: undefined,
 		};
 	});
 
@@ -157,6 +166,7 @@ export function buildExperimentReport(
 				}
 			: undefined,
 		preRegistration,
+		revenueCurrency: undefined,
 	};
 }
 
@@ -258,12 +268,40 @@ export function reportToMarkdown(report: ExperimentReport): string {
 
 	lines.push("## Variant Results");
 	lines.push("");
-	lines.push("| Variant | Sample | Open Rate | Click Rate | Conversion Rate |");
-	lines.push("|---------|--------|-----------|------------|-----------------|");
+	const hasRevenue =
+		report.variants.some(
+			(v) => v.revenue !== undefined || v.revenuePerRecipient !== undefined,
+		) || report.primaryMetric === "revenue_per_recipient";
+	const headers = [
+		"Variant",
+		"Sample",
+		"Open Rate",
+		"Click Rate",
+		"Conversion Rate",
+	];
+	if (hasRevenue) {
+		const currencySuffix = report.revenueCurrency
+			? ` (${report.revenueCurrency})`
+			: "";
+		headers.push(`Revenue${currencySuffix}`, `Rev/Recipient${currencySuffix}`);
+	}
+	lines.push(`| ${headers.join(" | ")} |`);
+	lines.push(`|${headers.map(() => "---------").join("|")}|`);
 	for (const v of report.variants) {
-		lines.push(
-			`| ${v.variantName} | ${v.sampleSize} | ${v.openRate.toFixed(2)}% | ${v.clickRate.toFixed(2)}% | ${v.conversionRate.toFixed(2)}% |`,
-		);
+		const cells = [
+			v.variantName,
+			String(v.sampleSize),
+			`${v.openRate.toFixed(2)}%`,
+			`${v.clickRate.toFixed(2)}%`,
+			`${v.conversionRate.toFixed(2)}%`,
+		];
+		if (hasRevenue) {
+			cells.push(
+				v.revenue?.toFixed(2) ?? "N/A",
+				v.revenuePerRecipient?.toFixed(4) ?? "N/A",
+			);
+		}
+		lines.push(`| ${cells.join(" | ")} |`);
 	}
 	lines.push("");
 

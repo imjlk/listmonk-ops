@@ -219,7 +219,12 @@ export function computeStratifiedQuotas(params: {
 			[];
 
 		for (const [index, groupKey] of groupOrder.entries()) {
-			const exactCount = groupExactCounts[groupKey] ?? 0;
+			const exactCount = groupExactCounts[groupKey];
+			if (exactCount === undefined) {
+				throw new Error(
+					`Stratified quota invariant: group "${groupKey}" is in groupOrder but missing from groupExactCounts`,
+				);
+			}
 			const ideal = (stratumSize * exactCount) / totalAudience;
 			ideals.push({ groupKey, ideal, index });
 			rowQuotas[groupKey] = Math.floor(ideal);

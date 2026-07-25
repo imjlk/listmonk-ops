@@ -501,6 +501,11 @@ heuristic. Reports include the hypothesis objective, expected lift, and a
 pre-registration status (`verified`/`not_available`/`checksum_mismatch`).
 Tests with a checksum-mismatched hypothesis are rejected before analysis.
 
+When revenue data is present, the report includes `Revenue` and
+`Rev/Recipient` columns with an optional currency suffix (e.g.
+`Revenue (USD)`). A `revenue_per_recipient` primary metric always shows
+these columns even before metrics are collected.
+
 ### Preview and seed send gate
 
 The preview gate requires content preview checks and optional seed sends
