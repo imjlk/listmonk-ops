@@ -732,7 +732,14 @@ active-window 겹침 감지와 atomic check-and-reserve participation store를
 
 - subject key는 HMAC-SHA-256으로 파생되며, 원본 email이나 UUID는 participation
   상태나 충돌 에러에 저장되지 않습니다.
-- 정책은 block(기본), exclude, warn 세 가지입니다.
+- `maximumConcurrentExperiments`는 같은 subject에서 같은 family 내에 허용되는
+  동시 실험 수를 제어합니다. 기본값은 1(겹침 불가)이며, 1보다 크면 임계값
+  미만의 subject는 여러 실험에 참여할 수 있습니다:
+  - **block**(기본): 한 명이라도 임계값을 초과하면 launch를 차단합니다.
+  - **exclude**: 임계값을 초과한 subject만 audience에서 제외합니다. 임계값
+    미만의 subject는 예약됩니다. 샘플 사이즈와 매니페스트를 재계산해야 합니다.
+  - **warn**: 모든 subject를 예약하고 초과 분을 경고로 보고합니다. 로컬/개발
+    또는 승인된 예외에만 사용합니다.
 - 모든 timestamp는 명시적 timezone(`Z` 또는 `±HH:MM`)을 포함해야 합니다.
 
 ## License

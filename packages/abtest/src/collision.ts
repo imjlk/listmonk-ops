@@ -377,6 +377,14 @@ export class InMemoryExperimentParticipationStore
 		const reservedAt = input.reservedAt;
 		const testId = input.testId;
 		const experimentFamilyKey = input.experimentFamilyKey;
+		if (
+			typeof experimentFamilyKey !== "string" ||
+			!/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(experimentFamilyKey)
+		) {
+			throw new CollisionConfigurationError(
+				`experimentFamilyKey must be lowercase alphanumeric segments joined by [._-], received ${JSON.stringify(experimentFamilyKey)}`,
+			);
+		}
 		const channel = input.channel;
 		const subjectKeys = [...input.subjectKeys];
 		const policy = { ...input.policy };
