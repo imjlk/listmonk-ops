@@ -300,7 +300,9 @@ function isStoredStratification(value: unknown): boolean {
 			return false;
 		}
 	}
-	// Each cell must have the required shape with non-negative values.
+	// Each cell must have the required shape with non-negative values, and
+	// must reference a known stratum/group and agree with the quotas matrix.
+	const seenCells = new Set<string>();
 	for (const cell of cells) {
 		if (
 			!isRecord(cell) ||
@@ -314,6 +316,37 @@ function isStoredStratification(value: unknown): boolean {
 			!Number.isFinite(cell.ideal) ||
 			cell.ideal < 0
 		) {
+			return false;
+		}
+		// Reject cells referencing unknown strata/groups.
+		if (
+			!(cell.stratumKey in quotas) ||
+			!(cell.stratumKey in stratumSizes)
+		) {
+			return false;
+		}
+		const row = quotas[cell.stratumKey];
+		if (!isRecord(row) || !(cell.groupKey in row)) {
+			return false;
+		}
+		// Reject cells whose quota disagrees with the quotas matrix.
+		if (row[cell.groupKey] !== cell.quota) {
+			return false;
+		}
+		// Reject duplicate cells.
+		const cellKey = `${cell.stratumKey}:${cell.groupKey}`;
+		if (seenCells.has(cellKey)) return false;
+		seenCells.add(cellKey);
+	}
+	// Every quota row must sum to its stratum size.
+	for (const [sk, row] of Object.entries(quotas)) {
+		if (!isRecord(row)) return false;
+		const rowSum = Object.values(row).reduce<number>(
+			(sum, n) => sum + (typeof n === "number" ? n : 0),
+			0,
+		);
+		const expected = stratumSizes[sk];
+		if (typeof expected !== "number" || rowSum !== expected) {
 			return false;
 		}
 	}

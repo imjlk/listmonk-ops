@@ -63,11 +63,17 @@ export class CreateAbTestCommand {
 										kind: "relative",
 										value: input.hypothesis.expected_lift.value,
 									}
-								: {
-										kind: "absolute",
-										value: input.hypothesis.expected_lift.value,
-										unit: input.hypothesis.expected_lift.unit,
-									},
+								: input.hypothesis.expected_lift.kind === "absolute"
+									? {
+											kind: "absolute",
+											value: input.hypothesis.expected_lift.value,
+											unit: input.hypothesis.expected_lift.unit,
+										}
+									: (() => {
+											throw new ValidationError(
+												`expected_lift.kind must be "relative" or "absolute", received ${JSON.stringify((input.hypothesis?.expected_lift as { kind?: unknown } | undefined)?.kind)}`,
+											);
+										})(),
 						owner: {
 							id: input.hypothesis.owner.id,
 							displayName: input.hypothesis.owner.display_name,

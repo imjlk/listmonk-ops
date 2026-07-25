@@ -343,6 +343,27 @@ export class ListmonkAbTestIntegration {
 							const stratum = classifier(member.email ?? "");
 							stratumSizes[stratum] = (stratumSizes[stratum] ?? 0) + 1;
 						}
+						// Apply the configured small-stratum fallback: providers
+						// below minimumStratumSize are merged into "other" so the
+						// quota matrix matches the documented policy behavior.
+						if (
+							stratificationPolicy.minimumStratumSize > 0 &&
+							stratificationPolicy.smallStratumFallback ===
+								"merge_into_other"
+						) {
+							const otherKey = stratificationPolicy.otherStratumKey;
+							for (const [stratum, size] of Object.entries(stratumSizes)) {
+								if (
+									stratum !== otherKey &&
+									stratum !== stratificationPolicy.unknownStratumKey &&
+									size < stratificationPolicy.minimumStratumSize
+								) {
+									stratumSizes[otherKey] =
+										(stratumSizes[otherKey] ?? 0) + size;
+									delete stratumSizes[stratum];
+								}
+							}
+						}
 						// Build exact group counts from the manifest groups.
 						const groupExactCounts: Record<string, number> = {};
 						const groupOrder: string[] = [];

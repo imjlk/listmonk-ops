@@ -295,62 +295,72 @@ export function computeStratifiedQuotas(params: {
 	const maxIterations =
 		stratumKeys.length * groupOrder.length * groupOrder.length + 16;
 	for (let iter = 0; iter < maxIterations; iter += 1) {
-		const deficitGroup = groupOrder.find((g) => (columnDeficit[g] ?? 0) > 0);
-		const surplusGroup = groupOrder.find((g) => (columnDeficit[g] ?? 0) < 0);
-		if (!deficitGroup || !surplusGroup) break;
+		const deficitGroups = groupOrder.filter((g) => (columnDeficit[g] ?? 0) > 0);
+		const surplusGroups = groupOrder.filter((g) => (columnDeficit[g] ?? 0) < 0);
+		if (deficitGroups.length === 0 || surplusGroups.length === 0) break;
 
-		// Choose the row where the deficit cell is most below ideal and the
-		// surplus cell can donate. We prefer swaps that keep cells within their
-		// floor-or-ceiling allocation: the donor stays at/above its floor and
-		// the receiver stays at/below its ceiling. When no such bounded swap is
-		// possible (column totals may require a cell outside the naive floor/
-		// ceiling band), fall back to the row that minimizes how far outside
-		// the band the resulting cells would land.
-		let bestStratum: string | null = null;
-		let bestScore = -Infinity;
-		let bestBounded = false;
-		for (const sk of stratumKeys) {
-			const row = quotas[sk];
-			if (!row) continue;
-			const surplusQuota = row[surplusGroup] ?? 0;
-			const deficitQuota = row[deficitGroup] ?? 0;
-			const surplusIdeal = idealLookup.get(`${sk}:${surplusGroup}`) ?? 0;
-			const deficitIdeal = idealLookup.get(`${sk}:${deficitGroup}`) ?? 0;
-			const surplusBounded = surplusQuota > Math.floor(surplusIdeal);
-			const deficitBounded = deficitQuota < Math.ceil(deficitIdeal);
-			const bounded = surplusBounded && deficitBounded;
-			// Always require a positive donor and a receiver below ceiling so
-			// the swap is physically valid (no negative quota, no receiver
-			// already at ceiling that the swap would exceed).
-			if (surplusQuota <= 0) continue;
-			if (deficitQuota >= Math.ceil(deficitIdeal)) continue;
-			const deficitDev = deficitQuota - deficitIdeal;
-			const surplusDev = surplusQuota - surplusIdeal;
-			const score = surplusDev - deficitDev;
-			// Prefer bounded swaps; among the same boundedness, prefer the
-			// best score.
-			if (bestStratum === null) {
-				bestStratum = sk;
-				bestScore = score;
-				bestBounded = bounded;
-			} else if (bounded && !bestBounded) {
-				// A bounded swap beats an unbounded incumbent.
-				bestStratum = sk;
-				bestScore = score;
-				bestBounded = bounded;
-			} else if (bounded === bestBounded && score > bestScore) {
-				bestStratum = sk;
-				bestScore = score;
+		// Evaluate all feasible (deficit, surplus, stratum) triples and pick
+		// the best swap rather than greedily fixing on the first deficit and
+		// first surplus group, which could consume the only viable swap for a
+		// later pair.
+		let bestSwap: {
+			deficitGroup: string;
+			surplusGroup: string;
+			stratum: string;
+			bounded: boolean;
+			score: number;
+		} | null = null;
+		for (const deficitGroup of deficitGroups) {
+			for (const surplusGroup of surplusGroups) {
+				// Choose the best row for this (deficit, surplus) pair. Prefer
+				// swaps that keep cells within their floor-or-ceiling allocation.
+				for (const sk of stratumKeys) {
+					const row = quotas[sk];
+					if (!row) continue;
+					const surplusQuota = row[surplusGroup] ?? 0;
+					const deficitQuota = row[deficitGroup] ?? 0;
+					const surplusIdeal =
+						idealLookup.get(`${sk}:${surplusGroup}`) ?? 0;
+					const deficitIdeal =
+						idealLookup.get(`${sk}:${deficitGroup}`) ?? 0;
+					// Require a positive donor and a receiver below ceiling.
+					if (surplusQuota <= 0) continue;
+					if (deficitQuota >= Math.ceil(deficitIdeal)) continue;
+					const surplusBounded = surplusQuota > Math.floor(surplusIdeal);
+					const deficitBounded = deficitQuota < Math.ceil(deficitIdeal);
+					const bounded = surplusBounded && deficitBounded;
+					const deficitDev = deficitQuota - deficitIdeal;
+					const surplusDev = surplusQuota - surplusIdeal;
+					const score = surplusDev - deficitDev;
+					// Pick the globally best swap across all pairs.
+					if (
+						bestSwap === null ||
+						(bounded && !bestSwap.bounded) ||
+						(bounded === bestSwap.bounded && score > bestSwap.score)
+					) {
+						bestSwap = {
+							deficitGroup,
+							surplusGroup,
+							stratum: sk,
+							bounded,
+							score,
+						};
+					}
+				}
 			}
 		}
-		if (!bestStratum) break;
+		if (!bestSwap) break;
 
-		const row = quotas[bestStratum];
+		const row = quotas[bestSwap.stratum];
 		if (!row) break;
-		row[deficitGroup] = (row[deficitGroup] ?? 0) + 1;
-		row[surplusGroup] = (row[surplusGroup] ?? 0) - 1;
-		columnDeficit[deficitGroup] = (columnDeficit[deficitGroup] ?? 0) - 1;
-		columnDeficit[surplusGroup] = (columnDeficit[surplusGroup] ?? 0) + 1;
+		row[bestSwap.deficitGroup] =
+			(row[bestSwap.deficitGroup] ?? 0) + 1;
+		row[bestSwap.surplusGroup] =
+			(row[bestSwap.surplusGroup] ?? 0) - 1;
+		columnDeficit[bestSwap.deficitGroup] =
+			(columnDeficit[bestSwap.deficitGroup] ?? 0) - 1;
+		columnDeficit[bestSwap.surplusGroup] =
+			(columnDeficit[bestSwap.surplusGroup] ?? 0) + 1;
 	}
 
 	// Verify convergence: every column deficit should be resolved to zero.

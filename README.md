@@ -475,7 +475,9 @@ underlying Listmonk API behavior and spike rationale.
   change after recipients are set.
 - `--enable-stratification` — classify subscribers by email-domain provider
   and compute a constrained quota matrix so each provider stratum gets a
-  proportional share of every variant/holdout group.
+  proportional share of every variant/holdout group. The quota matrix is
+  computed and stored on the test for reporting/validation; applying it to
+  the actual assignment slices is deferred to a follow-up change set.
 
 ```bash
 listmonk-cli abtest create \
