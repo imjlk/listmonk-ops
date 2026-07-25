@@ -11,7 +11,7 @@ import {
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { AbTestNotFoundError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
-import { verifyHypothesisChecksum } from "./hypothesis";
+import { isStrictIsoTimestamp, verifyHypothesisChecksum } from "./hypothesis";
 import type { AbTest } from "./types";
 
 export { AbTestNotFoundError } from "./errors";
@@ -348,9 +348,7 @@ function isStoredHypothesis(value: unknown): boolean {
 	if (typeof value.hypothesis !== "string" || value.hypothesis.trim() === "") {
 		return false;
 	}
-	if (typeof value.createdAt !== "string" || !isValidTimestamp(
-		value.createdAt,
-	)) {
+	if (!isStrictIsoTimestamp(value.createdAt)) {
 		return false;
 	}
 	// primaryMetric
@@ -438,9 +436,7 @@ function isStoredHypothesis(value: unknown): boolean {
 	// 64-character hex string AND must cryptographically match the recomputed
 	// canonical checksum, so tampered records are rejected at load time.
 	if (value.lockedAt !== undefined) {
-		if (
-			typeof value.lockedAt !== "string" || !isValidTimestamp(value.lockedAt)
-		) {
+		if (!isStrictIsoTimestamp(value.lockedAt)) {
 			return false;
 		}
 		if (

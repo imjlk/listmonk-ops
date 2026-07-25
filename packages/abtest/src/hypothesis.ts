@@ -75,8 +75,9 @@ export class HypothesisValidationError extends Error {
  * accept, including the year-zero string "0", localized formats like
  * "01/02/03", and overflowed calendar dates like "2026-02-30". The date
  * components are reconstructed and compared so overflow rolls over are caught.
+ * Exported so the persistence boundary can reuse the same strict check.
  */
-function isStrictIsoTimestamp(value: unknown): boolean {
+export function isStrictIsoTimestamp(value: unknown): boolean {
 	if (typeof value !== "string") return false;
 	const re =
 		/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})?)?$/;

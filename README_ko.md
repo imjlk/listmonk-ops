@@ -474,6 +474,7 @@ A/B 테스트 도메인은 발송 결과를 왜곡할 수 있는 여러 정확�
 ```bash
 listmonk-cli abtest create \
   --name "Subject Line Test" \
+  --campaign-id 1 \
   --variants '[...]' --lists 1,2 \
   --enable-stratification \
   --hypothesis '{"objective":"CTR 향상","hypothesis":"짧은 제목이 CTR을 높인다","primary_metric":{"type":"click_rate","direction":"maximize"},"expected_lift":{"kind":"relative","value":0.1},"owner":{"id":"user-1"},"experiment_scope":{"channel":"email","experiment_family_key":"onboarding.welcome","attribution_window_hours":72,"exclusion_window_hours":168}}'

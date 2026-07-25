@@ -480,6 +480,7 @@ underlying Listmonk API behavior and spike rationale.
 ```bash
 listmonk-cli abtest create \
   --name "Subject Line Test" \
+  --campaign-id 1 \
   --variants '[...]' --lists 1,2 \
   --enable-stratification \
   --hypothesis '{"objective":"Increase CTR","hypothesis":"Shorter subject lifts CTR","primary_metric":{"type":"click_rate","direction":"maximize"},"expected_lift":{"kind":"relative","value":0.1},"owner":{"id":"user-1"},"experiment_scope":{"channel":"email","experiment_family_key":"onboarding.welcome","attribution_window_hours":72,"exclusion_window_hours":168}}'

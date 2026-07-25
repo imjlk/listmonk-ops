@@ -185,13 +185,23 @@ export function buildCreateInputFromFlags(flags: {
 	// The hypothesis is a JSON document matching the CreateAbTestInput
 	// hypothesis shape (objective, primary_metric, expected_lift, owner,
 	// experiment_scope). Parsed here so CLI/MCP share the same contract.
-	const hypothesis =
-		flags.hypothesis !== undefined
-			? (parseJson<CreateAbTestInput["hypothesis"]>(
-					flags.hypothesis,
-					"hypothesis",
-				) ?? undefined)
-			: undefined;
+	// Reject non-object JSON (e.g. "null") so the shared schema validates it
+	// the same way MCP does, rather than silently dropping it.
+	let hypothesis: CreateAbTestInput["hypothesis"] | undefined;
+	if (flags.hypothesis !== undefined) {
+		const parsed = parseJson<CreateAbTestInput["hypothesis"]>(
+			flags.hypothesis,
+			"hypothesis",
+		);
+		if (parsed === null || typeof parsed !== "object" || Array.isArray(
+			parsed,
+		)) {
+			throw new Error(
+				"hypothesis must be a JSON object matching the pre-registration shape",
+			);
+		}
+		hypothesis = parsed;
+	}
 
 	return {
 		name: flags.name,
