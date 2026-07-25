@@ -804,8 +804,10 @@ the `AbTest.stratification` field for reporting and validation.
 
 층화는 구독자를 이메일 도메인 제공자별로 분류하고, 각 제공자 층(stratum)이
 모든 변형/홀드아웃 그룹의 비례 배분을 받도록 **제약된 할당량 행렬**을
-계산합니다. 단일 대형 제공자(예: Gmail)가 하나의 변형을 독점하여 결과를
-왜곡하는 것을 방지합니다.
+계산합니다. 할당량 행렬은 보고/검증을 위해 계산되어 저장됩니다. 참고:
+이 할당량을 실제 수신자 할당 슬라이스에 적용하는 것은 후속 작업이며,
+현재 할당 자체는 결정론적 largest-remainder 매니페스트를 그대로 사용하고
+할당량 행렬은 목표 비례 배분을 문서화합니다.
 
 - `classifyStratum`으로 구독자를 분류하고, `computeStratifiedQuotas`로
   할당량 행렬을 계산합니다.
