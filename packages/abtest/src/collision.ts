@@ -413,6 +413,13 @@ export class InMemoryExperimentParticipationStore
 					"subjectKeys must be non-empty strings",
 				);
 			}
+			// Subject keys must be HMAC-SHA-256 hex digests (64 hex chars)
+			// to prevent accidental use of raw UUIDs or emails.
+			if (!/^[0-9a-f]{64}$/.test(sk)) {
+				throw new CollisionConfigurationError(
+					`subjectKeys must be 64-char hex HMAC digests (use computeSubjectKey), received a key of length ${sk.length}`,
+				);
+			}
 		}
 		return this.serialized(() => {
 			// Save reserved participations for this testId so we can restore
@@ -474,12 +481,14 @@ export class InMemoryExperimentParticipationStore
 						conflictingTestIdSet.add(c.testId);
 						perSubjectTests.add(c.testId);
 					}
-					// Block if this subject already has maximumConcurrentExperiments
-					// distinct overlapping tests (the candidate would exceed the limit).
+					// A subject is blocked when it already has
+					// maximumConcurrentExperiments distinct overlapping tests
+					// (the candidate would exceed the concurrency limit).
+					// This applies to all modes: block throws, exclude removes,
+					// warn reports.
 					if (
-						policy.mode === "block" &&
 						perSubjectTests.size >=
-							policy.maximumConcurrentExperiments
+						policy.maximumConcurrentExperiments
 					) {
 						blockedSubjects.add(candidate.subjectKey);
 					}
@@ -499,10 +508,12 @@ export class InMemoryExperimentParticipationStore
 				);
 			}
 
-			// In exclude mode, only reserve non-conflicting subjects.
+			// In exclude mode, exclude both conflicting and concurrency-blocked
+			// subjects. In warn mode, reserve all but report blocked subjects.
 			const toReserve =
 				policy.mode === "exclude"
 					? candidates.filter((p) => {
+							if (blockedSubjects.has(p.subjectKey)) return false;
 							const key = `${p.subjectKey}:${p.experimentFamilyKey}`;
 							const existing = activeIndex.get(key);
 							if (!existing) return true;
