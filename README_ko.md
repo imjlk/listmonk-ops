@@ -493,6 +493,12 @@ winner를 선택합니다. 보고서에는 가설 목표, 기대 효과, 사전 
 (`verified`/`not_available`/`checksum_mismatch`)가 포함됩니다. checksum이
 일치하지 않는 가설은 분석 전에 거부됩니다.
 
+### 프리뷰 및 seed 발송 게이트
+
+프리뷰 게이트는 launch 전에 콘텐츠 프리뷰 검사와 선택적 seed 발송을
+요구합니다. 콘텐츠 변경 시 기존 승인이 무효화됩니다. 전체 API는
+[`packages/abtest/README.md`](packages/abtest/README.md)를 참고하세요.
+
 ### 실험 충돌 가드
 
 충돌 가드는 같은 family의 겹치는 실험이 같은 구독자를 노출시키지 않도록

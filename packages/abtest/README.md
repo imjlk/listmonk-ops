@@ -742,6 +742,61 @@ active-window 겹침 감지와 atomic check-and-reserve participation store를
     또는 승인된 예외에만 사용합니다.
 - 모든 timestamp는 명시적 timezone(`Z` 또는 `±HH:MM`)을 포함해야 합니다.
 
+## Preview and seed send gate (advanced experimentation)
+
+The preview gate requires content preview checks and optional seed sends
+before launch. Content changes invalidate prior approvals. Seed recipients
+are validated against a domain allowlist and deduplicated; raw emails are
+never persisted — only counts and checksums.
+
+```typescript
+import {
+  computeContentChecksum,
+  createPreviewGate,
+  recordPreviewChecks,
+  approvePreviewGate,
+  validateSeedRecipients,
+  isLaunchAllowed,
+} from "@listmonk-ops/abtest";
+
+const checksum = computeContentChecksum({ subject: "Test", body: "<p>Body</p>" });
+const gate = createPreviewGate(checksum);
+const checked = recordPreviewChecks(
+  gate,
+  [
+    {
+      variantId: "A",
+      campaignId: 1,
+      renderSucceeded: true,
+      renderedChecksum: "abc",
+      unsubscribeUrlPresent: true,
+      forbiddenPlaceholderCount: 0,
+      checkedAt: "2026-07-26T00:00:00Z",
+    },
+    {
+      variantId: "B",
+      campaignId: 2,
+      renderSucceeded: true,
+      renderedChecksum: "def",
+      unsubscribeUrlPresent: true,
+      forbiddenPlaceholderCount: 0,
+      checkedAt: "2026-07-26T00:00:00Z",
+    },
+  ],
+  checksum,
+  ["A", "B"],
+);
+const approved = approvePreviewGate(checked, checksum, "user-1", "2026-07-26T00:00:00Z");
+isLaunchAllowed(approved); // true
+```
+
+### Preview and seed send gate (Korean)
+
+프리뷰 게이트는 launch 전에 콘텐츠 프리뷰 검사와 선택적 seed 발송을
+요구합니다. 콘텐츠 변경 시 기존 승인이 무효화됩니다. seed 수신자는 도메인
+허용 목록으로 검증 및 중복 제거되며, 원본 이메일은 저장되지 않고 카운트와
+체크섬만 유지됩니다.
+
 ## License
 
 MIT License - see LICENSE file for details.
