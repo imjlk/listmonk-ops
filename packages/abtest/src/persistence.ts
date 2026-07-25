@@ -350,6 +350,10 @@ function isStoredStratification(value: unknown): boolean {
 			return false;
 		}
 	}
+	// Every stratum in stratumSizes must have a corresponding quota row.
+	for (const sk of Object.keys(stratumSizes)) {
+		if (!(sk in quotas)) return false;
+	}
 	// Every quota matrix entry must have a matching cell (no truncated cells).
 	for (const [sk, row] of Object.entries(quotas)) {
 		if (!isRecord(row)) return false;

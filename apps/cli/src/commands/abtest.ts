@@ -26,6 +26,7 @@ import {
 	invokeRunAbTestOperation,
 	invokeStopAbTestOperation,
 	invokeTickAbTestsOperation,
+	validateHypothesisMetadata,
 	validateStoredAbTestStore,
 } from "@listmonk-ops/abtest";
 import { OutputUtils } from "@listmonk-ops/common";
@@ -539,6 +540,44 @@ async function promptInteractiveInput(
 		hypothesis:
 			hypothesisResult.trim().length > 0 ? hypothesisResult.trim() : undefined,
 	});
+
+	// Validate the hypothesis shape before showing the summary so malformed
+	// input fails early with a clear error rather than after confirmation.
+	if (input.hypothesis) {
+		validateHypothesisMetadata(
+			{
+				objective: input.hypothesis.objective,
+				hypothesis: input.hypothesis.hypothesis,
+				primaryMetric: {
+					type: input.hypothesis.primary_metric.type,
+					direction: input.hypothesis.primary_metric.direction,
+				},
+				expectedLift:
+					input.hypothesis.expected_lift.kind === "relative"
+						? {
+								kind: "relative",
+								value: input.hypothesis.expected_lift.value,
+							}
+						: {
+								kind: "absolute",
+								value: input.hypothesis.expected_lift.value,
+								unit: input.hypothesis.expected_lift.unit,
+							},
+				owner: { id: input.hypothesis.owner.id },
+				experimentScope: {
+					channel: input.hypothesis.experiment_scope.channel,
+					experimentFamilyKey:
+						input.hypothesis.experiment_scope.experiment_family_key,
+					attributionWindowHours:
+						input.hypothesis.experiment_scope.attribution_window_hours,
+					exclusionWindowHours:
+						input.hypothesis.experiment_scope.exclusion_window_hours,
+				},
+				createdAt: new Date().toISOString(),
+			},
+			true,
+		);
+	}
 
 	clack.note(
 		JSON.stringify(
