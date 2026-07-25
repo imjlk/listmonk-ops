@@ -312,6 +312,12 @@ export function approvePreviewGate(
 	approvedBy: string,
 	approvedAt: string,
 ): PreviewGate {
+	if (typeof approvedBy !== "string" || approvedBy.trim().length === 0) {
+		throw new PreviewValidationError("approvedBy must be a non-empty string");
+	}
+	if (typeof approvedAt !== "string" || approvedAt.trim().length === 0) {
+		throw new PreviewValidationError("approvedAt must be a non-empty string");
+	}
 	if (!gate.required) {
 		return gate;
 	}
@@ -453,6 +459,19 @@ export function transitionSeedVariant(
 	if (!exists) {
 		throw new PreviewValidationError(
 			`Variant "${variantId}" not found in seed run ${run.runId}`,
+		);
+	}
+	// Reject transitions for variants already in a terminal state.
+	const current = run.variants.find((v) => v.variantId === variantId);
+	if (
+		current &&
+		(current.state === "sent" ||
+			current.state === "failed" ||
+			current.state === "ambiguous") &&
+		newState !== current.state
+	) {
+		throw new PreviewValidationError(
+			`Variant "${variantId}" is already in terminal state "${current.state}"; cannot transition to "${newState}"`,
 		);
 	}
 	const variants = run.variants.map((v) => {

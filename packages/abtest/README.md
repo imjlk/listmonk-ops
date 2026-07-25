@@ -761,7 +761,31 @@ import {
 
 const checksum = computeContentChecksum({ subject: "Test", body: "<p>Body</p>" });
 const gate = createPreviewGate(checksum);
-const checked = recordPreviewChecks(gate, [/* VariantPreviewCheck[] */], checksum, ["A", "B"]);
+const checked = recordPreviewChecks(
+  gate,
+  [
+    {
+      variantId: "A",
+      campaignId: 1,
+      renderSucceeded: true,
+      renderedChecksum: "abc",
+      unsubscribeUrlPresent: true,
+      forbiddenPlaceholderCount: 0,
+      checkedAt: "2026-07-26T00:00:00Z",
+    },
+    {
+      variantId: "B",
+      campaignId: 2,
+      renderSucceeded: true,
+      renderedChecksum: "def",
+      unsubscribeUrlPresent: true,
+      forbiddenPlaceholderCount: 0,
+      checkedAt: "2026-07-26T00:00:00Z",
+    },
+  ],
+  checksum,
+  ["A", "B"],
+);
 const approved = approvePreviewGate(checked, checksum, "user-1", "2026-07-26T00:00:00Z");
 isLaunchAllowed(approved); // true
 ```
