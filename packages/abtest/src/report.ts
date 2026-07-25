@@ -166,6 +166,9 @@ export function buildExperimentReport(
 				}
 			: undefined,
 		preRegistration,
+		// Show revenue columns when any variant has revenue data OR the
+		// pre-registered primary metric is revenue_per_recipient.
+		revenueCurrency: undefined, // Set by caller when currency is known
 	};
 }
 
@@ -267,9 +270,10 @@ export function reportToMarkdown(report: ExperimentReport): string {
 
 	lines.push("## Variant Results");
 	lines.push("");
-	const hasRevenue = report.variants.some(
-		(v) => v.revenue !== undefined || v.revenuePerRecipient !== undefined,
-	);
+	const hasRevenue =
+		report.variants.some(
+			(v) => v.revenue !== undefined || v.revenuePerRecipient !== undefined,
+		) || report.primaryMetric === "revenue_per_recipient";
 	const headers = [
 		"Variant",
 		"Sample",
