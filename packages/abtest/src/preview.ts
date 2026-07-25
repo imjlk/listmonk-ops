@@ -482,6 +482,11 @@ export function transitionSeedVariant(
 	timestamp: string,
 	error?: string,
 ): SeedSendRun {
+	if (!isCollisionTimestamp(timestamp)) {
+		throw new PreviewValidationError(
+			"timestamp must be a valid ISO 8601 timestamp",
+		);
+	}
 	// Single lookup for existence + current state.
 	const current = run.variants.find((v) => v.variantId === variantId);
 	if (!current) {
