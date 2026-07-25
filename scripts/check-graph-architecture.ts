@@ -445,6 +445,13 @@ const abTestTestContracts: readonly CallPathContract[] = [
 		],
 	},
 	{
+		label: "Report tests anchor the experiment report builder",
+		path: [
+			"packages/abtest/tests/report.test.ts#packages/abtest/tests/report.test.ts:module",
+			"packages/abtest/src/report.ts#buildExperimentReport:function",
+		],
+	},
+	{
 		label: "CLI A/B tests anchor flag normalization",
 		path: [
 			cliAbTestInputTestModule,

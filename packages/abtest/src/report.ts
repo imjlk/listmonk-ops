@@ -1,3 +1,7 @@
+import {
+	verifyHypothesisChecksum,
+	type HypothesisMetadata,
+} from "./hypothesis";
 import type { AbTest, StatisticalAnalysis, TestResults } from "./types";
 
 /**
@@ -7,9 +11,19 @@ import type { AbTest, StatisticalAnalysis, TestResults } from "./types";
  * - Markdown: for CLI output and operator reading.
  * - JSON: for programmatic consumption and MCP tool responses.
  *
+ * When a pre-registered hypothesis is present, the report uses its declared
+ * primary metric and direction rather than inferring them from observed
+ * data. The pre-registration checksum is verified and the result is shown
+ * as "verified", "not_available", or "checksum_mismatch".
+ *
  * Subscriber identifiers are never included — the report contains only
  * aggregate metrics, statistical results, and test metadata.
  */
+
+export type PreRegistrationStatus =
+	| "verified"
+	| "not_available"
+	| "checksum_mismatch";
 
 export interface ExperimentReport {
 	testId: string;
@@ -17,6 +31,8 @@ export interface ExperimentReport {
 	status: AbTest["status"];
 	confidenceLevel: number;
 	primaryMetric: string;
+	/** When a hypothesis is pre-registered, its declared direction. */
+	primaryMetricDirection?: "maximize" | "minimize";
 	createdAt: string;
 	updatedAt: string;
 	startedAt?: string;
@@ -34,6 +50,52 @@ export interface ExperimentReport {
 	srmPassed?: boolean;
 	srmPValue?: number;
 	fixedHorizonReasonCodes?: string[];
+	hypothesis?: {
+		objective: string;
+		primaryMetricType: string;
+		direction: "maximize" | "minimize";
+		expectedLiftKind: "relative" | "absolute";
+	};
+	preRegistration: PreRegistrationStatus;
+}
+
+/**
+ * Determine the pre-registration status from a test's hypothesis metadata.
+ * Returns "verified" when the checksum matches, "checksum_mismatch" when it
+ * does not, and "not_available" when no hypothesis is present.
+ */
+export function evaluatePreRegistration(
+	hypothesis?: HypothesisMetadata,
+): PreRegistrationStatus {
+	if (!hypothesis) return "not_available";
+	if (!hypothesis.lockedAt || !hypothesis.checksum) return "not_available";
+	return verifyHypothesisChecksum(hypothesis)
+		? "verified"
+		: "checksum_mismatch";
+}
+
+/**
+ * Pick the metric rate function and label from a pre-registered hypothesis,
+ * falling back to the observed-data heuristic when no hypothesis is present.
+ */
+function pickPrimaryMetric(
+	hypothesis: HypothesisMetadata | undefined,
+	results: TestResults[],
+): { metric: string; direction: "maximize" | "minimize" } {
+	if (hypothesis) {
+		return {
+			metric: hypothesis.primaryMetric.type,
+			direction: hypothesis.primaryMetric.direction,
+		};
+	}
+	// Legacy fallback: prefer conversion rate when any conversions are
+	// observed, otherwise default to click rate. Direction is always
+	// maximize in legacy mode.
+	const anyConversionMeasured = results.some((r) => r.conversions > 0);
+	return {
+		metric: anyConversionMeasured ? "conversion_rate" : "click_rate",
+		direction: "maximize",
+	};
 }
 
 export function buildExperimentReport(
@@ -53,16 +115,18 @@ export function buildExperimentReport(
 		};
 	});
 
-	const anyConversionMeasured = results.some((r) => r.conversions > 0);
+	const { metric: primaryMetric, direction: primaryMetricDirection } =
+		pickPrimaryMetric(test.hypothesis, results);
+
+	const preRegistration = evaluatePreRegistration(test.hypothesis);
 
 	return {
 		testId: test.id,
 		testName: test.name,
 		status: test.status,
 		confidenceLevel: analysis.confidenceLevel,
-		primaryMetric: anyConversionMeasured
-			? "conversion_rate"
-			: "click_rate",
+		primaryMetric,
+		primaryMetricDirection,
 		createdAt: test.createdAt.toISOString(),
 		updatedAt: test.updatedAt.toISOString(),
 		startedAt: test.startedAt,
@@ -73,6 +137,15 @@ export function buildExperimentReport(
 		srmPassed: analysis.srmPassed,
 		srmPValue: analysis.srmPValue,
 		fixedHorizonReasonCodes: analysis.fixedHorizonReasonCodes,
+		hypothesis: test.hypothesis
+			? {
+					objective: test.hypothesis.objective,
+					primaryMetricType: test.hypothesis.primaryMetric.type,
+					direction: test.hypothesis.primaryMetric.direction,
+					expectedLiftKind: test.hypothesis.expectedLift.kind,
+				}
+			: undefined,
+		preRegistration,
 	};
 }
 
@@ -84,8 +157,16 @@ export function reportToMarkdown(report: ExperimentReport): string {
 	lines.push(`- **Test ID**: ${report.testId}`);
 	lines.push(`- **Status**: ${report.status}`);
 	lines.push(`- **Primary Metric**: ${report.primaryMetric}`);
+	if (report.primaryMetricDirection) {
+		lines.push(
+			`- **Direction**: ${report.primaryMetricDirection === "maximize" ? "Maximize" : "Minimize"}`,
+		);
+	}
 	lines.push(
 		`- **Confidence Level**: ${(report.confidenceLevel * 100).toFixed(1)}%`,
+	);
+	lines.push(
+		`- **Pre-Registration**: ${preRegistrationLabel(report.preRegistration)}`,
 	);
 	if (report.startedAt) {
 		lines.push(`- **Started**: ${report.startedAt}`);
@@ -94,6 +175,16 @@ export function reportToMarkdown(report: ExperimentReport): string {
 		lines.push(`- **Ends**: ${report.endsAt}`);
 	}
 	lines.push("");
+
+	if (report.hypothesis) {
+		lines.push("## Hypothesis");
+		lines.push("");
+		lines.push(`- **Objective**: ${report.hypothesis.objective}`);
+		lines.push(`- **Primary Metric**: ${report.hypothesis.primaryMetricType}`);
+		lines.push(`- **Direction**: ${report.hypothesis.direction}`);
+		lines.push(`- **Expected Lift**: ${report.hypothesis.expectedLiftKind}`);
+		lines.push("");
+	}
 
 	lines.push("## Statistical Analysis");
 	lines.push("");
@@ -157,7 +248,25 @@ export function reportToMarkdown(report: ExperimentReport): string {
 		}
 	}
 
+	if (report.preRegistration === "checksum_mismatch") {
+		lines.push("");
+		lines.push(
+			"> ⚠️ Pre-registration checksum mismatch: the hypothesis metadata may have been tampered with after locking.",
+		);
+	}
+
 	return lines.join("\n");
+}
+
+function preRegistrationLabel(status: PreRegistrationStatus): string {
+	switch (status) {
+		case "verified":
+			return "Verified";
+		case "checksum_mismatch":
+			return "Checksum Mismatch";
+		case "not_available":
+			return "Not Available";
+	}
 }
 
 export function reportToJSON(report: ExperimentReport): string {
