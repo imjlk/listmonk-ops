@@ -182,7 +182,10 @@ export function validateSeedRecipients(
 			!domain ||
 			domain.length === 0 ||
 			!domain.includes(".") ||
-			/\s/.test(domain)
+			/\s/.test(domain) ||
+			domain.startsWith(".") ||
+			domain.endsWith(".") ||
+			domain.includes("..")
 		) {
 			throw new PreviewValidationError(
 				`Invalid seed recipient email (malformed domain): ${JSON.stringify(raw)}`,
@@ -406,6 +409,12 @@ export function createSeedSendRun(params: {
 				`campaignIds must be positive integers, received ${JSON.stringify(id)}`,
 			);
 		}
+	}
+	const uniqueCampaignIds = new Set(campaignIds);
+	if (uniqueCampaignIds.size !== campaignIds.length) {
+		throw new PreviewValidationError(
+			"Duplicate campaign IDs are not allowed in a seed send run",
+		);
 	}
 	// Idempotent: return the existing completed run if checksums match.
 	if (
