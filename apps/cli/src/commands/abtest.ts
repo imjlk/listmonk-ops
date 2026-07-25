@@ -166,6 +166,8 @@ export function buildCreateInputFromFlags(flags: {
 	"test-group-percentage"?: number;
 	"auto-deploy-winner": boolean;
 	"ignore-sample-size-warnings": boolean;
+	"enable-stratification"?: boolean;
+	hypothesis?: string;
 }): CreateAbTestInput {
 	const parsedVariants = parseJson<VariantInput[]>(flags.variants, "variants");
 	if (!Array.isArray(parsedVariants)) {
@@ -179,6 +181,17 @@ export function buildCreateInputFromFlags(flags: {
 		flags["test-group-percentage"] ?? (testingMode === "holdout" ? 10 : 100);
 	const baseSubject = flags.subject?.trim() ?? "";
 	const baseBody = flags.body?.trim() ?? "";
+
+	// The hypothesis is a JSON document matching the CreateAbTestInput
+	// hypothesis shape (objective, primary_metric, expected_lift, owner,
+	// experiment_scope). Parsed here so CLI/MCP share the same contract.
+	const hypothesis =
+		flags.hypothesis !== undefined
+			? (parseJson<CreateAbTestInput["hypothesis"]>(
+					flags.hypothesis,
+					"hypothesis",
+				) ?? undefined)
+			: undefined;
 
 	return {
 		name: flags.name,
@@ -196,6 +209,8 @@ export function buildCreateInputFromFlags(flags: {
 		test_group_percentage: testGroupPercentage,
 		auto_deploy_winner: flags["auto-deploy-winner"],
 		ignore_sample_size_warnings: flags["ignore-sample-size-warnings"],
+		enable_stratification: flags["enable-stratification"] ?? undefined,
+		hypothesis,
 	};
 }
 
@@ -476,6 +491,29 @@ async function promptInteractiveInput(
 		throw new Error("Prompt cancelled by user");
 	}
 
+	const stratifyResult = await clack.confirm({
+		message:
+			"Enable recipient-domain stratification during holdout provisioning?",
+		initialValue: false,
+	});
+	if (clack.isCancel(stratifyResult)) {
+		clack.cancel("Cancelled");
+		throw new Error("Prompt cancelled by user");
+	}
+
+	// Optional pre-registration hypothesis as a JSON document. Empty input
+	// skips it; the shared service locks whatever is provided.
+	const hypothesisResult = await clack.text({
+		message:
+			"Pre-registration hypothesis JSON (leave empty to skip)?",
+		placeholder: '{"objective": "...", "primary_metric": {...}, ...}',
+		defaultValue: "",
+	});
+	if (clack.isCancel(hypothesisResult)) {
+		clack.cancel("Cancelled");
+		throw new Error("Prompt cancelled by user");
+	}
+
 	const input = buildCreateInputFromFlags({
 		name: nameResult,
 		"campaign-id": Number(campaignIdResult),
@@ -487,6 +525,9 @@ async function promptInteractiveInput(
 		"test-group-percentage": Number(testGroupResult),
 		"auto-deploy-winner": autoDeployResult,
 		"ignore-sample-size-warnings": ignoreWarningsResult,
+		"enable-stratification": stratifyResult,
+		hypothesis:
+			hypothesisResult.trim().length > 0 ? hypothesisResult.trim() : undefined,
 	});
 
 	clack.note(
@@ -638,6 +679,14 @@ export default defineGroup({
 						description: "Ignore sample-size warnings",
 					},
 				),
+				"enable-stratification": option(z.coerce.boolean().optional(), {
+					description:
+						"Enable recipient-domain stratification during holdout provisioning",
+				}),
+				hypothesis: option(z.string().optional(), {
+					description:
+						"Pre-registration hypothesis as JSON (objective, primary_metric, expected_lift, owner, experiment_scope)",
+				}),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {

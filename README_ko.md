@@ -460,6 +460,28 @@ A/B 테스트 도메인은 발송 결과를 왜곡할 수 있는 여러 정확�
 자세한 Listmonk API 동작과 spike 근거는
 [`packages/abtest/README.md`](packages/abtest/README.md)를 참고하세요.
 
+### 가설 사전 등록 및 수신자 도메인 층화
+
+`abtest create`는 고급 실험 입력 두 가지를 받습니다:
+
+- `--hypothesis '{...}'` — 사전 등록 가설(목표, 주요 지표, 기대 효과,
+  담당자, 실험 범위). 서비스가 수신자 할당 전에 잠금(SHA-256 체크섬)
+  처리하므로 수신자가 정해진 뒤에는 가설을 변경할 수 없습니다.
+- `--enable-stratification` — 구독자를 이메일 도메인 제공자별로 분류하고
+  제약된 할당량 행렬을 계산하여 각 제공자 층(stratum)이 모든 변형/홀드아웃
+  그룹의 비례 배분을 받도록 합니다.
+
+```bash
+listmonk-cli abtest create \
+  --name "Subject Line Test" \
+  --variants '[...]' --lists 1,2 \
+  --enable-stratification \
+  --hypothesis '{"objective":"CTR 향상","hypothesis":"짧은 제목이 CTR을 높인다","primary_metric":{"type":"click_rate","direction":"maximize"},"expected_lift":{"kind":"relative","value":0.1},"owner":{"id":"user-1"},"experiment_scope":{"channel":"email","experiment_family_key":"onboarding.welcome","attribution_window_hours":72,"exclusion_window_hours":168}}'
+```
+
+전체 검증 규칙, 층화 할당량 솔버, 한영(EN/KO) 가이드는
+[`packages/abtest/README.md`](packages/abtest/README.md)를 참고하세요.
+
 ## 운영 자동화 명령
 
 ```bash
