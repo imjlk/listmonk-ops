@@ -485,6 +485,23 @@ listmonk-cli abtest create \
 전체 검증 규칙, 층화 할당량 솔버, 한영(EN/KO) 가이드는
 [`packages/abtest/README.md`](packages/abtest/README.md)를 참고하세요.
 
+### 실험 충돌 가드
+
+충돌 가드는 같은 family의 겹치는 실험이 같은 구독자를 노출시키지 않도록
+방지합니다. 설치 단위 HMAC 키(`LISTMONK_OPS_COLLISION_KEY`)로 안정적인
+cross-test subject key를 파생하고 atomic check-and-reserve participation
+store를 사용합니다.
+
+**다중 노드 주의:** `InMemoryExperimentParticipationStore`는 단일 노드 배포와
+테스트에 적합합니다. 다중 노드 배포(여러 CLI 또는 MCP 프로세스)에서는 각
+프로세스마다 별도의 in-memory store를 가지므로 충돌 검사가 노드 간에 공유되지
+않습니다. 다중 노드 프로덕션에서는 공유 `ExperimentParticipationStore` 구현
+(예: `(subject_key, family_key, active_window)` exclusion constraint가 있는
+Postgres)을 사용해야 합니다.
+
+전체 API, 정책, 한영 가이드는
+[`packages/abtest/README.md`](packages/abtest/README.md)를 참고하세요.
+
 ## 운영 자동화 명령
 
 ```bash

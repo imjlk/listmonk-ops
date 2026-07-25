@@ -658,6 +658,90 @@ assignment and chunked bulk list membership:
   `revision` fields. Version 1 documents are read transparently and
   upgraded to v2 on the next write.
 
+## Experiment collision guard (advanced experimentation)
+
+The collision guard prevents overlapping experiments in the same family
+from exposing the same subscribers. It uses an installation-level HMAC
+key to derive stable cross-test subject keys, active-window overlap
+detection, and an atomic check-and-reserve participation store.
+
+### Subject key derivation
+
+```typescript
+import {
+  computeSubjectKey,
+  normalizeSubscriberUuid,
+} from "@listmonk-ops/abtest";
+
+const subjectKey = computeSubjectKey(
+  process.env.LISTMONK_OPS_COLLISION_KEY!, // shared secret across all nodes
+  normalizeSubscriberUuid(subscriber.uuid),
+);
+```
+
+The key is `HMAC-SHA-256(installationCollisionKey, "listmonk-ops/abtest-collision/v1\0" + uuid)`.
+Raw emails and UUIDs are never stored in participation state or surfaced in
+collision errors — only aggregate counts and conflicting test IDs.
+
+### Collision policies
+
+The `maximumConcurrentExperiments` field controls how many concurrent
+experiments may overlap on the same subject within the same family. The
+default is 1 (no overlap). When set above 1, subjects below the threshold
+are allowed to participate in multiple overlapping experiments:
+
+- **block** (default): blocks the launch when any subject would exceed the
+  concurrency limit.
+- **exclude**: removes only concurrency-blocked subjects from the audience
+  (subjects below the limit are still reserved). Sample size and manifest
+  must be recomputed.
+- **warn**: all subjects are reserved; a warning reports how many exceed the
+  concurrency limit. For local/dev or approved exceptions only.
+
+### Participation store
+
+```typescript
+import {
+  InMemoryExperimentParticipationStore,
+  DEFAULT_COLLISION_POLICY,
+} from "@listmonk-ops/abtest";
+
+const store = new InMemoryExperimentParticipationStore();
+const result = await store.checkAndReserve({
+  testId: "test-1",
+  channel: "email",
+  experimentFamilyKey: "onboarding.welcome",
+  windowStartsAt: "2026-07-25T08:00:00Z",
+  windowEndsAt: "2026-07-26T12:00:00Z",
+  subjectKeys: [subjectKeyA, subjectKeyB],
+  policy: DEFAULT_COLLISION_POLICY,
+  reservedAt: "2026-07-25T07:50:00Z",
+});
+```
+
+The store provides `markExposed`, `releaseEligible`, `listByTest`, and
+`releaseByTest` for lifecycle management. All timestamps must include an
+explicit timezone (`Z` or `±HH:MM`).
+
+### 실험 충돌 가드 (Korean)
+
+충돌 가드는 같은 family의 겹치는 실험이 같은 구독자를 노출시키지 않도록
+방지합니다. 설치 단위 HMAC 키로 안정적인 cross-test subject key를 파생하고,
+active-window 겹침 감지와 atomic check-and-reserve participation store를
+사용합니다.
+
+- subject key는 HMAC-SHA-256으로 파생되며, 원본 email이나 UUID는 participation
+  상태나 충돌 에러에 저장되지 않습니다.
+- `maximumConcurrentExperiments`는 같은 subject에서 같은 family 내에 허용되는
+  동시 실험 수를 제어합니다. 기본값은 1(겹침 불가)이며, 1보다 크면 임계값
+  미만의 subject는 여러 실험에 참여할 수 있습니다:
+  - **block**(기본): 한 명이라도 임계값을 초과하면 launch를 차단합니다.
+  - **exclude**: 임계값을 초과한 subject만 audience에서 제외합니다. 임계값
+    미만의 subject는 예약됩니다. 샘플 사이즈와 매니페스트를 재계산해야 합니다.
+  - **warn**: 모든 subject를 예약하고 초과 분을 경고로 보고합니다. 로컬/개발
+    또는 승인된 예외에만 사용합니다.
+- 모든 timestamp는 명시적 timezone(`Z` 또는 `±HH:MM`)을 포함해야 합니다.
+
 ## License
 
 MIT License - see LICENSE file for details.
