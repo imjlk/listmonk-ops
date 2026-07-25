@@ -28,8 +28,10 @@ export const COLLISION_KEY_CONTEXT = "listmonk-ops/abtest-collision/v1";
  */
 export function isCollisionTimestamp(value: unknown): boolean {
 	if (typeof value !== "string") return false;
+	// Require a full datetime with an explicit timezone (Z or ±HH:MM) so
+	// timestamps are unambiguous instants, not local-time-dependent values.
 	const re =
-		/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})?)?$/;
+		/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/;
 	if (!re.test(value)) return false;
 	const parts = value.split(/([T ])/);
 	const datePart = parts[0];
@@ -186,6 +188,14 @@ export function computeActiveWindow(params: {
 		);
 	}
 	const launchMs = new Date(launchAt).getTime();
+	if (endsAt !== undefined) {
+		const endsMs = new Date(endsAt).getTime();
+		if (endsMs < launchMs) {
+			throw new CollisionConfigurationError(
+				`endsAt must not precede launchAt, received endsAt=${JSON.stringify(endsAt)} launchAt=${JSON.stringify(launchAt)}`,
+			);
+		}
+	}
 	const startMs = launchMs - exclusionWindowHours * 3600 * 1000;
 	const endBase = endsAt ? new Date(endsAt).getTime() : launchMs;
 	const endMs =
@@ -352,10 +362,12 @@ export class InMemoryExperimentParticipationStore
 			);
 		}
 		return this.serialized(() => {
-			// Remove existing reserved (not exposed) participations for this
-			// testId so a retry is not blocked by its own prior reservation.
-			// Exposed participations carry attribution state and must be
-			// retained.
+			// Save reserved participations for this testId so we can restore
+			// them if the reservation fails (e.g. conflict in block mode).
+			// Exposed participations are retained regardless.
+			const savedReserved = this.participations.filter(
+				(p) => p.testId === input.testId && p.state === "reserved",
+			);
 			this.participations = this.participations.filter(
 				(p) => p.testId !== input.testId || p.state === "exposed",
 			);
@@ -401,18 +413,33 @@ export class InMemoryExperimentParticipationStore
 			// Enforce maximumConcurrentExperiments: count distinct active
 			// tests in the same family whose windows overlap.
 			const uniqueConflictingTests = [...new Set(conflictingTestIds)];
-			if (
-				uniqueConflictingTests.length >=
-				input.policy.maximumConcurrentExperiments
-			) {
-				if (input.policy.mode === "block") {
+			try {
+				if (
+					uniqueConflictingTests.length >=
+						input.policy.maximumConcurrentExperiments &&
+					input.policy.mode === "block"
+				) {
 					throw new CollisionConflictError(
 						conflictCount,
-						conflictingTestIds,
+						uniqueConflictingTests,
 					);
 				}
-			} else if (conflictCount > 0 && input.policy.mode === "block") {
-				throw new CollisionConflictError(conflictCount, conflictingTestIds);
+				if (
+					uniqueConflictingTests.length <
+						input.policy.maximumConcurrentExperiments &&
+					conflictCount > 0 &&
+					input.policy.mode === "block"
+				) {
+					throw new CollisionConflictError(
+						conflictCount,
+						uniqueConflictingTests,
+					);
+				}
+			} catch (err) {
+				// Restore the reserved participations we removed so a failed
+				// retry does not lose the original reservation.
+				this.participations.push(...savedReserved);
+				throw err;
 			}
 
 			// In exclude mode, only reserve non-conflicting subjects (from
@@ -505,9 +532,16 @@ export class InMemoryExperimentParticipationStore
 			);
 		}
 		return this.serialized(() => {
+			const releasedMs = new Date(releasedAt).getTime();
 			let count = 0;
 			for (const p of this.participations) {
 				if (p.testId === testId && p.state !== "released") {
+					// Exposed participations are retained until their window
+					// ends so attribution is not lost on early cancel.
+					if (p.state === "exposed") {
+						const windowEndMs = new Date(p.windowEndsAt).getTime();
+						if (windowEndMs > releasedMs) continue;
+					}
 					p.state = "released";
 					p.releasedAt = releasedAt;
 					count += 1;
