@@ -492,6 +492,15 @@ See [`packages/abtest/README.md`](packages/abtest/README.md) for the full
 validation rules, the stratified quota solver, and bilingual (EN/KO)
 guidance.
 
+### Hypothesis-driven analysis
+
+When a test carries a pre-registered hypothesis, `abtest analyze` uses the
+declared primary metric (`click_rate`, `conversion_rate`) and direction
+(`maximize`/`minimize`) to drive winner selection — not the observed-data
+heuristic. Reports include the hypothesis objective, expected lift, and a
+pre-registration status (`verified`/`not_available`/`checksum_mismatch`).
+Tests with a checksum-mismatched hypothesis are rejected before analysis.
+
 ### Experiment collision guard
 
 The collision guard prevents overlapping experiments in the same family

@@ -553,7 +553,7 @@ export class AbTestService {
 				);
 			}
 			testGroup = nonControl.reduce((best, current) =>
-				metricRate(current) > metricRate(best) ? current : best,
+				isBetter(metricRate(current), metricRate(best)) ? current : best,
 			);
 		} else {
 			testGroup = bestVariant;
@@ -808,6 +808,17 @@ export class AbTestService {
 		const test = await this.getTest(testId);
 		if (!test) {
 			throw new Error(`Test with ID ${testId} not found`);
+		}
+
+		// Reject a checksum-mismatched hypothesis before analysis so a
+		// tampered pre-registration cannot influence metric selection or
+		// winner decisions.
+		if (test.hypothesis?.lockedAt && test.hypothesis?.checksum) {
+			if (!verifyHypothesisChecksum(test.hypothesis)) {
+				throw new Error(
+					`Hypothesis checksum verification failed for test ${testId}; the pre-registered metadata may have been tampered with`,
+				);
+			}
 		}
 
 		const results = await this.getTestResults(testId);
