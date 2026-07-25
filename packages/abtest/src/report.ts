@@ -214,8 +214,13 @@ export function reportToMarkdown(report: ExperimentReport): string {
 				`- **Expected Lift**: ${(lift.value * 100).toFixed(1)}% relative`,
 			);
 		} else {
-			const unitLabel = lift.unit ?? "absolute";
-			lines.push(`- **Expected Lift**: ${lift.value} ${unitLabel} (absolute)`);
+			if (lift.unit) {
+				lines.push(
+					`- **Expected Lift**: ${lift.value} ${lift.unit} (absolute)`,
+				);
+			} else {
+				lines.push(`- **Expected Lift**: ${lift.value} (absolute)`);
+			}
 		}
 		lines.push("");
 	}
