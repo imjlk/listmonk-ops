@@ -238,8 +238,137 @@ function isStoredAbTest(value: unknown): boolean {
 			isPositiveInteger(value.minimumTestSampleSize)) &&
 		(value.assignmentProvenance === undefined ||
 			value.assignmentProvenance === "manifest_v1" ||
-			value.assignmentProvenance === "legacy_unavailable")
+			value.assignmentProvenance === "legacy_unavailable") &&
+		// Pre-registration hypothesis: optional, but the nested shape and the
+		// locked-state checksum invariant are validated when present so that
+		// loadStoredAbTests never hydrates malformed or tampered metadata.
+		(value.hypothesis === undefined || isStoredHypothesis(value.hypothesis))
 	);
+}
+
+const HYPOTHESIS_METRIC_TYPES = new Set([
+	"click_rate",
+	"conversion_rate",
+	"revenue_per_recipient",
+]);
+const HYPOTHESIS_DIRECTIONS = new Set(["maximize", "minimize"]);
+const HYPOTHESIS_ABSOLUTE_UNITS = new Set([
+	"percentage_point",
+	"currency_per_recipient",
+]);
+
+/**
+ * Validate a persisted hypothesis record. Mirrors the runtime validation in
+ * hypothesis.ts but as a structural guard so loadStoredAbTests rejects
+ * malformed or tampered metadata before it reaches launch/report code.
+ * When lockedAt is present, checksum must also be present and match the
+ * recomputed canonical checksum.
+ */
+function isStoredHypothesis(value: unknown): boolean {
+	if (!isRecord(value)) {
+		return false;
+	}
+	if (typeof value.objective !== "string" || value.objective.trim() === "") {
+		return false;
+	}
+	if (typeof value.hypothesis !== "string" || value.hypothesis.trim() === "") {
+		return false;
+	}
+	if (typeof value.createdAt !== "string" || !isValidTimestamp(
+		value.createdAt,
+	)) {
+		return false;
+	}
+	// primaryMetric
+	const pm = value.primaryMetric;
+	if (
+		!isRecord(pm) ||
+		typeof pm.type !== "string" ||
+		!HYPOTHESIS_METRIC_TYPES.has(pm.type) ||
+		typeof pm.direction !== "string" ||
+		!HYPOTHESIS_DIRECTIONS.has(pm.direction)
+	) {
+		return false;
+	}
+	// expectedLift discriminated union
+	const lift = value.expectedLift;
+	if (!isRecord(lift)) {
+		return false;
+	}
+	if (lift.kind === "relative") {
+		if (
+			typeof lift.value !== "number" ||
+			!Number.isFinite(lift.value) ||
+			lift.value <= 0
+		) {
+			return false;
+		}
+	} else if (lift.kind === "absolute") {
+		if (
+			typeof lift.value !== "number" ||
+			!Number.isFinite(lift.value) ||
+			lift.value <= 0 ||
+			typeof lift.unit !== "string" ||
+			!HYPOTHESIS_ABSOLUTE_UNITS.has(lift.unit)
+		) {
+			return false;
+		}
+	} else {
+		return false;
+	}
+	// metric/unit coupling for absolute lifts
+	if (
+		lift.kind === "absolute" &&
+		typeof lift.unit === "string" &&
+		typeof pm.type === "string"
+	) {
+		if (pm.type === "revenue_per_recipient" && lift.unit !== "currency_per_recipient") {
+			return false;
+		}
+		if (
+			(pm.type === "click_rate" || pm.type === "conversion_rate") &&
+			lift.unit !== "percentage_point"
+		) {
+			return false;
+		}
+	}
+	// owner
+	const owner = value.owner;
+	if (
+		!isRecord(owner) ||
+		typeof owner.id !== "string" ||
+		owner.id.trim() === "" ||
+		(owner.displayName !== undefined && typeof owner.displayName !== "string")
+	) {
+		return false;
+	}
+	// experimentScope
+	const scope = value.experimentScope;
+	if (
+		!isRecord(scope) ||
+		scope.channel !== "email" ||
+		typeof scope.experimentFamilyKey !== "string" ||
+		typeof scope.attributionWindowHours !== "number" ||
+		!Number.isFinite(scope.attributionWindowHours) ||
+		scope.attributionWindowHours <= 0 ||
+		typeof scope.exclusionWindowHours !== "number" ||
+		!Number.isFinite(scope.exclusionWindowHours) ||
+		scope.exclusionWindowHours < 0
+	) {
+		return false;
+	}
+	// locked-state invariant: if lockedAt is present, checksum must be too.
+	if (value.lockedAt !== undefined) {
+		if (typeof value.lockedAt !== "string" || !isValidTimestamp(
+			value.lockedAt,
+		)) {
+			return false;
+		}
+		if (typeof value.checksum !== "string" || value.checksum.length !== 64) {
+			return false;
+		}
+	}
+	return true;
 }
 
 function isNonNegativeInteger(value: unknown): value is number {

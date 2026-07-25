@@ -160,7 +160,49 @@ const abTestSchema = z.object({
 		assignmentProvenance: z
 			.enum(["manifest_v1", "legacy_unavailable"])
 			.optional(),
-	});
+	// Pre-registration hypothesis metadata (advanced experimentation Change
+	// Set A). Optional so existing records without a hypothesis still parse.
+	// Kept structurally aligned with HypothesisMetadata so CLI/MCP callers can
+	// retrieve the pre-registration through the shared operation output.
+	hypothesis: z
+		.object({
+			objective: z.string(),
+			hypothesis: z.string(),
+			primaryMetric: z.object({
+				type: z.enum([
+					"click_rate",
+					"conversion_rate",
+					"revenue_per_recipient",
+				]),
+				direction: z.enum(["maximize", "minimize"]),
+			}),
+			expectedLift: z.union([
+				z.object({
+					kind: z.literal("relative"),
+					value: z.number().finite().positive(),
+				}),
+				z.object({
+					kind: z.literal("absolute"),
+					value: z.number().finite().positive(),
+					unit: z.enum(["percentage_point", "currency_per_recipient"]),
+				}),
+			]),
+			owner: z.object({
+				id: z.string(),
+				displayName: z.string().optional(),
+			}),
+			experimentScope: z.object({
+				channel: z.literal("email"),
+				experimentFamilyKey: z.string(),
+				attributionWindowHours: z.number().finite().positive(),
+				exclusionWindowHours: z.number().finite().nonnegative(),
+			}),
+			createdAt: z.string(),
+			lockedAt: z.string().optional(),
+			checksum: z.string().optional(),
+		})
+		.optional(),
+});
 
 const testResultsSchema = z.object({
 	variantId: z.string(),

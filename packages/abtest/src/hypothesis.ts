@@ -90,6 +90,7 @@ export function validateHypothesisMetadata(
 	require("expectedLift", metadata.expectedLift);
 	require("owner", metadata.owner);
 	require("experimentScope", metadata.experimentScope);
+	require("createdAt", metadata.createdAt);
 
 	if (metadata.objective !== undefined) {
 		if (typeof metadata.objective !== "string" || metadata.objective.trim().length === 0) {
@@ -105,12 +106,81 @@ export function validateHypothesisMetadata(
 			);
 		}
 	}
-	if (metadata.expectedLift !== undefined) {
-		if (!Number.isFinite(
-			metadata.expectedLift.value,
-		) || metadata.expectedLift.value <= 0) {
+	if (metadata.createdAt !== undefined) {
+		if (
+			typeof metadata.createdAt !== "string" ||
+			Number.isNaN(Date.parse(metadata.createdAt))
+		) {
 			throw new HypothesisValidationError(
-				`expectedLift.value must be finite and positive, received ${metadata.expectedLift.value}`,
+				`createdAt must be a valid ISO 8601 timestamp, received ${JSON.stringify(metadata.createdAt)}`,
+			);
+		}
+	}
+	if (metadata.primaryMetric !== undefined) {
+		const pm = metadata.primaryMetric;
+		const validTypes = [
+			"click_rate",
+			"conversion_rate",
+			"revenue_per_recipient",
+		];
+		if (!validTypes.includes(pm.type)) {
+			throw new HypothesisValidationError(
+				`primaryMetric.type must be one of ${validTypes.join(", ")}, received ${JSON.stringify(pm.type)}`,
+			);
+		}
+		if (pm.direction !== "maximize" && pm.direction !== "minimize") {
+			throw new HypothesisValidationError(
+				`primaryMetric.direction must be "maximize" or "minimize", received ${JSON.stringify(pm.direction)}`,
+			);
+		}
+	}
+	if (metadata.expectedLift !== undefined) {
+		const lift = metadata.expectedLift;
+		const rawKind = (lift as { kind?: unknown }).kind;
+		if (rawKind !== "relative" && rawKind !== "absolute") {
+			throw new HypothesisValidationError(
+				`expectedLift.kind must be "relative" or "absolute", received ${JSON.stringify(rawKind)}`,
+			);
+		}
+		if (!Number.isFinite(lift.value) || lift.value <= 0) {
+			throw new HypothesisValidationError(
+				`expectedLift.value must be finite and positive, received ${lift.value}`,
+			);
+		}
+		if (lift.kind === "absolute") {
+			const validUnits = ["percentage_point", "currency_per_recipient"];
+			if (!validUnits.includes(lift.unit)) {
+				throw new HypothesisValidationError(
+					`expectedLift.unit must be one of ${validUnits.join(", ")} for absolute lift, received ${JSON.stringify(lift.unit)}`,
+				);
+			}
+		}
+	}
+	// Couple absolute-lift units to the primary metric so the pre-registered
+	// lift has an interpretable meaning. A click_rate / conversion_rate metric
+	// may use percentage_point lift; a revenue_per_recipient metric must use
+	// currency_per_recipient. Relative lift is unit-agnostic.
+	if (
+		metadata.primaryMetric !== undefined &&
+		metadata.expectedLift !== undefined &&
+		metadata.expectedLift.kind === "absolute"
+	) {
+		const metricType = metadata.primaryMetric.type;
+		const unit = metadata.expectedLift.unit;
+		if (
+			metricType === "revenue_per_recipient" &&
+			unit !== "currency_per_recipient"
+		) {
+			throw new HypothesisValidationError(
+				`revenue_per_recipient metric requires currency_per_recipient absolute lift, received ${JSON.stringify(unit)}`,
+			);
+		}
+		if (
+			(metricType === "click_rate" || metricType === "conversion_rate") &&
+			unit !== "percentage_point"
+		) {
+			throw new HypothesisValidationError(
+				`${metricType} metric requires percentage_point absolute lift, received ${JSON.stringify(unit)}`,
 			);
 		}
 	}
@@ -133,9 +203,12 @@ export function validateHypothesisMetadata(
 				"experimentScope.experimentFamilyKey must be a non-empty string",
 			);
 		}
-		if (!scope.experimentFamilyKey.match(/^[a-z0-9._-]+$/)) {
+		// Reject delimiter-only and empty-segment keys (".", "foo.", "foo..bar")
+		// by requiring one or more alphanumeric segments joined by single
+		// separators from [._-].
+		if (!scope.experimentFamilyKey.match(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/)) {
 			throw new HypothesisValidationError(
-				`experimentFamilyKey must match [a-z0-9._-]+, received "${scope.experimentFamilyKey}"`,
+				`experimentFamilyKey must be dotted alphanumeric segments (e.g. "onboarding.activation"), received "${scope.experimentFamilyKey}"`,
 			);
 		}
 		if (
@@ -158,14 +231,42 @@ export function validateHypothesisMetadata(
 }
 
 /**
+ * Recursively canonicalize a value for stable serialization:
+ * - Plain objects have their keys sorted alphabetically.
+ * - Arrays are preserved in order with each element canonicalized.
+ * - Primitives are returned as-is.
+ * This guarantees that two objects with the same content (in any key
+ * order) produce identical JSON, which a flat `Object.keys(...).sort()`
+ * array replacer cannot do because JSON.stringify applies the replacer
+ * recursively and would drop nested keys not present in the top-level
+ * allowlist.
+ */
+function canonicalize(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(canonicalize);
+	}
+	if (value !== null && typeof value === "object") {
+		const obj = value as Record<string, unknown>;
+		const sorted: Record<string, unknown> = {};
+		for (const key of Object.keys(obj).sort()) {
+			sorted[key] = canonicalize(obj[key]);
+		}
+		return sorted;
+	}
+	return value;
+}
+
+/**
  * Compute a canonical SHA-256 checksum for a HypothesisMetadata object.
  * The checksum excludes `lockedAt` and `checksum` themselves so the
- * same content always produces the same hash.
+ * same content always produces the same hash. Nested fields
+ * (primaryMetric, expectedLift, owner, experimentScope) are recursively
+ * canonicalized so any change to them invalidates the checksum.
  */
 export function computeHypothesisChecksum(
 	metadata: HypothesisMetadata,
 ): string {
-	const canonical = {
+	const canonical = canonicalize({
 		objective: metadata.objective,
 		hypothesis: metadata.hypothesis,
 		primaryMetric: metadata.primaryMetric,
@@ -173,15 +274,16 @@ export function computeHypothesisChecksum(
 		owner: { id: metadata.owner.id, displayName: metadata.owner.displayName },
 		experimentScope: metadata.experimentScope,
 		createdAt: metadata.createdAt,
-	};
-	const json = JSON.stringify(canonical, Object.keys(canonical).sort());
+	}) as Record<string, unknown>;
+	const json = JSON.stringify(canonical);
 	return createHash("sha256").update(json, "utf8").digest("hex");
 }
 
 /**
  * Lock a hypothesis by computing its checksum and setting lockedAt.
  * Returns a new object with checksum and lockedAt populated.
- * Throws if the hypothesis is already locked.
+ * Throws if the hypothesis is already locked or if the supplied lock
+ * timestamp override is not a valid ISO 8601 string.
  */
 export function lockHypothesis(
 	metadata: HypothesisMetadata,
@@ -190,6 +292,11 @@ export function lockHypothesis(
 	if (metadata.lockedAt) {
 		throw new HypothesisValidationError(
 			"Hypothesis is already locked; create a new test revision to change it",
+		);
+	}
+	if (typeof lockedAt !== "string" || Number.isNaN(Date.parse(lockedAt))) {
+		throw new HypothesisValidationError(
+			`lockedAt override must be a valid ISO 8601 timestamp, received ${JSON.stringify(lockedAt)}`,
 		);
 	}
 	validateHypothesisMetadata(metadata, true);

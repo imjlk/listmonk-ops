@@ -241,4 +241,82 @@ describe("A/B test persistence", () => {
 			);
 		}
 	});
+
+	test("rejects malformed persisted hypothesis metadata", async () => {
+		const storePath = await createStorePath();
+		const validTest = createTest("one");
+		const validHypothesis = {
+			objective: "Increase CTR",
+			hypothesis: "Shorter subject lifts CTR",
+			primaryMetric: {
+				type: "click_rate",
+				direction: "maximize",
+			},
+			expectedLift: { kind: "relative", value: 0.1 },
+			owner: { id: "user-1" },
+			experimentScope: {
+				channel: "email",
+				experimentFamilyKey: "onboarding.welcome",
+				attributionWindowHours: 72,
+				exclusionWindowHours: 168,
+			},
+			createdAt: "2026-07-24T00:00:00.000Z",
+		};
+		// A valid hypothesis round-trips through the store.
+		await saveStoredAbTests([validTest], storePath);
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [{ ...validTest, hypothesis: validHypothesis }],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).resolves.toHaveLength(1);
+
+		// A hypothesis with a bogus metric type is rejected.
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [
+					{
+						...validTest,
+						hypothesis: {
+							...validHypothesis,
+							primaryMetric: {
+								type: "bogus",
+								direction: "maximize",
+							},
+						},
+					},
+				],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
+			"test 0 failed schema validation",
+		);
+
+		// A hypothesis locked without a checksum is rejected.
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [
+					{
+						...validTest,
+						hypothesis: {
+							...validHypothesis,
+							lockedAt: "2026-07-24T01:00:00.000Z",
+						},
+					},
+				],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
+			"test 0 failed schema validation",
+		);
+	});
 });

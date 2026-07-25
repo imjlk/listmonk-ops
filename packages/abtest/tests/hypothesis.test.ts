@@ -124,6 +124,159 @@ describe("validateHypothesisMetadata", () => {
 			),
 		).toThrow(HypothesisValidationError);
 	});
+
+	it("requires createdAt in strict mode", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({ createdAt: undefined }),
+				true,
+			),
+		).toThrow(HypothesisValidationError);
+	});
+
+	it("rejects malformed createdAt", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({ createdAt: "not-a-date" }),
+			),
+		).toThrow(HypothesisValidationError);
+	});
+
+	it("rejects invalid primaryMetric.type in strict mode", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					primaryMetric: {
+						type: "bogus" as "click_rate",
+						direction: "maximize",
+					},
+				}),
+				true,
+			),
+		).toThrow(HypothesisValidationError);
+	});
+
+	it("rejects invalid primaryMetric.direction", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					primaryMetric: {
+						type: "click_rate",
+						direction: "sideways" as "maximize",
+					},
+				}),
+			),
+		).toThrow(HypothesisValidationError);
+	});
+
+	it("rejects invalid expectedLift.kind", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					expectedLift: {
+						kind: "bogus" as "relative",
+						value: 0.1,
+					} as HypothesisMetadata["expectedLift"],
+				}),
+			),
+		).toThrow(HypothesisValidationError);
+	});
+
+	it("rejects absolute lift without a valid unit", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					expectedLift: {
+						kind: "absolute",
+						value: 1,
+						unit: "bogus" as "percentage_point",
+					},
+				}),
+			),
+		).toThrow(HypothesisValidationError);
+	});
+
+	it("rejects incompatible revenue metric with percentage_point lift", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					primaryMetric: {
+						type: "revenue_per_recipient",
+						direction: "maximize",
+					},
+					expectedLift: {
+						kind: "absolute",
+						value: 1,
+						unit: "percentage_point",
+					},
+				}),
+			),
+		).toThrow(HypothesisValidationError);
+	});
+
+	it("rejects click metric with currency_per_recipient lift", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					expectedLift: {
+						kind: "absolute",
+						value: 1,
+						unit: "currency_per_recipient",
+					},
+				}),
+			),
+		).toThrow(HypothesisValidationError);
+	});
+
+	it("accepts compatible revenue metric with currency_per_recipient lift", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					primaryMetric: {
+						type: "revenue_per_recipient",
+						direction: "maximize",
+					},
+					expectedLift: {
+						kind: "absolute",
+						value: 1,
+						unit: "currency_per_recipient",
+					},
+				}),
+			),
+		).not.toThrow();
+	});
+
+	it("rejects delimiter-only experimentFamilyKey", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					experimentScope: {
+						channel: "email",
+						experimentFamilyKey: ".",
+						attributionWindowHours: 72,
+						exclusionWindowHours: 168,
+					},
+				}),
+			),
+		).toThrow(HypothesisValidationError);
+	});
+
+	it("rejects empty family-key segments", () => {
+		for (const bad of ["foo.", ".foo", "foo..bar", "-"]) {
+			expect(() =>
+				validateHypothesisMetadata(
+					makeHypothesis({
+						experimentScope: {
+							channel: "email",
+							experimentFamilyKey: bad,
+							attributionWindowHours: 72,
+							exclusionWindowHours: 168,
+						},
+					}),
+				),
+			).toThrow(HypothesisValidationError);
+		}
+	});
 });
 
 describe("computeHypothesisChecksum", () => {
@@ -153,6 +306,49 @@ describe("computeHypothesisChecksum", () => {
 			computeHypothesisChecksum(base),
 		);
 	});
+
+	it("changes when a nested primaryMetric field changes", () => {
+		const base = computeHypothesisChecksum(makeHypothesis());
+		const changed = computeHypothesisChecksum(
+			makeHypothesis({
+				primaryMetric: { type: "conversion_rate", direction: "maximize" },
+			}),
+		);
+		expect(base).not.toBe(changed);
+	});
+
+	it("changes when a nested expectedLift field changes", () => {
+		const base = computeHypothesisChecksum(makeHypothesis());
+		const changed = computeHypothesisChecksum(
+			makeHypothesis({
+				expectedLift: { kind: "relative", value: 0.2 },
+			}),
+		);
+		expect(base).not.toBe(changed);
+	});
+
+	it("changes when a nested owner field changes", () => {
+		const base = computeHypothesisChecksum(makeHypothesis());
+		const changed = computeHypothesisChecksum(
+			makeHypothesis({ owner: { id: "user-2" } }),
+		);
+		expect(base).not.toBe(changed);
+	});
+
+	it("changes when a nested experimentScope field changes", () => {
+		const base = computeHypothesisChecksum(makeHypothesis());
+		const changed = computeHypothesisChecksum(
+			makeHypothesis({
+				experimentScope: {
+					channel: "email",
+					experimentFamilyKey: "onboarding.welcome.subject",
+					attributionWindowHours: 48,
+					exclusionWindowHours: 168,
+				},
+			}),
+		);
+		expect(base).not.toBe(changed);
+	});
 });
 
 describe("lockHypothesis", () => {
@@ -175,6 +371,27 @@ describe("lockHypothesis", () => {
 				makeHypothesis({ objective: undefined } as HypothesisMetadata),
 			),
 		).toThrow(HypothesisValidationError);
+	});
+
+	it("rejects an empty lockedAt override", () => {
+		expect(() => lockHypothesis(makeHypothesis(), "")).toThrow(
+			HypothesisValidationError,
+		);
+	});
+
+	it("rejects a malformed lockedAt override", () => {
+		expect(() => lockHypothesis(makeHypothesis(), "not-a-date")).toThrow(
+			HypothesisValidationError,
+		);
+	});
+
+	it("accepts a valid lockedAt override", () => {
+		const locked = lockHypothesis(
+			makeHypothesis(),
+			"2026-07-24T01:00:00Z",
+		);
+		expect(locked.lockedAt).toBe("2026-07-24T01:00:00Z");
+		expect(verifyHypothesisChecksum(locked)).toBe(true);
 	});
 });
 
