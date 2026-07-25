@@ -16,6 +16,13 @@ import {
 	rankMembers,
 	type AssignmentManifest,
 } from "./assignment";
+import {
+	classifyStratum,
+	computeStratifiedQuotas,
+	DEFAULT_STRATIFICATION_POLICY,
+	type StratificationPolicyV1,
+	type StratificationResult,
+} from "./stratification";
 
 export interface ProvisionedAbTestResources {
 	testId: string;
@@ -159,6 +166,7 @@ export class ListmonkAbTestIntegration {
 		options: {
 			testId?: string;
 			assignmentSeed?: string;
+			stratificationPolicy?: StratificationPolicyV1;
 		} = {},
 	): Promise<{
 		testListMappings: { variantId: string; listId: number }[];
@@ -169,6 +177,9 @@ export class ListmonkAbTestIntegration {
 		assignmentTestId: string;
 		audienceSnapshot: AudienceSnapshot;
 		assignmentManifest: AssignmentManifest;
+		/** Stratified quota matrix computed from the resolved audience. Present
+		 * when a stratification policy is supplied and emails are available. */
+		stratification?: StratificationResult;
 	}> {
 		const createdListIds: number[] = [];
 		let holdoutListId: number | undefined;
@@ -304,6 +315,49 @@ export class ListmonkAbTestIntegration {
 				});
 			}
 
+			// Optionally compute the recipient-domain stratified quota matrix
+			// from the resolved audience so each provider stratum gets a
+			// proportional share of every variant/holdout group. This runs the
+			// quota solver against real audience data and surfaces it for
+			// reporting/validation; the assignment itself remains the
+			// deterministic largest-remainder manifest above.
+			const stratificationPolicy =
+				options.stratificationPolicy ?? DEFAULT_STRATIFICATION_POLICY;
+			let stratification: StratificationResult | undefined;
+			if (stratificationPolicy.enabled) {
+				const emailsAvailable = resolvedMembers.some(
+					(member) => member.email !== undefined,
+				);
+				if (emailsAvailable) {
+					// Build stratum sizes by classifying each member's domain.
+					const stratumSizes: Record<string, number> = {};
+					for (const member of resolvedMembers) {
+						const stratum = classifyStratum(
+							member.email ?? "",
+							stratificationPolicy,
+						);
+						stratumSizes[stratum] = (stratumSizes[stratum] ?? 0) + 1;
+					}
+					// Build exact group counts from the manifest groups.
+					const groupExactCounts: Record<string, number> = {};
+					const groupOrder: string[] = [];
+					for (const group of assignmentManifest.groups) {
+						const key =
+							group.kind === "variant"
+								? `variant:${group.variantId ?? ""}`
+								: "holdout";
+						groupOrder.push(key);
+						groupExactCounts[key] = group.expectedCount;
+					}
+					stratification = computeStratifiedQuotas({
+						stratumSizes,
+						groupExactCounts,
+						groupOrder,
+						totalAudience: resolvedSnapshot.subscriberCount,
+					});
+				}
+			}
+
 			return {
 				testListMappings,
 				holdoutListId,
@@ -313,6 +367,7 @@ export class ListmonkAbTestIntegration {
 				assignmentTestId: testId,
 				audienceSnapshot: resolvedSnapshot,
 				assignmentManifest,
+				stratification,
 			};
 		} catch (error) {
 			await this.deleteListsBestEffort([...createdListIds].reverse());

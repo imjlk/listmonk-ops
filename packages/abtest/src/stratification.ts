@@ -66,8 +66,31 @@ export function normalizeDomain(email: string): string {
 }
 
 /**
+ * Build a domain-to-provider lookup map by normalizing each configured
+ * domain with the same rules applied to subscriber emails. This ensures a
+ * mixed-case or trailing-dot entry in the providerDomainMap (e.g.
+ * "GMAIL.COM") still classifies matching subscribers correctly.
+ */
+function buildProviderLookup(
+	policy: StratificationPolicyV1,
+): Map<string, string> {
+	const lookup = new Map<string, string>();
+	for (const [provider, domains] of Object.entries(policy.providerDomainMap)) {
+		for (const rawDomain of domains) {
+			const normalized = normalizeDomain(`@${rawDomain}`);
+			if (normalized !== "") {
+				lookup.set(normalized, provider);
+			}
+		}
+	}
+	return lookup;
+}
+
+/**
  * Classify a subscriber's email domain into a stratum key using
- * the provider domain map.
+ * the provider domain map. Configured domains are normalized with the same
+ * rules applied to subscriber emails so mixed-case or trailing-dot entries
+ * match correctly.
  */
 export function classifyStratum(
 	email: string,
@@ -77,10 +100,10 @@ export function classifyStratum(
 	if (domain === "") {
 		return policy.unknownStratumKey;
 	}
-	for (const [provider, domains] of Object.entries(policy.providerDomainMap)) {
-		if (domains.includes(domain)) {
-			return provider;
-		}
+	const lookup = buildProviderLookup(policy);
+	const provider = lookup.get(domain);
+	if (provider !== undefined) {
+		return provider;
 	}
 	return policy.otherStratumKey;
 }
@@ -229,23 +252,47 @@ export function computeStratifiedQuotas(params: {
 		if (!deficitGroup || !surplusGroup) break;
 
 		// Choose the row where the deficit cell is most below ideal and the
-		// surplus cell can donate (quota > 0). This keeps cell deviations
-		// minimal and avoids negative quotas.
+		// surplus cell can donate. We prefer swaps that keep cells within their
+		// floor-or-ceiling allocation: the donor stays at/above its floor and
+		// the receiver stays at/below its ceiling. When no such bounded swap is
+		// possible (column totals may require a cell outside the naive floor/
+		// ceiling band), fall back to the row that minimizes how far outside
+		// the band the resulting cells would land.
 		let bestStratum: string | null = null;
 		let bestScore = -Infinity;
+		let bestBounded = false;
 		for (const sk of stratumKeys) {
 			const row = quotas[sk];
 			if (!row) continue;
 			const surplusQuota = row[surplusGroup] ?? 0;
+			const deficitQuota = row[deficitGroup] ?? 0;
+			const surplusIdeal = idealLookup.get(`${sk}:${surplusGroup}`) ?? 0;
+			const deficitIdeal = idealLookup.get(`${sk}:${deficitGroup}`) ?? 0;
+			const surplusBounded = surplusQuota > Math.floor(surplusIdeal);
+			const deficitBounded = deficitQuota < Math.ceil(deficitIdeal);
+			const bounded = surplusBounded && deficitBounded;
+			// Always require a positive donor and a receiver below ceiling so
+			// the swap is physically valid (no negative quota, no receiver
+			// already at ceiling that the swap would exceed).
 			if (surplusQuota <= 0) continue;
-			const deficitDev = cellDeviation(sk, deficitGroup);
-			const surplusDev = cellDeviation(sk, surplusGroup);
-			// Prefer rows where the deficit cell is far below ideal and the
-			// surplus cell is far above ideal.
+			if (deficitQuota >= Math.ceil(deficitIdeal)) continue;
+			const deficitDev = deficitQuota - deficitIdeal;
+			const surplusDev = surplusQuota - surplusIdeal;
 			const score = surplusDev - deficitDev;
-			if (score > bestScore) {
-				bestScore = score;
+			// Prefer bounded swaps; among the same boundedness, prefer the
+			// best score.
+			if (bestStratum === null) {
 				bestStratum = sk;
+				bestScore = score;
+				bestBounded = bounded;
+			} else if (bounded && !bestBounded) {
+				// A bounded swap beats an unbounded incumbent.
+				bestStratum = sk;
+				bestScore = score;
+				bestBounded = bounded;
+			} else if (bounded === bestBounded && score > bestScore) {
+				bestStratum = sk;
+				bestScore = score;
 			}
 		}
 		if (!bestStratum) break;

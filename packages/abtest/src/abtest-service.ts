@@ -11,6 +11,7 @@ import {
 	DEFAULT_STATISTICAL_POLICY,
 	fixedHorizonGate,
 } from "./statistics";
+import { lockHypothesis } from "./hypothesis";
 import type {
 	AbTest,
 	AbTestConfig,
@@ -178,6 +179,13 @@ export class AbTestService {
 			autoDeployWinner,
 			campaignMappings: [],
 			testListMappings: [],
+			// Lock the pre-registration hypothesis before any provisioning so the
+			// assignment manifest is bound to a frozen, checksummed hypothesis.
+			hypothesis: config.hypothesis
+				? config.hypothesis.lockedAt
+					? config.hypothesis
+					: lockHypothesis(config.hypothesis)
+				: undefined,
 		};
 
 		// Create Listmonk campaigns if integration is available
@@ -224,6 +232,14 @@ export class AbTestService {
 					abTest.assignmentSeed = segmentationResult.assignmentSeed;
 					abTest.audienceSnapshot = segmentationResult.audienceSnapshot;
 					abTest.assignmentManifest = segmentationResult.assignmentManifest;
+					// Record that recipients were assigned through a deterministic
+					// manifest, so consumers can distinguish it from legacy splits.
+					abTest.assignmentProvenance = "manifest_v1";
+					// Capture the stratified quota matrix when a stratification
+					// policy produced one, so reports can show per-provider shares.
+					if (segmentationResult.stratification) {
+						abTest.stratification = segmentationResult.stratification;
+					}
 				} else {
 					// Use full-split methodology (legacy)
 					testListMappings = await this.listmonkIntegration.segmentSubscribers(
@@ -238,6 +254,8 @@ export class AbTestService {
 						);
 					testGroupSize = totalSubscribers;
 					holdoutGroupSize = 0;
+					// Full-split provisioning predates deterministic manifests.
+					abTest.assignmentProvenance = "legacy_unavailable";
 				}
 				provisionedResources = {
 					...provisionedResources,

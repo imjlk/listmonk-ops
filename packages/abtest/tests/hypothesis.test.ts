@@ -142,6 +142,56 @@ describe("validateHypothesisMetadata", () => {
 		).toThrow(HypothesisValidationError);
 	});
 
+	it("rejects non-ISO timestamps that Date.parse would accept", () => {
+		// "0", "01/02/03", and overflowed "2026-02-30" must be rejected.
+		for (const bad of ["0", "01/02/03", "2026-02-30", "2026-13-40"]) {
+			expect(() =>
+				validateHypothesisMetadata(makeHypothesis({ createdAt: bad })),
+			).toThrow(HypothesisValidationError);
+		}
+	});
+
+	it("rejects null nested metadata with a validation error", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					primaryMetric: null as unknown as HypothesisMetadata["primaryMetric"],
+				}),
+			),
+		).toThrow(HypothesisValidationError);
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					expectedLift: null as unknown as HypothesisMetadata["expectedLift"],
+				}),
+			),
+		).toThrow(HypothesisValidationError);
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					owner: null as unknown as HypothesisMetadata["owner"],
+				}),
+			),
+		).toThrow(HypothesisValidationError);
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					experimentScope: null as unknown as HypothesisMetadata["experimentScope"],
+				}),
+			),
+		).toThrow(HypothesisValidationError);
+	});
+
+	it("rejects non-string owner id with a validation error", () => {
+		expect(() =>
+			validateHypothesisMetadata(
+				makeHypothesis({
+					owner: { id: 123 as unknown as string },
+				}),
+			),
+		).toThrow(HypothesisValidationError);
+	});
+
 	it("rejects invalid primaryMetric.type in strict mode", () => {
 		expect(() =>
 			validateHypothesisMetadata(

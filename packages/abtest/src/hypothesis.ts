@@ -71,6 +71,44 @@ export class HypothesisValidationError extends Error {
 }
 
 /**
+ * Strict ISO 8601 validation that rejects values `Date.parse` would silently
+ * accept, including the year-zero string "0", localized formats like
+ * "01/02/03", and overflowed calendar dates like "2026-02-30". The date
+ * components are reconstructed and compared so overflow rolls over are caught.
+ */
+function isStrictIsoTimestamp(value: unknown): boolean {
+	if (typeof value !== "string") return false;
+	const re =
+		/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})?)?$/;
+	if (!re.test(value)) return false;
+	const parts = value.split(/([T ])/);
+	const datePart = parts[0];
+	if (!datePart) return false;
+	const dateNums = datePart.split("-").map(Number);
+	const y = dateNums[0];
+	const m = dateNums[1];
+	const day = dateNums[2];
+	if (y === undefined || m === undefined || day === undefined) return false;
+	const d = new Date(Date.UTC(y, m - 1, day));
+	if (
+		d.getUTCFullYear() !== y ||
+		d.getUTCMonth() !== m - 1 ||
+		d.getUTCDate() !== day
+	) {
+		return false;
+	}
+	// If a time component is present, ensure it parses (catches bad hours/minutes).
+	if (parts.length > 1) {
+		if (Number.isNaN(Date.parse(value))) return false;
+	}
+	return true;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
  * Validate hypothesis metadata. When `strict` is true (launch/pre-registration),
  * all fields are required. When false (draft), missing fields are allowed.
  */
@@ -107,10 +145,7 @@ export function validateHypothesisMetadata(
 		}
 	}
 	if (metadata.createdAt !== undefined) {
-		if (
-			typeof metadata.createdAt !== "string" ||
-			Number.isNaN(Date.parse(metadata.createdAt))
-		) {
+		if (!isStrictIsoTimestamp(metadata.createdAt)) {
 			throw new HypothesisValidationError(
 				`createdAt must be a valid ISO 8601 timestamp, received ${JSON.stringify(metadata.createdAt)}`,
 			);
@@ -118,6 +153,11 @@ export function validateHypothesisMetadata(
 	}
 	if (metadata.primaryMetric !== undefined) {
 		const pm = metadata.primaryMetric;
+		if (!isPlainObject(pm)) {
+			throw new HypothesisValidationError(
+				`primaryMetric must be an object, received ${JSON.stringify(pm)}`,
+			);
+		}
 		const validTypes = [
 			"click_rate",
 			"conversion_rate",
@@ -136,22 +176,30 @@ export function validateHypothesisMetadata(
 	}
 	if (metadata.expectedLift !== undefined) {
 		const lift = metadata.expectedLift;
+		if (!isPlainObject(lift)) {
+			throw new HypothesisValidationError(
+				`expectedLift must be an object, received ${JSON.stringify(lift)}`,
+			);
+		}
 		const rawKind = (lift as { kind?: unknown }).kind;
 		if (rawKind !== "relative" && rawKind !== "absolute") {
 			throw new HypothesisValidationError(
 				`expectedLift.kind must be "relative" or "absolute", received ${JSON.stringify(rawKind)}`,
 			);
 		}
-		if (!Number.isFinite(lift.value) || lift.value <= 0) {
+		if (typeof lift.value !== "number" || !Number.isFinite(
+			lift.value,
+		) || lift.value <= 0) {
 			throw new HypothesisValidationError(
-				`expectedLift.value must be finite and positive, received ${lift.value}`,
+				`expectedLift.value must be finite and positive, received ${JSON.stringify(lift.value)}`,
 			);
 		}
-		if (lift.kind === "absolute") {
+		if (rawKind === "absolute") {
 			const validUnits = ["percentage_point", "currency_per_recipient"];
-			if (!validUnits.includes(lift.unit)) {
+			const unit = (lift as { unit?: unknown }).unit;
+			if (typeof unit !== "string" || !validUnits.includes(unit)) {
 				throw new HypothesisValidationError(
-					`expectedLift.unit must be one of ${validUnits.join(", ")} for absolute lift, received ${JSON.stringify(lift.unit)}`,
+					`expectedLift.unit must be one of ${validUnits.join(", ")} for absolute lift, received ${JSON.stringify(unit)}`,
 				);
 			}
 		}
@@ -163,10 +211,11 @@ export function validateHypothesisMetadata(
 	if (
 		metadata.primaryMetric !== undefined &&
 		metadata.expectedLift !== undefined &&
-		metadata.expectedLift.kind === "absolute"
+		isPlainObject(metadata.expectedLift) &&
+		(metadata.expectedLift as { kind?: unknown }).kind === "absolute"
 	) {
 		const metricType = metadata.primaryMetric.type;
-		const unit = metadata.expectedLift.unit;
+		const unit = (metadata.expectedLift as { unit?: unknown }).unit;
 		if (
 			metricType === "revenue_per_recipient" &&
 			unit !== "currency_per_recipient"
@@ -185,7 +234,13 @@ export function validateHypothesisMetadata(
 		}
 	}
 	if (metadata.owner !== undefined) {
-		if (!metadata.owner.id || metadata.owner.id.trim().length === 0) {
+		const owner = metadata.owner;
+		if (!isPlainObject(owner)) {
+			throw new HypothesisValidationError(
+				`owner must be an object, received ${JSON.stringify(owner)}`,
+			);
+		}
+		if (typeof owner.id !== "string" || owner.id.trim().length === 0) {
 			throw new HypothesisValidationError(
 				"owner.id must be a non-empty string",
 			);
@@ -193,9 +248,19 @@ export function validateHypothesisMetadata(
 	}
 	if (metadata.experimentScope !== undefined) {
 		const scope = metadata.experimentScope;
+		if (!isPlainObject(scope)) {
+			throw new HypothesisValidationError(
+				`experimentScope must be an object, received ${JSON.stringify(scope)}`,
+			);
+		}
 		if (scope.channel !== "email") {
 			throw new HypothesisValidationError(
 				`channel must be "email", received "${scope.channel}"`,
+			);
+		}
+		if (typeof scope.experimentFamilyKey !== "string" || scope.experimentFamilyKey.trim().length === 0) {
+			throw new HypothesisValidationError(
+				"experimentScope.experimentFamilyKey must be a non-empty string",
 			);
 		}
 		if (!scope.experimentFamilyKey || scope.experimentFamilyKey.trim().length === 0) {
@@ -206,25 +271,27 @@ export function validateHypothesisMetadata(
 		// Reject delimiter-only and empty-segment keys (".", "foo.", "foo..bar")
 		// by requiring one or more alphanumeric segments joined by single
 		// separators from [._-].
-		if (!scope.experimentFamilyKey.match(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/)) {
+		if (!/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(scope.experimentFamilyKey)) {
 			throw new HypothesisValidationError(
 				`experimentFamilyKey must be dotted alphanumeric segments (e.g. "onboarding.activation"), received "${scope.experimentFamilyKey}"`,
 			);
 		}
 		if (
+			typeof scope.attributionWindowHours !== "number" ||
 			!Number.isFinite(scope.attributionWindowHours) ||
 			scope.attributionWindowHours <= 0
 		) {
 			throw new HypothesisValidationError(
-				`attributionWindowHours must be finite and positive, received ${scope.attributionWindowHours}`,
+				`attributionWindowHours must be finite and positive, received ${JSON.stringify(scope.attributionWindowHours)}`,
 			);
 		}
 		if (
+			typeof scope.exclusionWindowHours !== "number" ||
 			!Number.isFinite(scope.exclusionWindowHours) ||
 			scope.exclusionWindowHours < 0
 		) {
 			throw new HypothesisValidationError(
-				`exclusionWindowHours must be finite and non-negative, received ${scope.exclusionWindowHours}`,
+				`exclusionWindowHours must be finite and non-negative, received ${JSON.stringify(scope.exclusionWindowHours)}`,
 			);
 		}
 	}
@@ -297,7 +364,7 @@ export function lockHypothesis(
 	// Validate the primary metadata first so domain errors surface before
 	// the timestamp override check; the lockedAt override is secondary input.
 	validateHypothesisMetadata(metadata, true);
-	if (typeof lockedAt !== "string" || Number.isNaN(Date.parse(lockedAt))) {
+	if (!isStrictIsoTimestamp(lockedAt)) {
 		throw new HypothesisValidationError(
 			`lockedAt override must be a valid ISO 8601 timestamp, received ${JSON.stringify(lockedAt)}`,
 		);

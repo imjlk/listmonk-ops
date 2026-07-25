@@ -243,7 +243,13 @@ function isStoredAbTest(value: unknown): boolean {
 		// Pre-registration hypothesis: optional, but the nested shape and the
 		// locked-state checksum invariant are validated when present so that
 		// loadStoredAbTests never hydrates malformed or tampered metadata.
-		(value.hypothesis === undefined || isStoredHypothesis(value.hypothesis))
+		(value.hypothesis === undefined || isStoredHypothesis(value.hypothesis)) &&
+		// If an assignment manifest exists, the hypothesis must be present and
+		// locked with a valid checksum. This enforces the pre-registration
+		// guarantee that hypothesis content cannot change after recipient
+		// assignment.
+		(value.assignmentManifest === undefined ||
+			(value.hypothesis !== undefined && isStoredHypothesis(value.hypothesis)))
 	);
 }
 

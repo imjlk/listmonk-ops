@@ -30,6 +30,9 @@ export interface AudienceMember {
 	subscriberId: number;
 	/** Stable UUID used for identity, dedupe, checksum, and deterministic assignment. */
 	subscriberUuid: string;
+	/** Subscriber email, used for recipient-domain stratification. Optional
+	 * because legacy resolvers and test fixtures may not populate it. */
+	email?: string;
 }
 
 export interface AudienceSnapshot {
@@ -228,6 +231,7 @@ export function createListmonkAudienceResolver(
 							collected.push({
 								subscriberId: numericId,
 								subscriberUuid: uuid,
+								email: subscriber.email,
 							});
 						}
 					}

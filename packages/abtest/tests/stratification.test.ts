@@ -48,6 +48,15 @@ describe("classifyStratum", () => {
 	it("handles case-insensitive domains", () => {
 		expect(classifyStratum("User@GMAIL.COM", policy)).toBe("gmail");
 	});
+
+	it("normalizes mixed-case configured domains", () => {
+		const mixedPolicy: typeof policy = {
+			...policy,
+			providerDomainMap: { google: ["GMAIL.COM."] },
+		};
+		expect(classifyStratum("user@gmail.com", mixedPolicy)).toBe("google");
+		expect(classifyStratum("user@Gmail.Com", mixedPolicy)).toBe("google");
+	});
 });
 
 describe("computeStratifiedQuotas", () => {
@@ -158,6 +167,39 @@ describe("computeStratifiedQuotas", () => {
 			const ceilIdeal = Math.ceil(cell.ideal);
 			expect(cell.quota).toBeGreaterThanOrEqual(floorIdeal);
 			expect(cell.quota).toBeLessThanOrEqual(ceilIdeal);
+		}
+	});
+
+	it("matches exact row/column sums for the codex 4x4 example", () => {
+		// The case ocr flagged: strata {s0:116,s1:105,s2:74,s3:47} and groups
+		// {g0:37,g1:216,g2:63,g3:26}. The biproportional allocation must match
+		// both row and column totals exactly. Cells stay close to their ideal
+		// (within 1 of floor/ceil where possible); a column may force one cell
+		// outside the naive floor/ceil band to satisfy the exact count.
+		const result = computeStratifiedQuotas({
+			stratumSizes: { s0: 116, s1: 105, s2: 74, s3: 47 },
+			groupExactCounts: { g0: 37, g1: 216, g2: 63, g3: 26 },
+			groupOrder: ["g0", "g1", "g2", "g3"],
+			totalAudience: 342,
+		});
+		for (const [sk, row] of Object.entries(result.quotas)) {
+			const rowSum = Object.values(row).reduce((s, n) => s + n, 0);
+			expect(rowSum).toBe(
+				({ s0: 116, s1: 105, s2: 74, s3: 47 } as Record<string, number>)[sk],
+			);
+		}
+		for (const gk of ["g0", "g1", "g2", "g3"]) {
+			const colSum = Object.values(result.quotas).reduce(
+				(s, row) => s + (row[gk] ?? 0),
+				0,
+			);
+			expect(colSum).toBe(
+				({ g0: 37, g1: 216, g2: 63, g3: 26 } as Record<string, number>)[gk],
+			);
+		}
+		// Each cell stays within 1 of its ideal (no runaway deviations).
+		for (const cell of result.cells) {
+			expect(Math.abs(cell.quota - cell.ideal)).toBeLessThanOrEqual(1.5);
 		}
 	});
 });

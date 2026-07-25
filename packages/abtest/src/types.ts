@@ -91,6 +91,9 @@ export interface AbTest {
 	hypothesis?: import("./hypothesis").HypothesisMetadata;
 	/** Assignment provenance: whether the test has a deterministic manifest. */
 	assignmentProvenance?: "manifest_v1" | "legacy_unavailable";
+	/** Recipient-domain stratified quota matrix, computed during provisioning
+	 * when a stratification policy is enabled and emails are available. */
+	stratification?: import("./stratification").StratificationResult;
 	/**
 	 * Deterministic assignment manifest produced from the seed + audience.
 	 * Once stored, retries and reconciliation reuse it rather than
@@ -207,6 +210,10 @@ export interface AbTestConfig {
 	// Orchestration settings (stage 3)
 	durationHours?: number; // Planned test duration in hours
 	launchAt?: string; // ISO timestamp for scheduled launch
+	// Pre-registration hypothesis (advanced experimentation). Optional; when
+	// provided unlocked, createTest locks it before provisioning so the
+	// assignment manifest cannot be separated from a frozen hypothesis.
+	hypothesis?: import("./hypothesis").HypothesisMetadata;
 }
 
 export interface AbTestInput {
@@ -240,6 +247,31 @@ export interface CreateAbTestInput {
 	launch_at?: string; // ISO timestamp for scheduled launch
 	auto_deploy_winner?: boolean; // Auto-deploy to holdout group (holdout mode only)
 	ignore_sample_size_warnings?: boolean; // Skip sample size validation warnings
+	// Pre-registration hypothesis. Operators describe the objective, primary
+	// metric, expected lift, owner, and experiment scope; the service locks it
+	// before assignment so the metadata cannot change after recipients are set.
+	hypothesis?: {
+		objective: string;
+		hypothesis: string;
+		primary_metric: {
+			type: "click_rate" | "conversion_rate" | "revenue_per_recipient";
+			direction: "maximize" | "minimize";
+		};
+		expected_lift:
+			| { kind: "relative"; value: number }
+			| {
+					kind: "absolute";
+					value: number;
+					unit: "percentage_point" | "currency_per_recipient";
+				};
+		owner: { id: string; display_name?: string };
+		experiment_scope: {
+			channel: "email";
+			experiment_family_key: string;
+			attribution_window_hours: number;
+			exclusion_window_hours: number;
+		};
+	};
 }
 
 export interface AnalyzeAbTestInput {
