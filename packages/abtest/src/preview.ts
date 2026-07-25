@@ -455,21 +455,20 @@ export function transitionSeedVariant(
 	timestamp: string,
 	error?: string,
 ): SeedSendRun {
-	const exists = run.variants.some((v) => v.variantId === variantId);
-	if (!exists) {
+	const TERMINAL_STATES: ReadonlySet<SeedVariantState["state"]> = new Set([
+		"sent",
+		"failed",
+		"ambiguous",
+	]);
+	// Single lookup for existence + current state.
+	const current = run.variants.find((v) => v.variantId === variantId);
+	if (!current) {
 		throw new PreviewValidationError(
 			`Variant "${variantId}" not found in seed run ${run.runId}`,
 		);
 	}
 	// Reject transitions for variants already in a terminal state.
-	const current = run.variants.find((v) => v.variantId === variantId);
-	if (
-		current &&
-		(current.state === "sent" ||
-			current.state === "failed" ||
-			current.state === "ambiguous") &&
-		newState !== current.state
-	) {
+	if (TERMINAL_STATES.has(current.state) && newState !== current.state) {
 		throw new PreviewValidationError(
 			`Variant "${variantId}" is already in terminal state "${current.state}"; cannot transition to "${newState}"`,
 		);
