@@ -8,7 +8,7 @@
  * in raw form — only counts and checksums are persisted.
  */
 
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 // ── Content checksum ────────────────────────────────────────────────
 
@@ -309,14 +309,19 @@ export function createSeedSendRun(params: {
 	) {
 		return existingRun;
 	}
+	if (campaignIds.length < variantIds.length) {
+		throw new PreviewValidationError(
+			`campaignIds length (${campaignIds.length}) does not match variantIds length (${variantIds.length})`,
+		);
+	}
 	return {
-		runId: `seed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+		runId: `seed-${randomUUID()}`,
 		contentChecksum,
 		recipientSetChecksum,
 		startedAt,
 		variants: variantIds.map((variantId, i) => ({
 			variantId,
-			campaignId: campaignIds[i] ?? 0,
+			campaignId: campaignIds[i]!,
 			state: "pending" as const,
 		})),
 	};
@@ -343,7 +348,9 @@ export function transitionSeedVariant(
 				newState === "sent" || newState === "failed" || newState === "ambiguous"
 					? timestamp
 					: v.completedAt,
-			error: error ?? v.error,
+			// Replace the error if a new one is provided; otherwise keep the
+			// existing one so transitions don't silently clear it.
+			error: error !== undefined ? error : v.error,
 		};
 	});
 	const allCompleted = variants.every(
