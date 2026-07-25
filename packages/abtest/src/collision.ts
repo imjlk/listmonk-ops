@@ -361,6 +361,12 @@ export class InMemoryExperimentParticipationStore
 				`maximumConcurrentExperiments must be a finite integer >= 1, received ${JSON.stringify(input.policy.maximumConcurrentExperiments)}`,
 			);
 		}
+		const validModes = ["block", "exclude", "warn"];
+		if (!validModes.includes(input.policy.mode)) {
+			throw new CollisionConfigurationError(
+				`policy.mode must be one of ${validModes.join(", ")}, received ${JSON.stringify(input.policy.mode)}`,
+			);
+		}
 		if (!isCollisionTimestamp(input.reservedAt)) {
 			throw new CollisionConfigurationError(
 				`reservedAt must be a valid ISO 8601 timestamp, received ${JSON.stringify(input.reservedAt)}`,
