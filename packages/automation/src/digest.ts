@@ -46,6 +46,9 @@ export interface DailyDigestResult {
 			campaignName: string;
 			breaches: string[];
 		}>;
+		campaignsEligible: number;
+		campaignsEvaluated: number;
+		truncated: boolean;
 	};
 	markdown: string;
 }
@@ -140,7 +143,11 @@ export async function generateDailyDigest(
 	);
 
 	const campaignBreaches: DailyDigestResult["risk"]["campaignBreaches"] = [];
-	for (const campaign of runningCampaigns.slice(0, 10)) {
+	const maxGuardCampaigns = 10;
+	const campaignsEligible = runningCampaigns.length;
+	const campaignsEvaluated = Math.min(campaignsEligible, maxGuardCampaigns);
+	const truncated = campaignsEligible > maxGuardCampaigns;
+	for (const campaign of runningCampaigns.slice(0, maxGuardCampaigns)) {
 		const campaignId = toPositiveInt(campaign.id);
 		if (!campaignId) {
 			continue;
@@ -169,9 +176,17 @@ export async function generateDailyDigest(
 		`- Lists: ${lists.length.toLocaleString()}`,
 		`- Subscribers: ${subscribers.length.toLocaleString()}`,
 		`- Campaigns: ${campaigns.length.toLocaleString()} (running/scheduled: ${runningCampaigns.length.toLocaleString()})`,
-		`- Campaigns created in window: ${campaignsCreatedInWindow.length.toLocaleString()}`,
-		`- Sent: ${sent.toLocaleString()}, Views: ${views.toLocaleString()}, Clicks: ${clicks.toLocaleString()}`,
-		`- Bounces in window: ${bouncesInWindow.toLocaleString()}`,
+		"",
+		"### Window Metrics",
+		`- Campaigns created: ${campaignsCreatedInWindow.length.toLocaleString()}`,
+		`- Bounces: ${bouncesInWindow.toLocaleString()}`,
+		"",
+		"### Lifetime Totals",
+		`- Sent: ${sent.toLocaleString()}`,
+		`- Views: ${views.toLocaleString()}`,
+		`- Clicks: ${clicks.toLocaleString()}`,
+		"",
+		"> Note: Sent/Views/Clicks are lifetime totals across all campaigns, not window-specific.",
 		"",
 		"## Subscriber Status",
 		...Object.entries(subscriberStatus).map(
@@ -208,6 +223,9 @@ export async function generateDailyDigest(
 		},
 		risk: {
 			campaignBreaches,
+			campaignsEligible,
+			campaignsEvaluated,
+			truncated,
 		},
 		markdown: markdownLines.join("\n"),
 	};

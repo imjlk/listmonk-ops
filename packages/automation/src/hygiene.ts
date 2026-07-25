@@ -27,10 +27,23 @@ export interface SubscriberHygieneResult {
 	blocklist: boolean;
 	sample: Array<{
 		id: number;
-		email: string;
+		emailMasked: string;
 		updated_at?: string;
 	}>;
 	errors: string[];
+}
+
+/**
+ * Mask an email address for safe display in results (e.g. `j***@example.com`).
+ * Never returns the raw email.
+ */
+export function maskEmail(email: string): string {
+	const atIndex = email.lastIndexOf("@");
+	if (atIndex < 1) return "***";
+	const localPart = email.slice(0, atIndex);
+	const domain = email.slice(atIndex);
+	const firstChar = localPart[0] ?? "";
+	return `${firstChar}***${domain}`;
 }
 
 function intersects(source: number[], target: Set<number>): boolean {
@@ -94,9 +107,22 @@ export async function runSubscriberHygiene(
 	let processedSubscribers = 0;
 
 	if (!dryRun) {
-		if (!options.targetListId && !blocklist) {
+			// Validate mode-appropriate mutations: winback requires targetListId,
+			// sunset requires blocklist=true. Reject no-op combinations.
+		if (mode === "winback" && !options.targetListId) {
 			throw new Error(
-				"targetListId or blocklist=true is required when dryRun=false",
+				"targetListId is required for winback mode when dryRun=false",
+			);
+		}
+		if (mode === "sunset" && !blocklist && !options.targetListId) {
+			throw new Error(
+				"blocklist=true or targetListId is required for sunset mode when dryRun=false",
+			);
+		}
+			// Warn if winback + blocklist is set (blocklist is ignored in winback)
+		if (mode === "winback" && blocklist) {
+			errors.push(
+				"Warning: blocklist=true is ignored in winback mode; use sunset mode for blocklisting",
 			);
 		}
 
@@ -106,27 +132,32 @@ export async function runSubscriberHygiene(
 				continue;
 			}
 
+			let mutated = false;
 			try {
 				if (options.targetListId) {
 					await client.subscriber.manageListById({
-						path: { id },
-						body: {
-							action: "add",
-							target_list_ids: [options.targetListId],
-						},
-					});
+							path: { id },
+							body: {
+								action: "add",
+								target_list_ids: [options.targetListId],
+							},
+						});
+					mutated = true;
 				}
 
 				if (mode === "sunset" && blocklist) {
 					await client.subscriber.manageBlocklistById({
-						path: { id },
-						body: {
-							action: "add",
-						},
-					});
+							path: { id },
+							body: {
+								action: "add",
+							},
+						});
+					mutated = true;
 				}
 
-				processedSubscribers += 1;
+				if (mutated) {
+					processedSubscribers += 1;
+				}
 			} catch (error) {
 				errors.push(
 					`Subscriber ${id}: ${error instanceof Error ? error.message : String(error)}`,
@@ -147,7 +178,7 @@ export async function runSubscriberHygiene(
 		blocklist,
 		sample: selected.slice(0, 20).map((candidate) => ({
 			id: Number(candidate.id),
-			email: candidate.email || "",
+			emailMasked: maskEmail(candidate.email || ""),
 			updated_at: candidate.updated_at,
 		})),
 		errors,

@@ -103,6 +103,9 @@ const deliverabilityGuardInputSchema = z.object({
 	click_threshold: thresholdInput
 		.default(0.01)
 		.describe("Minimum required click rate"),
+	minimum_sent: positiveIntegerInput
+		.default(100)
+		.describe("Minimum sent count before engagement breaches are evaluated"),
 	pause_on_breach: booleanInput
 		.default(false)
 		.describe("Pause a running or scheduled campaign when breached"),
@@ -145,6 +148,10 @@ const segmentDriftInputSchema = z.object({
 	lookback_days: positiveIntegerInput
 		.default(14)
 		.describe("Baseline lookback window in days"),
+	baseline_mode: z
+		.enum(["previous", "lookback-mean", "lookback-median"])
+		.default("previous")
+		.describe("How to compute the alert baseline"),
 });
 
 const templateRegistrySyncInputSchema = z.object({
@@ -234,7 +241,7 @@ const subscriberHygieneOutputSchema = z.object({
 	sample: z.array(
 		z.object({
 			id: z.number().int().positive(),
-			email: z.string(),
+			emailMasked: z.string(),
 			updated_at: z.string().optional(),
 		}),
 	),
@@ -394,6 +401,7 @@ export async function executeDeliverabilityGuardOperation(
 		bounceThreshold: input.bounce_threshold,
 		openRateThreshold: input.open_threshold,
 		clickRateThreshold: input.click_threshold,
+		minimumSent: input.minimum_sent,
 		pauseOnBreach: input.pause_on_breach,
 	});
 }
@@ -424,6 +432,7 @@ export async function executeSegmentDriftOperation(
 		threshold: input.threshold,
 		minAbsoluteChange: input.min_absolute_change,
 		lookbackDays: input.lookback_days,
+		baselineMode: input.baseline_mode,
 	});
 }
 

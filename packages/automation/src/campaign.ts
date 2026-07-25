@@ -289,6 +289,8 @@ export interface DeliverabilityGuardOptions {
 	openRateThreshold?: number;
 	clickRateThreshold?: number;
 	pauseOnBreach?: boolean;
+	/** Minimum sent count before engagement breaches are evaluated (default 100). */
+	minimumSent?: number;
 }
 
 export interface DeliverabilityGuardResult {
@@ -330,6 +332,7 @@ export async function evaluateDeliverabilityGuard(
 		openRate: options.openRateThreshold ?? 0.08,
 		clickRate: options.clickRateThreshold ?? 0.01,
 	};
+	const minimumSent = options.minimumSent ?? 100;
 	const campaign = await getCampaign(client, campaignId);
 	const campaignName = campaign.name?.trim() || `Campaign ${campaignId}`;
 	const sent = Math.max(0, Number(campaign.sent || 0));
@@ -359,13 +362,15 @@ export async function evaluateDeliverabilityGuard(
 		);
 	}
 
-	if (sent > 0 && openRate < thresholds.openRate) {
+	// Engagement breaches (open/click rate) only evaluated when enough sends
+	// have accumulated. Low-volume early sends produce noisy rates.
+	if (sent >= minimumSent && openRate < thresholds.openRate) {
 		breaches.push(
 			`Open rate ${(openRate * 100).toFixed(2)}% is below ${(thresholds.openRate * 100).toFixed(2)}%`,
 		);
 	}
 
-	if (sent > 0 && clickRate < thresholds.clickRate) {
+	if (sent >= minimumSent && clickRate < thresholds.clickRate) {
 		breaches.push(
 			`Click rate ${(clickRate * 100).toFixed(2)}% is below ${(thresholds.clickRate * 100).toFixed(2)}%`,
 		);
