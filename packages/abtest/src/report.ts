@@ -46,6 +46,8 @@ export interface ExperimentReport {
 		clickRate: number;
 		conversionRate: number;
 		openRate: number;
+		revenue?: number;
+		revenuePerRecipient?: number;
 	}>;
 	srmPassed?: boolean;
 	srmPValue?: number;
@@ -116,6 +118,11 @@ export function buildExperimentReport(
 			clickRate: r.clickRate,
 			conversionRate: r.conversionRate,
 			openRate: r.openRate,
+			revenue: r.revenue,
+			revenuePerRecipient:
+				r.revenue !== undefined && r.sampleSize > 0
+					? r.revenue / r.sampleSize
+					: undefined,
 		};
 	});
 
@@ -258,12 +265,31 @@ export function reportToMarkdown(report: ExperimentReport): string {
 
 	lines.push("## Variant Results");
 	lines.push("");
-	lines.push("| Variant | Sample | Open Rate | Click Rate | Conversion Rate |");
-	lines.push("|---------|--------|-----------|------------|-----------------|");
-	for (const v of report.variants) {
+	const hasRevenue = report.variants.some((v) => v.revenue !== undefined);
+	if (hasRevenue) {
 		lines.push(
-			`| ${v.variantName} | ${v.sampleSize} | ${v.openRate.toFixed(2)}% | ${v.clickRate.toFixed(2)}% | ${v.conversionRate.toFixed(2)}% |`,
+			"| Variant | Sample | Open Rate | Click Rate | Conversion Rate | Revenue | Rev/Recipient |",
 		);
+		lines.push(
+			"|---------|--------|-----------|------------|-----------------|---------|---------------|",
+		);
+		for (const v of report.variants) {
+			lines.push(
+				`| ${v.variantName} | ${v.sampleSize} | ${v.openRate.toFixed(2)}% | ${v.clickRate.toFixed(2)}% | ${v.conversionRate.toFixed(2)}% | ${v.revenue?.toFixed(2) ?? "N/A"} | ${v.revenuePerRecipient?.toFixed(4) ?? "N/A"} |`,
+			);
+		}
+	} else {
+		lines.push(
+			"| Variant | Sample | Open Rate | Click Rate | Conversion Rate |",
+		);
+		lines.push(
+			"|---------|--------|-----------|------------|-----------------|",
+		);
+		for (const v of report.variants) {
+			lines.push(
+				`| ${v.variantName} | ${v.sampleSize} | ${v.openRate.toFixed(2)}% | ${v.clickRate.toFixed(2)}% | ${v.conversionRate.toFixed(2)}% |`,
+			);
+		}
 	}
 	lines.push("");
 

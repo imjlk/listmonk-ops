@@ -272,11 +272,6 @@ export function validateHypothesisMetadata(
 				"experimentScope.experimentFamilyKey must be a non-empty string",
 			);
 		}
-		if (!scope.experimentFamilyKey || scope.experimentFamilyKey.trim().length === 0) {
-			throw new HypothesisValidationError(
-				"experimentScope.experimentFamilyKey must be a non-empty string",
-			);
-		}
 		// Reject delimiter-only and empty-segment keys (".", "foo.", "foo..bar")
 		// by requiring one or more alphanumeric segments joined by single
 		// separators from [._-].
@@ -379,7 +374,11 @@ export function lockHypothesis(
 		);
 	}
 	const checksum = computeHypothesisChecksum(metadata);
-	return { ...metadata, lockedAt, checksum };
+	// Deep-clone so nested objects (primaryMetric, expectedLift, owner,
+	// experimentScope) are detached from the caller's references. This
+	// prevents post-lock mutation of the caller's object from silently
+	// invalidating the stored checksum.
+	return structuredClone({ ...metadata, lockedAt, checksum });
 }
 
 /**
