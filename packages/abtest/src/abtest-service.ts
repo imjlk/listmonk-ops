@@ -637,8 +637,12 @@ export class AbTestService {
 			// (including control). Only append the top-two p-value to the
 			// Holm family when it is a treatment-vs-treatment comparison
 			// (not already in pairwisePValues as a control-vs-treatment).
-			const sortedAll = [...results].sort(
-				(a, b) => metricRate(b) - metricRate(a),
+			// Sort by metric rate respecting direction so the top-two
+			// comparison uses the correct ranking.
+			const sortedAll = [...results].sort((a, b) =>
+				metricDirection === "minimize"
+					? metricRate(a) - metricRate(b)
+					: metricRate(b) - metricRate(a),
 			);
 			let isTopTwoSeparated = true;
 			if (sortedAll.length > 1) {
@@ -810,10 +814,15 @@ export class AbTestService {
 			throw new Error(`Test with ID ${testId} not found`);
 		}
 
-		// Reject a checksum-mismatched hypothesis before analysis so a
-		// tampered pre-registration cannot influence metric selection or
-		// winner decisions.
-		if (test.hypothesis?.lockedAt && test.hypothesis?.checksum) {
+		// Reject an unverifiable hypothesis before analysis so a tampered
+		// or incomplete pre-registration cannot influence metric selection
+		// or winner decisions.
+		if (test.hypothesis) {
+			if (!test.hypothesis.lockedAt || !test.hypothesis.checksum) {
+				throw new Error(
+					`Hypothesis for test ${testId} is not locked; cannot use an unlocked hypothesis for analysis`,
+				);
+			}
 			if (!verifyHypothesisChecksum(test.hypothesis)) {
 				throw new Error(
 					`Hypothesis checksum verification failed for test ${testId}; the pre-registered metadata may have been tampered with`,
