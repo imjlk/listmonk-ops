@@ -246,13 +246,12 @@ export function recordPreviewChecks(
 			seedRun: undefined,
 		};
 	}
-	const allRendered = checks.every((c) => c.renderSucceeded);
 	const allChecksPassed = checks.every(
-			(c) =>
-				c.renderSucceeded &&
-				c.unsubscribeUrlPresent &&
-				c.forbiddenPlaceholderCount === 0,
-		);
+		(c) =>
+			c.renderSucceeded &&
+			c.unsubscribeUrlPresent &&
+			c.forbiddenPlaceholderCount === 0,
+	);
 	return {
 		...gate,
 		previews: checks,
