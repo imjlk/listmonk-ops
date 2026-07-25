@@ -685,11 +685,18 @@ collision errors — only aggregate counts and conflicting test IDs.
 
 ### Collision policies
 
-- **block** (default): any conflict blocks the entire launch.
-- **exclude**: conflicting subjects are removed from the audience; the rest
-  are reserved. Sample size and manifest must be recomputed.
-- **warn**: all subjects are reserved; a warning is returned. For local/dev
-  or approved exceptions only.
+The `maximumConcurrentExperiments` field controls how many concurrent
+experiments may overlap on the same subject within the same family. The
+default is 1 (no overlap). When set above 1, subjects below the threshold
+are allowed to participate in multiple overlapping experiments:
+
+- **block** (default): blocks the launch when any subject would exceed the
+  concurrency limit.
+- **exclude**: removes only concurrency-blocked subjects from the audience
+  (subjects below the limit are still reserved). Sample size and manifest
+  must be recomputed.
+- **warn**: all subjects are reserved; a warning reports how many exceed the
+  concurrency limit. For local/dev or approved exceptions only.
 
 ### Participation store
 

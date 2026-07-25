@@ -505,7 +505,9 @@ export class InMemoryExperimentParticipationStore
 			// reports the total number of conflicting subjects (conflictCount),
 			// not just the blocked subset, so operators see the full impact.
 			if (policy.mode === "block" && blockedSubjects.size > 0) {
-				this.participations.push(...savedReserved);
+				for (const p of savedReserved) {
+					this.participations.push(p);
+				}
 				throw new CollisionConflictError(
 					conflictCount,
 					uniqueConflictingTests,
@@ -523,10 +525,11 @@ export class InMemoryExperimentParticipationStore
 						)
 					: candidates;
 
-			// Store shallow copies.
-			this.participations.push(
-				...toReserve.map(shallowCopyParticipation),
-			);
+			// Store shallow copies. Use a loop instead of spread to avoid
+			// call stack limits with very large audiences.
+			for (const p of toReserve) {
+				this.participations.push(shallowCopyParticipation(p));
+			}
 
 			const result: CollisionReservationResult = {
 				reserved: toReserve.map(shallowCopyParticipation),
