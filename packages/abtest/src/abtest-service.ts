@@ -515,6 +515,14 @@ export class AbTestService {
 		// significance test and the winner selection cannot diverge.
 		const { rate: metricRate, label: metricLabel, direction: metricDirection } =
 			this.pickMetricRate(results, hypothesis);
+		// revenue_per_recipient is a continuous monetary metric that cannot
+		// be tested with the two-proportion Z-test used here. Reject it
+		// explicitly until a dedicated statistical test is implemented.
+		if (metricLabel === "revenue per recipient") {
+			throw new Error(
+				"revenue_per_recipient metric is not yet supported by the significance test; use click_rate or conversion_rate",
+			);
+		}
 		const anyConversionMeasured = metricLabel === "conversion rate";
 		const metricCount = (r: TestResults): number =>
 			anyConversionMeasured ? r.conversions : r.clicks;

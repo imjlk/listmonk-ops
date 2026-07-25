@@ -54,7 +54,11 @@ export interface ExperimentReport {
 		objective: string;
 		primaryMetricType: string;
 		direction: "maximize" | "minimize";
-		expectedLiftKind: "relative" | "absolute";
+		expectedLift: {
+			kind: "relative" | "absolute";
+			value: number;
+			unit?: "percentage_point" | "currency_per_recipient";
+		};
 	};
 	preRegistration: PreRegistrationStatus;
 }
@@ -142,11 +146,27 @@ export function buildExperimentReport(
 					objective: test.hypothesis.objective,
 					primaryMetricType: test.hypothesis.primaryMetric.type,
 					direction: test.hypothesis.primaryMetric.direction,
-					expectedLiftKind: test.hypothesis.expectedLift.kind,
+					expectedLift: {
+						kind: test.hypothesis.expectedLift.kind,
+						value: test.hypothesis.expectedLift.value,
+						unit:
+							test.hypothesis.expectedLift.kind === "absolute"
+								? test.hypothesis.expectedLift.unit
+								: undefined,
+					},
 				}
 			: undefined,
 		preRegistration,
 	};
+}
+
+/**
+ * Escape user-provided strings for safe Markdown interpolation, preventing
+ * content injection when the report is rendered to HTML by downstream
+ * consumers.
+ */
+function escapeMarkdown(s: string): string {
+	return s.replace(/[`*|\[\]<>\\]/g, (c) => `\\${c}`);
 }
 
 export function reportToMarkdown(report: ExperimentReport): string {
@@ -179,10 +199,21 @@ export function reportToMarkdown(report: ExperimentReport): string {
 	if (report.hypothesis) {
 		lines.push("## Hypothesis");
 		lines.push("");
-		lines.push(`- **Objective**: ${report.hypothesis.objective}`);
+		lines.push(
+			`- **Objective**: ${escapeMarkdown(report.hypothesis.objective)}`,
+		);
 		lines.push(`- **Primary Metric**: ${report.hypothesis.primaryMetricType}`);
 		lines.push(`- **Direction**: ${report.hypothesis.direction}`);
-		lines.push(`- **Expected Lift**: ${report.hypothesis.expectedLiftKind}`);
+		const lift = report.hypothesis.expectedLift;
+		if (lift.kind === "relative") {
+			lines.push(
+				`- **Expected Lift**: ${(lift.value * 100).toFixed(1)}% relative`,
+			);
+		} else {
+			lines.push(
+				`- **Expected Lift**: ${lift.value} ${lift.unit ?? "absolute"} absolute`,
+			);
+		}
 		lines.push("");
 	}
 
