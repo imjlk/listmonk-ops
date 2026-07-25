@@ -25,11 +25,30 @@ export interface ContentChecksumInput {
 }
 
 /**
+ * Recursively canonicalize a value: sort object keys, preserve array order,
+ * so the checksum is stable regardless of key insertion order.
+ */
+function canonicalize(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map(canonicalize);
+	if (value !== null && typeof value === "object") {
+		const obj = value as Record<string, unknown>;
+		const sorted: Record<string, unknown> = {};
+		for (const key of Object.keys(obj).sort()) {
+			sorted[key] = canonicalize(obj[key]);
+		}
+		return sorted;
+	}
+	return value;
+}
+
+/**
  * Compute a canonical SHA-256 checksum over the content fields that
  * affect rendering. Used to detect post-approval content changes.
+ * Nested objects (e.g. headers) are recursively canonicalized so any
+ * header value change is detected.
  */
 export function computeContentChecksum(input: ContentChecksumInput): string {
-	const canonical: Record<string, unknown> = {
+	const canonical = canonicalize({
 		subject: input.subject,
 		body: input.body,
 		altbody: input.altbody ?? "",
@@ -39,8 +58,8 @@ export function computeContentChecksum(input: ContentChecksumInput): string {
 		messenger: input.messenger ?? "",
 		fromEmail: input.fromEmail ?? "",
 		replyTo: input.replyTo ?? "",
-	};
-	const json = JSON.stringify(canonical, Object.keys(canonical).sort());
+	}) as Record<string, unknown>;
+	const json = JSON.stringify(canonical);
 	return createHash("sha256").update(json, "utf8").digest("hex");
 }
 
@@ -90,6 +109,7 @@ export interface PreviewGate {
 	approvedBy?: string;
 	approvedAt?: string;
 	rejectionReason?: string;
+	rejectedAt?: string;
 }
 
 // ── Seed recipient policy ───────────────────────────────────────────
@@ -130,13 +150,25 @@ export function validateSeedRecipients(
 		}
 		const trimmed = raw.trim().toLowerCase();
 		if (trimmed.length === 0) continue;
-		const atIndex = trimmed.lastIndexOf("@");
-		if (atIndex < 1 || atIndex === trimmed.length - 1) {
+		// Reject emails with multiple @ signs, whitespace in local part,
+		// or other common malformed patterns.
+		const atCount = (trimmed.match(/@/g) ?? []).length;
+		if (atCount !== 1) {
 			throw new PreviewValidationError(
-				`Invalid seed recipient email: ${JSON.stringify(raw)}`,
+				`Invalid seed recipient email (expected exactly one @): ${JSON.stringify(raw)}`,
 			);
 		}
-		const domain = trimmed.slice(atIndex + 1);
+		const [localPart, domain] = trimmed.split("@");
+		if (!localPart || localPart.length === 0 || /\s/.test(localPart)) {
+			throw new PreviewValidationError(
+				`Invalid seed recipient email (malformed local part): ${JSON.stringify(raw)}`,
+			);
+		}
+		if (!domain || domain.length === 0 || !domain.includes(".") || /\s/.test(domain)) {
+			throw new PreviewValidationError(
+				`Invalid seed recipient email (malformed domain): ${JSON.stringify(raw)}`,
+			);
+		}
 		if (
 			policy.allowedDomains.length > 0 &&
 			!policy.allowedDomains.includes(domain)
@@ -195,6 +227,11 @@ export function recordPreviewChecks(
 	checks: VariantPreviewCheck[],
 	newContentChecksum: string,
 ): PreviewGate {
+	if (checks.length === 0) {
+		throw new PreviewValidationError(
+			"At least one variant preview check is required",
+		);
+	}
 	if (newContentChecksum !== gate.contentChecksum) {
 		// Content changed: reset the gate with the new checksum.
 		return {
@@ -209,16 +246,20 @@ export function recordPreviewChecks(
 		};
 	}
 	const allRendered = checks.every((c) => c.renderSucceeded);
-	const allChecksPassed = checks.every(
-		(c) =>
-			c.renderSucceeded &&
-			c.unsubscribeUrlPresent &&
-			c.forbiddenPlaceholderCount === 0,
-	);
+	const allChecksPassed =
+		checks.length > 0 &&
+		checks.every(
+			(c) =>
+				c.renderSucceeded &&
+				c.unsubscribeUrlPresent &&
+				c.forbiddenPlaceholderCount === 0,
+		);
 	return {
 		...gate,
 		previews: checks,
-		status: allChecksPassed ? "pending" : allRendered ? "pending" : "not_started",
+		// Only transition to pending when ALL checks pass. Render failures
+		// or unsubscribe/placeholder issues keep the gate in not_started.
+		status: allChecksPassed ? "pending" : "not_started",
 	};
 }
 
@@ -271,6 +312,7 @@ export function rejectPreviewGate(
 		...gate,
 		status: "rejected",
 		rejectionReason: reason,
+		rejectedAt,
 		approvedBy: undefined,
 		approvedAt: undefined,
 	};
@@ -309,10 +351,27 @@ export function createSeedSendRun(params: {
 	) {
 		return existingRun;
 	}
+	if (variantIds.length === 0) {
+		throw new PreviewValidationError(
+			"At least one variant is required for a seed send run",
+		);
+	}
 	if (campaignIds.length !== variantIds.length) {
 		throw new PreviewValidationError(
 			`campaignIds length (${campaignIds.length}) must equal variantIds length (${variantIds.length})`,
 		);
+	}
+	for (const id of campaignIds) {
+		if (
+			typeof id !== "number" ||
+			!Number.isInteger(id) ||
+			id <= 0 ||
+			!Number.isFinite(id)
+		) {
+			throw new PreviewValidationError(
+				`campaignIds must be positive integers, received ${JSON.stringify(id)}`,
+			);
+		}
 	}
 	return {
 		runId: `seed-${randomUUID()}`,
@@ -338,6 +397,12 @@ export function transitionSeedVariant(
 	timestamp: string,
 	error?: string,
 ): SeedSendRun {
+	const exists = run.variants.some((v) => v.variantId === variantId);
+	if (!exists) {
+		throw new PreviewValidationError(
+			`Variant "${variantId}" not found in seed run ${run.runId}`,
+		);
+	}
 	const variants = run.variants.map((v) => {
 		if (v.variantId !== variantId) return v;
 		return {
@@ -362,7 +427,9 @@ export function transitionSeedVariant(
 	return {
 		...run,
 		variants,
-		completedAt: allCompleted ? timestamp : run.completedAt,
+		// Clear completedAt when a variant transitions back to a non-terminal
+		// state; set it when all variants are terminal.
+		completedAt: allCompleted ? timestamp : undefined,
 	};
 }
 
