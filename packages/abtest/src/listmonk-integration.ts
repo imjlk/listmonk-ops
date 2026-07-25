@@ -331,8 +331,12 @@ export class ListmonkAbTestIntegration {
 				// bucket email-less subscribers into "unknown" and skew the
 				// proportions.
 				const allMembersHaveEmail =
-					resolvedMembers.length > 0 &&
-					resolvedMembers.every((member) => member.email !== undefined);
+						resolvedMembers.length > 0 &&
+						resolvedMembers.every(
+							(member) =>
+								typeof member.email === "string" &&
+								member.email.trim().length > 0,
+						);
 				if (allMembersHaveEmail) {
 					try {
 						// Build the provider-domain lookup once and classify each
@@ -375,10 +379,17 @@ export class ListmonkAbTestIntegration {
 							stratumSizes,
 							groupExactCounts,
 							groupOrder,
-							totalAudience: resolvedSnapshot.subscriberCount,
+							// Use resolvedMembers.length, not the snapshot count,
+							// so the divisor matches the stratum tally exactly.
+							totalAudience: resolvedMembers.length,
 						});
-					} catch {
-						// Stratification is non-critical; leave it undefined so
+					} catch (stratificationError) {
+						// Log the invariant violation instead of silently swallowing
+						// it, then fall back to an undefined stratification so
+						// provisioning proceeds with the manifest assignment.
+						console.warn(
+							`Stratification computation failed: ${(stratificationError as Error).message}`,
+						);
 						// provisioning proceeds with the manifest assignment.
 						stratification = undefined;
 					}

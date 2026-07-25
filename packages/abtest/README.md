@@ -742,8 +742,10 @@ const test = await abTestExecutors.createAbTest({
 - Metric/unit coupling: `revenue_per_recipient` requires
   `currency_per_recipient` absolute lift; `click_rate`/`conversion_rate`
   require `percentage_point`. Relative lift is unit-agnostic.
-- `experimentScope.experimentFamilyKey` must be dotted alphanumeric segments
-  (`onboarding.activation.day1`); `.`, `foo.`, and `foo..bar` are rejected.
+- `experimentScope.experimentFamilyKey` must be lowercase alphanumeric segments
+  joined by single `.` / `_` / `-` separators (e.g.
+  `onboarding.activation.day1`, `cart-recovery_24h`); `.`, `foo.`, and
+  `foo..bar` are rejected.
 
 ### 가설 사전 등록 (Korean)
 

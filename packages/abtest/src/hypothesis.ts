@@ -274,7 +274,7 @@ export function validateHypothesisMetadata(
 		// separators from [._-].
 		if (!/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(scope.experimentFamilyKey)) {
 			throw new HypothesisValidationError(
-				`experimentFamilyKey must be dotted alphanumeric segments (e.g. "onboarding.activation"), received "${scope.experimentFamilyKey}"`,
+				`experimentFamilyKey must be lowercase alphanumeric segments joined by [._-] separators (e.g. "onboarding.activation"), received "${scope.experimentFamilyKey}"`,
 			);
 		}
 		if (
