@@ -433,7 +433,11 @@ export class InMemoryExperimentParticipationStore
 				(p) => p.testId !== testId || p.state !== "reserved",
 			);
 
-			const candidates: ExperimentParticipation[] = subjectKeys.map(
+			// Deduplicate subject keys so the same digest doesn't create
+			// multiple participation records for one test.
+			const uniqueSubjectKeys = [...new Set(subjectKeys)];
+
+			const candidates: ExperimentParticipation[] = uniqueSubjectKeys.map(
 				(subjectKey) => ({
 					testId,
 					subjectKey,
@@ -536,7 +540,11 @@ export class InMemoryExperimentParticipationStore
 				};
 			}
 			if (policy.mode === "warn" && conflictCount > 0) {
-				result.warning = `Collision guard warning: ${conflictCount} subject(s) conflict with ${uniqueConflictingTests.length} test(s)`;
+				const blockedMsg =
+					blockedSubjects.size > 0
+						? `; ${blockedSubjects.size} subject(s) exceed the concurrency limit of ${policy.maximumConcurrentExperiments}`
+						: "";
+				result.warning = `Collision guard warning: ${conflictCount} subject(s) conflict with ${uniqueConflictingTests.length} test(s)${blockedMsg}`;
 			}
 			return result;
 		});
