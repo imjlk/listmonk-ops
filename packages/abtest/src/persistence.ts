@@ -240,6 +240,9 @@ function isStoredAbTest(value: unknown): boolean {
 		(value.assignmentProvenance === undefined ||
 			value.assignmentProvenance === "manifest_v1" ||
 			value.assignmentProvenance === "legacy_unavailable") &&
+		// manifest_v1 provenance requires an actual assignment manifest.
+		(value.assignmentProvenance !== "manifest_v1" ||
+			value.assignmentManifest !== undefined) &&
 		// Pre-registration hypothesis: optional, but the nested shape and the
 		// locked-state checksum invariant are validated when present so that
 		// loadStoredAbTests never hydrates malformed or tampered metadata.
