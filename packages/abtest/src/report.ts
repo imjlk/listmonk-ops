@@ -278,7 +278,10 @@ export function reportToMarkdown(report: ExperimentReport): string {
 		"Conversion Rate",
 	];
 	if (hasRevenue) {
-		headers.push("Revenue", "Rev/Recipient");
+		const currencySuffix = report.revenueCurrency
+			? ` (${report.revenueCurrency})`
+			: "";
+		headers.push(`Revenue${currencySuffix}`, `Rev/Recipient${currencySuffix}`);
 	}
 	lines.push(`| ${headers.join(" | ")} |`);
 	lines.push(`|${headers.map(() => "---------").join("|")}|`);
