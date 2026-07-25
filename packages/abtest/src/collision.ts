@@ -358,91 +358,118 @@ export class InMemoryExperimentParticipationStore
 				`windowEndsAt must be a valid ISO 8601 timestamp, received ${JSON.stringify(input.windowEndsAt)}`,
 			);
 		}
+		// Reject reversed windows before entering the serialized section.
+		if (
+			new Date(input.windowStartsAt).getTime() >
+			new Date(input.windowEndsAt).getTime()
+		) {
+			throw new CollisionConfigurationError(
+				`windowStartsAt must not be later than windowEndsAt, received starts=${JSON.stringify(input.windowStartsAt)} ends=${JSON.stringify(input.windowEndsAt)}`,
+			);
+		}
+		// Validate all subject keys before mutating state so a validation
+		// failure does not leave the store in a partially-cleared state.
+		for (const sk of input.subjectKeys) {
+			if (typeof sk !== "string" || sk.length === 0) {
+				throw new CollisionConfigurationError(
+					"subjectKeys must be non-empty strings",
+				);
+			}
+		}
 		return this.serialized(() => {
 			// Save reserved participations for this testId so we can restore
 			// them if the reservation fails (e.g. conflict in block mode).
-			// Exposed participations are retained regardless.
+			// Released participations are retained for audit history and must
+			// not be discarded on retry.
 			const savedReserved = this.participations.filter(
 				(p) => p.testId === input.testId && p.state === "reserved",
 			);
 			this.participations = this.participations.filter(
-				(p) => p.testId !== input.testId || p.state === "exposed",
+				(p) => p.testId !== input.testId || p.state !== "reserved",
 			);
 
-			const candidates: ExperimentParticipation[] = [];
-			for (const subjectKey of input.subjectKeys) {
-				if (typeof subjectKey !== "string" || subjectKey.length === 0) {
-					throw new CollisionConfigurationError(
-						"subjectKeys must be non-empty strings",
-					);
-				}
-				candidates.push({
+			const candidates: ExperimentParticipation[] = input.subjectKeys.map(
+				(subjectKey) => ({
 					testId: input.testId,
 					subjectKey,
 					channel: input.channel,
 					experimentFamilyKey: input.experimentFamilyKey,
-					state: "reserved",
+					state: "reserved" as const,
 					windowStartsAt: input.windowStartsAt,
 					windowEndsAt: input.windowEndsAt,
 					reservedAt: input.reservedAt,
-				});
+				}),
+			);
+
+			// Build an index of active participations by subject+family for
+			// efficient lookup against large audiences.
+			const activeIndex = new Map<string, ExperimentParticipation[]>();
+			for (const p of this.participations) {
+				if (p.testId === input.testId || p.state === "released") continue;
+				const key = `${p.subjectKey}:${p.experimentFamilyKey}`;
+				const arr = activeIndex.get(key);
+				if (arr) {
+					arr.push(p);
+				} else {
+					activeIndex.set(key, [p]);
+				}
 			}
 
-			// Check each candidate against existing reservations from OTHER
-			// tests. Same-testId participations (e.g. exposed records retained
-			// for attribution) must not block a retry.
+			// Check each candidate against indexed reservations from OTHER
+			// tests. Same-testId participations must not block a retry.
 			const conflictingTestIds: string[] = [];
+			const conflictingTestIdSet = new Set<string>();
 			let conflictCount = 0;
 			for (const candidate of candidates) {
-				const conflicting = this.participations.filter(
-					(existing) =>
-						existing.testId !== input.testId &&
-						participationsCollide(existing, candidate),
+				const key = `${candidate.subjectKey}:${candidate.experimentFamilyKey}`;
+				const existing = activeIndex.get(key);
+				if (!existing) continue;
+				const conflicting = existing.filter((p) =>
+					participationsCollide(p, candidate),
 				);
 				if (conflicting.length > 0) {
 					conflictCount += 1;
 					for (const c of conflicting) {
+						conflictingTestIdSet.add(c.testId);
 						conflictingTestIds.push(c.testId);
 					}
 				}
 			}
 
-			// In block mode, any conflict blocks the launch. In exclude/warn
-			// mode, conflicts are handled below without throwing.
-			const uniqueConflictingTests = [...new Set(conflictingTestIds)];
-			try {
-				if (
-					conflictCount > 0 &&
-					input.policy.mode === "block"
-				) {
-					throw new CollisionConflictError(
-						conflictCount,
-						uniqueConflictingTests,
-					);
-				}
-			} catch (err) {
-				// Restore the reserved participations we removed so a failed
-				// retry does not lose the original reservation.
+			const uniqueConflictingTests = [...conflictingTestIdSet];
+
+			// In block mode, conflicts are blocked when the number of
+			// distinct conflicting tests reaches the concurrency limit.
+			// maximumConcurrentExperiments controls how many concurrent
+			// experiments may overlap; the candidate's own test is the Nth.
+			if (
+				input.policy.mode === "block" &&
+				conflictCount > 0 &&
+				uniqueConflictingTests.length >=
+					input.policy.maximumConcurrentExperiments
+			) {
 				this.participations.push(...savedReserved);
-				throw err;
+				throw new CollisionConflictError(
+					conflictCount,
+					uniqueConflictingTests,
+				);
 			}
 
-			// In exclude mode, only reserve non-conflicting subjects (from
-			// other tests; same-testId exposed records don't block).
+			// In exclude mode, only reserve non-conflicting subjects.
 			const toReserve =
 				input.policy.mode === "exclude"
-					? candidates.filter(
-							(p) =>
-								!this.participations.some(
-									(existing) =>
-										existing.testId !== input.testId &&
-										participationsCollide(existing, p),
-								),
-						)
+					? candidates.filter((p) => {
+							const key = `${p.subjectKey}:${p.experimentFamilyKey}`;
+							const existing = activeIndex.get(key);
+							if (!existing) return true;
+							return !existing.some((e) => participationsCollide(e, p));
+						})
 					: candidates;
 
-			// Store deep copies.
-			this.participations.push(...toReserve.map(shallowCopyParticipation));
+			// Store shallow copies.
+			this.participations.push(
+				...toReserve.map(shallowCopyParticipation),
+			);
 
 			const result: CollisionReservationResult = {
 				reserved: toReserve.map(shallowCopyParticipation),
@@ -488,7 +515,9 @@ export class InMemoryExperimentParticipationStore
 			for (const p of this.participations) {
 				if (p.state !== "released") {
 					const windowEndMs = new Date(p.windowEndsAt).getTime();
-					if (windowEndMs <= nowMs) {
+					// Use strict < so boundary-ending participations remain
+					// active, consistent with windowsOverlap's inclusive <=.
+					if (windowEndMs < nowMs) {
 						p.state = "released";
 						p.releasedAt = now;
 						count += 1;
