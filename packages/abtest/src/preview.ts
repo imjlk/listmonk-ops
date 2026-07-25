@@ -217,10 +217,11 @@ export function createPreviewGate(
 }
 
 /**
- * Record preview check results for all variants. If any render failed,
- * the gate stays in "pending" and the operator must fix and re-preview.
- * If all renders succeeded and the unsubscribe/placeholder checks pass,
- * the gate transitions to "pending" (awaiting approval).
+ * Record preview check results for all variants. The gate transitions to
+ * "pending" (awaiting approval) only when every variant passes all checks
+ * (render succeeded, unsubscribe URL present, no forbidden placeholders).
+ * Any failure keeps the gate in "not_started" until the operator fixes
+ * and re-previews.
  */
 export function recordPreviewChecks(
 	gate: PreviewGate,
@@ -246,9 +247,7 @@ export function recordPreviewChecks(
 		};
 	}
 	const allRendered = checks.every((c) => c.renderSucceeded);
-	const allChecksPassed =
-		checks.length > 0 &&
-		checks.every(
+	const allChecksPassed = checks.every(
 			(c) =>
 				c.renderSucceeded &&
 				c.unsubscribeUrlPresent &&
@@ -362,12 +361,7 @@ export function createSeedSendRun(params: {
 		);
 	}
 	for (const id of campaignIds) {
-		if (
-			typeof id !== "number" ||
-			!Number.isInteger(id) ||
-			id <= 0 ||
-			!Number.isFinite(id)
-		) {
+		if (typeof id !== "number" || !Number.isInteger(id) || id <= 0) {
 			throw new PreviewValidationError(
 				`campaignIds must be positive integers, received ${JSON.stringify(id)}`,
 			);
