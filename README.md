@@ -492,6 +492,23 @@ See [`packages/abtest/README.md`](packages/abtest/README.md) for the full
 validation rules, the stratified quota solver, and bilingual (EN/KO)
 guidance.
 
+### Experiment collision guard
+
+The collision guard prevents overlapping experiments in the same family
+from exposing the same subscribers. It uses an installation-level HMAC key
+(`LISTMONK_OPS_COLLISION_KEY`) to derive stable cross-test subject keys and
+an atomic check-and-reserve participation store.
+
+**Multi-node note:** `InMemoryExperimentParticipationStore` is suitable for
+single-node deployments and tests. In a multi-node deployment (multiple CLI
+or MCP processes), every process gets its own in-memory store, so collision
+checks are not shared across nodes. For multi-node production, implement a
+shared `ExperimentParticipationStore` (e.g. backed by Postgres with an
+exclusion constraint on `(subject_key, family_key, active_window)`).
+
+See [`packages/abtest/README.md`](packages/abtest/README.md) for the full
+API, policies, and bilingual guidance.
+
 ## Ops Automation Commands
 
 ```bash

@@ -367,6 +367,12 @@ export class InMemoryExperimentParticipationStore
 				`windowStartsAt must not be later than windowEndsAt, received starts=${JSON.stringify(input.windowStartsAt)} ends=${JSON.stringify(input.windowEndsAt)}`,
 			);
 		}
+		// Reject empty subject lists before mutating state.
+		if (!Array.isArray(input.subjectKeys) || input.subjectKeys.length === 0) {
+			throw new CollisionConfigurationError(
+				"subjectKeys must be a non-empty array",
+			);
+		}
 		// Validate all subject keys before mutating state so a validation
 		// failure does not leave the store in a partially-cleared state.
 		for (const sk of input.subjectKeys) {
@@ -419,6 +425,9 @@ export class InMemoryExperimentParticipationStore
 			// tests. Same-testId participations must not block a retry.
 			const conflictingTestIdSet = new Set<string>();
 			let conflictCount = 0;
+			// Per-subject blocking: a candidate is blocked if the number of
+			// distinct conflicting tests for THAT subject reaches the limit.
+			const blockedSubjects = new Set<string>();
 			for (const candidate of candidates) {
 				const key = `${candidate.subjectKey}:${candidate.experimentFamilyKey}`;
 				const existing = activeIndex.get(key);
@@ -428,27 +437,30 @@ export class InMemoryExperimentParticipationStore
 				);
 				if (conflicting.length > 0) {
 					conflictCount += 1;
+					const perSubjectTests = new Set<string>();
 					for (const c of conflicting) {
 						conflictingTestIdSet.add(c.testId);
+						perSubjectTests.add(c.testId);
+					}
+					// Block if this subject already has maximumConcurrentExperiments
+					// distinct overlapping tests (the candidate would exceed the limit).
+					if (
+						input.policy.mode === "block" &&
+						perSubjectTests.size >=
+							input.policy.maximumConcurrentExperiments
+					) {
+						blockedSubjects.add(candidate.subjectKey);
 					}
 				}
 			}
 
 			const uniqueConflictingTests = [...conflictingTestIdSet];
 
-			// In block mode, conflicts are blocked when the number of
-			// distinct conflicting tests reaches the concurrency limit.
-			// maximumConcurrentExperiments controls how many concurrent
-			// experiments may overlap; the candidate's own test is the Nth.
-			if (
-				input.policy.mode === "block" &&
-				conflictCount > 0 &&
-				uniqueConflictingTests.length >=
-					input.policy.maximumConcurrentExperiments
-			) {
+			// In block mode, throw if any subject is blocked.
+			if (input.policy.mode === "block" && blockedSubjects.size > 0) {
 				this.participations.push(...savedReserved);
 				throw new CollisionConflictError(
-					conflictCount,
+					blockedSubjects.size,
 					uniqueConflictingTests,
 				);
 			}
@@ -552,7 +564,10 @@ export class InMemoryExperimentParticipationStore
 					// ends so attribution is not lost on early cancel.
 					if (p.state === "exposed") {
 						const windowEndMs = new Date(p.windowEndsAt).getTime();
-						if (windowEndMs > releasedMs) continue;
+						// Use >= so the inclusive boundary keeps the exposed
+						// participation active, matching windowsOverlap's
+						// inclusive convention.
+						if (windowEndMs >= releasedMs) continue;
 					}
 					p.state = "released";
 					p.releasedAt = releasedAt;
