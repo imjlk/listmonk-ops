@@ -290,6 +290,7 @@ export function recordPreviewChecks(
 			approvedBy: undefined,
 			approvedAt: undefined,
 			rejectionReason: undefined,
+			rejectedAt: undefined,
 			seedRun: undefined,
 		};
 	}
@@ -365,6 +366,14 @@ export function rejectPreviewGate(
 	reason: string,
 	rejectedAt: string,
 ): PreviewGate {
+	if (typeof reason !== "string" || reason.trim().length === 0) {
+		throw new PreviewValidationError(
+			"Rejection reason must be a non-empty string",
+		);
+	}
+	if (typeof rejectedAt !== "string" || rejectedAt.trim().length === 0) {
+		throw new PreviewValidationError("rejectedAt must be a non-empty string");
+	}
 	return {
 		...gate,
 		status: "rejected",

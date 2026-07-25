@@ -501,6 +501,12 @@ heuristic. Reports include the hypothesis objective, expected lift, and a
 pre-registration status (`verified`/`not_available`/`checksum_mismatch`).
 Tests with a checksum-mismatched hypothesis are rejected before analysis.
 
+### Preview and seed send gate
+
+The preview gate requires content preview checks and optional seed sends
+before launch. Content changes invalidate prior approvals. See
+[`packages/abtest/README.md`](packages/abtest/README.md) for the full API.
+
 ### Experiment collision guard
 
 The collision guard prevents overlapping experiments in the same family
