@@ -142,6 +142,16 @@ export function validateSeedRecipients(
 	rawEmails: string[],
 	policy: SeedRecipientPolicy,
 ): { emails: string[]; recipientSetChecksum: string } {
+	if (
+		typeof policy.maximumRecipients !== "number" ||
+		!Number.isFinite(policy.maximumRecipients) ||
+		policy.maximumRecipients < 1 ||
+		!Number.isInteger(policy.maximumRecipients)
+	) {
+		throw new PreviewValidationError(
+			`maximumRecipients must be a finite positive integer, received ${JSON.stringify(policy.maximumRecipients)}`,
+		);
+	}
 	const seen = new Set<string>();
 	const cleaned: string[] = [];
 	// Normalize the allowed domains once, outside the per-email loop.
@@ -168,7 +178,12 @@ export function validateSeedRecipients(
 				`Invalid seed recipient email (malformed local part): ${JSON.stringify(raw)}`,
 			);
 		}
-		if (!domain || domain.length === 0 || !domain.includes(".") || /\s/.test(domain)) {
+		if (
+			!domain ||
+			domain.length === 0 ||
+			!domain.includes(".") ||
+			/\s/.test(domain)
+		) {
 			throw new PreviewValidationError(
 				`Invalid seed recipient email (malformed domain): ${JSON.stringify(raw)}`,
 			);
@@ -367,15 +382,8 @@ export function createSeedSendRun(params: {
 }): SeedSendRun {
 	const { contentChecksum, recipientSetChecksum, variantIds, campaignIds, startedAt, existingRun } =
 		params;
-	// Idempotent: return the existing completed run if checksums match.
-	if (
-		existingRun &&
-		existingRun.completedAt &&
-		existingRun.contentChecksum === contentChecksum &&
-		existingRun.recipientSetChecksum === recipientSetChecksum
-	) {
-		return existingRun;
-	}
+	// Validate inputs before checking for idempotent reuse so invalid
+	// params are never silently accepted via a stale completed run.
 	if (variantIds.length === 0) {
 		throw new PreviewValidationError(
 			"At least one variant is required for a seed send run",
@@ -398,6 +406,15 @@ export function createSeedSendRun(params: {
 				`campaignIds must be positive integers, received ${JSON.stringify(id)}`,
 			);
 		}
+	}
+	// Idempotent: return the existing completed run if checksums match.
+	if (
+		existingRun &&
+		existingRun.completedAt &&
+		existingRun.contentChecksum === contentChecksum &&
+		existingRun.recipientSetChecksum === recipientSetChecksum
+	) {
+		return existingRun;
 	}
 	return {
 		runId: `seed-${randomUUID()}`,
