@@ -51,6 +51,15 @@ export {
 	type HypothesisMetadata,
 } from "./hypothesis";
 export {
+	classifyStratum,
+	computeStratifiedQuotas,
+	DEFAULT_STRATIFICATION_POLICY,
+	normalizeDomain,
+	type StratificationPolicyV1,
+	type StratificationResult,
+	type StratumQuotaCell,
+} from "./stratification";
+export {
 	buildExperimentReport,
 	reportToMarkdown,
 	reportToJSON,
