@@ -11,6 +11,7 @@ import {
 	saveStoredAbTests,
 	withStoredAbTestExecutors,
 } from "../src/persistence";
+import { lockHypothesis } from "../src/hypothesis";
 import type { AbTest } from "../src/types";
 
 const temporaryDirectories: string[] = [];
@@ -309,6 +310,64 @@ describe("A/B test persistence", () => {
 						hypothesis: {
 							...validHypothesis,
 							lockedAt: "2026-07-24T01:00:00.000Z",
+						},
+					},
+				],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
+			"test 0 failed schema validation",
+		);
+
+		// A properly locked hypothesis round-trips through the store.
+		const locked = lockHypothesis(
+			validHypothesis as Parameters<typeof lockHypothesis>[0],
+			"2026-07-24T01:00:00.000Z",
+		);
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [{ ...validTest, hypothesis: locked }],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).resolves.toHaveLength(1);
+
+		// A locked hypothesis whose content was tampered after locking
+		// (checksum no longer matches) is rejected at load time.
+		const tamperedLocked = {
+			...locked,
+			objective: "Tampered objective",
+		};
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [{ ...validTest, hypothesis: tamperedLocked }],
+			})}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
+			"test 0 failed schema validation",
+		);
+
+		// A hypothesis with a malformed family key is rejected at load time,
+		// mirroring the creation-time segment rules.
+		await writeFile(
+			storePath,
+			`${JSON.stringify({
+				version: 1,
+				tests: [
+					{
+						...validTest,
+						hypothesis: {
+							...validHypothesis,
+							experimentScope: {
+								...validHypothesis.experimentScope,
+								experimentFamilyKey: "foo..bar",
+							},
 						},
 					},
 				],

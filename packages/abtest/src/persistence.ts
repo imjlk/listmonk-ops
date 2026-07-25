@@ -11,6 +11,7 @@ import {
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { AbTestNotFoundError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
+import { verifyHypothesisChecksum } from "./hypothesis";
 import type { AbTest } from "./types";
 
 export { AbTestNotFoundError } from "./errors";
@@ -348,6 +349,9 @@ function isStoredHypothesis(value: unknown): boolean {
 		!isRecord(scope) ||
 		scope.channel !== "email" ||
 		typeof scope.experimentFamilyKey !== "string" ||
+		// Mirror the runtime segment rules so load-time validation is at least
+		// as strict as creation-time validation.
+		!/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(scope.experimentFamilyKey) ||
 		typeof scope.attributionWindowHours !== "number" ||
 		!Number.isFinite(scope.attributionWindowHours) ||
 		scope.attributionWindowHours <= 0 ||
@@ -357,14 +361,24 @@ function isStoredHypothesis(value: unknown): boolean {
 	) {
 		return false;
 	}
-	// locked-state invariant: if lockedAt is present, checksum must be too.
+	// locked-state invariant: when lockedAt is present the checksum must be a
+	// 64-character hex string AND must cryptographically match the recomputed
+	// canonical checksum, so tampered records are rejected at load time.
 	if (value.lockedAt !== undefined) {
-		if (typeof value.lockedAt !== "string" || !isValidTimestamp(
-			value.lockedAt,
-		)) {
+		if (
+			typeof value.lockedAt !== "string" || !isValidTimestamp(value.lockedAt)
+		) {
 			return false;
 		}
-		if (typeof value.checksum !== "string" || value.checksum.length !== 64) {
+		if (
+			typeof value.checksum !== "string" ||
+			value.checksum.length !== 64 ||
+			// The record has been structurally validated above; verify the
+			// checksum cryptographically rejects tampered locked hypotheses.
+			!verifyHypothesisChecksum(
+				value as unknown as Parameters<typeof verifyHypothesisChecksum>[0],
+			)
+		) {
 			return false;
 		}
 	}

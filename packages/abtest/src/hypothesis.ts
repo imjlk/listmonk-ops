@@ -294,12 +294,14 @@ export function lockHypothesis(
 			"Hypothesis is already locked; create a new test revision to change it",
 		);
 	}
+	// Validate the primary metadata first so domain errors surface before
+	// the timestamp override check; the lockedAt override is secondary input.
+	validateHypothesisMetadata(metadata, true);
 	if (typeof lockedAt !== "string" || Number.isNaN(Date.parse(lockedAt))) {
 		throw new HypothesisValidationError(
 			`lockedAt override must be a valid ISO 8601 timestamp, received ${JSON.stringify(lockedAt)}`,
 		);
 	}
-	validateHypothesisMetadata(metadata, true);
 	const checksum = computeHypothesisChecksum(metadata);
 	return { ...metadata, lockedAt, checksum };
 }
