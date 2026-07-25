@@ -166,7 +166,11 @@ export function buildExperimentReport(
  * consumers.
  */
 function escapeMarkdown(s: string): string {
-	return s.replace(/[`*|\[\]<>\\]/g, (c) => `\\${c}`);
+	return s.replace(/[`*|\[\]<>\\\n\r]/g, (c) => {
+		if (c === "\n") return "\\n";
+		if (c === "\r") return "\\r";
+		return `\\${c}`;
+	});
 }
 
 export function reportToMarkdown(report: ExperimentReport): string {
@@ -210,9 +214,8 @@ export function reportToMarkdown(report: ExperimentReport): string {
 				`- **Expected Lift**: ${(lift.value * 100).toFixed(1)}% relative`,
 			);
 		} else {
-			lines.push(
-				`- **Expected Lift**: ${lift.value} ${lift.unit ?? "absolute"} absolute`,
-			);
+			const unitLabel = lift.unit ?? "absolute";
+			lines.push(`- **Expected Lift**: ${lift.value} ${unitLabel} (absolute)`);
 		}
 		lines.push("");
 	}
