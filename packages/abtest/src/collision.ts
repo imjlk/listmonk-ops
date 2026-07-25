@@ -417,7 +417,6 @@ export class InMemoryExperimentParticipationStore
 
 			// Check each candidate against indexed reservations from OTHER
 			// tests. Same-testId participations must not block a retry.
-			const conflictingTestIds: string[] = [];
 			const conflictingTestIdSet = new Set<string>();
 			let conflictCount = 0;
 			for (const candidate of candidates) {
@@ -431,7 +430,6 @@ export class InMemoryExperimentParticipationStore
 					conflictCount += 1;
 					for (const c of conflicting) {
 						conflictingTestIdSet.add(c.testId);
-						conflictingTestIds.push(c.testId);
 					}
 				}
 			}
