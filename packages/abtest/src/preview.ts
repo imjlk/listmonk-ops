@@ -169,9 +169,12 @@ export function validateSeedRecipients(
 				`Invalid seed recipient email (malformed domain): ${JSON.stringify(raw)}`,
 			);
 		}
+		const normalizedAllowed = policy.allowedDomains.map((d) =>
+			d.trim().toLowerCase(),
+		);
 		if (
-			policy.allowedDomains.length > 0 &&
-			!policy.allowedDomains.includes(domain)
+			normalizedAllowed.length > 0 &&
+			!normalizedAllowed.includes(domain)
 		) {
 			throw new PreviewValidationError(
 				`Seed recipient domain "${domain}" is not in the allowed list`,
@@ -227,11 +230,32 @@ export function recordPreviewChecks(
 	gate: PreviewGate,
 	checks: VariantPreviewCheck[],
 	newContentChecksum: string,
+	expectedVariantIds?: string[],
 ): PreviewGate {
 	if (checks.length === 0) {
 		throw new PreviewValidationError(
 			"At least one variant preview check is required",
 		);
+	}
+	// When expected variant IDs are provided, require a check for every
+	// expected variant and no extras.
+	if (expectedVariantIds) {
+		const checkIds = new Set(checks.map((c) => c.variantId));
+		const expectedSet = new Set(expectedVariantIds);
+		for (const id of expectedVariantIds) {
+			if (!checkIds.has(id)) {
+				throw new PreviewValidationError(
+					`Missing preview check for variant "${id}"`,
+				);
+			}
+		}
+		for (const id of checkIds) {
+			if (!expectedSet.has(id)) {
+				throw new PreviewValidationError(
+					`Unexpected preview check for variant "${id}"`,
+				);
+			}
+		}
 	}
 	if (newContentChecksum !== gate.contentChecksum) {
 		// Content changed: reset the gate with the new checksum.
@@ -282,6 +306,11 @@ export function approvePreviewGate(
 	}
 	if (gate.status === "approved" && gate.approvedBy === approvedBy) {
 		return gate; // Idempotent re-approval.
+	}
+	if (gate.status === "rejected") {
+		throw new PreviewValidationError(
+			"Cannot approve a rejected gate; re-preview first",
+		);
 	}
 	if (gate.status === "not_started") {
 		throw new PreviewValidationError(
@@ -405,7 +434,7 @@ export function transitionSeedVariant(
 			completedAt:
 				newState === "sent" || newState === "failed" || newState === "ambiguous"
 					? timestamp
-					: v.completedAt,
+					: undefined, // Clear when transitioning back to non-terminal.
 			// Replace the error if a new one is provided; otherwise keep the
 			// existing one so transitions don't silently clear it.
 			error: error !== undefined ? error : v.error,
