@@ -40,6 +40,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
           # When triggered by workflow_run, check out the exact commit CI ran on.
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 

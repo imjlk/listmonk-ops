@@ -231,8 +231,11 @@ CI starts this Compose stack, bootstraps an API token, runs the quick CLI smoke,
 and then runs MCP E2E. Keep the local commands aligned with `.github/workflows/ci.yml`.
 
 The Sampo release workflow (`sampo-release-publish.yml`) triggers on CI
-completion via `workflow_run` and only publishes when CI succeeds. It also
-runs `bun run check` and `bun run test` internally before publishing.
+completion via `workflow_run` and only publishes when CI succeeds and the
+CI run originated from the same repository (not a fork). It also runs
+`bun run check` and `bun run test` internally before publishing. A manual
+`workflow_dispatch` can bypass the CI-success gate but the internal
+checks still run.
 
 ## Documentation and generated artifacts
 
