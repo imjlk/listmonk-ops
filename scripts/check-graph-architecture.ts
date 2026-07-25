@@ -417,6 +417,13 @@ const abTestTestContracts: readonly CallPathContract[] = [
 		],
 	},
 	{
+		label: "Hypothesis tests anchor the checksum helper",
+		path: [
+			"packages/abtest/tests/hypothesis.test.ts#packages/abtest/tests/hypothesis.test.ts:module",
+			"packages/abtest/src/hypothesis.ts#computeHypothesisChecksum:function",
+		],
+	},
+	{
 		label: "Store adapter tests anchor the InMemory store",
 		path: [
 			"packages/abtest/tests/store-adapter.test.ts#packages/abtest/tests/store-adapter.test.ts:module",

@@ -157,6 +157,9 @@ const abTestSchema = z.object({
 		startedAt: z.string().datetime().optional(),
 		endsAt: z.string().datetime().optional(),
 		minimumTestSampleSize: z.number().int().positive().optional(),
+		assignmentProvenance: z
+			.enum(["manifest_v1", "legacy_unavailable"])
+			.optional(),
 	});
 
 const testResultsSchema = z.object({

@@ -40,6 +40,17 @@ export {
 	type VariantConversionAggregate,
 } from "./conversion-events";
 export {
+	computeHypothesisChecksum,
+	HypothesisValidationError,
+	lockHypothesis,
+	validateHypothesisMetadata,
+	verifyHypothesisChecksum,
+	type ExpectedLift,
+	type ExperimentOwner,
+	type ExperimentScope,
+	type HypothesisMetadata,
+} from "./hypothesis";
+export {
 	buildExperimentReport,
 	reportToMarkdown,
 	reportToJSON,

@@ -87,6 +87,10 @@ export interface AbTest {
 	};
 	/** Per-test minimum sample size for the fixed-horizon gate. */
 	minimumTestSampleSize?: number;
+	/** Hypothesis metadata for pre-registration (Change Set A). */
+	hypothesis?: import("./hypothesis").HypothesisMetadata;
+	/** Assignment provenance: whether the test has a deterministic manifest. */
+	assignmentProvenance?: "manifest_v1" | "legacy_unavailable";
 	/**
 	 * Deterministic assignment manifest produced from the seed + audience.
 	 * Once stored, retries and reconciliation reuse it rather than

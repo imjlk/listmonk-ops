@@ -235,7 +235,10 @@ function isStoredAbTest(value: unknown): boolean {
 		(value.startedAt === undefined || isValidTimestamp(value.startedAt)) &&
 		(value.endsAt === undefined || isValidTimestamp(value.endsAt)) &&
 		(value.minimumTestSampleSize === undefined ||
-			isPositiveInteger(value.minimumTestSampleSize))
+			isPositiveInteger(value.minimumTestSampleSize)) &&
+		(value.assignmentProvenance === undefined ||
+			value.assignmentProvenance === "manifest_v1" ||
+			value.assignmentProvenance === "legacy_unavailable")
 	);
 }
 
