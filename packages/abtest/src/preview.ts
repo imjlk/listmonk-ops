@@ -352,6 +352,7 @@ export function approvePreviewGate(
 		approvedBy,
 		approvedAt,
 		rejectionReason: undefined,
+		rejectedAt: undefined,
 	};
 }
 
@@ -469,8 +470,12 @@ export function transitionSeedVariant(
 			`Variant "${variantId}" not found in seed run ${run.runId}`,
 		);
 	}
+	// Same-state replay is a no-op (idempotent), not an error.
+	if (current.state === newState) {
+		return run;
+	}
 	// Reject transitions for variants already in a terminal state.
-	if (TERMINAL_SEED_STATES.has(current.state) && newState !== current.state) {
+	if (TERMINAL_SEED_STATES.has(current.state)) {
 		throw new PreviewValidationError(
 			`Variant "${variantId}" is already in terminal state "${current.state}"; cannot transition to "${newState}"`,
 		);
