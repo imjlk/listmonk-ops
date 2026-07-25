@@ -166,9 +166,7 @@ export function buildExperimentReport(
 				}
 			: undefined,
 		preRegistration,
-		// Show revenue columns when any variant has revenue data OR the
-		// pre-registered primary metric is revenue_per_recipient.
-		revenueCurrency: undefined, // Set by caller when currency is known
+		revenueCurrency: undefined,
 	};
 }
 
