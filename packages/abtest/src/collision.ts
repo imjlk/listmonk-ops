@@ -548,12 +548,10 @@ export class InMemoryExperimentParticipationStore
 					conflictingTestIds: uniqueConflictingTests.sort(),
 				};
 			}
-			if (policy.mode === "warn" && conflictCount > 0) {
-				const blockedMsg =
-					blockedSubjects.size > 0
-						? `; ${blockedSubjects.size} subject(s) exceed the concurrency limit of ${policy.maximumConcurrentExperiments}`
-						: "";
-				result.warning = `Collision guard warning: ${conflictCount} subject(s) conflict with ${uniqueConflictingTests.length} test(s)${blockedMsg}`;
+			// In warn mode, only warn when subjects actually exceed the
+			// concurrency limit. Below-limit overlaps are allowed by design.
+			if (policy.mode === "warn" && blockedSubjects.size > 0) {
+				result.warning = `Collision guard warning: ${blockedSubjects.size} subject(s) exceed the concurrency limit of ${policy.maximumConcurrentExperiments}`;
 			}
 			return result;
 		});
