@@ -144,6 +144,10 @@ export function validateSeedRecipients(
 ): { emails: string[]; recipientSetChecksum: string } {
 	const seen = new Set<string>();
 	const cleaned: string[] = [];
+	// Normalize the allowed domains once, outside the per-email loop.
+	const normalizedAllowed = policy.allowedDomains.map((d) =>
+		d.trim().toLowerCase(),
+	);
 	for (const raw of rawEmails) {
 		if (typeof raw !== "string") {
 			throw new PreviewValidationError("Seed recipient emails must be strings");
@@ -169,9 +173,6 @@ export function validateSeedRecipients(
 				`Invalid seed recipient email (malformed domain): ${JSON.stringify(raw)}`,
 			);
 		}
-		const normalizedAllowed = policy.allowedDomains.map((d) =>
-			d.trim().toLowerCase(),
-		);
 		if (
 			normalizedAllowed.length > 0 &&
 			!normalizedAllowed.includes(domain)
