@@ -130,6 +130,13 @@ export function computeStratifiedQuotas(params: {
 			`Stratified quota invariant: strata sum ${totalFromStrata} != groups sum ${totalFromGroups}`,
 		);
 	}
+	if (totalAudience !== totalFromStrata) {
+		// totalAudience is the divisor for proportional ideals; a mismatch
+		// (including zero) silently skews proportions or yields NaN cells.
+		throw new Error(
+			`Stratified quota invariant: totalAudience ${totalAudience} != strata sum ${totalFromStrata}`,
+		);
+	}
 
 	const quotas: Record<string, Record<string, number>> = {};
 	const cells: StratumQuotaCell[] = [];
@@ -193,12 +200,17 @@ export function computeStratifiedQuotas(params: {
 		columnDeficit[groupKey] = exactCount - currentSum;
 	}
 
+	// Build a lookup map of ideal values to avoid repeated linear scans of
+	// the cells array inside the correction loop.
+	const idealLookup = new Map<string, number>();
+	for (const cell of cells) {
+		idealLookup.set(`${cell.stratumKey}:${cell.groupKey}`, cell.ideal);
+	}
+
 	const cellDeviation = (stratumKey: string, groupKey: string): number => {
 		const row = quotas[stratumKey];
 		const quota = row?.[groupKey] ?? 0;
-		const ideal =
-			cells.find((c) => c.stratumKey === stratumKey && c.groupKey === groupKey)
-				?.ideal ?? 0;
+		const ideal = idealLookup.get(`${stratumKey}:${groupKey}`) ?? 0;
 		return quota - ideal;
 	};
 
@@ -244,6 +256,18 @@ export function computeStratifiedQuotas(params: {
 		row[surplusGroup] = (row[surplusGroup] ?? 0) - 1;
 		columnDeficit[deficitGroup] = (columnDeficit[deficitGroup] ?? 0) - 1;
 		columnDeficit[surplusGroup] = (columnDeficit[surplusGroup] ?? 0) + 1;
+	}
+
+	// Verify convergence: every column deficit should be resolved to zero.
+	// If the loop exited early (no donating row or iteration cap reached),
+	// the column sums would silently disagree with the exact counts.
+	for (const groupKey of groupOrder) {
+		const residual = columnDeficit[groupKey] ?? 0;
+		if (residual !== 0) {
+			throw new Error(
+				`Stratified quota did not converge: column "${groupKey}" has residual deficit ${residual}`,
+			);
+		}
 	}
 
 	// Update cell quotas after correction.

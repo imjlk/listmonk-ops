@@ -119,6 +119,33 @@ describe("computeStratifiedQuotas", () => {
 		).toThrow("Stratified quota invariant");
 	});
 
+	it("throws when totalAudience disagrees with strata sum", () => {
+		expect(() =>
+			computeStratifiedQuotas({
+				stratumSizes: { gmail: 500, other: 500 },
+				groupExactCounts: { "variant:A": 500, "variant:B": 500 },
+				groupOrder: ["variant:A", "variant:B"],
+				totalAudience: 1000,
+			}),
+		).not.toThrow();
+		expect(() =>
+			computeStratifiedQuotas({
+				stratumSizes: { gmail: 500, other: 500 },
+				groupExactCounts: { "variant:A": 500, "variant:B": 500 },
+				groupOrder: ["variant:A", "variant:B"],
+				totalAudience: 1100,
+			}),
+		).toThrow("totalAudience 1100 != strata sum 1000");
+		expect(() =>
+			computeStratifiedQuotas({
+				stratumSizes: { gmail: 500, other: 500 },
+				groupExactCounts: { "variant:A": 500, "variant:B": 500 },
+				groupOrder: ["variant:A", "variant:B"],
+				totalAudience: 0,
+			}),
+		).toThrow("totalAudience 0 != strata sum 1000");
+	});
+
 	it("each cell is floor or ceil of ideal", () => {
 		const result = computeStratifiedQuotas({
 			stratumSizes: { gmail: 333, naver: 333, other: 334 },
