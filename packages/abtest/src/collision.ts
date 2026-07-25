@@ -188,16 +188,13 @@ export function computeActiveWindow(params: {
 		);
 	}
 	const launchMs = new Date(launchAt).getTime();
-	if (endsAt !== undefined) {
-		const endsMs = new Date(endsAt).getTime();
-		if (endsMs < launchMs) {
-			throw new CollisionConfigurationError(
-				`endsAt must not precede launchAt, received endsAt=${JSON.stringify(endsAt)} launchAt=${JSON.stringify(launchAt)}`,
-			);
-		}
+	const endBase = endsAt ? new Date(endsAt).getTime() : launchMs;
+	if (endsAt !== undefined && endBase < launchMs) {
+		throw new CollisionConfigurationError(
+			`endsAt must not precede launchAt, received endsAt=${JSON.stringify(endsAt)} launchAt=${JSON.stringify(launchAt)}`,
+		);
 	}
 	const startMs = launchMs - exclusionWindowHours * 3600 * 1000;
-	const endBase = endsAt ? new Date(endsAt).getTime() : launchMs;
 	const endMs =
 		endBase + (attributionWindowHours + exclusionWindowHours) * 3600 * 1000;
 	return {
@@ -410,23 +407,11 @@ export class InMemoryExperimentParticipationStore
 				}
 			}
 
-			// Enforce maximumConcurrentExperiments: count distinct active
-			// tests in the same family whose windows overlap.
+			// In block mode, any conflict blocks the launch. In exclude/warn
+			// mode, conflicts are handled below without throwing.
 			const uniqueConflictingTests = [...new Set(conflictingTestIds)];
 			try {
 				if (
-					uniqueConflictingTests.length >=
-						input.policy.maximumConcurrentExperiments &&
-					input.policy.mode === "block"
-				) {
-					throw new CollisionConflictError(
-						conflictCount,
-						uniqueConflictingTests,
-					);
-				}
-				if (
-					uniqueConflictingTests.length <
-						input.policy.maximumConcurrentExperiments &&
 					conflictCount > 0 &&
 					input.policy.mode === "block"
 				) {
