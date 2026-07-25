@@ -266,30 +266,33 @@ export function reportToMarkdown(report: ExperimentReport): string {
 	lines.push("## Variant Results");
 	lines.push("");
 	const hasRevenue = report.variants.some((v) => v.revenue !== undefined);
+	const headers = [
+		"Variant",
+		"Sample",
+		"Open Rate",
+		"Click Rate",
+		"Conversion Rate",
+	];
 	if (hasRevenue) {
-		lines.push(
-			"| Variant | Sample | Open Rate | Click Rate | Conversion Rate | Revenue | Rev/Recipient |",
-		);
-		lines.push(
-			"|---------|--------|-----------|------------|-----------------|---------|---------------|",
-		);
-		for (const v of report.variants) {
-			lines.push(
-				`| ${v.variantName} | ${v.sampleSize} | ${v.openRate.toFixed(2)}% | ${v.clickRate.toFixed(2)}% | ${v.conversionRate.toFixed(2)}% | ${v.revenue?.toFixed(2) ?? "N/A"} | ${v.revenuePerRecipient?.toFixed(4) ?? "N/A"} |`,
+		headers.push("Revenue", "Rev/Recipient");
+	}
+	lines.push(`| ${headers.join(" | ")} |`);
+	lines.push(`|${headers.map(() => "---------").join("|")}|`);
+	for (const v of report.variants) {
+		const cells = [
+			v.variantName,
+			String(v.sampleSize),
+			`${v.openRate.toFixed(2)}%`,
+			`${v.clickRate.toFixed(2)}%`,
+			`${v.conversionRate.toFixed(2)}%`,
+		];
+		if (hasRevenue) {
+			cells.push(
+				v.revenue?.toFixed(2) ?? "N/A",
+				v.revenuePerRecipient?.toFixed(4) ?? "N/A",
 			);
 		}
-	} else {
-		lines.push(
-			"| Variant | Sample | Open Rate | Click Rate | Conversion Rate |",
-		);
-		lines.push(
-			"|---------|--------|-----------|------------|-----------------|",
-		);
-		for (const v of report.variants) {
-			lines.push(
-				`| ${v.variantName} | ${v.sampleSize} | ${v.openRate.toFixed(2)}% | ${v.clickRate.toFixed(2)}% | ${v.conversionRate.toFixed(2)}% |`,
-			);
-		}
+		lines.push(`| ${cells.join(" | ")} |`);
 	}
 	lines.push("");
 
