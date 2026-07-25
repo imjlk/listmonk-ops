@@ -9,6 +9,7 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
+import { isCollisionTimestamp } from "./collision";
 
 // ── Content checksum ────────────────────────────────────────────────
 
@@ -323,8 +324,10 @@ export function approvePreviewGate(
 	if (typeof approvedBy !== "string" || approvedBy.trim().length === 0) {
 		throw new PreviewValidationError("approvedBy must be a non-empty string");
 	}
-	if (typeof approvedAt !== "string" || approvedAt.trim().length === 0) {
-		throw new PreviewValidationError("approvedAt must be a non-empty string");
+	if (typeof approvedAt !== "string" || !isCollisionTimestamp(approvedAt)) {
+		throw new PreviewValidationError(
+			"approvedAt must be a valid ISO 8601 timestamp",
+		);
 	}
 	if (!gate.required) {
 		return gate;
@@ -371,8 +374,10 @@ export function rejectPreviewGate(
 			"Rejection reason must be a non-empty string",
 		);
 	}
-	if (typeof rejectedAt !== "string" || rejectedAt.trim().length === 0) {
-		throw new PreviewValidationError("rejectedAt must be a non-empty string");
+	if (typeof rejectedAt !== "string" || !isCollisionTimestamp(rejectedAt)) {
+		throw new PreviewValidationError(
+			"rejectedAt must be a valid ISO 8601 timestamp",
+		);
 	}
 	return {
 		...gate,
