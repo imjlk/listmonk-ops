@@ -485,6 +485,14 @@ listmonk-cli abtest create \
 전체 검증 규칙, 층화 할당량 솔버, 한영(EN/KO) 가이드는
 [`packages/abtest/README.md`](packages/abtest/README.md)를 참고하세요.
 
+### 가설 기반 분석
+
+사전 등록된 가설이 있는 테스트는 `abtest analyze`가 선언된 주요 지표
+(`click_rate`, `conversion_rate`)와 방향(`maximize`/`minimize`)을 사용하여
+winner를 선택합니다. 보고서에는 가설 목표, 기대 효과, 사전 등록 상태
+(`verified`/`not_available`/`checksum_mismatch`)가 포함됩니다. checksum이
+일치하지 않는 가설은 분석 전에 거부됩니다.
+
 ### 실험 충돌 가드
 
 충돌 가드는 같은 family의 겹치는 실험이 같은 구독자를 노출시키지 않도록

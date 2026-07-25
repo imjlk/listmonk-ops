@@ -4,6 +4,7 @@ import {
 	reportToMarkdown,
 	reportToJSON,
 } from "../src/report";
+import { lockHypothesis } from "../src/hypothesis";
 import type { AbTest, StatisticalAnalysis, TestResults } from "../src/types";
 
 function makeTest(): AbTest {
@@ -102,6 +103,62 @@ describe("buildExperimentReport", () => {
 		expect(report.srmPassed).toBe(false);
 		expect(report.srmPValue).toBe(0.0001);
 	});
+
+	it("uses the pre-registered primary metric and direction", () => {
+		const locked = lockHypothesis(
+			{
+				objective: "Reduce unsubscribe rate",
+				hypothesis: "Shorter body reduces unsubscribes",
+				primaryMetric: { type: "conversion_rate", direction: "minimize" },
+				expectedLift: { kind: "relative", value: 0.05 },
+				owner: { id: "user-1" },
+				experimentScope: {
+					channel: "email",
+					experimentFamilyKey: "winback.body",
+					attributionWindowHours: 72,
+					exclusionWindowHours: 168,
+				},
+				createdAt: "2026-07-01T00:00:00Z",
+			},
+			"2026-07-01T00:00:00Z",
+		);
+		const test = { ...makeTest(), hypothesis: locked };
+		const report = buildExperimentReport(test, makeAnalysis(), makeResults());
+		expect(report.primaryMetric).toBe("conversion_rate");
+		expect(report.primaryMetricDirection).toBe("minimize");
+		expect(report.preRegistration).toBe("verified");
+		expect(report.hypothesis?.objective).toBe("Reduce unsubscribe rate");
+	});
+
+	it("reports not_available when no hypothesis is present", () => {
+		const report = buildExperimentReport(makeTest(), makeAnalysis(), makeResults());
+		expect(report.preRegistration).toBe("not_available");
+		expect(report.hypothesis).toBeUndefined();
+	});
+
+	it("reports checksum_mismatch when hypothesis is tampered", () => {
+		const locked = lockHypothesis(
+			{
+				objective: "Original",
+				hypothesis: "Test",
+				primaryMetric: { type: "click_rate", direction: "maximize" },
+				expectedLift: { kind: "relative", value: 0.1 },
+				owner: { id: "user-1" },
+				experimentScope: {
+					channel: "email",
+					experimentFamilyKey: "test.family",
+					attributionWindowHours: 72,
+					exclusionWindowHours: 168,
+				},
+				createdAt: "2026-07-01T00:00:00Z",
+			},
+			"2026-07-01T00:00:00Z",
+		);
+		const tampered = { ...locked, objective: "Tampered" };
+		const test = { ...makeTest(), hypothesis: tampered };
+		const report = buildExperimentReport(test, makeAnalysis(), makeResults());
+		expect(report.preRegistration).toBe("checksum_mismatch");
+	});
 });
 
 describe("reportToMarkdown", () => {
@@ -164,6 +221,57 @@ describe("reportToMarkdown", () => {
 		expect(md).not.toContain("uuid-");
 		expect(md).not.toContain("@");
 		expect(md).not.toContain("email");
+	});
+
+	it("includes hypothesis section and pre-registration status", () => {
+		const locked = lockHypothesis(
+			{
+				objective: "Increase CTR",
+				hypothesis: "Shorter subject lifts CTR",
+				primaryMetric: { type: "click_rate", direction: "maximize" },
+				expectedLift: { kind: "relative", value: 0.1 },
+				owner: { id: "user-1" },
+				experimentScope: {
+					channel: "email",
+					experimentFamilyKey: "test.family",
+					attributionWindowHours: 72,
+					exclusionWindowHours: 168,
+				},
+				createdAt: "2026-07-01T00:00:00Z",
+			},
+			"2026-07-01T00:00:00Z",
+		);
+		const test = { ...makeTest(), hypothesis: locked };
+		const report = buildExperimentReport(test, makeAnalysis(), makeResults());
+		const md = reportToMarkdown(report);
+		expect(md).toContain("## Hypothesis");
+		expect(md).toContain("Increase CTR");
+		expect(md).toContain("**Pre-Registration**: Verified");
+	});
+
+	it("shows checksum mismatch warning in markdown", () => {
+		const locked = lockHypothesis(
+			{
+				objective: "Original",
+				hypothesis: "Test",
+				primaryMetric: { type: "click_rate", direction: "maximize" },
+				expectedLift: { kind: "relative", value: 0.1 },
+				owner: { id: "user-1" },
+				experimentScope: {
+					channel: "email",
+					experimentFamilyKey: "test.family",
+					attributionWindowHours: 72,
+					exclusionWindowHours: 168,
+				},
+				createdAt: "2026-07-01T00:00:00Z",
+			},
+			"2026-07-01T00:00:00Z",
+		);
+		const tampered = { ...locked, objective: "Tampered" };
+		const test = { ...makeTest(), hypothesis: tampered };
+		const report = buildExperimentReport(test, makeAnalysis(), makeResults());
+		const md = reportToMarkdown(report);
+		expect(md).toContain("Checksum Mismatch");
 	});
 });
 

@@ -80,9 +80,11 @@ export {
 } from "./collision";
 export {
 	buildExperimentReport,
+	evaluatePreRegistration,
 	reportToMarkdown,
 	reportToJSON,
 	type ExperimentReport,
+	type PreRegistrationStatus,
 } from "./report";
 export {
 	abTestOperationCatalog,

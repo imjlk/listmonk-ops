@@ -16,6 +16,7 @@ import {
 	lockHypothesis,
 	validateHypothesisMetadata,
 	verifyHypothesisChecksum,
+	type HypothesisMetadata,
 } from "./hypothesis";
 import type {
 	AbTest,
@@ -482,6 +483,7 @@ export class AbTestService {
 	async analyzeStatisticalSignificance(
 		results: TestResults[],
 		confidenceThreshold: number = 0.95,
+		hypothesis?: HypothesisMetadata,
 	): Promise<StatisticalAnalysis> {
 		if (results.length < 2) {
 			throw new Error("At least 2 variants required for statistical analysis");
@@ -511,15 +513,29 @@ export class AbTestService {
 
 		// Pick the comparison metric via the shared selector so the
 		// significance test and the winner selection cannot diverge.
-		const { rate: metricRate, label: metricLabel } =
-			this.pickMetricRate(results);
+		const { rate: metricRate, label: metricLabel, direction: metricDirection } =
+			this.pickMetricRate(results, hypothesis);
+		// revenue_per_recipient is a continuous monetary metric that cannot
+		// be tested with the two-proportion Z-test used here. Reject it
+		// explicitly until a dedicated statistical test is implemented.
+		if (metricLabel === "revenue per recipient") {
+			throw new Error(
+				"revenue_per_recipient metric is not yet supported by the significance test; use click_rate or conversion_rate",
+			);
+		}
 		const anyConversionMeasured = metricLabel === "conversion rate";
 		const metricCount = (r: TestResults): number =>
 			anyConversionMeasured ? r.conversions : r.clicks;
 
-		// Find the best performing variant by the chosen metric.
+		// Find the best performing variant by the chosen metric, respecting
+		// the direction from the pre-registered hypothesis (or default
+		// maximize for legacy tests).
+		const isBetter =
+			metricDirection === "minimize"
+				? (a: number, b: number) => a < b
+				: (a: number, b: number) => a > b;
 		const bestVariant = results.reduce((best, current) =>
-			metricRate(current) > metricRate(best) ? current : best,
+			isBetter(metricRate(current), metricRate(best)) ? current : best,
 		);
 
 		// If control is the best, compare against the true second-best
@@ -537,7 +553,7 @@ export class AbTestService {
 				);
 			}
 			testGroup = nonControl.reduce((best, current) =>
-				metricRate(current) > metricRate(best) ? current : best,
+				isBetter(metricRate(current), metricRate(best)) ? current : best,
 			);
 		} else {
 			testGroup = bestVariant;
@@ -621,8 +637,12 @@ export class AbTestService {
 			// (including control). Only append the top-two p-value to the
 			// Holm family when it is a treatment-vs-treatment comparison
 			// (not already in pairwisePValues as a control-vs-treatment).
-			const sortedAll = [...results].sort(
-				(a, b) => metricRate(b) - metricRate(a),
+			// Sort by metric rate respecting direction so the top-two
+			// comparison uses the correct ranking.
+			const sortedAll = [...results].sort((a, b) =>
+				metricDirection === "minimize"
+					? metricRate(a) - metricRate(b)
+					: metricRate(b) - metricRate(a),
 			);
 			let isTopTwoSeparated = true;
 			if (sortedAll.length > 1) {
@@ -706,18 +726,61 @@ export class AbTestService {
 
 	/**
 	 * Build the metric selector used by both the significance test and the
-	 * winner selection. Prefers conversion rate when any conversions are
-	 * actually measured; otherwise falls back to click rate, since
-	 * conversions are zero everywhere until a conversion event store exists.
+	 * winner selection. When a pre-registered hypothesis is present, its
+	 * declared primary metric and direction drive the selection. Otherwise
+	 * falls back to the observed-data heuristic (conversion rate when any
+	 * conversions are measured, otherwise click rate).
 	 */
-	private pickMetricRate(results: TestResults[]): {
+	private pickMetricRate(
+		results: TestResults[],
+		hypothesis?: HypothesisMetadata,
+	): {
 		rate: (r: TestResults) => number;
-		label: "conversion rate" | "click rate";
+		label: "conversion rate" | "click rate" | "revenue per recipient";
+		direction: "maximize" | "minimize";
 	} {
+		if (hypothesis) {
+			const type = hypothesis.primaryMetric.type;
+			const direction = hypothesis.primaryMetric.direction;
+			if (type === "conversion_rate") {
+				return {
+					rate: (r) => r.conversionRate,
+					label: "conversion rate",
+					direction,
+				};
+			}
+			if (type === "revenue_per_recipient") {
+				// revenue_per_recipient uses revenue divided by sample size;
+				// fall back to conversion rate when revenue is not collected.
+				return {
+					rate: (r) =>
+						r.revenue !== undefined && r.sampleSize > 0
+							? r.revenue / r.sampleSize
+							: 0,
+					label: "revenue per recipient",
+					direction,
+				};
+			}
+			// click_rate
+			return {
+				rate: (r) => r.clickRate,
+				label: "click rate",
+				direction,
+			};
+		}
+		// Legacy fallback
 		const anyConversionMeasured = results.some((r) => r.conversions > 0);
 		return anyConversionMeasured
-			? { rate: (r) => r.conversionRate, label: "conversion rate" }
-			: { rate: (r) => r.clickRate, label: "click rate" };
+			? {
+					rate: (r) => r.conversionRate,
+					label: "conversion rate",
+					direction: "maximize",
+				}
+			: {
+					rate: (r) => r.clickRate,
+					label: "click rate",
+					direction: "maximize",
+				};
 	}
 
 	private standardNormalCDF(z: number): number {
@@ -751,10 +814,27 @@ export class AbTestService {
 			throw new Error(`Test with ID ${testId} not found`);
 		}
 
+		// Reject an unverifiable hypothesis before analysis so a tampered
+		// or incomplete pre-registration cannot influence metric selection
+		// or winner decisions.
+		if (test.hypothesis) {
+			if (!test.hypothesis.lockedAt || !test.hypothesis.checksum) {
+				throw new Error(
+					`Hypothesis for test ${testId} is not locked; cannot use an unlocked hypothesis for analysis`,
+				);
+			}
+			if (!verifyHypothesisChecksum(test.hypothesis)) {
+				throw new Error(
+					`Hypothesis checksum verification failed for test ${testId}; the pre-registered metadata may have been tampered with`,
+				);
+			}
+		}
+
 		const results = await this.getTestResults(testId);
 		const analysis = await this.analyzeStatisticalSignificance(
 			results,
 			test.confidenceThreshold,
+			test.hypothesis,
 		);
 
 		// Run the fixed-horizon eligibility gate. If the test is not ready,
@@ -824,12 +904,17 @@ export class AbTestService {
 
 		// Pick the winner on the same metric the significance test used, via
 		// the shared selector so the two cannot drift apart. The selector
-		// returns both the rate function and its label so recommendations
-		// report the metric actually used (no 0.00% conversion rate for a
-		// click-rate winner).
-		const { rate: metricRate, label: metricLabel } =
-			this.pickMetricRate(results);
-		const bestRate = Math.max(...results.map(metricRate));
+		// returns both the rate function, its label, and direction so
+		// minimize-direction hypotheses select the lowest-scoring variant.
+		const {
+			rate: metricRate,
+			label: metricLabel,
+			direction: metricDirection,
+		} = this.pickMetricRate(results, test.hypothesis);
+		const bestRate =
+			metricDirection === "minimize"
+				? Math.min(...results.map(metricRate))
+				: Math.max(...results.map(metricRate));
 
 		const winner = analysis.isSignificant && gatesPassed
 			? test.variants.find((v) =>
@@ -937,7 +1022,7 @@ export class AbTestService {
 		results: TestResults[],
 		analysis: StatisticalAnalysis,
 		winner: Variant | null,
-		metricLabel: "conversion rate" | "click rate",
+		metricLabel: "conversion rate" | "click rate" | "revenue per recipient",
 		metricRate: (r: TestResults) => number,
 	): string[] {
 		const recommendations: string[] = [];
