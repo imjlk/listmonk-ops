@@ -415,9 +415,44 @@ describe("InMemoryExperimentParticipationStore", () => {
 		// releaseEligible before window ends — nothing released.
 		let released = await store.releaseEligible("2026-07-25T10:30:00Z");
 		expect(released).toBe(0);
-		// After window ends — released.
+		// After window ends — transitioned to released (not removed).
 		released = await store.releaseEligible("2026-07-25T11:01:00Z");
 		expect(released).toBe(1);
+		// The participation is still present as released, with releasedAt set.
+		const list = await store.listByTest("test-1");
+		expect(list).toHaveLength(1);
+		expect(list[0]?.state).toBe("released");
+		expect(list[0]?.releasedAt).toBe("2026-07-25T11:01:00Z");
+	});
+
+	it("retry preserves exposed participations for attribution", async () => {
+		const store = new InMemoryExperimentParticipationStore();
+		const w = makeWindow(0, 60);
+		await store.checkAndReserve({
+			testId: "test-1",
+			channel: "email",
+			experimentFamilyKey: FAMILY,
+			...w,
+			subjectKeys: [subjectKey(UUID_A)],
+			policy: DEFAULT_COLLISION_POLICY,
+			reservedAt: "2026-07-25T09:50:00Z",
+		});
+		await store.markExposed("test-1", "2026-07-25T10:05:00Z");
+		// Retry the same test — the exposed participation must survive.
+		await store.checkAndReserve({
+			testId: "test-1",
+			channel: "email",
+			experimentFamilyKey: FAMILY,
+			...w,
+			subjectKeys: [subjectKey(UUID_A)],
+			policy: DEFAULT_COLLISION_POLICY,
+			reservedAt: "2026-07-25T09:55:00Z",
+		});
+		const list = await store.listByTest("test-1");
+		// One exposed (original) + one reserved (retry).
+		expect(list).toHaveLength(2);
+		expect(list.some((p) => p.state === "exposed")).toBe(true);
+		expect(list.some((p) => p.state === "reserved")).toBe(true);
 	});
 
 	it("exclude mode removes conflicting subjects and reserves the rest", async () => {

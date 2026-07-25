@@ -289,7 +289,15 @@ export interface ExperimentParticipationStore {
 	releaseByTest(testId: string, releasedAt: string): Promise<number>;
 }
 
-function deepCopyParticipation(p: ExperimentParticipation): ExperimentParticipation {
+/**
+ * Shallow-copy a participation record. All current fields are primitives,
+ * so a shallow copy is sufficient to prevent callers from mutating
+ * internal state. Named "shallow" to avoid implying deep-copy semantics
+ * if nested fields are added in the future.
+ */
+function shallowCopyParticipation(
+	p: ExperimentParticipation,
+): ExperimentParticipation {
 	return { ...p };
 }
 
@@ -344,10 +352,12 @@ export class InMemoryExperimentParticipationStore
 			);
 		}
 		return this.serialized(() => {
-			// Remove existing reservations for this testId so a retry is not
-			// blocked by its own prior reservation.
+			// Remove existing reserved (not exposed) participations for this
+			// testId so a retry is not blocked by its own prior reservation.
+			// Exposed participations carry attribution state and must be
+			// retained.
 			this.participations = this.participations.filter(
-				(p) => p.testId !== input.testId,
+				(p) => p.testId !== input.testId || p.state === "exposed",
 			);
 
 			const candidates: ExperimentParticipation[] = [];
@@ -369,13 +379,16 @@ export class InMemoryExperimentParticipationStore
 				});
 			}
 
-			// Check each candidate against existing reservations (excluding
-			// same-testId, which we already removed above).
+			// Check each candidate against existing reservations from OTHER
+			// tests. Same-testId participations (e.g. exposed records retained
+			// for attribution) must not block a retry.
 			const conflictingTestIds: string[] = [];
 			let conflictCount = 0;
 			for (const candidate of candidates) {
-				const conflicting = this.participations.filter((existing) =>
-					participationsCollide(existing, candidate),
+				const conflicting = this.participations.filter(
+					(existing) =>
+						existing.testId !== input.testId &&
+						participationsCollide(existing, candidate),
 				);
 				if (conflicting.length > 0) {
 					conflictCount += 1;
@@ -402,22 +415,25 @@ export class InMemoryExperimentParticipationStore
 				throw new CollisionConflictError(conflictCount, conflictingTestIds);
 			}
 
-			// In exclude mode, only reserve non-conflicting subjects.
+			// In exclude mode, only reserve non-conflicting subjects (from
+			// other tests; same-testId exposed records don't block).
 			const toReserve =
 				input.policy.mode === "exclude"
 					? candidates.filter(
 							(p) =>
-								!this.participations.some((existing) =>
-									participationsCollide(existing, p),
+								!this.participations.some(
+									(existing) =>
+										existing.testId !== input.testId &&
+										participationsCollide(existing, p),
 								),
 						)
 					: candidates;
 
 			// Store deep copies.
-			this.participations.push(...toReserve.map(deepCopyParticipation));
+			this.participations.push(...toReserve.map(shallowCopyParticipation));
 
 			const result: CollisionReservationResult = {
-				reserved: toReserve.map(deepCopyParticipation),
+				reserved: toReserve.map(shallowCopyParticipation),
 			};
 			if (conflictCount > 0) {
 				result.conflicts = {
@@ -457,15 +473,16 @@ export class InMemoryExperimentParticipationStore
 		return this.serialized(() => {
 			const nowMs = new Date(now).getTime();
 			let count = 0;
-			this.participations = this.participations.filter((p) => {
-				const windowEndMs = new Date(p.windowEndsAt).getTime();
-				// Release any non-released participation whose window has ended.
-				if (p.state !== "released" && windowEndMs <= nowMs) {
-					count += 1;
-					return false;
+			for (const p of this.participations) {
+				if (p.state !== "released") {
+					const windowEndMs = new Date(p.windowEndsAt).getTime();
+					if (windowEndMs <= nowMs) {
+						p.state = "released";
+						p.releasedAt = now;
+						count += 1;
+					}
 				}
-				return true;
-			});
+			}
 			return count;
 		});
 	}
@@ -474,7 +491,7 @@ export class InMemoryExperimentParticipationStore
 		return this.serialized(() =>
 			this.participations
 				.filter((p) => p.testId === testId)
-				.map(deepCopyParticipation),
+				.map(shallowCopyParticipation),
 		);
 	}
 
@@ -502,6 +519,6 @@ export class InMemoryExperimentParticipationStore
 
 	/** Test helper: returns a deep-copied snapshot of internal state. */
 	snapshot(): ExperimentParticipation[] {
-		return this.participations.map(deepCopyParticipation);
+		return this.participations.map(shallowCopyParticipation);
 	}
 }
