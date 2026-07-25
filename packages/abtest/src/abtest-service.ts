@@ -235,7 +235,10 @@ export class AbTestService {
 							config.baseConfig.lists,
 							variants,
 							testGroupPercentage,
-							{ testId: abTest.id },
+							{
+								testId: abTest.id,
+								stratificationPolicy: config.stratificationPolicy,
+							},
 						);
 
 					testListMappings = segmentationResult.testListMappings;

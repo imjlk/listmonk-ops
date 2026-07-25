@@ -356,6 +356,9 @@ const createAbTestInputSchema = z.object({
 			}),
 		})
 		.optional(),
+	enable_stratification: optionalBooleanSchema.describe(
+		"Enable recipient-domain stratification during holdout provisioning",
+	),
 });
 
 const analyzeAbTestInputSchema = testIdInputSchema.extend({

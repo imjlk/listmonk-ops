@@ -214,6 +214,11 @@ export interface AbTestConfig {
 	// provided unlocked, createTest locks it before provisioning so the
 	// assignment manifest cannot be separated from a frozen hypothesis.
 	hypothesis?: import("./hypothesis").HypothesisMetadata;
+	// Recipient-domain stratification policy. When enabled, the holdout
+	// provisioning path computes a stratified quota matrix from the audience
+	// and stores it on AbTest.stratification. Optional; defaults to the
+	// disabled policy.
+	stratificationPolicy?: import("./stratification").StratificationPolicyV1;
 }
 
 export interface AbTestInput {
@@ -272,6 +277,11 @@ export interface CreateAbTestInput {
 			exclusion_window_hours: number;
 		};
 	};
+	// Enable recipient-domain stratification during holdout provisioning.
+	// When true, the service applies the default stratification policy
+	// (gmail/naver/daum/kakao + other/unknown fallbacks) and stores the
+	// computed quota matrix on AbTest.stratification.
+	enable_stratification?: boolean;
 }
 
 export interface AnalyzeAbTestInput {

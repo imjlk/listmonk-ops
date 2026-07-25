@@ -8,6 +8,7 @@ import type {
 	CreateAbTestInput,
 	TestAnalysis,
 } from "./types";
+import { DEFAULT_STRATIFICATION_POLICY } from "./stratification";
 
 // Simple A/B Test command wrappers (no longer extending BaseCommand)
 export class CreateAbTestCommand {
@@ -82,6 +83,9 @@ export class CreateAbTestCommand {
 						},
 						createdAt: new Date().toISOString(),
 					}
+				: undefined,
+			stratificationPolicy: input.enable_stratification
+				? { ...DEFAULT_STRATIFICATION_POLICY, enabled: true }
 				: undefined,
 		};
 
