@@ -11,7 +11,7 @@ import {
 	DEFAULT_STATISTICAL_POLICY,
 	fixedHorizonGate,
 } from "./statistics";
-import { lockHypothesis } from "./hypothesis";
+import { lockHypothesis, verifyHypothesisChecksum } from "./hypothesis";
 import type {
 	AbTest,
 	AbTestConfig,
@@ -181,9 +181,19 @@ export class AbTestService {
 			testListMappings: [],
 			// Lock the pre-registration hypothesis before any provisioning so the
 			// assignment manifest is bound to a frozen, checksummed hypothesis.
+			// When a caller supplies an already-locked hypothesis, verify its
+			// checksum before accepting it, so tampered metadata cannot reach
+			// remote campaign/list provisioning.
 			hypothesis: config.hypothesis
 				? config.hypothesis.lockedAt
-					? config.hypothesis
+					? (() => {
+							if (!verifyHypothesisChecksum(config.hypothesis!)) {
+								throw new Error(
+									"Pre-locked hypothesis checksum verification failed; the metadata may have been tampered with",
+								);
+							}
+							return config.hypothesis!;
+						})()
 					: lockHypothesis(config.hypothesis)
 				: undefined,
 		};

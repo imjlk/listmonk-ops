@@ -152,7 +152,7 @@ describe("computeStratifiedQuotas", () => {
 				groupOrder: ["variant:A", "variant:B"],
 				totalAudience: 0,
 			}),
-		).toThrow("totalAudience 0 != strata sum 1000");
+		).toThrow("totalAudience must be positive, received 0");
 	});
 
 	it("each cell is floor or ceil of ideal", () => {

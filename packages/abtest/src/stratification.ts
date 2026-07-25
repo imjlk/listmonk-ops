@@ -87,25 +87,45 @@ function buildProviderLookup(
 }
 
 /**
+ * Build a reusable stratum classifier for a policy. The provider-domain
+ * lookup map is built once, so classifying a large audience avoids
+ * rebuilding it for every subscriber. The returned function has the same
+ * semantics as {@link classifyStratum}.
+ */
+export function createStratumClassifier(
+	policy: StratificationPolicyV1,
+): (email: string) => string {
+	const lookup = buildProviderLookup(policy);
+	const unknownKey = policy.unknownStratumKey;
+	const otherKey = policy.otherStratumKey;
+	return (email: string): string => {
+		const domain = normalizeDomain(email);
+		if (domain === "") {
+			return unknownKey;
+		}
+		const provider = lookup.get(domain);
+		if (provider !== undefined) {
+			return provider;
+		}
+		return otherKey;
+	};
+}
+
+/**
  * Classify a subscriber's email domain into a stratum key using
  * the provider domain map. Configured domains are normalized with the same
  * rules applied to subscriber emails so mixed-case or trailing-dot entries
  * match correctly.
+ *
+ * For large audiences, prefer {@link createStratumClassifier} to build the
+ * provider lookup once and avoid rebuilding it per subscriber.
  */
 export function classifyStratum(
 	email: string,
 	policy: StratificationPolicyV1,
 ): string {
-	const domain = normalizeDomain(email);
-	if (domain === "") {
-		return policy.unknownStratumKey;
-	}
-	const lookup = buildProviderLookup(policy);
-	const provider = lookup.get(domain);
-	if (provider !== undefined) {
-		return provider;
-	}
-	return policy.otherStratumKey;
+	const classifier = createStratumClassifier(policy);
+	return classifier(email);
 }
 
 export interface StratumQuotaCell {
@@ -151,6 +171,14 @@ export function computeStratifiedQuotas(params: {
 	if (totalFromStrata !== totalFromGroups) {
 		throw new Error(
 			`Stratified quota invariant: strata sum ${totalFromStrata} != groups sum ${totalFromGroups}`,
+		);
+	}
+	if (totalAudience <= 0) {
+		// An empty audience (all-zero strata/groups) would pass the equality
+		// checks above but produce NaN ideals via 0/0 division. Reject it
+		// explicitly so callers cannot persist NaN quota matrices.
+		throw new Error(
+			`Stratified quota invariant: totalAudience must be positive, received ${totalAudience}`,
 		);
 	}
 	if (totalAudience !== totalFromStrata) {

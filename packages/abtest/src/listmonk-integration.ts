@@ -17,8 +17,8 @@ import {
 	type AssignmentManifest,
 } from "./assignment";
 import {
-	classifyStratum,
 	computeStratifiedQuotas,
+	createStratumClassifier,
 	DEFAULT_STRATIFICATION_POLICY,
 	type StratificationPolicyV1,
 	type StratificationResult,
@@ -335,13 +335,12 @@ export class ListmonkAbTestIntegration {
 					resolvedMembers.every((member) => member.email !== undefined);
 				if (allMembersHaveEmail) {
 					try {
-						// Single pass: classify each member and tally stratum sizes.
+						// Build the provider-domain lookup once and classify each
+						// member in a single pass, tallying stratum sizes.
+						const classifier = createStratumClassifier(stratificationPolicy);
 						const stratumSizes: Record<string, number> = {};
 						for (const member of resolvedMembers) {
-							const stratum = classifyStratum(
-								member.email ?? "",
-								stratificationPolicy,
-							);
+							const stratum = classifier(member.email ?? "");
 							stratumSizes[stratum] = (stratumSizes[stratum] ?? 0) + 1;
 						}
 						// Build exact group counts from the manifest groups.

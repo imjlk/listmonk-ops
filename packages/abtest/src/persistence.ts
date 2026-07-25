@@ -244,13 +244,80 @@ function isStoredAbTest(value: unknown): boolean {
 		// locked-state checksum invariant are validated when present so that
 		// loadStoredAbTests never hydrates malformed or tampered metadata.
 		(value.hypothesis === undefined || isStoredHypothesis(value.hypothesis)) &&
-		// If an assignment manifest exists, the hypothesis must be present and
-		// locked with a valid checksum. This enforces the pre-registration
-		// guarantee that hypothesis content cannot change after recipient
-		// assignment.
+		// When BOTH a manifest and a hypothesis are present, the hypothesis
+		// must be locked. This enforces the pre-registration guarantee for new
+		// records without retroactively rejecting legacy v2 records that carry
+		// a manifest but predate hypothesis pre-registration.
 		(value.assignmentManifest === undefined ||
-			(value.hypothesis !== undefined && isStoredHypothesis(value.hypothesis)))
+			value.hypothesis === undefined ||
+			(isRecord(value.hypothesis) &&
+				value.hypothesis.lockedAt !== undefined &&
+				isStoredHypothesis(value.hypothesis))) &&
+		// Stratification quota matrix: optional, structurally validated when
+		// present so corrupt state (negative quotas, malformed cells) is
+		// rejected at the file boundary.
+		(value.stratification === undefined ||
+			isStoredStratification(value.stratification))
 	);
+}
+
+/**
+ * Validate a persisted stratification quota matrix. Requires non-negative
+ * quotas and ideals, and that every cell references a known stratum/group.
+ */
+function isStoredStratification(value: unknown): boolean {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const quotas = value.quotas;
+	const cells = value.cells;
+	const stratumSizes = value.stratumSizes;
+	if (!isRecord(quotas) || !Array.isArray(cells) || !isRecord(stratumSizes)) {
+		return false;
+	}
+	// Every quota row must map group keys to non-negative finite numbers.
+	for (const row of Object.values(quotas)) {
+		if (!isRecord(row)) return false;
+		for (const n of Object.values(row)) {
+			if (
+				typeof n !== "number" ||
+				!Number.isFinite(n) ||
+				n < 0 ||
+				!Number.isInteger(n)
+			) {
+				return false;
+			}
+		}
+	}
+	// stratumSizes must be non-negative integers.
+	for (const n of Object.values(stratumSizes)) {
+		if (
+			typeof n !== "number" ||
+			!Number.isFinite(n) ||
+			n < 0 ||
+			!Number.isInteger(n)
+		) {
+			return false;
+		}
+	}
+	// Each cell must have the required shape with non-negative values.
+	for (const cell of cells) {
+		if (
+			!isRecord(cell) ||
+			typeof cell.stratumKey !== "string" ||
+			typeof cell.groupKey !== "string" ||
+			typeof cell.quota !== "number" ||
+			!Number.isFinite(cell.quota) ||
+			cell.quota < 0 ||
+			!Number.isInteger(cell.quota) ||
+			typeof cell.ideal !== "number" ||
+			!Number.isFinite(cell.ideal) ||
+			cell.ideal < 0
+		) {
+			return false;
+		}
+	}
+	return true;
 }
 
 const HYPOTHESIS_METRIC_TYPES = new Set([

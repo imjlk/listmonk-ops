@@ -377,5 +377,38 @@ describe("A/B test persistence", () => {
 		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
 			"test 0 failed schema validation",
 		);
+
+		// A legacy v2 record with an assignment manifest but no hypothesis
+		// (predating pre-registration) must still load — the manifest+lock
+		// invariant applies only when BOTH are present.
+		const legacyWithManifest = {
+			...validTest,
+			assignmentManifest: {
+				algorithm: "sha256-order-largest-remainder-v1",
+				seed: "seed-1",
+				audienceChecksum: "abc",
+				groups: [
+					{
+						kind: "variant" as const,
+						variantId: "v1",
+						expectedCount: 50,
+						subscriberChecksum: "x",
+					},
+					{
+						kind: "holdout" as const,
+						expectedCount: 50,
+						subscriberChecksum: "y",
+					},
+				],
+				assignedCount: 100,
+			},
+			assignmentProvenance: "manifest_v1" as const,
+		};
+		await writeFile(
+			storePath,
+			`${JSON.stringify({ version: 1, tests: [legacyWithManifest] })}\n`,
+			"utf8",
+		);
+		await expect(loadStoredAbTests(storePath)).resolves.toHaveLength(1);
 	});
 });
