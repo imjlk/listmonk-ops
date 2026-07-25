@@ -343,9 +343,9 @@ export class ListmonkAbTestIntegration {
 							const stratum = classifier(member.email ?? "");
 							stratumSizes[stratum] = (stratumSizes[stratum] ?? 0) + 1;
 						}
-						// Apply the configured small-stratum fallback: providers
-						// below minimumStratumSize are merged into "other" so the
-						// quota matrix matches the documented policy behavior.
+						// Apply the configured small-stratum fallback: any stratum
+						// (including unknown) below minimumStratumSize is merged into
+						// "other" so the quota matrix matches the documented policy.
 						if (
 							stratificationPolicy.minimumStratumSize > 0 &&
 							stratificationPolicy.smallStratumFallback ===
@@ -353,11 +353,7 @@ export class ListmonkAbTestIntegration {
 						) {
 							const otherKey = stratificationPolicy.otherStratumKey;
 							for (const [stratum, size] of Object.entries(stratumSizes)) {
-								if (
-									stratum !== otherKey &&
-									stratum !== stratificationPolicy.unknownStratumKey &&
-									size < stratificationPolicy.minimumStratumSize
-								) {
+								if (stratum !== otherKey && size < stratificationPolicy.minimumStratumSize) {
 									stratumSizes[otherKey] =
 										(stratumSizes[otherKey] ?? 0) + size;
 									delete stratumSizes[stratum];

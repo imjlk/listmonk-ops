@@ -350,6 +350,13 @@ function isStoredStratification(value: unknown): boolean {
 			return false;
 		}
 	}
+	// Every quota matrix entry must have a matching cell (no truncated cells).
+	for (const [sk, row] of Object.entries(quotas)) {
+		if (!isRecord(row)) return false;
+		for (const gk of Object.keys(row)) {
+			if (!seenCells.has(`${sk}:${gk}`)) return false;
+		}
+	}
 	return true;
 }
 

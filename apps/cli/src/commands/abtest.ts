@@ -699,18 +699,10 @@ export default defineGroup({
 						description: "Ignore sample-size warnings",
 					},
 				),
-				"enable-stratification": option(
-					z
-						.string()
-						.optional()
-						.transform((v) =>
-							v === undefined ? undefined : v === "true",
-						),
-					{
-						description:
-							"Enable recipient-domain stratification during holdout provisioning",
-					},
-				),
+				"enable-stratification": option(z.coerce.boolean().default(false), {
+					description:
+						"Enable recipient-domain stratification during holdout provisioning",
+				}),
 				hypothesis: option(z.string().optional(), {
 					description:
 						"Pre-registration hypothesis as JSON (objective, primary_metric, expected_lift, owner, experiment_scope)",

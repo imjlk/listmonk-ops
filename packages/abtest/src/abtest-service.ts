@@ -12,6 +12,7 @@ import {
 	fixedHorizonGate,
 } from "./statistics";
 import {
+	isStrictIsoTimestamp,
 	lockHypothesis,
 	validateHypothesisMetadata,
 	verifyHypothesisChecksum,
@@ -188,19 +189,26 @@ export class AbTestService {
 			// When a caller supplies an already-locked hypothesis, validate it
 			// strictly and verify its checksum before accepting it, so tampered
 			// or malformed metadata cannot reach remote campaign/list provisioning.
-			hypothesis: config.hypothesis
-				? config.hypothesis.lockedAt
-					? (() => {
-							validateHypothesisMetadata(config.hypothesis!, true);
-							if (!verifyHypothesisChecksum(config.hypothesis!)) {
-								throw new Error(
-									"Pre-locked hypothesis checksum verification failed; the metadata may have been tampered with",
-								);
-							}
-							return config.hypothesis!;
-						})()
-					: lockHypothesis(config.hypothesis)
-				: undefined,
+				hypothesis: config.hypothesis
+					? config.hypothesis.lockedAt
+						? (() => {
+								validateHypothesisMetadata(config.hypothesis!, true);
+								if (
+									!isStrictIsoTimestamp(config.hypothesis!.lockedAt)
+								) {
+									throw new Error(
+										"Pre-locked hypothesis lockedAt is not a valid ISO 8601 timestamp",
+									);
+								}
+								if (!verifyHypothesisChecksum(config.hypothesis!)) {
+									throw new Error(
+										"Pre-locked hypothesis checksum verification failed; the metadata may have been tampered with",
+									);
+								}
+								return config.hypothesis!;
+							})()
+						: lockHypothesis(config.hypothesis)
+					: undefined,
 		};
 
 		// Create Listmonk campaigns if integration is available
