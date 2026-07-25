@@ -760,14 +760,17 @@ A/B 테스트에 **사전 등록된 가설**을 설정하면 수신자 할당 �
   `experimentScope`, `createdAt`)를 재귀적으로 정규화하므로 잠금 후 어떤
   변경도 무효화됩니다.
 - `createdAt`/`lockedAt`은 엄격한 ISO 8601이어야 합니다.
-- `experimentFamilyKey`는 점으로 구분된 영숫자 세그먼트여야 합니다.
+- `experimentFamilyKey`는 `.` / `_` / `-` 로 구분된 소문자 영숫자 세그먼트여야 합니다.
 
 ## Recipient-domain stratification (advanced experimentation)
 
 Stratification classifies subscribers by email-domain provider and computes a
 **constrained quota matrix** so each provider stratum gets a proportional share
-of every variant/holdout group. This prevents a single large provider (e.g.
-Gmail) from dominating one variant and skewing results.
+of every variant/holdout group. The quota matrix is computed and stored for
+reporting and validation. Note: applying these quotas to the actual recipient
+assignment slices is a planned follow-up; today the assignment itself remains
+the deterministic largest-remainder manifest, and the quota matrix documents
+the target proportional allocation.
 
 ```typescript
 import {

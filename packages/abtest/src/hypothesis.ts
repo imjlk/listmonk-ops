@@ -246,6 +246,14 @@ export function validateHypothesisMetadata(
 				"owner.id must be a non-empty string",
 			);
 		}
+		if (
+			owner.displayName !== undefined &&
+			typeof owner.displayName !== "string"
+		) {
+			throw new HypothesisValidationError(
+				`owner.displayName must be a string when present, received ${JSON.stringify(owner.displayName)}`,
+			);
+		}
 	}
 	if (metadata.experimentScope !== undefined) {
 		const scope = metadata.experimentScope;
