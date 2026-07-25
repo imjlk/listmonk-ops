@@ -343,39 +343,65 @@ export class InMemoryExperimentParticipationStore
 		policy: CollisionPolicy;
 		reservedAt: string;
 	}): Promise<CollisionReservationResult> {
+		// Validate testId, policy, and timestamps before entering the
+		// serialized section, and snapshot the mutable input so later
+		// mutation by the caller cannot affect the queued transaction.
+		if (typeof input.testId !== "string" || input.testId.length === 0) {
+			throw new CollisionConfigurationError(
+				"testId must be a non-empty string",
+			);
+		}
+		if (
+			typeof input.policy.maximumConcurrentExperiments !== "number" ||
+			!Number.isFinite(input.policy.maximumConcurrentExperiments) ||
+			input.policy.maximumConcurrentExperiments < 1 ||
+			!Number.isInteger(input.policy.maximumConcurrentExperiments)
+		) {
+			throw new CollisionConfigurationError(
+				`maximumConcurrentExperiments must be a finite integer >= 1, received ${JSON.stringify(input.policy.maximumConcurrentExperiments)}`,
+			);
+		}
 		if (!isCollisionTimestamp(input.reservedAt)) {
 			throw new CollisionConfigurationError(
 				`reservedAt must be a valid ISO 8601 timestamp, received ${JSON.stringify(input.reservedAt)}`,
 			);
 		}
-		if (!isCollisionTimestamp(input.windowStartsAt)) {
+		const windowStartsAt = input.windowStartsAt;
+		const windowEndsAt = input.windowEndsAt;
+		const reservedAt = input.reservedAt;
+		const testId = input.testId;
+		const experimentFamilyKey = input.experimentFamilyKey;
+		const channel = input.channel;
+		const subjectKeys = [...input.subjectKeys];
+		const policy = { ...input.policy };
+		if (!isCollisionTimestamp(windowStartsAt)) {
 			throw new CollisionConfigurationError(
-				`windowStartsAt must be a valid ISO 8601 timestamp, received ${JSON.stringify(input.windowStartsAt)}`,
+				`windowStartsAt must be a valid ISO 8601 timestamp, received ${JSON.stringify(windowStartsAt)}`,
 			);
 		}
-		if (!isCollisionTimestamp(input.windowEndsAt)) {
+		if (!isCollisionTimestamp(windowEndsAt)) {
 			throw new CollisionConfigurationError(
-				`windowEndsAt must be a valid ISO 8601 timestamp, received ${JSON.stringify(input.windowEndsAt)}`,
+				`windowEndsAt must be a valid ISO 8601 timestamp, received ${JSON.stringify(windowEndsAt)}`,
 			);
 		}
 		// Reject reversed windows before entering the serialized section.
 		if (
-			new Date(input.windowStartsAt).getTime() >
-			new Date(input.windowEndsAt).getTime()
+			new Date(windowStartsAt).getTime() >
+			new Date(windowEndsAt).getTime()
 		) {
 			throw new CollisionConfigurationError(
-				`windowStartsAt must not be later than windowEndsAt, received starts=${JSON.stringify(input.windowStartsAt)} ends=${JSON.stringify(input.windowEndsAt)}`,
+				`windowStartsAt must not be later than windowEndsAt, received starts=${JSON.stringify(windowStartsAt)} ends=${JSON.stringify(windowEndsAt)}`,
 			);
 		}
 		// Reject empty subject lists before mutating state.
-		if (!Array.isArray(input.subjectKeys) || input.subjectKeys.length === 0) {
+		if (!Array.isArray(subjectKeys) || subjectKeys.length === 0) {
 			throw new CollisionConfigurationError(
 				"subjectKeys must be a non-empty array",
 			);
 		}
 		// Validate all subject keys before mutating state so a validation
 		// failure does not leave the store in a partially-cleared state.
-		for (const sk of input.subjectKeys) {
+		for (const sk of subjectKeys) {
 			if (typeof sk !== "string" || sk.length === 0) {
 				throw new CollisionConfigurationError(
 					"subjectKeys must be non-empty strings",
@@ -388,22 +414,22 @@ export class InMemoryExperimentParticipationStore
 			// Released participations are retained for audit history and must
 			// not be discarded on retry.
 			const savedReserved = this.participations.filter(
-				(p) => p.testId === input.testId && p.state === "reserved",
+				(p) => p.testId === testId && p.state === "reserved",
 			);
 			this.participations = this.participations.filter(
-				(p) => p.testId !== input.testId || p.state !== "reserved",
+				(p) => p.testId !== testId || p.state !== "reserved",
 			);
 
-			const candidates: ExperimentParticipation[] = input.subjectKeys.map(
+			const candidates: ExperimentParticipation[] = subjectKeys.map(
 				(subjectKey) => ({
-					testId: input.testId,
+					testId,
 					subjectKey,
-					channel: input.channel,
-					experimentFamilyKey: input.experimentFamilyKey,
+					channel,
+					experimentFamilyKey,
 					state: "reserved" as const,
-					windowStartsAt: input.windowStartsAt,
-					windowEndsAt: input.windowEndsAt,
-					reservedAt: input.reservedAt,
+					windowStartsAt,
+					windowEndsAt,
+					reservedAt,
 				}),
 			);
 
@@ -411,7 +437,7 @@ export class InMemoryExperimentParticipationStore
 			// efficient lookup against large audiences.
 			const activeIndex = new Map<string, ExperimentParticipation[]>();
 			for (const p of this.participations) {
-				if (p.testId === input.testId || p.state === "released") continue;
+				if (p.testId === testId || p.state === "released") continue;
 				const key = `${p.subjectKey}:${p.experimentFamilyKey}`;
 				const arr = activeIndex.get(key);
 				if (arr) {
@@ -445,9 +471,9 @@ export class InMemoryExperimentParticipationStore
 					// Block if this subject already has maximumConcurrentExperiments
 					// distinct overlapping tests (the candidate would exceed the limit).
 					if (
-						input.policy.mode === "block" &&
+						policy.mode === "block" &&
 						perSubjectTests.size >=
-							input.policy.maximumConcurrentExperiments
+							policy.maximumConcurrentExperiments
 					) {
 						blockedSubjects.add(candidate.subjectKey);
 					}
@@ -456,18 +482,20 @@ export class InMemoryExperimentParticipationStore
 
 			const uniqueConflictingTests = [...conflictingTestIdSet];
 
-			// In block mode, throw if any subject is blocked.
-			if (input.policy.mode === "block" && blockedSubjects.size > 0) {
+			// In block mode, throw if any subject is blocked. The error count
+			// reports the total number of conflicting subjects (conflictCount),
+			// not just the blocked subset, so operators see the full impact.
+			if (policy.mode === "block" && blockedSubjects.size > 0) {
 				this.participations.push(...savedReserved);
 				throw new CollisionConflictError(
-					blockedSubjects.size,
+					conflictCount,
 					uniqueConflictingTests,
 				);
 			}
 
 			// In exclude mode, only reserve non-conflicting subjects.
 			const toReserve =
-				input.policy.mode === "exclude"
+				policy.mode === "exclude"
 					? candidates.filter((p) => {
 							const key = `${p.subjectKey}:${p.experimentFamilyKey}`;
 							const existing = activeIndex.get(key);
@@ -490,7 +518,7 @@ export class InMemoryExperimentParticipationStore
 					conflictingTestIds: uniqueConflictingTests.sort(),
 				};
 			}
-			if (input.policy.mode === "warn" && conflictCount > 0) {
+			if (policy.mode === "warn" && conflictCount > 0) {
 				result.warning = `Collision guard warning: ${conflictCount} subject(s) conflict with ${uniqueConflictingTests.length} test(s)`;
 			}
 			return result;
