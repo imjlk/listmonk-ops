@@ -317,44 +317,55 @@ export class ListmonkAbTestIntegration {
 
 			// Optionally compute the recipient-domain stratified quota matrix
 			// from the resolved audience so each provider stratum gets a
-			// proportional share of every variant/holdout group. This runs the
-			// quota solver against real audience data and surfaces it for
-			// reporting/validation; the assignment itself remains the
-			// deterministic largest-remainder manifest above.
+			// proportional share of every variant/holdout group. This is a
+			// reporting/validation enrichment; the assignment itself remains
+			// the deterministic largest-remainder manifest above. A failure
+			// here must not tear down provisioning, so it is isolated in its
+			// own try/catch and degrades to an undefined stratification.
 			const stratificationPolicy =
 				options.stratificationPolicy ?? DEFAULT_STRATIFICATION_POLICY;
 			let stratification: StratificationResult | undefined;
 			if (stratificationPolicy.enabled) {
-				const emailsAvailable = resolvedMembers.some(
-					(member) => member.email !== undefined,
-				);
-				if (emailsAvailable) {
-					// Build stratum sizes by classifying each member's domain.
-					const stratumSizes: Record<string, number> = {};
-					for (const member of resolvedMembers) {
-						const stratum = classifyStratum(
-							member.email ?? "",
-							stratificationPolicy,
-						);
-						stratumSizes[stratum] = (stratumSizes[stratum] ?? 0) + 1;
+				// Require every member to carry an email so the quota matrix
+				// reflects the full audience. Partial coverage would silently
+				// bucket email-less subscribers into "unknown" and skew the
+				// proportions.
+				const allMembersHaveEmail =
+					resolvedMembers.length > 0 &&
+					resolvedMembers.every((member) => member.email !== undefined);
+				if (allMembersHaveEmail) {
+					try {
+						// Single pass: classify each member and tally stratum sizes.
+						const stratumSizes: Record<string, number> = {};
+						for (const member of resolvedMembers) {
+							const stratum = classifyStratum(
+								member.email ?? "",
+								stratificationPolicy,
+							);
+							stratumSizes[stratum] = (stratumSizes[stratum] ?? 0) + 1;
+						}
+						// Build exact group counts from the manifest groups.
+						const groupExactCounts: Record<string, number> = {};
+						const groupOrder: string[] = [];
+						for (const group of assignmentManifest.groups) {
+							const key =
+								group.kind === "variant"
+									? `variant:${group.variantId ?? ""}`
+									: "holdout";
+							groupOrder.push(key);
+							groupExactCounts[key] = group.expectedCount;
+						}
+						stratification = computeStratifiedQuotas({
+							stratumSizes,
+							groupExactCounts,
+							groupOrder,
+							totalAudience: resolvedSnapshot.subscriberCount,
+						});
+					} catch {
+						// Stratification is non-critical; leave it undefined so
+						// provisioning proceeds with the manifest assignment.
+						stratification = undefined;
 					}
-					// Build exact group counts from the manifest groups.
-					const groupExactCounts: Record<string, number> = {};
-					const groupOrder: string[] = [];
-					for (const group of assignmentManifest.groups) {
-						const key =
-							group.kind === "variant"
-								? `variant:${group.variantId ?? ""}`
-								: "holdout";
-						groupOrder.push(key);
-						groupExactCounts[key] = group.expectedCount;
-					}
-					stratification = computeStratifiedQuotas({
-						stratumSizes,
-						groupExactCounts,
-						groupOrder,
-						totalAudience: resolvedSnapshot.subscriberCount,
-					});
 				}
 			}
 
