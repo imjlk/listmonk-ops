@@ -160,6 +160,26 @@ export function computeStratifiedQuotas(params: {
 	const { stratumSizes, groupExactCounts, groupOrder, totalAudience } =
 		params;
 
+	// Validate that every stratum size and group count is a non-negative
+	// integer before summing, so fractional or negative components cannot
+	// produce a "valid" total that hides malformed input.
+	const isNonNegInt = (n: unknown): boolean =>
+		typeof n === "number" && Number.isInteger(n) && n >= 0;
+	for (const [k, v] of Object.entries(stratumSizes)) {
+		if (!isNonNegInt(v)) {
+			throw new Error(
+				`Stratified quota invariant: stratum "${k}" size must be a non-negative integer, received ${JSON.stringify(v)}`,
+			);
+		}
+	}
+	for (const [k, v] of Object.entries(groupExactCounts)) {
+		if (!isNonNegInt(v)) {
+			throw new Error(
+				`Stratified quota invariant: group "${k}" count must be a non-negative integer, received ${JSON.stringify(v)}`,
+			);
+		}
+	}
+
 	const totalFromStrata = Object.values(stratumSizes).reduce(
 		(sum, n) => sum + n,
 		0,

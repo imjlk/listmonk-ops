@@ -53,6 +53,7 @@ export {
 export {
 	classifyStratum,
 	computeStratifiedQuotas,
+	createStratumClassifier,
 	DEFAULT_STRATIFICATION_POLICY,
 	normalizeDomain,
 	type StratificationPolicyV1,
