@@ -49,6 +49,8 @@ export interface ExperimentReport {
 		revenue?: number;
 		revenuePerRecipient?: number;
 	}>;
+	/** ISO 4217 currency code when revenue is reported (e.g. "USD", "KRW"). */
+	revenueCurrency?: string;
 	srmPassed?: boolean;
 	srmPValue?: number;
 	fixedHorizonReasonCodes?: string[];
@@ -265,7 +267,9 @@ export function reportToMarkdown(report: ExperimentReport): string {
 
 	lines.push("## Variant Results");
 	lines.push("");
-	const hasRevenue = report.variants.some((v) => v.revenue !== undefined);
+	const hasRevenue = report.variants.some(
+		(v) => v.revenue !== undefined || v.revenuePerRecipient !== undefined,
+	);
 	const headers = [
 		"Variant",
 		"Sample",
