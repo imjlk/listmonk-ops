@@ -431,6 +431,13 @@ const abTestTestContracts: readonly CallPathContract[] = [
 		],
 	},
 	{
+		label: "Collision tests anchor the participation store",
+		path: [
+			"packages/abtest/tests/collision.test.ts#packages/abtest/tests/collision.test.ts:module",
+			"packages/abtest/src/collision.ts#InMemoryExperimentParticipationStore.checkAndReserve:method",
+		],
+	},
+	{
 		label: "Store adapter tests anchor the InMemory store",
 		path: [
 			"packages/abtest/tests/store-adapter.test.ts#packages/abtest/tests/store-adapter.test.ts:module",

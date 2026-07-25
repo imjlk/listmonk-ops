@@ -61,6 +61,24 @@ export {
 	type StratumQuotaCell,
 } from "./stratification";
 export {
+	COLLISION_KEY_CONTEXT,
+	CollisionConfigurationError,
+	CollisionConflictError,
+	computeActiveWindow,
+	computeSubjectKey,
+	DEFAULT_COLLISION_POLICY,
+	InMemoryExperimentParticipationStore,
+	installationKeysMatch,
+	isCollisionTimestamp,
+	normalizeSubscriberUuid,
+	participationsCollide,
+	windowsOverlap,
+	type CollisionPolicy,
+	type CollisionReservationResult,
+	type ExperimentParticipation,
+	type ExperimentParticipationStore,
+} from "./collision";
+export {
 	buildExperimentReport,
 	reportToMarkdown,
 	reportToJSON,
