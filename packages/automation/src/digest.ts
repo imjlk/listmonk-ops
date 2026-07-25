@@ -200,6 +200,12 @@ export async function generateDailyDigest(
 						`- Campaign ${entry.campaignId} (${entry.campaignName}): ${entry.breaches.join("; ")}`,
 				)
 			: ["- No active deliverability breaches detected"]),
+		...(truncated
+			? [
+					``,
+					`> Warning: Only ${campaignsEvaluated} of ${campaignsEligible} eligible campaigns were evaluated.`,
+				]
+			: []),
 	];
 
 	return {
