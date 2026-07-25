@@ -31,7 +31,7 @@ export function isCollisionTimestamp(value: unknown): boolean {
 	// Require a full datetime with an explicit timezone (Z or ±HH:MM) so
 	// timestamps are unambiguous instants, not local-time-dependent values.
 	const re =
-		/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/;
+		/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
 	if (!re.test(value)) return false;
 	const parts = value.split(/([T ])/);
 	const datePart = parts[0];
@@ -512,17 +512,15 @@ export class InMemoryExperimentParticipationStore
 				);
 			}
 
-			// In exclude mode, exclude both conflicting and concurrency-blocked
-			// subjects. In warn mode, reserve all but report blocked subjects.
+			// In exclude mode, exclude only concurrency-blocked subjects (those
+			// that would exceed maximumConcurrentExperiments). When limit > 1,
+			// subjects with fewer overlapping tests than the limit are still
+			// reserved. In warn mode, reserve all but report blocked subjects.
 			const toReserve =
 				policy.mode === "exclude"
-					? candidates.filter((p) => {
-							if (blockedSubjects.has(p.subjectKey)) return false;
-							const key = `${p.subjectKey}:${p.experimentFamilyKey}`;
-							const existing = activeIndex.get(key);
-							if (!existing) return true;
-							return !existing.some((e) => participationsCollide(e, p));
-						})
+					? candidates.filter(
+							(p) => !blockedSubjects.has(p.subjectKey),
+						)
 					: candidates;
 
 			// Store shallow copies.
