@@ -264,6 +264,13 @@ export function recordPreviewChecks(
 			"At least one variant preview check is required",
 		);
 	}
+	for (const c of checks) {
+		if (!isCollisionTimestamp(c.checkedAt)) {
+			throw new PreviewValidationError(
+				`Preview check for variant "${c.variantId}" has an invalid checkedAt timestamp`,
+			);
+		}
+	}
 	// Require a check for every expected variant and no extras.
 	const checkIds = new Set(checks.map((c) => c.variantId));
 	const expectedSet = new Set(expectedVariantIds);
