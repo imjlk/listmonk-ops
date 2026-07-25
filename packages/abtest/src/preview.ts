@@ -82,6 +82,13 @@ export type PreviewGateStatus =
 	| "approved"
 	| "rejected";
 
+/** Terminal seed variant states — no further transitions allowed. */
+const TERMINAL_SEED_STATES: ReadonlySet<SeedVariantState["state"]> = new Set([
+	"sent",
+	"failed",
+	"ambiguous",
+]);
+
 export interface SeedVariantState {
 	variantId: string;
 	campaignId: number;
@@ -455,11 +462,6 @@ export function transitionSeedVariant(
 	timestamp: string,
 	error?: string,
 ): SeedSendRun {
-	const TERMINAL_STATES: ReadonlySet<SeedVariantState["state"]> = new Set([
-		"sent",
-		"failed",
-		"ambiguous",
-	]);
 	// Single lookup for existence + current state.
 	const current = run.variants.find((v) => v.variantId === variantId);
 	if (!current) {
@@ -468,7 +470,7 @@ export function transitionSeedVariant(
 		);
 	}
 	// Reject transitions for variants already in a terminal state.
-	if (TERMINAL_STATES.has(current.state) && newState !== current.state) {
+	if (TERMINAL_SEED_STATES.has(current.state) && newState !== current.state) {
 		throw new PreviewValidationError(
 			`Variant "${variantId}" is already in terminal state "${current.state}"; cannot transition to "${newState}"`,
 		);
@@ -507,7 +509,5 @@ export function transitionSeedVariant(
  * Check whether a seed run is complete (all variants in a terminal state).
  */
 export function isSeedRunComplete(run: SeedSendRun): boolean {
-	return run.variants.every(
-		(v) => v.state === "sent" || v.state === "failed" || v.state === "ambiguous",
-	);
+	return run.variants.every((v) => TERMINAL_SEED_STATES.has(v.state));
 }
