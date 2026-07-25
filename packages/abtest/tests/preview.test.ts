@@ -132,6 +132,7 @@ describe("recordPreviewChecks", () => {
 			gate,
 			[makeCheck("A"), makeCheck("B")],
 			"cs1",
+			["A", "B"],
 		);
 		expect(updated.status).toBe("pending");
 		expect(updated.previews).toHaveLength(2);
@@ -143,6 +144,7 @@ describe("recordPreviewChecks", () => {
 			gate,
 			[makeCheck("A"), makeCheck("B", { renderSucceeded: false })],
 			"cs1",
+			["A", "B"],
 		);
 		expect(updated.status).toBe("not_started");
 	});
@@ -159,6 +161,7 @@ describe("recordPreviewChecks", () => {
 			approved,
 			[makeCheck("A")],
 			"cs2-different",
+			["A"],
 		);
 		expect(updated.status).toBe("not_started");
 		expect(updated.contentChecksum).toBe("cs2-different");
@@ -169,7 +172,7 @@ describe("recordPreviewChecks", () => {
 describe("approvePreviewGate", () => {
 	it("approves a pending gate", () => {
 		const gate = createPreviewGate("cs1");
-		const pending = recordPreviewChecks(gate, [makeCheck("A")], "cs1");
+		const pending = recordPreviewChecks(gate, [makeCheck("A")], "cs1", ["A"]);
 		const approved = approvePreviewGate(
 			pending,
 			"cs1",
@@ -182,7 +185,7 @@ describe("approvePreviewGate", () => {
 
 	it("is idempotent for the same approver", () => {
 		const gate = createPreviewGate("cs1");
-		const pending = recordPreviewChecks(gate, [makeCheck("A")], "cs1");
+		const pending = recordPreviewChecks(gate, [makeCheck("A")], "cs1", ["A"]);
 		const approved = approvePreviewGate(pending, "cs1", "user-1", "2026-07-25T10:00:00Z");
 		const reApproved = approvePreviewGate(approved, "cs1", "user-1", "2026-07-25T10:01:00Z");
 		expect(reApproved).toBe(approved);
@@ -190,7 +193,7 @@ describe("approvePreviewGate", () => {
 
 	it("rejects approval on checksum mismatch", () => {
 		const gate = createPreviewGate("cs1");
-		const pending = recordPreviewChecks(gate, [makeCheck("A")], "cs1");
+		const pending = recordPreviewChecks(gate, [makeCheck("A")], "cs1", ["A"]);
 		expect(() =>
 			approvePreviewGate(pending, "cs2-different", "user-1", "2026-07-25T10:00:00Z"),
 		).toThrow(PreviewValidationError);
@@ -230,7 +233,7 @@ describe("isLaunchAllowed", () => {
 
 	it("allows when required and approved", () => {
 		const gate = createPreviewGate("cs1");
-		const pending = recordPreviewChecks(gate, [makeCheck("A")], "cs1");
+		const pending = recordPreviewChecks(gate, [makeCheck("A")], "cs1", ["A"]);
 		const approved = approvePreviewGate(pending, "cs1", "user-1", "2026-07-25T10:00:00Z");
 		expect(isLaunchAllowed(approved)).toBe(true);
 	});

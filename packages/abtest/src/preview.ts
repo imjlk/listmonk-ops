@@ -231,31 +231,28 @@ export function recordPreviewChecks(
 	gate: PreviewGate,
 	checks: VariantPreviewCheck[],
 	newContentChecksum: string,
-	expectedVariantIds?: string[],
+	expectedVariantIds: string[],
 ): PreviewGate {
 	if (checks.length === 0) {
 		throw new PreviewValidationError(
 			"At least one variant preview check is required",
 		);
 	}
-	// When expected variant IDs are provided, require a check for every
-	// expected variant and no extras.
-	if (expectedVariantIds) {
-		const checkIds = new Set(checks.map((c) => c.variantId));
-		const expectedSet = new Set(expectedVariantIds);
-		for (const id of expectedVariantIds) {
-			if (!checkIds.has(id)) {
-				throw new PreviewValidationError(
-					`Missing preview check for variant "${id}"`,
-				);
-			}
+	// Require a check for every expected variant and no extras.
+	const checkIds = new Set(checks.map((c) => c.variantId));
+	const expectedSet = new Set(expectedVariantIds);
+	for (const id of expectedVariantIds) {
+		if (!checkIds.has(id)) {
+			throw new PreviewValidationError(
+				`Missing preview check for variant "${id}"`,
+			);
 		}
-		for (const id of checkIds) {
-			if (!expectedSet.has(id)) {
-				throw new PreviewValidationError(
-					`Unexpected preview check for variant "${id}"`,
-				);
-			}
+	}
+	for (const id of checkIds) {
+		if (!expectedSet.has(id)) {
+			throw new PreviewValidationError(
+				`Unexpected preview check for variant "${id}"`,
+			);
 		}
 	}
 	if (newContentChecksum !== gate.contentChecksum) {
@@ -382,6 +379,12 @@ export function createSeedSendRun(params: {
 	if (variantIds.length === 0) {
 		throw new PreviewValidationError(
 			"At least one variant is required for a seed send run",
+		);
+	}
+	const uniqueVariantIds = new Set(variantIds);
+	if (uniqueVariantIds.size !== variantIds.length) {
+		throw new PreviewValidationError(
+			"Duplicate variant IDs are not allowed in a seed send run",
 		);
 	}
 	if (campaignIds.length !== variantIds.length) {
