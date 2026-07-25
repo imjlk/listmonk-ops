@@ -1,7 +1,11 @@
 name: Sampo Release Publish
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
     branches:
       - main
   workflow_dispatch: {}
@@ -22,6 +26,12 @@ concurrency:
 jobs:
   release-and-publish:
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
     env:
       SAMPO_RELEASE_BRANCH: main
     steps:
@@ -29,6 +39,8 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          # When triggered by workflow_run, check out the exact commit CI ran on.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       - name: Detect pending changesets
         id: changesets
@@ -74,6 +86,10 @@ jobs:
       - name: Build workspaces with Bun
         if: steps.changesets.outputs.pending == 'false'
         run: bun run build
+
+      - name: Run checks and tests before publishing
+        if: steps.changesets.outputs.pending == 'false'
+        run: bun run check && bun run test
 
       - name: Detect pending CLI binary release
         id: cli_release
