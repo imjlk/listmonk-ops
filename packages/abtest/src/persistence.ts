@@ -275,9 +275,19 @@ function isStoredStratification(value: unknown): boolean {
 	if (!isRecord(quotas) || !Array.isArray(cells) || !isRecord(stratumSizes)) {
 		return false;
 	}
-	// Every quota row must map group keys to non-negative finite numbers.
-	for (const row of Object.values(quotas)) {
+	// Every quota row must map group keys to non-negative finite numbers, and
+	// every row must cover the same set of group keys.
+	const quotaRows = Object.values(quotas);
+	const referenceGroupKeys = quotaRows.length > 0
+		? new Set(Object.keys(quotaRows[0] ?? {}))
+		: new Set<string>();
+	for (const row of quotaRows) {
 		if (!isRecord(row)) return false;
+		const groupKeys = new Set(Object.keys(row));
+		if (groupKeys.size !== referenceGroupKeys.size) return false;
+		for (const gk of groupKeys) {
+			if (!referenceGroupKeys.has(gk)) return false;
+		}
 		for (const n of Object.values(row)) {
 			if (
 				typeof n !== "number" ||
