@@ -87,6 +87,27 @@ export {
 	type PreRegistrationStatus,
 } from "./report";
 export {
+	approvePreviewGate,
+	computeContentChecksum,
+	createPreviewGate,
+	createSeedSendRun,
+	DEFAULT_SEED_RECIPIENT_POLICY,
+	isLaunchAllowed,
+	isSeedRunComplete,
+	PreviewValidationError,
+	recordPreviewChecks,
+	rejectPreviewGate,
+	transitionSeedVariant,
+	validateSeedRecipients,
+	type ContentChecksumInput,
+	type PreviewGate,
+	type PreviewGateStatus,
+	type SeedRecipientPolicy,
+	type SeedSendRun,
+	type SeedVariantState,
+	type VariantPreviewCheck,
+} from "./preview";
+export {
 	abTestOperationCatalog,
 	abTestOperations,
 	getAbTestOperationByMcpName,

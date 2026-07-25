@@ -452,6 +452,13 @@ const abTestTestContracts: readonly CallPathContract[] = [
 		],
 	},
 	{
+		label: "Preview tests anchor the preview gate",
+		path: [
+			"packages/abtest/tests/preview.test.ts#packages/abtest/tests/preview.test.ts:module",
+			"packages/abtest/src/preview.ts#approvePreviewGate:function",
+		],
+	},
+	{
 		label: "CLI A/B tests anchor flag normalization",
 		path: [
 			cliAbTestInputTestModule,
