@@ -413,6 +413,11 @@ export function createSeedSendRun(params: {
 }): SeedSendRun {
 	const { contentChecksum, recipientSetChecksum, variantIds, campaignIds, startedAt, existingRun } =
 		params;
+	if (!isCollisionTimestamp(startedAt)) {
+		throw new PreviewValidationError(
+			"startedAt must be a valid ISO 8601 timestamp",
+		);
+	}
 	// Validate inputs before checking for idempotent reuse so invalid
 	// params are never silently accepted via a stale completed run.
 	if (variantIds.length === 0) {
