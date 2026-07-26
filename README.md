@@ -117,6 +117,22 @@ bun run mcp dev
 bun run mcp test:e2e
 ```
 
+## CLI Output Modes
+
+The CLI supports a global `--format` flag that controls how output is
+routed between stdout and stderr:
+
+- `--format human` (default): human-readable messages and data on stdout.
+- `--format json`: pretty-printed JSON data on stdout, human messages on stderr.
+- `--format ndjson`: compact single-line JSON on stdout, human messages on stderr.
+- `--format quiet`: data on stdout, all human messages suppressed.
+
+```bash
+listmonk-cli campaigns list --format json | jq .
+listmonk-cli subscribers list --format ndjson
+listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
+```
+
 ## CLI Binary Install (GitHub Release + curl)
 
 ```bash

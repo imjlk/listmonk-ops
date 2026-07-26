@@ -116,6 +116,22 @@ bun run mcp dev
 bun run mcp test:e2e
 ```
 
+## CLI 출력 모드
+
+CLI는 전역 `--format` 플래그를 통해 stdout과 stderr 간 출력 라우팅을
+제어합니다:
+
+- `--format human` (기본): 사람이 읽을 수 있는 메시지와 데이터를 stdout에 출력.
+- `--format json`: pretty-printed JSON 데이터를 stdout에, 사람 메시지를 stderr에.
+- `--format ndjson`: 단일 라인 JSON을 stdout에, 사람 메시지를 stderr에.
+- `--format quiet`: 데이터를 stdout에, 모든 사람 메시지 억제.
+
+```bash
+listmonk-cli campaigns list --format json | jq .
+listmonk-cli subscribers list --format ndjson
+listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
+```
+
 ## CLI 바이너리 설치 (GitHub Release + curl)
 
 ```bash

@@ -111,3 +111,13 @@ export const OutputUtils = {
 		console.log(JSON.stringify(data, null, 2));
 	},
 } as const;
+
+export {
+	createOutputStrategy,
+	humanOutput,
+	jsonOutput,
+	ndjsonOutput,
+	quietOutput,
+	type OutputFormat,
+	type OutputStrategy,
+} from "./output-modes";

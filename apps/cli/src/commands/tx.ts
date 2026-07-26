@@ -1,4 +1,5 @@
-import { OutputUtils } from "@listmonk-ops/common";
+import type { OutputUtils } from "@listmonk-ops/common";
+import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeSendTransactionalOperation,
@@ -73,7 +74,7 @@ export async function handleSendTransactionalCommand({
 			: undefined;
 
 		await renderTransactionalSend(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				template_id: flags["template-id"],
 				subscriber_email: flags["subscriber-email"],

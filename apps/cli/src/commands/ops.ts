@@ -11,7 +11,7 @@ import {
 	invokeTemplateRegistryRollbackOperation,
 	invokeTemplateRegistrySyncOperation,
 } from "@listmonk-ops/automation";
-import { OutputUtils } from "@listmonk-ops/common";
+import { getOutput } from "../lib/output";
 import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
 import { parseCsvNumbers, toErrorMessage } from "../lib/command-utils";
@@ -55,7 +55,7 @@ export default defineGroup({
 							check_links: flags["check-links"],
 						},
 					);
-					OutputUtils.json(result);
+					getOutput().json(result);
 
 					if (
 						result.summary.fail > 0 ||
@@ -119,7 +119,7 @@ export default defineGroup({
 						},
 					);
 
-					OutputUtils.json(result);
+					getOutput().json(result);
 				} catch (error) {
 					throw new Error(
 						`Deliverability guard failed: ${toErrorMessage(error)}`,
@@ -182,7 +182,7 @@ export default defineGroup({
 						},
 					);
 
-					OutputUtils.json(result);
+					getOutput().json(result);
 				} catch (error) {
 					throw new Error(
 						`Subscriber hygiene failed: ${toErrorMessage(error)}`,
@@ -238,7 +238,7 @@ export default defineGroup({
 							baseline_mode: flags["baseline-mode"],
 						},
 					);
-					OutputUtils.json(result);
+					getOutput().json(result);
 				} catch (error) {
 					throw new Error(
 						`Segment drift snapshot failed: ${toErrorMessage(error)}`,
@@ -271,7 +271,7 @@ export default defineGroup({
 							note: flags.note,
 						},
 					);
-					OutputUtils.json(result);
+					getOutput().json(result);
 				} catch (error) {
 					throw new Error(
 						`Template registry sync failed: ${toErrorMessage(error)}`,
@@ -294,7 +294,7 @@ export default defineGroup({
 						{},
 						{ template_id: flags["template-id"] },
 					);
-					OutputUtils.json(result);
+					getOutput().json(result);
 				} catch (error) {
 					throw new Error(
 						`Template registry history failed: ${toErrorMessage(error)}`,
@@ -332,7 +332,7 @@ export default defineGroup({
 							force: flags.force,
 						},
 					);
-					OutputUtils.json(result);
+					getOutput().json(result);
 				} catch (error) {
 					throw new Error(`Template promote failed: ${toErrorMessage(error)}`);
 				}
@@ -354,7 +354,7 @@ export default defineGroup({
 						{ client },
 						{ template_id: flags["template-id"] },
 					);
-					OutputUtils.json(result);
+					getOutput().json(result);
 				} catch (error) {
 					throw new Error(`Template rollback failed: ${toErrorMessage(error)}`);
 				}
@@ -392,7 +392,7 @@ export default defineGroup({
 						return;
 					}
 
-					OutputUtils.json({ ...digest, output: flags.output });
+					getOutput().json({ ...digest, output: flags.output });
 				} catch (error) {
 					throw new Error(`Digest generation failed: ${toErrorMessage(error)}`);
 				}

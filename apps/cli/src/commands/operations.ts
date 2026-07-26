@@ -1,7 +1,7 @@
-import { OutputUtils } from "@listmonk-ops/common";
 import { z } from "zod";
 import { listCliOperationCatalogSummaries } from "../operation-catalog";
 import { defineCommand, option } from "../lib/command";
+import { getOutput } from "../lib/output";
 
 export function getOperationCatalogOutput(family?: string): {
 	operations: ReturnType<typeof listCliOperationCatalogSummaries>;
@@ -10,7 +10,7 @@ export function getOperationCatalogOutput(family?: string): {
 }
 
 export function handleListOperationsCommand(family?: string): void {
-	OutputUtils.json(getOperationCatalogOutput(family));
+	getOutput().json(getOperationCatalogOutput(family));
 }
 
 export default defineCommand({

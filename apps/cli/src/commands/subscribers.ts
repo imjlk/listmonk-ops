@@ -1,4 +1,5 @@
-import { OutputUtils } from "@listmonk-ops/common";
+import type { OutputUtils } from "@listmonk-ops/common";
+import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeCreateSubscriberOperation,
@@ -125,7 +126,7 @@ export async function handleListSubscribersCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderSubscribers(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				page: flags.page,
 				per_page: flags["per-page"],
@@ -149,7 +150,7 @@ export async function handleGetSubscriberCommand({
 }: HandlerArgs<{ id: number }>): Promise<void> {
 	try {
 		const client = await getListmonkClient(args);
-		await renderSubscriber({ client, output: OutputUtils }, { id: flags.id });
+		await renderSubscriber({ client, output: getOutput() }, { id: flags.id });
 	} catch (error) {
 		throw createSubscriberCommandError("Failed to get subscriber", error);
 	}
@@ -172,7 +173,7 @@ export async function handleCreateSubscriberCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderCreateSubscriber(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				email: flags.email,
 				name: flags.name,
@@ -213,7 +214,7 @@ export async function handleUpdateSubscriberCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderUpdateSubscriber(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				id: flags.id,
 				email: flags.email,
@@ -244,7 +245,7 @@ export async function handleDeleteSubscriberCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderDeleteSubscriber(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{ id: flags.id },
 		);
 	} catch (error) {

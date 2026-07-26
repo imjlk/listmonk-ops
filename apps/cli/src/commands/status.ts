@@ -1,4 +1,4 @@
-import { OutputUtils } from "@listmonk-ops/common";
+import { getOutput } from "../lib/output";
 import { defineCommand } from "../lib/command";
 import { toErrorMessage } from "../lib/command-utils";
 import { resolveListmonkSession } from "../lib/listmonk";
@@ -23,7 +23,7 @@ export default defineCommand({
 			}
 		}
 
-		OutputUtils.json({
+		getOutput().json({
 			runtime: {
 				platform: process.platform,
 				arch: process.arch,
