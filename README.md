@@ -316,10 +316,20 @@ listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --template-id 1 --lists 10
 listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
+listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z
+listmonk-cli campaigns start --id 42
+listmonk-cli campaigns pause --id 42
+listmonk-cli campaigns cancel --id 42
+listmonk-cli campaigns clone --id 42 --name "Copy of Weekly update"
+listmonk-cli campaigns stats --id 42
 
 listmonk-cli subscribers create --email reader@example.com --name Reader
 listmonk-cli subscribers update --id 7 --status enabled
 listmonk-cli subscribers delete --id 7 --confirm
+listmonk-cli subscribers add-to-lists --subscriber-ids 1,2,3 --list-ids 10,20
+listmonk-cli subscribers remove-from-lists --subscriber-ids 1,2 --list-ids 10
+listmonk-cli subscribers blocklist --subscriber-ids 1,2,3
+listmonk-cli subscribers unblocklist --subscriber-ids 1,2
 
 listmonk-cli templates create --name "Campaign HTML" --body "<p>Hello</p>"
 listmonk-cli templates update --id 3 --body "<p>Updated</p>"
@@ -329,7 +339,16 @@ listmonk-cli templates set-default --id 3
 listmonk-cli media list --page 1 --per-page 20
 listmonk-cli media get --id 9
 listmonk-cli media delete --id 9 --confirm
+listmonk-cli media upload --file ./banner.png
 ```
+
+Campaign lifecycle transitions are validated client-side against an
+observed state machine (`draft → scheduled/running`, `scheduled →
+running/paused/cancelled`, `running → paused/cancelled`, `paused →
+running/cancelled`, `finished`/`cancelled` are terminal). Subscriber
+bulk operations chunk IDs (default 500 per chunk) and support
+`--dry-run`, `--max-items`, and `--continue-on-error`. Media uploads
+enforce a MIME allowlist and a 10 MiB size cap.
 
 The corresponding MCP resource tools include
 `listmonk_get_campaigns`, `listmonk_get_campaign`,

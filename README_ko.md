@@ -315,10 +315,20 @@ listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --template-id 1 --lists 10
 listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
+listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z
+listmonk-cli campaigns start --id 42
+listmonk-cli campaigns pause --id 42
+listmonk-cli campaigns cancel --id 42
+listmonk-cli campaigns clone --id 42 --name "Copy of Weekly update"
+listmonk-cli campaigns stats --id 42
 
 listmonk-cli subscribers create --email reader@example.com --name Reader
 listmonk-cli subscribers update --id 7 --status enabled
 listmonk-cli subscribers delete --id 7 --confirm
+listmonk-cli subscribers add-to-lists --subscriber-ids 1,2,3 --list-ids 10,20
+listmonk-cli subscribers remove-from-lists --subscriber-ids 1,2 --list-ids 10
+listmonk-cli subscribers blocklist --subscriber-ids 1,2,3
+listmonk-cli subscribers unblocklist --subscriber-ids 1,2
 
 listmonk-cli templates create --name "Campaign HTML" --body "<p>Hello</p>"
 listmonk-cli templates update --id 3 --body "<p>Updated</p>"
@@ -328,7 +338,16 @@ listmonk-cli templates set-default --id 3
 listmonk-cli media list --page 1 --per-page 20
 listmonk-cli media get --id 9
 listmonk-cli media delete --id 9 --confirm
+listmonk-cli media upload --file ./banner.png
 ```
+
+캠페인 상태 전이는 관찰된 상태 머신에 따라 클라이언트에서 검증합니다
+(`draft → scheduled/running`, `scheduled → running/paused/cancelled`,
+`running → paused/cancelled`, `paused → running/cancelled`,
+`finished`/`cancelled`는 종단 상태). 구독자 일괄 작업은 ID를 청크
+단위(기본 500개)로 나누며 `--dry-run`, `--max-items`,
+`--continue-on-error`를 지원합니다. 미디어 업로드는 MIME 허용 목록과
+10 MiB 크기 제한을 적용합니다.
 
 대응하는 MCP 리소스 도구에는
 `listmonk_get_campaigns`, `listmonk_get_campaign`,
