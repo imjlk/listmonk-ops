@@ -253,7 +253,7 @@ export async function runSegmentDriftSnapshot(
 					listName: entry.listName,
 					previousCount,
 					currentCount: entry.subscriberCount,
-					baselineCount,
+					baselineCount: alertBaseline ?? baselineCount,
 					delta,
 					deltaRate,
 					alert,
