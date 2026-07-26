@@ -5,6 +5,7 @@ export * from "./execution-policy";
 export * from "./lists";
 export * from "./media";
 export * from "./operation";
+export * from "./subscriber-bulk";
 export * from "./subscribers";
 export * from "./templates";
 export * from "./transactional";

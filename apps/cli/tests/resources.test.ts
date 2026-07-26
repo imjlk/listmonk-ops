@@ -11,7 +11,11 @@ import {
 	type CampaignsCliContext,
 } from "../src/commands/campaigns";
 import {
+	renderAddSubscribersToLists,
+	renderBlocklistSubscribers,
 	renderCreateSubscriber,
+	renderRemoveSubscribersFromLists,
+	renderUnblocklistSubscribers,
 	type SubscribersCliContext,
 } from "../src/commands/subscribers";
 import {
@@ -31,6 +35,7 @@ function output() {
 		json: mock(() => undefined),
 		success: mock(() => undefined),
 		table: mock(() => undefined),
+		warning: mock(() => undefined),
 	};
 }
 
@@ -250,6 +255,54 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 		await renderGetCampaignStats(cliContext, { id: 10 });
 		expect(cliContext.output.success).toHaveBeenCalledWith(
 			"Campaign 10 stats",
+		);
+	});
+
+	test("renders subscriber bulk operations through the shared renderers", async () => {
+		// The renderers delegate to the named shared invokers; the operations
+		// package owns the chunking and dry-run logic. We assert the call
+		// edges that anchor the CLI handler → renderer → invoker chain.
+		const subscriber = {
+			manageLists: mock(async () => ({ data: true })),
+			manageBlocklist: mock(async () => ({ data: true })),
+		};
+		const cliContext = {
+			client: { subscriber } as unknown as Pick<
+				ListmonkClient,
+				"subscriber"
+			>,
+			output: output(),
+		} satisfies SubscribersCliContext;
+
+		await renderAddSubscribersToLists(cliContext, {
+			subscriber_ids: [1, 2],
+			list_ids: [10],
+		});
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Added 2 of 2 subscribers to lists",
+		);
+
+		await renderRemoveSubscribersFromLists(cliContext, {
+			subscriber_ids: [1, 2],
+			list_ids: [10],
+		});
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Removed 2 of 2 subscribers from lists",
+		);
+
+		await renderBlocklistSubscribers(cliContext, {
+			subscriber_ids: [1, 2],
+			action: "add",
+		});
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Blocklisted 2 of 2 subscribers",
+		);
+
+		await renderUnblocklistSubscribers(cliContext, {
+			subscriber_ids: [1, 2],
+		});
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Unblocklisted 2 of 2 subscribers",
 		);
 	});
 });

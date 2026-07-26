@@ -18,6 +18,10 @@ import {
 	parseOperationInput,
 	parseOperationOutput,
 } from "./operation";
+import {
+	type BulkExecutorResult,
+	executeSubscriberBulk,
+} from "./subscriber-bulk";
 
 export interface SubscriberOperationContext {
 	client: Pick<ListmonkClient, "subscriber">;
@@ -254,6 +258,144 @@ export async function deleteSubscriber(
 	};
 }
 
+const bulkOperationOptionsFields = {
+	dry_run: z.boolean().default(false),
+	max_items: z.coerce.number().int().positive().default(10000),
+	continue_on_error: z.boolean().default(false),
+};
+
+const subscriberBulkListsInputSchema = z.object({
+	subscriber_ids: z.array(resourceIdSchema).min(1),
+	list_ids: z.array(resourceIdSchema).min(1),
+	...bulkOperationOptionsFields,
+});
+
+const subscriberBulkBlocklistInputSchema = z.object({
+	subscriber_ids: z.array(resourceIdSchema).min(1),
+	action: z.enum(["add", "remove"]),
+	...bulkOperationOptionsFields,
+});
+
+// unblocklist takes no `action` because the operation always removes from
+// the blocklist. Keeping this separate from subscriberBulkBlocklistInputSchema
+// avoids surfacing an `action: "add" | "remove"` field that the caller could
+// set but the operation would silently override.
+const subscriberBulkUnblocklistInputSchema = z.object({
+	subscriber_ids: z.array(resourceIdSchema).min(1),
+	...bulkOperationOptionsFields,
+});
+
+const bulkOperationOutputSchema = z.object({
+	processed: z.number(),
+	succeeded: z.number(),
+	failed: z.number(),
+	errors: z.array(z.string()),
+});
+
+export type BulkOperationOutput = z.output<typeof bulkOperationOutputSchema>;
+
+interface SubscriberBulkRunOptions {
+	dry_run: boolean;
+	max_items: number;
+	continue_on_error: boolean;
+	action: (chunk: number[]) => Promise<unknown>;
+}
+
+async function runSubscriberBulk(
+	subscriberIds: readonly number[],
+	options: SubscriberBulkRunOptions,
+): Promise<BulkExecutorResult> {
+	return executeSubscriberBulk(
+		{ subscriberIds, action: options.action },
+		{
+			dry_run: options.dry_run,
+			max_items: options.max_items,
+			continue_on_error: options.continue_on_error,
+		},
+	);
+}
+
+export async function addSubscribersToLists(
+	ctx: SubscriberOperationContext,
+	input: z.output<typeof subscriberBulkListsInputSchema>,
+): Promise<BulkOperationOutput> {
+	const targetListIds = input.list_ids;
+	return runSubscriberBulk(input.subscriber_ids, {
+		dry_run: input.dry_run,
+		max_items: input.max_items,
+		continue_on_error: input.continue_on_error,
+		action: async (chunk) => {
+			const response = await ctx.client.subscriber.manageLists({
+				body: {
+					action: "add",
+					ids: chunk,
+					target_list_ids: targetListIds,
+				},
+			});
+			unwrapResourceResponse(
+				response,
+				"Failed to add subscribers to lists",
+			);
+		},
+	});
+}
+
+export async function removeSubscribersFromLists(
+	ctx: SubscriberOperationContext,
+	input: z.output<typeof subscriberBulkListsInputSchema>,
+): Promise<BulkOperationOutput> {
+	const targetListIds = input.list_ids;
+	return runSubscriberBulk(input.subscriber_ids, {
+		dry_run: input.dry_run,
+		max_items: input.max_items,
+		continue_on_error: input.continue_on_error,
+		action: async (chunk) => {
+			const response = await ctx.client.subscriber.manageLists({
+				body: {
+					action: "remove",
+					ids: chunk,
+					target_list_ids: targetListIds,
+				},
+			});
+			unwrapResourceResponse(
+				response,
+				"Failed to remove subscribers from lists",
+			);
+		},
+	});
+}
+
+export async function blocklistSubscribers(
+	ctx: SubscriberOperationContext,
+	input: z.output<typeof subscriberBulkBlocklistInputSchema>,
+): Promise<BulkOperationOutput> {
+	const action = input.action;
+	return runSubscriberBulk(input.subscriber_ids, {
+		dry_run: input.dry_run,
+		max_items: input.max_items,
+		continue_on_error: input.continue_on_error,
+		action: async (chunk) => {
+			const response = await ctx.client.subscriber.manageBlocklist({
+				body: { action, ids: chunk },
+			});
+			unwrapResourceResponse(
+				response,
+				`Failed to ${action} subscriber blocklist entries`,
+			);
+		},
+	});
+}
+
+export async function unblocklistSubscribers(
+	ctx: SubscriberOperationContext,
+	input: z.output<typeof subscriberBulkUnblocklistInputSchema>,
+): Promise<BulkOperationOutput> {
+	// unblocklist always removes from the blocklist. We delegate to
+	// blocklistSubscribers with a fixed `action: "remove"` rather than
+	// exposing an action field on this operation's input schema.
+	return blocklistSubscribers(ctx, { ...input, action: "remove" });
+}
+
 export const getSubscribersOperation = defineOperation({
 	id: "subscribers.list",
 	title: "List subscribers",
@@ -319,6 +461,66 @@ export const deleteSubscriberOperation = defineOperation({
 		legacySuccessText: "Subscriber deleted successfully",
 	},
 	execute: deleteSubscriber,
+});
+
+export const addSubscribersToListsOperation = defineOperation({
+	id: "subscribers.add-to-lists",
+	title: "Add subscribers to lists",
+	description:
+		"Add a batch of subscribers to one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+	inputSchema: subscriberBulkListsInputSchema,
+	outputSchema: bulkOperationOutputSchema,
+	safety: updateResourceSafety,
+	mcp: {
+		name: "listmonk_add_subscribers_to_lists",
+		legacySuccessText: jsonResourceValue,
+	},
+	execute: addSubscribersToLists,
+});
+
+export const removeSubscribersFromListsOperation = defineOperation({
+	id: "subscribers.remove-from-lists",
+	title: "Remove subscribers from lists",
+	description:
+		"Remove a batch of subscribers from one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+	inputSchema: subscriberBulkListsInputSchema,
+	outputSchema: bulkOperationOutputSchema,
+	safety: updateResourceSafety,
+	mcp: {
+		name: "listmonk_remove_subscribers_from_lists",
+		legacySuccessText: jsonResourceValue,
+	},
+	execute: removeSubscribersFromLists,
+});
+
+export const blocklistSubscribersOperation = defineOperation({
+	id: "subscribers.blocklist",
+	title: "Blocklist subscribers",
+	description:
+		"Add a batch of subscribers to the blocklist (action: add). Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+	inputSchema: subscriberBulkBlocklistInputSchema,
+	outputSchema: bulkOperationOutputSchema,
+	safety: updateResourceSafety,
+	mcp: {
+		name: "listmonk_blocklist_subscribers",
+		legacySuccessText: jsonResourceValue,
+	},
+	execute: blocklistSubscribers,
+});
+
+export const unblocklistSubscribersOperation = defineOperation({
+	id: "subscribers.unblocklist",
+	title: "Unblocklist subscribers",
+	description:
+		"Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+	inputSchema: subscriberBulkUnblocklistInputSchema,
+	outputSchema: bulkOperationOutputSchema,
+	safety: updateResourceSafety,
+	mcp: {
+		name: "listmonk_unblocklist_subscribers",
+		legacySuccessText: jsonResourceValue,
+	},
+	execute: unblocklistSubscribers,
 });
 
 export async function invokeGetSubscribersOperation(
@@ -426,12 +628,112 @@ export async function invokeDeleteSubscriberOperation(
 	);
 }
 
+export async function invokeAddSubscribersToListsOperation(
+	context: SubscriberOperationContext,
+	input: unknown,
+): Promise<BulkOperationOutput> {
+	const parsedInput = parseOperationInput(
+		addSubscribersToListsOperation.inputSchema,
+		input,
+	);
+	let output: BulkOperationOutput;
+	try {
+		output = await addSubscribersToLists(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			addSubscribersToListsOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		addSubscribersToListsOperation.id,
+		bulkOperationOutputSchema,
+		output,
+	);
+}
+
+export async function invokeRemoveSubscribersFromListsOperation(
+	context: SubscriberOperationContext,
+	input: unknown,
+): Promise<BulkOperationOutput> {
+	const parsedInput = parseOperationInput(
+		removeSubscribersFromListsOperation.inputSchema,
+		input,
+	);
+	let output: BulkOperationOutput;
+	try {
+		output = await removeSubscribersFromLists(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			removeSubscribersFromListsOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		removeSubscribersFromListsOperation.id,
+		bulkOperationOutputSchema,
+		output,
+	);
+}
+
+export async function invokeBlocklistSubscribersOperation(
+	context: SubscriberOperationContext,
+	input: unknown,
+): Promise<BulkOperationOutput> {
+	const parsedInput = parseOperationInput(
+		blocklistSubscribersOperation.inputSchema,
+		input,
+	);
+	let output: BulkOperationOutput;
+	try {
+		output = await blocklistSubscribers(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			blocklistSubscribersOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		blocklistSubscribersOperation.id,
+		bulkOperationOutputSchema,
+		output,
+	);
+}
+
+export async function invokeUnblocklistSubscribersOperation(
+	context: SubscriberOperationContext,
+	input: unknown,
+): Promise<BulkOperationOutput> {
+	const parsedInput = parseOperationInput(
+		unblocklistSubscribersOperation.inputSchema,
+		input,
+	);
+	let output: BulkOperationOutput;
+	try {
+		output = await unblocklistSubscribers(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			unblocklistSubscribersOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		unblocklistSubscribersOperation.id,
+		bulkOperationOutputSchema,
+		output,
+	);
+}
+
 export const subscriberOperations = [
 	getSubscribersOperation,
 	getSubscriberOperation,
 	createSubscriberOperation,
 	updateSubscriberOperation,
 	deleteSubscriberOperation,
+	addSubscribersToListsOperation,
+	removeSubscribersFromListsOperation,
+	blocklistSubscribersOperation,
+	unblocklistSubscribersOperation,
 ] as const;
 
 export const subscriberOperationCatalog = defineOperationCatalog({
@@ -487,6 +789,26 @@ export async function invokeSubscriberOperationByMcpName(
 			return {
 				operation: deleteSubscriberOperation,
 				output: await invokeDeleteSubscriberOperation(context, input),
+			};
+		case addSubscribersToListsOperation.mcp.name:
+			return {
+				operation: addSubscribersToListsOperation,
+				output: await invokeAddSubscribersToListsOperation(context, input),
+			};
+		case removeSubscribersFromListsOperation.mcp.name:
+			return {
+				operation: removeSubscribersFromListsOperation,
+				output: await invokeRemoveSubscribersFromListsOperation(context, input),
+			};
+		case blocklistSubscribersOperation.mcp.name:
+			return {
+				operation: blocklistSubscribersOperation,
+				output: await invokeBlocklistSubscribersOperation(context, input),
+			};
+		case unblocklistSubscribersOperation.mcp.name:
+			return {
+				operation: unblocklistSubscribersOperation,
+				output: await invokeUnblocklistSubscribersOperation(context, input),
 			};
 		default:
 			return undefined;

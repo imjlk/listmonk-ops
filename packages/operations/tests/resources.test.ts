@@ -14,13 +14,17 @@ import {
 	invokeDeleteMediaOperation,
 	invokeGetCampaignStatsOperation,
 	invokeMediaOperationByMcpName,
+	invokeAddSubscribersToListsOperation,
+	invokeBlocklistSubscribersOperation,
 	invokeCreateSubscriberOperation,
 	invokeCreateTemplateOperation,
 	invokeGetTemplatesOperation,
 	invokePauseCampaignOperation,
+	invokeRemoveSubscribersFromListsOperation,
 	invokeScheduleCampaignOperation,
 	invokeSetDefaultTemplateOperation,
 	invokeStartCampaignOperation,
+	invokeUnblocklistSubscribersOperation,
 	invokeUpdateCampaignOperation,
 	invokeUpdateSubscriberOperation,
 	invokeUpdateTemplateOperation,
@@ -62,7 +66,7 @@ function mediaContext(methods: Partial<MediaClient["media"]>): {
 describe("shared CRUD resource operations", () => {
 	test("exposes object-root registries with safety metadata", () => {
 		expect(campaignOperations).toHaveLength(11);
-		expect(subscriberOperations).toHaveLength(5);
+		expect(subscriberOperations).toHaveLength(9);
 		expect(templateOperations).toHaveLength(6);
 		expect(mediaOperations).toHaveLength(3);
 		for (const operation of [
@@ -533,5 +537,107 @@ describe("shared CRUD resource operations", () => {
 			{ id: 2 },
 		);
 		expect(cancelled).toEqual({ id: 2, status: "cancelled" });
+	});
+
+	test("subscriber bulk operations chunk IDs through the shared executor", async () => {
+		// One chunk, two subscribers — exercise all four bulk operations and
+		// assert that manageLists / manageBlocklist receive the expected
+		// action and IDs.
+		const manageLists = mock(async () => ({ data: true })) as unknown as SubscriberClient["subscriber"]["manageLists"];
+		const manageBlocklist = mock(async () => ({ data: true })) as unknown as SubscriberClient["subscriber"]["manageBlocklist"];
+
+		const added = await invokeAddSubscribersToListsOperation(
+			subscriberContext({ manageLists }),
+			{ subscriber_ids: [1, 2], list_ids: [10] },
+		);
+		expect(added).toMatchObject({ processed: 2, succeeded: 2, failed: 0 });
+		expect(manageLists).toHaveBeenCalledWith({
+			body: { action: "add", ids: [1, 2], target_list_ids: [10] },
+		});
+
+		const removed = await invokeRemoveSubscribersFromListsOperation(
+			subscriberContext({ manageLists }),
+			{ subscriber_ids: [1, 2], list_ids: [10] },
+		);
+		expect(removed).toMatchObject({ processed: 2, succeeded: 2 });
+		expect(manageLists).toHaveBeenCalledWith({
+			body: { action: "remove", ids: [1, 2], target_list_ids: [10] },
+		});
+
+		const blocklisted = await invokeBlocklistSubscribersOperation(
+			subscriberContext({ manageBlocklist }),
+			{ subscriber_ids: [1, 2], action: "add" },
+		);
+		expect(blocklisted).toMatchObject({ processed: 2, succeeded: 2 });
+		expect(manageBlocklist).toHaveBeenCalledWith({
+			body: { action: "add", ids: [1, 2] },
+		});
+
+		const unblocklisted = await invokeUnblocklistSubscribersOperation(
+			subscriberContext({ manageBlocklist }),
+			{ subscriber_ids: [1, 2] },
+		);
+		expect(unblocklisted).toMatchObject({ processed: 2, succeeded: 2 });
+		// unblocklist delegates to blocklistSubscribers with action: "remove".
+		expect(manageBlocklist).toHaveBeenLastCalledWith({
+			body: { action: "remove", ids: [1, 2] },
+		});
+	});
+
+	test("subscriber bulk respects dry_run and max_items", async () => {
+		const manageLists = mock(async () => ({ data: true })) as unknown as SubscriberClient["subscriber"]["manageLists"];
+
+		const dryRun = await invokeAddSubscribersToListsOperation(
+			subscriberContext({ manageLists }),
+			{ subscriber_ids: [1, 2, 3], list_ids: [10], dry_run: true },
+		);
+		expect(dryRun).toMatchObject({ processed: 3, succeeded: 0 });
+		expect(manageLists).not.toHaveBeenCalled();
+
+		const capped = await invokeAddSubscribersToListsOperation(
+			subscriberContext({ manageLists }),
+			{ subscriber_ids: [1, 2, 3, 4, 5], list_ids: [10], max_items: 2 },
+		);
+		expect(capped).toMatchObject({ processed: 2, succeeded: 2 });
+		expect(manageLists).toHaveBeenCalledTimes(1);
+	});
+
+	test("subscriber bulk aborts on first chunk failure when continue_on_error is false", async () => {
+		// Default chunk size is 500, so two IDs fit in a single chunk. We
+		// make that chunk reject and verify the failure surfaces as an
+		// OperationExecutionError wrapping the bulk executor's error.
+		const manageLists = mock(async () => {
+			throw new Error("server rejected");
+		}) as unknown as SubscriberClient["subscriber"]["manageLists"];
+
+		await expect(
+			invokeAddSubscribersToListsOperation(
+				subscriberContext({ manageLists }),
+				{ subscriber_ids: [1, 2], list_ids: [10] },
+			),
+		).rejects.toThrow(/bulk operation failed/i);
+		expect(manageLists).toHaveBeenCalledTimes(1);
+	});
+
+	test("subscriber bulk records chunk failures when continue_on_error is true", async () => {
+		// Default chunk size is 500, so all IDs fit in one chunk that fails.
+		// With continue_on_error the failure is recorded in `errors` instead
+		// of being thrown.
+		const manageLists = mock(async () => {
+			throw new Error("server rejected");
+		}) as unknown as SubscriberClient["subscriber"]["manageLists"];
+
+		const result = await invokeAddSubscribersToListsOperation(
+			subscriberContext({ manageLists }),
+			{
+				subscriber_ids: [1, 2],
+				list_ids: [10],
+				continue_on_error: true,
+			},
+		);
+		expect(result.processed).toBe(2);
+		expect(result.succeeded).toBe(0);
+		expect(result.failed).toBe(2);
+		expect(result.errors).toHaveLength(1);
 	});
 });

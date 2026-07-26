@@ -65,8 +65,8 @@ const registeredServerTools = toolRegistrations.flatMap(
 
 describe("shared operation coverage", () => {
 	test("keeps CLI and MCP discovery catalogs in direct parity", () => {
-		expect(cliOperationCatalog.entries).toHaveLength(53);
-		expect(mcpOperationCatalog.entries).toHaveLength(53);
+		expect(cliOperationCatalog.entries).toHaveLength(57);
+		expect(mcpOperationCatalog.entries).toHaveLength(57);
 		expect(listCliOperationCatalogSummaries()).toEqual(
 			listMcpOperationCatalogSummaries(),
 		);

@@ -2,10 +2,14 @@ import type { OutputUtils } from "@listmonk-ops/common";
 import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	invokeAddSubscribersToListsOperation,
+	invokeBlocklistSubscribersOperation,
 	invokeCreateSubscriberOperation,
 	invokeDeleteSubscriberOperation,
 	invokeGetSubscriberOperation,
 	invokeGetSubscribersOperation,
+	invokeRemoveSubscribersFromListsOperation,
+	invokeUnblocklistSubscribersOperation,
 	invokeUpdateSubscriberOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
@@ -25,7 +29,7 @@ import { getListmonkClient } from "../lib/listmonk";
 
 type SubscribersOutput = Pick<
 	typeof OutputUtils,
-	"info" | "json" | "success" | "table"
+	"info" | "json" | "success" | "table" | "warning"
 >;
 
 export interface SubscribersCliContext {
@@ -107,6 +111,111 @@ export async function renderDeleteSubscriber(
 	const result = await invokeDeleteSubscriberOperation(context, input);
 	context.output.success(`Subscriber deleted: ${input.id}`);
 	context.output.json(result);
+}
+
+interface SubscriberBulkListsInput {
+	subscriber_ids: number[];
+	list_ids: number[];
+	dry_run?: boolean;
+	max_items?: number;
+	continue_on_error?: boolean;
+}
+
+interface SubscriberBulkBlocklistInput {
+	subscriber_ids: number[];
+	action: "add" | "remove";
+	dry_run?: boolean;
+	max_items?: number;
+	continue_on_error?: boolean;
+}
+
+interface SubscriberBulkUnblocklistInput {
+	subscriber_ids: number[];
+	dry_run?: boolean;
+	max_items?: number;
+	continue_on_error?: boolean;
+}
+
+interface BulkResultSummary {
+	processed: number;
+	succeeded: number;
+	failed: number;
+	errors: string[];
+}
+
+/**
+ * Print a bulk operation summary. Emits a dry-run, success, or partial-
+ * failure message depending on the result. When chunks failed and
+ * `continue_on_error` was set, the partial failure is surfaced through
+ * `output.warning` so it is not buried in the JSON payload.
+ */
+function reportBulkResult(
+	context: SubscribersCliContext,
+	input: { dry_run?: boolean },
+	result: BulkResultSummary,
+	verbPast: string,
+	noun: string,
+): void {
+	if (input.dry_run) {
+		context.output.success(
+			`Dry run: would have ${verbPast} ${result.processed} ${noun}`,
+		);
+	} else if (result.failed > 0) {
+		// Partial failure: lead with the warning so the operator sees the
+		// failure before the success summary, then print the partial
+		// succeeded count as info so it is not presented as a clean ✅.
+		const visibleErrors = result.errors.slice(0, 3);
+		const moreErrors =
+			result.errors.length > visibleErrors.length
+				? `; +${result.errors.length - visibleErrors.length} more (see JSON output)`
+				: "";
+		context.output.warning(
+			`${result.failed} subscriber(s) failed across ${result.errors.length} chunk(s): ${visibleErrors.join("; ")}${moreErrors}`,
+		);
+		context.output.info(
+			`${verbPast[0]?.toUpperCase()}${verbPast.slice(1)} ${result.succeeded} of ${result.processed} ${noun} (partial)`,
+		);
+	} else {
+		context.output.success(
+			`${verbPast[0]?.toUpperCase()}${verbPast.slice(1)} ${result.succeeded} of ${result.processed} ${noun}`,
+		);
+	}
+	context.output.json(result);
+}
+
+export async function renderAddSubscribersToLists(
+	context: SubscribersCliContext,
+	input: SubscriberBulkListsInput,
+): Promise<void> {
+	const result = await invokeAddSubscribersToListsOperation(context, input);
+	reportBulkResult(context, input, result, "added", "subscribers to lists");
+}
+
+export async function renderRemoveSubscribersFromLists(
+	context: SubscribersCliContext,
+	input: SubscriberBulkListsInput,
+): Promise<void> {
+	const result = await invokeRemoveSubscribersFromListsOperation(
+		context,
+		input,
+	);
+	reportBulkResult(context, input, result, "removed", "subscribers from lists");
+}
+
+export async function renderBlocklistSubscribers(
+	context: SubscribersCliContext,
+	input: SubscriberBulkBlocklistInput,
+): Promise<void> {
+	const result = await invokeBlocklistSubscribersOperation(context, input);
+	reportBulkResult(context, input, result, "blocklisted", "subscribers");
+}
+
+export async function renderUnblocklistSubscribers(
+	context: SubscribersCliContext,
+	input: SubscriberBulkUnblocklistInput,
+): Promise<void> {
+	const result = await invokeUnblocklistSubscribersOperation(context, input);
+	reportBulkResult(context, input, result, "unblocklisted", "subscribers");
 }
 
 type ListCommandFlags = {
@@ -253,6 +362,116 @@ export async function handleDeleteSubscriberCommand({
 	}
 }
 
+type SubscriberBulkListsFlags = {
+	"subscriber-ids": string;
+	"list-ids": string;
+	"dry-run"?: boolean;
+	"max-items"?: number;
+	"continue-on-error"?: boolean;
+};
+
+type SubscriberBulkBlocklistFlags = {
+	"subscriber-ids": string;
+	"dry-run"?: boolean;
+	"max-items"?: number;
+	"continue-on-error"?: boolean;
+};
+
+async function handleAddSubscribersToListsCommand({
+	flags,
+	...args
+}: HandlerArgs<SubscriberBulkListsFlags>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderAddSubscribersToLists(
+			{ client, output: getOutput() },
+			{
+				subscriber_ids: parseCsvNumbers(flags["subscriber-ids"]),
+				list_ids: parseCsvNumbers(flags["list-ids"]),
+				dry_run: flags["dry-run"],
+				max_items: flags["max-items"],
+				continue_on_error: flags["continue-on-error"],
+			},
+		);
+	} catch (error) {
+		throw createSubscriberCommandError(
+			"Failed to add subscribers to lists",
+			error,
+		);
+	}
+}
+
+async function handleRemoveSubscribersFromListsCommand({
+	flags,
+	...args
+}: HandlerArgs<SubscriberBulkListsFlags>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderRemoveSubscribersFromLists(
+			{ client, output: getOutput() },
+			{
+				subscriber_ids: parseCsvNumbers(flags["subscriber-ids"]),
+				list_ids: parseCsvNumbers(flags["list-ids"]),
+				dry_run: flags["dry-run"],
+				max_items: flags["max-items"],
+				continue_on_error: flags["continue-on-error"],
+			},
+		);
+	} catch (error) {
+		throw createSubscriberCommandError(
+			"Failed to remove subscribers from lists",
+			error,
+		);
+	}
+}
+
+async function handleBlocklistSubscribersCommand({
+	flags,
+	...args
+}: HandlerArgs<SubscriberBulkBlocklistFlags>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderBlocklistSubscribers(
+			{ client, output: getOutput() },
+			{
+				subscriber_ids: parseCsvNumbers(flags["subscriber-ids"]),
+				action: "add",
+				dry_run: flags["dry-run"],
+				max_items: flags["max-items"],
+				continue_on_error: flags["continue-on-error"],
+			},
+		);
+	} catch (error) {
+		throw createSubscriberCommandError(
+			"Failed to blocklist subscribers",
+			error,
+		);
+	}
+}
+
+async function handleUnblocklistSubscribersCommand({
+	flags,
+	...args
+}: HandlerArgs<SubscriberBulkBlocklistFlags>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderUnblocklistSubscribers(
+			{ client, output: getOutput() },
+			{
+				subscriber_ids: parseCsvNumbers(flags["subscriber-ids"]),
+				dry_run: flags["dry-run"],
+				max_items: flags["max-items"],
+				continue_on_error: flags["continue-on-error"],
+			},
+		);
+	} catch (error) {
+		throw createSubscriberCommandError(
+			"Failed to unblocklist subscribers",
+			error,
+		);
+	}
+}
+
 export default defineGroup({
 	name: "subscribers",
 	description: "Manage subscribers",
@@ -371,6 +590,92 @@ export default defineGroup({
 				}),
 			},
 			handler: handleDeleteSubscriberCommand,
+		}),
+		defineCommand({
+			name: "add-to-lists",
+			operationId: "subscribers.add-to-lists",
+			description: "Add a batch of subscribers to one or more lists",
+			options: {
+				"subscriber-ids": option(z.string().trim().min(1), {
+					description: "Comma-separated subscriber IDs",
+				}),
+				"list-ids": option(z.string().trim().min(1), {
+					description: "Comma-separated list IDs",
+				}),
+				"dry-run": option(z.coerce.boolean().default(false), {
+					description: "Skip the API calls and report what would have run",
+				}),
+				"max-items": option(z.coerce.number().int().positive().default(10000), {
+					description: "Maximum number of subscriber IDs to process",
+				}),
+				"continue-on-error": option(z.coerce.boolean().default(false), {
+					description: "Keep processing chunks after a failure",
+				}),
+			},
+			handler: handleAddSubscribersToListsCommand,
+		}),
+		defineCommand({
+			name: "remove-from-lists",
+			operationId: "subscribers.remove-from-lists",
+			description: "Remove a batch of subscribers from one or more lists",
+			options: {
+				"subscriber-ids": option(z.string().trim().min(1), {
+					description: "Comma-separated subscriber IDs",
+				}),
+				"list-ids": option(z.string().trim().min(1), {
+					description: "Comma-separated list IDs",
+				}),
+				"dry-run": option(z.coerce.boolean().default(false), {
+					description: "Skip the API calls and report what would have run",
+				}),
+				"max-items": option(z.coerce.number().int().positive().default(10000), {
+					description: "Maximum number of subscriber IDs to process",
+				}),
+				"continue-on-error": option(z.coerce.boolean().default(false), {
+					description: "Keep processing chunks after a failure",
+				}),
+			},
+			handler: handleRemoveSubscribersFromListsCommand,
+		}),
+		defineCommand({
+			name: "blocklist",
+			operationId: "subscribers.blocklist",
+			description: "Add a batch of subscribers to the blocklist",
+			options: {
+				"subscriber-ids": option(z.string().trim().min(1), {
+					description: "Comma-separated subscriber IDs",
+				}),
+				"dry-run": option(z.coerce.boolean().default(false), {
+					description: "Skip the API calls and report what would have run",
+				}),
+				"max-items": option(z.coerce.number().int().positive().default(10000), {
+					description: "Maximum number of subscriber IDs to process",
+				}),
+				"continue-on-error": option(z.coerce.boolean().default(false), {
+					description: "Keep processing chunks after a failure",
+				}),
+			},
+			handler: handleBlocklistSubscribersCommand,
+		}),
+		defineCommand({
+			name: "unblocklist",
+			operationId: "subscribers.unblocklist",
+			description: "Remove a batch of subscribers from the blocklist",
+			options: {
+				"subscriber-ids": option(z.string().trim().min(1), {
+					description: "Comma-separated subscriber IDs",
+				}),
+				"dry-run": option(z.coerce.boolean().default(false), {
+					description: "Skip the API calls and report what would have run",
+				}),
+				"max-items": option(z.coerce.number().int().positive().default(10000), {
+					description: "Maximum number of subscriber IDs to process",
+				}),
+				"continue-on-error": option(z.coerce.boolean().default(false), {
+					description: "Keep processing chunks after a failure",
+				}),
+			},
+			handler: handleUnblocklistSubscribersCommand,
 		}),
 	],
 });

@@ -63,6 +63,67 @@ export interface TemplateOperations
 	}): Promise<FlattenedResponse<unknown>>;
 }
 
+export interface SubscriberOperations
+	extends CrudOperations<
+		Subscriber,
+		SubscriberTypes["create"],
+		SubscriberTypes["update"],
+		SubscriberTypes["get"],
+		SubscriberTypes["getById"],
+		SubscriberTypes["delete"]
+	> {
+	patch(options: Omit<t.PatchSubscriberByIdData, "url">): Promise<CrudResult<Subscriber>>;
+	manageLists(options: {
+		body: {
+			action?: "add" | "remove" | "unsubscribe";
+			target_list_ids?: number[];
+			query?: string;
+			ids?: number[];
+		};
+	}): Promise<FlattenedResponse<boolean>>;
+	manageListById(options: {
+		path: { id: number };
+		body: {
+			action?: "add" | "remove" | "unsubscribe";
+			target_list_ids?: number[];
+			query?: string;
+			ids?: number[];
+		};
+	}): Promise<FlattenedResponse<boolean>>;
+	manageBlocklist(options: {
+		body: { action?: "add" | "remove"; query?: string; ids?: number[] };
+	}): Promise<FlattenedResponse<boolean>>;
+	manageBlocklistById(options: {
+		path: { id: number };
+		body: { action?: "add" | "remove" };
+	}): Promise<FlattenedResponse<boolean>>;
+	export(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<Record<string, unknown>>>;
+	sendOptin(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<boolean>>;
+	getBounces(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<Record<string, unknown>>>;
+	deleteBounces(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<boolean>>;
+	deleteByQuery(options: {
+		body: { query?: string };
+	}): Promise<FlattenedResponse<boolean>>;
+	blocklistByQuery(options: {
+		body: { query?: string };
+	}): Promise<FlattenedResponse<boolean>>;
+	manageListsByQuery(options: {
+		body: {
+			action?: "add" | "remove" | "unsubscribe";
+			target_list_ids?: number[];
+			query?: string;
+		};
+	}): Promise<FlattenedResponse<boolean>>;
+}
+
 export interface CampaignOperations
 	extends CrudOperations<
 		Campaign,
@@ -224,67 +285,7 @@ export interface EnhancedListmonkClient {
 		ListTypes["getById"],
 		ListTypes["delete"]
 	>;
-	subscriber: CrudOperations<
-		Subscriber,
-		SubscriberTypes["create"],
-		SubscriberTypes["update"],
-		SubscriberTypes["get"],
-		SubscriberTypes["getById"],
-		SubscriberTypes["delete"]
-	> & {
-		patch(
-			options: Omit<t.PatchSubscriberByIdData, "url">,
-		): Promise<CrudResult<Subscriber>>;
-		manageLists(options: {
-			body: {
-				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number[];
-				query?: string;
-				ids?: number[];
-			};
-		}): Promise<FlattenedResponse<boolean>>;
-		manageListById(options: {
-			path: { id: number };
-			body: {
-				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number[];
-				query?: string;
-				ids?: number[];
-			};
-		}): Promise<FlattenedResponse<boolean>>;
-		manageBlocklist(options: {
-			body: { action?: "add" | "remove"; query?: string; ids?: number[] };
-		}): Promise<FlattenedResponse<boolean>>;
-		manageBlocklistById(options: {
-			path: { id: number };
-			body: { action?: "add" | "remove" };
-		}): Promise<FlattenedResponse<boolean>>;
-		export(options: {
-			path: { id: number };
-		}): Promise<FlattenedResponse<Record<string, unknown>>>;
-		sendOptin(options: {
-			path: { id: number };
-		}): Promise<FlattenedResponse<boolean>>;
-		getBounces(options: {
-			path: { id: number };
-		}): Promise<FlattenedResponse<Record<string, unknown>>>;
-		deleteBounces(options: {
-			path: { id: number };
-		}): Promise<FlattenedResponse<boolean>>;
-		deleteByQuery(options: {
-			body: { query?: string };
-		}): Promise<FlattenedResponse<boolean>>;
-		blocklistByQuery(options: {
-			body: { query?: string };
-		}): Promise<FlattenedResponse<boolean>>;
-		manageListsByQuery(options: {
-			body: {
-				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number[];
-				query?: string;
-			};
-		}): Promise<FlattenedResponse<boolean>>;
-	};
+	subscriber: SubscriberOperations;
 	campaign: CampaignOperations;
 	template: TemplateOperations;
 	media: MediaOperations & {

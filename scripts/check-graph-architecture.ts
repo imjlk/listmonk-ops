@@ -1320,8 +1320,108 @@ const campaignLifecycleContracts: readonly CallPathContract[] = [
 		cliRenderer: "renderGetCampaignStats",
 		invoker:
 			"packages/operations/src/campaigns.ts#invokeGetCampaignStatsOperation:function",
+			action:
+				"packages/operations/src/campaigns.ts#getCampaignStats:function",
+		}),
+	];
+
+const cliSubscribersModulePath = "apps/cli/src/commands/subscribers.ts";
+const subscriberBulkDispatcher =
+	"packages/operations/src/subscribers.ts#invokeSubscriberOperationByMcpName:function";
+const mcpSubscribersBulkHandler =
+	"packages/mcp/src/handlers/subscribers.ts#handleSubscribersTools:function";
+
+interface SubscriberBulkContractConfig {
+	verb: string;
+	cliHandler: string;
+	cliRenderer: string;
+	invoker: string;
+	action: string;
+}
+
+function subscriberBulkContractsFor(
+	config: SubscriberBulkContractConfig,
+): CallPathContract[] {
+	const label = `subscriber ${config.verb}`;
+	// As with the campaign lifecycle contracts, the MCP path stops at the
+	// shared action. `manageLists` and `manageBlocklist` are factory-internal
+	// methods on the SubscriberOperations interface and do not surface as
+	// graph nodes.
+	return [
+		{
+			label: `CLI ${label} reaches the shared action`,
+			path: [
+				`${cliSubscribersModulePath}#${config.cliHandler}:function`,
+				`${cliSubscribersModulePath}#${config.cliRenderer}:function`,
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `MCP ${label} reaches the shared action`,
+			path: [
+				mcpCallTool,
+				mcpSubscribersBulkHandler,
+				subscriberBulkDispatcher,
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `Operation tests anchor the ${label} invoker`,
+			path: [
+				"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `CLI ${label} tests anchor the shared renderer`,
+			path: [
+				"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+				`${cliSubscribersModulePath}#${config.cliRenderer}:function`,
+				config.invoker,
+			],
+		},
+	];
+}
+
+const subscriberBulkContracts: readonly CallPathContract[] = [
+	...subscriberBulkContractsFor({
+		verb: "add-to-lists",
+		cliHandler: "handleAddSubscribersToListsCommand",
+		cliRenderer: "renderAddSubscribersToLists",
+		invoker:
+			"packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
 		action:
-			"packages/operations/src/campaigns.ts#getCampaignStats:function",
+			"packages/operations/src/subscribers.ts#addSubscribersToLists:function",
+	}),
+	...subscriberBulkContractsFor({
+		verb: "remove-from-lists",
+		cliHandler: "handleRemoveSubscribersFromListsCommand",
+		cliRenderer: "renderRemoveSubscribersFromLists",
+		invoker:
+			"packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
+		action:
+			"packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
+	}),
+	...subscriberBulkContractsFor({
+		verb: "blocklist",
+		cliHandler: "handleBlocklistSubscribersCommand",
+		cliRenderer: "renderBlocklistSubscribers",
+		invoker:
+			"packages/operations/src/subscribers.ts#invokeBlocklistSubscribersOperation:function",
+		action:
+			"packages/operations/src/subscribers.ts#blocklistSubscribers:function",
+	}),
+	...subscriberBulkContractsFor({
+		verb: "unblocklist",
+		cliHandler: "handleUnblocklistSubscribersCommand",
+		cliRenderer: "renderUnblocklistSubscribers",
+		invoker:
+			"packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
+		action:
+			"packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
 	}),
 ];
 
@@ -1702,6 +1802,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	...resourceCrudContracts,
 	...templateSetDefaultContracts,
 	...campaignLifecycleContracts,
+	...subscriberBulkContracts,
 	...mediaParityContracts,
 	...mcpHttpTransportContracts,
 	...opsOperationContracts,
