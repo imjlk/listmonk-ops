@@ -84,10 +84,11 @@ function isPrivateHost(hostname: string): boolean {
 	if (v4Parts.length === 4) {
 		const octets = v4Parts.map((p) => parseInt(p, 10));
 		if (octets.length === 4 && octets.every((o) => o >= 0 && o <= 255)) {
-			const [a, b] = octets;
+			const a = octets[0]!;
+			const b = octets[1]!;
 			if (a === 127) return true; // loopback
 			if (a === 10) return true; // private
-			if (a === 172 && b !== undefined && b >= 16 && b <= 31) return true;
+			if (a === 172 && b >= 16 && b <= 31) return true;
 			if (a === 192 && b === 168) return true; // private
 			if (a === 169 && b === 254) return true; // link-local + metadata
 			if (a === 0) return true; // 0.0.0.0
@@ -183,6 +184,31 @@ async function checkLink(
 				redirect: "manual",
 				signal: controller.signal,
 			});
+			// Re-run redirect validation for the GET response, since the
+			// server may redirect the GET differently than the HEAD.
+			while (
+				response.status >= 300 &&
+				response.status < 400 &&
+				response.headers.get("location") &&
+				redirectCount < maxRedirects
+			) {
+				const location = response.headers.get("location")!;
+				currentUrl = new URL(location, currentUrl).toString();
+				const redirectSafety = isSafeFetchUrl(currentUrl);
+				if (!redirectSafety.safe) {
+					return {
+						url,
+						ok: false,
+						error: `Redirect blocked: ${redirectSafety.reason}`,
+					};
+				}
+				redirectCount += 1;
+				response = await fetch(currentUrl, {
+					method: "GET",
+					redirect: "manual",
+					signal: controller.signal,
+				});
+			}
 		}
 
 		return {
