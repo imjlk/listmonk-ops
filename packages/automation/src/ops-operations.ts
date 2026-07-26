@@ -23,7 +23,6 @@ import {
 	type TemplatePromoteResult,
 	type TemplateRegistrySyncResult,
 } from "./template-registry.js";
-import { getOpsStorePaths } from "./core.js";
 import {
 	defineOperationCatalog,
 	defineOperation,
@@ -73,11 +72,6 @@ const booleanInput = z.preprocess(
 	},
 	z.boolean(),
 );
-
-const storePathsSchema = z.object({
-	segmentStorePath: z.string(),
-	templateRegistryPath: z.string(),
-});
 
 const campaignPreflightInputSchema = z.object({
 	campaign_id: positiveIntegerInput.describe("Campaign ID"),
@@ -298,7 +292,6 @@ const templateRegistrySyncOutputSchema = z.object({
 			hash: z.string(),
 		}),
 	),
-	storePaths: storePathsSchema,
 });
 
 const templateRegistryHistoryOutputSchema = z.object({
@@ -349,7 +342,6 @@ const dailyDigestOutputSchema = z.object({
 		truncated: z.boolean(),
 	}),
 	markdown: z.string(),
-	storePaths: storePathsSchema,
 });
 
 const readSafety = {
@@ -442,13 +434,13 @@ export async function executeSegmentDriftOperation(
 export async function executeTemplateRegistrySyncOperation(
 	context: OpsOperationContext,
 	input: z.output<typeof templateRegistrySyncInputSchema>,
-): Promise<TemplateRegistrySyncResult & { storePaths: ReturnType<typeof getOpsStorePaths> }> {
+): Promise<TemplateRegistrySyncResult> {
 	const client = requireOpsClient(context);
 	const result = await syncTemplateRegistry(client, {
 		templateIds: input.template_ids,
 		note: input.note,
 	});
-	return { ...result, storePaths: getOpsStorePaths() };
+	return result;
 }
 
 export async function executeTemplateRegistryHistoryOperation(
@@ -477,7 +469,7 @@ export async function executeTemplateRegistryRollbackOperation(
 export async function executeDailyDigestOperation(
 	context: OpsOperationContext,
 	input: z.output<typeof dailyDigestInputSchema>,
-): Promise<DailyDigestResult & { storePaths: ReturnType<typeof getOpsStorePaths> }> {
+): Promise<DailyDigestResult> {
 	const client = requireOpsClient(context);
 	const result = await generateDailyDigest(client, {
 		hours: input.hours,
@@ -485,7 +477,7 @@ export async function executeDailyDigestOperation(
 		openRateThreshold: input.open_threshold,
 		clickRateThreshold: input.click_threshold,
 	});
-	return { ...result, storePaths: getOpsStorePaths() };
+	return result;
 }
 
 export const campaignPreflightOperation = defineOperation({

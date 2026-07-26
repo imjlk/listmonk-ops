@@ -45,9 +45,83 @@ function summarizeChecks(checks: CampaignPreflightCheck[]) {
 	};
 }
 
+/**
+ * Check links with bounded concurrency (max 5 at a time) to avoid
+ * overwhelming the server or the network.
+ */
+async function checkLinksWithBoundedConcurrency(
+	urls: string[],
+	timeoutMs: number,
+): Promise<Array<{ url: string; ok: boolean; status?: number; error?: string }>> {
+	const results: Array<{ url: string; ok: boolean; status?: number; error?: string }> = [];
+	const concurrency = 5;
+	for (let i = 0; i < urls.length; i += concurrency) {
+		const batch = urls.slice(i, i + concurrency);
+		const batchResults = await Promise.all(
+			batch.map((url) => checkLink(url, timeoutMs)),
+		);
+		results.push(...batchResults);
+	}
+	return results;
+}
+
 function collectBodyLinks(body: string): string[] {
 	const matches = body.match(/https?:\/\/[^\s"'<>()]+/g) || [];
 	return Array.from(new Set(matches));
+}
+
+/**
+ * Check whether a URL's hostname resolves to a private or internal address.
+ * Blocks loopback (127.x, ::1), private CIDRs (10.x, 172.16-31.x,
+ * 192.168.x), link-local (169.254.x, fe80::), and cloud metadata IPs
+ * (169.254.169.254) to prevent SSRF via campaign body content.
+ */
+function isPrivateHost(hostname: string): boolean {
+	// Normalize: strip brackets from IPv6, lowercase.
+	const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+	// IPv4 checks
+	const v4Parts = host.split(".");
+	if (v4Parts.length === 4) {
+		const octets = v4Parts.map((p) => parseInt(p, 10));
+		if (octets.length === 4 && octets.every((o) => o >= 0 && o <= 255)) {
+			const [a, b] = octets;
+			if (a === 127) return true; // loopback
+			if (a === 10) return true; // private
+			if (a === 172 && b !== undefined && b >= 16 && b <= 31) return true;
+			if (a === 192 && b === 168) return true; // private
+			if (a === 169 && b === 254) return true; // link-local + metadata
+			if (a === 0) return true; // 0.0.0.0
+			return false;
+		}
+	}
+	// IPv6 and hostname checks
+	if (host === "::1" || host === "localhost") return true;
+	if (host.startsWith("fc") || host.startsWith("fd")) return true; // ULA
+	if (host.startsWith("fe80")) return true; // link-local
+	return false;
+}
+
+/**
+ * Validate that a URL is safe to fetch: must be http(s), not target a
+ * private/internal host.
+ */
+function isSafeFetchUrl(url: string): { safe: boolean; reason?: string } {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return { safe: false, reason: "Invalid URL" };
+	}
+	if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+		return { safe: false, reason: `Protocol ${parsed.protocol} not allowed` };
+	}
+	if (isPrivateHost(parsed.hostname)) {
+		return {
+			safe: false,
+			reason: `Host ${parsed.hostname} is private/internal`,
+		};
+	}
+	return { safe: true };
 }
 
 async function checkLink(
@@ -59,20 +133,54 @@ async function checkLink(
 	status?: number;
 	error?: string;
 }> {
+	// SSRF defense: reject private/internal hosts before fetching.
+	const safety = isSafeFetchUrl(url);
+	if (!safety.safe) {
+		return { url, ok: false, error: `Blocked: ${safety.reason}` };
+	}
+
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), timeoutMs);
+	const maxRedirects = 5;
+	let currentUrl = url;
+	let redirectCount = 0;
 
 	try {
-		let response = await fetch(url, {
+		let response = await fetch(currentUrl, {
 			method: "HEAD",
-			redirect: "follow",
+			redirect: "manual",
 			signal: controller.signal,
 		});
 
+		// Handle redirects manually so we can re-validate each destination.
+		while (
+			response.status >= 300 &&
+			response.status < 400 &&
+			response.headers.get("location") &&
+			redirectCount < maxRedirects
+		) {
+			const location = response.headers.get("location")!;
+			currentUrl = new URL(location, currentUrl).toString();
+			const redirectSafety = isSafeFetchUrl(currentUrl);
+			if (!redirectSafety.safe) {
+				return {
+					url,
+					ok: false,
+					error: `Redirect blocked: ${redirectSafety.reason}`,
+				};
+			}
+			redirectCount += 1;
+			response = await fetch(currentUrl, {
+				method: "HEAD",
+				redirect: "manual",
+				signal: controller.signal,
+			});
+		}
+
 		if (response.status === 405 || response.status === 501) {
-			response = await fetch(url, {
+			response = await fetch(currentUrl, {
 				method: "GET",
-				redirect: "follow",
+				redirect: "manual",
 				signal: controller.signal,
 			});
 		}
@@ -254,8 +362,9 @@ export async function runCampaignPreflight(
 				message: "No http(s) links found in campaign body",
 			});
 		} else {
-			const linkResults = await Promise.all(
-				links.map((url) => checkLink(url, linkCheckTimeoutMs)),
+			const linkResults = await checkLinksWithBoundedConcurrency(
+				links,
+				linkCheckTimeoutMs,
 			);
 			const brokenLinks = linkResults.filter((entry) => !entry.ok);
 			checks.push({
