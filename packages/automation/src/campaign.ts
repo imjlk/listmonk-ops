@@ -190,14 +190,21 @@ async function checkLink(
 			redirectCount = getResult.redirectCount;
 		}
 
-		// If a redirect remains after the budget is exhausted, fail rather
-		// than reporting a 3xx as ok.
+		// If a 3xx remains after followRedirects, distinguish between
+		// budget exhaustion and a Location-less 3xx.
 		if (response.status >= 300 && response.status < 400) {
+			const hasLocation = response.headers.get("location");
+			const reason =
+				redirectCount >= maxRedirects
+					? `Exceeded max redirects (${maxRedirects})`
+					: hasLocation
+						? `Unexpected redirect state`
+						: `Redirect ${response.status} without Location header`;
 			return {
 				url,
 				ok: false,
 				status: response.status,
-				error: `Exceeded max redirects (${maxRedirects})`,
+				error: reason,
 			};
 		}
 
