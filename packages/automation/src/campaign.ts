@@ -99,7 +99,8 @@ export function isPrivateHost(hostname: string): boolean {
 			return isPrivateOctetPair(nums[0]!, nums[1]!);
 		}
 	}
-	if (host === "::1" || host === "localhost") return true;
+	if (host === "::1" || host === "::" || host === "localhost") return true;
+	if (host === "::ffff:0:0") return true;
 	const mappedHex = host.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
 	if (mappedHex) {
 		const hi = parseInt(mappedHex[1]!, 16);
