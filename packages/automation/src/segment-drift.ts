@@ -32,6 +32,8 @@ export interface SegmentDriftOptions {
 	threshold?: number;
 	minAbsoluteChange?: number;
 	lookbackDays?: number;
+	/** How to compute the baseline for alert decisions. */
+	baselineMode?: "previous" | "lookback-mean" | "lookback-median";
 }
 
 export interface SegmentDriftComparison {
@@ -161,6 +163,7 @@ export async function runSegmentDriftSnapshot(
 	const threshold = Math.max(0, options.threshold ?? 0.2);
 	const minAbsoluteChange = Math.max(0, options.minAbsoluteChange ?? 50);
 	const lookbackDays = Math.max(1, options.lookbackDays ?? 14);
+	const baselineMode = options.baselineMode ?? "previous";
 	const capturedAt = new Date().toISOString();
 	const lists = await getListsForDrift(client, options.listIds);
 
@@ -196,40 +199,65 @@ export async function runSegmentDriftSnapshot(
 				const time = new Date(snapshot.capturedAt).getTime();
 				return !Number.isNaN(time) && time >= lookbackCutoff;
 			});
-			const baselineCount =
-				lookbackHistory.length > 0
-					? Math.round(
-							lookbackHistory.reduce(
-								(sum, snapshot) => sum + snapshot.subscriberCount,
-								0,
-							) / lookbackHistory.length,
-						)
-					: undefined;
-			const previousCount = previous?.subscriberCount;
-			const delta =
-				previousCount === undefined
-					? undefined
-					: entry.subscriberCount - previousCount;
-			const deltaRate = calculateDeltaRate(
-				entry.subscriberCount,
-				previousCount,
-			);
-			const alert =
-				delta !== undefined &&
-				deltaRate !== undefined &&
-				Math.abs(delta) >= minAbsoluteChange &&
-				Math.abs(deltaRate) >= threshold;
+				const baselineCount =
+					lookbackHistory.length > 0
+						? Math.round(
+								lookbackHistory.reduce(
+									(sum, snapshot) => sum + snapshot.subscriberCount,
+									0,
+								) / lookbackHistory.length,
+							)
+						: undefined;
+				const previousCount = previous?.subscriberCount;
 
-			return {
-				listId: entry.listId,
-				listName: entry.listName,
-				previousCount,
-				currentCount: entry.subscriberCount,
-				baselineCount,
-				delta,
-				deltaRate,
-				alert,
-			};
+				// Choose the alert baseline based on baselineMode.
+				// "previous" (default) compares against the immediately
+				// preceding snapshot. "lookback-mean" / "lookback-median"
+				// compare against the lookback window aggregate.
+				let alertBaseline: number | undefined;
+				if (baselineMode === "lookback-mean" || baselineMode === "lookback-median") {
+					if (baselineCount !== undefined) {
+						if (baselineMode === "lookback-median" && lookbackHistory.length > 0) {
+							const sorted = lookbackHistory
+								.map((s) => s.subscriberCount)
+								.sort((a, b) => a - b);
+							const mid = Math.floor(sorted.length / 2);
+							alertBaseline =
+								sorted.length % 2 === 0
+									? Math.round(((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2)
+									: sorted[mid];
+						} else {
+							alertBaseline = baselineCount;
+						}
+					}
+				} else {
+					alertBaseline = previousCount;
+				}
+
+				const delta =
+					alertBaseline === undefined
+						? undefined
+						: entry.subscriberCount - alertBaseline;
+				const deltaRate = calculateDeltaRate(
+					entry.subscriberCount,
+					alertBaseline,
+				);
+				const alert =
+					delta !== undefined &&
+					deltaRate !== undefined &&
+					Math.abs(delta) >= minAbsoluteChange &&
+					Math.abs(deltaRate) >= threshold;
+
+				return {
+					listId: entry.listId,
+					listName: entry.listName,
+					previousCount,
+					currentCount: entry.subscriberCount,
+					baselineCount: alertBaseline ?? baselineCount,
+					delta,
+					deltaRate,
+					alert,
+				};
 		});
 		const nextStore: SegmentDriftStore = {
 			version: 1,

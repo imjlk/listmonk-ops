@@ -537,12 +537,16 @@ listmonk-cli ops preflight --campaign-id 123 --check-links true --fail-on-warn f
 
 # 2) Deliverability guard
 listmonk-cli ops guard --campaign-id 123 --pause-on-breach true --confirm
+# Engagement breaches (open/click rate) require a minimum of 100 sends
+# before they are evaluated. Override with --minimum-sent.
 
 # 3) Subscriber hygiene (preview)
 listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --confirm
 
 # 4) Segment drift snapshot
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
+# Use --baseline-mode lookback-mean to compare against the lookback
+# window average instead of the previous snapshot.
 
 # 5) Template registry/versioning
 listmonk-cli ops templates-sync

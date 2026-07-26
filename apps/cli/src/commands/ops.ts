@@ -100,6 +100,9 @@ export default defineGroup({
 				"pause-on-breach": option(z.coerce.boolean().default(false), {
 					description: "Pause running/scheduled campaign on breach",
 				}),
+				"minimum-sent": option(z.coerce.number().int().positive().default(100), {
+					description: "Minimum sent count before engagement breaches",
+				}),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
@@ -111,6 +114,7 @@ export default defineGroup({
 							bounce_threshold: flags["bounce-threshold"],
 							open_threshold: flags["open-threshold"],
 							click_threshold: flags["click-threshold"],
+							minimum_sent: flags["minimum-sent"],
 							pause_on_breach: flags["pause-on-breach"],
 						},
 					);
@@ -209,6 +213,14 @@ export default defineGroup({
 						description: "Baseline lookback window (days)",
 					},
 				),
+				"baseline-mode": option(
+					z
+						.enum(["previous", "lookback-mean", "lookback-median"])
+						.default("previous"),
+					{
+						description: "How to compute the alert baseline",
+					},
+				),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
@@ -223,6 +235,7 @@ export default defineGroup({
 							threshold: flags.threshold,
 							min_absolute_change: flags["min-absolute-change"],
 							lookback_days: flags["lookback-days"],
+							baseline_mode: flags["baseline-mode"],
 						},
 					);
 					OutputUtils.json(result);

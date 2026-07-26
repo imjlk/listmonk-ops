@@ -46,6 +46,9 @@ export interface DailyDigestResult {
 			campaignName: string;
 			breaches: string[];
 		}>;
+		campaignsEligible: number;
+		campaignsEvaluated: number;
+		truncated: boolean;
 	};
 	markdown: string;
 }
@@ -140,7 +143,10 @@ export async function generateDailyDigest(
 	);
 
 	const campaignBreaches: DailyDigestResult["risk"]["campaignBreaches"] = [];
-	for (const campaign of runningCampaigns.slice(0, 10)) {
+	const maxGuardCampaigns = 10;
+	const campaignsEligible = runningCampaigns.length;
+	let campaignsEvaluated = 0;
+	for (const campaign of runningCampaigns.slice(0, maxGuardCampaigns)) {
 		const campaignId = toPositiveInt(campaign.id);
 		if (!campaignId) {
 			continue;
@@ -151,6 +157,7 @@ export async function generateDailyDigest(
 			clickRateThreshold: options.clickRateThreshold,
 			pauseOnBreach: false,
 		});
+		campaignsEvaluated += 1;
 		if (guardResult.breaches.length > 0) {
 			campaignBreaches.push({
 				campaignId,
@@ -159,6 +166,7 @@ export async function generateDailyDigest(
 			});
 		}
 	}
+	const truncated = campaignsEligible > campaignsEvaluated;
 
 	const markdownLines = [
 		"# Listmonk Ops Daily Digest",
@@ -169,9 +177,17 @@ export async function generateDailyDigest(
 		`- Lists: ${lists.length.toLocaleString()}`,
 		`- Subscribers: ${subscribers.length.toLocaleString()}`,
 		`- Campaigns: ${campaigns.length.toLocaleString()} (running/scheduled: ${runningCampaigns.length.toLocaleString()})`,
-		`- Campaigns created in window: ${campaignsCreatedInWindow.length.toLocaleString()}`,
-		`- Sent: ${sent.toLocaleString()}, Views: ${views.toLocaleString()}, Clicks: ${clicks.toLocaleString()}`,
-		`- Bounces in window: ${bouncesInWindow.toLocaleString()}`,
+		"",
+		"### Window Metrics",
+		`- Campaigns created: ${campaignsCreatedInWindow.length.toLocaleString()}`,
+		`- Bounces: ${bouncesInWindow.toLocaleString()}`,
+		"",
+		"### Lifetime Totals",
+		`- Sent: ${sent.toLocaleString()}`,
+		`- Views: ${views.toLocaleString()}`,
+		`- Clicks: ${clicks.toLocaleString()}`,
+		"",
+		"> Note: Sent/Views/Clicks are lifetime totals across all campaigns, not window-specific.",
 		"",
 		"## Subscriber Status",
 		...Object.entries(subscriberStatus).map(
@@ -185,6 +201,12 @@ export async function generateDailyDigest(
 						`- Campaign ${entry.campaignId} (${entry.campaignName}): ${entry.breaches.join("; ")}`,
 				)
 			: ["- No active deliverability breaches detected"]),
+		...(truncated
+			? [
+					``,
+					`> Warning: Only ${campaignsEvaluated} of ${campaignsEligible} eligible campaigns were evaluated.`,
+				]
+			: []),
 	];
 
 	return {
@@ -208,6 +230,9 @@ export async function generateDailyDigest(
 		},
 		risk: {
 			campaignBreaches,
+			campaignsEligible,
+			campaignsEvaluated,
+			truncated,
 		},
 		markdown: markdownLines.join("\n"),
 	};
