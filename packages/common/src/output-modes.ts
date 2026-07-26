@@ -111,7 +111,7 @@ export const quietOutput: OutputStrategy = {
 	warning(_message) {},
 	table(_data) {},
 	json(data) {
-		console.log(JSON.stringify(data, null, 2));
+		console.log(JSON.stringify(data));
 	},
 };
 
