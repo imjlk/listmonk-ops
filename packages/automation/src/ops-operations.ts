@@ -255,7 +255,7 @@ const segmentDriftComparisonSchema = z.object({
 
 const segmentDriftOutputSchema = z.object({
 	capturedAt: z.string(),
-	storePath: z.string(),
+	storePath: z.string().optional(),
 	threshold: z.number().nonnegative(),
 	minAbsoluteChange: z.number().nonnegative(),
 	comparisons: z.array(segmentDriftComparisonSchema),
@@ -278,7 +278,7 @@ const templateRegistryVersionSchema = z.object({
 });
 
 const templateRegistrySyncOutputSchema = z.object({
-	storePath: z.string(),
+	storePath: z.string().optional(),
 	capturedAt: z.string(),
 	createdVersions: z.number().int().nonnegative(),
 	unchangedTemplates: z.number().int().nonnegative(),
@@ -295,7 +295,7 @@ const templateRegistrySyncOutputSchema = z.object({
 });
 
 const templateRegistryHistoryOutputSchema = z.object({
-	storePath: z.string(),
+	storePath: z.string().optional(),
 	templateId: z.number().int().positive(),
 	templateName: z.string(),
 	activeVersionId: z.string().optional(),

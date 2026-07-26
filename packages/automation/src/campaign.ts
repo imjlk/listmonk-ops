@@ -79,8 +79,11 @@ function collectBodyLinks(body: string): string[] {
 export function isPrivateHost(hostname: string): boolean {
 	// Normalize: strip brackets from IPv6, lowercase.
 	const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+	// Check IPv4-mapped IPv6 addresses (::ffff:x.x.x.x)
+	const mappedMatch = host.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+	const checkHost = mappedMatch ? mappedMatch[1]! : host;
 	// IPv4 checks
-	const v4Parts = host.split(".");
+	const v4Parts = checkHost.split(".");
 	if (v4Parts.length === 4) {
 		const octets = v4Parts.map((p) => parseInt(p, 10));
 		if (octets.length === 4 && octets.every((o) => o >= 0 && o <= 255)) {
@@ -125,7 +128,7 @@ export function isSafeFetchUrl(url: string): { safe: boolean; reason?: string } 
 	return { safe: true };
 }
 
-async function checkLink(
+export async function checkLink(
 	url: string,
 	timeoutMs: number,
 ): Promise<{
@@ -248,6 +251,8 @@ async function followRedirects(
 		redirectCount < maxRedirects
 	) {
 		const location = response.headers.get("location")!;
+		// Cancel the redirect response body before following.
+		response.body?.cancel().catch(() => {});
 		currentUrl = new URL(location, currentUrl).toString();
 		const redirectSafety = isSafeFetchUrl(currentUrl);
 		if (!redirectSafety.safe) {

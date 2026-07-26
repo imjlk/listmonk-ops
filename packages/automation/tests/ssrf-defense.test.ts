@@ -1,5 +1,10 @@
-import { describe, expect, it } from "bun:test";
-import { isPrivateHost, isSafeFetchUrl } from "../src/campaign";
+import { describe, expect, it, mock, beforeEach, afterEach } from "bun:test";
+import {
+	isPrivateHost,
+	isSafeFetchUrl,
+	runCampaignPreflight,
+} from "../src/campaign";
+import type { ListmonkClient } from "@listmonk-ops/openapi";
 
 describe("SSRF defense — isPrivateHost", () => {
 	it("blocks loopback IPv4", () => {
@@ -89,5 +94,76 @@ describe("SSRF defense — isSafeFetchUrl", () => {
 
 	it("rejects malformed URLs", () => {
 		expect(isSafeFetchUrl("not-a-url").safe).toBe(false);
+	});
+
+	it("blocks IPv4-mapped IPv6 loopback", () => {
+		expect(isPrivateHost("::ffff:127.0.0.1")).toBe(true);
+	});
+
+	it("blocks IPv4-mapped IPv6 private", () => {
+		expect(isPrivateHost("::ffff:10.0.0.1")).toBe(true);
+	});
+});
+
+describe("SSRF defense — redirect chain with mocked fetch", () => {
+	const originalFetch = globalThis.fetch;
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	it("blocks a redirect chain that ends at a private IP", async () => {
+		let callCount = 0;
+		globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+			callCount++;
+			const url = typeof input === "string" ? input : input.toString();
+			// First HEAD: redirect to a public URL
+			if (callCount === 1) {
+				return Promise.resolve(
+					new Response(null, {
+						status: 302,
+						headers: { location: "https://public.example.com/redirected" },
+					}),
+				);
+			}
+			// Second HEAD: redirect to a private IP
+			if (callCount === 2) {
+				return Promise.resolve(
+					new Response(null, {
+						status: 302,
+						headers: { location: "http://10.0.0.1/secret" },
+					}),
+				);
+			}
+			return Promise.resolve(
+				new Response(null, { status: 200 }),
+			);
+		}) as typeof fetch;
+
+		const { checkLink } = await import("../src/campaign");
+		const result = await checkLink("https://public.example.com/start", 5000);
+		expect(result.ok).toBe(false);
+		expect(result.error).toContain("Redirect blocked");
+	});
+
+	it("fails when redirect budget is exhausted", async () => {
+		let callCount = 0;
+		globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+			callCount++;
+			// Always redirect to the next hop
+			return Promise.resolve(
+				new Response(null, {
+					status: 302,
+					headers: {
+						location: `https://example.com/hop${callCount}`,
+					},
+				}),
+			);
+		}) as typeof fetch;
+
+		const { checkLink } = await import("../src/campaign");
+		const result = await checkLink("https://example.com/start", 5000);
+		expect(result.ok).toBe(false);
+		expect(result.error).toContain("Exceeded max redirects");
 	});
 });
