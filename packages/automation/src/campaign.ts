@@ -231,6 +231,7 @@ export async function checkLink(
 		redirectCount = headResult.redirectCount;
 
 		if (response.status === 405 || response.status === 501) {
+			response.body?.cancel().catch(() => {});
 			response = await fetch(currentUrl, {
 				method: "GET",
 				redirect: "manual",
@@ -270,6 +271,7 @@ export async function checkLink(
 			};
 		}
 
+		response.body?.cancel().catch(() => {});
 		return {
 			url,
 			ok: response.status < 400,
