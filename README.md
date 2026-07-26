@@ -561,7 +561,7 @@ listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 Preflight link checking now blocks private/internal hosts (loopback,
 private CIDRs, link-local, cloud metadata IPs) and follows redirects
 manually with per-hop revalidation. Template promote supports
-optimistic concurrency via `--expected-hash`. MCP/CLI operation outputs
+optimistic concurrency via `--expected-remote-hash`. MCP/CLI operation outputs
 no longer expose absolute filesystem paths.
 
 ## OpenAPI Regeneration (Hey API)
