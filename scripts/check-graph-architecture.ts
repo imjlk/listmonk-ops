@@ -1209,6 +1209,122 @@ const templateSetDefaultContracts: readonly CallPathContract[] = [
 	},
 ];
 
+const cliCampaignsModulePath = "apps/cli/src/commands/campaigns.ts";
+const campaignLifecycleDispatcher =
+	"packages/operations/src/campaigns.ts#invokeCampaignOperationByMcpName:function";
+const mcpCampaignsLifecycleHandler =
+	"packages/mcp/src/handlers/campaigns.ts#handleCampaignsTools:variable";
+
+interface CampaignLifecycleContractConfig {
+	verb: string;
+	cliHandler: string;
+	cliRenderer: string;
+	invoker: string;
+	action: string;
+}
+
+function campaignLifecycleContractsFor(
+	config: CampaignLifecycleContractConfig,
+): CallPathContract[] {
+	const label = `campaign ${config.verb}`;
+	// Note: the MCP path stops at the shared action. Lifecycle methods
+	// (updateStatus, getRunningStats) are factory-internal methods on the
+	// anonymous intersection under `EnhancedListmonkClient.campaign`, so
+	// they do not surface as graph nodes even after the CampaignOperations
+	// interface extraction. Verifying the action → openapi edge would
+	// require a separate anchor test that we deliberately scope out here.
+	return [
+		{
+			label: `CLI ${label} reaches the shared action`,
+			path: [
+				`${cliCampaignsModulePath}#${config.cliHandler}:function`,
+				`${cliCampaignsModulePath}#${config.cliRenderer}:function`,
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `MCP ${label} reaches the shared action`,
+			path: [
+				mcpCallTool,
+				mcpCampaignsLifecycleHandler,
+				campaignLifecycleDispatcher,
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `Operation tests anchor the ${label} invoker`,
+			path: [
+				"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `CLI ${label} tests anchor the shared renderer`,
+			path: [
+				"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+				`${cliCampaignsModulePath}#${config.cliRenderer}:function`,
+				config.invoker,
+			],
+		},
+	];
+}
+
+const campaignLifecycleContracts: readonly CallPathContract[] = [
+	...campaignLifecycleContractsFor({
+		verb: "schedule",
+		cliHandler: "handleScheduleCampaignCommand",
+		cliRenderer: "renderScheduleCampaign",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokeScheduleCampaignOperation:function",
+		action:
+			"packages/operations/src/campaigns.ts#scheduleCampaign:function",
+	}),
+	...campaignLifecycleContractsFor({
+		verb: "start",
+		cliHandler: "handleStartCampaignCommand",
+		cliRenderer: "renderStartCampaign",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokeStartCampaignOperation:function",
+		action: "packages/operations/src/campaigns.ts#startCampaign:function",
+	}),
+	...campaignLifecycleContractsFor({
+		verb: "pause",
+		cliHandler: "handlePauseCampaignCommand",
+		cliRenderer: "renderPauseCampaign",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
+		action: "packages/operations/src/campaigns.ts#pauseCampaign:function",
+	}),
+	...campaignLifecycleContractsFor({
+		verb: "cancel",
+		cliHandler: "handleCancelCampaignCommand",
+		cliRenderer: "renderCancelCampaign",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokeCancelCampaignOperation:function",
+		action: "packages/operations/src/campaigns.ts#cancelCampaign:function",
+	}),
+	...campaignLifecycleContractsFor({
+		verb: "clone",
+		cliHandler: "handleCloneCampaignCommand",
+		cliRenderer: "renderCloneCampaign",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
+		action: "packages/operations/src/campaigns.ts#cloneCampaign:function",
+	}),
+	...campaignLifecycleContractsFor({
+		verb: "stats",
+		cliHandler: "handleGetCampaignStatsCommand",
+		cliRenderer: "renderGetCampaignStats",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokeGetCampaignStatsOperation:function",
+		action:
+			"packages/operations/src/campaigns.ts#getCampaignStats:function",
+	}),
+];
+
 const mediaParityContracts: readonly CallPathContract[] = [
 	{
 		label: "CLI/MCP media parity E2E invokes the CLI read runner",
@@ -1585,6 +1701,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	...cliListMutationContracts,
 	...resourceCrudContracts,
 	...templateSetDefaultContracts,
+	...campaignLifecycleContracts,
 	...mediaParityContracts,
 	...mcpHttpTransportContracts,
 	...opsOperationContracts,

@@ -63,6 +63,51 @@ export interface TemplateOperations
 	}): Promise<FlattenedResponse<unknown>>;
 }
 
+export interface CampaignOperations
+	extends CrudOperations<
+		Campaign,
+		CampaignTypes["create"],
+		CampaignTypes["update"],
+		CampaignTypes["get"],
+		CampaignTypes["getById"],
+		CampaignTypes["delete"]
+	> {
+	preview(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<string>>;
+	updatePreview(options: {
+		path: { id: number };
+		body: { template_id?: number; body?: string };
+	}): Promise<FlattenedResponse<boolean>>;
+	previewText(options: {
+		path: { id: number };
+		body: { template_id?: number; body?: string };
+	}): Promise<FlattenedResponse<string>>;
+	updateStatus(options: {
+		path: { id: number };
+		body: { status: "scheduled" | "running" | "paused" | "cancelled" };
+	}): Promise<FlattenedResponse<boolean>>;
+	updateArchive(options: {
+		path: { id: number };
+		body: { archive: boolean };
+	}): Promise<FlattenedResponse<boolean>>;
+	createContent(options: {
+		path: { id: number };
+		body: {
+			content_type: "html" | "markdown" | "plain" | "richtext" | "visual";
+			body: string;
+		};
+	}): Promise<FlattenedResponse<boolean>>;
+	test(options: CampaignTestParams): Promise<FlattenedResponse<boolean>>;
+	getRunningStats(options: {
+		query: { campaign_id: number };
+	}): Promise<FlattenedResponse<Record<string, unknown>>>;
+	getAnalytics(options: {
+		path: { type: "links" | "views" | "clicks" | "bounces" };
+		query: { from: string; to: string; id: string };
+	}): Promise<FlattenedResponse<Record<string, unknown>>>;
+}
+
 interface MediaOperations {
 	list(options?: t.GetMediaData): Promise<ListResult<t.MediaFileObject>>;
 	getById(options: {
@@ -240,49 +285,7 @@ export interface EnhancedListmonkClient {
 			};
 		}): Promise<FlattenedResponse<boolean>>;
 	};
-	campaign: CrudOperations<
-		Campaign,
-		CampaignTypes["create"],
-		CampaignTypes["update"],
-		CampaignTypes["get"],
-		CampaignTypes["getById"],
-		CampaignTypes["delete"]
-	> & {
-		preview(options: {
-			path: { id: number };
-		}): Promise<FlattenedResponse<string>>;
-		updatePreview(options: {
-			path: { id: number };
-			body: { template_id?: number; body?: string };
-		}): Promise<FlattenedResponse<boolean>>;
-		previewText(options: {
-			path: { id: number };
-			body: { template_id?: number; body?: string };
-		}): Promise<FlattenedResponse<string>>;
-		updateStatus(options: {
-			path: { id: number };
-			body: { status: "scheduled" | "running" | "paused" | "cancelled" };
-		}): Promise<FlattenedResponse<boolean>>;
-		updateArchive(options: {
-			path: { id: number };
-			body: { archive: boolean };
-		}): Promise<FlattenedResponse<boolean>>;
-		createContent(options: {
-			path: { id: number };
-			body: {
-				content_type: "html" | "markdown" | "plain" | "richtext" | "visual";
-				body: string;
-			};
-		}): Promise<FlattenedResponse<boolean>>;
-		test(options: CampaignTestParams): Promise<FlattenedResponse<boolean>>;
-		getRunningStats(options: {
-			query: { campaign_id: number };
-		}): Promise<FlattenedResponse<Record<string, unknown>>>;
-		getAnalytics(options: {
-			path: { type: "links" | "views" | "clicks" | "bounces" };
-			query: { from: string; to: string; id: string };
-		}): Promise<FlattenedResponse<Record<string, unknown>>>;
-	};
+	campaign: CampaignOperations;
 	template: TemplateOperations;
 	media: MediaOperations & {
 		upload(options: {

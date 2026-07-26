@@ -180,7 +180,7 @@ describe("operation catalog MCP adapter", () => {
 			"auditRequired",
 			"dryRunSupported",
 		]);
-		expect(mcpOperationCatalog.entries).toHaveLength(47);
+		expect(mcpOperationCatalog.entries).toHaveLength(53);
 		expect(listMcpOperationCatalogSummaries("ops")).toHaveLength(9);
 		expect(listMcpOperationCatalogSummaries("media")).toHaveLength(3);
 
@@ -229,7 +229,7 @@ describe("operation catalog MCP adapter", () => {
 		const cliOutput = runCliOperationCatalog("campaigns");
 		const mcpOutput = await callMcpOperationCatalog("campaigns");
 
-		expect(cliOutput.operations).toHaveLength(5);
+		expect(cliOutput.operations).toHaveLength(11);
 		expect(stableCatalogFields(cliOutput)).toEqual(
 			stableCatalogFields(mcpOutput),
 		);

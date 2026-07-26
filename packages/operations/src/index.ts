@@ -1,3 +1,4 @@
+export * from "./campaign-lifecycle";
 export * from "./campaigns";
 export * from "./catalog";
 export * from "./execution-policy";

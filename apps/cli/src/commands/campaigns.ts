@@ -2,10 +2,16 @@ import type { OutputUtils } from "@listmonk-ops/common";
 import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	invokeCancelCampaignOperation,
+	invokeCloneCampaignOperation,
 	invokeCreateCampaignOperation,
 	invokeDeleteCampaignOperation,
 	invokeGetCampaignOperation,
 	invokeGetCampaignsOperation,
+	invokeGetCampaignStatsOperation,
+	invokePauseCampaignOperation,
+	invokeScheduleCampaignOperation,
+	invokeStartCampaignOperation,
 	invokeUpdateCampaignOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
@@ -135,6 +141,60 @@ export async function renderDeleteCampaign(
 	const result = await invokeDeleteCampaignOperation(context, input);
 	context.output.success(`Campaign deleted: ${input.id}`);
 	context.output.json(result);
+}
+
+export async function renderScheduleCampaign(
+	context: CampaignsCliContext,
+	input: { id: number; send_at: string },
+): Promise<void> {
+	const result = await invokeScheduleCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} scheduled for ${input.send_at}`);
+	context.output.json(result);
+}
+
+export async function renderStartCampaign(
+	context: CampaignsCliContext,
+	input: { id: number },
+): Promise<void> {
+	const result = await invokeStartCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} started`);
+	context.output.json(result);
+}
+
+export async function renderPauseCampaign(
+	context: CampaignsCliContext,
+	input: { id: number },
+): Promise<void> {
+	const result = await invokePauseCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} paused`);
+	context.output.json(result);
+}
+
+export async function renderCancelCampaign(
+	context: CampaignsCliContext,
+	input: { id: number },
+): Promise<void> {
+	const result = await invokeCancelCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} cancelled`);
+	context.output.json(result);
+}
+
+export async function renderCloneCampaign(
+	context: CampaignsCliContext,
+	input: { id: number; name: string },
+): Promise<void> {
+	const campaign = await invokeCloneCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} cloned as '${input.name}'`);
+	context.output.json(campaign);
+}
+
+export async function renderGetCampaignStats(
+	context: CampaignsCliContext,
+	input: { id: number },
+): Promise<void> {
+	const stats = await invokeGetCampaignStatsOperation(context, input);
+	context.output.success(`Campaign ${input.id} stats`);
+	context.output.json(stats);
 }
 
 type ListCommandFlags = {
@@ -328,6 +388,96 @@ export async function handleDeleteCampaignCommand({
 		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to delete campaign", error);
+	}
+}
+
+export async function handleScheduleCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number; "send-at": string }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderScheduleCampaign(
+			{ client, output: getOutput() },
+			{ id: flags.id, send_at: flags["send-at"] },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to schedule campaign", error);
+	}
+}
+
+export async function handleStartCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderStartCampaign(
+			{ client, output: getOutput() },
+			{ id: flags.id },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to start campaign", error);
+	}
+}
+
+export async function handlePauseCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderPauseCampaign(
+			{ client, output: getOutput() },
+			{ id: flags.id },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to pause campaign", error);
+	}
+}
+
+export async function handleCancelCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderCancelCampaign(
+			{ client, output: getOutput() },
+			{ id: flags.id },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to cancel campaign", error);
+	}
+}
+
+export async function handleCloneCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number; name: string }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderCloneCampaign(
+			{ client, output: getOutput() },
+			{ id: flags.id, name: flags.name },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to clone campaign", error);
+	}
+}
+
+export async function handleGetCampaignStatsCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderGetCampaignStats(
+			{ client, output: getOutput() },
+			{ id: flags.id },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to read campaign stats", error);
 	}
 }
 
@@ -529,6 +679,79 @@ export default defineGroup({
 				}),
 			},
 			handler: handleDeleteCampaignCommand,
+		}),
+		defineCommand({
+			name: "schedule",
+			operationId: "campaigns.schedule",
+			description: "Schedule a campaign to send at a specific time",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+				"send-at": option(z.string().trim().min(1), {
+					description:
+						"ISO 8601 (or Listmonk-compatible) scheduled send timestamp",
+				}),
+			},
+			handler: handleScheduleCampaignCommand,
+		}),
+		defineCommand({
+			name: "start",
+			operationId: "campaigns.start",
+			description: "Start a campaign (transition to running)",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+			},
+			handler: handleStartCampaignCommand,
+		}),
+		defineCommand({
+			name: "pause",
+			operationId: "campaigns.pause",
+			description: "Pause a running or scheduled campaign",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+			},
+			handler: handlePauseCampaignCommand,
+		}),
+		defineCommand({
+			name: "cancel",
+			operationId: "campaigns.cancel",
+			description: "Cancel a campaign (terminal transition)",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+			},
+			handler: handleCancelCampaignCommand,
+		}),
+		defineCommand({
+			name: "clone",
+			operationId: "campaigns.clone",
+			description: "Clone an existing campaign under a new name",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Source campaign ID",
+				}),
+				name: option(z.string().trim().min(1), {
+					description: "Name for the cloned campaign",
+				}),
+			},
+			handler: handleCloneCampaignCommand,
+		}),
+		defineCommand({
+			name: "stats",
+			operationId: "campaigns.stats",
+			description: "Read delivery stats for a campaign",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+			},
+			handler: handleGetCampaignStatsCommand,
 		}),
 	],
 });

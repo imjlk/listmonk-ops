@@ -9,12 +9,18 @@ import {
 	invokeGetMediaFileOperation,
 	invokeGetMediaOperation,
 	invokeCampaignOperationByMcpName,
+	invokeCancelCampaignOperation,
+	invokeCloneCampaignOperation,
 	invokeDeleteMediaOperation,
+	invokeGetCampaignStatsOperation,
 	invokeMediaOperationByMcpName,
 	invokeCreateSubscriberOperation,
 	invokeCreateTemplateOperation,
 	invokeGetTemplatesOperation,
+	invokePauseCampaignOperation,
+	invokeScheduleCampaignOperation,
 	invokeSetDefaultTemplateOperation,
+	invokeStartCampaignOperation,
 	invokeUpdateCampaignOperation,
 	invokeUpdateSubscriberOperation,
 	invokeUpdateTemplateOperation,
@@ -55,7 +61,7 @@ function mediaContext(methods: Partial<MediaClient["media"]>): {
 
 describe("shared CRUD resource operations", () => {
 	test("exposes object-root registries with safety metadata", () => {
-		expect(campaignOperations).toHaveLength(5);
+		expect(campaignOperations).toHaveLength(11);
 		expect(subscriberOperations).toHaveLength(5);
 		expect(templateOperations).toHaveLength(6);
 		expect(mediaOperations).toHaveLength(3);
@@ -356,5 +362,176 @@ describe("shared CRUD resource operations", () => {
 		await expect(
 			invokeMediaOperationByMcpName(mediaContext({}), "unknown", {}),
 		).resolves.toBeUndefined();
+	});
+
+	test("validates campaign lifecycle state transitions before updating status", async () => {
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
+
+		// schedule: draft -> scheduled allowed when send_at is provided
+		const getById = mock(async () => ({
+			data: { id: 10, name: "Draft", status: "draft" },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		const scheduleResult = await invokeScheduleCampaignOperation(
+			campaignContext({
+				getById,
+				update: update as CampaignClient["campaign"]["update"],
+				updateStatus,
+			}),
+			{ id: 10, send_at: "2026-08-01T09:00:00Z" },
+		);
+		expect(scheduleResult).toEqual({ id: 10, status: "scheduled" });
+		expect(updateStatus).toHaveBeenCalledWith({
+			path: { id: 10 },
+			body: { status: "scheduled" },
+		});
+
+		// start: scheduled -> running allowed
+		const startResult = await invokeStartCampaignOperation(
+			campaignContext({
+				getById: mock(async () => ({
+					data: { id: 10, status: "scheduled" },
+				})) as unknown as CampaignClient["campaign"]["getById"],
+				updateStatus: mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"],
+			}),
+			{ id: 10 },
+		);
+		expect(startResult).toEqual({ id: 10, status: "running" });
+	});
+
+	test("rejects invalid campaign lifecycle transitions", async () => {
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const getById = mock(async () => ({
+			data: { id: 10, status: "finished" },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		// finished is terminal — any transition is rejected before the API call
+		await expect(
+			invokeStartCampaignOperation(
+				campaignContext({ getById, updateStatus }),
+				{ id: 10 },
+			),
+		).rejects.toThrow(/transition/i);
+		expect(updateStatus).not.toHaveBeenCalled();
+	});
+
+	test("rejects malformed schedule send_at before any API call", async () => {
+		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const getById = mock(async () => ({
+			data: { id: 10, status: "draft" },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		for (const malformed of [
+			"tomorrow",
+			"abc",
+			"next week",
+			"2026",
+			// Structurally matches ISO 8601 but contains impossible components.
+			"2026-13-45T25:61:61Z",
+			"0000-00-00 00:00:00",
+		]) {
+			await expect(
+				invokeScheduleCampaignOperation(
+					campaignContext({ getById, update, updateStatus }),
+					{ id: 10, send_at: malformed },
+				),
+			).rejects.toEqual(
+				expect.objectContaining<Partial<OperationInputError>>({
+					name: "OperationInputError",
+				}),
+			);
+		}
+		expect(update).not.toHaveBeenCalled();
+		expect(updateStatus).not.toHaveBeenCalled();
+	});
+
+	test("clones a campaign by copying its body and resetting runtime fields", async () => {
+		const getById = mock(async () => ({
+			data: {
+				id: 7,
+				name: "Source",
+				status: "finished",
+				body: "<p>Hi</p>",
+				subject: "Subject",
+				from_email: "sender@example.com",
+				type: "regular",
+				content_type: "html",
+				messenger: "email",
+				tags: ["newsletter"],
+				template_id: 3,
+				lists: [{ id: 1 }],
+				views: 100,
+				clicks: 20,
+			},
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		const create = mock(async () => ({
+			data: { id: 11, name: "Cloned", status: "draft" },
+		})) as unknown as CampaignClient["campaign"]["create"];
+
+		const cloned = await invokeCloneCampaignOperation(
+			campaignContext({ getById, create }),
+			{ id: 7, name: "Cloned" },
+		);
+		expect(cloned).toMatchObject({ id: 11, name: "Cloned" });
+		// The clone must not carry over the source identity or stats fields.
+		expect(create).toHaveBeenCalledWith({
+			body: expect.not.objectContaining({
+				id: 7,
+				uuid: expect.anything(),
+				views: expect.anything(),
+				clicks: expect.anything(),
+			}),
+		});
+	});
+
+	test("reads campaign stats through the shared operation", async () => {
+		const getById = mock(async () => ({
+			data: {
+				id: 10,
+				status: "running",
+				views: 1000,
+				clicks: 200,
+				bounces: 5,
+				to_send: 5000,
+				sent: 3000,
+				started_at: "2026-07-26T10:00:00Z",
+			},
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		const stats = await invokeGetCampaignStatsOperation(
+			campaignContext({ getById }),
+			{ id: 10 },
+		);
+		expect(stats).toEqual({
+			id: 10,
+			status: "running",
+			views: 1000,
+			clicks: 200,
+			bounces: 5,
+			to_send: 5000,
+			sent: 3000,
+			started_at: "2026-07-26T10:00:00Z",
+		});
+		expect(getById).toHaveBeenCalledWith({ path: { id: 10 } });
+	});
+
+	test("pause and cancel dispatch through the lifecycle invokers", async () => {
+		const getById = mock(async ({ path }: { path: { id: number } }) => ({
+			data: { id: path.id, status: path.id === 1 ? "running" : "scheduled" },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+
+		const paused = await invokePauseCampaignOperation(
+			campaignContext({ getById, updateStatus }),
+			{ id: 1 },
+		);
+		expect(paused).toEqual({ id: 1, status: "paused" });
+
+		const cancelled = await invokeCancelCampaignOperation(
+			campaignContext({ getById, updateStatus }),
+			{ id: 2 },
+		);
+		expect(cancelled).toEqual({ id: 2, status: "cancelled" });
 	});
 });

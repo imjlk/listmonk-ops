@@ -1,6 +1,12 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import {
+	renderCancelCampaign,
+	renderCloneCampaign,
+	renderGetCampaignStats,
+	renderPauseCampaign,
+	renderScheduleCampaign,
+	renderStartCampaign,
 	renderCampaigns,
 	type CampaignsCliContext,
 } from "../src/commands/campaigns";
@@ -171,5 +177,79 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 			id: 14,
 			deleted: true,
 		});
+	});
+
+	test("renders campaign lifecycle transitions through the shared renderers", async () => {
+		// The renderers delegate to the named shared invokers; the operations
+		// package owns the validation logic. We only assert the call edges
+		// that anchor the CLI handler → renderer → invoker chain in the graph.
+		// State machine is exercised end-to-end: the mock tracks the current
+		// status so each transition sees the previous one's effect.
+		let currentStatus = "draft";
+		const campaign = {
+			getById: mock(async () => ({
+				data: {
+					id: 10,
+					status: currentStatus,
+					// Required create fields so clone's input validation passes.
+					subject: "Subject",
+					from_email: "sender@example.com",
+					body: "<p>Hi</p>",
+					type: "regular",
+					content_type: "html",
+					messenger: "email",
+					template_id: 3,
+					lists: [{ id: 1 }],
+				},
+			})),
+			update: mock(async () => ({ data: {} })),
+			updateStatus: mock(async ({ body }: { body: { status: string } }) => {
+				currentStatus = body.status;
+				return { data: true };
+			}),
+			create: mock(async () => ({
+				data: { id: 11, name: "Cloned", status: "draft" },
+			})),
+		};
+		const cliContext = {
+			client: { campaign } as unknown as Pick<
+				ListmonkClient,
+				"campaign"
+			>,
+			output: output(),
+		} satisfies CampaignsCliContext;
+
+		await renderScheduleCampaign(cliContext, {
+			id: 10,
+			send_at: "2026-08-01T09:00:00Z",
+		});
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Campaign 10 scheduled for 2026-08-01T09:00:00Z",
+		);
+
+		await renderStartCampaign(cliContext, { id: 10 });
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Campaign 10 started",
+		);
+
+		await renderPauseCampaign(cliContext, { id: 10 });
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Campaign 10 paused",
+		);
+
+		await renderCancelCampaign(cliContext, { id: 10 });
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Campaign 10 cancelled",
+		);
+
+		await renderCloneCampaign(cliContext, { id: 10, name: "Clone" });
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Campaign 10 cloned as 'Clone'",
+		);
+
+		await renderGetCampaignStats(cliContext, { id: 10 });
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Campaign 10 stats",
+		);
 	});
 });
