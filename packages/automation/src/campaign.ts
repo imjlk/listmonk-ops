@@ -79,6 +79,15 @@ function collectBodyLinks(body: string): string[] {
  * 192.168.x), link-local (169.254.x, fe80::), and cloud metadata IPs
  * (169.254.169.254) to prevent SSRF via campaign body content.
  */
+function isPrivateOctetPair(a: number, b: number): boolean {
+	if (a === 127 || a === 10 || a === 0) return true;
+	if (a === 172 && b >= 16 && b <= 31) return true;
+	if (a === 192 && b === 168) return true;
+	if (a === 169 && b === 254) return true;
+	if (a === 100 && b === 100) return true;
+	return false;
+}
+
 export function isPrivateHost(hostname: string): boolean {
 	const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
 	const mapped = host.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
@@ -87,29 +96,16 @@ export function isPrivateHost(hostname: string): boolean {
 	if (parts.length === 4) {
 		const nums = parts.map((p) => parseInt(p, 10));
 		if (nums.length === 4 && nums.every((n) => n >= 0 && n <= 255)) {
-			const a = nums[0]!;
-			const b = nums[1]!;
-			if (a === 127 || a === 10 || a === 0) return true;
-			if (a === 172 && b >= 16 && b <= 31) return true;
-			if (a === 192 && b === 168) return true;
-			if (a === 169 && b === 254) return true;
-			if (a === 100 && b === 100) return true; // Alibaba Cloud ECS metadata
-			return false;
+			return isPrivateOctetPair(nums[0]!, nums[1]!);
 		}
 	}
 	if (host === "::1" || host === "localhost") return true;
-	// IPv4-mapped IPv6 in canonical hex form (::ffff:7f00:1)
 	const mappedHex = host.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
 	if (mappedHex) {
 		const hi = parseInt(mappedHex[1]!, 16);
-		const lo = parseInt(mappedHex[2]!, 16);
 		const a = (hi >> 8) & 0xff;
 		const b = hi & 0xff;
-		if (a === 127 || a === 10 || a === 0) return true;
-		if (a === 172 && b >= 16 && b <= 31) return true;
-		if (a === 192 && b === 168) return true;
-		if (a === 169 && b === 254) return true;
-		if (a === 100 && b === 100) return true;
+		return isPrivateOctetPair(a, b);
 	}
 	if (host.includes("::")) {
 		if (host.startsWith("fc") || host.startsWith("fd")) return true;
