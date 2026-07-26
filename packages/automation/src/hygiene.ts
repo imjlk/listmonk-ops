@@ -106,6 +106,14 @@ export async function runSubscriberHygiene(
 	const skippedDueToLimit = Math.max(0, candidates.length - selected.length);
 	let processedSubscribers = 0;
 
+	// Warn if winback + blocklist is set (blocklist is ignored in winback).
+	// This runs in both dry-run and live mode so operators see the warning early.
+	if (mode === "winback" && blocklist) {
+		errors.push(
+			"Warning: blocklist=true is ignored in winback mode; use sunset mode for blocklisting",
+		);
+	}
+
 	if (!dryRun) {
 			// Validate mode-appropriate mutations: winback requires targetListId,
 			// sunset requires blocklist=true. Reject no-op combinations.
@@ -119,12 +127,6 @@ export async function runSubscriberHygiene(
 				"blocklist=true or targetListId is required for sunset mode when dryRun=false",
 			);
 		}
-			// Warn if winback + blocklist is set (blocklist is ignored in winback)
-		if (mode === "winback" && blocklist) {
-			errors.push(
-				"Warning: blocklist=true is ignored in winback mode; use sunset mode for blocklisting",
-			);
-		}
 
 		for (const candidate of selected) {
 			const id = toPositiveInt(candidate.id);
@@ -136,32 +138,32 @@ export async function runSubscriberHygiene(
 			try {
 				if (options.targetListId) {
 					await client.subscriber.manageListById({
-							path: { id },
-							body: {
-								action: "add",
-								target_list_ids: [options.targetListId],
-							},
-						});
+								path: { id },
+								body: {
+									action: "add",
+									target_list_ids: [options.targetListId],
+								},
+							});
 					mutated = true;
 				}
 
 				if (mode === "sunset" && blocklist) {
 					await client.subscriber.manageBlocklistById({
-							path: { id },
-							body: {
-								action: "add",
-							},
-						});
+								path: { id },
+								body: {
+									action: "add",
+								},
+							});
 					mutated = true;
-				}
-
-				if (mutated) {
-					processedSubscribers += 1;
 				}
 			} catch (error) {
 				errors.push(
 					`Subscriber ${id}: ${error instanceof Error ? error.message : String(error)}`,
 				);
+			} finally {
+				if (mutated) {
+					processedSubscribers += 1;
+				}
 			}
 		}
 	}

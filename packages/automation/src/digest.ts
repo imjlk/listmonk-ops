@@ -145,8 +145,7 @@ export async function generateDailyDigest(
 	const campaignBreaches: DailyDigestResult["risk"]["campaignBreaches"] = [];
 	const maxGuardCampaigns = 10;
 	const campaignsEligible = runningCampaigns.length;
-	const campaignsEvaluated = Math.min(campaignsEligible, maxGuardCampaigns);
-	const truncated = campaignsEligible > maxGuardCampaigns;
+	let campaignsEvaluated = 0;
 	for (const campaign of runningCampaigns.slice(0, maxGuardCampaigns)) {
 		const campaignId = toPositiveInt(campaign.id);
 		if (!campaignId) {
@@ -158,6 +157,7 @@ export async function generateDailyDigest(
 			clickRateThreshold: options.clickRateThreshold,
 			pauseOnBreach: false,
 		});
+		campaignsEvaluated += 1;
 		if (guardResult.breaches.length > 0) {
 			campaignBreaches.push({
 				campaignId,
@@ -166,6 +166,7 @@ export async function generateDailyDigest(
 			});
 		}
 	}
+	const truncated = campaignsEligible > campaignsEvaluated;
 
 	const markdownLines = [
 		"# Listmonk Ops Daily Digest",
