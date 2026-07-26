@@ -103,7 +103,7 @@ describe("transactional operation MCP adapter", () => {
 		);
 		expect(missingRecipient.isError).toBe(true);
 		expect(missingRecipient.content[0]?.text).toContain(
-			"Either subscriber_email or subscriber_id is required",
+			"Exactly one of subscriber_email or subscriber_id is required",
 		);
 
 		const apiFailure = await handleTransactionalTools(

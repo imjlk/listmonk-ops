@@ -27,6 +27,78 @@ const positiveIdInputSchema = z.codec(
 	},
 );
 
+/**
+ * Header names that Listmonk or the SMTP transport sets on every message.
+ * Callers cannot override these through the transactional `headers` field.
+ */
+const PROTECTED_HEADER_NAMES = new Set([
+	"from",
+	"to",
+	"cc",
+	"bcc",
+	"reply-to",
+	"subject",
+	"content-type",
+	"content-length",
+	"content-transfer-encoding",
+	"mime-version",
+	"date",
+	"message-id",
+]);
+
+/**
+ * Intentionally restrictive allowlist for custom header field-names.
+ * Uses the RFC 5322 §3.2.3 `atext` character set (originally defined for
+ * email local-parts) plus `.`, which together cover all common custom
+ * header conventions (e.g. `X-Mailer`, `X-MyApp.Version`). This is stricter
+ * than RFC 5322 `ftext` (which allows most printable ASCII), but the
+ * tighter surface reduces the risk of injection through obscure characters.
+ */
+const HEADER_NAME_PATTERN = /^[A-Za-z0-9.!#$%&'*+\-/=?^_`{|}~]+$/;
+const HEADER_CONTROL_CHAR_PATTERN = /[\0\x01-\x1f\x7f]/;
+
+interface HeaderIssue {
+	path: Array<string | number>;
+	message: string;
+}
+
+function collectHeaderIssues(
+	headers: Array<Record<string, string>>,
+): HeaderIssue[] {
+	const issues: HeaderIssue[] = [];
+	for (const [entryIndex, entry] of headers.entries()) {
+		for (const [rawName, rawValue] of Object.entries(entry)) {
+			const name = rawName.trim();
+			const path: Array<string | number> = ["headers", entryIndex, name];
+			if (name.length === 0) {
+				issues.push({ path, message: "Header name must not be empty" });
+				continue;
+			}
+			if (!HEADER_NAME_PATTERN.test(name)) {
+				issues.push({
+					path,
+					message: `Header name '${name}' must contain only RFC 5322 atext characters (letters, digits, and .!#$%&'*+-/=?^_\`{|}~)`,
+				});
+				continue;
+			}
+			if (PROTECTED_HEADER_NAMES.has(name.toLowerCase())) {
+				issues.push({
+					path,
+					message: `Header '${name}' is reserved and cannot be set through the transactional headers field`,
+				});
+				continue;
+			}
+			if (HEADER_CONTROL_CHAR_PATTERN.test(rawValue)) {
+				issues.push({
+					path,
+					message: `Header '${name}' value must not contain ASCII control characters (including CR, LF, and NUL)`,
+				});
+			}
+		}
+	}
+	return issues;
+}
+
 const sendTransactionalInputSchema = z
 	.object({
 		template_id: positiveIdInputSchema.describe("Transactional template ID"),
@@ -57,12 +129,36 @@ const sendTransactionalInputSchema = z
 			.enum(["html", "markdown", "plain"])
 			.optional()
 			.describe("Message content type"),
+		idempotency_key: z
+			.string()
+			.trim()
+			.min(1)
+			.max(255)
+			.optional()
+			.describe(
+				"Client-side deduplication key. The Listmonk server does not enforce idempotency; callers are responsible for deduplicating retries.",
+			),
 	})
 	.refine(
 		(input) =>
-			input.subscriber_email !== undefined || input.subscriber_id !== undefined,
-		{ message: "Either subscriber_email or subscriber_id is required" },
-	);
+			(input.subscriber_email !== undefined) !==
+			(input.subscriber_id !== undefined),
+		{
+			message:
+				"Exactly one of subscriber_email or subscriber_id is required (provide one, not both)",
+		},
+	)
+	.superRefine((input, ctx) => {
+		if (input.headers === undefined) return;
+		const issues = collectHeaderIssues(input.headers);
+		for (const issue of issues) {
+			ctx.addIssue({
+				code: "custom",
+				path: issue.path,
+				message: issue.message,
+			});
+		}
+	});
 
 const sendTransactionalOutputSchema = z.object({
 	sent: z.boolean().describe("Whether Listmonk accepted the message"),
@@ -109,6 +205,10 @@ export async function sendTransactionalMessage(
 	{ client }: TransactionalOperationContext,
 	input: z.output<typeof sendTransactionalInputSchema>,
 ): Promise<SendTransactionalOutput> {
+	// NOTE: `idempotency_key` is intentionally omitted — Listmonk does not
+	// support idempotency on transactional sends; callers own deduplication.
+	// Spreading the full `input` here would leak the field, so the payload is
+	// enumerated explicitly.
 	const response = await client.transactional.send({
 		template_id: input.template_id,
 		subscriber_email: input.subscriber_email,
