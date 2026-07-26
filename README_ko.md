@@ -529,12 +529,15 @@ listmonk-cli ops preflight --campaign-id 123 --check-links true --fail-on-warn f
 
 # 2) 전달성 가드
 listmonk-cli ops guard --campaign-id 123 --pause-on-breach true --confirm
+# 참여도 위반(open/click rate)은 최소 100건 발송 후 평가됩니다.
+# --minimum-sent로 변경 가능.
 
 # 3) 구독자 위생 관리 (프리뷰)
 listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --confirm
 
 # 4) 세그먼트 드리프트 스냅샷
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
+# --baseline-mode lookback-mean으로 lookback 평균 기준 비교 가능.
 
 # 5) 템플릿 레지스트리/버전 관리
 listmonk-cli ops templates-sync
