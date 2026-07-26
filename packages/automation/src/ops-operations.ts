@@ -255,7 +255,6 @@ const segmentDriftComparisonSchema = z.object({
 
 const segmentDriftOutputSchema = z.object({
 	capturedAt: z.string(),
-
 	threshold: z.number().nonnegative(),
 	minAbsoluteChange: z.number().nonnegative(),
 	comparisons: z.array(segmentDriftComparisonSchema),
@@ -278,7 +277,6 @@ const templateRegistryVersionSchema = z.object({
 });
 
 const templateRegistrySyncOutputSchema = z.object({
-
 	capturedAt: z.string(),
 	createdVersions: z.number().int().nonnegative(),
 	unchangedTemplates: z.number().int().nonnegative(),
