@@ -23,7 +23,6 @@ import {
 	type TemplatePromoteResult,
 	type TemplateRegistrySyncResult,
 } from "./template-registry.js";
-import { getOpsStorePaths } from "./core.js";
 import {
 	defineOperationCatalog,
 	defineOperation,
@@ -73,11 +72,6 @@ const booleanInput = z.preprocess(
 	},
 	z.boolean(),
 );
-
-const storePathsSchema = z.object({
-	segmentStorePath: z.string(),
-	templateRegistryPath: z.string(),
-});
 
 const campaignPreflightInputSchema = z.object({
 	campaign_id: positiveIntegerInput.describe("Campaign ID"),
@@ -168,6 +162,13 @@ const templateIdInputSchema = z.object({
 
 const templatePromoteInputSchema = templateIdInputSchema.extend({
 	version_id: z.string().trim().min(1).describe("Stored version ID"),
+	expected_remote_hash: z
+		.string()
+		.optional()
+		.describe("Expected remote template hash for optimistic concurrency"),
+	force: booleanInput
+		.default(false)
+		.describe("Override hash mismatch check"),
 });
 
 const dailyDigestInputSchema = z.object({
@@ -261,7 +262,6 @@ const segmentDriftComparisonSchema = z.object({
 
 const segmentDriftOutputSchema = z.object({
 	capturedAt: z.string(),
-	storePath: z.string(),
 	threshold: z.number().nonnegative(),
 	minAbsoluteChange: z.number().nonnegative(),
 	comparisons: z.array(segmentDriftComparisonSchema),
@@ -284,7 +284,6 @@ const templateRegistryVersionSchema = z.object({
 });
 
 const templateRegistrySyncOutputSchema = z.object({
-	storePath: z.string(),
 	capturedAt: z.string(),
 	createdVersions: z.number().int().nonnegative(),
 	unchangedTemplates: z.number().int().nonnegative(),
@@ -298,11 +297,9 @@ const templateRegistrySyncOutputSchema = z.object({
 			hash: z.string(),
 		}),
 	),
-	storePaths: storePathsSchema,
 });
 
 const templateRegistryHistoryOutputSchema = z.object({
-	storePath: z.string(),
 	templateId: z.number().int().positive(),
 	templateName: z.string(),
 	activeVersionId: z.string().optional(),
@@ -349,7 +346,6 @@ const dailyDigestOutputSchema = z.object({
 		truncated: z.boolean(),
 	}),
 	markdown: z.string(),
-	storePaths: storePathsSchema,
 });
 
 const readSafety = {
@@ -442,13 +438,13 @@ export async function executeSegmentDriftOperation(
 export async function executeTemplateRegistrySyncOperation(
 	context: OpsOperationContext,
 	input: z.output<typeof templateRegistrySyncInputSchema>,
-): Promise<TemplateRegistrySyncResult & { storePaths: ReturnType<typeof getOpsStorePaths> }> {
+): Promise<TemplateRegistrySyncResult> {
 	const client = requireOpsClient(context);
 	const result = await syncTemplateRegistry(client, {
 		templateIds: input.template_ids,
 		note: input.note,
 	});
-	return { ...result, storePaths: getOpsStorePaths() };
+	return result;
 }
 
 export async function executeTemplateRegistryHistoryOperation(
@@ -463,7 +459,10 @@ export async function executeTemplateRegistryPromoteOperation(
 	input: z.output<typeof templatePromoteInputSchema>,
 ): Promise<TemplatePromoteResult> {
 	const client = requireOpsClient(context);
-	return promoteTemplateVersion(client, input.template_id, input.version_id);
+	return promoteTemplateVersion(client, input.template_id, input.version_id, {
+		expectedRemoteHash: input.expected_remote_hash?.trim() || undefined,
+		force: input.force,
+	});
 }
 
 export async function executeTemplateRegistryRollbackOperation(
@@ -477,7 +476,7 @@ export async function executeTemplateRegistryRollbackOperation(
 export async function executeDailyDigestOperation(
 	context: OpsOperationContext,
 	input: z.output<typeof dailyDigestInputSchema>,
-): Promise<DailyDigestResult & { storePaths: ReturnType<typeof getOpsStorePaths> }> {
+): Promise<DailyDigestResult> {
 	const client = requireOpsClient(context);
 	const result = await generateDailyDigest(client, {
 		hours: input.hours,
@@ -485,7 +484,7 @@ export async function executeDailyDigestOperation(
 		openRateThreshold: input.open_threshold,
 		clickRateThreshold: input.click_threshold,
 	});
-	return { ...result, storePaths: getOpsStorePaths() };
+	return result;
 }
 
 export const campaignPreflightOperation = defineOperation({

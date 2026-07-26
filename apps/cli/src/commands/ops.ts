@@ -313,6 +313,12 @@ export default defineGroup({
 				"version-id": option(z.string().trim().min(1), {
 					description: "Stored version ID",
 				}),
+				"expected-remote-hash": option(z.string().optional(), {
+					description: "Expected remote template hash for optimistic concurrency",
+				}),
+				force: option(z.coerce.boolean().default(false), {
+					description: "Override hash mismatch check",
+				}),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
@@ -322,6 +328,8 @@ export default defineGroup({
 						{
 							template_id: flags["template-id"],
 							version_id: flags["version-id"],
+							expected_remote_hash: flags["expected-remote-hash"],
+							force: flags.force,
 						},
 					);
 					OutputUtils.json(result);

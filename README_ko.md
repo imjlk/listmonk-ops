@@ -549,6 +549,12 @@ listmonk-cli ops templates-rollback --template-id 10 --confirm
 listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
 ```
 
+프리플라이트 링크 검사는 private/internal 호스트(loopback, private
+CIDR, link-local, 클라우드 metadata IP)를 차단하며 redirect를 수동으로
+팔로우하며 각 hop마다 재검증합니다. 템플릿 promote는 `--expected-remote-hash`로
+optimistic concurrency를 지원합니다. MCP/CLI operation 출력은 더 이상
+절대 파일시스템 경로를 노출하지 않습니다.
+
 ## OpenAPI 재생성 (Hey API)
 
 SDK는 `@hey-api/openapi-ts`로 생성합니다.

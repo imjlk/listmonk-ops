@@ -1,4 +1,5 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { lookup as dnsLookup } from "node:dns/promises";
 
 import {
 	getCampaign,
@@ -45,12 +46,159 @@ function summarizeChecks(checks: CampaignPreflightCheck[]) {
 	};
 }
 
+const LINK_LOCAL_PREFIXES = ["fe8", "fe9", "fea", "feb"];
+
+/**
+ * Check links with bounded concurrency (max 5 at a time) to avoid
+ * overwhelming the server or the network.
+ */
+async function checkLinksWithBoundedConcurrency(
+	urls: string[],
+	timeoutMs: number,
+): Promise<Array<{ url: string; ok: boolean; status?: number; error?: string }>> {
+	const results: Array<{ url: string; ok: boolean; status?: number; error?: string }> = [];
+	const concurrency = 5;
+	for (let i = 0; i < urls.length; i += concurrency) {
+		const batch = urls.slice(i, i + concurrency);
+		const batchResults = await Promise.all(
+			batch.map((url) => checkLink(url, timeoutMs)),
+		);
+		results.push(...batchResults);
+	}
+	return results;
+}
+
 function collectBodyLinks(body: string): string[] {
 	const matches = body.match(/https?:\/\/[^\s"'<>()]+/g) || [];
 	return Array.from(new Set(matches));
 }
 
-async function checkLink(
+/**
+ * Check whether a URL's hostname resolves to a private or internal address.
+ * Blocks loopback (127.x, ::1), private CIDRs (10.x, 172.16-31.x,
+ * 192.168.x), link-local (169.254.x, fe80::), and cloud metadata IPs
+ * (169.254.169.254) to prevent SSRF via campaign body content.
+ */
+function isPrivateOctetPair(a: number, b: number): boolean {
+	if (a === 127 || a === 10 || a === 0) return true;
+	if (a === 172 && b >= 16 && b <= 31) return true;
+	if (a === 192 && b === 168) return true;
+	if (a === 169 && b === 254) return true;
+	if (a === 100 && b === 100) return true;
+	if (a === 100 && b >= 64 && b <= 127) return true; // shared address space 100.64.0.0/10
+	return false;
+}
+
+export function isPrivateHost(hostname: string): boolean {
+	const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+	const mapped = host.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+	const checkHost = mapped ? mapped[1]! : host;
+	const parts = checkHost.split(".");
+	if (parts.length === 4) {
+		const nums = parts.map((p) => parseInt(p, 10));
+		if (nums.length === 4 && nums.every((n) => n >= 0 && n <= 255)) {
+			return isPrivateOctetPair(nums[0]!, nums[1]!);
+		}
+	}
+	if (host === "::1" || host === "::" || host === "localhost") return true;
+	if (host === "::ffff:0:0") return true;
+	const mappedHex = host.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+	if (mappedHex) {
+		const hi = parseInt(mappedHex[1]!, 16);
+		const a = (hi >> 8) & 0xff;
+		const b = hi & 0xff;
+		return isPrivateOctetPair(a, b);
+	}
+	if (host.includes("::")) {
+		if (host.startsWith("fc") || host.startsWith("fd")) return true;
+		if (LINK_LOCAL_PREFIXES.some((p) => host.startsWith(p))) return true;
+	}
+	return false;
+}
+
+/**
+ * Validate that a URL is safe to fetch: must be http(s), not target a
+ * private/internal host.
+ */
+export function isSafeFetchUrl(url: string): { safe: boolean; reason?: string } {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return { safe: false, reason: "Invalid URL" };
+	}
+	if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+		return { safe: false, reason: `Protocol ${parsed.protocol} not allowed` };
+	}
+	if (isPrivateHost(parsed.hostname)) {
+		return {
+			safe: false,
+			reason: `Host ${parsed.hostname} is private/internal`,
+		};
+	}
+	return { safe: true };
+}
+
+/**
+ * Resolve a hostname via DNS and check every resolved address against
+ * isPrivateHost. This prevents DNS rebinding attacks where a hostname
+ * like "evil.com" resolves to 127.0.0.1 or an internal IP.
+ *
+ * Uses Node's dns.promises.lookup which Bun supports. Falls open if
+ * resolution fails (e.g. localhost with no DNS entry) because the
+ * hostname-only check above already handles literal private IPs.
+ */
+async function isSafeResolvedHost(hostname: string): Promise<{ safe: boolean; reason?: string }> {
+	let addresses: Array<{ address: string }>;
+	try {
+		addresses = await dnsLookup(hostname, { all: true });
+	} catch {
+		// DNS resolution failed — the hostname-only check already caught
+		// literal private IPs. If it's a public hostname that doesn't
+		// resolve, the fetch will fail anyway. Allow it.
+		return { safe: true };
+	}
+	for (const addr of addresses) {
+		if (isPrivateHost(addr.address)) {
+			return {
+				safe: false,
+				reason: `Host ${hostname} resolves to private/internal address ${addr.address}`,
+			};
+		}
+	}
+	return { safe: true };
+}
+
+/**
+ * Asynchronously validate that a URL is safe to fetch: must be http(s),
+ * not target a private/internal host, and the hostname must not resolve
+ * to a private/internal IP (DNS rebinding defense).
+ */
+export async function isSafeFetchUrlAsync(url: string): Promise<{ safe: boolean; reason?: string }> {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return { safe: false, reason: "Invalid URL" };
+	}
+	if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+		return { safe: false, reason: `Protocol ${parsed.protocol} not allowed` };
+	}
+	if (isPrivateHost(parsed.hostname)) {
+		return {
+			safe: false,
+			reason: `Host ${parsed.hostname} is private/internal`,
+		};
+	}
+	// DNS resolution pinning: resolve and check every address.
+	const resolved = await isSafeResolvedHost(parsed.hostname);
+	if (!resolved.safe) {
+		return resolved;
+	}
+	return { safe: true };
+}
+
+export async function checkLink(
 	url: string,
 	timeoutMs: number,
 ): Promise<{
@@ -59,24 +207,83 @@ async function checkLink(
 	status?: number;
 	error?: string;
 }> {
+	// SSRF defense: reject private/internal hosts before fetching,
+	// including DNS resolution pinning.
+	const safety = await isSafeFetchUrlAsync(url);
+	if (!safety.safe) {
+		return { url, ok: false, error: `Blocked: ${safety.reason}` };
+	}
+
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), timeoutMs);
+	const maxRedirects = 5;
+	let currentUrl = url;
+	let redirectCount = 0;
 
 	try {
-		let response = await fetch(url, {
+		let response = await fetch(currentUrl, {
 			method: "HEAD",
-			redirect: "follow",
+			redirect: "manual",
 			signal: controller.signal,
 		});
 
+		const headResult = await followRedirects(
+			response,
+			"HEAD",
+			currentUrl,
+			redirectCount,
+			maxRedirects,
+			controller,
+		);
+		if (headResult.error) {
+			return { url, ok: false, error: headResult.error };
+		}
+		response = headResult.response;
+		currentUrl = headResult.currentUrl;
+		redirectCount = headResult.redirectCount;
+
 		if (response.status === 405 || response.status === 501) {
-			response = await fetch(url, {
+			response.body?.cancel().catch(() => {});
+			response = await fetch(currentUrl, {
 				method: "GET",
-				redirect: "follow",
+				redirect: "manual",
 				signal: controller.signal,
 			});
+			const getResult = await followRedirects(
+				response,
+				"GET",
+				currentUrl,
+				redirectCount,
+				maxRedirects,
+				controller,
+			);
+			if (getResult.error) {
+				return { url, ok: false, error: getResult.error };
+			}
+			response = getResult.response;
+			currentUrl = getResult.currentUrl;
+			redirectCount = getResult.redirectCount;
 		}
 
+		// If a 3xx remains after followRedirects, distinguish between
+		// budget exhaustion and a Location-less 3xx.
+		if (response.status >= 300 && response.status < 400) {
+			const hasLocation = response.headers.get("location");
+			const reason =
+				redirectCount >= maxRedirects
+					? `Exceeded max redirects (${maxRedirects})`
+					: hasLocation
+						? `Unexpected redirect state`
+						: `Redirect ${response.status} without Location header`;
+			return {
+				url,
+				ok: false,
+				status: response.status,
+				error: reason,
+			};
+		}
+
+		response.body?.cancel().catch(() => {});
 		return {
 			url,
 			ok: response.status < 400,
@@ -91,6 +298,51 @@ async function checkLink(
 	} finally {
 		clearTimeout(timeout);
 	}
+}
+
+/**
+ * Shared redirect-following loop with per-hop SSRF revalidation.
+ * Used by both HEAD and GET paths in checkLink.
+ */
+async function followRedirects(
+	response: Response,
+	method: string,
+	currentUrl: string,
+	redirectCount: number,
+	maxRedirects: number,
+	controller: AbortController,
+): Promise<{
+	response: Response;
+	currentUrl: string;
+	redirectCount: number;
+	error?: string;
+}> {
+	while (
+		response.status >= 300 &&
+		response.status < 400 &&
+		response.headers.get("location") &&
+		redirectCount < maxRedirects
+	) {
+		const location = response.headers.get("location")!;
+		response.body?.cancel().catch(() => {});
+		currentUrl = new URL(location, currentUrl).toString();
+		const redirectSafety = await isSafeFetchUrlAsync(currentUrl);
+		if (!redirectSafety.safe) {
+			return {
+				response,
+				currentUrl,
+				redirectCount,
+				error: `Redirect blocked: ${redirectSafety.reason}`,
+			};
+		}
+		redirectCount += 1;
+		response = await fetch(currentUrl, {
+			method,
+			redirect: "manual",
+			signal: controller.signal,
+		});
+	}
+	return { response, currentUrl, redirectCount };
 }
 
 export async function runCampaignPreflight(
@@ -254,8 +506,9 @@ export async function runCampaignPreflight(
 				message: "No http(s) links found in campaign body",
 			});
 		} else {
-			const linkResults = await Promise.all(
-				links.map((url) => checkLink(url, linkCheckTimeoutMs)),
+			const linkResults = await checkLinksWithBoundedConcurrency(
+				links,
+				linkCheckTimeoutMs,
 			);
 			const brokenLinks = linkResults.filter((entry) => !entry.ok);
 			checks.push({

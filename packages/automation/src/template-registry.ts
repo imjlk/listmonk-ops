@@ -456,7 +456,7 @@ async function commitRemoteTemplateMutation(
 
 		const causeMessage = error instanceof Error ? error.message : String(error);
 		throw new TemplateRegistryWriteTransactionError(
-			`Template ${templateId} was updated in Listmonk, but local registry state at ${storeDefinition.path} could not be confirmed. Inspect the remote template and registry before retrying. Cause: ${causeMessage}`,
+			`Template ${templateId} was updated in Listmonk, but local registry state could not be confirmed. Inspect the remote template and registry before retrying. Cause: ${causeMessage}`,
 			error,
 		);
 	}
@@ -466,18 +466,38 @@ export async function promoteTemplateVersion(
 	client: ListmonkClient,
 	templateId: number,
 	versionId: string,
+	options?: { expectedRemoteHash?: string; force?: boolean },
 ): Promise<TemplatePromoteResult> {
 	const storeDefinition = createTemplateRegistryStore();
 	return commitRemoteTemplateMutation(
 		storeDefinition,
 		templateId,
-		(store) =>
-			promoteTemplateVersionInStore(
+		async (store) => {
+			// Hash check inside the lock so concurrent promotions cannot
+			// both pass the check before either acquires the lock.
+			if (!options?.force && options?.expectedRemoteHash) {
+				const remoteTemplate = await getTemplateById(client, templateId);
+				const remoteHash = createTemplateHash({
+					id: toPositiveInt(remoteTemplate.id) || templateId,
+					name: remoteTemplate.name || "",
+					type: remoteTemplate.type || "campaign",
+					subject: remoteTemplate.subject || "",
+					body: remoteTemplate.body || "",
+					bodySource: remoteTemplate.body_source || undefined,
+				} satisfies TemplateVersionSnapshot);
+				if (remoteHash !== options.expectedRemoteHash) {
+					throw new Error(
+						`Template ${templateId} remote hash mismatch: expected ${options.expectedRemoteHash.slice(0, 10)}, got ${remoteHash.slice(0, 10)}. Use force=true to override.`,
+					);
+				}
+			}
+			return promoteTemplateVersionInStore(
 				client,
 				templateId,
 				versionId,
 				store,
-			),
+			);
+		},
 	);
 }
 

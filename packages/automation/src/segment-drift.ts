@@ -201,12 +201,10 @@ export async function runSegmentDriftSnapshot(
 			});
 				const baselineCount =
 					lookbackHistory.length > 0
-						? Math.round(
-								lookbackHistory.reduce(
-									(sum, snapshot) => sum + snapshot.subscriberCount,
-									0,
-								) / lookbackHistory.length,
-							)
+						? lookbackHistory.reduce(
+								(sum, snapshot) => sum + snapshot.subscriberCount,
+								0,
+							) / lookbackHistory.length
 						: undefined;
 				const previousCount = previous?.subscriberCount;
 
@@ -214,6 +212,8 @@ export async function runSegmentDriftSnapshot(
 				// "previous" (default) compares against the immediately
 				// preceding snapshot. "lookback-mean" / "lookback-median"
 				// compare against the lookback window aggregate.
+				// The aggregate is kept as a fractional number so delta and
+				// deltaRate are computed precisely.
 				let alertBaseline: number | undefined;
 				if (baselineMode === "lookback-mean" || baselineMode === "lookback-median") {
 					if (baselineCount !== undefined) {
@@ -224,7 +224,7 @@ export async function runSegmentDriftSnapshot(
 							const mid = Math.floor(sorted.length / 2);
 							alertBaseline =
 								sorted.length % 2 === 0
-									? Math.round(((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2)
+									? ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2
 									: sorted[mid];
 						} else {
 							alertBaseline = baselineCount;
@@ -253,7 +253,10 @@ export async function runSegmentDriftSnapshot(
 					listName: entry.listName,
 					previousCount,
 					currentCount: entry.subscriberCount,
-					baselineCount: alertBaseline ?? baselineCount,
+					baselineCount:
+						alertBaseline !== undefined || baselineCount !== undefined
+							? Math.round(alertBaseline ?? baselineCount ?? 0)
+							: undefined,
 					delta,
 					deltaRate,
 					alert,
