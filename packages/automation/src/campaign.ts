@@ -85,6 +85,7 @@ function isPrivateOctetPair(a: number, b: number): boolean {
 	if (a === 192 && b === 168) return true;
 	if (a === 169 && b === 254) return true;
 	if (a === 100 && b === 100) return true;
+	if (a === 100 && b >= 64 && b <= 127) return true; // shared address space 100.64.0.0/10
 	return false;
 }
 
