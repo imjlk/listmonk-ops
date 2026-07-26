@@ -39,11 +39,7 @@ const operationSummarySchema = {
 				auditRequired: { type: "boolean" },
 				dryRunSupported: { type: "boolean" },
 			},
-			required: [
-				"confirmationRequired",
-				"auditRequired",
-				"dryRunSupported",
-			],
+			required: ["confirmationRequired", "auditRequired", "dryRunSupported"],
 		},
 	},
 	required: [

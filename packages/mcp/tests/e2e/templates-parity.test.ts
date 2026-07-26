@@ -33,14 +33,7 @@ function resolveCliE2eCredential(
 
 function runCliSetDefaultTemplate(templateId: number): CliResult {
 	const result = Bun.spawnSync(
-		[
-			"bun",
-			CLI_ENTRY,
-			"templates",
-			"set-default",
-			"--id",
-			String(templateId),
-		],
+		["bun", CLI_ENTRY, "templates", "set-default", "--id", String(templateId)],
 		{
 			cwd: CLI_DIRECTORY,
 			env: {

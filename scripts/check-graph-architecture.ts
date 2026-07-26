@@ -321,27 +321,29 @@ const abTestOperationDefinitions = [
 ] as const;
 
 const abTestOperationContracts: readonly CallPathContract[] =
-	abTestOperationDefinitions.flatMap(([label, cliAdapter, invoker, executor]) => [
-	{
-		label: `CLI A/B ${label} reaches the named operation action`,
-		path: [
-			cliAbTestModule,
-			`apps/cli/src/commands/abtest.ts#${cliAdapter}:function`,
-			`packages/abtest/src/operations.ts#${invoker}:function`,
-			`packages/abtest/src/operations.ts#${executor}:function`,
+	abTestOperationDefinitions.flatMap(
+		([label, cliAdapter, invoker, executor]) => [
+			{
+				label: `CLI A/B ${label} reaches the named operation action`,
+				path: [
+					cliAbTestModule,
+					`apps/cli/src/commands/abtest.ts#${cliAdapter}:function`,
+					`packages/abtest/src/operations.ts#${invoker}:function`,
+					`packages/abtest/src/operations.ts#${executor}:function`,
+				],
+			},
+			{
+				label: `MCP A/B ${label} reaches the named operation action`,
+				path: [
+					mcpCallTool,
+					mcpAbTestHandler,
+					abTestDispatcher,
+					`packages/abtest/src/operations.ts#${invoker}:function`,
+					`packages/abtest/src/operations.ts#${executor}:function`,
+				],
+			},
 		],
-	},
-	{
-		label: `MCP A/B ${label} reaches the named operation action`,
-		path: [
-			mcpCallTool,
-			mcpAbTestHandler,
-			abTestDispatcher,
-			`packages/abtest/src/operations.ts#${invoker}:function`,
-			`packages/abtest/src/operations.ts#${executor}:function`,
-		],
-	},
-]);
+	);
 
 const abTestOperationTestModule =
 	"packages/abtest/tests/operations.test.ts#packages/abtest/tests/operations.test.ts:module";
@@ -1416,11 +1418,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	},
 	{
 		label: "Mailpit helper has a direct server-side search regression test",
-		path: [
-			mailpitHelperRegressionTest,
-			findMailpitMessage,
-			fetchMailpitJson,
-		],
+		path: [mailpitHelperRegressionTest, findMailpitMessage, fetchMailpitJson],
 	},
 	{
 		label: "CLI/MCP transactional parity E2E invokes the CLI subprocess runner",

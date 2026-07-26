@@ -66,7 +66,9 @@ const subscriberListIdSchema = z.preprocess(
 
 const subscriberListInputSchema = z.object({
 	page: z.coerce.number().int().positive().default(1),
-	per_page: z.union([z.coerce.number().int().positive(), z.literal("all")]).default(20),
+	per_page: z.union([z.coerce.number().int().positive(), z.literal("all")]).default(
+		20,
+	),
 	list_id: subscriberListIdSchema,
 	query: z.string().trim().optional(),
 	order_by: subscriberOrderBySchema.optional(),
@@ -152,7 +154,9 @@ export async function listSubscribers(
 	const data = unwrapResourceResponse(response, "Failed to fetch subscribers");
 	return normalizeResourceList(data, {
 		page: input.page,
-		per_page: input.per_page === "all" ? (data.results?.length ?? 0) : input.per_page,
+		per_page: input.per_page === "all"
+			? (data.results?.length ?? 0)
+			: input.per_page,
 	});
 }
 
@@ -257,7 +261,10 @@ export const getSubscribersOperation = defineOperation({
 	inputSchema: subscriberListInputSchema,
 	outputSchema: subscriberListOutputSchema,
 	safety: readResourceSafety,
-	mcp: { name: "listmonk_get_subscribers", legacySuccessText: jsonResourceValue },
+	mcp: {
+		name: "listmonk_get_subscribers",
+		legacySuccessText: jsonResourceValue,
+	},
 	execute: listSubscribers,
 });
 
@@ -279,7 +286,10 @@ export const createSubscriberOperation = defineOperation({
 	inputSchema: createSubscriberInputSchema,
 	outputSchema: subscriberSchema,
 	safety: createResourceSafety,
-	mcp: { name: "listmonk_create_subscriber", legacySuccessText: jsonResourceValue },
+	mcp: {
+		name: "listmonk_create_subscriber",
+		legacySuccessText: jsonResourceValue,
+	},
 	execute: createSubscriber,
 });
 
@@ -290,7 +300,10 @@ export const updateSubscriberOperation = defineOperation({
 	inputSchema: updateSubscriberInputSchema,
 	outputSchema: subscriberSchema,
 	safety: updateResourceSafety,
-	mcp: { name: "listmonk_update_subscriber", legacySuccessText: jsonResourceValue },
+	mcp: {
+		name: "listmonk_update_subscriber",
+		legacySuccessText: jsonResourceValue,
+	},
 	execute: updateSubscriber,
 });
 

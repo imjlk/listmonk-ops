@@ -262,13 +262,28 @@ export default defineGroup({
 			operationId: "subscribers.list",
 			description: "List subscribers",
 			options: {
-				page: option(z.coerce.number().int().positive().optional(), { description: "Page number" }),
-				"per-page": option(z.coerce.number().int().positive().optional(), { description: "Items per page" }),
-				"list-id": option(z.string().trim().optional(), { description: "Comma-separated list IDs" }),
-				query: option(z.string().trim().optional(), { description: "Search query" }),
-				"order-by": option(z.enum(["name", "status", "created_at", "updated_at"]).optional(), { description: "Sort field" }),
-				order: option(z.enum(["ASC", "DESC"]).optional(), { description: "Sort order" }),
-				"subscription-status": option(z.string().trim().optional(), { description: "Subscription status" }),
+				page: option(z.coerce.number().int().positive().optional(), {
+					description: "Page number",
+				}),
+				"per-page": option(z.coerce.number().int().positive().optional(), {
+					description: "Items per page",
+				}),
+				"list-id": option(z.string().trim().optional(), {
+					description: "Comma-separated list IDs",
+				}),
+				query: option(z.string().trim().optional(), {
+					description: "Search query",
+				}),
+				"order-by": option(
+					z.enum(["name", "status", "created_at", "updated_at"]).optional(),
+					{ description: "Sort field" },
+				),
+				order: option(z.enum(["ASC", "DESC"]).optional(), {
+					description: "Sort order",
+				}),
+				"subscription-status": option(z.string().trim().optional(), {
+					description: "Subscription status",
+				}),
 			},
 			handler: handleListSubscribersCommand,
 		}),
@@ -276,7 +291,11 @@ export default defineGroup({
 			name: "get",
 			operationId: "subscribers.get",
 			description: "Get subscriber details",
-			options: { id: option(z.coerce.number().int().positive(), { description: "Subscriber ID" }) },
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Subscriber ID",
+				}),
+			},
 			handler: handleGetSubscriberCommand,
 		}),
 		defineCommand({
@@ -284,13 +303,28 @@ export default defineGroup({
 			operationId: "subscribers.create",
 			description: "Create a subscriber",
 			options: {
-				email: option(z.string().trim().email(), { description: "Subscriber email" }),
-				name: option(z.string().trim().optional(), { description: "Subscriber name" }),
-				status: option(z.enum(["enabled", "disabled", "blocklisted"]).default("enabled"), { description: "Subscriber status" }),
-				lists: option(z.string().trim().optional(), { description: "Comma-separated list IDs" }),
-				"list-uuids": option(z.string().trim().optional(), { description: "Comma-separated list UUIDs" }),
-				"preconfirm-subscriptions": option(z.boolean().optional(), { description: "Preconfirm subscriptions" }),
-				attribs: option(z.string().optional(), { description: "Attributes JSON" }),
+				email: option(z.string().trim().email(), {
+					description: "Subscriber email",
+				}),
+				name: option(z.string().trim().optional(), {
+					description: "Subscriber name",
+				}),
+				status: option(
+					z.enum(["enabled", "disabled", "blocklisted"]).default("enabled"),
+					{ description: "Subscriber status" },
+				),
+				lists: option(z.string().trim().optional(), {
+					description: "Comma-separated list IDs",
+				}),
+				"list-uuids": option(z.string().trim().optional(), {
+					description: "Comma-separated list UUIDs",
+				}),
+				"preconfirm-subscriptions": option(z.boolean().optional(), {
+					description: "Preconfirm subscriptions",
+				}),
+				attribs: option(z.string().optional(), {
+					description: "Attributes JSON",
+				}),
 			},
 			handler: handleCreateSubscriberCommand,
 		}),
@@ -299,14 +333,31 @@ export default defineGroup({
 			operationId: "subscribers.update",
 			description: "Update a subscriber",
 			options: {
-				id: option(z.coerce.number().int().positive(), { description: "Subscriber ID" }),
-				email: option(z.string().trim().email().optional(), { description: "Subscriber email" }),
-				name: option(z.string().trim().optional(), { description: "Subscriber name" }),
-				status: option(z.enum(["enabled", "disabled", "blocklisted"]).optional(), { description: "Subscriber status" }),
-				lists: option(z.string().trim().optional(), { description: "Comma-separated list IDs" }),
-				"list-uuids": option(z.string().trim().optional(), { description: "Comma-separated list UUIDs" }),
-				"preconfirm-subscriptions": option(z.boolean().optional(), { description: "Preconfirm subscriptions" }),
-				attribs: option(z.string().optional(), { description: "Attributes JSON" }),
+				id: option(z.coerce.number().int().positive(), {
+					description: "Subscriber ID",
+				}),
+				email: option(z.string().trim().email().optional(), {
+					description: "Subscriber email",
+				}),
+				name: option(z.string().trim().optional(), {
+					description: "Subscriber name",
+				}),
+				status: option(
+					z.enum(["enabled", "disabled", "blocklisted"]).optional(),
+					{ description: "Subscriber status" },
+				),
+				lists: option(z.string().trim().optional(), {
+					description: "Comma-separated list IDs",
+				}),
+				"list-uuids": option(z.string().trim().optional(), {
+					description: "Comma-separated list UUIDs",
+				}),
+				"preconfirm-subscriptions": option(z.boolean().optional(), {
+					description: "Preconfirm subscriptions",
+				}),
+				attribs: option(z.string().optional(), {
+					description: "Attributes JSON",
+				}),
 			},
 			handler: handleUpdateSubscriberCommand,
 		}),
@@ -314,7 +365,11 @@ export default defineGroup({
 			name: "delete",
 			operationId: "subscribers.delete",
 			description: "Delete a subscriber",
-			options: { id: option(z.coerce.number().int().positive(), { description: "Subscriber ID" }) },
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Subscriber ID",
+				}),
+			},
 			handler: handleDeleteSubscriberCommand,
 		}),
 	],

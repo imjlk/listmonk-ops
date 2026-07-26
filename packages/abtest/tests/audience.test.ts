@@ -106,9 +106,7 @@ describe("buildAudienceSnapshot", () => {
 		const snap = buildAudienceSnapshot([3, 1, 2], members);
 		expect(snap.sourceListIds).toEqual([1, 2, 3]);
 		expect(snap.subscriberCount).toBe(2);
-		expect(snap.subscriberChecksum).toBe(
-			computeAudienceChecksum(["u1", "u2"]),
-		);
+		expect(snap.subscriberChecksum).toBe(computeAudienceChecksum(["u1", "u2"]));
 		expect(snap.eligibilityPolicyVersion).toBe(1);
 	});
 });

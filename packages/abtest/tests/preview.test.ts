@@ -210,7 +210,11 @@ describe("approvePreviewGate", () => {
 describe("rejectPreviewGate", () => {
 	it("sets rejected status with reason", () => {
 		const gate = createPreviewGate("cs1");
-		const rejected = rejectPreviewGate(gate, "Bad content", "2026-07-25T10:00:00Z");
+		const rejected = rejectPreviewGate(
+			gate,
+			"Bad content",
+			"2026-07-25T10:00:00Z",
+		);
 		expect(rejected.status).toBe("rejected");
 		expect(rejected.rejectionReason).toBe("Bad content");
 	});
@@ -234,7 +238,12 @@ describe("isLaunchAllowed", () => {
 	it("allows when required and approved", () => {
 		const gate = createPreviewGate("cs1");
 		const pending = recordPreviewChecks(gate, [makeCheck("A")], "cs1", ["A"]);
-		const approved = approvePreviewGate(pending, "cs1", "user-1", "2026-07-25T10:00:00Z");
+		const approved = approvePreviewGate(
+			pending,
+			"cs1",
+			"user-1",
+			"2026-07-25T10:00:00Z",
+		);
 		expect(isLaunchAllowed(approved)).toBe(true);
 	});
 });
@@ -288,7 +297,12 @@ describe("transitionSeedVariant", () => {
 			campaignIds: [1, 2],
 			startedAt: "2026-07-25T10:00:00Z",
 		});
-		const updated = transitionSeedVariant(run, "A", "sent", "2026-07-25T10:01:00Z");
+		const updated = transitionSeedVariant(
+			run,
+			"A",
+			"sent",
+			"2026-07-25T10:01:00Z",
+		);
 		expect(updated.variants[0]?.state).toBe("sent");
 		expect(updated.variants[0]?.completedAt).toBe("2026-07-25T10:01:00Z");
 	});
@@ -301,8 +315,18 @@ describe("transitionSeedVariant", () => {
 			campaignIds: [1, 2],
 			startedAt: "2026-07-25T10:00:00Z",
 		});
-		const sent1 = transitionSeedVariant(run, "A", "sent", "2026-07-25T10:01:00Z");
-		const sent2 = transitionSeedVariant(sent1, "B", "sent", "2026-07-25T10:02:00Z");
+		const sent1 = transitionSeedVariant(
+			run,
+			"A",
+			"sent",
+			"2026-07-25T10:01:00Z",
+		);
+		const sent2 = transitionSeedVariant(
+			sent1,
+			"B",
+			"sent",
+			"2026-07-25T10:02:00Z",
+		);
 		expect(sent2.completedAt).toBe("2026-07-25T10:02:00Z");
 		expect(isSeedRunComplete(sent2)).toBe(true);
 	});

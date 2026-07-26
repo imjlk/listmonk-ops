@@ -14,21 +14,18 @@ export const resourceIdSchema = z
 	)
 	.describe("Listmonk resource ID");
 
-export const optionalBooleanSchema = z.preprocess(
-	(value) => {
-		if (value === null || value === undefined || value === "") {
-			return undefined;
-		}
-		if (value === "true") {
-			return true;
-		}
-		if (value === "false") {
-			return false;
-		}
-		return value;
-	},
-	z.boolean().optional(),
-);
+export const optionalBooleanSchema = z.preprocess((value) => {
+	if (value === null || value === undefined || value === "") {
+		return undefined;
+	}
+	if (value === "true") {
+		return true;
+	}
+	if (value === "false") {
+		return false;
+	}
+	return value;
+}, z.boolean().optional());
 
 export const positiveIntegerSchema = z.number().int().positive();
 export const positiveIntegerInputSchema = z.union([

@@ -289,7 +289,10 @@ export const createTemplateOperation = defineOperation({
 	inputSchema: createTemplateInputSchema,
 	outputSchema: templateSchema,
 	safety: createResourceSafety,
-	mcp: { name: "listmonk_create_template", legacySuccessText: jsonResourceValue },
+	mcp: {
+		name: "listmonk_create_template",
+		legacySuccessText: jsonResourceValue,
+	},
 	execute: createTemplate,
 });
 
@@ -300,7 +303,10 @@ export const updateTemplateOperation = defineOperation({
 	inputSchema: updateTemplateInputSchema,
 	outputSchema: templateSchema,
 	safety: updateResourceSafety,
-	mcp: { name: "listmonk_update_template", legacySuccessText: jsonResourceValue },
+	mcp: {
+		name: "listmonk_update_template",
+		legacySuccessText: jsonResourceValue,
+	},
 	execute: updateTemplate,
 });
 

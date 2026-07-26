@@ -101,8 +101,8 @@ export function assertOperationFamilyPublished(
 ): void {
 	const expectedNames = operations.map((operation) => operation.mcp.name);
 	const expectedNameSet = new Set(expectedNames);
-	const publishedOperations = tools.filter(
-		(tool) => expectedNameSet.has(tool.name),
+	const publishedOperations = tools.filter((tool) =>
+		expectedNameSet.has(tool.name),
 	);
 
 	if (expectedNames.length === 0) {

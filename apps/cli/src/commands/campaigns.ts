@@ -243,7 +243,10 @@ export async function handleCreateCampaignCommand({
 				archive_slug: flags["archive-slug"],
 				archive_template_id: flags["archive-template-id"],
 				archive_meta: flags["archive-meta"]
-					? parseJson<Record<string, unknown>>(flags["archive-meta"], "archive-meta")
+					? parseJson<Record<string, unknown>>(
+							flags["archive-meta"],
+							"archive-meta",
+						)
 					: undefined,
 				media: flags.media ? parseCsvNumbers(flags.media) : undefined,
 				subscribers: parseCsvStrings(flags.subscribers),
@@ -299,7 +302,10 @@ export async function handleUpdateCampaignCommand({
 				archive_slug: flags["archive-slug"],
 				archive_template_id: flags["archive-template-id"],
 				archive_meta: flags["archive-meta"]
-					? parseJson<Record<string, unknown>>(flags["archive-meta"], "archive-meta")
+					? parseJson<Record<string, unknown>>(
+							flags["archive-meta"],
+							"archive-meta",
+						)
 					: undefined,
 				media: flags.media ? parseCsvNumbers(flags.media) : undefined,
 				subscribers: parseCsvStrings(flags.subscribers),
@@ -345,12 +351,25 @@ export default defineGroup({
 				"per-page": option(z.coerce.number().int().positive().optional(), {
 					description: "Items per page",
 				}),
-				status: option(z.string().trim().optional(), { description: "Status filter" }),
-				query: option(z.string().trim().optional(), { description: "Search query" }),
-				tags: option(z.string().trim().optional(), { description: "Comma-separated tags" }),
-				order: option(z.enum(["ASC", "DESC"]).optional(), { description: "Sort order" }),
-				"order-by": option(z.enum(["name", "status", "created_at", "updated_at"]).optional(), { description: "Sort field" }),
-				"no-body": option(z.boolean().optional(), { description: "Omit campaign body" }),
+				status: option(z.string().trim().optional(), {
+					description: "Status filter",
+				}),
+				query: option(z.string().trim().optional(), {
+					description: "Search query",
+				}),
+				tags: option(z.string().trim().optional(), {
+					description: "Comma-separated tags",
+				}),
+				order: option(z.enum(["ASC", "DESC"]).optional(), {
+					description: "Sort order",
+				}),
+				"order-by": option(
+					z.enum(["name", "status", "created_at", "updated_at"]).optional(),
+					{ description: "Sort field" },
+				),
+				"no-body": option(z.boolean().optional(), {
+					description: "Omit campaign body",
+				}),
 			},
 			handler: handleListCampaignsCommand,
 		}),
@@ -359,8 +378,12 @@ export default defineGroup({
 			operationId: "campaigns.get",
 			description: "Get campaign details",
 			options: {
-				id: option(z.coerce.number().int().positive(), { description: "Campaign ID" }),
-				"no-body": option(z.boolean().optional(), { description: "Omit campaign body" }),
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+				"no-body": option(z.boolean().optional(), {
+					description: "Omit campaign body",
+				}),
 			},
 			handler: handleGetCampaignCommand,
 		}),
@@ -370,25 +393,58 @@ export default defineGroup({
 			description: "Create a campaign",
 			options: {
 				name: option(z.string().trim().min(1), { description: "Campaign name" }),
-				subject: option(z.string().trim().min(1), { description: "Email subject" }),
-				"from-email": option(z.string().trim().min(1), { description: "From email address" }),
+				subject: option(z.string().trim().min(1), {
+					description: "Email subject",
+				}),
+				"from-email": option(z.string().trim().min(1), {
+					description: "From email address",
+				}),
 				body: option(z.string().min(1), { description: "Campaign body" }),
-				altbody: option(z.string().optional(), { description: "Plain-text alternative" }),
+				altbody: option(z.string().optional(), {
+					description: "Plain-text alternative",
+				}),
 				type: option(campaignTypeOption, { description: "Campaign type" }),
-				"template-id": option(z.coerce.number().int().positive(), { description: "Template ID" }),
-				lists: option(z.string().trim().min(1), { description: "Comma-separated list IDs" }),
-				tags: option(z.string().trim().optional(), { description: "Comma-separated tags" }),
-				messenger: option(z.string().trim().default("email"), { description: "Messenger" }),
-				"content-type": option(contentTypeOption, { description: "Campaign content type" }),
-				"send-at": option(z.string().optional(), { description: "Scheduled send time" }),
+				"template-id": option(z.coerce.number().int().positive(), {
+					description: "Template ID",
+				}),
+				lists: option(z.string().trim().min(1), {
+					description: "Comma-separated list IDs",
+				}),
+				tags: option(z.string().trim().optional(), {
+					description: "Comma-separated tags",
+				}),
+				messenger: option(z.string().trim().default("email"), {
+					description: "Messenger",
+				}),
+				"content-type": option(contentTypeOption, {
+					description: "Campaign content type",
+				}),
+				"send-at": option(z.string().optional(), {
+					description: "Scheduled send time",
+				}),
 				headers: option(z.string().optional(), { description: "Headers JSON" }),
-				attribs: option(z.string().optional(), { description: "Attributes JSON" }),
-				archive: option(z.boolean().optional(), { description: "Archive campaign" }),
-				"archive-slug": option(z.string().optional(), { description: "Archive slug" }),
-				"archive-template-id": option(z.coerce.number().int().positive().optional(), { description: "Archive template ID" }),
-				"archive-meta": option(z.string().optional(), { description: "Archive metadata JSON" }),
-				media: option(z.string().optional(), { description: "Comma-separated media IDs" }),
-				subscribers: option(z.string().optional(), { description: "Comma-separated recipient emails" }),
+				attribs: option(z.string().optional(), {
+					description: "Attributes JSON",
+				}),
+				archive: option(z.boolean().optional(), {
+					description: "Archive campaign",
+				}),
+				"archive-slug": option(z.string().optional(), {
+					description: "Archive slug",
+				}),
+				"archive-template-id": option(
+					z.coerce.number().int().positive().optional(),
+					{ description: "Archive template ID" },
+				),
+				"archive-meta": option(z.string().optional(), {
+					description: "Archive metadata JSON",
+				}),
+				media: option(z.string().optional(), {
+					description: "Comma-separated media IDs",
+				}),
+				subscribers: option(z.string().optional(), {
+					description: "Comma-separated recipient emails",
+				}),
 			},
 			handler: handleCreateCampaignCommand,
 		}),
@@ -397,27 +453,69 @@ export default defineGroup({
 			operationId: "campaigns.update",
 			description: "Update a campaign",
 			options: {
-				id: option(z.coerce.number().int().positive(), { description: "Campaign ID" }),
-				name: option(z.string().trim().min(1).optional(), { description: "Campaign name" }),
-				subject: option(z.string().trim().min(1).optional(), { description: "Email subject" }),
-				"from-email": option(z.string().trim().min(1).optional(), { description: "From email address" }),
-				body: option(z.string().min(1).optional(), { description: "Campaign body" }),
-				altbody: option(z.string().optional(), { description: "Plain-text alternative" }),
-				type: option(z.enum(["regular", "optin"]).optional(), { description: "Campaign type" }),
-				"template-id": option(z.coerce.number().int().positive().optional(), { description: "Template ID" }),
-				lists: option(z.string().trim().optional(), { description: "Comma-separated list IDs" }),
-				tags: option(z.string().trim().optional(), { description: "Comma-separated tags" }),
-				messenger: option(z.string().trim().min(1).optional(), { description: "Messenger" }),
-				"content-type": option(z.enum(["richtext", "html", "markdown", "plain", "visual"]).optional(), { description: "Campaign content type" }),
-				"send-at": option(z.string().optional(), { description: "Scheduled send time" }),
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+				name: option(z.string().trim().min(1).optional(), {
+					description: "Campaign name",
+				}),
+				subject: option(z.string().trim().min(1).optional(), {
+					description: "Email subject",
+				}),
+				"from-email": option(z.string().trim().min(1).optional(), {
+					description: "From email address",
+				}),
+				body: option(z.string().min(1).optional(), {
+					description: "Campaign body",
+				}),
+				altbody: option(z.string().optional(), {
+					description: "Plain-text alternative",
+				}),
+				type: option(z.enum(["regular", "optin"]).optional(), {
+					description: "Campaign type",
+				}),
+				"template-id": option(z.coerce.number().int().positive().optional(), {
+					description: "Template ID",
+				}),
+				lists: option(z.string().trim().optional(), {
+					description: "Comma-separated list IDs",
+				}),
+				tags: option(z.string().trim().optional(), {
+					description: "Comma-separated tags",
+				}),
+				messenger: option(z.string().trim().min(1).optional(), {
+					description: "Messenger",
+				}),
+				"content-type": option(
+					z.enum(["richtext", "html", "markdown", "plain", "visual"]).optional(),
+					{ description: "Campaign content type" },
+				),
+				"send-at": option(z.string().optional(), {
+					description: "Scheduled send time",
+				}),
 				headers: option(z.string().optional(), { description: "Headers JSON" }),
-				attribs: option(z.string().optional(), { description: "Attributes JSON" }),
-				archive: option(z.boolean().optional(), { description: "Archive campaign" }),
-				"archive-slug": option(z.string().optional(), { description: "Archive slug" }),
-				"archive-template-id": option(z.coerce.number().int().positive().optional(), { description: "Archive template ID" }),
-				"archive-meta": option(z.string().optional(), { description: "Archive metadata JSON" }),
-				media: option(z.string().optional(), { description: "Comma-separated media IDs" }),
-				subscribers: option(z.string().optional(), { description: "Comma-separated recipient emails" }),
+				attribs: option(z.string().optional(), {
+					description: "Attributes JSON",
+				}),
+				archive: option(z.boolean().optional(), {
+					description: "Archive campaign",
+				}),
+				"archive-slug": option(z.string().optional(), {
+					description: "Archive slug",
+				}),
+				"archive-template-id": option(
+					z.coerce.number().int().positive().optional(),
+					{ description: "Archive template ID" },
+				),
+				"archive-meta": option(z.string().optional(), {
+					description: "Archive metadata JSON",
+				}),
+				media: option(z.string().optional(), {
+					description: "Comma-separated media IDs",
+				}),
+				subscribers: option(z.string().optional(), {
+					description: "Comma-separated recipient emails",
+				}),
 			},
 			handler: handleUpdateCampaignCommand,
 		}),
@@ -426,7 +524,9 @@ export default defineGroup({
 			operationId: "campaigns.delete",
 			description: "Delete a campaign",
 			options: {
-				id: option(z.coerce.number().int().positive(), { description: "Campaign ID" }),
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
 			},
 			handler: handleDeleteCampaignCommand,
 		}),

@@ -202,7 +202,9 @@ export async function listCampaigns(
 	const data = unwrapResourceResponse(response, "Failed to fetch campaigns");
 	return normalizeResourceList(data, {
 		page: input.page,
-		per_page: input.per_page === "all" ? (data.results?.length ?? 0) : input.per_page,
+		per_page: input.per_page === "all"
+			? (data.results?.length ?? 0)
+			: input.per_page,
 	});
 }
 
@@ -327,7 +329,10 @@ export const createCampaignOperation = defineOperation({
 	inputSchema: createCampaignInputSchema,
 	outputSchema: campaignSchema,
 	safety: createResourceSafety,
-	mcp: { name: "listmonk_create_campaign", legacySuccessText: jsonResourceValue },
+	mcp: {
+		name: "listmonk_create_campaign",
+		legacySuccessText: jsonResourceValue,
+	},
 	execute: createCampaign,
 });
 
@@ -338,7 +343,10 @@ export const updateCampaignOperation = defineOperation({
 	inputSchema: updateCampaignInputSchema,
 	outputSchema: campaignSchema,
 	safety: updateResourceSafety,
-	mcp: { name: "listmonk_update_campaign", legacySuccessText: jsonResourceValue },
+	mcp: {
+		name: "listmonk_update_campaign",
+		legacySuccessText: jsonResourceValue,
+	},
 	execute: updateCampaign,
 });
 

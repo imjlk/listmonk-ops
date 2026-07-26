@@ -193,7 +193,10 @@ describe("participationsCollide", () => {
 	});
 
 	it("does not collide on non-overlapping window", () => {
-		const a = makeParticipation({ ...makeParticipation(), ...makeWindow(0, 60) });
+		const a = makeParticipation({
+			...makeParticipation(),
+			...makeWindow(0, 60),
+		});
 		const b = makeParticipation({
 			testId: "test-2",
 			...makeWindow(120, 180),

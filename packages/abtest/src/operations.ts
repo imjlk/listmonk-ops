@@ -49,21 +49,18 @@ const optionalNumberSchema = z.preprocess(
 	(value) => (value === null || value === "" ? undefined : value),
 	z.coerce.number().finite().optional(),
 );
-const optionalBooleanSchema = z.preprocess(
-	(value) => {
-		if (value === null) {
-			return undefined;
-		}
-		if (value === "true") {
-			return true;
-		}
-		if (value === "false") {
-			return false;
-		}
-		return value;
-	},
-	z.boolean().optional(),
-);
+const optionalBooleanSchema = z.preprocess((value) => {
+	if (value === null) {
+		return undefined;
+	}
+	if (value === "true") {
+		return true;
+	}
+	if (value === "false") {
+		return false;
+	}
+	return value;
+}, z.boolean().optional());
 
 const contentOverridesSchema = z.object({
 	subject: z.string().optional(),
@@ -614,17 +611,13 @@ export async function executeDeleteAbTestOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof testIdInputSchema>,
 ): Promise<DeleteAbTestOperationOutput> {
-	await withStoredOperation<boolean>(
-		context,
-		"write",
-		async (executors) => {
-			const deleted = await executors.deleteAbTest(input.test_id);
-			if (!deleted) {
-				throw new AbTestNotFoundError(input.test_id);
-			}
-			return deleted;
-		},
-	);
+	await withStoredOperation<boolean>(context, "write", async (executors) => {
+		const deleted = await executors.deleteAbTest(input.test_id);
+		if (!deleted) {
+			throw new AbTestNotFoundError(input.test_id);
+		}
+		return deleted;
+	});
 	return { deleted: true };
 }
 
@@ -645,10 +638,8 @@ export async function executeDeployAbTestWinnerOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof testIdInputSchema>,
 ): Promise<DeployAbTestWinnerOperationOutput> {
-	await withStoredOperation<void>(
-		context,
-		"write",
-		(executors) => executors.deployWinner(input.test_id),
+	await withStoredOperation<void>(context, "write", (executors) =>
+		executors.deployWinner(input.test_id),
 	);
 	return { deployed: true };
 }
@@ -716,10 +707,8 @@ export async function executeExportAbTestAssignmentOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof exportAssignmentInputSchema>,
 ): Promise<ExportAbTestAssignmentOperationOutput> {
-	const test = await withStoredOperation<AbTest>(
-		context,
-		"read",
-		(executors) => executors.getAbTest(input.test_id),
+	const test = await withStoredOperation<AbTest>(context, "read", (executors) =>
+		executors.getAbTest(input.test_id),
 	);
 	if (!test.assignmentManifest) {
 		throw new Error(

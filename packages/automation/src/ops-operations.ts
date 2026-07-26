@@ -57,21 +57,18 @@ const nonNegativeIntegerInput = numberInput().pipe(
 );
 const thresholdInput = numberInput().pipe(z.number().min(0).max(1));
 
-const booleanInput = z.preprocess(
-	(value: unknown) => {
-		if (typeof value !== "string") {
-			return value;
-		}
-		if (value.toLowerCase() === "true") {
-			return true;
-		}
-		if (value.toLowerCase() === "false") {
-			return false;
-		}
+const booleanInput = z.preprocess((value: unknown) => {
+	if (typeof value !== "string") {
 		return value;
-	},
-	z.boolean(),
-);
+	}
+	if (value.toLowerCase() === "true") {
+		return true;
+	}
+	if (value.toLowerCase() === "false") {
+		return false;
+	}
+	return value;
+}, z.boolean());
 
 const campaignPreflightInputSchema = z.object({
 	campaign_id: positiveIntegerInput.describe("Campaign ID"),
