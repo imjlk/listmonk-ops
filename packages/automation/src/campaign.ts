@@ -77,33 +77,27 @@ function collectBodyLinks(body: string): string[] {
  * (169.254.169.254) to prevent SSRF via campaign body content.
  */
 export function isPrivateHost(hostname: string): boolean {
-	// Normalize: strip brackets from IPv6, lowercase.
 	const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-	// Check IPv4-mapped IPv6 addresses (::ffff:x.x.x.x)
-	const mappedMatch = host.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-	const checkHost = mappedMatch ? mappedMatch[1]! : host;
-	// IPv4 checks
-	const v4Parts = checkHost.split(".");
-	if (v4Parts.length === 4) {
-		const octets = v4Parts.map((p) => parseInt(p, 10));
-		if (octets.length === 4 && octets.every((o) => o >= 0 && o <= 255)) {
-			const a = octets[0]!;
-			const b = octets[1]!;
-			if (a === 127) return true; // loopback
-			if (a === 10) return true; // private
+	const mapped = host.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+	const checkHost = mapped ? mapped[1]! : host;
+	const parts = checkHost.split(".");
+	if (parts.length === 4) {
+		const nums = parts.map((p) => parseInt(p, 10));
+		if (nums.length === 4 && nums.every((n) => n >= 0 && n <= 255)) {
+			const a = nums[0]!;
+			const b = nums[1]!;
+			if (a === 127 || a === 10 || a === 0) return true;
 			if (a === 172 && b >= 16 && b <= 31) return true;
-			if (a === 192 && b === 168) return true; // private
-			if (a === 169 && b === 254) return true; // link-local + metadata
-			if (a === 0) return true; // 0.0.0.0
+			if (a === 192 && b === 168) return true;
+			if (a === 169 && b === 254) return true;
 			return false;
 		}
 	}
-	// IPv6 and hostname checks
 	if (host === "::1" || host === "localhost") return true;
-	// IPv6 ULA (fc00::/7): only check on addresses containing "::"
 	if (host.includes("::")) {
-		if (host.startsWith("fc") || host.startsWith("fd")) return true; // ULA
-		if (host.startsWith("fe8") || host.startsWith("fe9") || host.startsWith("fea") || host.startsWith("feb")) return true; // link-local fe80::/10
+		if (host.startsWith("fc") || host.startsWith("fd")) return true;
+		const linkLocalPrefixes = ["fe8", "fe9", "fea", "feb"];
+		if (linkLocalPrefixes.some((p) => host.startsWith(p))) return true;
 	}
 	return false;
 }

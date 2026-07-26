@@ -166,4 +166,35 @@ describe("SSRF defense — redirect chain with mocked fetch", () => {
 		expect(result.ok).toBe(false);
 		expect(result.error).toContain("Exceeded max redirects");
 	});
+
+	it("blocks GET-fallback redirect to private IP after HEAD exhausts budget", async () => {
+		let callCount = 0;
+		globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
+			callCount++;
+			const method = init?.method ?? "GET";
+			if (method === "HEAD" && callCount <= 5) {
+				return Promise.resolve(
+					new Response(null, {
+						status: 302,
+						headers: {
+							location: `https://example.com/hop${callCount}`,
+						},
+					}),
+				);
+			}
+			if (method === "HEAD") {
+				return Promise.resolve(new Response(null, { status: 405 }));
+			}
+			return Promise.resolve(
+				new Response(null, {
+					status: 302,
+					headers: { location: "http://10.0.0.1/secret" },
+				}),
+			);
+		}) as typeof fetch;
+
+		const { checkLink } = await import("../src/campaign");
+		const result = await checkLink("https://example.com/start", 5000);
+		expect(result.ok).toBe(false);
+	});
 });
