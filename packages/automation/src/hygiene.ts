@@ -138,22 +138,22 @@ export async function runSubscriberHygiene(
 			try {
 				if (options.targetListId) {
 					await client.subscriber.manageListById({
-								path: { id },
-								body: {
-									action: "add",
-									target_list_ids: [options.targetListId],
-								},
-							});
+							path: { id },
+							body: {
+								action: "add",
+								target_list_ids: [options.targetListId],
+							},
+						});
 					mutated = true;
 				}
 
 				if (mode === "sunset" && blocklist) {
 					await client.subscriber.manageBlocklistById({
-								path: { id },
-								body: {
-									action: "add",
-								},
-							});
+							path: { id },
+							body: {
+								action: "add",
+							},
+						});
 					mutated = true;
 				}
 			} catch (error) {
