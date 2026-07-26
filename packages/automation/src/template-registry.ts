@@ -456,7 +456,7 @@ async function commitRemoteTemplateMutation(
 
 		const causeMessage = error instanceof Error ? error.message : String(error);
 		throw new TemplateRegistryWriteTransactionError(
-			`Template ${templateId} was updated in Listmonk, but local registry state at ${storeDefinition.path} could not be confirmed. Inspect the remote template and registry before retrying. Cause: ${causeMessage}`,
+			`Template ${templateId} was updated in Listmonk, but local registry state could not be confirmed. Inspect the remote template and registry before retrying. Cause: ${causeMessage}`,
 			error,
 		);
 	}
