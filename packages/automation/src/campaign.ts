@@ -76,7 +76,7 @@ function collectBodyLinks(body: string): string[] {
  * 192.168.x), link-local (169.254.x, fe80::), and cloud metadata IPs
  * (169.254.169.254) to prevent SSRF via campaign body content.
  */
-function isPrivateHost(hostname: string): boolean {
+export function isPrivateHost(hostname: string): boolean {
 	// Normalize: strip brackets from IPv6, lowercase.
 	const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
 	// IPv4 checks
@@ -106,7 +106,7 @@ function isPrivateHost(hostname: string): boolean {
  * Validate that a URL is safe to fetch: must be http(s), not target a
  * private/internal host.
  */
-function isSafeFetchUrl(url: string): { safe: boolean; reason?: string } {
+export function isSafeFetchUrl(url: string): { safe: boolean; reason?: string } {
 	let parsed: URL;
 	try {
 		parsed = new URL(url);
@@ -188,6 +188,17 @@ async function checkLink(
 			response = getResult.response;
 			currentUrl = getResult.currentUrl;
 			redirectCount = getResult.redirectCount;
+		}
+
+		// If a redirect remains after the budget is exhausted, fail rather
+		// than reporting a 3xx as ok.
+		if (response.status >= 300 && response.status < 400) {
+			return {
+				url,
+				ok: false,
+				status: response.status,
+				error: `Exceeded max redirects (${maxRedirects})`,
+			};
 		}
 
 		return {
