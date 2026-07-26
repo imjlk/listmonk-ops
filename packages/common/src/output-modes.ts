@@ -66,7 +66,7 @@ export const jsonOutput: OutputStrategy = {
 		console.error(`⚠️  ${message}`);
 	},
 	table(data) {
-		console.error(JSON.stringify(data, null, 2));
+		console.log(JSON.stringify(data, null, 2));
 	},
 	json(data) {
 		console.log(JSON.stringify(data, null, 2));

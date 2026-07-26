@@ -201,7 +201,14 @@ export function prepareCliArgv(input: string[]): string[] {
 			const inlineValue = globalMatch?.[2];
 			const nextValue = input[index + 1];
 			if (key === "format") {
-				runtimeFlags.format = inlineValue ?? nextValue;
+				const validFormats = ["human", "json", "ndjson", "quiet"];
+				const formatValue = inlineValue ?? nextValue;
+				if (!formatValue || !validFormats.includes(formatValue)) {
+					throw new Error(
+						`--format requires one of: ${validFormats.join(", ")}`,
+					);
+				}
+				runtimeFlags.format = formatValue;
 				if (inlineValue === undefined) {
 					index += 1;
 				}
