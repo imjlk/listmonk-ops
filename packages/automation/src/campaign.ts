@@ -100,8 +100,12 @@ export function isPrivateHost(hostname: string): boolean {
 	}
 	// IPv6 and hostname checks
 	if (host === "::1" || host === "localhost") return true;
-	if (host.startsWith("fc") || host.startsWith("fd")) return true; // ULA
-	if (host.startsWith("fe80")) return true; // link-local
+	// IPv6 ULA (fc00::/7): only check on addresses containing "::"
+	if (host.includes("::")) {
+		if (host.startsWith("fc") || host.startsWith("fd")) return true; // ULA
+		if (host.startsWith("fe80")) return true; // link-local
+		if (host.startsWith("fe9") || host.startsWith("fea") || host.startsWith("feb")) return true; // fe90-febf
+	}
 	return false;
 }
 
