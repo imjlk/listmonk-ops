@@ -469,6 +469,11 @@ export async function scheduleCampaign(
 	return { id: input.id, status: "scheduled" };
 }
 
+/**
+ * Transition a campaign into the `running` status. Reads the current
+ * campaign first and rejects the transition if the state machine does not
+ * permit it. Returns the campaign id and the new status.
+ */
 export async function startCampaign(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof campaignLifecycleInputSchema>,
@@ -476,6 +481,11 @@ export async function startCampaign(
 	return transitionCampaign(ctx, input.id, "running");
 }
 
+/**
+ * Transition a campaign into the `paused` status. Reads the current
+ * campaign first and rejects the transition if the state machine does not
+ * permit it. Returns the campaign id and the new status.
+ */
 export async function pauseCampaign(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof campaignLifecycleInputSchema>,
@@ -483,6 +493,11 @@ export async function pauseCampaign(
 	return transitionCampaign(ctx, input.id, "paused");
 }
 
+/**
+ * Transition a campaign into the terminal `cancelled` status. Reads the
+ * current campaign first and rejects the transition if the state machine
+ * does not permit it. Cancelled campaigns cannot transition further.
+ */
 export async function cancelCampaign(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof campaignLifecycleInputSchema>,
@@ -577,6 +592,12 @@ export async function cloneCampaign(
 	return asCampaign(created);
 }
 
+/**
+ * Read delivery stats (views, clicks, bounces, to_send, sent, started_at)
+ * for a campaign by id. Reads the full campaign object via `getById` and
+ * extracts the stats fields; returns null for any field Listmonk left
+ * unset.
+ */
 export async function getCampaignStats(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof campaignStatsInputSchema>,

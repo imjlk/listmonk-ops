@@ -236,6 +236,12 @@ const uploadMediaInputSchema = z
 
 export type UploadMediaInput = z.output<typeof uploadMediaInputSchema>;
 
+/**
+ * Upload a media file to Listmonk from base64-encoded contents. Decodes
+ * the base64 payload, resolves the effective MIME type (explicit value or
+ * inferred from the filename), and constructs a `File` so Listmonk
+ * registers the upload under the caller's filename.
+ */
 export async function uploadMediaFile(
 	{ client }: MediaOperationContext,
 	input: z.output<typeof uploadMediaInputSchema>,

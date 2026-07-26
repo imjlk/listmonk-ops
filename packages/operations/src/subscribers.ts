@@ -315,6 +315,11 @@ async function runSubscriberBulk(
 	);
 }
 
+/**
+ * Add a batch of subscribers to one or more lists. Subscriber IDs are
+ * chunked and each chunk is sent as a `manageLists` action: add. Respects
+ * the shared bulk options (dry_run, max_items, continue_on_error).
+ */
 export async function addSubscribersToLists(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkListsInputSchema>,
@@ -340,6 +345,10 @@ export async function addSubscribersToLists(
 	});
 }
 
+/**
+ * Remove a batch of subscribers from one or more lists. Mirrors
+ * {@link addSubscribersToLists} with `manageLists` action: remove.
+ */
 export async function removeSubscribersFromLists(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkListsInputSchema>,
@@ -365,6 +374,11 @@ export async function removeSubscribersFromLists(
 	});
 }
 
+/**
+ * Add or remove a batch of subscribers from the blocklist via
+ * `manageBlocklist`. The action (`add` or `remove`) is taken from the
+ * input. Respects the shared bulk options.
+ */
 export async function blocklistSubscribers(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkBlocklistInputSchema>,
@@ -386,6 +400,11 @@ export async function blocklistSubscribers(
 	});
 }
 
+/**
+ * Remove a batch of subscribers from the blocklist. Delegates to
+ * {@link blocklistSubscribers} with action `remove` so the input schema
+ * stays symmetric and does not expose an action field.
+ */
 export async function unblocklistSubscribers(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkUnblocklistInputSchema>,

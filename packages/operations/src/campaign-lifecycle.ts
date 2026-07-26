@@ -45,6 +45,11 @@ export const TERMINAL_CAMPAIGN_STATUSES: ReadonlySet<string> = new Set([
 	"cancelled",
 ]);
 
+/**
+ * Returns true when a campaign in `current` status is allowed to move into
+ * `target` according to {@link CAMPAIGN_TRANSITIONS}. Returns false for
+ * unknown or undefined current statuses and for terminal statuses.
+ */
 export function canTransitionTo(
 	current: string | undefined,
 	target: CampaignLifecycleTarget,
@@ -54,12 +59,21 @@ export function canTransitionTo(
 	return allowed !== undefined && allowed.has(target);
 }
 
+/**
+ * Returns true when `status` is a terminal campaign status (`finished` or
+ * `cancelled`). Terminal campaigns cannot transition into any other status.
+ */
 export function isTerminalCampaignStatus(
 	status: string | undefined,
 ): boolean {
 	return status !== undefined && TERMINAL_CAMPAIGN_STATUSES.has(status);
 }
 
+/**
+ * Error thrown by {@link assertCampaignTransition} when a requested campaign
+ * status transition is not permitted by the state machine. Carries the
+ * source and target statuses for structured logging.
+ */
 export class InvalidCampaignTransitionError extends Error {
 	constructor(
 		public readonly currentStatus: string | undefined,
