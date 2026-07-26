@@ -11,23 +11,9 @@ import {
 	invokeTemplateRegistryRollbackOperation,
 	invokeTemplateRegistrySyncOperation,
 } from "@listmonk-ops/automation";
-import {
-	OutputUtils,
-	createOutputStrategy,
-	type OutputFormat,
-} from "@listmonk-ops/common";
-
-function getOutput() {
-	const format = (getRuntimeFlags().format ?? "human") as OutputFormat;
-	return createOutputStrategy(format);
-}
+import { getOutput } from "../lib/output";
 import { z } from "zod";
-import {
-	defineCommand,
-	defineGroup,
-	getRuntimeFlags,
-	option,
-} from "../lib/command";
+import { defineCommand, defineGroup, option } from "../lib/command";
 import { parseCsvNumbers, toErrorMessage } from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
 
