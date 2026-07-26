@@ -640,11 +640,6 @@ export default defineGroup({
 						args,
 						{},
 					);
-					if (tests.length === 0) {
-						getOutput().info("No A/B tests found");
-						return;
-					}
-
 					const rows = tests.map((test) => ({
 						id: test.id,
 						name: test.name,
@@ -654,6 +649,9 @@ export default defineGroup({
 						testGroupPercentage: test.testGroupPercentage,
 						createdAt: new Date(test.createdAt).toISOString(),
 					}));
+					if (rows.length === 0) {
+						getOutput().info("No A/B tests found");
+					}
 					getOutput().json({ tests: rows });
 				} catch (error) {
 					throw new Error(`Failed to list A/B tests: ${toErrorMessage(error)}`);
@@ -790,6 +788,7 @@ export default defineGroup({
 					}));
 
 					getOutput().json({
+						variants: rows,
 						statisticalAnalysis: analysis.analysis,
 						winner: analysis.winner,
 						recommendations: analysis.recommendations,
