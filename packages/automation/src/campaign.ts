@@ -186,6 +186,8 @@ async function checkLink(
 				return { url, ok: false, error: getResult.error };
 			}
 			response = getResult.response;
+			currentUrl = getResult.currentUrl;
+			redirectCount = getResult.redirectCount;
 		}
 
 		return {
