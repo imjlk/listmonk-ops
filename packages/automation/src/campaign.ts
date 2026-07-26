@@ -103,8 +103,7 @@ export function isPrivateHost(hostname: string): boolean {
 	// IPv6 ULA (fc00::/7): only check on addresses containing "::"
 	if (host.includes("::")) {
 		if (host.startsWith("fc") || host.startsWith("fd")) return true; // ULA
-		if (host.startsWith("fe80")) return true; // link-local
-		if (host.startsWith("fe9") || host.startsWith("fea") || host.startsWith("feb")) return true; // fe90-febf
+		if (host.startsWith("fe8") || host.startsWith("fe9") || host.startsWith("fea") || host.startsWith("feb")) return true; // link-local fe80::/10
 	}
 	return false;
 }
