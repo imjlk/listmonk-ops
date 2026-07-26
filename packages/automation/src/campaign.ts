@@ -126,6 +126,66 @@ export function isSafeFetchUrl(url: string): { safe: boolean; reason?: string } 
 	return { safe: true };
 }
 
+/**
+ * Resolve a hostname via DNS and check every resolved address against
+ * isPrivateHost. This prevents DNS rebinding attacks where a hostname
+ * like "evil.com" resolves to 127.0.0.1 or an internal IP.
+ *
+ * Uses Node's dns.promises.lookup which Bun supports. Falls open if
+ * resolution fails (e.g. localhost with no DNS entry) because the
+ * hostname-only check above already handles literal private IPs.
+ */
+async function isSafeResolvedHost(hostname: string): Promise<{ safe: boolean; reason?: string }> {
+	const { lookup } = await import("node:dns/promises");
+	let addresses: Array<{ address: string }>;
+	try {
+		addresses = await lookup(hostname, { all: true });
+	} catch {
+		// DNS resolution failed — the hostname-only check already caught
+		// literal private IPs. If it's a public hostname that doesn't
+		// resolve, the fetch will fail anyway. Allow it.
+		return { safe: true };
+	}
+	for (const addr of addresses) {
+		if (isPrivateHost(addr.address)) {
+			return {
+				safe: false,
+				reason: `Host ${hostname} resolves to private/internal address ${addr.address}`,
+			};
+		}
+	}
+	return { safe: true };
+}
+
+/**
+ * Asynchronously validate that a URL is safe to fetch: must be http(s),
+ * not target a private/internal host, and the hostname must not resolve
+ * to a private/internal IP (DNS rebinding defense).
+ */
+export async function isSafeFetchUrlAsync(url: string): Promise<{ safe: boolean; reason?: string }> {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return { safe: false, reason: "Invalid URL" };
+	}
+	if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+		return { safe: false, reason: `Protocol ${parsed.protocol} not allowed` };
+	}
+	if (isPrivateHost(parsed.hostname)) {
+		return {
+			safe: false,
+			reason: `Host ${parsed.hostname} is private/internal`,
+		};
+	}
+	// DNS resolution pinning: resolve and check every address.
+	const resolved = await isSafeResolvedHost(parsed.hostname);
+	if (!resolved.safe) {
+		return resolved;
+	}
+	return { safe: true };
+}
+
 export async function checkLink(
 	url: string,
 	timeoutMs: number,
@@ -135,8 +195,9 @@ export async function checkLink(
 	status?: number;
 	error?: string;
 }> {
-	// SSRF defense: reject private/internal hosts before fetching.
-	const safety = isSafeFetchUrl(url);
+	// SSRF defense: reject private/internal hosts before fetching,
+	// including DNS resolution pinning.
+	const safety = await isSafeFetchUrlAsync(url);
 	if (!safety.safe) {
 		return { url, ok: false, error: `Blocked: ${safety.reason}` };
 	}
@@ -249,10 +310,9 @@ async function followRedirects(
 		redirectCount < maxRedirects
 	) {
 		const location = response.headers.get("location")!;
-		// Cancel the redirect response body before following.
 		response.body?.cancel().catch(() => {});
 		currentUrl = new URL(location, currentUrl).toString();
-		const redirectSafety = isSafeFetchUrl(currentUrl);
+		const redirectSafety = await isSafeFetchUrlAsync(currentUrl);
 		if (!redirectSafety.safe) {
 			return {
 				response,

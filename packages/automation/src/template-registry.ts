@@ -468,37 +468,36 @@ export async function promoteTemplateVersion(
 	versionId: string,
 	options?: { expectedRemoteHash?: string; force?: boolean },
 ): Promise<TemplatePromoteResult> {
-	// Optimistic concurrency: check the remote template hash before
-	// promoting, unless --force is set. This prevents silently overwriting
-	// changes made through the Listmonk admin UI after the version was
-	// captured.
-	if (!options?.force && options?.expectedRemoteHash) {
-		const remoteTemplate = await getTemplateById(client, templateId);
-		const remoteHash = createTemplateHash({
-			id: toPositiveInt(remoteTemplate.id) || templateId,
-			name: remoteTemplate.name || "",
-			type: remoteTemplate.type || "campaign",
-			subject: remoteTemplate.subject || "",
-			body: remoteTemplate.body || "",
-			bodySource: remoteTemplate.body_source || undefined,
-		} satisfies TemplateVersionSnapshot);
-		if (remoteHash !== options.expectedRemoteHash) {
-			throw new Error(
-				`Template ${templateId} remote hash mismatch: expected ${options.expectedRemoteHash.slice(0, 10)}, got ${remoteHash.slice(0, 10)}. Use force=true to override.`,
-			);
-		}
-	}
 	const storeDefinition = createTemplateRegistryStore();
 	return commitRemoteTemplateMutation(
 		storeDefinition,
 		templateId,
-		(store) =>
-			promoteTemplateVersionInStore(
+		async (store) => {
+			// Hash check inside the lock so concurrent promotions cannot
+			// both pass the check before either acquires the lock.
+			if (!options?.force && options?.expectedRemoteHash) {
+				const remoteTemplate = await getTemplateById(client, templateId);
+				const remoteHash = createTemplateHash({
+					id: toPositiveInt(remoteTemplate.id) || templateId,
+					name: remoteTemplate.name || "",
+					type: remoteTemplate.type || "campaign",
+					subject: remoteTemplate.subject || "",
+					body: remoteTemplate.body || "",
+					bodySource: remoteTemplate.body_source || undefined,
+				} satisfies TemplateVersionSnapshot);
+				if (remoteHash !== options.expectedRemoteHash) {
+					throw new Error(
+						`Template ${templateId} remote hash mismatch: expected ${options.expectedRemoteHash.slice(0, 10)}, got ${remoteHash.slice(0, 10)}. Use force=true to override.`,
+					);
+				}
+			}
+			return promoteTemplateVersionInStore(
 				client,
 				templateId,
 				versionId,
 				store,
-			),
+			);
+		},
 	);
 }
 

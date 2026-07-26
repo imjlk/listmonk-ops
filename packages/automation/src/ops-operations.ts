@@ -162,6 +162,13 @@ const templateIdInputSchema = z.object({
 
 const templatePromoteInputSchema = templateIdInputSchema.extend({
 	version_id: z.string().trim().min(1).describe("Stored version ID"),
+	expected_remote_hash: z
+		.string()
+		.optional()
+		.describe("Expected remote template hash for optimistic concurrency"),
+	force: booleanInput
+		.default(false)
+		.describe("Override hash mismatch check"),
 });
 
 const dailyDigestInputSchema = z.object({
@@ -452,7 +459,10 @@ export async function executeTemplateRegistryPromoteOperation(
 	input: z.output<typeof templatePromoteInputSchema>,
 ): Promise<TemplatePromoteResult> {
 	const client = requireOpsClient(context);
-	return promoteTemplateVersion(client, input.template_id, input.version_id);
+	return promoteTemplateVersion(client, input.template_id, input.version_id, {
+		expectedRemoteHash: input.expected_remote_hash,
+		force: input.force,
+	});
 }
 
 export async function executeTemplateRegistryRollbackOperation(
