@@ -153,30 +153,20 @@ async function checkLink(
 			signal: controller.signal,
 		});
 
-		// Handle redirects manually so we can re-validate each destination.
-		while (
-			response.status >= 300 &&
-			response.status < 400 &&
-			response.headers.get("location") &&
-			redirectCount < maxRedirects
-		) {
-			const location = response.headers.get("location")!;
-			currentUrl = new URL(location, currentUrl).toString();
-			const redirectSafety = isSafeFetchUrl(currentUrl);
-			if (!redirectSafety.safe) {
-				return {
-					url,
-					ok: false,
-					error: `Redirect blocked: ${redirectSafety.reason}`,
-				};
-			}
-			redirectCount += 1;
-			response = await fetch(currentUrl, {
-				method: "HEAD",
-				redirect: "manual",
-				signal: controller.signal,
-			});
+		const headResult = await followRedirects(
+			response,
+			"HEAD",
+			currentUrl,
+			redirectCount,
+			maxRedirects,
+			controller,
+		);
+		if (headResult.error) {
+			return { url, ok: false, error: headResult.error };
 		}
+		response = headResult.response;
+		currentUrl = headResult.currentUrl;
+		redirectCount = headResult.redirectCount;
 
 		if (response.status === 405 || response.status === 501) {
 			response = await fetch(currentUrl, {
@@ -184,31 +174,18 @@ async function checkLink(
 				redirect: "manual",
 				signal: controller.signal,
 			});
-			// Re-run redirect validation for the GET response, since the
-			// server may redirect the GET differently than the HEAD.
-			while (
-				response.status >= 300 &&
-				response.status < 400 &&
-				response.headers.get("location") &&
-				redirectCount < maxRedirects
-			) {
-				const location = response.headers.get("location")!;
-				currentUrl = new URL(location, currentUrl).toString();
-				const redirectSafety = isSafeFetchUrl(currentUrl);
-				if (!redirectSafety.safe) {
-					return {
-						url,
-						ok: false,
-						error: `Redirect blocked: ${redirectSafety.reason}`,
-					};
-				}
-				redirectCount += 1;
-				response = await fetch(currentUrl, {
-					method: "GET",
-					redirect: "manual",
-					signal: controller.signal,
-				});
+			const getResult = await followRedirects(
+				response,
+				"GET",
+				currentUrl,
+				redirectCount,
+				maxRedirects,
+				controller,
+			);
+			if (getResult.error) {
+				return { url, ok: false, error: getResult.error };
 			}
+			response = getResult.response;
 		}
 
 		return {
@@ -225,6 +202,50 @@ async function checkLink(
 	} finally {
 		clearTimeout(timeout);
 	}
+}
+
+/**
+ * Shared redirect-following loop with per-hop SSRF revalidation.
+ * Used by both HEAD and GET paths in checkLink.
+ */
+async function followRedirects(
+	response: Response,
+	method: string,
+	currentUrl: string,
+	redirectCount: number,
+	maxRedirects: number,
+	controller: AbortController,
+): Promise<{
+	response: Response;
+	currentUrl: string;
+	redirectCount: number;
+	error?: string;
+}> {
+	while (
+		response.status >= 300 &&
+		response.status < 400 &&
+		response.headers.get("location") &&
+		redirectCount < maxRedirects
+	) {
+		const location = response.headers.get("location")!;
+		currentUrl = new URL(location, currentUrl).toString();
+		const redirectSafety = isSafeFetchUrl(currentUrl);
+		if (!redirectSafety.safe) {
+			return {
+				response,
+				currentUrl,
+				redirectCount,
+				error: `Redirect blocked: ${redirectSafety.reason}`,
+			};
+		}
+		redirectCount += 1;
+		response = await fetch(currentUrl, {
+			method,
+			redirect: "manual",
+			signal: controller.signal,
+		});
+	}
+	return { response, currentUrl, redirectCount };
 }
 
 export async function runCampaignPreflight(
