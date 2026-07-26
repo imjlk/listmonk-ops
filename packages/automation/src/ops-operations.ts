@@ -460,7 +460,7 @@ export async function executeTemplateRegistryPromoteOperation(
 ): Promise<TemplatePromoteResult> {
 	const client = requireOpsClient(context);
 	return promoteTemplateVersion(client, input.template_id, input.version_id, {
-		expectedRemoteHash: input.expected_remote_hash,
+		expectedRemoteHash: input.expected_remote_hash?.trim() || undefined,
 		force: input.force,
 	});
 }

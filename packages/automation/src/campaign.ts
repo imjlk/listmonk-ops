@@ -93,10 +93,24 @@ export function isPrivateHost(hostname: string): boolean {
 			if (a === 172 && b >= 16 && b <= 31) return true;
 			if (a === 192 && b === 168) return true;
 			if (a === 169 && b === 254) return true;
+			if (a === 100 && b === 100) return true; // Alibaba Cloud ECS metadata
 			return false;
 		}
 	}
 	if (host === "::1" || host === "localhost") return true;
+	// IPv4-mapped IPv6 in canonical hex form (::ffff:7f00:1)
+	const mappedHex = host.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+	if (mappedHex) {
+		const hi = parseInt(mappedHex[1]!, 16);
+		const lo = parseInt(mappedHex[2]!, 16);
+		const a = (hi >> 8) & 0xff;
+		const b = hi & 0xff;
+		if (a === 127 || a === 10 || a === 0) return true;
+		if (a === 172 && b >= 16 && b <= 31) return true;
+		if (a === 192 && b === 168) return true;
+		if (a === 169 && b === 254) return true;
+		if (a === 100 && b === 100) return true;
+	}
 	if (host.includes("::")) {
 		if (host.startsWith("fc") || host.startsWith("fd")) return true;
 		if (LINK_LOCAL_PREFIXES.some((p) => host.startsWith(p))) return true;
