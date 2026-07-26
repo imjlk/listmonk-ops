@@ -25,6 +25,7 @@ type RuntimeFlags = {
 	confirm?: boolean;
 	interactive?: boolean;
 	tui?: boolean;
+	format?: string;
 };
 
 export type PromptRuntime = {
@@ -193,12 +194,19 @@ export function prepareCliArgv(input: string[]): string[] {
 		}
 
 		const globalMatch = token.match(
-			/^--(confirm|interactive|tui)(?:=(true|false))?$/,
+			/^--(confirm|interactive|tui|format)(?:=(true|false|human|json|ndjson|quiet))?$/,
 		);
 		if (token === "-i" || globalMatch) {
 			const key = token === "-i" ? "interactive" : globalMatch?.[1];
 			const inlineValue = globalMatch?.[2];
 			const nextValue = input[index + 1];
+			if (key === "format") {
+				runtimeFlags.format = inlineValue ?? nextValue;
+				if (inlineValue === undefined) {
+					index += 1;
+				}
+				continue;
+			}
 			const consumesNext =
 				inlineValue === undefined && /^(true|false)$/i.test(nextValue ?? "");
 			if (key === "confirm" || key === "interactive" || key === "tui") {

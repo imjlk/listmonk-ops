@@ -1,4 +1,5 @@
-import { OutputUtils } from "@listmonk-ops/common";
+import type { OutputUtils } from "@listmonk-ops/common";
+import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeCreateCampaignOperation,
@@ -154,7 +155,7 @@ export async function handleListCampaignsCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderCampaigns(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				page: flags.page,
 				per_page: flags["per-page"],
@@ -180,7 +181,7 @@ export async function handleGetCampaignCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderCampaign(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{ id: flags.id, no_body: flags["no-body"] },
 		);
 	} catch (error) {
@@ -218,7 +219,7 @@ export async function handleCreateCampaignCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderCreateCampaign(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				name: flags.name,
 				subject: flags.subject,
@@ -273,7 +274,7 @@ export async function handleUpdateCampaignCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderUpdateCampaign(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				id: flags.id,
 				name: flags.name,
@@ -316,7 +317,7 @@ export async function handleDeleteCampaignCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderDeleteCampaign(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{ id: flags.id },
 		);
 	} catch (error) {

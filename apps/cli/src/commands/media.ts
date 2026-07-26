@@ -1,4 +1,5 @@
-import { OutputUtils } from "@listmonk-ops/common";
+import type { OutputUtils } from "@listmonk-ops/common";
+import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeDeleteMediaOperation,
@@ -70,7 +71,7 @@ export async function handleListMediaCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderMedia(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{ page: flags.page, per_page: flags["per-page"] },
 		);
 	} catch (error) {
@@ -84,7 +85,7 @@ export async function handleGetMediaFileCommand({
 }: HandlerArgs<{ id: number }>): Promise<void> {
 	try {
 		const client = await getListmonkClient(args);
-		await renderMediaFile({ client, output: OutputUtils }, { id: flags.id });
+		await renderMediaFile({ client, output: getOutput() }, { id: flags.id });
 	} catch (error) {
 		throw createMediaCommandError("Failed to get media file", error);
 	}
@@ -96,7 +97,7 @@ export async function handleDeleteMediaCommand({
 }: HandlerArgs<{ id: number }>): Promise<void> {
 	try {
 		const client = await getListmonkClient(args);
-		await renderDeleteMedia({ client, output: OutputUtils }, { id: flags.id });
+		await renderDeleteMedia({ client, output: getOutput() }, { id: flags.id });
 	} catch (error) {
 		throw createMediaCommandError("Failed to delete media file", error);
 	}

@@ -1,4 +1,5 @@
-import { OutputUtils } from "@listmonk-ops/common";
+import type { OutputUtils } from "@listmonk-ops/common";
+import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeCreateListOperation,
@@ -135,7 +136,7 @@ export async function handleListListsCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderSubscriberLists(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{ page: flags.page, per_page: flags["per-page"] },
 		);
 	} catch (error) {
@@ -154,7 +155,7 @@ export async function handleGetListCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderSubscriberList(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{ id: flags.id },
 		);
 	} catch (error) {
@@ -177,7 +178,7 @@ export async function handleCreateListCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderCreateSubscriberList(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				name: flags.name,
 				type: flags.type,
@@ -207,7 +208,7 @@ export async function handleUpdateListCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderUpdateSubscriberList(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				id: flags.id,
 				name: flags.name,
@@ -229,7 +230,7 @@ export async function handleDeleteListCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderDeleteSubscriberList(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{ id: flags.id },
 		);
 	} catch (error) {

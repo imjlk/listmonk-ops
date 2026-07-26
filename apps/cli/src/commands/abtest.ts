@@ -29,7 +29,7 @@ import {
 	validateHypothesisMetadata,
 	validateStoredAbTestStore,
 } from "@listmonk-ops/abtest";
-import { OutputUtils } from "@listmonk-ops/common";
+import { getOutput } from "../lib/output";
 import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
 import {
@@ -641,7 +641,7 @@ export default defineGroup({
 						{},
 					);
 					if (tests.length === 0) {
-						OutputUtils.info("No A/B tests found");
+						getOutput().info("No A/B tests found");
 						return;
 					}
 
@@ -654,7 +654,7 @@ export default defineGroup({
 						testGroupPercentage: test.testGroupPercentage,
 						createdAt: new Date(test.createdAt).toISOString(),
 					}));
-					OutputUtils.table(rows);
+					getOutput().table(rows);
 				} catch (error) {
 					throw new Error(`Failed to list A/B tests: ${toErrorMessage(error)}`);
 				}
@@ -684,8 +684,8 @@ export default defineGroup({
 							}),
 					});
 
-					OutputUtils.success(`A/B test created: ${created.id}`);
-					OutputUtils.json(created);
+					getOutput().success(`A/B test created: ${created.id}`);
+					getOutput().json(created);
 				} catch (error) {
 					throw new Error(
 						`Failed to create A/B test: ${toErrorMessage(error)}`,
@@ -754,8 +754,8 @@ export default defineGroup({
 						args,
 						{ ...input, auto_launch: flags["auto-launch"] },
 					);
-					OutputUtils.success(`A/B test created: ${created.id}`);
-					OutputUtils.json(created);
+					getOutput().success(`A/B test created: ${created.id}`);
+					getOutput().json(created);
 				} catch (error) {
 					throw new Error(
 						`Failed to create A/B test: ${toErrorMessage(error)}`,
@@ -789,8 +789,8 @@ export default defineGroup({
 						conversion_rate: `${result.conversionRate.toFixed(2)}%`,
 					}));
 
-					OutputUtils.table(rows);
-					OutputUtils.json({
+					getOutput().table(rows);
+					getOutput().json({
 						statisticalAnalysis: analysis.analysis,
 						winner: analysis.winner,
 						recommendations: analysis.recommendations,
@@ -831,7 +831,7 @@ export default defineGroup({
 								variant_count: flags["variant-count"],
 							},
 						);
-					OutputUtils.json(recommendation);
+					getOutput().json(recommendation);
 				} catch (error) {
 					throw new Error(
 						`Failed to recommend A/B sample size: ${toErrorMessage(error)}`,
@@ -854,7 +854,7 @@ export default defineGroup({
 						args,
 						{ test_id: flags["test-id"] },
 					);
-					OutputUtils.json(test);
+					getOutput().json(test);
 				} catch (error) {
 					throw new Error(`Failed to get A/B test: ${toErrorMessage(error)}`);
 				}
@@ -875,8 +875,8 @@ export default defineGroup({
 						args,
 						{ test_id: flags["test-id"] },
 					);
-					OutputUtils.success(`A/B test launched: ${flags["test-id"]}`);
-					OutputUtils.json(launched);
+					getOutput().success(`A/B test launched: ${flags["test-id"]}`);
+					getOutput().json(launched);
 				} catch (error) {
 					throw new Error(
 						`Failed to launch A/B test: ${toErrorMessage(error)}`,
@@ -899,8 +899,8 @@ export default defineGroup({
 						args,
 						{ test_id: flags["test-id"] },
 					);
-					OutputUtils.success(`A/B test stopped: ${flags["test-id"]}`);
-					OutputUtils.json(stopped);
+					getOutput().success(`A/B test stopped: ${flags["test-id"]}`);
+					getOutput().json(stopped);
 				} catch (error) {
 					throw new Error(`Failed to stop A/B test: ${toErrorMessage(error)}`);
 				}
@@ -922,10 +922,10 @@ export default defineGroup({
 							args,
 							{ test_id: flags["test-id"] },
 						);
-					OutputUtils.success(
+					getOutput().success(
 						`A/B test winner deployed: ${flags["test-id"]}`,
 					);
-					OutputUtils.json(result);
+					getOutput().json(result);
 				} catch (error) {
 					throw new Error(
 						`Failed to deploy A/B test winner: ${toErrorMessage(error)}`,
@@ -948,8 +948,8 @@ export default defineGroup({
 						args,
 						{ test_id: flags["test-id"] },
 					);
-					OutputUtils.success(`A/B test advanced: ${flags["test-id"]}`);
-					OutputUtils.json(run);
+					getOutput().success(`A/B test advanced: ${flags["test-id"]}`);
+					getOutput().json(run);
 				} catch (error) {
 					throw new Error(
 						`Failed to run A/B test: ${toErrorMessage(error)}`,
@@ -972,12 +972,12 @@ export default defineGroup({
 					const result = await invokeCliTickAbTests(args, {
 						dry_run: dryRun,
 					});
-					OutputUtils.success(
+					getOutput().success(
 						dryRun
 							? `Dry-run: ${result.processed} A/B test(s) would be progressed`
 							: `Ticked ${result.processed} A/B test(s)`,
 					);
-					OutputUtils.json(result);
+					getOutput().json(result);
 				} catch (error) {
 					throw new Error(
 						`Failed to tick A/B tests: ${toErrorMessage(error)}`,
@@ -1007,10 +1007,10 @@ export default defineGroup({
 						all: flags.all,
 						repair: flags.repair,
 					});
-					OutputUtils.success(
+					getOutput().success(
 						`Reconciled ${result.reconciled} A/B test(s)`,
 					);
-					OutputUtils.json(result);
+					getOutput().json(result);
 				} catch (error) {
 					throw new Error(
 						`Failed to reconcile A/B tests: ${toErrorMessage(error)}`,
@@ -1034,10 +1034,10 @@ export default defineGroup({
 						args,
 						{ test_id: args.flags["test-id"] },
 					);
-					OutputUtils.success(
+					getOutput().success(
 						`Exported assignment manifest for test ${args.flags["test-id"]}`,
 					);
-					OutputUtils.json(result);
+					getOutput().json(result);
 				} catch (error) {
 					throw new Error(
 						`Failed to export assignment: ${toErrorMessage(error)}`,
@@ -1060,7 +1060,7 @@ export default defineGroup({
 						args,
 						{ test_id: flags["test-id"] },
 					);
-					OutputUtils.success(`A/B test deleted: ${flags["test-id"]}`);
+					getOutput().success(`A/B test deleted: ${flags["test-id"]}`);
 				} catch (error) {
 					throw new Error(
 						`Failed to delete A/B test: ${toErrorMessage(error)}`,

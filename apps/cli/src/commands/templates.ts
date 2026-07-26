@@ -1,4 +1,5 @@
-import { OutputUtils } from "@listmonk-ops/common";
+import type { OutputUtils } from "@listmonk-ops/common";
+import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeCreateTemplateOperation,
@@ -114,7 +115,7 @@ export async function handleListTemplatesCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderTemplates(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				page: flags.page,
 				per_page: flags["per-page"],
@@ -132,7 +133,7 @@ export async function handleGetTemplateCommand({
 }: HandlerArgs<{ id: number }>): Promise<void> {
 	try {
 		const client = await getListmonkClient(args);
-		await renderTemplate({ client, output: OutputUtils }, { id: flags.id });
+		await renderTemplate({ client, output: getOutput() }, { id: flags.id });
 	} catch (error) {
 		throw createTemplateCommandError("Failed to get template", error);
 	}
@@ -153,7 +154,7 @@ export async function handleCreateTemplateCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderCreateTemplate(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				name: flags.name,
 				type: flags.type,
@@ -183,7 +184,7 @@ export async function handleUpdateTemplateCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderUpdateTemplate(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{
 				id: flags.id,
 				name: flags.name,
@@ -205,7 +206,7 @@ export async function handleDeleteTemplateCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderDeleteTemplate(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{ id: flags.id },
 		);
 	} catch (error) {
@@ -220,7 +221,7 @@ export async function handleSetDefaultTemplateCommand({
 	try {
 		const client = await getListmonkClient(args);
 		await renderSetDefaultTemplate(
-			{ client, output: OutputUtils },
+			{ client, output: getOutput() },
 			{ id: flags.id },
 		);
 	} catch (error) {
