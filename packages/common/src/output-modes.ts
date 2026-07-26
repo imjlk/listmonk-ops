@@ -91,7 +91,7 @@ export const ndjsonOutput: OutputStrategy = {
 		console.error(`⚠️  ${message}`);
 	},
 	table(data) {
-		console.error(JSON.stringify(data));
+		console.log(JSON.stringify(data));
 	},
 	json(data) {
 		console.log(JSON.stringify(data));
@@ -109,7 +109,9 @@ export const quietOutput: OutputStrategy = {
 	},
 	info(_message) {},
 	warning(_message) {},
-	table(_data) {},
+	table(data) {
+		console.log(JSON.stringify(data));
+	},
 	json(data) {
 		console.log(JSON.stringify(data));
 	},

@@ -194,26 +194,32 @@ export function prepareCliArgv(input: string[]): string[] {
 		}
 
 		const globalMatch = token.match(
-			/^--(confirm|interactive|tui|format)(?:=(true|false|human|json|ndjson|quiet))?$/,
+			/^--(confirm|interactive|tui)(?:=(true|false))?$/,
 		);
-		if (token === "-i" || globalMatch) {
-			const key = token === "-i" ? "interactive" : globalMatch?.[1];
-			const inlineValue = globalMatch?.[2];
+		const formatMatch = token.match(
+			/^--format(?:=(human|json|ndjson|quiet))?$/,
+		);
+		if (formatMatch) {
+			const inlineValue = formatMatch[1];
 			const nextValue = input[index + 1];
-			if (key === "format") {
+			if (inlineValue) {
+				runtimeFlags.format = inlineValue;
+			} else {
 				const validFormats = ["human", "json", "ndjson", "quiet"];
-				const formatValue = inlineValue ?? nextValue;
-				if (!formatValue || !validFormats.includes(formatValue)) {
+				if (!nextValue || !validFormats.includes(nextValue)) {
 					throw new Error(
 						`--format requires one of: ${validFormats.join(", ")}`,
 					);
 				}
-				runtimeFlags.format = formatValue;
-				if (inlineValue === undefined) {
-					index += 1;
-				}
-				continue;
+				runtimeFlags.format = nextValue;
+				index += 1;
 			}
+			continue;
+		}
+		if (token === "-i" || globalMatch) {
+			const key = token === "-i" ? "interactive" : globalMatch?.[1];
+			const inlineValue = globalMatch?.[2];
+			const nextValue = input[index + 1];
 			const consumesNext =
 				inlineValue === undefined && /^(true|false)$/i.test(nextValue ?? "");
 			if (key === "confirm" || key === "interactive" || key === "tui") {
