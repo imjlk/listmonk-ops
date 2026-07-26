@@ -37,7 +37,18 @@ const subCommands = {
 	operations: operationsCommand,
 };
 
-await cli(prepareCliArgv(process.argv.slice(2)), entry, {
+import { getRuntimeFlags } from "./lib/command";
+
+const argv = prepareCliArgv(process.argv.slice(2));
+const flags = getRuntimeFlags();
+// In machine-readable output modes, suppress service-level console
+// output (warnings, info, statistical summaries) that would corrupt
+// stdout JSON.
+if (flags.format && flags.format !== "human") {
+	process.env.LISTMONK_OPS_ABTEST_SILENT = "1";
+}
+
+await cli(argv, entry, {
 	name: "listmonk-cli",
 	version: packageJson.version,
 	description: "CLI for Listmonk operations",

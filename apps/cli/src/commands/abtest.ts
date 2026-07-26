@@ -654,7 +654,7 @@ export default defineGroup({
 						testGroupPercentage: test.testGroupPercentage,
 						createdAt: new Date(test.createdAt).toISOString(),
 					}));
-					getOutput().table(rows);
+					getOutput().json({ tests: rows });
 				} catch (error) {
 					throw new Error(`Failed to list A/B tests: ${toErrorMessage(error)}`);
 				}
@@ -789,7 +789,6 @@ export default defineGroup({
 						conversion_rate: `${result.conversionRate.toFixed(2)}%`,
 					}));
 
-					getOutput().table(rows);
 					getOutput().json({
 						statisticalAnalysis: analysis.analysis,
 						winner: analysis.winner,
