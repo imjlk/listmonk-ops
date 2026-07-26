@@ -1,4 +1,5 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { lookup as dnsLookup } from "node:dns/promises";
 
 import {
 	getCampaign,
@@ -136,10 +137,9 @@ export function isSafeFetchUrl(url: string): { safe: boolean; reason?: string } 
  * hostname-only check above already handles literal private IPs.
  */
 async function isSafeResolvedHost(hostname: string): Promise<{ safe: boolean; reason?: string }> {
-	const { lookup } = await import("node:dns/promises");
 	let addresses: Array<{ address: string }>;
 	try {
-		addresses = await lookup(hostname, { all: true });
+		addresses = await dnsLookup(hostname, { all: true });
 	} catch {
 		// DNS resolution failed — the hostname-only check already caught
 		// literal private IPs. If it's a public hostname that doesn't
