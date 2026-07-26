@@ -253,7 +253,10 @@ export async function runSegmentDriftSnapshot(
 					listName: entry.listName,
 					previousCount,
 					currentCount: entry.subscriberCount,
-					baselineCount: Math.round(alertBaseline ?? baselineCount ?? 0),
+					baselineCount:
+						alertBaseline !== undefined || baselineCount !== undefined
+							? Math.round(alertBaseline ?? baselineCount ?? 0)
+							: undefined,
 					delta,
 					deltaRate,
 					alert,
