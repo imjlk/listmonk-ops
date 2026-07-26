@@ -14,6 +14,7 @@ import {
 	invokeDeleteMediaOperation,
 	invokeGetCampaignStatsOperation,
 	invokeMediaOperationByMcpName,
+	invokeUploadMediaOperation,
 	invokeAddSubscribersToListsOperation,
 	invokeBlocklistSubscribersOperation,
 	invokeCreateSubscriberOperation,
@@ -68,7 +69,7 @@ describe("shared CRUD resource operations", () => {
 		expect(campaignOperations).toHaveLength(11);
 		expect(subscriberOperations).toHaveLength(9);
 		expect(templateOperations).toHaveLength(6);
-		expect(mediaOperations).toHaveLength(3);
+		expect(mediaOperations).toHaveLength(4);
 		for (const operation of [
 			...campaignOperations,
 			...subscriberOperations,
@@ -639,5 +640,71 @@ describe("shared CRUD resource operations", () => {
 		expect(result.succeeded).toBe(0);
 		expect(result.failed).toBe(2);
 		expect(result.errors).toHaveLength(1);
+	});
+
+	test("uploads media files through the shared operation", async () => {
+		// 1x1 transparent PNG — small enough to stay well under the cap.
+		const pngBase64 =
+			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+		const upload = mock(async (options: { body: Blob }) => ({
+			data: {
+				id: 42,
+				filename: "pixel.png",
+				content_type: options.body.type || "image/png",
+				uuid: "media-uuid",
+			},
+		})) as unknown as MediaClient["media"]["upload"];
+
+		const uploaded = await invokeUploadMediaOperation(
+			mediaContext({ upload }),
+			{
+				base64: pngBase64,
+				filename: "pixel.png",
+				content_type: "image/png",
+			},
+		);
+		expect(uploaded).toMatchObject({
+			id: 42,
+			filename: "pixel.png",
+			content_type: "image/png",
+		});
+		expect(upload).toHaveBeenCalledTimes(1);
+	});
+
+	test("rejects media uploads that exceed the size cap or MIME allowlist", async () => {
+		const upload = mock(async () => ({ data: {} })) as unknown as MediaClient["media"]["upload"];
+
+		// 11 MiB of zero bytes base64-encoded — over the 10 MiB cap.
+		const oversized = "A".repeat(Math.ceil((11 * 1024 * 1024 * 4) / 3));
+		await expect(
+			invokeUploadMediaOperation(
+				mediaContext({ upload }),
+				{ base64: oversized, filename: "huge.bin" },
+			),
+		).rejects.toEqual(
+			expect.objectContaining<Partial<OperationInputError>>({
+				name: "OperationInputError",
+			}),
+		);
+
+		// Disallowed MIME type.
+		const pngBase64 =
+			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+		await expect(
+			invokeUploadMediaOperation(
+				mediaContext({ upload }),
+				{
+					base64: pngBase64,
+					filename: "evil.exe",
+					content_type: "application/x-msdownload",
+				},
+			),
+		).rejects.toEqual(
+			expect.objectContaining<Partial<OperationInputError>>({
+				name: "OperationInputError",
+			}),
+		);
+
+		expect(upload).not.toHaveBeenCalled();
 	});
 });

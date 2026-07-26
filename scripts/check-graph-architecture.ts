@@ -1422,7 +1422,51 @@ const subscriberBulkContracts: readonly CallPathContract[] = [
 			"packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
 		action:
 			"packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
-	}),
+		}),
+	];
+
+const cliMediaModulePath = "apps/cli/src/commands/media.ts";
+const mediaUploadDispatcher =
+	"packages/operations/src/media.ts#invokeMediaOperationByMcpName:function";
+const mcpMediaUploadHandler =
+	"packages/mcp/src/handlers/media.ts#handleMediaTools:function";
+
+const mediaUploadContracts: readonly CallPathContract[] = [
+	{
+		label: "CLI media upload reaches the shared action",
+		path: [
+			`${cliMediaModulePath}#handleUploadMediaCommand:function`,
+			`${cliMediaModulePath}#renderUploadMedia:function`,
+			"packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+			"packages/operations/src/media.ts#uploadMediaFile:function",
+		],
+	},
+	{
+		label: "MCP media upload reaches the shared action",
+		path: [
+			mcpCallTool,
+			mcpMediaUploadHandler,
+			mediaUploadDispatcher,
+			"packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+			"packages/operations/src/media.ts#uploadMediaFile:function",
+		],
+	},
+	{
+		label: "Operation tests anchor the media upload invoker",
+		path: [
+			"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+			"packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+			"packages/operations/src/media.ts#uploadMediaFile:function",
+		],
+	},
+	{
+		label: "CLI media upload tests anchor the shared renderer",
+		path: [
+			"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+			`${cliMediaModulePath}#renderUploadMedia:function`,
+			"packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+		],
+	},
 ];
 
 const mediaParityContracts: readonly CallPathContract[] = [
@@ -1803,6 +1847,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	...templateSetDefaultContracts,
 	...campaignLifecycleContracts,
 	...subscriberBulkContracts,
+	...mediaUploadContracts,
 	...mediaParityContracts,
 	...mcpHttpTransportContracts,
 	...opsOperationContracts,

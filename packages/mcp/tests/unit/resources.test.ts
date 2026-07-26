@@ -53,6 +53,7 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 			"listmonk_get_media",
 			"listmonk_get_media_file",
 			"listmonk_delete_media",
+			"listmonk_upload_media",
 		]);
 		const deleteMediaTool = mediaTools.find(
 			(tool) => tool.name === "listmonk_delete_media",

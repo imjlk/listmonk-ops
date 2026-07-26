@@ -26,6 +26,7 @@ import {
 import {
 	renderDeleteMedia,
 	renderMedia,
+	renderUploadMedia,
 	type MediaCliContext,
 } from "../src/commands/media";
 
@@ -304,5 +305,35 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 		expect(cliContext.output.success).toHaveBeenCalledWith(
 			"Unblocklisted 2 of 2 subscribers",
 		);
+	});
+
+	test("renders media uploads through the shared renderer", async () => {
+		// 1x1 transparent PNG, base64-encoded.
+		const pngBase64 =
+			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+		const upload = mock(async () => ({
+			data: {
+				id: 42,
+				filename: "pixel.png",
+				content_type: "image/png",
+			},
+		}));
+		const cliContext = {
+			client: { media: { upload } } as unknown as Pick<
+				ListmonkClient,
+				"media"
+			>,
+			output: output(),
+		} satisfies MediaCliContext;
+
+		await renderUploadMedia(cliContext, {
+			base64: pngBase64,
+			filename: "pixel.png",
+			content_type: "image/png",
+		});
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Media file uploaded: pixel.png",
+		);
+		expect(upload).toHaveBeenCalledTimes(1);
 	});
 });

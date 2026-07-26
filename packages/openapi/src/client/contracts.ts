@@ -169,7 +169,7 @@ export interface CampaignOperations
 	}): Promise<FlattenedResponse<Record<string, unknown>>>;
 }
 
-interface MediaOperations {
+export interface MediaOperations {
 	list(options?: t.GetMediaData): Promise<ListResult<t.MediaFileObject>>;
 	getById(options: {
 		path: { id: number };
@@ -177,6 +177,9 @@ interface MediaOperations {
 	deleteById(options: {
 		path: { id: number };
 	}): Promise<FlattenedResponse<boolean>>;
+	upload(options: {
+		body: File | Blob;
+	}): Promise<FlattenedResponse<t.MediaFileObject>>;
 }
 
 interface BaseGetOperation<T> {
@@ -288,11 +291,7 @@ export interface EnhancedListmonkClient {
 	subscriber: SubscriberOperations;
 	campaign: CampaignOperations;
 	template: TemplateOperations;
-	media: MediaOperations & {
-		upload(options: {
-			body: File | Blob;
-		}): Promise<FlattenedResponse<t.MediaFileObject>>;
-	};
+	media: MediaOperations;
 
 	import: ImportOperations;
 	bounce: BounceOperations;
