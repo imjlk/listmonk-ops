@@ -45,6 +45,8 @@ function summarizeChecks(checks: CampaignPreflightCheck[]) {
 	};
 }
 
+const LINK_LOCAL_PREFIXES = ["fe8", "fe9", "fea", "feb"];
+
 /**
  * Check links with bounded concurrency (max 5 at a time) to avoid
  * overwhelming the server or the network.
@@ -96,8 +98,7 @@ export function isPrivateHost(hostname: string): boolean {
 	if (host === "::1" || host === "localhost") return true;
 	if (host.includes("::")) {
 		if (host.startsWith("fc") || host.startsWith("fd")) return true;
-		const linkLocalPrefixes = ["fe8", "fe9", "fea", "feb"];
-		if (linkLocalPrefixes.some((p) => host.startsWith(p))) return true;
+		if (LINK_LOCAL_PREFIXES.some((p) => host.startsWith(p))) return true;
 	}
 	return false;
 }
