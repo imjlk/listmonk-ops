@@ -1,22 +1,25 @@
 /**
  * Campaign lifecycle state machine.
  *
- * Listmonk's `PUT /campaigns/{id}/status` endpoint accepts any of the four
- * target statuses (`scheduled`, `running`, `paused`, `cancelled`) without
- * documenting which transitions are legal from the campaign's current
- * status. Observed Listmonk 6.x behaviour is encoded below so the CLI/MCP
- * surfaces reject obviously invalid transitions before they reach the API.
+ * The transitions encoded below match the verified Listmonk 6.2.0 spike
+ * recorded in `packages/abtest/src/lifecycle.ts`: `paused` and `cancelled`
+ * are accepted **only** when the campaign is `running` (the server replies
+ * `400 Only active campaigns can be cancelled` for `draft` or `scheduled`
+ * sources). A scheduled campaign therefore cannot be cancelled directly;
+ * callers must delete it instead.
  *
- * The map is intentionally permissive of resume paths (`paused -> running`)
- * and conservative about terminal statuses (`finished`, `cancelled`).
+ * `running` is reachable from `draft` and `scheduled`; `scheduled` is
+ * reachable from `draft`. Resuming from `paused` is allowed because
+ * Listmonk treats a paused campaign as still active. Terminal statuses
+ * (`finished`, `cancelled`) cannot transition anywhere.
  */
 export const CAMPAIGN_TRANSITIONS: Readonly<
 	Record<string, ReadonlySet<string>>
 > = {
 	draft: new Set(["scheduled", "running"]),
-	scheduled: new Set(["running", "paused", "cancelled"]),
+	scheduled: new Set(["running"]),
 	running: new Set(["paused", "cancelled"]),
-	paused: new Set(["running", "cancelled"]),
+	paused: new Set(["running"]),
 	finished: new Set(),
 	cancelled: new Set(),
 };

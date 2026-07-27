@@ -60,6 +60,7 @@ export interface CreateCampaignInput {
 	subject: string;
 	from_email: string;
 	body: string;
+	body_source?: string | null;
 	altbody?: string;
 	type?: "regular" | "optin";
 	template_id: number;
@@ -254,6 +255,7 @@ type CreateCommandFlags = {
 	subject: string;
 	"from-email": string;
 	body: string;
+	"body-source"?: string;
 	altbody?: string;
 	type: "regular" | "optin";
 	"template-id": number;
@@ -285,6 +287,7 @@ export async function handleCreateCampaignCommand({
 				subject: flags.subject,
 				from_email: flags["from-email"],
 				body: flags.body,
+				body_source: flags["body-source"],
 				altbody: flags.altbody,
 				type: flags.type,
 				template_id: flags["template-id"],
@@ -550,6 +553,10 @@ export default defineGroup({
 					description: "From email address",
 				}),
 				body: option(z.string().min(1), { description: "Campaign body" }),
+				"body-source": option(z.string().optional(), {
+					description:
+						"Visual-editor source (JSON). Preserved so visual campaigns stay editable in the builder.",
+				}),
 				altbody: option(z.string().optional(), {
 					description: "Plain-text alternative",
 				}),

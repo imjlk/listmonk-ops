@@ -216,6 +216,10 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 			create: mock(async () => ({
 				data: { id: 11, name: "Cloned", status: "draft" },
 			})),
+			// clone snapshots existing same-name campaigns via list before create.
+			list: mock(async () => ({
+				data: { results: [], total: 0, per_page: 100, page: 1 },
+			})),
 		};
 		const cliContext = {
 			client: { campaign } as unknown as Pick<
@@ -238,14 +242,18 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 			"Campaign 10 started",
 		);
 
-		await renderPauseCampaign(cliContext, { id: 10 });
-		expect(cliContext.output.success).toHaveBeenCalledWith(
-			"Campaign 10 paused",
-		);
-
+		// Listmonk 6.2.0 only accepts cancel from `running`, so cancel must
+		// run while the campaign is still running (before any pause).
 		await renderCancelCampaign(cliContext, { id: 10 });
 		expect(cliContext.output.success).toHaveBeenCalledWith(
 			"Campaign 10 cancelled",
+		);
+
+		// Pause is exercised separately: reset to running, then pause.
+		currentStatus = "running";
+		await renderPauseCampaign(cliContext, { id: 10 });
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Campaign 10 paused",
 		);
 
 		await renderCloneCampaign(cliContext, { id: 10, name: "Clone" });

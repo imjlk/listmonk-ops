@@ -22,6 +22,7 @@ import {
 } from "../lib/command";
 import {
 	parseCsvNumbers,
+	parseCsvNumbersStrict,
 	parseJson,
 	toErrorMessage,
 } from "../lib/command-utils";
@@ -385,8 +386,11 @@ async function handleAddSubscribersToListsCommand({
 		await renderAddSubscribersToLists(
 			{ client, output: getOutput() },
 			{
-				subscriber_ids: parseCsvNumbers(flags["subscriber-ids"]),
-				list_ids: parseCsvNumbers(flags["list-ids"]),
+				subscriber_ids: parseCsvNumbersStrict(
+					flags["subscriber-ids"],
+					"subscriber IDs",
+				),
+				list_ids: parseCsvNumbersStrict(flags["list-ids"], "list IDs"),
 				dry_run: flags["dry-run"],
 				max_items: flags["max-items"],
 				continue_on_error: flags["continue-on-error"],
@@ -409,8 +413,11 @@ async function handleRemoveSubscribersFromListsCommand({
 		await renderRemoveSubscribersFromLists(
 			{ client, output: getOutput() },
 			{
-				subscriber_ids: parseCsvNumbers(flags["subscriber-ids"]),
-				list_ids: parseCsvNumbers(flags["list-ids"]),
+				subscriber_ids: parseCsvNumbersStrict(
+					flags["subscriber-ids"],
+					"subscriber IDs",
+				),
+				list_ids: parseCsvNumbersStrict(flags["list-ids"], "list IDs"),
 				dry_run: flags["dry-run"],
 				max_items: flags["max-items"],
 				continue_on_error: flags["continue-on-error"],
@@ -433,7 +440,10 @@ async function handleBlocklistSubscribersCommand({
 		await renderBlocklistSubscribers(
 			{ client, output: getOutput() },
 			{
-				subscriber_ids: parseCsvNumbers(flags["subscriber-ids"]),
+				subscriber_ids: parseCsvNumbersStrict(
+					flags["subscriber-ids"],
+					"subscriber IDs",
+				),
 				dry_run: flags["dry-run"],
 				max_items: flags["max-items"],
 				continue_on_error: flags["continue-on-error"],
@@ -456,7 +466,10 @@ async function handleUnblocklistSubscribersCommand({
 		await renderUnblocklistSubscribers(
 			{ client, output: getOutput() },
 			{
-				subscriber_ids: parseCsvNumbers(flags["subscriber-ids"]),
+				subscriber_ids: parseCsvNumbersStrict(
+					flags["subscriber-ids"],
+					"subscriber IDs",
+				),
 				dry_run: flags["dry-run"],
 				max_items: flags["max-items"],
 				continue_on_error: flags["continue-on-error"],

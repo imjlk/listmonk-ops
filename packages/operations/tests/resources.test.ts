@@ -515,9 +515,14 @@ describe("shared CRUD resource operations", () => {
 		const create = mock(async () => ({
 			data: { id: 11, name: "Cloned", status: "draft" },
 		})) as unknown as CampaignClient["campaign"]["create"];
+		// collectCampaignIdsByName scans existing same-name campaigns before
+		// the create. Return an empty page so the snapshot is empty.
+		const list = mock(async () => ({
+			data: { results: [], total: 0, per_page: 100, page: 1 },
+		})) as unknown as CampaignClient["campaign"]["list"];
 
 		const cloned = await invokeCloneCampaignOperation(
-			campaignContext({ getById, create }),
+			campaignContext({ getById, create, list }),
 			{ id: 7, name: "Cloned" },
 		);
 		expect(cloned).toMatchObject({ id: 11, name: "Cloned" });
@@ -559,18 +564,26 @@ describe("shared CRUD resource operations", () => {
 			},
 		})) as unknown as CampaignClient["campaign"]["getById"];
 		const create = mock(async () => ({ data: undefined })) as unknown as CampaignClient["campaign"]["create"];
-		// List returns source first, then the new clone (id 11) on page 1.
-		const list = mock(async () => ({
-			data: {
-				results: [
-					{ id: sourceId, name: "Cloned" },
-					{ id: 11, name: "Cloned" },
-				],
-				total: 2,
-				per_page: 100,
-				page: 1,
-			},
-		})) as unknown as CampaignClient["campaign"]["list"];
+		// First list call (collectCampaignIdsByName, pre-create) returns an
+		// empty page so the snapshot is empty. Second call (post-create
+		// fallback) returns the newly created clone (id 11).
+		let listCallCount = 0;
+		const list = mock(async () => {
+			listCallCount += 1;
+			if (listCallCount === 1) {
+				return {
+					data: { results: [], total: 0, per_page: 100, page: 1 },
+				};
+			}
+			return {
+				data: {
+					results: [{ id: 11, name: "Cloned" }],
+					total: 1,
+					per_page: 100,
+					page: 1,
+				},
+			};
+		}) as unknown as CampaignClient["campaign"]["list"];
 
 		const cloned = await invokeCloneCampaignOperation(
 			campaignContext({ getById, create, list }),
@@ -611,8 +624,9 @@ describe("shared CRUD resource operations", () => {
 	});
 
 	test("pause and cancel dispatch through the lifecycle invokers", async () => {
+		// Listmonk 6.2.0 only accepts paused/cancelled from `running`.
 		const getById = mock(async ({ path }: { path: { id: number } }) => ({
-			data: { id: path.id, status: path.id === 1 ? "running" : "scheduled" },
+			data: { id: path.id, status: "running" },
 		})) as unknown as CampaignClient["campaign"]["getById"];
 		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
 
@@ -627,6 +641,28 @@ describe("shared CRUD resource operations", () => {
 			{ id: 2 },
 		);
 		expect(cancelled).toEqual({ id: 2, status: "cancelled" });
+	});
+
+	test("rejects cancel/pause on non-running campaigns per Listmonk 6.2.0", async () => {
+		// `scheduled` cannot be cancelled or paused; the server returns 400.
+		const getById = mock(async () => ({
+			data: { id: 5, status: "scheduled" },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+
+		await expect(
+			invokeCancelCampaignOperation(
+				campaignContext({ getById, updateStatus }),
+				{ id: 5 },
+			),
+		).rejects.toThrow(/transition/i);
+		await expect(
+			invokePauseCampaignOperation(
+				campaignContext({ getById, updateStatus }),
+				{ id: 5 },
+			),
+		).rejects.toThrow(/transition/i);
+		expect(updateStatus).not.toHaveBeenCalled();
 	});
 
 	test("subscriber bulk operations chunk IDs through the shared executor", async () => {

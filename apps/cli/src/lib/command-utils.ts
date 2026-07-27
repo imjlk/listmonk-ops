@@ -39,6 +39,32 @@ export function parseCsvNumbers(input: string | undefined): number[] {
 	return numbers;
 }
 
+/**
+ * Strict variant of {@link parseCsvNumbers} for bulk operations where a
+ * single malformed ID must abort the entire command. Unlike
+ * {@link parseCsvNumbers}, this rejects any token that is not a positive
+ * finite integer — it does not silently drop invalid tokens.
+ */
+export function parseCsvNumbersStrict(
+	input: string | undefined,
+	label: string,
+): number[] {
+	if (!input) {
+		throw new Error(`Expected a comma-separated list of ${label}`);
+	}
+	const tokens = input.split(",").map((value) => value.trim());
+	const numbers: number[] = [];
+	for (const token of tokens) {
+		if (!/^[1-9][0-9]*$/.test(token)) {
+			throw new Error(
+				`Invalid ${label} '${token}': expected a positive integer`,
+			);
+		}
+		numbers.push(Number(token));
+	}
+	return numbers;
+}
+
 export function parseJson<T>(input: string, label: string): T {
 	try {
 		return JSON.parse(input) as T;

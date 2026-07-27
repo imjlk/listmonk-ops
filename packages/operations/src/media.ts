@@ -193,6 +193,17 @@ const BASE64_ALPHABET_PATTERN =
 	/^[A-Za-z0-9+/_-]*={0,2}$/;
 
 /**
+ * Strip the optional `data:` URL prefix and inner whitespace/newlines from
+ * a base64 payload. Used by both the schema validator (for size estimates)
+ * and the decoder so the two never disagree on what counts as "trimmed".
+ */
+function stripBase64Wrapper(value: string): string {
+	return value
+		.replace(/^data:.*?;base64,/, "")
+		.replace(/\s+/g, "");
+}
+
+/**
  * Decode a base64 string into a `Uint8Array` using only runtime-neutral
  * web-platform APIs (`atob`). `packages/operations` must not depend on
  * Node/Bun globals like `Buffer` so the same code runs in browsers and
@@ -210,15 +221,18 @@ function decodeBase64ToBytes(value: string): Uint8Array | null {
 	// do not reject legitimately encoded payloads that were wrapped for
 	// readability, but require the remaining characters to be canonical
 	// base64 (standard or URL-safe alphabet).
-	const trimmed = value
-		.replace(/^data:.*?;base64,/, "")
-		.replace(/\s+/g, "");
+	const trimmed = stripBase64Wrapper(value);
 	if (!BASE64_ALPHABET_PATTERN.test(trimmed)) return null;
-	// Padding length must be 0, 1 (=), or 2 (==) and aligned to 4-byte groups.
-	if (trimmed.length % 4 !== 0) return null;
 	// Normalize URL-safe alphabet to standard so `atob` accepts it on every
 	// runtime (it does not recognize `-`/`_` in browsers).
-	const standard = trimmed.replaceAll("-", "+").replaceAll("_", "/");
+	let standard = trimmed.replaceAll("-", "+").replaceAll("_", "/");
+	// Re-pad to a 4-byte boundary so unpadded base64 (e.g. `YQ`, common
+	// from base64url emitters) is accepted. Length mod 4 of 1 is invalid
+	// for any base64 variant and is rejected.
+	const remainder = standard.length % 4;
+	if (remainder === 1) return null;
+	if (remainder === 2) standard += "==";
+	else if (remainder === 3) standard += "=";
 	try {
 		const binary = atob(standard);
 		const bytes = new Uint8Array(binary.length);
@@ -252,6 +266,23 @@ const uploadMediaInputSchema = z
 			),
 	})
 	.superRefine((input, ctx) => {
+		// Reject oversized uploads from the encoded length alone so we never
+		// allocate a full Uint8Array for a hostile hundreds-of-MiB payload.
+		// Base64 expands bytes by ~4/3, so the encoded length is a safe
+		// upper bound on the decoded length. Strip whitespace before the
+		// estimate so wrapped payloads are not falsely rejected.
+		const encodedLength = stripBase64Wrapper(input.base64).length;
+		// encodedLength / 4 * 3 is the max decoded size (ignoring padding).
+		// Use ceil to be conservative.
+		const maxDecodedLength = Math.ceil((encodedLength * 3) / 4);
+		if (maxDecodedLength > MAX_MEDIA_UPLOAD_BYTES) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["base64"],
+				message: `media upload exceeds the ${MAX_MEDIA_UPLOAD_BYTES}-byte cap (encoded length suggests ~${maxDecodedLength} bytes)`,
+			});
+			return;
+		}
 		const bytes = decodeBase64ToBytes(input.base64);
 		if (bytes === null) {
 			ctx.addIssue({

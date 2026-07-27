@@ -316,10 +316,10 @@ listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --template-id 1 --lists 10
 listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
-listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z
-listmonk-cli campaigns start --id 42
+listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z --confirm
+listmonk-cli campaigns start --id 42 --confirm
 listmonk-cli campaigns pause --id 42
-listmonk-cli campaigns cancel --id 42
+listmonk-cli campaigns cancel --id 42 --confirm
 listmonk-cli campaigns clone --id 42 --name "Copy of Weekly update"
 listmonk-cli campaigns stats --id 42
 
@@ -327,8 +327,8 @@ listmonk-cli subscribers create --email reader@example.com --name Reader
 listmonk-cli subscribers update --id 7 --status enabled
 listmonk-cli subscribers delete --id 7 --confirm
 listmonk-cli subscribers add-to-lists --subscriber-ids 1,2,3 --list-ids 10,20
-listmonk-cli subscribers remove-from-lists --subscriber-ids 1,2 --list-ids 10
-listmonk-cli subscribers blocklist --subscriber-ids 1,2,3
+listmonk-cli subscribers remove-from-lists --subscriber-ids 1,2 --list-ids 10 --confirm
+listmonk-cli subscribers blocklist --subscriber-ids 1,2,3 --confirm
 listmonk-cli subscribers unblocklist --subscriber-ids 1,2
 
 listmonk-cli templates create --name "Campaign HTML" --body "<p>Hello</p>"

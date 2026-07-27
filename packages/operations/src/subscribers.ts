@@ -509,10 +509,10 @@ export const removeSubscribersFromListsOperation = defineOperation({
 	id: "subscribers.remove-from-lists",
 	title: "Remove subscribers from lists",
 	description:
-		"Remove a batch of subscribers from one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+		"Remove a batch of subscribers from one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-adding subscribers does not guarantee their previous per-list subscription state is reconstructed.",
 	inputSchema: subscriberBulkListsInputSchema,
 	outputSchema: bulkOperationOutputSchema,
-	safety: updateResourceSafety,
+	safety: deliverySuppressionSafety,
 	mcp: {
 		name: "listmonk_remove_subscribers_from_lists",
 		legacySuccessText: jsonResourceValue,

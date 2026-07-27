@@ -242,47 +242,109 @@ export async function getCampaign(
 }
 
 /**
- * Scan campaign pages for the first campaign whose name matches and (when
- * `excludeId` is provided) whose id differs from `excludeId`.
- *
- * Without `excludeId` this is a plain name lookup. clone passes the source
- * campaign's id so the lookup skips a same-named source and resolves the
- * newly created clone instead — without orphaning a valid clone just
- * because Listmonk returned the source first.
+ * Iterate every page of campaigns and yield each result to `visitor`.
+ * Stops early when `visitor` returns `true`. Centralises the pagination
+ * logic shared by {@link findCreatedCampaign},
+ * {@link collectCampaignIdsByName}, and {@link findCreatedCampaignNotInSet}
+ * so the page-size, error message, and page-count arithmetic live in one
+ * place.
  */
-async function findCreatedCampaign(
+async function scanCampaignPages(
 	client: Pick<ListmonkClient, "campaign">,
-	name: string,
-	excludeId?: number,
-): Promise<Campaign | undefined> {
+	visitor: (campaign: Campaign) => boolean,
+	errorContext = "Failed to resolve created campaign",
+): Promise<void> {
 	const pageSize = 100;
-	const matches = (campaign: { name?: string; id?: number }) =>
-		campaign.name === name &&
-		(excludeId === undefined || campaign.id !== excludeId);
-
 	const firstResponse = await client.campaign.list({
 		query: { page: 1, per_page: pageSize },
 	});
-	const firstPage = unwrapResourceResponse(
-		firstResponse,
-		"Failed to resolve created campaign",
-	);
-	const firstMatch = firstPage.results?.find(matches);
-	if (firstMatch) return firstMatch;
-
+	const firstPage = unwrapResourceResponse(firstResponse, errorContext);
+	for (const campaign of firstPage.results ?? []) {
+		if (visitor(campaign)) return;
+	}
 	const pageCount = Math.max(1, Math.ceil((firstPage.total ?? 0) / pageSize));
 	for (let page = 2; page <= pageCount; page += 1) {
 		const response = await client.campaign.list({
 			query: { page, per_page: pageSize },
 		});
-		const pageData = unwrapResourceResponse(
-			response,
-			"Failed to resolve created campaign",
-		);
-		const match = pageData.results?.find(matches);
-		if (match) return match;
+		const pageData = unwrapResourceResponse(response, errorContext);
+		for (const campaign of pageData.results ?? []) {
+			if (visitor(campaign)) return;
+		}
 	}
-	return undefined;
+}
+
+/**
+ * Scan campaign pages for the first campaign whose name matches `name`.
+ * Used by createCampaign/cloneCampaign to resolve a record when Listmonk
+ * accepts the create but returns no body.
+ */
+async function findCreatedCampaign(
+	client: Pick<ListmonkClient, "campaign">,
+	name: string,
+): Promise<Campaign | undefined> {
+	let found: Campaign | undefined;
+	await scanCampaignPages(client, (campaign) => {
+		if (campaign.name === name) {
+			found = campaign;
+			return true;
+		}
+		return false;
+	});
+	return found;
+}
+
+/**
+ * Collect the ids of every campaign whose name matches `name`. Used by
+ * cloneCampaign to snapshot pre-existing same-name campaigns before the
+ * create call, so the post-create fallback can identify the new record as
+ * "a campaign with this name whose id was not in the snapshot".
+ */
+async function collectCampaignIdsByName(
+	client: Pick<ListmonkClient, "campaign">,
+	name: string,
+): Promise<Set<number>> {
+	const ids = new Set<number>();
+	await scanCampaignPages(
+		client,
+		(campaign) => {
+			if (campaign.name === name && typeof campaign.id === "number") {
+				ids.add(campaign.id);
+			}
+			return false;
+		},
+		"Failed to snapshot existing campaigns before clone",
+	);
+	return ids;
+}
+
+/**
+ * Scan campaign pages for the first campaign whose name matches `name` and
+ * whose id is NOT in `excludeIds`. Used by cloneCampaign to resolve the
+ * newly created record when Listmonk returns no body, by excluding every
+ * same-name campaign that existed before the create.
+ */
+async function findCreatedCampaignNotInSet(
+	client: Pick<ListmonkClient, "campaign">,
+	name: string,
+	excludeIds: Set<number>,
+): Promise<Campaign | undefined> {
+	let found: Campaign | undefined;
+	await scanCampaignPages(client, (campaign) => {
+		// Require a numeric id that is NOT in the pre-create snapshot. A
+		// non-numeric or missing id cannot be the new clone — Listmonk
+		// always assigns a numeric id on create.
+		if (
+			campaign.name === name &&
+			typeof campaign.id === "number" &&
+			!excludeIds.has(campaign.id)
+		) {
+			found = campaign;
+			return true;
+		}
+		return false;
+	});
+	return found;
 }
 
 export async function createCampaign(
@@ -536,6 +598,12 @@ export async function cloneCampaign(
 			`Failed to load campaign ${input.id} for clone`,
 		),
 	);
+	// Snapshot the IDs of campaigns that already share the clone's name
+	// BEFORE we create the clone. Names are not unique, so after the create
+	// the only reliable way to identify the new record (when Listmonk
+	// returns no body) is "a campaign with this name whose id was not in
+	// the pre-create snapshot".
+	const preExistingIds = await collectCampaignIdsByName(ctx.client, input.name);
 	// Pick only the create-compatible fields from the source, then validate
 	// the resulting body through createCampaignInputSchema. This catches
 	// drafts that are missing required create fields (subject, from_email,
@@ -605,16 +673,13 @@ export async function cloneCampaign(
 		);
 	}
 	if (createResponse.data !== undefined) return asCampaign(createResponse.data);
-	// Listmonk occasionally accepts the create but returns no body. Falling
-	// back to a name lookup is ambiguous because campaign names are not
-	// unique, so we scan for a candidate whose id differs from the source
-	// campaign. This keeps scanning pages instead of taking the first match
-	// and rejecting it, so a valid clone is never orphaned just because
-	// Listmonk returned the source first.
-	const candidate = await findCreatedCampaign(
+	// Listmonk occasionally accepts the create but returns no body. The
+	// clone is identifiable as the campaign with this name whose id was
+	// not in the pre-create snapshot.
+	const candidate = await findCreatedCampaignNotInSet(
 		ctx.client,
 		input.name,
-		source.id,
+		preExistingIds,
 	);
 	if (!candidate) {
 		throw new Error(
