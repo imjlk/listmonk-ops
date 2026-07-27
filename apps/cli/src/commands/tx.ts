@@ -2,6 +2,7 @@ import type { OutputUtils } from "@listmonk-ops/common";
 import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	idempotencyKeySchema,
 	invokeSendTransactionalOperation,
 	OperationExecutionError,
 	TransactionalReconcileError,
@@ -111,17 +112,6 @@ export async function handleSendTransactionalCommand({
 		throw createTransactionalCommandError(error);
 	}
 }
-
-const idempotencyKeySchema = z
-	.string()
-	.trim()
-	.min(1)
-	.max(128)
-	.regex(
-		/^[A-Za-z0-9._:-]+$/,
-		"idempotency-key must contain only letters, digits, and . _ : - characters",
-	)
-	.optional();
 
 export default defineGroup({
 	name: "tx",

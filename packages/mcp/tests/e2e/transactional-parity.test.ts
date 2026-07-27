@@ -39,6 +39,8 @@ function runCliTransactionalSend(input: TransactionalCliInput): CliResult {
 		[
 			"bun",
 			CLI_ENTRY,
+			"--format",
+			"ndjson",
 			"tx",
 			"send",
 			"--template-id",
@@ -134,8 +136,8 @@ describe("Transactional CLI and MCP parity", () => {
 		expect(
 			parseCliSentOutput({
 				exitCode: 0,
-				stdout:
-					'{"sent":true,"status":"accepted"}',
+				// ndjson format prints a single compact JSON line on stdout.
+				stdout: '{"sent":true,"status":"accepted"}',
 				stderr: "runtime warning",
 			}),
 		).toEqual({ sent: true, status: "accepted" });
@@ -185,10 +187,11 @@ describe("Transactional CLI and MCP parity", () => {
 			data: { trace_id: mcpTraceId },
 			headers: [{ [HEADER_NAME]: mcpTraceId }],
 		});
-		const mcpStructured = utils.assertSuccess<{
+		expect(mcpResult.isError).toBeFalsy();
+		const mcpStructured = mcpResult.structuredContent as {
 			sent: boolean;
 			status: string;
-		}>(mcpResult, "Failed to send transactional MCP parity message");
+		};
 		expect(mcpStructured.sent).toBe(true);
 		expect(mcpStructured.status).toBe("accepted");
 		// Both surfaces share the same stable contract fields. The CLI does

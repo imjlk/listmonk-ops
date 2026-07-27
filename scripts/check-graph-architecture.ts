@@ -122,6 +122,8 @@ const transactionalIdempotencyClaim =
 	"packages/operations/src/transactional-idempotency.ts#claimTransactionalSend:function";
 const transactionalIdempotencyCommit =
 	"packages/operations/src/transactional-idempotency.ts#commitTransactionalSend:function";
+const transactionalIdempotencyCommitBestEffort =
+	"packages/operations/src/transactional.ts#commitBestEffort:function";
 const transactionalIdempotencyHash =
 	"packages/operations/src/transactional-idempotency.ts#computeTransactionalPayloadHash:function";
 const transactionalIdempotencyStoreUpdate =
@@ -140,6 +142,8 @@ const cliTransactionalParityRunner =
 	"packages/mcp/tests/e2e/transactional-parity.test.ts#runCliTransactionalSend:function";
 const findMailpitMessage =
 	"packages/mcp/tests/e2e/mailpit.ts#findMailpitMessage:function";
+const findMailpitMessages =
+	"packages/mcp/tests/e2e/mailpit.ts#findMailpitMessages:function";
 const fetchMailpitJson =
 	"packages/mcp/tests/e2e/mailpit.ts#fetchMailpitJson:function";
 const mailpitHelperRegressionTest =
@@ -1668,6 +1672,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 		label: "transactional idempotency wrapper commits terminal state",
 		path: [
 			sendTransactionalAction,
+			transactionalIdempotencyCommitBestEffort,
 			transactionalIdempotencyCommit,
 			transactionalIdempotencyStoreUpdate,
 		],
@@ -1708,7 +1713,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	},
 	{
 		label: "MCP transactional E2E tests inspect Mailpit delivery",
-		path: [mcpTransactionalE2eTest, findMailpitMessage, fetchMailpitJson],
+		path: [mcpTransactionalE2eTest, findMailpitMessages, fetchMailpitJson],
 	},
 	{
 		label: "Mailpit helper has a direct request-time URL regression test",
@@ -1716,7 +1721,16 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	},
 	{
 		label: "Mailpit helper has a direct server-side search regression test",
-		path: [mailpitHelperRegressionTest, findMailpitMessage, fetchMailpitJson],
+		path: [
+			mailpitHelperRegressionTest,
+			findMailpitMessage,
+			findMailpitMessages,
+			fetchMailpitJson,
+		],
+	},
+	{
+		label: "Mailpit single-match helper delegates to the multi-match search",
+		path: [findMailpitMessage, findMailpitMessages],
 	},
 	{
 		label: "CLI/MCP transactional parity E2E invokes the CLI subprocess runner",
@@ -1737,6 +1751,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 		path: [
 			cliMcpTransactionalParityE2eTest,
 			findMailpitMessage,
+			findMailpitMessages,
 			fetchMailpitJson,
 		],
 	},

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	fetchMailpitJson,
 	findMailpitMessage,
+	findMailpitMessages,
 	type MailpitMessage,
 	type MailpitMessageSummary,
 } from "./mailpit.js";
@@ -40,16 +41,15 @@ describe("Transactional MCP Tool", () => {
 			headers: [{ [headerName]: traceId }],
 		});
 
-		const sendStructured = utils.assertSuccess<{
+		// assertSuccess returns the legacySuccessText result (boolean); read
+		// the structured object from result.structuredContent instead.
+		expect(sendResult.isError).toBeFalsy();
+		const sendStructured = sendResult.structuredContent as {
 			sent: boolean;
 			status: string;
-		}>(sendResult, "Failed to send transactional message");
+		};
 		expect(sendStructured.sent).toBe(true);
 		expect(sendStructured.status).toBe("accepted");
-		expect(sendResult.structuredContent).toMatchObject({
-			sent: true,
-			status: "accepted",
-		});
 
 		let delivered: MailpitMessageSummary | undefined;
 		await utils.waitFor(async () => {
@@ -112,12 +112,13 @@ describe("Transactional MCP Tool", () => {
 		};
 
 		const first = await client.callTool("listmonk_send_transactional", payload);
-		const firstStructured = utils.assertSuccess<{
+		expect(first.isError).toBeFalsy();
+		const firstStructured = first.structuredContent as {
 			sent: boolean;
 			status: string;
 			duplicate?: boolean;
 			idempotency_key?: string;
-		}>(first, "Failed to send first transactional idempotency message");
+		};
 		expect(firstStructured.sent).toBe(true);
 		expect(firstStructured.status).toBe("accepted");
 		expect(firstStructured.duplicate).toBe(false);
@@ -125,40 +126,34 @@ describe("Transactional MCP Tool", () => {
 
 		// Identical retry — Listmonk must not be called again.
 		const replay = await client.callTool("listmonk_send_transactional", payload);
-		const replayStructured = utils.assertSuccess<{
+		expect(replay.isError).toBeFalsy();
+		const replayStructured = replay.structuredContent as {
 			sent: boolean;
 			status: string;
 			duplicate?: boolean;
 			idempotency_key?: string;
-		}>(replay, "Failed to replay transactional idempotency message");
+		};
 		expect(replayStructured.sent).toBe(true);
 		expect(replayStructured.status).toBe("replayed");
 		expect(replayStructured.duplicate).toBe(true);
 		expect(replayStructured.idempotency_key).toBe(idempotencyKey);
 
-		// Exactly one delivery landed in Mailpit.
-		let delivered: MailpitMessageSummary | undefined;
-		let duplicateDelivery: MailpitMessageSummary | undefined;
+		// Exactly one delivery landed in Mailpit. Query the full match list
+		// (not just the first match) so an accidental second dispatch would
+		// surface as a count > 1.
+		let deliveries: MailpitMessageSummary[] = [];
 		await utils.waitFor(async () => {
 			try {
-				delivered = await findMailpitMessage(recipient, subject);
-				return delivered !== undefined;
+				deliveries = await findMailpitMessages(recipient, subject);
+				return deliveries.length >= 1;
 			} catch {
 				return false;
 			}
 		}, 20000);
-		// Give the duplicate a brief window to surface if the wrapper regressed
-		// and re-dispatched; it should remain absent.
+		// Give a duplicate a brief window to surface if the wrapper regressed
+		// and re-dispatched; the count must remain 1.
 		await new Promise((resolve) => setTimeout(resolve, 1500));
-		try {
-			const messages = await findMailpitMessage(recipient, subject);
-			duplicateDelivery = messages;
-		} catch {
-			duplicateDelivery = undefined;
-		}
-		if (!delivered) {
-			throw new Error("Idempotent transactional message was not delivered");
-		}
-		expect(duplicateDelivery?.ID ?? delivered.ID).toBe(delivered.ID);
+		deliveries = await findMailpitMessages(recipient, subject);
+		expect(deliveries).toHaveLength(1);
 	});
 });

@@ -12,6 +12,7 @@ import {
 	claimTransactionalSend,
 	commitTransactionalSend,
 	computeTransactionalPayloadHash,
+	computeTransactionalTargetHash,
 	isAmbiguousTransportError,
 	TransactionalReconcileError,
 	type TransactionalSendRecord,
@@ -25,6 +26,17 @@ export interface TransactionalOperationContext {
 	 * `LISTMONK_OPS_TRANSACTIONAL_STORE` then `~/.listmonk-ops/transactional.json`.
 	 */
 	storePath?: string;
+	/**
+	 * Optional Listmonk target identity used to namespace idempotency records.
+	 * When supplied, records and payload hashes are scoped to this target so
+	 * a key reused across staging and production cannot replay the wrong
+	 * instance's result. Adapters typically derive this from the resolved
+	 * baseUrl + username.
+	 */
+	target?: {
+		baseUrl?: string;
+		username?: string;
+	};
 }
 
 type DataResponse<T> = {
@@ -132,9 +144,26 @@ function collectHeaderIssues(
  * safe to use as both a JSON object key and a filename fragment if the
  * store path is ever derived from the key. Matches common client-side
  * idempotency conventions (Stripe-style, UUID, slug).
+ *
+ * Exported so CLI/MCP adapters reuse the same contract instead of
+ * re-declaring the pattern and drifting from the operation schema.
  */
-const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]+$/;
-const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
+export const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]+$/;
+export const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
+
+export const idempotencyKeySchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(IDEMPOTENCY_KEY_MAX_LENGTH)
+	.regex(
+		IDEMPOTENCY_KEY_PATTERN,
+		"idempotency_key must contain only letters, digits, and . _ : - characters",
+	)
+	.optional()
+	.describe(
+		"Optional client-supplied idempotency key. When set, a retry with the same key and payload replays the original result instead of re-sending. Different payload with the same key is rejected as a conflict.",
+	);
 
 const sendTransactionalInputSchema = z
 	.object({
@@ -166,19 +195,7 @@ const sendTransactionalInputSchema = z
 			.enum(["html", "markdown", "plain"])
 			.optional()
 			.describe("Message content type"),
-		idempotency_key: z
-			.string()
-			.trim()
-			.min(1)
-			.max(IDEMPOTENCY_KEY_MAX_LENGTH)
-			.regex(
-				IDEMPOTENCY_KEY_PATTERN,
-				"idempotency_key must contain only letters, digits, and . _ : - characters",
-			)
-			.optional()
-			.describe(
-				"Optional client-supplied idempotency key. When set, a retry with the same key and payload replays the original result instead of re-sending. Different payload with the same key is rejected as a conflict.",
-			),
+		idempotency_key: idempotencyKeySchema,
 	})
 	.refine(
 		(input) =>
@@ -353,25 +370,30 @@ export async function sendTransactionalMessage(
 	}
 
 	const payloadHash = computeTransactionalPayloadHash(payload);
+	const targetHash = computeTransactionalTargetHash(context.target ?? {});
 	const claim = await claimTransactionalSend({
 		storePath: context.storePath,
 		key: input.idempotency_key,
 		payloadHash,
+		targetHash,
 	});
 
 	if (claim.kind === "conflict") {
 		throw new OperationInputError(
-			`Idempotency key '${input.idempotency_key}' is already associated with a different payload. Use a new key or remove idempotency_key to force a fresh send.`,
+			`Idempotency key '${input.idempotency_key}' is already associated with a different payload or Listmonk target. Use a new key or remove idempotency_key to force a fresh send.`,
 		);
 	}
 
 	if (claim.kind === "replay") {
 		const record = claim.record;
-		if (record.status === "accepted") {
+		// Terminal results (accepted or failed) are safe to replay verbatim
+		// without re-dispatching — a definitive negative acknowledgement is
+		// just as deterministic the second time around.
+		if (record.status === "accepted" || record.status === "failed") {
 			return recordToOutput(record, "replayed");
 		}
-		// pending / unknown / failed — the caller must reconcile rather than
-		// silently re-dispatch. Surface enough context to act on.
+		// pending / unknown — the caller must reconcile rather than silently
+		// re-dispatch. Surface enough context to act on.
 		const reason = reconcileReason(record);
 		throw new TransactionalReconcileError(
 			record.key,
@@ -390,9 +412,12 @@ export async function sendTransactionalMessage(
 		// rejections. Ambiguous → unknown (no auto-retry); explicit → failed.
 		const status = isAmbiguousTransportError(error) ? "unknown" : "failed";
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		await commitTransactionalSend({
+		// Persist best-effort: the dispatch result is the source of truth.
+		// A store write failure must not mask the original transport error.
+		await commitBestEffort({
 			storePath: context.storePath,
 			key: input.idempotency_key,
+			claimToken: record.claimToken,
 			status,
 			errorMessage,
 		});
@@ -406,9 +431,10 @@ export async function sendTransactionalMessage(
 		throw error;
 	}
 
-	await commitTransactionalSend({
+	await commitBestEffort({
 		storePath: context.storePath,
 		key: input.idempotency_key,
+		claimToken: record.claimToken,
 		status: sent ? "accepted" : "failed",
 		sent,
 	});
@@ -420,6 +446,27 @@ export async function sendTransactionalMessage(
 		idempotency_key: input.idempotency_key,
 		expires_at: record.expiresAt,
 	};
+}
+
+/**
+ * Wrap `commitTransactionalSend` so a persistence failure (lock timeout,
+ * EACCES, full disk) cannot replace the dispatch outcome. The dispatch
+ * result is the source of truth; the record stays claimed until it expires
+ * or a later sweep reclaims it. Mirrors the "record vanished" reasoning
+ * already used inside `commitTransactionalSend`.
+ */
+async function commitBestEffort(
+	options: Parameters<typeof commitTransactionalSend>[0],
+): Promise<void> {
+	try {
+		await commitTransactionalSend(options);
+	} catch (error) {
+		console.warn(
+			`Failed to persist transactional idempotency record for key '${options.key}': ${
+				error instanceof Error ? error.message : String(error)
+			}`,
+		);
+	}
 }
 
 /**

@@ -388,7 +388,7 @@ describe("transactional idempotency wrapper integration", () => {
 		expect(send).toHaveBeenCalledTimes(1);
 	});
 
-	test("records an explicit Listmonk rejection as failed and blocks retry", async () => {
+	test("replays an explicit Listmonk rejection without re-dispatching", async () => {
 		const send = mock(async () => ({ data: false })) as unknown as TransactionalClient["transactional"]["send"];
 		const ctx = contextWithStore(send, storePath);
 
@@ -400,21 +400,21 @@ describe("transactional idempotency wrapper integration", () => {
 		expect(first).toMatchObject({
 			sent: false,
 			status: "failed",
+			duplicate: false,
 		});
 
-		// Retry should not re-dispatch; it should surface the prior failure.
-		await expect(
-			invokeSendTransactionalOperation(ctx, {
-				template_id: 3,
-				subscriber_id: 42,
-				idempotency_key: "order-1",
-			}),
-		).rejects.toEqual(
-			expect.objectContaining({
-				name: "TransactionalReconcileError",
-				status: "failed",
-			}),
-		);
+		// A definitive negative acknowledgement is deterministic: replay it
+		// instead of re-dispatching or surfacing a reconcile error.
+		const replay = await invokeSendTransactionalOperation(ctx, {
+			template_id: 3,
+			subscriber_id: 42,
+			idempotency_key: "order-1",
+		});
+		expect(replay).toMatchObject({
+			sent: false,
+			status: "replayed",
+			duplicate: true,
+		});
 		expect(send).toHaveBeenCalledTimes(1);
 	});
 });
