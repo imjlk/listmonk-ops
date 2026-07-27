@@ -122,6 +122,11 @@ const campaignBodyFields = {
 	subject: z.string().trim().min(1),
 	from_email: z.string().trim().min(1),
 	body: z.string().min(1),
+	// Visual-editor source. Listmonk stores this on `visual` campaigns so
+	// they can be reopened in the visual builder; cloning must preserve it
+	// or the clone loses its editability. Nullable to allow non-visual
+	// campaigns (which have no source) to omit it.
+	body_source: z.string().nullable().optional(),
 	altbody: z.string().optional(),
 	type: campaignTypeSchema.default("regular"),
 	template_id: resourceIdSchema,
@@ -236,11 +241,25 @@ export async function getCampaign(
 	);
 }
 
+/**
+ * Scan campaign pages for the first campaign whose name matches and (when
+ * `excludeId` is provided) whose id differs from `excludeId`.
+ *
+ * Without `excludeId` this is a plain name lookup. clone passes the source
+ * campaign's id so the lookup skips a same-named source and resolves the
+ * newly created clone instead — without orphaning a valid clone just
+ * because Listmonk returned the source first.
+ */
 async function findCreatedCampaign(
 	client: Pick<ListmonkClient, "campaign">,
 	name: string,
+	excludeId?: number,
 ): Promise<Campaign | undefined> {
 	const pageSize = 100;
+	const matches = (campaign: { name?: string; id?: number }) =>
+		campaign.name === name &&
+		(excludeId === undefined || campaign.id !== excludeId);
+
 	const firstResponse = await client.campaign.list({
 		query: { page: 1, per_page: pageSize },
 	});
@@ -248,9 +267,7 @@ async function findCreatedCampaign(
 		firstResponse,
 		"Failed to resolve created campaign",
 	);
-	const firstMatch = firstPage.results?.find(
-		(campaign) => campaign.name === name,
-	);
+	const firstMatch = firstPage.results?.find(matches);
 	if (firstMatch) return firstMatch;
 
 	const pageCount = Math.max(1, Math.ceil((firstPage.total ?? 0) / pageSize));
@@ -262,7 +279,7 @@ async function findCreatedCampaign(
 			response,
 			"Failed to resolve created campaign",
 		);
-		const match = pageData.results?.find((campaign) => campaign.name === name);
+		const match = pageData.results?.find(matches);
 		if (match) return match;
 	}
 	return undefined;
@@ -590,13 +607,16 @@ export async function cloneCampaign(
 	if (createResponse.data !== undefined) return asCampaign(createResponse.data);
 	// Listmonk occasionally accepts the create but returns no body. Falling
 	// back to a name lookup is ambiguous because campaign names are not
-	// unique; only accept a candidate that is not the source campaign
-	// (different id) so we never report a stale record as the clone.
-	const candidate = await findCreatedCampaign(ctx.client, input.name);
-	if (
-		!candidate ||
-		(candidate.id !== undefined && candidate.id === source.id)
-	) {
+	// unique, so we scan for a candidate whose id differs from the source
+	// campaign. This keeps scanning pages instead of taking the first match
+	// and rejecting it, so a valid clone is never orphaned just because
+	// Listmonk returned the source first.
+	const candidate = await findCreatedCampaign(
+		ctx.client,
+		input.name,
+		source.id,
+	);
+	if (!candidate) {
 		throw new Error(
 			"Campaign was cloned but the created record could not be resolved unambiguously. Run `campaigns list --query` to locate it.",
 		);

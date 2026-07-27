@@ -177,11 +177,17 @@ function inferContentTypeFromFilename(filename: string): string | undefined {
 }
 
 /**
- * Strict RFC 4648 base64 alphabet (standard `+/` and URL-safe `-_`) plus
- * the optional padding. Used to reject malformed input up front because
- * `atob` (and Node's `Buffer.from(..., "base64")`) silently ignore
- * characters outside the alphabet, which would let corrupted payloads
- * pass size/MIME checks.
+ * RFC 4648 base64 alphabet (standard `+/` and URL-safe `-_`) plus optional
+ * padding. Used to reject malformed input up front because `atob` (and
+ * Node's `Buffer.from(..., "base64")`) silently ignore characters outside
+ * the alphabet, which would let corrupted payloads pass size/MIME checks.
+ *
+ * The pattern accepts either alphabet and even mixed alphabets in a single
+ * string. Mixing is not strictly RFC-conformant, but the decoder below
+ * normalizes URL-safe characters to the standard alphabet before calling
+ * `atob`, so mixed input still decodes predictably rather than silently
+ * corrupting. Stricter callers can canonicalize upstream if they need to
+ * enforce a single variant.
  */
 const BASE64_ALPHABET_PATTERN =
 	/^[A-Za-z0-9+/_-]*={0,2}$/;

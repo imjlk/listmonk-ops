@@ -482,6 +482,9 @@ describe("shared CRUD resource operations", () => {
 				name: "Source",
 				status: "finished",
 				body: "<p>Hi</p>",
+				// Visual-editor source must survive cloning so the clone
+				// stays editable in the visual builder.
+				body_source: '{"blocks":[]}',
 				subject: "Subject",
 				from_email: "sender@example.com",
 				type: "regular",
@@ -512,6 +515,53 @@ describe("shared CRUD resource operations", () => {
 				clicks: expect.anything(),
 			}),
 		});
+		// body_source must be forwarded so visual campaigns stay editable.
+		expect(create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				body: expect.objectContaining({ body_source: '{"blocks":[]}' }),
+			}),
+		);
+	});
+
+	test("clones resolve to a non-source candidate when Listmonk omits the create body", async () => {
+		// Listmonk accepts the create but returns no body. The name-based
+		// fallback must skip the source campaign (same id) and return the
+		// newly created clone.
+		const sourceId = 7;
+		const getById = mock(async () => ({
+			data: {
+				id: sourceId,
+				name: "Source",
+				status: "finished",
+				body: "<p>Hi</p>",
+				subject: "Subject",
+				from_email: "sender@example.com",
+				type: "regular",
+				content_type: "html",
+				messenger: "email",
+				template_id: 3,
+				lists: [{ id: 1 }],
+			},
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		const create = mock(async () => ({ data: undefined })) as unknown as CampaignClient["campaign"]["create"];
+		// List returns source first, then the new clone (id 11) on page 1.
+		const list = mock(async () => ({
+			data: {
+				results: [
+					{ id: sourceId, name: "Cloned" },
+					{ id: 11, name: "Cloned" },
+				],
+				total: 2,
+				per_page: 100,
+				page: 1,
+			},
+		})) as unknown as CampaignClient["campaign"]["list"];
+
+		const cloned = await invokeCloneCampaignOperation(
+			campaignContext({ getById, create, list }),
+			{ id: sourceId, name: "Cloned" },
+		);
+		expect(cloned).toMatchObject({ id: 11, name: "Cloned" });
 	});
 
 	test("reads campaign stats through the shared operation", async () => {
