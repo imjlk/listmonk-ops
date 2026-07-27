@@ -9,7 +9,6 @@ import {
 	transactionalOperations,
 } from "@listmonk-ops/operations";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
-import type { HandlerFunction } from "../types/shared.js";
 import { createOperationResult, toMcpTool } from "./operation-adapter.js";
 import { createErrorResult } from "../utils/response.js";
 import { withErrorHandler } from "../utils/typeHelpers.js";
@@ -22,24 +21,35 @@ export function isTransactionalToolName(name: string): boolean {
 }
 
 /**
- * Resolve the Listmonk target identity for idempotency namespacing from the
- * MCP server's environment. The server process already validated these on
- * startup; reading them here keeps the handler signature aligned with the
- * other resource handlers (which receive only the client) while still
- * preventing cross-instance replay.
+ * The MCP server's resolved Listmonk target identity, threaded in from the
+ * server config so idempotency records are namespaced by the instance the
+ * server actually targets (honoring --listmonk-url / --listmonk-username
+ * overrides and programmatic config), not just the ambient environment.
  */
-function resolveListmonkTarget(): { baseUrl?: string; username?: string } {
-	const baseUrl = process.env.LISTMONK_API_URL?.trim();
-	const username = process.env.LISTMONK_USERNAME?.trim();
-	if (!baseUrl && !username) return {};
-	return { baseUrl, username };
-}
+export type TransactionalHandlerTarget = {
+	baseUrl?: string;
+	username?: string;
+};
 
-export const handleTransactionalTools: HandlerFunction = withErrorHandler(
-	async (
-		request: CallToolRequest,
-		client: ListmonkClient,
-	): Promise<CallToolResult> => {
+/**
+ * Extended handler signature that carries the resolved Listmonk target.
+ * Other resource handlers stay on the 2-arg `HandlerFunction` shape; only
+ * the transactional handler needs the target because only it namespaces
+ * idempotency records by instance.
+ */
+export type TransactionalHandlerFunction = (
+	request: CallToolRequest,
+	client: ListmonkClient,
+	target?: TransactionalHandlerTarget,
+) => Promise<CallToolResult>;
+
+export const handleTransactionalTools: TransactionalHandlerFunction =
+	withErrorHandler(
+		async (
+			request: CallToolRequest,
+			client: ListmonkClient,
+			target: TransactionalHandlerTarget = {},
+		): Promise<CallToolResult> => {
 		const invocation = await invokeTransactionalOperationByMcpName(
 			{
 				client,
@@ -50,7 +60,7 @@ export const handleTransactionalTools: HandlerFunction = withErrorHandler(
 				idempotencyStore:
 					createFileBackedTransactionalIdempotencyStore(),
 				hashPayload: hashTransactionalPayload,
-				target: resolveListmonkTarget(),
+				target,
 			},
 			request.params.name,
 			request.params.arguments ?? {},

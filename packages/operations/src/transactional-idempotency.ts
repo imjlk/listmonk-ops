@@ -375,3 +375,23 @@ export function isAmbiguousTransportError(error: unknown): boolean {
 	];
 	return ambiguousSignals.some((signal) => message.includes(signal));
 }
+
+/**
+ * Heuristic: does this dispatch failure prove the request never reached
+ * Listmonk? Only such pre-dispatch failures are safe to release (so a
+ * retry can dispatch again). Anything else — including response parse
+ * errors, application exceptions, or unrecognized transport failures —
+ * must stay as `unknown` because Listmonk may have processed the message
+ * before the error surfaced.
+ *
+ * Kept deliberately narrow: `ECONNREFUSED` (nothing listening) and
+ * `ENOTFOUND` (DNS failure) are the canonical pre-dispatch signals.
+ * `fetch failed` is intentionally NOT included here because undici wraps
+ * both pre- and post-connection failures under that message.
+ */
+export function isDefinitivePreDispatchError(error: unknown): boolean {
+	if (!(error instanceof Error)) return false;
+	const message = error.message.toLowerCase();
+	const preDispatchSignals = ["econnrefused", "enotfound"];
+	return preDispatchSignals.some((signal) => message.includes(signal));
+}

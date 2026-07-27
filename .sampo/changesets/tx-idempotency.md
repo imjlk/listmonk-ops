@@ -1,4 +1,5 @@
 ---
+npm/@listmonk-ops/common: minor (Added)
 npm/@listmonk-ops/operations: minor (Added)
 npm/@listmonk-ops/cli: minor (Added)
 npm/@listmonk-ops/mcp: minor (Added)
@@ -16,3 +17,8 @@ The send output is extended to `{ sent, status, duplicate?, idempotency_key?, ex
 where `status` is `"accepted" | "replayed" | "failed"`. The store path defaults
 to `~/.listmonk-ops/transactional.json` and is overridable via
 `LISTMONK_OPS_TRANSACTIONAL_STORE`.
+
+`@listmonk-ops/common` now exports the file-backed idempotency store
+(`createFileBackedTransactionalIdempotencyStore`), the SHA-256 payload
+hasher (`hashTransactionalPayload`), and the target-namespace helper
+(`computeTransactionalTargetHash`) that the CLI and MCP adapters inject.

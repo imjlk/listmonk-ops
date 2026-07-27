@@ -158,6 +158,7 @@ export class ListmonkMCPServer {
 	private tools: Map<string, MCPTool>;
 	private client: ListmonkClient;
 	private baseUrl: string;
+	private username: string;
 	private auditStoreOptions: OperationAuditStoreOptions;
 	private httpAuthToken: string | undefined;
 	private allowedHttpHosts: Set<string>;
@@ -177,6 +178,7 @@ export class ListmonkMCPServer {
 		this.app = new Hono();
 		this.tools = new Map();
 		this.baseUrl = config.baseUrl;
+		this.username = config.username;
 		this.auditStoreOptions = {
 			path: config.auditStorePath,
 			limit: config.auditStoreLimit,
@@ -474,7 +476,10 @@ export class ListmonkMCPServer {
 			} else if (toolNameSets.settings.has(name)) {
 				result = await handleSettingsTools(operationRequest, this.client);
 			} else if (isTransactionalToolName(name)) {
-				result = await handleTransactionalTools(operationRequest, this.client);
+				result = await handleTransactionalTools(operationRequest, this.client, {
+					baseUrl: this.baseUrl,
+					username: this.username,
+				});
 			} else if (toolNameSets.ops.has(name)) {
 				result = await handleOpsTools(operationRequest, this.client);
 			} else if (toolNameSets.abtest.has(name)) {

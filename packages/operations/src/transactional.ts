@@ -10,7 +10,7 @@ import {
 } from "./operation";
 import {
 	computeTransactionalTargetHash,
-	isAmbiguousTransportError,
+	isDefinitivePreDispatchError,
 	serializeTransactionalPayload,
 	TransactionalReconcileError,
 	type TransactionalIdempotencyStore,
@@ -425,35 +425,34 @@ export async function sendTransactionalMessage(
 	try {
 		sent = await dispatchToListmonk(context, payload);
 	} catch (error) {
-		if (isAmbiguousTransportError(error)) {
-			// Ambiguous transport failure: Listmonk may or may not have
-			// received the message. Record `unknown` so auto-retry is
-			// blocked and the operator must reconcile.
-			const errorMessage = error instanceof Error
-				? error.message
-				: String(error);
-			await commitBestEffort(store, {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		if (isDefinitivePreDispatchError(error)) {
+			// Proven pre-dispatch failure (ECONNREFUSED, ENOTFOUND): the
+			// request never reached Listmonk. Release the claim so a retry
+			// can dispatch once the outage clears.
+			await releaseBestEffort(store, {
 				key: input.idempotency_key,
 				claimToken: record.claimToken,
-				status: "unknown",
-				errorMessage,
 			});
-			throw new TransactionalReconcileError(
-				input.idempotency_key,
-				"unknown",
-				`Transactional dispatch failed ambiguously ('${errorMessage}'). The message may or may not have been sent. Automatic retry is blocked; inspect Listmonk and the idempotency record before reconciling.`,
-			);
+			throw error;
 		}
-		// Definitive thrown error (ECONNREFUSED, ENOTFOUND, application
-		// exception): the request never reached Listmonk or was rejected
-		// before delivery. Release the claim so a retry can dispatch once
-		// the underlying issue clears — a stored `failed` would otherwise
-		// replay the error and suppress the message for the TTL window.
-		await releaseBestEffort(store, {
+		// Everything else — ambiguous transport failures (timeout,
+		// ECONNRESET, fetch failed), post-dispatch response parse errors
+		// (SyntaxError on a 2xx body), or unrecognized application errors —
+		// is treated as `unknown`. Listmonk may have processed the message
+		// before the error surfaced, so auto-retry must stay blocked and
+		// the operator must reconcile.
+		await commitBestEffort(store, {
 			key: input.idempotency_key,
 			claimToken: record.claimToken,
+			status: "unknown",
+			errorMessage,
 		});
-		throw error;
+		throw new TransactionalReconcileError(
+			input.idempotency_key,
+			"unknown",
+			`Transactional dispatch failed ambiguously ('${errorMessage}'). The message may or may not have been sent. Automatic retry is blocked; inspect Listmonk and the idempotency record before reconciling.`,
+		);
 	}
 
 	// Dispatch returned a definitive acknowledgement (sent: true|false).

@@ -6,6 +6,7 @@ import {
 	invokeSendTransactionalOperation,
 	invokeTransactionalOperationByMcpName,
 	isAmbiguousTransportError,
+	isDefinitivePreDispatchError,
 	OperationExecutionError,
 	OperationInputError,
 	serializeTransactionalPayload,
@@ -542,6 +543,50 @@ describe("transactional idempotency wrapper integration", () => {
 		});
 		expect(send).toHaveBeenCalledTimes(2);
 	});
+
+	test("records post-dispatch response failures as unknown, not released", async () => {
+		// Listmonk accepted the request and returned a 2xx body, but the
+		// generated client failed to parse it (SyntaxError). The message
+		// may have been delivered, so the wrapper must NOT release the
+		// claim — it records `unknown` so auto-retry stays blocked.
+		const send = mock(async () => {
+			throw new SyntaxError("Unexpected end of JSON input");
+		}) as unknown as TransactionalClient["transactional"]["send"];
+		const ctx = contextWithStore(send);
+
+		await expect(
+			invokeSendTransactionalOperation(ctx, {
+				template_id: 3,
+				subscriber_id: 42,
+				idempotency_key: "order-1",
+			}),
+		).rejects.toEqual(
+			expect.objectContaining({
+				name: "TransactionalReconcileError",
+				status: "unknown",
+			}),
+		);
+
+		// A retry must NOT re-dispatch; the prior record is `unknown`.
+		send.mockImplementation(
+			async () => ({ data: true }) as unknown as Awaited<
+				ReturnType<TransactionalClient["transactional"]["send"]>
+			>,
+		);
+		await expect(
+			invokeSendTransactionalOperation(ctx, {
+				template_id: 3,
+				subscriber_id: 42,
+				idempotency_key: "order-1",
+			}),
+		).rejects.toEqual(
+			expect.objectContaining({
+				name: "TransactionalReconcileError",
+				status: "unknown",
+			}),
+		);
+		expect(send).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe("transactional idempotency pure helpers", () => {
@@ -643,6 +688,38 @@ describe("transactional idempotency pure helpers", () => {
 		test("does not flag non-Error values", () => {
 			expect(isAmbiguousTransportError("timeout")).toBe(false);
 			expect(isAmbiguousTransportError({ code: "ECONNRESET" })).toBe(false);
+		});
+	});
+
+	describe("isDefinitivePreDispatchError", () => {
+		test("flags connection-refused and DNS failures as proven pre-dispatch", () => {
+			expect(
+				isDefinitivePreDispatchError(new Error("connect ECONNREFUSED 127.0.0.1:9000")),
+			).toBe(true);
+			expect(
+				isDefinitivePreDispatchError(new Error("getaddrinfo ENOTFOUND example.com")),
+			).toBe(true);
+		});
+
+		test("does not flag ambiguous transport failures", () => {
+			// These may have reached Listmonk; only `unknown` is safe.
+			expect(isDefinitivePreDispatchError(new Error("fetch failed"))).toBe(false);
+			expect(isDefinitivePreDispatchError(new Error("Request timed out"))).toBe(false);
+			expect(isDefinitivePreDispatchError(new Error("ECONNRESET"))).toBe(false);
+			expect(isDefinitivePreDispatchError(new Error("connect ENETUNREACH"))).toBe(false);
+		});
+
+		test("does not flag post-dispatch response parse failures", () => {
+			// A 2xx body that fails JSON.parse may still have been delivered.
+			expect(
+				isDefinitivePreDispatchError(new SyntaxError("Unexpected end of JSON input")),
+			).toBe(false);
+		});
+
+		test("does not flag application errors", () => {
+			expect(
+				isDefinitivePreDispatchError(new Error("template not found")),
+			).toBe(false);
 		});
 	});
 });
