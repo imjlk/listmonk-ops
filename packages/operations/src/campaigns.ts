@@ -7,6 +7,7 @@ import {
 	jsonResourceValue,
 	normalizeResourceList,
 	readResourceSafety,
+	requireAcknowledgement,
 	resourceIdSchema,
 	toResourceErrorMessage,
 	unwrapResourceResponse,
@@ -515,7 +516,7 @@ async function transitionCampaign(
 		body: { status: target },
 	});
 	const verb = CAMPAIGN_LIFECYCLE_VERBS[target] ?? target;
-	unwrapResourceResponse(response, `Failed to ${verb} campaign ${id}`);
+	requireAcknowledgement(response, `Failed to ${verb} campaign ${id}`);
 	return { id, status: target };
 }
 
@@ -567,7 +568,7 @@ export async function scheduleCampaign(
 			path: { id: input.id },
 			body: { status: "scheduled" },
 		});
-		unwrapResourceResponse(
+		requireAcknowledgement(
 			statusResponse,
 			`Failed to schedule campaign ${input.id}`,
 		);

@@ -81,6 +81,24 @@ export function unwrapResourceResponse<T>(
 	return response.data;
 }
 
+/**
+ * Unwrap a mutation response and require a positive acknowledgement.
+ * Listmonk sometimes returns `{ data: false }` without an error envelope
+ * when a mutation is silently rejected. This helper centralises the
+ * `unwrapResourceResponse` + `data !== true` guard used by lifecycle
+ * transitions and bulk operations so the acknowledgement contract and
+ * error message stay consistent across all call sites.
+ */
+export function requireAcknowledgement(
+	response: ResponseWithData<unknown>,
+	context: string,
+): void {
+	const data = unwrapResourceResponse(response, context);
+	if (data !== true) {
+		throw new Error(`${context}: Listmonk returned a negative acknowledgement`);
+	}
+}
+
 export function normalizeResourceList<T>(
 	data: { results?: T[]; total?: number; per_page?: number; page?: number },
 	defaults: { per_page: number; page: number },
