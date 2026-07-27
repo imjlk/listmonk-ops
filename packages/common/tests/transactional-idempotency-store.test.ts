@@ -126,6 +126,24 @@ describe("transactional idempotency file-backed store", () => {
 				}
 			}
 		});
+
+		test("resolves a relative override to an absolute path", () => {
+			const previous = process.env.LISTMONK_OPS_TRANSACTIONAL_STORE;
+			process.env.LISTMONK_OPS_TRANSACTIONAL_STORE = "relative/store.json";
+			try {
+				const resolved = getTransactionalStorePath();
+				// Must be absolute so the CLI (any cwd) and MCP server
+				// (service cwd) share the same file.
+				expect(resolved.startsWith("/")).toBe(true);
+				expect(resolved.endsWith("relative/store.json")).toBe(true);
+			} finally {
+				if (previous === undefined) {
+					delete process.env.LISTMONK_OPS_TRANSACTIONAL_STORE;
+				} else {
+					process.env.LISTMONK_OPS_TRANSACTIONAL_STORE = previous;
+				}
+			}
+		});
 	});
 
 	describe("claimTransactionalSend", () => {

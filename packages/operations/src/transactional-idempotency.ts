@@ -358,7 +358,13 @@ export function stableSerializeJson(
 	) {
 		return JSON.stringify(value);
 	}
-	if (value instanceof Date) return JSON.stringify(value.toISOString());
+	if (value instanceof Date) {
+		// JSON.stringify serializes an invalid Date (NaN time) as null.
+		// value.toISOString() would throw RangeError on such a date,
+		// rejecting a payload the ordinary send path accepts.
+		const time = value.getTime();
+		return Number.isNaN(time) ? "null" : JSON.stringify(value.toISOString());
+	}
 	if (Array.isArray(value)) {
 		if (seen.has(value)) {
 			throw new Error("Circular reference detected in transactional payload");
@@ -368,10 +374,13 @@ export function stableSerializeJson(
 		// are serialized as null — matching what JSON.stringify (and thus
 		// the wire transport) produces. `map` skips holes, which would
 		// hash `new Array(1)` like `[]` while the body sends `[null]`.
+		// Array indices are forwarded to toJSON as strings ("0", "1", …)
+		// to match JSON.stringify's behavior for array elements.
 		const parts: string[] = [];
 		for (let i = 0; i < value.length; i++) {
-			const entry = value[i];
-			parts.push(stableSerializeJson(i in value ? entry : undefined, seen));
+			const entry = i in value ? value[i] : undefined;
+			const resolved = resolvePropertyValue(entry, String(i));
+			parts.push(stableSerializeJson(resolved, seen));
 		}
 		const result = `[${parts.join(",")}]`;
 		seen.delete(value);

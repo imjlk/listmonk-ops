@@ -754,6 +754,41 @@ describe("serializeTransactionalPayload", () => {
 			expect(withKeyEcho).toBe(explicit);
 		});
 
+		test("passes array indices to toJSON as strings", () => {
+			// JSON.stringify calls toJSON("0"), toJSON("1"), … for array
+			// elements. A value whose toJSON depends on its key must hash
+			// the way the transport serializes it.
+			class IndexEcho {
+				toJSON(key: string): unknown {
+					return key;
+				}
+			}
+			const withIndexEcho = serializeTransactionalPayload({
+				template_id: 3,
+				data: { xs: [new IndexEcho(), new IndexEcho()] },
+			});
+			// The wire body sends {"xs":["0","1"]}.
+			const explicit = serializeTransactionalPayload({
+				template_id: 3,
+				data: { xs: ["0", "1"] },
+			});
+			expect(withIndexEcho).toBe(explicit);
+		});
+
+		test("serializes invalid dates as null (matches JSON.stringify)", () => {
+			// JSON.stringify(new Date("invalid")) === "null"; the hash must
+			// agree and not throw (toISOString would raise RangeError).
+			const withInvalid = serializeTransactionalPayload({
+				template_id: 3,
+				data: { when: new Date("invalid") },
+			});
+			const withNull = serializeTransactionalPayload({
+				template_id: 3,
+				data: { when: null },
+			});
+			expect(withInvalid).toBe(withNull);
+		});
+
 		test("unboxes boxed primitives like JSON.stringify", () => {
 			// new Number(1) and new Number(2) are objects but JSON.stringify
 			// sends 1 and 2; the hash must distinguish them, not collapse

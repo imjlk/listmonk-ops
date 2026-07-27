@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
 	commitJsonFileStoreUpdate,
 	readJsonFileStore,
@@ -183,7 +183,14 @@ export class TransactionalStoreCapacityError extends Error {
 
 export function getTransactionalStorePath(): string {
 	const overridden = process.env.LISTMONK_OPS_TRANSACTIONAL_STORE?.trim();
-	return overridden || join(homedir(), ".listmonk-ops", "transactional.json");
+	if (!overridden) {
+		return join(homedir(), ".listmonk-ops", "transactional.json");
+	}
+	// Resolve relative overrides against the current working directory so
+	// the CLI (invoked from any directory) and the MCP server (started from
+	// its service directory) share the same file. A relative path returned
+	// verbatim would be resolved against each process's cwd independently.
+	return resolve(overridden);
 }
 
 /**
