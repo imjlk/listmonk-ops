@@ -706,6 +706,32 @@ describe("serializeTransactionalPayload", () => {
 			expect(a).toBe(asString);
 		});
 
+		test("omits object properties whose toJSON returns undefined", () => {
+			// JSON.stringify drops a property when its value's toJSON
+			// returns undefined. { value: { toJSON() { return undefined; } } }
+			// therefore has the same wire body as {}, and must hash alike.
+			class Omitting {
+				toJSON(): unknown {
+					return undefined;
+				}
+			}
+			const withOmitting = serializeTransactionalPayload({
+				template_id: 3,
+				data: { value: new Omitting(), keep: 1 },
+			});
+			const withoutProperty = serializeTransactionalPayload({
+				template_id: 3,
+				data: { keep: 1 },
+			});
+			expect(withOmitting).toBe(withoutProperty);
+			// And distinct from a payload that actually sends null.
+			const withNull = serializeTransactionalPayload({
+				template_id: 3,
+				data: { value: null, keep: 1 },
+			});
+			expect(withOmitting).not.toBe(withNull);
+		});
+
 		test("unboxes boxed primitives like JSON.stringify", () => {
 			// new Number(1) and new Number(2) are objects but JSON.stringify
 			// sends 1 and 2; the hash must distinguish them, not collapse

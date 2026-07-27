@@ -316,6 +316,31 @@ export function serializeTransactionalPayload(input: {
  * A `WeakSet` visited-guard rejects cyclic structures before they overflow
  * the stack.
  */
+
+/**
+ * Apply toJSON() at the object-property level. JSON.stringify calls toJSON
+ * on the value and, if the result is undefined, omits the property entirely
+ * (rather than serializing null). Returning undefined here lets the caller's
+ * filter drop the property, preserving the wire payload's shape.
+ */
+function resolvePropertyValue(value: unknown): unknown {
+	if (
+		typeof value === "object" &&
+		value !== null &&
+		!Array.isArray(value) &&
+		!(value instanceof Date) &&
+		!(value instanceof Number) &&
+		!(value instanceof Boolean) &&
+		!(value instanceof String)
+	) {
+		const toJSON = (value as { toJSON?: unknown }).toJSON;
+		if (typeof toJSON === "function") {
+			return (value as { toJSON: () => unknown }).toJSON();
+		}
+	}
+	return value;
+}
+
 export function stableSerializeJson(
 	value: unknown,
 	seen: WeakSet<object> = new WeakSet(),
@@ -380,7 +405,16 @@ export function stableSerializeJson(
 		const entries = Object.entries(value)
 			// Mirror JSON.stringify: omit function/symbol-valued properties
 			// entirely (not null), so { cb: () => {} } and {} hash alike.
-			.filter(([, v]) => v !== undefined && typeof v !== "function" && typeof v !== "symbol")
+			// Also apply toJSON() at the property level: if a value's toJSON
+			// returns undefined, JSON.stringify omits the property (rather
+			// than serializing null), so we must too or the hash diverges.
+			.map(([k, v]) => [k, resolvePropertyValue(v)] as const)
+			.filter(
+				([, v]) =>
+					v !== undefined &&
+					typeof v !== "function" &&
+					typeof v !== "symbol",
+			)
 			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 		const result = `{${entries
 			.map(
