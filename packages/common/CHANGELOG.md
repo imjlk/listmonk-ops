@@ -1,5 +1,11 @@
 # @listmonk-ops/common
 
+## 0.4.0 — 2026-07-27
+
+### Minor changes
+
+- [763ad72](https://github.com/imjlk/listmonk-ops/commit/763ad726e96e01fe91a0a95fe81935ea1d10e2b1) Add global --format human|json|ndjson|quiet flag for stream-aware CLI output. JSON and NDJSON modes send data to stdout and human messages to stderr. Quiet mode suppresses all non-error human output. All command handlers now route through getOutput() instead of OutputUtils directly. — Thanks @imjlk!
+
 ## 0.3.0 — 2026-07-23
 
 ### Added
