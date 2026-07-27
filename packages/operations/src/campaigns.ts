@@ -478,6 +478,29 @@ async function loadCampaignForTransition(
 	return { id, status: currentStatus ?? "<unknown>" };
 }
 
+/**
+ * Like {@link loadCampaignForTransition} but allows the current status to
+ * equal the target. Used by {@link transitionCampaign} to make same-status
+ * requests a no-op (idempotent), aligning with the idempotentHint in the
+ * safety metadata.
+ */
+async function loadCampaignForTransitionForTarget(
+	client: Pick<ListmonkClient, "campaign">,
+	id: number,
+	target: CampaignLifecycleTarget,
+): Promise<{ id: number; status: string }> {
+	const response = await client.campaign.getById({ path: { id } });
+	const campaign = asCampaign(
+		unwrapResourceResponse(response, "Failed to load campaign for transition"),
+	);
+	const currentStatus = campaign.status ?? "<unknown>";
+	// Allow same-status as idempotent no-op
+	if (currentStatus !== target) {
+		assertCampaignTransition(currentStatus, target);
+	}
+	return { id, status: currentStatus };
+}
+
 const CAMPAIGN_LIFECYCLE_VERBS: Readonly<Record<CampaignLifecycleTarget, string>> = {
 	scheduled: "schedule",
 	running: "start",
@@ -491,10 +514,18 @@ async function transitionCampaign(
 	target: CampaignLifecycleTarget,
 ): Promise<{ id: number; status: string }> {
 	// loadCampaignForTransition reads the current campaign and asserts the
-	// transition is legal. We don't use its return value here: we report
-	// the requested target status back to the caller, which matches what
-	// Listmonk accepts on a successful `updateStatus` call.
-	await loadCampaignForTransition(ctx.client, id, target);
+	// transition is legal. When the campaign is already in the target
+	// status, treat it as a successful no-op (idempotent) instead of
+	// rejecting it — this aligns with the idempotentHint in the safety
+	// metadata and allows safe client retries after timeouts.
+	const loaded = await loadCampaignForTransitionForTarget(
+		ctx.client,
+		id,
+		target,
+	);
+	if (loaded.status === target) {
+		return { id, status: target };
+	}
 	const response = await ctx.client.campaign.updateStatus({
 		path: { id },
 		body: { status: target },

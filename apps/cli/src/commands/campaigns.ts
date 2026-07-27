@@ -63,7 +63,7 @@ export interface CreateCampaignInput {
 	body_source?: string | null;
 	altbody?: string;
 	type?: "regular" | "optin";
-	template_id: number;
+	template_id: number | null | undefined;
 	lists: number[];
 	tags?: string[];
 	messenger?: string;
@@ -250,6 +250,18 @@ export async function handleGetCampaignCommand({
 	}
 }
 
+function parseTemplateIdFlag(value: string | undefined): number | null | undefined {
+	if (value === undefined) return undefined;
+	if (value === "null") return null;
+	const num = Number(value);
+	if (!Number.isFinite(num) || num <= 0) {
+		throw new Error(
+			`Invalid template ID '${value}': expected a positive integer or 'null'`,
+		);
+	}
+	return num;
+}
+
 type CreateCommandFlags = {
 	name: string;
 	subject: string;
@@ -258,7 +270,7 @@ type CreateCommandFlags = {
 	"body-source"?: string;
 	altbody?: string;
 	type: "regular" | "optin";
-	"template-id": number;
+	"template-id": string;
 	lists: string;
 	tags?: string;
 	messenger: string;
@@ -290,7 +302,7 @@ export async function handleCreateCampaignCommand({
 				body_source: flags["body-source"],
 				altbody: flags.altbody,
 				type: flags.type,
-				template_id: flags["template-id"],
+				template_id: parseTemplateIdFlag(flags["template-id"]),
 				lists: parseCsvNumbers(flags.lists),
 				tags: parseCsvStrings(flags.tags),
 				messenger: flags.messenger,
@@ -328,7 +340,7 @@ type UpdateCommandFlags = Omit<CreateCommandFlags, "name" | "subject" | "from-em
 	body?: string;
 	"body-source"?: string;
 	type?: "regular" | "optin";
-	"template-id"?: number;
+	"template-id"?: string;
 	lists?: string;
 	messenger?: string;
 	"content-type"?: "richtext" | "html" | "markdown" | "plain" | "visual";
@@ -351,7 +363,7 @@ export async function handleUpdateCampaignCommand({
 				body_source: flags["body-source"],
 				altbody: flags.altbody,
 				type: flags.type,
-				template_id: flags["template-id"],
+				template_id: parseTemplateIdFlag(flags["template-id"]),
 				lists: flags.lists ? parseCsvNumbers(flags.lists) : undefined,
 				tags: parseCsvStrings(flags.tags),
 				messenger: flags.messenger,
@@ -563,8 +575,9 @@ export default defineGroup({
 					description: "Plain-text alternative",
 				}),
 				type: option(campaignTypeOption, { description: "Campaign type" }),
-				"template-id": option(z.coerce.number().int().positive(), {
-					description: "Template ID",
+				"template-id": option(z.union([z.literal("null"), z.string().regex(/^[1-9][0-9]*$/)]), {
+					description:
+						"Template ID (positive integer), or 'null' for template-less campaigns",
 				}),
 				lists: option(z.string().trim().min(1), {
 					description: "Comma-separated list IDs",
@@ -637,8 +650,9 @@ export default defineGroup({
 				type: option(z.enum(["regular", "optin"]).optional(), {
 					description: "Campaign type",
 				}),
-				"template-id": option(z.coerce.number().int().positive().optional(), {
-					description: "Template ID",
+				"template-id": option(z.union([z.literal("null"), z.string().regex(/^[1-9][0-9]*$/)]).optional(), {
+					description:
+						"Template ID (positive integer), or 'null' for template-less campaigns",
 				}),
 				lists: option(z.string().trim().optional(), {
 					description: "Comma-separated list IDs",

@@ -172,6 +172,13 @@ const campaignLegacyTools: MCPTool[] = [
 			},
 			required: ["id", "status"],
 		},
+		annotations: {
+			title: "Update campaign status",
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: true,
+			openWorldHint: true,
+		},
 	},
 	{
 		name: "listmonk_delete_campaign",
