@@ -1,10 +1,13 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	assertOperationConfirmation,
 	campaignOperations,
+	getOperationCatalogEntryByMcpName,
 	invokeCampaignOperationByMcpName,
 } from "@listmonk-ops/operations";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
+import { mcpOperationCatalog } from "../operation-catalog.js";
 import { createOperationResult, toMcpTool } from "./operation-adapter.js";
 import {
 	createApiErrorResult,
@@ -12,11 +15,7 @@ import {
 	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
-import {
-	castCampaignStatus,
-	parseId,
-	withErrorHandler,
-} from "../utils/typeHelpers.js";
+import { parseId, withErrorHandler } from "../utils/typeHelpers.js";
 
 const campaignLegacyTools: MCPTool[] = [
 	{
@@ -153,14 +152,17 @@ const campaignLegacyTools: MCPTool[] = [
 				status: {
 					type: "string",
 					enum: [
-						"draft",
 						"scheduled",
 						"running",
 						"paused",
-						"finished",
 						"cancelled",
 					],
-					description: "New campaign status",
+					description: "New campaign status (lifecycle targets only)",
+				},
+				confirm: {
+					type: "boolean",
+					description:
+						"Required: set to true to confirm destructive lifecycle transitions (schedule, start, cancel).",
 				},
 				send_at: {
 					type: "string",
@@ -294,6 +296,21 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 				const rawStatus = String(args.status);
 				const operationName = lifecycleOperationNames[rawStatus];
 				if (operationName) {
+					// Enforce confirmation before invoking the lifecycle
+					// operation. The legacy tool name is not registered in
+					// the MCP catalog, so the server's execution-policy
+					// boundary does not catch it automatically. We look up
+					// the mapped shared operation and apply its policy here.
+					const entry = getOperationCatalogEntryByMcpName(
+						mcpOperationCatalog,
+						operationName,
+					);
+					if (entry) {
+						assertOperationConfirmation(
+							entry.operation,
+							args.confirm === true,
+						);
+					}
 					const lifecycleInvocation = await invokeCampaignOperationByMcpName(
 						{ client },
 						operationName,
@@ -310,17 +327,9 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					);
 				}
 
-				const response = await client.campaign.updateStatus({
-					path: { id: parseId(args.id) },
-					body: {
-						status: castCampaignStatus(rawStatus) as
-							| "scheduled"
-							| "running"
-							| "paused"
-							| "cancelled",
-					},
-				});
-				return handleDataResponse(response, "Failed to update campaign status");
+				return createErrorResult(
+					`Unsupported campaign status '${rawStatus}'. Supported: scheduled, running, paused, cancelled.`,
+				);
 			}
 
 			case "listmonk_test_campaign": {
