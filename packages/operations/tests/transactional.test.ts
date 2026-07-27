@@ -585,12 +585,48 @@ describe("transactional idempotency wrapper integration", () => {
 				status: "unknown",
 			}),
 		);
+			expect(send).toHaveBeenCalledTimes(1);
+		});
+
+	test("rejects non-boolean acknowledgements before persisting accepted", async () => {
+		// A non-conforming server/proxy could return a truthy non-boolean
+		// (e.g. the string "false"). The wrapper must NOT treat it as
+		// accepted and persist sent:true. It throws, leaving an unknown
+		// record (the response reached us but its shape is untrustworthy),
+		// so a retry surfaces a reconcile error rather than silently
+		// replaying a false acceptance.
+		const send = mock(async () => ({
+			data: "false",
+		})) as unknown as TransactionalClient["transactional"]["send"];
+		const ctx = contextWithStore(send);
+
+		await expect(
+			invokeSendTransactionalOperation(ctx, {
+				template_id: 3,
+				subscriber_id: 42,
+				idempotency_key: "order-1",
+			}),
+		).rejects.toThrow(/non-boolean acknowledgement/);
+
+		// The retry must NOT silently replay sent:true; the record is unknown.
+		await expect(
+			invokeSendTransactionalOperation(ctx, {
+				template_id: 3,
+				subscriber_id: 42,
+				idempotency_key: "order-1",
+			}),
+		).rejects.toEqual(
+			expect.objectContaining({
+				name: "TransactionalReconcileError",
+				status: "unknown",
+			}),
+		);
 		expect(send).toHaveBeenCalledTimes(1);
 	});
 });
 
 describe("transactional idempotency pure helpers", () => {
-	describe("serializeTransactionalPayload", () => {
+describe("serializeTransactionalPayload", () => {
 		test("is stable across object key reordering", () => {
 			const a = serializeTransactionalPayload({
 				template_id: 3,
@@ -642,6 +678,34 @@ describe("transactional idempotency pure helpers", () => {
 			expect(sparse).toBe(explicit);
 		});
 
+		test("honors toJSON when hashing payloads", () => {
+			// URL serializes via toJSON() → its href string. Two distinct
+			// URLs are enumerable-empty ({}) but produce different wire
+			// payloads; the hash must distinguish them.
+			class FakeURL {
+				constructor(private readonly href: string) {}
+				toJSON(): string {
+					return this.href;
+				}
+			}
+			const a = serializeTransactionalPayload({
+				template_id: 3,
+				data: { link: new FakeURL("https://a.example.com") },
+			});
+			const b = serializeTransactionalPayload({
+				template_id: 3,
+				data: { link: new FakeURL("https://b.example.com") },
+			});
+			expect(a).not.toBe(b);
+			// And a matching plain string must hash identically to its
+			// toJSON counterpart.
+			const asString = serializeTransactionalPayload({
+				template_id: 3,
+				data: { link: "https://a.example.com" },
+			});
+			expect(a).toBe(asString);
+		});
+
 		test("rejects cyclic payloads instead of overflowing the stack", () => {
 			const cyclic: Record<string, unknown> = { a: 1 };
 			cyclic.self = cyclic;
@@ -654,7 +718,7 @@ describe("transactional idempotency pure helpers", () => {
 		});
 	});
 
-	describe("computeTransactionalTargetHash", () => {
+describe("computeTransactionalTargetHash", () => {
 		test("differs across Listmonk targets", () => {
 			const staging = computeTransactionalTargetHash({
 				baseUrl: "http://staging.example.com/api",
@@ -665,6 +729,16 @@ describe("transactional idempotency pure helpers", () => {
 				username: "ops",
 			});
 			expect(staging).not.toBe(production);
+		});
+
+		test("produces a 64-bit (16 hex char) collision-resistant digest", () => {
+			// 32-bit FNV was trivially collidable; the dual-seed 64-bit
+			// form raises deliberate-collision cost above practical reach.
+			const hash = computeTransactionalTargetHash({
+				baseUrl: "http://x/api",
+				username: "ops",
+			});
+			expect(hash).toMatch(/^[0-9a-f]{16}$/);
 		});
 
 		test("ignores leading/trailing whitespace", () => {
@@ -680,33 +754,47 @@ describe("transactional idempotency pure helpers", () => {
 		});
 	});
 
-	describe("isAmbiguousTransportError", () => {
-		test("flags timeout, connection reset, fetch failures, and aborts", () => {
-			expect(isAmbiguousTransportError(new Error("Request timed out"))).toBe(true);
-			expect(isAmbiguousTransportError(new Error("ECONNRESET"))).toBe(true);
-			expect(isAmbiguousTransportError(new Error("fetch failed"))).toBe(true);
-			expect(isAmbiguousTransportError(new Error("connect ENETUNREACH"))).toBe(true);
-			expect(isAmbiguousTransportError(new Error("The operation was aborted"))).toBe(true);
-		});
-
-		test("does not flag definitive connection-refused or DNS failures", () => {
-			expect(isAmbiguousTransportError(new Error("connect ECONNREFUSED"))).toBe(false);
-			expect(isAmbiguousTransportError(new Error("getaddrinfo ENOTFOUND"))).toBe(false);
-		});
-
-		test("does not flag explicit Listmonk application errors", () => {
-			expect(isAmbiguousTransportError(new Error("template not found"))).toBe(false);
-			expect(isAmbiguousTransportError(new Error("subscriber blocklisted"))).toBe(false);
-			expect(isAmbiguousTransportError(new Error("invalid network configuration"))).toBe(false);
-		});
-
-		test("does not flag non-Error values", () => {
-			expect(isAmbiguousTransportError("timeout")).toBe(false);
-			expect(isAmbiguousTransportError({ code: "ECONNRESET" })).toBe(false);
-		});
+describe("isAmbiguousTransportError", () => {
+	test("flags timeout, connection reset, fetch failures, and aborts", () => {
+		expect(isAmbiguousTransportError(new Error("Request timed out"))).toBe(true);
+		expect(isAmbiguousTransportError(new Error("ECONNRESET"))).toBe(true);
+		expect(isAmbiguousTransportError(new Error("fetch failed"))).toBe(true);
+		expect(isAmbiguousTransportError(new Error("connect ENETUNREACH"))).toBe(
+			true,
+		);
+		expect(isAmbiguousTransportError(new Error("The operation was aborted"))).toBe(
+			true,
+		);
 	});
 
-	describe("isDefinitivePreDispatchError", () => {
+	test("does not flag definitive connection-refused or DNS failures", () => {
+		expect(isAmbiguousTransportError(new Error("connect ECONNREFUSED"))).toBe(
+			false,
+		);
+		expect(isAmbiguousTransportError(new Error("getaddrinfo ENOTFOUND"))).toBe(
+			false,
+		);
+	});
+
+	test("does not flag explicit Listmonk application errors", () => {
+		expect(isAmbiguousTransportError(new Error("template not found"))).toBe(
+			false,
+		);
+		expect(isAmbiguousTransportError(new Error("subscriber blocklisted"))).toBe(
+			false,
+		);
+		expect(isAmbiguousTransportError(new Error("invalid network configuration"))).toBe(
+			false,
+		);
+	});
+
+	test("does not flag non-Error values", () => {
+		expect(isAmbiguousTransportError("timeout")).toBe(false);
+		expect(isAmbiguousTransportError({ code: "ECONNRESET" })).toBe(false);
+	});
+});
+
+describe("isDefinitivePreDispatchError", () => {
 		test("flags connection-refused and DNS failures as proven pre-dispatch", () => {
 			expect(
 				isDefinitivePreDispatchError(new Error("connect ECONNREFUSED 127.0.0.1:9000")),
@@ -781,6 +869,17 @@ describe("transactional idempotency pure helpers", () => {
 				});
 				expect(isDefinitivePreDispatchError(error)).toBe(false);
 			}
+		});
+
+		test("treats httpStatus as authoritative over transport-message heuristics", () => {
+			// A 5xx body that happens to contain "ECONNREFUSED" must NOT be
+			// released; the server reached Listmonk and may have partially
+			// processed the message. Status is checked before message text.
+			const misleading5xx = Object.assign(
+				new Error("upstream reported ECONNREFUSED in the error body"),
+				{ httpStatus: 502 },
+			);
+			expect(isDefinitivePreDispatchError(misleading5xx)).toBe(false);
 		});
 
 		test("does not flag application errors", () => {

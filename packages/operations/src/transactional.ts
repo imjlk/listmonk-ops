@@ -348,7 +348,24 @@ async function dispatchToListmonk(
 		headers: payload.headers,
 		content_type: payload.content_type,
 	});
-	return unwrapData(response, "Failed to send transactional message");
+	const status =
+		typeof response.response?.status === "number"
+			? response.response.status
+			: undefined;
+	const data = unwrapData(response, "Failed to send transactional message");
+	// Validate the acknowledgement is actually a boolean before the
+	// idempotency wrapper trusts it. A non-conforming server, proxy, or
+	// incompatible Listmonk version could return a truthy non-boolean
+	// (e.g. the string "false"); without this guard the wrapper would
+	// commit an `accepted` record before the output schema rejects it,
+	// and a retry would replay `sent: true`.
+	if (typeof data !== "boolean") {
+		throw new TransactionalDispatchError(
+			`Failed to send transactional message: Listmonk returned a non-boolean acknowledgement (${JSON.stringify(data)})`,
+			status,
+		);
+	}
+	return data;
 }
 
 function recordToOutput(

@@ -258,15 +258,25 @@ export function computeTransactionalTargetHash(options: {
 	username?: string;
 }): string {
 	const normalized = `${(options.baseUrl ?? "").trim()}\u0000${(options.username ?? "").trim()}`;
-	// FNV-1a 32-bit over UTF-16 code units. Target identity has low entropy
-	// (two short strings) so 32 bits are ample; the strong collision
-	// resistance lives in the payload hash computed by the adapter.
-	let hash = 0x811c9dc5;
-	for (let i = 0; i < normalized.length; i++) {
-		hash ^= normalized.charCodeAt(i);
+	// Two independent FNV-1a 32-bit passes (different seeds) combined into
+	// a 64-bit hex string. A single 32-bit pass was trivially collidable;
+	// 64 bits raises the cost of a deliberate cross-instance collision
+	// (staging vs production replay) far above practical reach. Stays
+	// pure-JavaScript so the operations package remains runtime-neutral;
+	// the SHA-256 payload hash computed by the adapter carries the strong
+	// guarantee for payload equality.
+	const hi = fnv1a32(normalized, 0x811c9dc5);
+	const lo = fnv1a32(normalized, 0x84222325);
+	return hi.padStart(8, "0") + lo.padStart(8, "0");
+}
+
+function fnv1a32(input: string, seed: number): string {
+	let hash = seed;
+	for (let i = 0; i < input.length; i++) {
+		hash ^= input.charCodeAt(i);
 		hash = Math.imul(hash, 0x01000193);
 	}
-	return (hash >>> 0).toString(16).padStart(8, "0").repeat(2);
+	return (hash >>> 0).toString(16);
 }
 
 /**
@@ -343,6 +353,17 @@ export function stableSerializeJson(
 			throw new Error("Circular reference detected in transactional payload");
 		}
 		seen.add(value);
+		// Honor toJSON before enumerating properties: JSON.stringify calls
+		// toJSON() when present (e.g. URL → string, Date is handled above),
+		// so hashing must agree or two distinct wire payloads (different
+		// URLs, both enumerable-empty) would collide.
+		const toJSONResult = (value as { toJSON?: unknown }).toJSON;
+		if (typeof toJSONResult === "function") {
+			const replaced = (value as { toJSON: () => unknown }).toJSON();
+			const result = stableSerializeJson(replaced, seen);
+			seen.delete(value);
+			return result;
+		}
 		const entries = Object.entries(value)
 			.filter(([, v]) => v !== undefined)
 			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
@@ -409,6 +430,17 @@ export function isAmbiguousTransportError(error: unknown): boolean {
  */
 export function isDefinitivePreDispatchError(error: unknown): boolean {
 	if (!(error instanceof Error)) return false;
+	// When the error carries an HTTP status, that status is authoritative:
+	// the request reached Listmonk (or a proxy) and was answered. 4xx is a
+	// definitive pre-dispatch rejection (safe to release); anything else
+	// with a status (5xx, 3xx, etc.) is NOT pre-dispatch because the server
+	// may have partially processed the message. This check runs BEFORE the
+	// transport-message heuristics so a 5xx body that happens to contain
+	// "ECONNREFUSED" cannot override the server's authoritative answer.
+	const httpStatus = (error as { httpStatus?: unknown }).httpStatus;
+	if (typeof httpStatus === "number") {
+		return httpStatus >= 400 && httpStatus < 500;
+	}
 	const message = error.message.toLowerCase();
 	const messageSignals = ["econnrefused", "enotfound"];
 	if (messageSignals.some((signal) => message.includes(signal))) {
@@ -425,24 +457,7 @@ export function isDefinitivePreDispatchError(error: unknown): boolean {
 		"GetAddrInfoFailed",
 		"HostNotFoundError",
 	]);
-	if (codes.some((code) => codeSignals.has(code))) {
-		return true;
-	}
-	// Definitive HTTP rejections (4xx): the request reached Listmonk but
-	// was rejected before dispatch — bad credentials, unknown template,
-	// validation failure. A retry once the underlying issue is fixed
-	// (credentials refreshed, payload corrected) is safe. 5xx is NOT
-	// included because the server may have partially processed the message
-	// before failing.
-	const httpStatus = (error as { httpStatus?: unknown }).httpStatus;
-	if (
-		typeof httpStatus === "number" &&
-		httpStatus >= 400 &&
-		httpStatus < 500
-	) {
-		return true;
-	}
-	return false;
+	return codes.some((code) => codeSignals.has(code));
 }
 
 function collectErrorCodes(error: Error): string[] {

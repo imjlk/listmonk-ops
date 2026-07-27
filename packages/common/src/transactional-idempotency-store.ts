@@ -199,12 +199,21 @@ export function computeTransactionalTargetHash(options: {
 	username?: string;
 }): string {
 	const normalized = `${(options.baseUrl ?? "").trim()}\u0000${(options.username ?? "").trim()}`;
-	let hash = 0x811c9dc5;
-	for (let i = 0; i < normalized.length; i++) {
-		hash ^= normalized.charCodeAt(i);
+	// Mirror the operations-package pure implementation: two independent
+	// FNV-1a 32-bit passes (different seeds) combined into 64 bits so a
+	// deliberate cross-instance collision is impractical.
+	const hi = fnv1a32(normalized, 0x811c9dc5);
+	const lo = fnv1a32(normalized, 0x84222325);
+	return hi.padStart(8, "0") + lo.padStart(8, "0");
+}
+
+function fnv1a32(input: string, seed: number): string {
+	let hash = seed;
+	for (let i = 0; i < input.length; i++) {
+		hash ^= input.charCodeAt(i);
 		hash = Math.imul(hash, 0x01000193);
 	}
-	return (hash >>> 0).toString(16).padStart(8, "0").repeat(2);
+	return (hash >>> 0).toString(16);
 }
 
 function createTransactionalStore(
