@@ -75,7 +75,10 @@ function runCliTransactionalSend(input: TransactionalCliInput): CliResult {
 	};
 }
 
-function parseCliSentOutput(result: CliResult): { sent: true } {
+function parseCliSentOutput(result: CliResult): {
+	sent: boolean;
+	status: string;
+} {
 	const diagnosticOutput = [result.stdout, result.stderr]
 		.filter(Boolean)
 		.join("\n");
@@ -85,17 +88,34 @@ function parseCliSentOutput(result: CliResult): { sent: true } {
 		);
 	}
 
+	// The CLI prints a JSON object as the last stdout line. Human-readable
+	// progress lands on stderr (or via output.success), so the last stdout
+	// line is always the structured result.
 	const lastLine = result.stdout
 		.split(/\r?\n/)
 		.map((line) => line.trim())
 		.filter(Boolean)
 		.at(-1);
-	if (lastLine !== "true") {
+	if (lastLine === undefined) {
 		throw new Error(
-			`CLI transactional send did not return true: ${diagnosticOutput}`,
+			`CLI transactional send produced no output: ${diagnosticOutput}`,
 		);
 	}
-	return { sent: true };
+
+	let parsed: { sent?: boolean; status?: string };
+	try {
+		parsed = JSON.parse(lastLine);
+	} catch {
+		throw new Error(
+			`CLI transactional send returned non-JSON output '${lastLine}': ${diagnosticOutput}`,
+		);
+	}
+	if (parsed.sent !== true || parsed.status === undefined) {
+		throw new Error(
+			`CLI transactional send did not return an accepted result: ${diagnosticOutput}`,
+		);
+	}
+	return { sent: parsed.sent, status: parsed.status };
 }
 
 describe("Transactional CLI and MCP parity", () => {
@@ -114,10 +134,11 @@ describe("Transactional CLI and MCP parity", () => {
 		expect(
 			parseCliSentOutput({
 				exitCode: 0,
-				stdout: "Transactional message sent\ntrue",
+				stdout:
+					'{"sent":true,"status":"accepted"}',
 				stderr: "runtime warning",
 			}),
-		).toEqual({ sent: true });
+		).toEqual({ sent: true, status: "accepted" });
 	});
 
 	test("sends equivalent contracts through the local Mailpit stack", async () => {
@@ -164,13 +185,19 @@ describe("Transactional CLI and MCP parity", () => {
 			data: { trace_id: mcpTraceId },
 			headers: [{ [HEADER_NAME]: mcpTraceId }],
 		});
-		expect(
-			utils.assertSuccess<boolean>(
-				mcpResult,
-				"Failed to send transactional MCP parity message",
-			),
-		).toBe(true);
-		expect(mcpResult.structuredContent).toEqual(cliSent);
+		const mcpStructured = utils.assertSuccess<{
+			sent: boolean;
+			status: string;
+		}>(mcpResult, "Failed to send transactional MCP parity message");
+		expect(mcpStructured.sent).toBe(true);
+		expect(mcpStructured.status).toBe("accepted");
+		// Both surfaces share the same stable contract fields. The CLI does
+		// not echo idempotency_key/expires_at because parity runs omit the
+		// key; comparing only sent+status keeps the test robust to that
+		// asymmetry.
+		expect({ sent: mcpStructured.sent, status: mcpStructured.status }).toEqual(
+			cliSent,
+		);
 
 		let cliDelivery: MailpitMessageSummary | undefined;
 		let mcpDelivery: MailpitMessageSummary | undefined;

@@ -137,8 +137,15 @@ export function normalizeOperationExecutionError(
 	operationId: string,
 	error: unknown,
 ): OperationExecutionError {
-	if (error instanceof OperationExecutionError) {
-		return error;
+	// Domain errors already carry operation-scoped context and typed
+	// metadata (validation path, reconcile-required status). Preserve them
+	// verbatim rather than re-wrapping into a generic execution error.
+	if (
+		error instanceof OperationExecutionError ||
+		error instanceof OperationInputError ||
+		error instanceof OperationOutputError
+	) {
+		return error as unknown as OperationExecutionError;
 	}
 	return new OperationExecutionError(operationId, error);
 }

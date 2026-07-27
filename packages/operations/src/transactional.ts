@@ -4,12 +4,27 @@ import { defineOperationCatalog } from "./catalog";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
+	OperationInputError,
 	parseOperationInput,
 	parseOperationOutput,
 } from "./operation";
+import {
+	claimTransactionalSend,
+	commitTransactionalSend,
+	computeTransactionalPayloadHash,
+	isAmbiguousTransportError,
+	TransactionalReconcileError,
+	type TransactionalSendRecord,
+} from "./transactional-idempotency";
 
 export interface TransactionalOperationContext {
 	client: Pick<ListmonkClient, "transactional">;
+	/**
+	 * Optional override for the idempotency store path. CLI and MCP adapters
+	 * do not set this; the default resolves via
+	 * `LISTMONK_OPS_TRANSACTIONAL_STORE` then `~/.listmonk-ops/transactional.json`.
+	 */
+	storePath?: string;
 }
 
 type DataResponse<T> = {
@@ -112,6 +127,15 @@ function collectHeaderIssues(
 	return issues;
 }
 
+/**
+ * Allowlist for `idempotency_key`. Conservative printable subset that is
+ * safe to use as both a JSON object key and a filename fragment if the
+ * store path is ever derived from the key. Matches common client-side
+ * idempotency conventions (Stripe-style, UUID, slug).
+ */
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]+$/;
+const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
+
 const sendTransactionalInputSchema = z
 	.object({
 		template_id: positiveIdInputSchema.describe("Transactional template ID"),
@@ -142,6 +166,19 @@ const sendTransactionalInputSchema = z
 			.enum(["html", "markdown", "plain"])
 			.optional()
 			.describe("Message content type"),
+		idempotency_key: z
+			.string()
+			.trim()
+			.min(1)
+			.max(IDEMPOTENCY_KEY_MAX_LENGTH)
+			.regex(
+				IDEMPOTENCY_KEY_PATTERN,
+				"idempotency_key must contain only letters, digits, and . _ : - characters",
+			)
+			.optional()
+			.describe(
+				"Optional client-supplied idempotency key. When set, a retry with the same key and payload replays the original result instead of re-sending. Different payload with the same key is rejected as a conflict.",
+			),
 	})
 	.refine(
 		(input) =>
@@ -164,9 +201,44 @@ const sendTransactionalInputSchema = z
 		}
 	});
 
-const sendTransactionalOutputSchema = z.object({
-	sent: z.boolean().describe("Whether Listmonk accepted the message"),
-});
+/**
+ * Result status reported back to the caller.
+ *
+ * - `accepted`  — Listmonk accepted the message (`sent: true`) or, when no
+ *                 idempotency key was supplied, the request completed without
+ *                 a negative acknowledgement.
+ * - `replayed`  — A prior send with the same key was replayed. `duplicate`
+ *                 is `true` and Listmonk was not called again.
+ * - `failed`    — Listmonk returned a negative acknowledgement
+ *                 (`sent: false`).
+ */
+const sendTransactionalStatusSchema = z.enum([
+	"accepted",
+	"replayed",
+	"failed",
+]);
+
+const sendTransactionalOutputSchema = z
+	.object({
+		sent: z.boolean().describe("Whether Listmonk accepted the message"),
+		status: sendTransactionalStatusSchema.describe(
+			"Outcome of the send: accepted (freshly dispatched), replayed (idempotency hit, not re-dispatched), or failed (Listmonk rejected)",
+		),
+		duplicate: z
+			.boolean()
+			.optional()
+			.describe("True when the result was replayed from an idempotency record"),
+		idempotency_key: z
+			.string()
+			.optional()
+			.describe("Echoed back when an idempotency key was supplied"),
+		expires_at: z
+			.string()
+			.optional()
+			.describe(
+				"ISO timestamp after which the idempotency record expires. Present when an idempotency key was supplied.",
+			),
+	});
 
 export type SendTransactionalInput = z.input<
 	typeof sendTransactionalInputSchema
@@ -205,11 +277,63 @@ function unwrapData<T>(response: DataResponse<T>, context: string): T {
 	return response.data;
 }
 
+interface DispatchPayload {
+	template_id: number;
+	subscriber_email?: string;
+	subscriber_id?: number;
+	from_email?: string;
+	data?: Record<string, unknown>;
+	headers?: Array<Record<string, string>>;
+	content_type?: "html" | "markdown" | "plain";
+}
+
+async function dispatchToListmonk(
+	context: TransactionalOperationContext,
+	payload: DispatchPayload,
+): Promise<boolean> {
+	const response = await context.client.transactional.send({
+		template_id: payload.template_id,
+		subscriber_email: payload.subscriber_email,
+		subscriber_id: payload.subscriber_id,
+		from_email: payload.from_email,
+		data: payload.data,
+		headers: payload.headers,
+		content_type: payload.content_type,
+	});
+	return unwrapData(response, "Failed to send transactional message");
+}
+
+function recordToOutput(
+	record: TransactionalSendRecord,
+	status: "accepted" | "replayed" | "failed",
+): SendTransactionalOutput {
+	return {
+		sent: record.sent ?? false,
+		status,
+		duplicate: status === "replayed",
+		idempotency_key: record.key,
+		expires_at: record.expiresAt,
+	};
+}
+
+/**
+ * Send a transactional message through Listmonk.
+ *
+ * When `idempotency_key` is omitted, the request is dispatched immediately
+ * and the result mirrors the prior `{ sent: boolean }` contract with
+ * `status: "accepted" | "failed"`.
+ *
+ * When `idempotency_key` is supplied, an idempotency record is atomically
+ * claimed before dispatch. Identical retries replay the original result;
+ * a different payload with the same key is rejected as a conflict. Ambiguous
+ * transport failures (timeout, connection reset) leave an `unknown` record
+ * that blocks automatic retry and surfaces a `TransactionalReconcileError`.
+ */
 export async function sendTransactionalMessage(
-	{ client }: TransactionalOperationContext,
+	context: TransactionalOperationContext,
 	input: z.output<typeof sendTransactionalInputSchema>,
 ): Promise<SendTransactionalOutput> {
-	const response = await client.transactional.send({
+	const payload: DispatchPayload = {
 		template_id: input.template_id,
 		subscriber_email: input.subscriber_email,
 		subscriber_id: input.subscriber_id,
@@ -217,11 +341,102 @@ export async function sendTransactionalMessage(
 		data: input.data,
 		headers: input.headers,
 		content_type: input.content_type,
+	};
+
+	if (input.idempotency_key === undefined) {
+		// No idempotency key: dispatch immediately, return the bare outcome.
+		const sent = await dispatchToListmonk(context, payload);
+		return {
+			sent,
+			status: sent ? "accepted" : "failed",
+		};
+	}
+
+	const payloadHash = computeTransactionalPayloadHash(payload);
+	const claim = await claimTransactionalSend({
+		storePath: context.storePath,
+		key: input.idempotency_key,
+		payloadHash,
+	});
+
+	if (claim.kind === "conflict") {
+		throw new OperationInputError(
+			`Idempotency key '${input.idempotency_key}' is already associated with a different payload. Use a new key or remove idempotency_key to force a fresh send.`,
+		);
+	}
+
+	if (claim.kind === "replay") {
+		const record = claim.record;
+		if (record.status === "accepted") {
+			return recordToOutput(record, "replayed");
+		}
+		// pending / unknown / failed — the caller must reconcile rather than
+		// silently re-dispatch. Surface enough context to act on.
+		const reason = reconcileReason(record);
+		throw new TransactionalReconcileError(
+			record.key,
+			record.status,
+			`Idempotency key '${record.key}' is in '${record.status}' state and cannot be safely retried automatically. ${reason}`,
+		);
+	}
+
+	// claim.kind === "new" — we own the dispatch.
+	const record = claim.record;
+	let sent: boolean;
+	try {
+		sent = await dispatchToListmonk(context, payload);
+	} catch (error) {
+		// Distinguish ambiguous transport failures from explicit Listmonk
+		// rejections. Ambiguous → unknown (no auto-retry); explicit → failed.
+		const status = isAmbiguousTransportError(error) ? "unknown" : "failed";
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		await commitTransactionalSend({
+			storePath: context.storePath,
+			key: input.idempotency_key,
+			status,
+			errorMessage,
+		});
+		if (status === "unknown") {
+			throw new TransactionalReconcileError(
+				input.idempotency_key,
+				status,
+				`Transactional dispatch failed ambiguously ('${errorMessage}'). The message may or may not have been sent. Automatic retry is blocked; inspect Listmonk and the idempotency record before reconciling.`,
+			);
+		}
+		throw error;
+	}
+
+	await commitTransactionalSend({
+		storePath: context.storePath,
+		key: input.idempotency_key,
+		status: sent ? "accepted" : "failed",
+		sent,
 	});
 
 	return {
-		sent: unwrapData(response, "Failed to send transactional message"),
+		sent,
+		status: sent ? "accepted" : "failed",
+		duplicate: false,
+		idempotency_key: input.idempotency_key,
+		expires_at: record.expiresAt,
 	};
+}
+
+function reconcileReason(record: TransactionalSendRecord): string {
+	switch (record.status) {
+		case "pending":
+			return "A previous request is still in flight or crashed before committing. Wait for it to settle or inspect the store.";
+		case "unknown":
+			return record.errorMessage
+				? `Previous dispatch failed ambiguously: ${record.errorMessage}`
+				: "Previous dispatch failed ambiguously.";
+		case "failed":
+			return record.errorMessage
+				? `Previous dispatch was rejected by Listmonk: ${record.errorMessage}`
+				: "Previous dispatch was rejected by Listmonk.";
+		default:
+			return "";
+	}
 }
 
 export const sendTransactionalOperation = defineOperation({
@@ -233,6 +448,9 @@ export const sendTransactionalOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: false,
+		// The bare path (no idempotency_key) is non-idempotent. With a key
+		// the wrapper is idempotent, but the operation-level hint stays
+		// conservative because most callers will not supply one.
 		idempotentHint: false,
 		openWorldHint: true,
 	},

@@ -18,10 +18,18 @@ export const MCP_TEST_AUDIT_STORE_PATH = resolve(
 	tmpdir(),
 	`listmonk-ops-mcp-audit-${process.pid}.json`,
 );
+export const MCP_TEST_TRANSACTIONAL_STORE_PATH = resolve(
+	tmpdir(),
+	`listmonk-ops-mcp-transactional-${process.pid}.json`,
+);
 
 // E2E must not append local test activity to an operator's configured audit
 // file, even when their shell loads LISTMONK_OPS_AUDIT_STORE.
 process.env.LISTMONK_OPS_AUDIT_STORE = MCP_TEST_AUDIT_STORE_PATH;
+// E2E idempotency records must not leak into an operator's configured
+// transactional store, and must not collide with a concurrent run.
+process.env.LISTMONK_OPS_TRANSACTIONAL_STORE =
+	MCP_TEST_TRANSACTIONAL_STORE_PATH;
 
 export const TEST_RESOURCE_PREFIX = "lmops-e2e";
 
@@ -389,5 +397,7 @@ afterAll(async () => {
 	await Promise.all([
 		rm(MCP_TEST_AUDIT_STORE_PATH, { force: true }),
 		rm(`${MCP_TEST_AUDIT_STORE_PATH}.lock`, { force: true }),
+		rm(MCP_TEST_TRANSACTIONAL_STORE_PATH, { force: true }),
+		rm(`${MCP_TEST_TRANSACTIONAL_STORE_PATH}.lock`, { force: true }),
 	]);
 });

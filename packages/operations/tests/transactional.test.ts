@@ -1,5 +1,8 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import { describe, expect, mock, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
 	getTransactionalOperationByMcpName,
 	invokeSendTransactionalOperation,
@@ -8,6 +11,7 @@ import {
 	OperationInputError,
 	sendTransactionalOperation,
 	transactionalOperations,
+	type TransactionalOperationContext,
 } from "../src";
 
 type TransactionalClient = Pick<ListmonkClient, "transactional">;
@@ -29,7 +33,7 @@ describe("transactional operations", () => {
 			headers: [{ "X-Request-ID": "request-42" }],
 		});
 
-		expect(output).toEqual({ sent: true });
+		expect(output).toEqual({ sent: true, status: "accepted" });
 		expect(send).toHaveBeenCalledWith({
 			template_id: 3,
 			subscriber_email: undefined,
@@ -49,7 +53,7 @@ describe("transactional operations", () => {
 				template_id: 3,
 				subscriber_email: "recipient@example.com",
 			}),
-		).resolves.toEqual({ sent: false });
+		).resolves.toEqual({ sent: false, status: "failed" });
 	});
 
 	test("requires exactly one supported recipient selector (XOR)", async () => {
@@ -169,7 +173,7 @@ describe("transactional operations", () => {
 					{ X_Request_ID: "abc-123" },
 				],
 			}),
-		).resolves.toEqual({ sent: true });
+		).resolves.toEqual({ sent: true, status: "accepted" });
 		expect(send).toHaveBeenCalledTimes(1);
 	});
 
@@ -200,7 +204,7 @@ describe("transactional operations", () => {
 		);
 
 		expect(invocation?.operation).toBe(sendTransactionalOperation);
-		expect(invocation?.output).toEqual({ sent: true });
+		expect(invocation?.output).toEqual({ sent: true, status: "accepted" });
 		await expect(
 			invokeTransactionalOperationByMcpName(
 				context(send),
@@ -222,6 +226,7 @@ describe("transactional operations", () => {
 			},
 			content_type: { enum: ["html", "markdown", "plain"] },
 			headers: { type: "array" },
+			idempotency_key: { type: "string" },
 		});
 		expect(sendTransactionalOperation.outputJsonSchema.type).toBe("object");
 		expect(sendTransactionalOperation.safety).toMatchObject({
@@ -232,5 +237,184 @@ describe("transactional operations", () => {
 		expect(
 			getTransactionalOperationByMcpName("listmonk_send_transactional"),
 		).toBe(sendTransactionalOperation);
+	});
+
+	test("rejects idempotency keys that contain whitespace or disallowed characters", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+
+		for (const invalidKey of ["has space", "with@at", "slash/char", ""]) {
+			await expect(
+				invokeSendTransactionalOperation(context(send), {
+					template_id: 3,
+					subscriber_id: 42,
+					idempotency_key: invalidKey,
+				}),
+			).rejects.toEqual(
+				expect.objectContaining<Partial<OperationInputError>>({
+					name: "OperationInputError",
+				}),
+			);
+		}
+		expect(send).not.toHaveBeenCalled();
+	});
+});
+
+describe("transactional idempotency wrapper integration", () => {
+	let tempDir: string;
+	let storePath: string;
+
+	beforeEach(async () => {
+		tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-tx-wrap-"));
+		storePath = join(tempDir, "transactional.json");
+	});
+
+	afterEach(async () => {
+		await rm(tempDir, { recursive: true, force: true });
+	});
+
+	type TransactionalClient = Pick<ListmonkClient, "transactional">;
+
+	function contextWithStore(
+		send: TransactionalClient["transactional"]["send"],
+		path: string,
+	): TransactionalOperationContext {
+		return {
+			client: { transactional: { send } } as TransactionalClient,
+			storePath: path,
+		};
+	}
+
+	test("replays the original result when the same key+payload is retried", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+		const ctx = contextWithStore(send, storePath);
+		const input = {
+			template_id: 3,
+			subscriber_id: 42,
+			from_email: "Sender <sender@example.com>",
+			content_type: "html" as const,
+			data: { order_id: "OPS-1" },
+			headers: [{ "X-Request-ID": "req-1" }],
+			idempotency_key: "order-1",
+		};
+
+		const first = await invokeSendTransactionalOperation(ctx, input);
+		expect(first).toMatchObject({
+			sent: true,
+			status: "accepted",
+			duplicate: false,
+			idempotency_key: "order-1",
+		});
+		expect(first.expires_at).toBeDefined();
+		expect(send).toHaveBeenCalledTimes(1);
+
+		// Retry with identical payload — Listmonk must not be called again.
+		const replay = await invokeSendTransactionalOperation(ctx, input);
+		expect(replay).toMatchObject({
+			sent: true,
+			status: "replayed",
+			duplicate: true,
+			idempotency_key: "order-1",
+		});
+		expect(send).toHaveBeenCalledTimes(1);
+	});
+
+	test("rejects a different payload under the same idempotency key as a conflict", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+		const ctx = contextWithStore(send, storePath);
+
+		await invokeSendTransactionalOperation(ctx, {
+			template_id: 3,
+			subscriber_id: 42,
+			idempotency_key: "order-1",
+			data: { order_id: "OPS-1" },
+		});
+
+		await expect(
+			invokeSendTransactionalOperation(ctx, {
+				template_id: 3,
+				subscriber_id: 42,
+				idempotency_key: "order-1",
+				data: { order_id: "OPS-2" },
+			}),
+		).rejects.toEqual(
+			expect.objectContaining<Partial<OperationInputError>>({
+				name: "OperationInputError",
+				message: expect.stringContaining("already associated with a different payload"),
+			}),
+		);
+		// Only the first call reached Listmonk.
+		expect(send).toHaveBeenCalledTimes(1);
+	});
+
+	test("records an ambiguous transport failure as unknown and blocks auto-retry", async () => {
+		const send = mock(async () => {
+			throw new Error("fetch failed: ECONNRESET");
+		}) as unknown as TransactionalClient["transactional"]["send"];
+		const ctx = contextWithStore(send, storePath);
+
+		await expect(
+			invokeSendTransactionalOperation(ctx, {
+				template_id: 3,
+				subscriber_id: 42,
+				idempotency_key: "order-1",
+			}),
+		).rejects.toEqual(
+			expect.objectContaining({
+				name: "TransactionalReconcileError",
+				status: "unknown",
+			}),
+		);
+
+		// A second attempt with the same key must NOT auto-retry; it surfaces
+		// a reconcile-required error because the prior record is `unknown`.
+		send.mockImplementation(
+			async () => ({ data: true }) as unknown as Awaited<
+				ReturnType<TransactionalClient["transactional"]["send"]>
+			>,
+		);
+		await expect(
+			invokeSendTransactionalOperation(ctx, {
+				template_id: 3,
+				subscriber_id: 42,
+				idempotency_key: "order-1",
+			}),
+		).rejects.toEqual(
+			expect.objectContaining({
+				name: "TransactionalReconcileError",
+				status: "unknown",
+			}),
+		);
+		// Listmonk was only called once (the original dispatch).
+		expect(send).toHaveBeenCalledTimes(1);
+	});
+
+	test("records an explicit Listmonk rejection as failed and blocks retry", async () => {
+		const send = mock(async () => ({ data: false })) as unknown as TransactionalClient["transactional"]["send"];
+		const ctx = contextWithStore(send, storePath);
+
+		const first = await invokeSendTransactionalOperation(ctx, {
+			template_id: 3,
+			subscriber_id: 42,
+			idempotency_key: "order-1",
+		});
+		expect(first).toMatchObject({
+			sent: false,
+			status: "failed",
+		});
+
+		// Retry should not re-dispatch; it should surface the prior failure.
+		await expect(
+			invokeSendTransactionalOperation(ctx, {
+				template_id: 3,
+				subscriber_id: 42,
+				idempotency_key: "order-1",
+			}),
+		).rejects.toEqual(
+			expect.objectContaining({
+				name: "TransactionalReconcileError",
+				status: "failed",
+			}),
+		);
+		expect(send).toHaveBeenCalledTimes(1);
 	});
 });

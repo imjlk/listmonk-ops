@@ -4,7 +4,9 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeSendTransactionalOperation,
 	OperationExecutionError,
+	TransactionalReconcileError,
 	type SendTransactionalInput,
+	type SendTransactionalOutput,
 } from "@listmonk-ops/operations";
 import { z } from "zod";
 import {
@@ -35,13 +37,26 @@ export function createTransactionalCommandError(error: unknown): Error {
 	);
 }
 
+function summarizeTransactionalOutput(output: SendTransactionalOutput): string {
+	if (output.status === "replayed") {
+		return `Transactional message replayed (duplicate of idempotency key ${output.idempotency_key ?? "?"})`;
+	}
+	if (output.status === "failed") {
+		return "Transactional message was rejected by Listmonk";
+	}
+	if (output.idempotency_key !== undefined) {
+		return `Transactional message sent (idempotency key ${output.idempotency_key})`;
+	}
+	return "Transactional message sent";
+}
+
 export async function renderTransactionalSend(
 	context: TransactionalCliContext,
 	input: SendTransactionalInput,
 ): Promise<void> {
 	const output = await invokeSendTransactionalOperation(context, input);
-	context.output.success("Transactional message sent");
-	context.output.json(output.sent);
+	context.output.success(summarizeTransactionalOutput(output));
+	context.output.json(output);
 }
 
 type SendTransactionalFlags = {
@@ -52,6 +67,7 @@ type SendTransactionalFlags = {
 	data?: string;
 	headers?: string;
 	"content-type"?: "html" | "markdown" | "plain";
+	"idempotency-key"?: string;
 };
 
 export async function handleSendTransactionalCommand({
@@ -83,12 +99,29 @@ export async function handleSendTransactionalCommand({
 				data,
 				headers,
 				content_type: flags["content-type"],
+				idempotency_key: flags["idempotency-key"],
 			},
 		);
 	} catch (error) {
+		if (error instanceof TransactionalReconcileError) {
+			// Reconcile-required errors carry operator guidance that the
+			// generic wrapper would mangle. Surface the full message verbatim.
+			throw error;
+		}
 		throw createTransactionalCommandError(error);
 	}
 }
+
+const idempotencyKeySchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(128)
+	.regex(
+		/^[A-Za-z0-9._:-]+$/,
+		"idempotency-key must contain only letters, digits, and . _ : - characters",
+	)
+	.optional();
 
 export default defineGroup({
 	name: "tx",
@@ -123,6 +156,10 @@ export default defineGroup({
 						description: "Message content type",
 					},
 				),
+				"idempotency-key": option(idempotencyKeySchema, {
+					description:
+						"Optional idempotency key. A retry with the same key and payload replays the original result instead of re-sending.",
+				}),
 			},
 			handler: handleSendTransactionalCommand,
 		}),

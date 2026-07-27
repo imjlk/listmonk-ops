@@ -85,6 +85,8 @@ export LISTMONK_OPS_SEGMENT_STORE="$HOME/.listmonk-ops/ops/segment-drift.json"
 export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry.json"
 # Optional: override the metadata-only MCP operation audit store
 export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
+# Optional: override the transactional idempotency store
+export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
 ```
 
 You can create/manage tokens in the Listmonk admin UI.
@@ -419,8 +421,34 @@ listmonk-cli tx send \
 The email or ID selector targets an existing Listmonk subscriber.
 
 The corresponding MCP tool is `listmonk_send_transactional`. It returns
-`{"sent": true}` as structured content while retaining the legacy boolean text
-result for existing clients.
+structured content like `{"sent": true, "status": "accepted"}` and keeps the
+legacy boolean text result for existing clients.
+
+### Idempotent transactional sends
+
+Listmonk's `/api/tx` endpoint acknowledges a send with only a boolean, so a
+client that times out and retries cannot tell whether the message already left.
+Supply an `idempotency_key` to make retries safe:
+
+```bash
+listmonk-cli tx send \
+  --template-id 42 \
+  --subscriber-email recipient@example.com \
+  --idempotency-key "$(uuidgen)"
+```
+
+The wrapper:
+
+- Persists a `pending` record keyed on `idempotency_key` before dispatch.
+- Replays the stored result on an identical retry (`status: "replayed"`,
+  `duplicate: true`) instead of re-sending.
+- Rejects a different payload under the same key as a conflict.
+- Records an ambiguous transport failure (timeout, connection reset) as
+  `unknown` and blocks automatic retry — inspect Listmonk and the idempotency
+  record, then reconcile manually.
+
+The store path defaults to `~/.listmonk-ops/transactional.json`; override it
+with `LISTMONK_OPS_TRANSACTIONAL_STORE`.
 
 ## A/B Test Operations
 

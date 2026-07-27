@@ -116,6 +116,18 @@ const sendTransactionalInvoker =
 	"packages/operations/src/transactional.ts#invokeSendTransactionalOperation:function";
 const sendTransactionalAction =
 	"packages/operations/src/transactional.ts#sendTransactionalMessage:function";
+const dispatchTransactionalToListmonk =
+	"packages/operations/src/transactional.ts#dispatchToListmonk:function";
+const transactionalIdempotencyClaim =
+	"packages/operations/src/transactional-idempotency.ts#claimTransactionalSend:function";
+const transactionalIdempotencyCommit =
+	"packages/operations/src/transactional-idempotency.ts#commitTransactionalSend:function";
+const transactionalIdempotencyHash =
+	"packages/operations/src/transactional-idempotency.ts#computeTransactionalPayloadHash:function";
+const transactionalIdempotencyStoreUpdate =
+	"packages/common/src/json-file-store.ts#updateJsonFileStore:function";
+const transactionalIdempotencyDomainTest =
+	"packages/operations/tests/transactional-idempotency.test.ts#packages/operations/tests/transactional-idempotency.test.ts:module";
 const openapiTransactionalMethod =
 	"packages/openapi/src/client/contracts.ts#TransactionalOperations.send:method";
 const mcpTestClientCallTool =
@@ -1616,6 +1628,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			cliTransactionalRenderer,
 			sendTransactionalInvoker,
 			sendTransactionalAction,
+			dispatchTransactionalToListmonk,
 			openapiTransactionalMethod,
 		],
 	},
@@ -1627,6 +1640,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			transactionalDispatcher,
 			sendTransactionalInvoker,
 			sendTransactionalAction,
+			dispatchTransactionalToListmonk,
 			openapiTransactionalMethod,
 		],
 	},
@@ -1641,6 +1655,30 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			sendTransactionalInvoker,
 			sendTransactionalAction,
 		],
+	},
+	{
+		label: "transactional idempotency wrapper reaches the persistence layer",
+		path: [
+			sendTransactionalAction,
+			transactionalIdempotencyClaim,
+			transactionalIdempotencyStoreUpdate,
+		],
+	},
+	{
+		label: "transactional idempotency wrapper commits terminal state",
+		path: [
+			sendTransactionalAction,
+			transactionalIdempotencyCommit,
+			transactionalIdempotencyStoreUpdate,
+		],
+	},
+	{
+		label: "transactional idempotency wrapper derives the replay payload hash",
+		path: [sendTransactionalAction, transactionalIdempotencyHash],
+	},
+	{
+		label: "transactional idempotency domain tests anchor the store contract",
+		path: [transactionalIdempotencyDomainTest, transactionalIdempotencyClaim],
 	},
 	{
 		label: "CLI tests anchor the transactional send path",
