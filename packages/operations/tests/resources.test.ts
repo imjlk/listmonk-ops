@@ -435,6 +435,13 @@ describe("shared CRUD resource operations", () => {
 			// Structurally matches ISO 8601 but contains impossible components.
 			"2026-13-45T25:61:61Z",
 			"0000-00-00 00:00:00",
+			// Timezone offset out of range — the regex would accept these
+			// without an explicit offset-range check.
+			"2026-08-01T09:00:00+99:99",
+			"2026-08-01T09:00:00-23:60",
+			// `-00:00` carries the RFC 3339 "offset unknown" meaning and is
+			// rejected to keep the contract unambiguous. `+00:00` is valid.
+			"2026-08-01T09:00:00-00:00",
 		]) {
 			await expect(
 				invokeScheduleCampaignOperation(
@@ -465,6 +472,14 @@ describe("shared CRUD resource operations", () => {
 			"2026-08-01T09:00:00.000Z",
 			"2026-08-01T09:00:00.123456Z",
 			"2026-08-01T09:00:00.123456789Z",
+			// `+00:00` is a valid UTC offset equivalent to `Z` per ISO 8601 /
+			// RFC 3339. Postgres, Python datetime.isoformat(), and Go
+			// time.RFC3339 all emit it, so it must round-trip.
+			"2026-08-01T09:00:00+00:00",
+			"2026-08-01T09:00:00.123+00:00",
+			// Real signed offsets must work too.
+			"2026-08-01T09:00:00+09:00",
+			"2026-08-01T09:00:00-05:00",
 		]) {
 			await expect(
 				invokeScheduleCampaignOperation(
