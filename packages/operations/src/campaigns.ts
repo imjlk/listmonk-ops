@@ -488,7 +488,7 @@ async function loadCampaignForTransitionForTarget(
 	client: Pick<ListmonkClient, "campaign">,
 	id: number,
 	target: CampaignLifecycleTarget,
-): Promise<{ id: number; status: string }> {
+): Promise<{ id: number; status: string; send_at: string | null | undefined }> {
 	const response = await client.campaign.getById({ path: { id } });
 	const campaign = asCampaign(
 		unwrapResourceResponse(response, "Failed to load campaign for transition"),
@@ -498,7 +498,7 @@ async function loadCampaignForTransitionForTarget(
 	if (currentStatus !== target) {
 		assertCampaignTransition(currentStatus, target);
 	}
-	return { id, status: currentStatus };
+	return { id, status: currentStatus, send_at: campaign.send_at };
 }
 
 const CAMPAIGN_LIFECYCLE_VERBS: Readonly<Record<CampaignLifecycleTarget, string>> = {
@@ -551,7 +551,16 @@ export async function scheduleCampaign(
 	// operator exactly what partial state the campaign is in and let them
 	// decide how to reconcile it (re-run schedule, or start, or update
 	// send_at back to null explicitly).
-	await loadCampaignForTransition(ctx.client, input.id, "scheduled");
+	const loaded = await loadCampaignForTransitionForTarget(
+		ctx.client,
+		input.id,
+		"scheduled",
+	);
+	// Idempotent no-op: if the campaign is already scheduled with the
+	// same send_at, return success without re-calling the API.
+	if (loaded.status === "scheduled" && loaded.send_at === input.send_at) {
+		return { id: input.id, status: "scheduled" };
+	}
 	const updateResponse = await ctx.client.campaign.update({
 		path: { id: input.id },
 		body: { send_at: input.send_at } as CampaignUpdateBody,
