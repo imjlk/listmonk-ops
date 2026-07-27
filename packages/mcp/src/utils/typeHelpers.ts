@@ -81,39 +81,6 @@ export function arrayToCommaString(arr: unknown): string | undefined {
 }
 
 /**
- * Helper to safely cast status parameters
- */
-export function castCampaignStatus(
-	status: unknown,
-):
-	| "scheduled"
-	| "running"
-	| "paused"
-	| "cancelled"
-	| "draft"
-	| "finished" {
-	const validStatuses = [
-		"scheduled",
-		"running",
-		"paused",
-		"cancelled",
-		"draft",
-		"finished",
-	] as const;
-	if (typeof status !== "string") {
-		throw new Error(
-			`Invalid campaign status: ${String(status)}. Valid statuses: ${validStatuses.join(", ")}`,
-		);
-	}
-	if (!validStatuses.includes(status as (typeof validStatuses)[number])) {
-		throw new Error(
-			`Invalid campaign status: ${status}. Valid statuses: ${validStatuses.join(", ")}`,
-		);
-	}
-	return status as (typeof validStatuses)[number];
-}
-
-/**
  * Helper to safely cast list types
  */
 export function castListType(type: unknown): "public" | "private" {

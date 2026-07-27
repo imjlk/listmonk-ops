@@ -67,7 +67,6 @@ existing behavior until they are migrated.
 - `listmonk_get_campaigns` - Get all campaigns
 - `listmonk_get_campaign` - Get specific campaign by ID
 - `listmonk_create_campaign` - Create new campaign
-- `listmonk_update_campaign_status` - Update campaign status
 - `listmonk_delete_campaign` - Delete campaign
 - `listmonk_test_campaign` - Send test campaign
 - `listmonk_get_campaign_running_stats` - Get live run metrics

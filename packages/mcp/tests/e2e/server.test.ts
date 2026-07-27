@@ -26,7 +26,6 @@ describe("MCP Server Integration", () => {
 		// Campaign tools
 		expect(toolNames).toContain("listmonk_get_campaigns");
 		expect(toolNames).toContain("listmonk_create_campaign");
-		expect(toolNames).toContain("listmonk_update_campaign_status");
 		expect(toolNames).toContain("listmonk_delete_campaign");
 
 		// Subscriber tools
