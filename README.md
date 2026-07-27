@@ -381,7 +381,12 @@ cataloged operation explicitly supports a real dry run; unsupported dry-run
 requests are rejected instead of being simulated. Mutating shared MCP
 operations append `started`, `blocked`, `succeeded`, or `failed` metadata-only
 events to `$HOME/.listmonk-ops/operation-audit.json` by default. The staged
-migration deliberately leaves legacy transport-specific MCP tools unchanged.
+migration deliberately leaves legacy transport-specific MCP tools unchanged,
+except for `listmonk_update_campaign_status`, which was removed because it
+bypassed the server-level audit store and confirmation gate. Use the shared
+lifecycle operations instead: `listmonk_schedule_campaign` (with `send_at`),
+`listmonk_start_campaign`, `listmonk_pause_campaign`, and
+`listmonk_cancel_campaign`.
 
 The CLI applies the same policy to its shared operations. Pass the global
 `--confirm` flag for any cataloged command whose `confirmationRequired` policy

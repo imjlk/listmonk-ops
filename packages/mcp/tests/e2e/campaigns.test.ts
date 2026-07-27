@@ -105,37 +105,7 @@ describe("Campaigns MCP Tools", () => {
 		expect(retrievedCampaign.name).toBe(campaignName);
 	});
 
-	test("should update campaign status", async () => {
-		// First create a campaign
-		const createResult = await client.callTool("listmonk_create_campaign", {
-			name: buildTestName("campaign"),
-			subject: "Test Subject",
-			from_email: "test@example.com",
-			body: "<p>Test body</p>",
-			template_id: testTemplateId,
-			lists: [testListId],
-		});
-
-		const createdCampaign = utils.assertSuccess(createResult);
-		testCampaignId = (createdCampaign as { id: number }).id;
-
-		// Simply verify that the campaign was created with draft status
-		expect((createdCampaign as { status: string }).status).toBe("draft");
-
-		// Test that status update endpoint exists and doesn't crash
-			const result = await client.callTool("listmonk_update_campaign_status", {
-				id: testCampaignId.toString(),
-				status: "paused", // Use a valid status
-			});
-
-			if (result.isError) {
-				expect(result.content[0]?.text).toContain("Error:");
-			} else {
-				expect(result.isError).toBeFalsy();
-			}
-		});
-
-		test("should send test campaign", async () => {
+	test("should send test campaign", async () => {
 			// First create a campaign
 			const createResult = await client.callTool("listmonk_create_campaign", {
 			name: buildTestName("campaign"),
@@ -208,29 +178,6 @@ describe("Campaigns MCP Tools", () => {
 		});
 
 		utils.assertError(result, "Missing required parameter");
-	});
-
-	test("should handle invalid status updates", async () => {
-		// First create a campaign
-		const createResult = await client.callTool("listmonk_create_campaign", {
-			name: buildTestName("campaign"),
-			subject: "Test Subject",
-			from_email: "test@example.com",
-			body: "<p>Test body</p>",
-			template_id: testTemplateId,
-			lists: [testListId],
-		});
-
-		const createdCampaign = utils.assertSuccess(createResult);
-		testCampaignId = (createdCampaign as { id: number }).id;
-
-		// Try to update with invalid status
-		const result = await client.callTool("listmonk_update_campaign_status", {
-			id: testCampaignId.toString(),
-			status: "invalid_status",
-		});
-
-		utils.assertError(result, "Unsupported campaign status");
 	});
 
 	test("should validate required params for analytics tools", async () => {

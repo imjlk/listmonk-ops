@@ -380,7 +380,11 @@ Operation에서만 허용되며, 지원하지 않는 요청을 가짜로 성공�
 거부합니다. 변경을 수행하는 공용 MCP Operation은 기본적으로
 `$HOME/.listmonk-ops/operation-audit.json`에 `started`, `blocked`,
 `succeeded`, `failed` 메타데이터 이벤트를 남깁니다. 단계적 마이그레이션 동안
-기존 transport 전용 MCP 도구의 동작은 변경하지 않습니다.
+기존 transport 전용 MCP 도구의 동작은 변경하지 않습니다. 단,
+`listmonk_update_campaign_status`는 서버 수준 감사 저장소와 확인 게이트를
+우회하므로 제거되었습니다. 대신 공용 lifecycle Operation을 사용하세요:
+`listmonk_schedule_campaign` (`send_at` 포함), `listmonk_start_campaign`,
+`listmonk_pause_campaign`, `listmonk_cancel_campaign`.
 
 CLI도 공용 Operation에 같은 정책을 적용합니다. catalog에서
 `confirmationRequired`가 true인 명령은 전역 `--confirm` 플래그를 반드시

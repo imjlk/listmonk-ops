@@ -67,8 +67,14 @@ existing behavior until they are migrated.
 - `listmonk_get_campaigns` - Get all campaigns
 - `listmonk_get_campaign` - Get specific campaign by ID
 - `listmonk_create_campaign` - Create new campaign
-- `listmonk_update_campaign_status` - Update campaign status
-- `listmonk_delete_campaign` - Delete campaign
+- `listmonk_update_campaign` - Update an existing campaign
+- `listmonk_delete_campaign` - Delete campaign (requires `confirm: true`)
+- `listmonk_schedule_campaign` - Schedule a campaign to send at a specific time (requires `confirm: true`, `send_at`)
+- `listmonk_start_campaign` - Start a campaign immediately (requires `confirm: true`)
+- `listmonk_pause_campaign` - Pause a running campaign
+- `listmonk_cancel_campaign` - Cancel a campaign (requires `confirm: true`)
+- `listmonk_clone_campaign` - Clone an existing campaign under a new name
+- `listmonk_get_campaign_stats` - Read delivery stats for a campaign
 - `listmonk_test_campaign` - Send test campaign
 - `listmonk_get_campaign_running_stats` - Get live run metrics
 - `listmonk_get_campaign_analytics` - Get timeseries analytics

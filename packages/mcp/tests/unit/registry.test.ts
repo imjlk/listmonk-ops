@@ -16,7 +16,7 @@ describe("MCP tool registry", () => {
 		expect(new Set(allTools.map((tool) => tool.name)).size).toBe(
 			allTools.length,
 		);
-		expect(allTools.length).toBe(79);
+		expect(allTools.length).toBe(78);
 	});
 
 	test("keeps tool-name matching exact", () => {
