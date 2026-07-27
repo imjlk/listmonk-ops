@@ -58,6 +58,26 @@ function normalizeHostname(hostname: string): string {
 		.replace(/\.$/, "");
 }
 
+/**
+ * Canonicalize a Listmonk API base URL the same way the CLI does: trim,
+ * drop a trailing slash, and ensure the path ends with /api. Two URLs that
+ * spell the same instance differently (e.g. http://h:9000/api vs
+ * http://h:9000/api/) must hash to the same idempotency target or a key
+ * used through one surface would conflict instead of replaying through
+ * the other.
+ */
+function normalizeListmonkBaseUrl(url: string): string {
+	const trimmed = url.trim();
+	if (!trimmed) return trimmed;
+	const withoutTrailingSlash = trimmed.endsWith("/")
+		? trimmed.slice(0, -1)
+		: trimmed;
+	if (withoutTrailingSlash.endsWith("/api")) {
+		return withoutTrailingSlash;
+	}
+	return `${withoutTrailingSlash}/api`;
+}
+
 function isLoopbackHostname(hostname: string): boolean {
 	return LOOPBACK_HOSTNAMES.has(normalizeHostname(hostname));
 }
@@ -177,8 +197,13 @@ export class ListmonkMCPServer {
 	}) {
 		this.app = new Hono();
 		this.tools = new Map();
-		this.baseUrl = config.baseUrl;
-		this.username = config.username;
+		// Canonicalize the baseUrl so idempotency target hashing matches
+		// the CLI (which normalizes trailing slashes and the /api suffix).
+		// Without this, the same Listmonk instance spelled two ways
+		// (http://localhost:9000/api vs .../api/) would compute different
+		// target hashes and conflict instead of replaying.
+		this.baseUrl = normalizeListmonkBaseUrl(config.baseUrl);
+		this.username = config.username.trim();
 		this.auditStoreOptions = {
 			path: config.auditStorePath,
 			limit: config.auditStoreLimit,

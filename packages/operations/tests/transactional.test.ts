@@ -701,6 +701,36 @@ describe("transactional idempotency pure helpers", () => {
 			).toBe(true);
 		});
 
+		test("recognizes Bun fetch error codes that omit ECONNREFUSED from the message", () => {
+			// Bun's fetch reports `error.code === "ConnectionRefused"` /
+			// `"HostNotFoundError"` rather than embedding the errno in the
+			// message, so a message-only check would miss them.
+			const refused = Object.assign(new Error("Unable to connect"), {
+				code: "ConnectionRefused",
+			});
+			const dns = Object.assign(new Error("Unable to resolve host"), {
+				code: "HostNotFoundError",
+			});
+			const getaddr = Object.assign(new Error("getaddrinfo failed"), {
+				code: "GetAddrInfoFailed",
+			});
+			expect(isDefinitivePreDispatchError(refused)).toBe(true);
+			expect(isDefinitivePreDispatchError(dns)).toBe(true);
+			expect(isDefinitivePreDispatchError(getaddr)).toBe(true);
+		});
+
+		test("recognizes Node errno codes nested in error.cause.code", () => {
+			// undici typically throws TypeError("fetch failed") with the
+			// system error as cause; the errno lives on cause.code.
+			const cause = Object.assign(new Error("connect ECONNREFUSED"), {
+				code: "ECONNREFUSED",
+			});
+			const wrapped = Object.assign(new TypeError("fetch failed"), {
+				cause,
+			});
+			expect(isDefinitivePreDispatchError(wrapped)).toBe(true);
+		});
+
 		test("does not flag ambiguous transport failures", () => {
 			// These may have reached Listmonk; only `unknown` is safe.
 			expect(isDefinitivePreDispatchError(new Error("fetch failed"))).toBe(false);

@@ -384,14 +384,53 @@ export function isAmbiguousTransportError(error: unknown): boolean {
  * must stay as `unknown` because Listmonk may have processed the message
  * before the error surfaced.
  *
- * Kept deliberately narrow: `ECONNREFUSED` (nothing listening) and
- * `ENOTFOUND` (DNS failure) are the canonical pre-dispatch signals.
+ * Kept deliberately narrow. Node/undici surface these as `ECONNREFUSED`
+ * (nothing listening) and `ENOTFOUND` (DNS failure), typically inside
+ * `error.message` and/or `error.code`/`error.cause.code`. Bun's fetch
+ * reports the same outcomes as `error.code === "ConnectionRefused"` /
+ * `"ConnectionRefused"` and `"GetAddrInfoFailed"` / `"HostNotFoundError"`
+ * in `error.code` (not in `error.message`), so a message-only check would
+ * miss them and wrongly classify a definitive outage as `unknown`,
+ * blocking the key for the full TTL.
+ *
  * `fetch failed` is intentionally NOT included here because undici wraps
  * both pre- and post-connection failures under that message.
  */
 export function isDefinitivePreDispatchError(error: unknown): boolean {
 	if (!(error instanceof Error)) return false;
 	const message = error.message.toLowerCase();
-	const preDispatchSignals = ["econnrefused", "enotfound"];
-	return preDispatchSignals.some((signal) => message.includes(signal));
+	const messageSignals = ["econnrefused", "enotfound"];
+	if (messageSignals.some((signal) => message.includes(signal))) {
+		return true;
+	}
+	// Structured codes: Node errno (ECONNREFUSED, ENOTFOUND) and Bun's
+	// fetch error codes surface here rather than in the message.
+	const codes = collectErrorCodes(error);
+	const codeSignals = new Set([
+		"ECONNREFUSED",
+		"ENOTFOUND",
+		// Bun fetch error codes (see bun-internal fetch errors).
+		"ConnectionRefused",
+		"GetAddrInfoFailed",
+		"HostNotFoundError",
+	]);
+	return codes.some((code) => codeSignals.has(code));
+}
+
+function collectErrorCodes(error: Error): string[] {
+	const codes: string[] = [];
+	function pushCode(value: unknown): void {
+		if (typeof value === "string" && value.length > 0) codes.push(value);
+	}
+	pushCode((error as { code?: unknown }).code);
+	const cause = (error as { cause?: unknown }).cause;
+	if (cause instanceof Error) {
+		pushCode((cause as { code?: unknown }).code);
+		// Some fetch implementations nest twice (TypeError → SystemError).
+		const nestedCause = (cause as { cause?: unknown }).cause;
+		if (nestedCause instanceof Error) {
+			pushCode((nestedCause as { code?: unknown }).code);
+		}
+	}
+	return codes;
 }
