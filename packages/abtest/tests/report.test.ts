@@ -131,7 +131,11 @@ describe("buildExperimentReport", () => {
 	});
 
 	it("reports not_available when no hypothesis is present", () => {
-		const report = buildExperimentReport(makeTest(), makeAnalysis(), makeResults());
+		const report = buildExperimentReport(
+			makeTest(),
+			makeAnalysis(),
+			makeResults(),
+		);
 		expect(report.preRegistration).toBe("not_available");
 		expect(report.hypothesis).toBeUndefined();
 	});

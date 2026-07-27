@@ -52,19 +52,125 @@ describe("transactional operations", () => {
 		).resolves.toEqual({ sent: false });
 	});
 
-	test("requires one supported recipient selector", async () => {
+	test("requires exactly one supported recipient selector (XOR)", async () => {
 		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
 
+		// Neither provided → rejected.
 		await expect(
 			invokeSendTransactionalOperation(context(send), { template_id: 3 }),
 		).rejects.toEqual(
 			expect.objectContaining<Partial<OperationInputError>>({
 				name: "OperationInputError",
 				message:
-					"Invalid parameter input: Either subscriber_email or subscriber_id is required",
+					"Invalid parameter input: Exactly one of subscriber_email or subscriber_id is required (provide one, not both)",
+			}),
+		);
+		// Both provided → also rejected.
+		await expect(
+			invokeSendTransactionalOperation(context(send), {
+				template_id: 3,
+				subscriber_email: "recipient@example.com",
+				subscriber_id: 42,
+			}),
+		).rejects.toEqual(
+			expect.objectContaining<Partial<OperationInputError>>({
+				name: "OperationInputError",
+				message:
+					"Invalid parameter input: Exactly one of subscriber_email or subscriber_id is required (provide one, not both)",
 			}),
 		);
 		expect(send).not.toHaveBeenCalled();
+	});
+
+	test("rejects headers that smuggle CR, LF, NUL, or other control characters into values", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+
+		const maliciousValues = [
+			"injected\r\nBcc: leak@example.com",
+			"injected\nBcc: leak@example.com",
+			"truncated\0rest-of-payload",
+			"verticalTab\vseparator",
+			"bell\x07character",
+			"delete\x7fcharacter",
+		];
+		for (const value of maliciousValues) {
+			await expect(
+				invokeSendTransactionalOperation(context(send), {
+					template_id: 3,
+					subscriber_id: 42,
+					headers: [{ "X-Evil": value }],
+				}),
+			).rejects.toEqual(
+				expect.objectContaining<Partial<OperationInputError>>({
+					name: "OperationInputError",
+				}),
+			);
+		}
+		expect(send).not.toHaveBeenCalled();
+	});
+
+	test("rejects attempts to override protected transport headers", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+
+		for (const protectedName of ["From", "Bcc", "Content-Type", "Subject"]) {
+			await expect(
+				invokeSendTransactionalOperation(context(send), {
+					template_id: 3,
+					subscriber_id: 42,
+					headers: [{ [protectedName]: "value" }],
+				}),
+			).rejects.toEqual(
+				expect.objectContaining<Partial<OperationInputError>>({
+					name: "OperationInputError",
+				}),
+			);
+		}
+		expect(send).not.toHaveBeenCalled();
+	});
+
+	test("rejects header names that are not valid RFC 5322 atext tokens", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+
+		// Whitespace, control characters, and `@`, `(`, `)`, `[`, `]`, `:`, `;`,
+		// `,`, `<`, `>`, `\\`, `"` are all outside the RFC 5322 atext set.
+		for (const invalidName of [
+			"X Evil",
+			"X@Evil",
+			"X(Evil)",
+			"X[Evil]",
+			"X:Evil",
+			"X,Evil",
+		]) {
+			await expect(
+				invokeSendTransactionalOperation(context(send), {
+					template_id: 3,
+					subscriber_id: 42,
+					headers: [{ [invalidName]: "value" }],
+				}),
+			).rejects.toEqual(
+				expect.objectContaining<Partial<OperationInputError>>({
+					name: "OperationInputError",
+				}),
+			);
+		}
+		expect(send).not.toHaveBeenCalled();
+	});
+
+	test("accepts common email header names that include dots or underscores", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+
+		await expect(
+			invokeSendTransactionalOperation(context(send), {
+				template_id: 3,
+				subscriber_id: 42,
+				headers: [
+					{ "X-Mailer": "listmonk-ops/1.0" },
+					{ "X-MyApp.Version": "1.0" },
+					{ X_Request_ID: "abc-123" },
+				],
+			}),
+		).resolves.toEqual({ sent: true });
+		expect(send).toHaveBeenCalledTimes(1);
 	});
 
 	test("preserves API failures as operation execution errors", async () => {

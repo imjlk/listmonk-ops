@@ -250,10 +250,9 @@ export default defineGroup({
 				page: option(z.coerce.number().int().positive().optional(), {
 					description: "Page number",
 				}),
-				"per-page": option(
-					z.coerce.number().int().positive().optional(),
-					{ description: "Items per page" },
-				),
+				"per-page": option(z.coerce.number().int().positive().optional(), {
+					description: "Items per page",
+				}),
 			},
 			handler: handleListListsCommand,
 		}),

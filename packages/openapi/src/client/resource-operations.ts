@@ -260,7 +260,16 @@ export function createMediaOperations(
 		deleteById:
 			crudOperations.delete as EnhancedListmonkClient["media"]["deleteById"],
 		async upload(options: { body: File | Blob }) {
-			const result = await sdk.uploadMedia({ ...sdkOptions, ...options });
+			// The generated `uploadMedia` SDK call applies
+			// `formDataBodySerializer`, which iterates `Object.entries(body)`
+			// to build the multipart form. A bare `File`/`Blob` has no
+			// enumerable entries, so we must wrap it under the `file` field
+			// name Listmonk expects. Otherwise the serializer emits an empty
+			// FormData and the upload silently succeeds with no file.
+			const result = await sdk.uploadMedia({
+				...sdkOptions,
+				body: { file: options.body },
+			} as unknown as Parameters<typeof sdk.uploadMedia>[0]);
 			return (await transformResponse(
 				result,
 			)) as FlattenedResponse<t.MediaFileObject>;

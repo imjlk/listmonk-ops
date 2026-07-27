@@ -876,8 +876,8 @@ export class AbTestService {
 		} else if (test.testingMode === "full-split") {
 			// Derive expected from variant percentages and total sample.
 			const totalSample = results.reduce((sum, r) => sum + r.sampleSize, 0);
-			srmExpected = test.variants.map(
-				(v) => Math.round((v.percentage / 100) * totalSample),
+			srmExpected = test.variants.map((v) =>
+				Math.round((v.percentage / 100) * totalSample),
 			);
 		}
 		if (srmExpected) {

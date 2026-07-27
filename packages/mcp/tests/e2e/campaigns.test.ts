@@ -230,7 +230,7 @@ describe("Campaigns MCP Tools", () => {
 			status: "invalid_status",
 		});
 
-		utils.assertError(result, "Invalid campaign status");
+		utils.assertError(result, "Unsupported campaign status");
 	});
 
 	test("should validate required params for analytics tools", async () => {

@@ -321,27 +321,29 @@ const abTestOperationDefinitions = [
 ] as const;
 
 const abTestOperationContracts: readonly CallPathContract[] =
-	abTestOperationDefinitions.flatMap(([label, cliAdapter, invoker, executor]) => [
-	{
-		label: `CLI A/B ${label} reaches the named operation action`,
-		path: [
-			cliAbTestModule,
-			`apps/cli/src/commands/abtest.ts#${cliAdapter}:function`,
-			`packages/abtest/src/operations.ts#${invoker}:function`,
-			`packages/abtest/src/operations.ts#${executor}:function`,
+	abTestOperationDefinitions.flatMap(
+		([label, cliAdapter, invoker, executor]) => [
+			{
+				label: `CLI A/B ${label} reaches the named operation action`,
+				path: [
+					cliAbTestModule,
+					`apps/cli/src/commands/abtest.ts#${cliAdapter}:function`,
+					`packages/abtest/src/operations.ts#${invoker}:function`,
+					`packages/abtest/src/operations.ts#${executor}:function`,
+				],
+			},
+			{
+				label: `MCP A/B ${label} reaches the named operation action`,
+				path: [
+					mcpCallTool,
+					mcpAbTestHandler,
+					abTestDispatcher,
+					`packages/abtest/src/operations.ts#${invoker}:function`,
+					`packages/abtest/src/operations.ts#${executor}:function`,
+				],
+			},
 		],
-	},
-	{
-		label: `MCP A/B ${label} reaches the named operation action`,
-		path: [
-			mcpCallTool,
-			mcpAbTestHandler,
-			abTestDispatcher,
-			`packages/abtest/src/operations.ts#${invoker}:function`,
-			`packages/abtest/src/operations.ts#${executor}:function`,
-		],
-	},
-]);
+	);
 
 const abTestOperationTestModule =
 	"packages/abtest/tests/operations.test.ts#packages/abtest/tests/operations.test.ts:module";
@@ -1207,6 +1209,266 @@ const templateSetDefaultContracts: readonly CallPathContract[] = [
 	},
 ];
 
+const cliCampaignsModulePath = "apps/cli/src/commands/campaigns.ts";
+const campaignLifecycleDispatcher =
+	"packages/operations/src/campaigns.ts#invokeCampaignOperationByMcpName:function";
+const mcpCampaignsLifecycleHandler =
+	"packages/mcp/src/handlers/campaigns.ts#handleCampaignsTools:variable";
+
+interface CampaignLifecycleContractConfig {
+	verb: string;
+	cliHandler: string;
+	cliRenderer: string;
+	invoker: string;
+	action: string;
+}
+
+function campaignLifecycleContractsFor(
+	config: CampaignLifecycleContractConfig,
+): CallPathContract[] {
+	const label = `campaign ${config.verb}`;
+	// Note: the MCP path stops at the shared action. Lifecycle methods
+	// (updateStatus, getRunningStats) are factory-internal methods on the
+	// anonymous intersection under `EnhancedListmonkClient.campaign`, so
+	// they do not surface as graph nodes even after the CampaignOperations
+	// interface extraction. Verifying the action → openapi edge would
+	// require a separate anchor test that we deliberately scope out here.
+	return [
+		{
+			label: `CLI ${label} reaches the shared action`,
+			path: [
+				`${cliCampaignsModulePath}#${config.cliHandler}:function`,
+				`${cliCampaignsModulePath}#${config.cliRenderer}:function`,
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `MCP ${label} reaches the shared action`,
+			path: [
+				mcpCallTool,
+				mcpCampaignsLifecycleHandler,
+				campaignLifecycleDispatcher,
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `Operation tests anchor the ${label} invoker`,
+			path: [
+				"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `CLI ${label} tests anchor the shared renderer`,
+			path: [
+				"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+				`${cliCampaignsModulePath}#${config.cliRenderer}:function`,
+				config.invoker,
+			],
+		},
+	];
+}
+
+const campaignLifecycleContracts: readonly CallPathContract[] = [
+	...campaignLifecycleContractsFor({
+		verb: "schedule",
+		cliHandler: "handleScheduleCampaignCommand",
+		cliRenderer: "renderScheduleCampaign",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokeScheduleCampaignOperation:function",
+		action:
+			"packages/operations/src/campaigns.ts#scheduleCampaign:function",
+	}),
+	...campaignLifecycleContractsFor({
+		verb: "start",
+		cliHandler: "handleStartCampaignCommand",
+		cliRenderer: "renderStartCampaign",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokeStartCampaignOperation:function",
+		action: "packages/operations/src/campaigns.ts#startCampaign:function",
+	}),
+	...campaignLifecycleContractsFor({
+		verb: "pause",
+		cliHandler: "handlePauseCampaignCommand",
+		cliRenderer: "renderPauseCampaign",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
+		action: "packages/operations/src/campaigns.ts#pauseCampaign:function",
+	}),
+	...campaignLifecycleContractsFor({
+		verb: "cancel",
+		cliHandler: "handleCancelCampaignCommand",
+		cliRenderer: "renderCancelCampaign",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokeCancelCampaignOperation:function",
+		action: "packages/operations/src/campaigns.ts#cancelCampaign:function",
+	}),
+	...campaignLifecycleContractsFor({
+		verb: "clone",
+		cliHandler: "handleCloneCampaignCommand",
+		cliRenderer: "renderCloneCampaign",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
+		action: "packages/operations/src/campaigns.ts#cloneCampaign:function",
+	}),
+	...campaignLifecycleContractsFor({
+		verb: "stats",
+		cliHandler: "handleGetCampaignStatsCommand",
+		cliRenderer: "renderGetCampaignStats",
+		invoker:
+			"packages/operations/src/campaigns.ts#invokeGetCampaignStatsOperation:function",
+			action:
+				"packages/operations/src/campaigns.ts#getCampaignStats:function",
+		}),
+	];
+
+const cliSubscribersModulePath = "apps/cli/src/commands/subscribers.ts";
+const subscriberBulkDispatcher =
+	"packages/operations/src/subscribers.ts#invokeSubscriberOperationByMcpName:function";
+const mcpSubscribersBulkHandler =
+	"packages/mcp/src/handlers/subscribers.ts#handleSubscribersTools:function";
+
+interface SubscriberBulkContractConfig {
+	verb: string;
+	cliHandler: string;
+	cliRenderer: string;
+	invoker: string;
+	action: string;
+}
+
+function subscriberBulkContractsFor(
+	config: SubscriberBulkContractConfig,
+): CallPathContract[] {
+	const label = `subscriber ${config.verb}`;
+	// As with the campaign lifecycle contracts, the MCP path stops at the
+	// shared action. `manageLists` and `manageBlocklist` are factory-internal
+	// methods on the SubscriberOperations interface and do not surface as
+	// graph nodes.
+	return [
+		{
+			label: `CLI ${label} reaches the shared action`,
+			path: [
+				`${cliSubscribersModulePath}#${config.cliHandler}:function`,
+				`${cliSubscribersModulePath}#${config.cliRenderer}:function`,
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `MCP ${label} reaches the shared action`,
+			path: [
+				mcpCallTool,
+				mcpSubscribersBulkHandler,
+				subscriberBulkDispatcher,
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `Operation tests anchor the ${label} invoker`,
+			path: [
+				"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+				config.invoker,
+				config.action,
+			],
+		},
+		{
+			label: `CLI ${label} tests anchor the shared renderer`,
+			path: [
+				"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+				`${cliSubscribersModulePath}#${config.cliRenderer}:function`,
+				config.invoker,
+			],
+		},
+	];
+}
+
+const subscriberBulkContracts: readonly CallPathContract[] = [
+	...subscriberBulkContractsFor({
+		verb: "add-to-lists",
+		cliHandler: "handleAddSubscribersToListsCommand",
+		cliRenderer: "renderAddSubscribersToLists",
+		invoker:
+			"packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
+		action:
+			"packages/operations/src/subscribers.ts#addSubscribersToLists:function",
+	}),
+	...subscriberBulkContractsFor({
+		verb: "remove-from-lists",
+		cliHandler: "handleRemoveSubscribersFromListsCommand",
+		cliRenderer: "renderRemoveSubscribersFromLists",
+		invoker:
+			"packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
+		action:
+			"packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
+	}),
+	...subscriberBulkContractsFor({
+		verb: "blocklist",
+		cliHandler: "handleBlocklistSubscribersCommand",
+		cliRenderer: "renderBlocklistSubscribers",
+		invoker:
+			"packages/operations/src/subscribers.ts#invokeBlocklistSubscribersOperation:function",
+		action:
+			"packages/operations/src/subscribers.ts#blocklistSubscribers:function",
+	}),
+	...subscriberBulkContractsFor({
+		verb: "unblocklist",
+		cliHandler: "handleUnblocklistSubscribersCommand",
+		cliRenderer: "renderUnblocklistSubscribers",
+		invoker:
+			"packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
+		action:
+			"packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
+		}),
+	];
+
+const cliMediaModulePath = "apps/cli/src/commands/media.ts";
+const mediaUploadDispatcher =
+	"packages/operations/src/media.ts#invokeMediaOperationByMcpName:function";
+const mcpMediaUploadHandler =
+	"packages/mcp/src/handlers/media.ts#handleMediaTools:function";
+
+const mediaUploadContracts: readonly CallPathContract[] = [
+	{
+		label: "CLI media upload reaches the shared action",
+		path: [
+			`${cliMediaModulePath}#handleUploadMediaCommand:function`,
+			`${cliMediaModulePath}#renderUploadMedia:function`,
+			"packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+			"packages/operations/src/media.ts#uploadMediaFile:function",
+		],
+	},
+	{
+		label: "MCP media upload reaches the shared action",
+		path: [
+			mcpCallTool,
+			mcpMediaUploadHandler,
+			mediaUploadDispatcher,
+			"packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+			"packages/operations/src/media.ts#uploadMediaFile:function",
+		],
+	},
+	{
+		label: "Operation tests anchor the media upload invoker",
+		path: [
+			"packages/operations/tests/resources.test.ts#packages/operations/tests/resources.test.ts:module",
+			"packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+			"packages/operations/src/media.ts#uploadMediaFile:function",
+		],
+	},
+	{
+		label: "CLI media upload tests anchor the shared renderer",
+		path: [
+			"apps/cli/tests/resources.test.ts#apps/cli/tests/resources.test.ts:module",
+			`${cliMediaModulePath}#renderUploadMedia:function`,
+			"packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+		],
+	},
+];
+
 const mediaParityContracts: readonly CallPathContract[] = [
 	{
 		label: "CLI/MCP media parity E2E invokes the CLI read runner",
@@ -1416,11 +1678,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	},
 	{
 		label: "Mailpit helper has a direct server-side search regression test",
-		path: [
-			mailpitHelperRegressionTest,
-			findMailpitMessage,
-			fetchMailpitJson,
-		],
+		path: [mailpitHelperRegressionTest, findMailpitMessage, fetchMailpitJson],
 	},
 	{
 		label: "CLI/MCP transactional parity E2E invokes the CLI subprocess runner",
@@ -1587,6 +1845,9 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	...cliListMutationContracts,
 	...resourceCrudContracts,
 	...templateSetDefaultContracts,
+	...campaignLifecycleContracts,
+	...subscriberBulkContracts,
+	...mediaUploadContracts,
 	...mediaParityContracts,
 	...mcpHttpTransportContracts,
 	...opsOperationContracts,

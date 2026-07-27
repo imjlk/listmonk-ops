@@ -63,7 +63,113 @@ export interface TemplateOperations
 	}): Promise<FlattenedResponse<unknown>>;
 }
 
-interface MediaOperations {
+export interface SubscriberOperations
+	extends CrudOperations<
+		Subscriber,
+		SubscriberTypes["create"],
+		SubscriberTypes["update"],
+		SubscriberTypes["get"],
+		SubscriberTypes["getById"],
+		SubscriberTypes["delete"]
+	> {
+	patch(options: Omit<t.PatchSubscriberByIdData, "url">): Promise<CrudResult<Subscriber>>;
+	manageLists(options: {
+		body: {
+			action?: "add" | "remove" | "unsubscribe";
+			target_list_ids?: number[];
+			query?: string;
+			ids?: number[];
+		};
+	}): Promise<FlattenedResponse<boolean>>;
+	manageListById(options: {
+		path: { id: number };
+		body: {
+			action?: "add" | "remove" | "unsubscribe";
+			target_list_ids?: number[];
+			query?: string;
+			ids?: number[];
+		};
+	}): Promise<FlattenedResponse<boolean>>;
+	manageBlocklist(options: {
+		body: { action?: "add" | "remove"; query?: string; ids?: number[] };
+	}): Promise<FlattenedResponse<boolean>>;
+	manageBlocklistById(options: {
+		path: { id: number };
+		body: { action?: "add" | "remove" };
+	}): Promise<FlattenedResponse<boolean>>;
+	export(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<Record<string, unknown>>>;
+	sendOptin(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<boolean>>;
+	getBounces(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<Record<string, unknown>>>;
+	deleteBounces(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<boolean>>;
+	deleteByQuery(options: {
+		body: { query?: string };
+	}): Promise<FlattenedResponse<boolean>>;
+	blocklistByQuery(options: {
+		body: { query?: string };
+	}): Promise<FlattenedResponse<boolean>>;
+	manageListsByQuery(options: {
+		body: {
+			action?: "add" | "remove" | "unsubscribe";
+			target_list_ids?: number[];
+			query?: string;
+		};
+	}): Promise<FlattenedResponse<boolean>>;
+}
+
+export interface CampaignOperations
+	extends CrudOperations<
+		Campaign,
+		CampaignTypes["create"],
+		CampaignTypes["update"],
+		CampaignTypes["get"],
+		CampaignTypes["getById"],
+		CampaignTypes["delete"]
+	> {
+	preview(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<string>>;
+	updatePreview(options: {
+		path: { id: number };
+		body: { template_id?: number; body?: string };
+	}): Promise<FlattenedResponse<boolean>>;
+	previewText(options: {
+		path: { id: number };
+		body: { template_id?: number; body?: string };
+	}): Promise<FlattenedResponse<string>>;
+	updateStatus(options: {
+		path: { id: number };
+		body: { status: "scheduled" | "running" | "paused" | "cancelled" };
+	}): Promise<FlattenedResponse<boolean>>;
+	updateArchive(options: {
+		path: { id: number };
+		body: { archive: boolean };
+	}): Promise<FlattenedResponse<boolean>>;
+	createContent(options: {
+		path: { id: number };
+		body: {
+			content_type: "html" | "markdown" | "plain" | "richtext" | "visual";
+			body: string;
+		};
+	}): Promise<FlattenedResponse<boolean>>;
+	test(options: CampaignTestParams): Promise<FlattenedResponse<boolean>>;
+	getRunningStats(options: {
+		query: { campaign_id: number };
+	}): Promise<FlattenedResponse<Record<string, unknown>>>;
+	getAnalytics(options: {
+		path: { type: "links" | "views" | "clicks" | "bounces" };
+		query: { from: string; to: string; id: string };
+	}): Promise<FlattenedResponse<Record<string, unknown>>>;
+}
+
+export interface MediaOperations {
 	list(options?: t.GetMediaData): Promise<ListResult<t.MediaFileObject>>;
 	getById(options: {
 		path: { id: number };
@@ -71,6 +177,9 @@ interface MediaOperations {
 	deleteById(options: {
 		path: { id: number };
 	}): Promise<FlattenedResponse<boolean>>;
+	upload(options: {
+		body: File | Blob;
+	}): Promise<FlattenedResponse<t.MediaFileObject>>;
 }
 
 interface BaseGetOperation<T> {
@@ -179,116 +288,10 @@ export interface EnhancedListmonkClient {
 		ListTypes["getById"],
 		ListTypes["delete"]
 	>;
-	subscriber: CrudOperations<
-		Subscriber,
-		SubscriberTypes["create"],
-		SubscriberTypes["update"],
-		SubscriberTypes["get"],
-		SubscriberTypes["getById"],
-		SubscriberTypes["delete"]
-	> & {
-		patch(
-			options: Omit<t.PatchSubscriberByIdData, "url">,
-		): Promise<CrudResult<Subscriber>>;
-		manageLists(options: {
-			body: {
-				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number[];
-				query?: string;
-				ids?: number[];
-			};
-		}): Promise<FlattenedResponse<boolean>>;
-		manageListById(options: {
-			path: { id: number };
-			body: {
-				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number[];
-				query?: string;
-				ids?: number[];
-			};
-		}): Promise<FlattenedResponse<boolean>>;
-		manageBlocklist(options: {
-			body: { action?: "add" | "remove"; query?: string; ids?: number[] };
-		}): Promise<FlattenedResponse<boolean>>;
-		manageBlocklistById(options: {
-			path: { id: number };
-			body: { action?: "add" | "remove" };
-		}): Promise<FlattenedResponse<boolean>>;
-		export(options: {
-			path: { id: number };
-		}): Promise<FlattenedResponse<Record<string, unknown>>>;
-		sendOptin(options: {
-			path: { id: number };
-		}): Promise<FlattenedResponse<boolean>>;
-		getBounces(options: {
-			path: { id: number };
-		}): Promise<FlattenedResponse<Record<string, unknown>>>;
-		deleteBounces(options: {
-			path: { id: number };
-		}): Promise<FlattenedResponse<boolean>>;
-		deleteByQuery(options: {
-			body: { query?: string };
-		}): Promise<FlattenedResponse<boolean>>;
-		blocklistByQuery(options: {
-			body: { query?: string };
-		}): Promise<FlattenedResponse<boolean>>;
-		manageListsByQuery(options: {
-			body: {
-				action?: "add" | "remove" | "unsubscribe";
-				target_list_ids?: number[];
-				query?: string;
-			};
-		}): Promise<FlattenedResponse<boolean>>;
-	};
-	campaign: CrudOperations<
-		Campaign,
-		CampaignTypes["create"],
-		CampaignTypes["update"],
-		CampaignTypes["get"],
-		CampaignTypes["getById"],
-		CampaignTypes["delete"]
-	> & {
-		preview(options: {
-			path: { id: number };
-		}): Promise<FlattenedResponse<string>>;
-		updatePreview(options: {
-			path: { id: number };
-			body: { template_id?: number; body?: string };
-		}): Promise<FlattenedResponse<boolean>>;
-		previewText(options: {
-			path: { id: number };
-			body: { template_id?: number; body?: string };
-		}): Promise<FlattenedResponse<string>>;
-		updateStatus(options: {
-			path: { id: number };
-			body: { status: "scheduled" | "running" | "paused" | "cancelled" };
-		}): Promise<FlattenedResponse<boolean>>;
-		updateArchive(options: {
-			path: { id: number };
-			body: { archive: boolean };
-		}): Promise<FlattenedResponse<boolean>>;
-		createContent(options: {
-			path: { id: number };
-			body: {
-				content_type: "html" | "markdown" | "plain" | "richtext" | "visual";
-				body: string;
-			};
-		}): Promise<FlattenedResponse<boolean>>;
-		test(options: CampaignTestParams): Promise<FlattenedResponse<boolean>>;
-		getRunningStats(options: {
-			query: { campaign_id: number };
-		}): Promise<FlattenedResponse<Record<string, unknown>>>;
-		getAnalytics(options: {
-			path: { type: "links" | "views" | "clicks" | "bounces" };
-			query: { from: string; to: string; id: string };
-		}): Promise<FlattenedResponse<Record<string, unknown>>>;
-	};
+	subscriber: SubscriberOperations;
+	campaign: CampaignOperations;
 	template: TemplateOperations;
-	media: MediaOperations & {
-		upload(options: {
-			body: File | Blob;
-		}): Promise<FlattenedResponse<t.MediaFileObject>>;
-	};
+	media: MediaOperations;
 
 	import: ImportOperations;
 	bounce: BounceOperations;

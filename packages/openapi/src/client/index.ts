@@ -10,10 +10,14 @@
 export type {
 	About,
 	Campaign,
+	CampaignOperations,
 	List,
 	ListmonkClient,
+	MediaOperations,
 	Subscriber,
+	SubscriberOperations,
 	Template,
+	TemplateOperations,
 } from "./contracts";
 export {
 	createClient,

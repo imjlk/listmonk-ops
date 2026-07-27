@@ -26,9 +26,7 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 	}
 
 	async list(query?: AbTestStoreQuery): Promise<AbTest[]> {
-		const all = Array.from(this.tests.values()).map((t) =>
-			structuredClone(t),
-		);
+		const all = Array.from(this.tests.values()).map((t) => structuredClone(t));
 		if (query?.status) {
 			return all.filter((t) => t.status === query.status);
 		}
@@ -44,9 +42,7 @@ export class InMemoryAbTestStore implements AbTestStoreAdapter {
 		return this.serialize(async () => {
 			const current = this.tests.get(id);
 			const currentCopy = current ? structuredClone(current) : null;
-			const preSnapshot = currentCopy
-				? JSON.stringify(currentCopy)
-				: null;
+			const preSnapshot = currentCopy ? JSON.stringify(currentCopy) : null;
 			const { next, result } = await fn(currentCopy);
 			if (next === null) {
 				this.tests.delete(id);

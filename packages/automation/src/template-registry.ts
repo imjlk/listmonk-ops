@@ -506,36 +506,40 @@ export async function rollbackTemplateVersion(
 	templateId: number,
 ): Promise<TemplatePromoteResult> {
 	const storeDefinition = createTemplateRegistryStore();
-	return commitRemoteTemplateMutation(storeDefinition, templateId, async (store) => {
-		const record = store.templates[String(templateId)];
-		if (!record || record.versions.length < 2) {
-			throw new Error(
-				`Rollback requires at least 2 versions for template ${templateId}`,
-			);
-		}
-
-		let targetIndex = record.versions.length - 2;
-		if (record.activeVersionId) {
-			const activeIndex = record.versions.findIndex(
-				(version) => version.versionId === record.activeVersionId,
-			);
-			if (activeIndex > 0) {
-				targetIndex = activeIndex - 1;
+	return commitRemoteTemplateMutation(
+		storeDefinition,
+		templateId,
+		async (store) => {
+			const record = store.templates[String(templateId)];
+			if (!record || record.versions.length < 2) {
+				throw new Error(
+					`Rollback requires at least 2 versions for template ${templateId}`,
+				);
 			}
-		}
 
-		const targetVersion = record.versions[targetIndex];
-		if (!targetVersion) {
-			throw new Error(
-				`Unable to locate rollback target for template ${templateId}`,
+			let targetIndex = record.versions.length - 2;
+			if (record.activeVersionId) {
+				const activeIndex = record.versions.findIndex(
+					(version) => version.versionId === record.activeVersionId,
+				);
+				if (activeIndex > 0) {
+					targetIndex = activeIndex - 1;
+				}
+			}
+
+			const targetVersion = record.versions[targetIndex];
+			if (!targetVersion) {
+				throw new Error(
+					`Unable to locate rollback target for template ${templateId}`,
+				);
+			}
+
+			return promoteTemplateVersionInStore(
+				client,
+				templateId,
+				targetVersion.versionId,
+				store,
 			);
-		}
-
-		return promoteTemplateVersionInStore(
-			client,
-			templateId,
-			targetVersion.versionId,
-			store,
-		);
-	});
+		},
+	);
 }

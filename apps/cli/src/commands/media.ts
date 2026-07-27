@@ -5,6 +5,8 @@ import {
 	invokeDeleteMediaOperation,
 	invokeGetMediaFileOperation,
 	invokeGetMediaOperation,
+	invokeUploadMediaOperation,
+	MAX_MEDIA_UPLOAD_BYTES,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
 import { z } from "zod";
@@ -62,6 +64,21 @@ export async function renderDeleteMedia(
 	context.output.json(result);
 }
 
+export async function renderUploadMedia(
+	context: MediaCliContext,
+	input: {
+		base64: string;
+		filename: string;
+		content_type?: string;
+	},
+): Promise<void> {
+	const uploaded = await invokeUploadMediaOperation(context, input);
+	context.output.success(
+		`Media file uploaded: ${uploaded.filename ?? input.filename}`,
+	);
+	context.output.json(uploaded);
+}
+
 type ListMediaCommandFlags = { page?: number; "per-page"?: number };
 
 export async function handleListMediaCommand({
@@ -100,6 +117,56 @@ export async function handleDeleteMediaCommand({
 		await renderDeleteMedia({ client, output: getOutput() }, { id: flags.id });
 	} catch (error) {
 		throw createMediaCommandError("Failed to delete media file", error);
+	}
+}
+
+export async function handleUploadMediaCommand({
+	flags,
+	...args
+}: HandlerArgs<{ file: string; "content-type"?: string }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		const file = Bun.file(flags.file);
+		// Bun.file() does not throw when the path is missing — it returns a
+		// File whose later reads fail. Probe existence explicitly so we can
+		// surface a clear "not found" message before size checks.
+		if (!(await file.exists())) {
+			throw new Error(`File not found: ${flags.file}`);
+		}
+		// Bun.file exposes size lazily without reading the file, so we can
+		// reject oversized uploads before pulling the bytes into memory.
+		if (file.size > MAX_MEDIA_UPLOAD_BYTES) {
+			const capMiB =
+				Math.round((MAX_MEDIA_UPLOAD_BYTES / (1024 * 1024)) * 10) / 10;
+			throw new Error(
+				`File ${flags.file} is ${file.size} bytes, which exceeds the ${capMiB} MiB media upload cap`,
+			);
+		}
+		const bytes = new Uint8Array(await file.arrayBuffer());
+		const base64 = Buffer.from(bytes).toString("base64");
+		// Use the basename only — Bun.file().name returns the path as given
+		// on the command line, which may include directories that Listmonk
+		// would reject as part of a filename. Fall back to a literal
+		// 'upload' when the path is a bare separator.
+		const basename = flags.file.split(/[\\/]/).pop();
+		const filename = basename && basename.length > 0 ? basename : "upload";
+		await renderUploadMedia(
+				{ client, output: getOutput() },
+				{
+					base64,
+					filename,
+					// Prefer the caller's explicit override. Otherwise omit
+					// the type so the shared operation can infer it from the
+					// filename, which uses canonical MIME names instead of
+					// runtime-specific aliases (e.g. Bun reports
+					// 'image/x-ms-bmp' for .bmp files).
+					content_type: flags["content-type"]
+						? flags["content-type"].split(";")[0]
+						: undefined,
+			},
+		);
+	} catch (error) {
+		throw createMediaCommandError("Failed to upload media file", error);
 	}
 }
 
@@ -142,6 +209,22 @@ export default defineGroup({
 				}),
 			},
 			handler: handleDeleteMediaCommand,
+		}),
+		defineCommand({
+			name: "upload",
+			operationId: "media.upload",
+			description: "Upload a media file from a local path",
+			options: {
+				file: option(z.string().trim().min(1), {
+					description: "Path to the media file to upload",
+					fileType: "path",
+				}),
+				"content-type": option(z.string().trim().min(1).optional(), {
+					description:
+						"MIME content type override (inferred from the file when omitted)",
+				}),
+			},
+			handler: handleUploadMediaCommand,
 		}),
 	],
 });

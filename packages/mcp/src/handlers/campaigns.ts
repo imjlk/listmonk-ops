@@ -1,10 +1,17 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	assertOperationConfirmation,
 	campaignOperations,
+	getOperationCatalogEntryByMcpName,
 	invokeCampaignOperationByMcpName,
 } from "@listmonk-ops/operations";
+import {
+	createOperationAuditExecutionId,
+	recordOperationAudit,
+} from "@listmonk-ops/common";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
+import { mcpOperationCatalog } from "../operation-catalog.js";
 import { createOperationResult, toMcpTool } from "./operation-adapter.js";
 import {
 	createApiErrorResult,
@@ -12,11 +19,7 @@ import {
 	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
-import {
-	castCampaignStatus,
-	parseId,
-	withErrorHandler,
-} from "../utils/typeHelpers.js";
+import { parseId, withErrorHandler } from "../utils/typeHelpers.js";
 
 const campaignLegacyTools: MCPTool[] = [
 	{
@@ -142,7 +145,8 @@ const campaignLegacyTools: MCPTool[] = [
 	},
 	{
 		name: "listmonk_update_campaign_status",
-		description: "Update campaign status (start, pause, cancel, etc.)",
+		description:
+			"Deprecated: use listmonk_schedule_campaign, listmonk_start_campaign, listmonk_pause_campaign, or listmonk_cancel_campaign instead. Legacy campaign status update tool.",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -153,17 +157,32 @@ const campaignLegacyTools: MCPTool[] = [
 				status: {
 					type: "string",
 					enum: [
-						"draft",
 						"scheduled",
 						"running",
 						"paused",
-						"finished",
 						"cancelled",
 					],
-					description: "New campaign status",
+					description: "New campaign status (lifecycle targets only)",
+				},
+				confirm: {
+					type: "boolean",
+					description:
+						"Required: set to true to confirm destructive lifecycle transitions (schedule, start, cancel).",
+				},
+				send_at: {
+					type: "string",
+					description:
+						"ISO 8601 scheduled send timestamp. Required when status is 'scheduled'.",
 				},
 			},
 			required: ["id", "status"],
+		},
+		annotations: {
+			title: "Update campaign status",
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: true,
+			openWorldHint: true,
 		},
 	},
 	{
@@ -276,11 +295,126 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
-				const response = await client.campaign.updateStatus({
-					path: { id: parseId(args.id) },
-					body: { status: castCampaignStatus(args.status) },
-				});
-				return handleDataResponse(response, "Failed to update campaign status");
+				// Route destructive lifecycle statuses through the shared
+				// operations so the state-machine and confirmation gate
+				// apply. Explicit mapping avoids the status-past-tense vs
+				// operation-verb mismatch (running -> start, paused -> pause).
+				const lifecycleOperationNames: Record<string, string> = {
+					scheduled: "listmonk_schedule_campaign",
+					running: "listmonk_start_campaign",
+					paused: "listmonk_pause_campaign",
+					cancelled: "listmonk_cancel_campaign",
+				};
+				const rawStatus = String(args.status);
+				const operationName = lifecycleOperationNames[rawStatus];
+				if (operationName) {
+					// Enforce confirmation before invoking the lifecycle
+					// operation. The legacy tool name is not registered in
+					// the MCP catalog, so the server's execution-policy
+					// boundary does not catch it automatically. We look up
+					// the mapped shared operation and apply its policy here.
+					const entry = getOperationCatalogEntryByMcpName(
+						mcpOperationCatalog,
+						operationName,
+					);
+					if (entry) {
+						assertOperationConfirmation(
+							entry.operation,
+							args.confirm === true,
+						);
+					}
+
+					// Record an audit trail for the mapped lifecycle operation.
+					// The server's callTool boundary records audits under the
+					// legacy tool name (which is not in the catalog), so the
+					// destructive mutation would go unaudited without this
+					// explicit entry.
+					const auditExecutionId = createOperationAuditExecutionId();
+					const mappedOperationId = entry?.operation.id ?? operationName;
+					const auditBase = {
+						executionId: auditExecutionId,
+						surface: "mcp" as const,
+						operationId: mappedOperationId,
+						confirmationRequired: entry?.operation.safety.destructiveHint ?? true,
+						confirmed: args.confirm === true,
+						dryRun: false,
+					};
+					// Fail-closed: abort the lifecycle operation if the
+					// audit start event cannot be persisted. This matches
+					// the behavior of ListmonkMCPServer.callTool for
+					// catalog-registered mutations and prevents a
+					// destructive transition from becoming untraceable.
+					//
+					// NOTE: This legacy tool is deprecated and will be
+					// removed in a follow-up PR. Callers should migrate to
+					// listmonk_schedule_campaign, listmonk_start_campaign,
+					// listmonk_pause_campaign, listmonk_cancel_campaign,
+					// which use the server-level audit store and execution
+					// boundary directly.
+					try {
+						await recordOperationAudit(
+							{ ...auditBase, event: "started" },
+							undefined,
+						);
+					} catch (auditError) {
+						return createErrorResult(
+							`Unable to start audit for lifecycle operation '${mappedOperationId}': ${auditError instanceof Error ? auditError.message : String(auditError)}`,
+						);
+					}
+
+					// The HandlerFunction signature does not currently receive
+					// auditStoreOptions, so these writes fall back to the
+					// default store path. If the server is configured with a
+					// custom auditStorePath, entries will be split across
+					// two files. This is a known limitation of the legacy
+					// handler routing — the shared-operation path uses the
+					// server-level configured store.
+					let lifecycleInvocation;
+					let invocationError: Error | undefined;
+					try {
+						lifecycleInvocation = await invokeCampaignOperationByMcpName(
+							{ client },
+							operationName,
+							args,
+						);
+					} catch (error) {
+						invocationError = error instanceof Error ? error : new Error(String(error));
+						lifecycleInvocation = undefined;
+					}
+					if (lifecycleInvocation) {
+						try {
+							await recordOperationAudit(
+								{ ...auditBase, event: "succeeded" },
+								undefined,
+							);
+						} catch {
+							// Non-fatal: never replace a successful result
+							// with an audit write failure.
+						}
+						return createOperationResult(
+							lifecycleInvocation.operation,
+							lifecycleInvocation.output,
+						);
+					}
+					try {
+						await recordOperationAudit(
+							{ ...auditBase, event: "failed" },
+							undefined,
+						);
+					} catch {
+						// Non-fatal
+					}
+					if (invocationError) {
+						throw invocationError;
+					}
+					return createErrorResult(
+						`Lifecycle operation '${operationName}' could not be resolved for status '${rawStatus}'`,
+					);
+				}
+
+				return createErrorResult(
+					`Unsupported campaign status '${rawStatus}'. Supported: scheduled, running, paused, cancelled.`,
+				);
 			}
 
 			case "listmonk_test_campaign": {

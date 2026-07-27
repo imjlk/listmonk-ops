@@ -2,10 +2,16 @@ import type { OutputUtils } from "@listmonk-ops/common";
 import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	invokeCancelCampaignOperation,
+	invokeCloneCampaignOperation,
 	invokeCreateCampaignOperation,
 	invokeDeleteCampaignOperation,
 	invokeGetCampaignOperation,
 	invokeGetCampaignsOperation,
+	invokeGetCampaignStatsOperation,
+	invokePauseCampaignOperation,
+	invokeScheduleCampaignOperation,
+	invokeStartCampaignOperation,
 	invokeUpdateCampaignOperation,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
@@ -54,9 +60,10 @@ export interface CreateCampaignInput {
 	subject: string;
 	from_email: string;
 	body: string;
+	body_source?: string | null;
 	altbody?: string;
 	type?: "regular" | "optin";
-	template_id: number;
+	template_id: number | null | undefined;
 	lists: number[];
 	tags?: string[];
 	messenger?: string;
@@ -137,6 +144,60 @@ export async function renderDeleteCampaign(
 	context.output.json(result);
 }
 
+export async function renderScheduleCampaign(
+	context: CampaignsCliContext,
+	input: { id: number; send_at: string },
+): Promise<void> {
+	const result = await invokeScheduleCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} scheduled for ${input.send_at}`);
+	context.output.json(result);
+}
+
+export async function renderStartCampaign(
+	context: CampaignsCliContext,
+	input: { id: number },
+): Promise<void> {
+	const result = await invokeStartCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} started`);
+	context.output.json(result);
+}
+
+export async function renderPauseCampaign(
+	context: CampaignsCliContext,
+	input: { id: number },
+): Promise<void> {
+	const result = await invokePauseCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} paused`);
+	context.output.json(result);
+}
+
+export async function renderCancelCampaign(
+	context: CampaignsCliContext,
+	input: { id: number },
+): Promise<void> {
+	const result = await invokeCancelCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} cancelled`);
+	context.output.json(result);
+}
+
+export async function renderCloneCampaign(
+	context: CampaignsCliContext,
+	input: { id: number; name: string },
+): Promise<void> {
+	const campaign = await invokeCloneCampaignOperation(context, input);
+	context.output.success(`Campaign ${input.id} cloned as '${input.name}'`);
+	context.output.json(campaign);
+}
+
+export async function renderGetCampaignStats(
+	context: CampaignsCliContext,
+	input: { id: number },
+): Promise<void> {
+	const stats = await invokeGetCampaignStatsOperation(context, input);
+	context.output.success(`Campaign ${input.id} stats`);
+	context.output.json(stats);
+}
+
 type ListCommandFlags = {
 	page?: number;
 	"per-page"?: number;
@@ -189,14 +250,27 @@ export async function handleGetCampaignCommand({
 	}
 }
 
+function parseTemplateIdFlag(value: string | undefined): number | null | undefined {
+	if (value === undefined) return undefined;
+	if (value === "null") return null;
+	const num = Number(value);
+	if (!Number.isFinite(num) || num <= 0) {
+		throw new Error(
+			`Invalid template ID '${value}': expected a positive integer or 'null'`,
+		);
+	}
+	return num;
+}
+
 type CreateCommandFlags = {
 	name: string;
 	subject: string;
 	"from-email": string;
 	body: string;
+	"body-source"?: string;
 	altbody?: string;
 	type: "regular" | "optin";
-	"template-id": number;
+	"template-id": string;
 	lists: string;
 	tags?: string;
 	messenger: string;
@@ -225,9 +299,10 @@ export async function handleCreateCampaignCommand({
 				subject: flags.subject,
 				from_email: flags["from-email"],
 				body: flags.body,
+				body_source: flags["body-source"],
 				altbody: flags.altbody,
 				type: flags.type,
-				template_id: flags["template-id"],
+				template_id: parseTemplateIdFlag(flags["template-id"]),
 				lists: parseCsvNumbers(flags.lists),
 				tags: parseCsvStrings(flags.tags),
 				messenger: flags.messenger,
@@ -243,7 +318,10 @@ export async function handleCreateCampaignCommand({
 				archive_slug: flags["archive-slug"],
 				archive_template_id: flags["archive-template-id"],
 				archive_meta: flags["archive-meta"]
-					? parseJson<Record<string, unknown>>(flags["archive-meta"], "archive-meta")
+					? parseJson<Record<string, unknown>>(
+							flags["archive-meta"],
+							"archive-meta",
+						)
 					: undefined,
 				media: flags.media ? parseCsvNumbers(flags.media) : undefined,
 				subscribers: parseCsvStrings(flags.subscribers),
@@ -260,8 +338,9 @@ type UpdateCommandFlags = Omit<CreateCommandFlags, "name" | "subject" | "from-em
 	subject?: string;
 	"from-email"?: string;
 	body?: string;
+	"body-source"?: string;
 	type?: "regular" | "optin";
-	"template-id"?: number;
+	"template-id"?: string;
 	lists?: string;
 	messenger?: string;
 	"content-type"?: "richtext" | "html" | "markdown" | "plain" | "visual";
@@ -281,9 +360,10 @@ export async function handleUpdateCampaignCommand({
 				subject: flags.subject,
 				from_email: flags["from-email"],
 				body: flags.body,
+				body_source: flags["body-source"],
 				altbody: flags.altbody,
 				type: flags.type,
-				template_id: flags["template-id"],
+				template_id: parseTemplateIdFlag(flags["template-id"]),
 				lists: flags.lists ? parseCsvNumbers(flags.lists) : undefined,
 				tags: parseCsvStrings(flags.tags),
 				messenger: flags.messenger,
@@ -299,7 +379,10 @@ export async function handleUpdateCampaignCommand({
 				archive_slug: flags["archive-slug"],
 				archive_template_id: flags["archive-template-id"],
 				archive_meta: flags["archive-meta"]
-					? parseJson<Record<string, unknown>>(flags["archive-meta"], "archive-meta")
+					? parseJson<Record<string, unknown>>(
+							flags["archive-meta"],
+							"archive-meta",
+						)
 					: undefined,
 				media: flags.media ? parseCsvNumbers(flags.media) : undefined,
 				subscribers: parseCsvStrings(flags.subscribers),
@@ -325,6 +408,96 @@ export async function handleDeleteCampaignCommand({
 	}
 }
 
+export async function handleScheduleCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number; "send-at": string }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderScheduleCampaign(
+			{ client, output: getOutput() },
+			{ id: flags.id, send_at: flags["send-at"] },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to schedule campaign", error);
+	}
+}
+
+export async function handleStartCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderStartCampaign(
+			{ client, output: getOutput() },
+			{ id: flags.id },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to start campaign", error);
+	}
+}
+
+export async function handlePauseCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderPauseCampaign(
+			{ client, output: getOutput() },
+			{ id: flags.id },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to pause campaign", error);
+	}
+}
+
+export async function handleCancelCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderCancelCampaign(
+			{ client, output: getOutput() },
+			{ id: flags.id },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to cancel campaign", error);
+	}
+}
+
+export async function handleCloneCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number; name: string }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderCloneCampaign(
+			{ client, output: getOutput() },
+			{ id: flags.id, name: flags.name },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to clone campaign", error);
+	}
+}
+
+export async function handleGetCampaignStatsCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderGetCampaignStats(
+			{ client, output: getOutput() },
+			{ id: flags.id },
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to read campaign stats", error);
+	}
+}
+
 const campaignTypeOption = z.enum(["regular", "optin"]).default("regular");
 const contentTypeOption = z
 	.enum(["richtext", "html", "markdown", "plain", "visual"])
@@ -345,12 +518,25 @@ export default defineGroup({
 				"per-page": option(z.coerce.number().int().positive().optional(), {
 					description: "Items per page",
 				}),
-				status: option(z.string().trim().optional(), { description: "Status filter" }),
-				query: option(z.string().trim().optional(), { description: "Search query" }),
-				tags: option(z.string().trim().optional(), { description: "Comma-separated tags" }),
-				order: option(z.enum(["ASC", "DESC"]).optional(), { description: "Sort order" }),
-				"order-by": option(z.enum(["name", "status", "created_at", "updated_at"]).optional(), { description: "Sort field" }),
-				"no-body": option(z.boolean().optional(), { description: "Omit campaign body" }),
+				status: option(z.string().trim().optional(), {
+					description: "Status filter",
+				}),
+				query: option(z.string().trim().optional(), {
+					description: "Search query",
+				}),
+				tags: option(z.string().trim().optional(), {
+					description: "Comma-separated tags",
+				}),
+				order: option(z.enum(["ASC", "DESC"]).optional(), {
+					description: "Sort order",
+				}),
+				"order-by": option(
+					z.enum(["name", "status", "created_at", "updated_at"]).optional(),
+					{ description: "Sort field" },
+				),
+				"no-body": option(z.boolean().optional(), {
+					description: "Omit campaign body",
+				}),
 			},
 			handler: handleListCampaignsCommand,
 		}),
@@ -359,8 +545,12 @@ export default defineGroup({
 			operationId: "campaigns.get",
 			description: "Get campaign details",
 			options: {
-				id: option(z.coerce.number().int().positive(), { description: "Campaign ID" }),
-				"no-body": option(z.boolean().optional(), { description: "Omit campaign body" }),
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+				"no-body": option(z.boolean().optional(), {
+					description: "Omit campaign body",
+				}),
 			},
 			handler: handleGetCampaignCommand,
 		}),
@@ -370,25 +560,63 @@ export default defineGroup({
 			description: "Create a campaign",
 			options: {
 				name: option(z.string().trim().min(1), { description: "Campaign name" }),
-				subject: option(z.string().trim().min(1), { description: "Email subject" }),
-				"from-email": option(z.string().trim().min(1), { description: "From email address" }),
+				subject: option(z.string().trim().min(1), {
+					description: "Email subject",
+				}),
+				"from-email": option(z.string().trim().min(1), {
+					description: "From email address",
+				}),
 				body: option(z.string().min(1), { description: "Campaign body" }),
-				altbody: option(z.string().optional(), { description: "Plain-text alternative" }),
+				"body-source": option(z.string().optional(), {
+					description:
+						"Visual-editor source (JSON). Preserved so visual campaigns stay editable in the builder.",
+				}),
+				altbody: option(z.string().optional(), {
+					description: "Plain-text alternative",
+				}),
 				type: option(campaignTypeOption, { description: "Campaign type" }),
-				"template-id": option(z.coerce.number().int().positive(), { description: "Template ID" }),
-				lists: option(z.string().trim().min(1), { description: "Comma-separated list IDs" }),
-				tags: option(z.string().trim().optional(), { description: "Comma-separated tags" }),
-				messenger: option(z.string().trim().default("email"), { description: "Messenger" }),
-				"content-type": option(contentTypeOption, { description: "Campaign content type" }),
-				"send-at": option(z.string().optional(), { description: "Scheduled send time" }),
+				"template-id": option(z.union([z.literal("null"), z.string().regex(/^[1-9][0-9]*$/)]), {
+					description:
+						"Template ID (positive integer), or 'null' for template-less campaigns",
+				}),
+				lists: option(z.string().trim().min(1), {
+					description: "Comma-separated list IDs",
+				}),
+				tags: option(z.string().trim().optional(), {
+					description: "Comma-separated tags",
+				}),
+				messenger: option(z.string().trim().default("email"), {
+					description: "Messenger",
+				}),
+				"content-type": option(contentTypeOption, {
+					description: "Campaign content type",
+				}),
+				"send-at": option(z.string().optional(), {
+					description: "Scheduled send time",
+				}),
 				headers: option(z.string().optional(), { description: "Headers JSON" }),
-				attribs: option(z.string().optional(), { description: "Attributes JSON" }),
-				archive: option(z.boolean().optional(), { description: "Archive campaign" }),
-				"archive-slug": option(z.string().optional(), { description: "Archive slug" }),
-				"archive-template-id": option(z.coerce.number().int().positive().optional(), { description: "Archive template ID" }),
-				"archive-meta": option(z.string().optional(), { description: "Archive metadata JSON" }),
-				media: option(z.string().optional(), { description: "Comma-separated media IDs" }),
-				subscribers: option(z.string().optional(), { description: "Comma-separated recipient emails" }),
+				attribs: option(z.string().optional(), {
+					description: "Attributes JSON",
+				}),
+				archive: option(z.boolean().optional(), {
+					description: "Archive campaign",
+				}),
+				"archive-slug": option(z.string().optional(), {
+					description: "Archive slug",
+				}),
+				"archive-template-id": option(
+					z.coerce.number().int().positive().optional(),
+					{ description: "Archive template ID" },
+				),
+				"archive-meta": option(z.string().optional(), {
+					description: "Archive metadata JSON",
+				}),
+				media: option(z.string().optional(), {
+					description: "Comma-separated media IDs",
+				}),
+				subscribers: option(z.string().optional(), {
+					description: "Comma-separated recipient emails",
+				}),
 			},
 			handler: handleCreateCampaignCommand,
 		}),
@@ -397,27 +625,74 @@ export default defineGroup({
 			operationId: "campaigns.update",
 			description: "Update a campaign",
 			options: {
-				id: option(z.coerce.number().int().positive(), { description: "Campaign ID" }),
-				name: option(z.string().trim().min(1).optional(), { description: "Campaign name" }),
-				subject: option(z.string().trim().min(1).optional(), { description: "Email subject" }),
-				"from-email": option(z.string().trim().min(1).optional(), { description: "From email address" }),
-				body: option(z.string().min(1).optional(), { description: "Campaign body" }),
-				altbody: option(z.string().optional(), { description: "Plain-text alternative" }),
-				type: option(z.enum(["regular", "optin"]).optional(), { description: "Campaign type" }),
-				"template-id": option(z.coerce.number().int().positive().optional(), { description: "Template ID" }),
-				lists: option(z.string().trim().optional(), { description: "Comma-separated list IDs" }),
-				tags: option(z.string().trim().optional(), { description: "Comma-separated tags" }),
-				messenger: option(z.string().trim().min(1).optional(), { description: "Messenger" }),
-				"content-type": option(z.enum(["richtext", "html", "markdown", "plain", "visual"]).optional(), { description: "Campaign content type" }),
-				"send-at": option(z.string().optional(), { description: "Scheduled send time" }),
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+				name: option(z.string().trim().min(1).optional(), {
+					description: "Campaign name",
+				}),
+				subject: option(z.string().trim().min(1).optional(), {
+					description: "Email subject",
+				}),
+				"from-email": option(z.string().trim().min(1).optional(), {
+					description: "From email address",
+				}),
+				body: option(z.string().min(1).optional(), {
+					description: "Campaign body",
+				}),
+				"body-source": option(z.string().optional(), {
+					description:
+						"Visual-editor source (JSON). Preserved so visual campaigns stay editable in the builder.",
+				}),
+				altbody: option(z.string().optional(), {
+					description: "Plain-text alternative",
+				}),
+				type: option(z.enum(["regular", "optin"]).optional(), {
+					description: "Campaign type",
+				}),
+				"template-id": option(z.union([z.literal("null"), z.string().regex(/^[1-9][0-9]*$/)]).optional(), {
+					description:
+						"Template ID (positive integer), or 'null' for template-less campaigns",
+				}),
+				lists: option(z.string().trim().optional(), {
+					description: "Comma-separated list IDs",
+				}),
+				tags: option(z.string().trim().optional(), {
+					description: "Comma-separated tags",
+				}),
+				messenger: option(z.string().trim().min(1).optional(), {
+					description: "Messenger",
+				}),
+				"content-type": option(
+					z.enum(["richtext", "html", "markdown", "plain", "visual"]).optional(),
+					{ description: "Campaign content type" },
+				),
+				"send-at": option(z.string().optional(), {
+					description: "Scheduled send time",
+				}),
 				headers: option(z.string().optional(), { description: "Headers JSON" }),
-				attribs: option(z.string().optional(), { description: "Attributes JSON" }),
-				archive: option(z.boolean().optional(), { description: "Archive campaign" }),
-				"archive-slug": option(z.string().optional(), { description: "Archive slug" }),
-				"archive-template-id": option(z.coerce.number().int().positive().optional(), { description: "Archive template ID" }),
-				"archive-meta": option(z.string().optional(), { description: "Archive metadata JSON" }),
-				media: option(z.string().optional(), { description: "Comma-separated media IDs" }),
-				subscribers: option(z.string().optional(), { description: "Comma-separated recipient emails" }),
+				attribs: option(z.string().optional(), {
+					description: "Attributes JSON",
+				}),
+				archive: option(z.boolean().optional(), {
+					description: "Archive campaign",
+				}),
+				"archive-slug": option(z.string().optional(), {
+					description: "Archive slug",
+				}),
+				"archive-template-id": option(
+					z.coerce.number().int().positive().optional(),
+					{ description: "Archive template ID" },
+				),
+				"archive-meta": option(z.string().optional(), {
+					description: "Archive metadata JSON",
+				}),
+				media: option(z.string().optional(), {
+					description: "Comma-separated media IDs",
+				}),
+				subscribers: option(z.string().optional(), {
+					description: "Comma-separated recipient emails",
+				}),
 			},
 			handler: handleUpdateCampaignCommand,
 		}),
@@ -426,9 +701,84 @@ export default defineGroup({
 			operationId: "campaigns.delete",
 			description: "Delete a campaign",
 			options: {
-				id: option(z.coerce.number().int().positive(), { description: "Campaign ID" }),
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
 			},
 			handler: handleDeleteCampaignCommand,
+		}),
+		defineCommand({
+			name: "schedule",
+			operationId: "campaigns.schedule",
+			description: "Schedule a campaign to send at a specific time",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+				"send-at": option(z.string().trim().min(1), {
+					description:
+						"ISO 8601 (or Listmonk-compatible) scheduled send timestamp",
+				}),
+			},
+			handler: handleScheduleCampaignCommand,
+		}),
+		defineCommand({
+			name: "start",
+			operationId: "campaigns.start",
+			description: "Start a campaign (transition to running)",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+			},
+			handler: handleStartCampaignCommand,
+		}),
+		defineCommand({
+			name: "pause",
+			operationId: "campaigns.pause",
+			description: "Pause a running campaign",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+			},
+			handler: handlePauseCampaignCommand,
+		}),
+		defineCommand({
+			name: "cancel",
+			operationId: "campaigns.cancel",
+			description: "Cancel a campaign (terminal transition)",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+			},
+			handler: handleCancelCampaignCommand,
+		}),
+		defineCommand({
+			name: "clone",
+			operationId: "campaigns.clone",
+			description: "Clone an existing campaign under a new name",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Source campaign ID",
+				}),
+				name: option(z.string().trim().min(1), {
+					description: "Name for the cloned campaign",
+				}),
+			},
+			handler: handleCloneCampaignCommand,
+		}),
+		defineCommand({
+			name: "stats",
+			operationId: "campaigns.stats",
+			description: "Read delivery stats for a campaign",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+			},
+			handler: handleGetCampaignStatsCommand,
 		}),
 	],
 });

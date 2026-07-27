@@ -242,9 +242,15 @@ export default defineGroup({
 			operationId: "templates.list",
 			description: "List templates",
 			options: {
-				page: option(z.coerce.number().int().positive().optional(), { description: "Page number" }),
-				"per-page": option(z.coerce.number().int().positive().optional(), { description: "Items per page" }),
-				"no-body": option(z.boolean().optional(), { description: "Omit template bodies" }),
+				page: option(z.coerce.number().int().positive().optional(), {
+					description: "Page number",
+				}),
+				"per-page": option(z.coerce.number().int().positive().optional(), {
+					description: "Items per page",
+				}),
+				"no-body": option(z.boolean().optional(), {
+					description: "Omit template bodies",
+				}),
 			},
 			handler: handleListTemplatesCommand,
 		}),
@@ -252,7 +258,11 @@ export default defineGroup({
 			name: "get",
 			operationId: "templates.get",
 			description: "Get template details",
-			options: { id: option(z.coerce.number().int().positive(), { description: "Template ID" }) },
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Template ID",
+				}),
+			},
 			handler: handleGetTemplateCommand,
 		}),
 		defineCommand({
@@ -262,9 +272,13 @@ export default defineGroup({
 			options: {
 				name: option(z.string().trim().min(1), { description: "Template name" }),
 				type: option(templateTypeOption, { description: "Template type" }),
-				subject: option(z.string().trim().optional(), { description: "Email subject" }),
+				subject: option(z.string().trim().optional(), {
+					description: "Email subject",
+				}),
 				body: option(z.string().min(1), { description: "Template body" }),
-				"body-source": option(z.string().optional(), { description: "Visual editor source" }),
+				"body-source": option(z.string().optional(), {
+					description: "Visual editor source",
+				}),
 			},
 			handler: handleCreateTemplateCommand,
 		}),
@@ -273,12 +287,22 @@ export default defineGroup({
 			operationId: "templates.update",
 			description: "Update a template",
 			options: {
-				id: option(z.coerce.number().int().positive(), { description: "Template ID" }),
-				name: option(z.string().trim().min(1).optional(), { description: "Template name" }),
-				type: option(z.enum(["campaign", "campaign_visual", "tx"]).optional(), { description: "Template type" }),
+				id: option(z.coerce.number().int().positive(), {
+					description: "Template ID",
+				}),
+				name: option(z.string().trim().min(1).optional(), {
+					description: "Template name",
+				}),
+				type: option(z.enum(["campaign", "campaign_visual", "tx"]).optional(), {
+					description: "Template type",
+				}),
 				subject: option(z.string().optional(), { description: "Email subject" }),
-				body: option(z.string().min(1).optional(), { description: "Template body" }),
-				"body-source": option(z.string().optional(), { description: "Visual editor source" }),
+				body: option(z.string().min(1).optional(), {
+					description: "Template body",
+				}),
+				"body-source": option(z.string().optional(), {
+					description: "Visual editor source",
+				}),
 			},
 			handler: handleUpdateTemplateCommand,
 		}),
@@ -286,14 +310,22 @@ export default defineGroup({
 			name: "delete",
 			operationId: "templates.delete",
 			description: "Delete a template",
-			options: { id: option(z.coerce.number().int().positive(), { description: "Template ID" }) },
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Template ID",
+				}),
+			},
 			handler: handleDeleteTemplateCommand,
 		}),
 		defineCommand({
 			name: "set-default",
 			operationId: "templates.set-default",
 			description: "Set a template as default",
-			options: { id: option(z.coerce.number().int().positive(), { description: "Template ID" }) },
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Template ID",
+				}),
+			},
 			handler: handleSetDefaultTemplateCommand,
 		}),
 	],

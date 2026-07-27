@@ -4,11 +4,11 @@
 	"type": "module",
 	"private": true,
 	"devDependencies": {
-		"@ttsc/graph": "0.19.3",
-		"@ttsc/lint": "0.19.3",
+		"@ttsc/graph": "0.22.0",
+		"@ttsc/lint": "0.22.0",
 		"@types/bun": "^1.3.10",
 		"@types/node": "^26.1.1",
-		"ttsc": "0.19.3",
+		"ttsc": "0.22.0",
 		"typescript": "7.0.2"
 	},
 	"scripts": {

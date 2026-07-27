@@ -56,7 +56,7 @@ describe("transactional CLI action", () => {
 		await expect(
 			renderTransactionalSend(cliContext, { template_id: 3 }),
 		).rejects.toThrow(
-			"Either subscriber_email or subscriber_id is required",
+			"Exactly one of subscriber_email or subscriber_id is required",
 		);
 		expect(send).not.toHaveBeenCalled();
 		expect(cliContext.output.success).not.toHaveBeenCalled();

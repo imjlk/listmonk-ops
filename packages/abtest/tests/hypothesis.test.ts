@@ -351,7 +351,11 @@ describe("computeHypothesisChecksum", () => {
 
 	it("excludes lockedAt and checksum from the hash", () => {
 		const base = makeHypothesis();
-		const withLock = { ...base, lockedAt: "2026-07-24T01:00:00Z", checksum: "abc" };
+		const withLock = {
+			...base,
+			lockedAt: "2026-07-24T01:00:00Z",
+			checksum: "abc",
+		};
 		expect(computeHypothesisChecksum(withLock)).toBe(
 			computeHypothesisChecksum(base),
 		);

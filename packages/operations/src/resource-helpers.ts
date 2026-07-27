@@ -12,23 +12,23 @@ export const resourceIdSchema = z
 			encode: (value) => value,
 		},
 	)
+	.refine((value) => Number.isSafeInteger(value), {
+		message: `resource ID exceeds the maximum safe integer (${Number.MAX_SAFE_INTEGER})`,
+	})
 	.describe("Listmonk resource ID");
 
-export const optionalBooleanSchema = z.preprocess(
-	(value) => {
-		if (value === null || value === undefined || value === "") {
-			return undefined;
-		}
-		if (value === "true") {
-			return true;
-		}
-		if (value === "false") {
-			return false;
-		}
-		return value;
-	},
-	z.boolean().optional(),
-);
+export const optionalBooleanSchema = z.preprocess((value) => {
+	if (value === null || value === undefined || value === "") {
+		return undefined;
+	}
+	if (value === "true") {
+		return true;
+	}
+	if (value === "false") {
+		return false;
+	}
+	return value;
+}, z.boolean().optional());
 
 export const positiveIntegerSchema = z.number().int().positive();
 export const positiveIntegerInputSchema = z.union([
@@ -81,6 +81,24 @@ export function unwrapResourceResponse<T>(
 	return response.data;
 }
 
+/**
+ * Unwrap a mutation response and require a positive acknowledgement.
+ * Listmonk sometimes returns `{ data: false }` without an error envelope
+ * when a mutation is silently rejected. This helper centralises the
+ * `unwrapResourceResponse` + `data !== true` guard used by lifecycle
+ * transitions and bulk operations so the acknowledgement contract and
+ * error message stay consistent across all call sites.
+ */
+export function requireAcknowledgement(
+	response: ResponseWithData<unknown>,
+	context: string,
+): void {
+	const data = unwrapResourceResponse(response, context);
+	if (data !== true) {
+		throw new Error(`${context}: Listmonk returned a negative acknowledgement`);
+	}
+}
+
 export function normalizeResourceList<T>(
 	data: { results?: T[]; total?: number; per_page?: number; page?: number },
 	defaults: { per_page: number; page: number },
@@ -119,6 +137,36 @@ export const updateResourceSafety = {
 } as const;
 
 export const deleteResourceSafety = {
+	readOnlyHint: false,
+	destructiveHint: true,
+	idempotentHint: true,
+	openWorldHint: true,
+} as const;
+
+/**
+ * Safety metadata for campaign lifecycle transitions that start delivery
+ * (`schedule`, `start`) or move a campaign into a terminal state
+ * (`cancel`). These operations are idempotent (re-applying the same
+ * transition is a no-op) but they trigger or terminate mass mail delivery
+ * and are not reversible, so they must require explicit confirmation at
+ * every surface (CLI `--confirm`, MCP confirmation flow).
+ */
+export const deliveryTransitionSafety = {
+	readOnlyHint: false,
+	destructiveHint: true,
+	idempotentHint: true,
+	openWorldHint: true,
+} as const;
+
+/**
+ * Safety metadata for bulk operations that suppress delivery to a large
+ * audience, e.g. blocklisting up to 10,000 subscribers in a single call.
+ * These operations are idempotent (re-applying blocklist to already
+ * blocklisted subscribers is a no-op) but they silently stop mail
+ * delivery for everyone in the batch, so they must require explicit
+ * confirmation at every surface (CLI `--confirm`, MCP confirmation flow).
+ */
+export const deliverySuppressionSafety = {
 	readOnlyHint: false,
 	destructiveHint: true,
 	idempotentHint: true,
