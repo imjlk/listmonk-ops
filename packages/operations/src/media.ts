@@ -192,21 +192,29 @@ const BASE64_ALPHABET_PATTERN =
  * Node/Bun globals like `Buffer` so the same code runs in browsers and
  * other neutral runtimes. Returns `null` when the input is not valid
  * canonical base64.
+ *
+ * Accepts both the standard (`+`/`/`) and URL-safe (`-`/`_`) RFC 4648
+ * alphabets. The URL-safe alphabet is normalized to the standard one
+ * before calling `atob`, because the web-standard `atob` does not
+ * recognize `-`/`_` and would otherwise reject valid URL-safe inputs in
+ * the browser runtime.
  */
 function decodeBase64ToBytes(value: string): Uint8Array | null {
 	// Strip optional data: URL prefix and inner whitespace/newlines so we
 	// do not reject legitimately encoded payloads that were wrapped for
 	// readability, but require the remaining characters to be canonical
-	// base64. `atob` accepts URL-safe alphabet on most engines, but the
-	// strict check below also covers alphabets that mix `-`/`_` with `+`/`/`.
+	// base64 (standard or URL-safe alphabet).
 	const trimmed = value
 		.replace(/^data:.*?;base64,/, "")
 		.replace(/\s+/g, "");
 	if (!BASE64_ALPHABET_PATTERN.test(trimmed)) return null;
 	// Padding length must be 0, 1 (=), or 2 (==) and aligned to 4-byte groups.
 	if (trimmed.length % 4 !== 0) return null;
+	// Normalize URL-safe alphabet to standard so `atob` accepts it on every
+	// runtime (it does not recognize `-`/`_` in browsers).
+	const standard = trimmed.replaceAll("-", "+").replaceAll("_", "/");
 	try {
-		const binary = atob(trimmed);
+		const binary = atob(standard);
 		const bytes = new Uint8Array(binary.length);
 		for (let i = 0; i < binary.length; i += 1) {
 			bytes[i] = binary.charCodeAt(i);

@@ -695,6 +695,33 @@ describe("shared CRUD resource operations", () => {
 		expect(upload).toHaveBeenCalledTimes(1);
 	});
 
+	test("accepts URL-safe base64 payloads and normalizes them before decoding", async () => {
+		// Same 1x1 PNG as above but encoded with the URL-safe alphabet
+		// (`-`/`_` instead of `+`/`/`). The decoder must normalize before
+		// calling atob, which does not recognize the URL-safe alphabet in
+		// browsers.
+		const urlSafeBase64 =
+			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk-M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+		const upload = mock(async () => ({
+			data: {
+				id: 43,
+				filename: "pixel.png",
+				content_type: "image/png",
+			},
+		})) as unknown as MediaClient["media"]["upload"];
+
+		const uploaded = await invokeUploadMediaOperation(
+			mediaContext({ upload }),
+			{
+				base64: urlSafeBase64,
+				filename: "pixel.png",
+				content_type: "image/png",
+			},
+		);
+		expect(uploaded).toMatchObject({ id: 43, filename: "pixel.png" });
+		expect(upload).toHaveBeenCalledTimes(1);
+	});
+
 	test("rejects media uploads that exceed the size cap or MIME allowlist", async () => {
 		const upload = mock(async () => ({ data: {} })) as unknown as MediaClient["media"]["upload"];
 
