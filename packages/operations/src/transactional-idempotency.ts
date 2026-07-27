@@ -378,7 +378,9 @@ export function stableSerializeJson(
 			return result;
 		}
 		const entries = Object.entries(value)
-			.filter(([, v]) => v !== undefined)
+			// Mirror JSON.stringify: omit function/symbol-valued properties
+			// entirely (not null), so { cb: () => {} } and {} hash alike.
+			.filter(([, v]) => v !== undefined && typeof v !== "function" && typeof v !== "symbol")
 			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 		const result = `{${entries
 			.map(
@@ -388,12 +390,16 @@ export function stableSerializeJson(
 		seen.delete(value);
 		return result;
 	}
-	// Functions, symbols, and other non-JSON values serialize as undefined
-	// under JSON.stringify. The transport coerces them to null inside
-	// arrays/objects, so the hash must agree — otherwise [() => {}] and []
-	// would both hash as "[]" and a key reuse would falsely replay.
-	if (typeof value === "function" || typeof value === "symbol" || typeof value === "bigint") {
+	// Functions and symbols serialize as undefined under JSON.stringify.
+	// The transport coerces them to null inside arrays (so [() => {}] and
+	// [null] hash alike) but omits them as object properties (handled above).
+	if (typeof value === "function" || typeof value === "symbol") {
 		return "null";
+	}
+	// Bigints are serialized as decimal strings by the OpenAPI client's
+	// jsonBodySerializer (not null), so distinct bigints must hash distinctly.
+	if (typeof value === "bigint") {
+		return JSON.stringify(value.toString());
 	}
 	const fallback = JSON.stringify(value);
 	return fallback === undefined ? "null" : fallback;

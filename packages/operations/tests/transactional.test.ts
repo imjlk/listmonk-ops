@@ -748,6 +748,40 @@ describe("serializeTransactionalPayload", () => {
 			expect(withFn).not.toBe(empty);
 		});
 
+		test("omits function/symbol-valued object properties (matches JSON.stringify)", () => {
+			// JSON.stringify drops function/symbol properties entirely
+			// (not null), so { cb: () => {} } and {} must hash alike.
+			const withCallback = serializeTransactionalPayload({
+				template_id: 3,
+				data: { cb: () => {}, keep: 1 },
+			});
+			const withoutCallback = serializeTransactionalPayload({
+				template_id: 3,
+				data: { keep: 1 },
+			});
+			expect(withCallback).toBe(withoutCallback);
+		});
+
+		test("hashes bigints as decimal strings (matches jsonBodySerializer)", () => {
+			// The OpenAPI client serializes bigints as decimal strings,
+			// so distinct bigints must produce distinct hashes.
+			const one = serializeTransactionalPayload({
+				template_id: 3,
+				data: { value: 1n },
+			});
+			const two = serializeTransactionalPayload({
+				template_id: 3,
+				data: { value: 2n },
+			});
+			expect(one).not.toBe(two);
+			// And match the string form the transport sends.
+			const oneAsString = serializeTransactionalPayload({
+				template_id: 3,
+				data: { value: "1" },
+			});
+			expect(one).toBe(oneAsString);
+		});
+
 		test("rejects cyclic payloads instead of overflowing the stack", () => {
 			const cyclic: Record<string, unknown> = { a: 1 };
 			cyclic.self = cyclic;
