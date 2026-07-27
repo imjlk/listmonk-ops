@@ -326,6 +326,7 @@ type UpdateCommandFlags = Omit<CreateCommandFlags, "name" | "subject" | "from-em
 	subject?: string;
 	"from-email"?: string;
 	body?: string;
+	"body-source"?: string;
 	type?: "regular" | "optin";
 	"template-id"?: number;
 	lists?: string;
@@ -347,6 +348,7 @@ export async function handleUpdateCampaignCommand({
 				subject: flags.subject,
 				from_email: flags["from-email"],
 				body: flags.body,
+				body_source: flags["body-source"],
 				altbody: flags.altbody,
 				type: flags.type,
 				template_id: flags["template-id"],
@@ -624,6 +626,10 @@ export default defineGroup({
 				}),
 				body: option(z.string().min(1).optional(), {
 					description: "Campaign body",
+				}),
+				"body-source": option(z.string().optional(), {
+					description:
+						"Visual-editor source (JSON). Preserved so visual campaigns stay editable in the builder.",
 				}),
 				altbody: option(z.string().optional(), {
 					description: "Plain-text alternative",

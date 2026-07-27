@@ -8,18 +8,13 @@ export const resourceIdSchema = z
 		]),
 		z.number().int().positive(),
 		{
-			decode: (value) => {
-				const num = Number(value);
-				if (!Number.isSafeInteger(num)) {
-					throw new Error(
-						`resource ID ${value} exceeds the maximum safe integer (${Number.MAX_SAFE_INTEGER})`,
-					);
-				}
-				return num;
-			},
+			decode: (value) => Number(value),
 			encode: (value) => value,
 		},
 	)
+	.refine((value) => Number.isSafeInteger(value), {
+		message: `resource ID exceeds the maximum safe integer (${Number.MAX_SAFE_INTEGER})`,
+	})
 	.describe("Listmonk resource ID");
 
 export const optionalBooleanSchema = z.preprocess((value) => {

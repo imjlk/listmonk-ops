@@ -154,6 +154,7 @@ const updateCampaignInputSchema = z
 		subject: campaignBodyFields.subject.optional(),
 		from_email: campaignBodyFields.from_email.optional(),
 		body: campaignBodyFields.body.optional(),
+		body_source: campaignBodyFields.body_source.optional(),
 		altbody: z.string().optional(),
 		type: campaignTypeSchema.optional(),
 		template_id: resourceIdSchema.nullable().optional(),

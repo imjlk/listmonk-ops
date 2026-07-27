@@ -314,6 +314,24 @@ async function runSubscriberBulk(
 }
 
 /**
+ * Unwrap a bulk mutation response and require a positive acknowledgement.
+ * Listmonk sometimes returns `{ data: false }` without an error envelope
+ * when a mutation is rejected; `unwrapResourceResponse` treats that as
+ * success because `false` is a defined value. We explicitly require
+ * `data === true` so the bulk executor's fail-fast and continue-on-error
+ * bookkeeping stay accurate.
+ */
+function requireBulkAcknowledgement(
+	response: { data?: unknown; error?: unknown },
+	context: string,
+): void {
+	unwrapResourceResponse(response, context);
+	if (response.data !== true) {
+		throw new Error(`${context}: Listmonk returned a negative acknowledgement`);
+	}
+}
+
+/**
  * Add a batch of subscribers to one or more lists. Subscriber IDs are
  * chunked and each chunk is sent as a `manageLists` action: add. Respects
  * the shared bulk options (dry_run, max_items, continue_on_error).
@@ -335,7 +353,7 @@ export async function addSubscribersToLists(
 					target_list_ids: targetListIds,
 				},
 			});
-			unwrapResourceResponse(
+			requireBulkAcknowledgement(
 				response,
 				"Failed to add subscribers to lists",
 			);
@@ -364,7 +382,7 @@ export async function removeSubscribersFromLists(
 					target_list_ids: targetListIds,
 				},
 			});
-			unwrapResourceResponse(
+			requireBulkAcknowledgement(
 				response,
 				"Failed to remove subscribers from lists",
 			);
@@ -391,7 +409,7 @@ async function applyBlocklistAction(
 			const response = await ctx.client.subscriber.manageBlocklist({
 				body: { action, ids: chunk },
 			});
-			unwrapResourceResponse(
+			requireBulkAcknowledgement(
 				response,
 				`Failed to ${action} subscriber blocklist entries`,
 			);

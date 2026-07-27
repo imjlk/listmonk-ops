@@ -151,11 +151,15 @@ export async function handleUploadMediaCommand({
 		const basename = flags.file.split(/[\\/]/).pop();
 		const filename = basename && basename.length > 0 ? basename : "upload";
 		await renderUploadMedia(
-			{ client, output: getOutput() },
-			{
-				base64,
-				filename,
-				content_type: flags["content-type"] ?? (file.type || undefined),
+				{ client, output: getOutput() },
+				{
+					base64,
+					filename,
+					// Strip MIME parameters (e.g. `text/plain;charset=utf-8`
+					// from Bun.file) so the shared operation's allowlist and
+					// extension-consistency check see a bare MIME type.
+					content_type:
+						(flags["content-type"] || file.type || undefined)?.split(";")[0],
 			},
 		);
 	} catch (error) {

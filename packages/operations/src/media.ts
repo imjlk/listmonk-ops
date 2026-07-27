@@ -270,8 +270,9 @@ const uploadMediaInputSchema = z
 		// request cannot bury a small valid payload inside hundreds of MB
 		// of whitespace or data-URL metadata. The cap is the encoded form
 		// of MAX_MEDIA_UPLOAD_BYTES plus generous slack for padding,
-		// data-URL prefix, and whitespace wrapping.
-		const rawCap = Math.ceil((MAX_MEDIA_UPLOAD_BYTES * 4) / 3) + 1024;
+		// data-URL prefix, and conventional 76-char base64 wrapping
+		// (which adds ~184K LF characters for a 10 MiB file).
+		const rawCap = Math.ceil((MAX_MEDIA_UPLOAD_BYTES * 4) / 3) + 1_000_000;
 		if (input.base64.length > rawCap) {
 			ctx.addIssue({
 				code: "custom",
