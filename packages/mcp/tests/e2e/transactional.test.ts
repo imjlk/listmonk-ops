@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	fetchMailpitJson,
 	findMailpitMessage,
+	findMailpitMessages,
 	type MailpitMessage,
 	type MailpitMessageSummary,
 } from "./mailpit.js";
@@ -40,13 +41,15 @@ describe("Transactional MCP Tool", () => {
 			headers: [{ [headerName]: traceId }],
 		});
 
-		expect(
-			utils.assertSuccess<boolean>(
-				sendResult,
-				"Failed to send transactional message",
-			),
-		).toBe(true);
-		expect(sendResult.structuredContent).toEqual({ sent: true });
+		// assertSuccess returns the legacySuccessText result (boolean); read
+		// the structured object from result.structuredContent instead.
+		expect(sendResult.isError).toBeFalsy();
+		const sendStructured = sendResult.structuredContent as {
+			sent: boolean;
+			status: string;
+		};
+		expect(sendStructured.sent).toBe(true);
+		expect(sendStructured.status).toBe("accepted");
 
 		let delivered: MailpitMessageSummary | undefined;
 		await utils.waitFor(async () => {
@@ -73,5 +76,84 @@ describe("Transactional MCP Tool", () => {
 			`/message/${delivered.ID}/headers`,
 		);
 		expect(headers[headerName]).toContain(traceId);
+	});
+
+	test("replays an idempotent send instead of re-dispatching", async () => {
+		const recipient = buildTestEmail("transactional-idem");
+		const subject = buildTestName("transactional-idem-subject");
+		const traceId = buildTestName("transactional-idem-trace");
+		const idempotencyKey = buildTestName("transactional-idem-key");
+		const headerName = "X-Listmonk-Ops-Idem-Test";
+		const body = "<p>Transactional idempotency replay.</p>";
+
+		await utils.createTestSubscriber(
+			recipient,
+			buildTestName("transactional-idem-subscriber"),
+		);
+		const createResult = await client.callTool("listmonk_create_template", {
+			name: buildTestName("transactional-idem-template"),
+			type: "tx",
+			subject,
+			body,
+		});
+		const template = utils.assertSuccess<{ id: number }>(
+			createResult,
+			"Failed to create transactional idempotency template",
+		);
+
+		const payload = {
+			template_id: template.id,
+			subscriber_email: recipient,
+			from_email: "listmonk-ops@example.com",
+			content_type: "html" as const,
+			data: { trace_id: traceId },
+			headers: [{ [headerName]: traceId }],
+			idempotency_key: idempotencyKey,
+		};
+
+		const first = await client.callTool("listmonk_send_transactional", payload);
+		expect(first.isError).toBeFalsy();
+		const firstStructured = first.structuredContent as {
+			sent: boolean;
+			status: string;
+			duplicate?: boolean;
+			idempotency_key?: string;
+		};
+		expect(firstStructured.sent).toBe(true);
+		expect(firstStructured.status).toBe("accepted");
+		expect(firstStructured.duplicate).toBe(false);
+		expect(firstStructured.idempotency_key).toBe(idempotencyKey);
+
+		// Identical retry — Listmonk must not be called again.
+		const replay = await client.callTool("listmonk_send_transactional", payload);
+		expect(replay.isError).toBeFalsy();
+		const replayStructured = replay.structuredContent as {
+			sent: boolean;
+			status: string;
+			duplicate?: boolean;
+			idempotency_key?: string;
+		};
+		expect(replayStructured.sent).toBe(true);
+		expect(replayStructured.status).toBe("replayed");
+		expect(replayStructured.duplicate).toBe(true);
+		expect(replayStructured.idempotency_key).toBe(idempotencyKey);
+
+		// Exactly one delivery landed in Mailpit. Query the full match list
+		// (not just the first match) so an accidental second dispatch would
+		// surface as a count > 1.
+		let deliveries: MailpitMessageSummary[] = [];
+		await utils.waitFor(async () => {
+			try {
+				deliveries = await findMailpitMessages(recipient, subject);
+				return deliveries.length >= 1;
+			} catch {
+				return false;
+			}
+		}, 20000);
+		// Give a duplicate a brief window to surface if the wrapper regressed
+		// and re-dispatched; the count must remain 1.
+		await new Promise((resolve) => setTimeout(resolve, 1500));
+		deliveries = await findMailpitMessages(recipient, subject);
+		expect(deliveries).toHaveLength(1);
 	});
 });

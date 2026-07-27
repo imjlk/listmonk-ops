@@ -85,6 +85,8 @@ export LISTMONK_OPS_SEGMENT_STORE="$HOME/.listmonk-ops/ops/segment-drift.json"
 export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry.json"
 # 선택: 메타데이터 전용 MCP Operation 감사 저장소 경로 재정의
 export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
+# 선택: 트랜잭션 멱등성(idempotency) 저장소 경로 재정의
+export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
 ```
 
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
@@ -417,8 +419,34 @@ listmonk-cli tx send \
 이메일 또는 ID 선택자는 Listmonk에 이미 등록된 subscriber를 대상으로 합니다.
 
 대응하는 MCP 도구는 `listmonk_send_transactional`입니다. 기존 클라이언트를
-위한 boolean 텍스트 결과는 유지하면서 `{"sent": true}` structured content도
-반환합니다.
+위한 boolean 텍스트 결과는 유지하면서 `{"sent": true, "status": "accepted"}`
+형태의 structured content도 반환합니다.
+
+### 멱등성(idempotent) 트랜잭셔널 발송
+
+Listmonk의 `/api/tx` 엔드포인트는 발송 결과를 boolean으로만 알려주기 때문에
+클라이언트가 타임아웃 후 재시도할 때 메일이 이미 발송되었는지 알 수 없습니다.
+`idempotency_key`를 주면 재시도가 안전해집니다.
+
+```bash
+listmonk-cli tx send \
+  --template-id 42 \
+  --subscriber-email recipient@example.com \
+  --idempotency-key "$(uuidgen)"
+```
+
+래퍼 동작:
+
+- 발송 전에 `idempotency_key`로 `pending` 레코드를 저장합니다.
+- 동일한 재시도는 저장된 결과를 그대로 반환(`status: "replayed"`,
+  `duplicate: true`)하며 Listmonk를 다시 호출하지 않습니다.
+- 같은 키로 다른 payload가 들어오면 충돌로 거부합니다.
+- 타임아웃이나 연결 리셋 같은 모호한 전송 실패는 `unknown`으로 기록하고 자동
+  재시도를 차단합니다. Listmonk와 멱등성 레코드를 확인한 뒤 수동으로
+  reconcile하세요.
+
+저장소 경로 기본값은 `~/.listmonk-ops/transactional.json`이며
+`LISTMONK_OPS_TRANSACTIONAL_STORE`로 재정의할 수 있습니다.
 
 ## A/B 테스트 운영 명령
 

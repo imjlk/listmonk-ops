@@ -1,10 +1,17 @@
-import type { OutputUtils } from "@listmonk-ops/common";
+import {
+	createFileBackedTransactionalIdempotencyStore,
+	hashTransactionalPayload,
+	type OutputUtils,
+} from "@listmonk-ops/common";
 import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	idempotencyKeySchema,
 	invokeSendTransactionalOperation,
 	OperationExecutionError,
+	TransactionalReconcileError,
 	type SendTransactionalInput,
+	type SendTransactionalOutput,
 } from "@listmonk-ops/operations";
 import { z } from "zod";
 import {
@@ -14,13 +21,20 @@ import {
 	option,
 } from "../lib/command";
 import { parseJson, toErrorMessage } from "../lib/command-utils";
-import { getListmonkClient } from "../lib/listmonk";
+import { resolveListmonkSession } from "../lib/listmonk";
 
 type TransactionalOutput = Pick<typeof OutputUtils, "json" | "success">;
 
 export interface TransactionalCliContext {
 	client: Pick<ListmonkClient, "transactional">;
 	output: TransactionalOutput;
+	idempotencyStore?: Parameters<
+		typeof invokeSendTransactionalOperation
+	>[0]["idempotencyStore"];
+	hashPayload?: Parameters<
+		typeof invokeSendTransactionalOperation
+	>[0]["hashPayload"];
+	target?: { baseUrl?: string; username?: string };
 }
 
 export function createTransactionalCommandError(error: unknown): Error {
@@ -35,13 +49,26 @@ export function createTransactionalCommandError(error: unknown): Error {
 	);
 }
 
+function summarizeTransactionalOutput(output: SendTransactionalOutput): string {
+	if (output.status === "replayed") {
+		return `Transactional message replayed (duplicate of idempotency key ${output.idempotency_key ?? "?"})`;
+	}
+	if (output.status === "failed") {
+		return "Transactional message was rejected by Listmonk";
+	}
+	if (output.idempotency_key !== undefined) {
+		return `Transactional message sent (idempotency key ${output.idempotency_key})`;
+	}
+	return "Transactional message sent";
+}
+
 export async function renderTransactionalSend(
 	context: TransactionalCliContext,
 	input: SendTransactionalInput,
 ): Promise<void> {
 	const output = await invokeSendTransactionalOperation(context, input);
-	context.output.success("Transactional message sent");
-	context.output.json(output.sent);
+	context.output.success(summarizeTransactionalOutput(output));
+	context.output.json(output);
 }
 
 type SendTransactionalFlags = {
@@ -52,6 +79,7 @@ type SendTransactionalFlags = {
 	data?: string;
 	headers?: string;
 	"content-type"?: "html" | "markdown" | "plain";
+	"idempotency-key"?: string;
 };
 
 export async function handleSendTransactionalCommand({
@@ -59,7 +87,13 @@ export async function handleSendTransactionalCommand({
 	...args
 }: HandlerArgs<SendTransactionalFlags>): Promise<void> {
 	try {
-		const client = await getListmonkClient(args);
+		// Resolve the full session (not just the client) so the idempotency
+		// wrapper can namespace records by the resolved Listmonk target.
+		const session = await resolveListmonkSession(args, { requireAuth: true });
+		if (!session.client) {
+			throw new Error("Listmonk client is not available");
+		}
+		const client = session.client;
 		const data = flags.data
 			? parseJson<NonNullable<SendTransactionalInput["data"]>>(
 					flags.data,
@@ -74,7 +108,14 @@ export async function handleSendTransactionalCommand({
 			: undefined;
 
 		await renderTransactionalSend(
-			{ client, output: getOutput() },
+			{
+				client,
+				output: getOutput(),
+				idempotencyStore:
+					createFileBackedTransactionalIdempotencyStore(),
+				hashPayload: hashTransactionalPayload,
+				target: { baseUrl: session.baseUrl, username: session.username },
+			},
 			{
 				template_id: flags["template-id"],
 				subscriber_email: flags["subscriber-email"],
@@ -83,9 +124,15 @@ export async function handleSendTransactionalCommand({
 				data,
 				headers,
 				content_type: flags["content-type"],
+				idempotency_key: flags["idempotency-key"],
 			},
 		);
 	} catch (error) {
+		if (error instanceof TransactionalReconcileError) {
+			// Reconcile-required errors carry operator guidance that the
+			// generic wrapper would mangle. Surface the full message verbatim.
+			throw error;
+		}
 		throw createTransactionalCommandError(error);
 	}
 }
@@ -123,6 +170,10 @@ export default defineGroup({
 						description: "Message content type",
 					},
 				),
+				"idempotency-key": option(idempotencyKeySchema, {
+					description:
+						"Optional idempotency key. A retry with the same key and payload replays the original result instead of re-sending.",
+				}),
 			},
 			handler: handleSendTransactionalCommand,
 		}),

@@ -116,6 +116,30 @@ const sendTransactionalInvoker =
 	"packages/operations/src/transactional.ts#invokeSendTransactionalOperation:function";
 const sendTransactionalAction =
 	"packages/operations/src/transactional.ts#sendTransactionalMessage:function";
+const dispatchTransactionalToListmonk =
+	"packages/operations/src/transactional.ts#dispatchToListmonk:function";
+const transactionalIdempotencyCommitBestEffort =
+	"packages/operations/src/transactional.ts#commitBestEffort:function";
+const transactionalIdempotencyReleaseBestEffort =
+	"packages/operations/src/transactional.ts#releaseBestEffort:function";
+const transactionalSerializePayload =
+	"packages/operations/src/transactional-idempotency.ts#serializeTransactionalPayload:function";
+// File-backed implementation lives in common (Node-only) so the operations
+// package stays runtime-neutral; adapters inject it via the interface.
+const commonTransactionalClaim =
+	"packages/common/src/transactional-idempotency-store.ts#claimTransactionalSend:function";
+const commonTransactionalCommit =
+	"packages/common/src/transactional-idempotency-store.ts#commitTransactionalSend:function";
+const commonTransactionalRelease =
+	"packages/common/src/transactional-idempotency-store.ts#releaseTransactionalSend:function";
+const commonTransactionalStoreFactory =
+	"packages/common/src/transactional-idempotency-store.ts#createFileBackedTransactionalIdempotencyStore:function";
+const commonTransactionalHash =
+	"packages/common/src/transactional-idempotency-store.ts#hashTransactionalPayload:function";
+const transactionalIdempotencyStoreUpdate =
+	"packages/common/src/json-file-store.ts#updateJsonFileStore:function";
+const transactionalIdempotencyStoreTest =
+	"packages/common/tests/transactional-idempotency-store.test.ts#packages/common/tests/transactional-idempotency-store.test.ts:module";
 const openapiTransactionalMethod =
 	"packages/openapi/src/client/contracts.ts#TransactionalOperations.send:method";
 const mcpTestClientCallTool =
@@ -128,6 +152,8 @@ const cliTransactionalParityRunner =
 	"packages/mcp/tests/e2e/transactional-parity.test.ts#runCliTransactionalSend:function";
 const findMailpitMessage =
 	"packages/mcp/tests/e2e/mailpit.ts#findMailpitMessage:function";
+const findMailpitMessages =
+	"packages/mcp/tests/e2e/mailpit.ts#findMailpitMessages:function";
 const fetchMailpitJson =
 	"packages/mcp/tests/e2e/mailpit.ts#fetchMailpitJson:function";
 const mailpitHelperRegressionTest =
@@ -1616,6 +1642,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			cliTransactionalRenderer,
 			sendTransactionalInvoker,
 			sendTransactionalAction,
+			dispatchTransactionalToListmonk,
 			openapiTransactionalMethod,
 		],
 	},
@@ -1627,6 +1654,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			transactionalDispatcher,
 			sendTransactionalInvoker,
 			sendTransactionalAction,
+			dispatchTransactionalToListmonk,
 			openapiTransactionalMethod,
 		],
 	},
@@ -1641,6 +1669,54 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			sendTransactionalInvoker,
 			sendTransactionalAction,
 		],
+	},
+	{
+		label: "transactional wrapper serializes the payload for adapter hashing",
+		path: [sendTransactionalAction, transactionalSerializePayload],
+	},
+	{
+		label: "transactional wrapper commits terminal state through the store",
+		path: [sendTransactionalAction, transactionalIdempotencyCommitBestEffort],
+	},
+	{
+		label: "transactional wrapper releases claims on definitive thrown errors",
+		path: [sendTransactionalAction, transactionalIdempotencyReleaseBestEffort],
+	},
+	{
+		label: "common file-backed idempotency store reaches the JSON persistence layer",
+		path: [commonTransactionalClaim, transactionalIdempotencyStoreUpdate],
+	},
+	{
+		label: "common file-backed idempotency store commits terminal state atomically",
+		path: [commonTransactionalCommit, transactionalIdempotencyStoreUpdate],
+	},
+	{
+		label: "common file-backed idempotency store releases claims atomically",
+		path: [commonTransactionalRelease, transactionalIdempotencyStoreUpdate],
+	},
+	{
+		label: "common store factory wires claim into the store interface",
+		path: [commonTransactionalStoreFactory, commonTransactionalClaim],
+	},
+	{
+		label: "common store factory wires commit into the store interface",
+		path: [commonTransactionalStoreFactory, commonTransactionalCommit],
+	},
+	{
+		label: "common store factory wires release into the store interface",
+		path: [commonTransactionalStoreFactory, commonTransactionalRelease],
+	},
+	{
+		label: "common store tests anchor the file-backed claim contract",
+		path: [transactionalIdempotencyStoreTest, commonTransactionalClaim],
+	},
+	{
+		label: "common store tests anchor the file-backed commit contract",
+		path: [transactionalIdempotencyStoreTest, commonTransactionalCommit],
+	},
+	{
+		label: "common store tests anchor the file-backed release contract",
+		path: [transactionalIdempotencyStoreTest, commonTransactionalRelease],
 	},
 	{
 		label: "CLI tests anchor the transactional send path",
@@ -1670,7 +1746,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	},
 	{
 		label: "MCP transactional E2E tests inspect Mailpit delivery",
-		path: [mcpTransactionalE2eTest, findMailpitMessage, fetchMailpitJson],
+		path: [mcpTransactionalE2eTest, findMailpitMessages, fetchMailpitJson],
 	},
 	{
 		label: "Mailpit helper has a direct request-time URL regression test",
@@ -1678,7 +1754,16 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 	},
 	{
 		label: "Mailpit helper has a direct server-side search regression test",
-		path: [mailpitHelperRegressionTest, findMailpitMessage, fetchMailpitJson],
+		path: [
+			mailpitHelperRegressionTest,
+			findMailpitMessage,
+			findMailpitMessages,
+			fetchMailpitJson,
+		],
+	},
+	{
+		label: "Mailpit single-match helper delegates to the multi-match search",
+		path: [findMailpitMessage, findMailpitMessages],
 	},
 	{
 		label: "CLI/MCP transactional parity E2E invokes the CLI subprocess runner",
@@ -1699,6 +1784,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 		path: [
 			cliMcpTransactionalParityE2eTest,
 			findMailpitMessage,
+			findMailpitMessages,
 			fetchMailpitJson,
 		],
 	},

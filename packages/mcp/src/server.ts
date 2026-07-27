@@ -1,5 +1,6 @@
 import {
 	createOperationAuditExecutionId,
+	normalizeListmonkApiUrl,
 	recordOperationAudit,
 	type OperationAuditEvent,
 	type OperationAuditStoreOptions,
@@ -158,6 +159,7 @@ export class ListmonkMCPServer {
 	private tools: Map<string, MCPTool>;
 	private client: ListmonkClient;
 	private baseUrl: string;
+	private username: string;
 	private auditStoreOptions: OperationAuditStoreOptions;
 	private httpAuthToken: string | undefined;
 	private allowedHttpHosts: Set<string>;
@@ -176,7 +178,13 @@ export class ListmonkMCPServer {
 	}) {
 		this.app = new Hono();
 		this.tools = new Map();
-		this.baseUrl = config.baseUrl;
+		// Canonicalize baseUrl via the shared utility so the CLI and MCP
+		// compute identical idempotency target hashes and send to the same
+		// endpoint. The same value feeds both the client and the target
+		// namespace — a divergence would let one surface replay the other's
+		// result or hash a URL the client never used.
+		this.baseUrl = normalizeListmonkApiUrl(config.baseUrl);
+		this.username = config.username.trim();
 		this.auditStoreOptions = {
 			path: config.auditStorePath,
 			limit: config.auditStoreLimit,
@@ -197,12 +205,14 @@ export class ListmonkMCPServer {
 			);
 		}
 
-		// Create ListmonkClient instance
+		// Create ListmonkClient instance. Auth uses the canonical username
+		// (this.username) so a value like " alice " authenticates with the
+		// same identity used for idempotency namespacing.
 		const credential = config.apiToken || config.password;
-		const authString = `${config.username}:${credential}`;
+		const authString = `${this.username}:${credential}`;
 
 		this.client = createListmonkClient({
-			baseUrl: config.baseUrl,
+			baseUrl: this.baseUrl,
 			headers: {
 				Authorization: `token ${authString}`,
 			},
@@ -474,7 +484,10 @@ export class ListmonkMCPServer {
 			} else if (toolNameSets.settings.has(name)) {
 				result = await handleSettingsTools(operationRequest, this.client);
 			} else if (isTransactionalToolName(name)) {
-				result = await handleTransactionalTools(operationRequest, this.client);
+				result = await handleTransactionalTools(operationRequest, this.client, {
+					baseUrl: this.baseUrl,
+					username: this.username,
+				});
 			} else if (toolNameSets.ops.has(name)) {
 				result = await handleOpsTools(operationRequest, this.client);
 			} else if (toolNameSets.abtest.has(name)) {

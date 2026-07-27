@@ -46,7 +46,10 @@ describe("transactional CLI action", () => {
 		expect(cliContext.output.success).toHaveBeenCalledWith(
 			"Transactional message sent",
 		);
-		expect(cliContext.output.json).toHaveBeenCalledWith(true);
+		expect(cliContext.output.json).toHaveBeenCalledWith({
+			sent: true,
+			status: "accepted",
+		});
 	});
 
 	test("does not render success when shared validation fails", async () => {

@@ -1,3 +1,4 @@
+export { normalizeListmonkApiUrl } from "./listmonk-url";
 export {
 	commitJsonFileStoreUpdate,
 	JsonFileLockTimeoutError,
@@ -27,6 +28,30 @@ export type {
 	OperationAuditSurface,
 	RecordOperationAuditInput,
 } from "./operation-audit";
+export {
+	claimTransactionalSend,
+	commitTransactionalSend,
+	computeTransactionalTargetHash,
+	createFileBackedTransactionalIdempotencyStore,
+	DEFAULT_TRANSACTIONAL_TTL_MS,
+	getTransactionalStorePath,
+	hashTransactionalPayload,
+	isStoredTransactionalSendRecord,
+	loadStoredTransactionalDocument,
+	newTransactionalIdempotencyKey,
+	parseStoredTransactionalDocument,
+	releaseTransactionalSend,
+	TransactionalStoreCapacityError,
+	TRANSACTIONAL_STORE_MAX_RECORDS,
+	validateStoredTransactionalStore,
+} from "./transactional-idempotency-store";
+export type {
+	StoredTransactionalDocument,
+	TransactionalClaimResult,
+	TransactionalIdempotencyStore,
+	TransactionalSendRecord,
+	TransactionalSendStatus,
+} from "./transactional-idempotency-store";
 
 // Common validation utilities
 export const ValidationUtils = {

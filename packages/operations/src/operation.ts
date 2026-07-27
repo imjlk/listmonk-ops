@@ -133,11 +133,29 @@ export function parseOperationInput<const InputSchema extends z.ZodType>(
 	return parsedInput.data;
 }
 
+/**
+ * Union of operation-scoped error types that can escape an invoker. Members
+ * preserve their concrete class so callers can narrow on `instanceof` and
+ * read typed metadata (e.g. `TransactionalReconcileError.status`).
+ */
+export type OperationError =
+	| OperationExecutionError
+	| OperationInputError
+	| OperationOutputError;
+
 export function normalizeOperationExecutionError(
 	operationId: string,
 	error: unknown,
-): OperationExecutionError {
-	if (error instanceof OperationExecutionError) {
+): OperationError {
+	// Domain errors already carry operation-scoped context and typed
+	// metadata (validation path, reconcile-required status). Preserve them
+	// verbatim rather than re-wrapping into a generic execution error, so
+	// the concrete class and its typed fields survive the boundary.
+	if (
+		error instanceof OperationExecutionError ||
+		error instanceof OperationInputError ||
+		error instanceof OperationOutputError
+	) {
 		return error;
 	}
 	return new OperationExecutionError(operationId, error);

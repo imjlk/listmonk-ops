@@ -1,4 +1,5 @@
 import * as clack from "@clack/prompts";
+import { normalizeListmonkApiUrl } from "@listmonk-ops/common";
 import {
 	createListmonkClient,
 	type ListmonkClient,
@@ -18,23 +19,7 @@ export interface ListmonkSession {
 	client: ListmonkClient | null;
 }
 
-function normalizeApiUrl(url: string): string {
-	const trimmed = url.trim();
-	if (!trimmed) {
-		throw new Error("Listmonk API URL is required");
-	}
-
-	const base = trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
-	const withApiSuffix = base.endsWith("/api") ? base : `${base}/api`;
-
-	try {
-		new URL(withApiSuffix);
-	} catch {
-		throw new Error(`Invalid Listmonk API URL: ${withApiSuffix}`);
-	}
-
-	return withApiSuffix;
-}
+const normalizeApiUrl = normalizeListmonkApiUrl;
 
 function shouldUseInteractivePrompt(args: ListmonkHandlerContext): boolean {
 	const flags = { ...getRuntimeFlags(), ...(args.flags ?? {}) };

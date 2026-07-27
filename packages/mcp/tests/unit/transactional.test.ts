@@ -34,6 +34,7 @@ describe("transactional operation MCP adapter", () => {
 			},
 			content_type: { enum: ["html", "markdown", "plain"] },
 			headers: { type: "array" },
+			idempotency_key: { type: "string" },
 		});
 		expect(tool?.outputSchema?.type).toBe("object");
 		expect(tool?.annotations).toMatchObject({
@@ -64,7 +65,10 @@ describe("transactional operation MCP adapter", () => {
 
 		expect(result.isError).toBeFalsy();
 		expect(result.content[0]?.text).toBe("true");
-		expect(result.structuredContent).toEqual({ sent: true });
+		expect(result.structuredContent).toEqual({
+			sent: true,
+			status: "accepted",
+		});
 		expect(send).toHaveBeenCalledWith({
 			template_id: 3,
 			subscriber_email: undefined,
@@ -93,7 +97,10 @@ describe("transactional operation MCP adapter", () => {
 
 		expect(result.isError).toBeFalsy();
 		expect(result.content[0]?.text).toBe("false");
-		expect(result.structuredContent).toEqual({ sent: false });
+		expect(result.structuredContent).toEqual({
+			sent: false,
+			status: "failed",
+		});
 	});
 
 	test("returns shared validation and API failures as MCP errors", async () => {
