@@ -186,11 +186,15 @@ export function getTransactionalStorePath(): string {
 	if (!overridden) {
 		return join(homedir(), ".listmonk-ops", "transactional.json");
 	}
-	// Resolve relative overrides against the current working directory so
-	// the CLI (invoked from any directory) and the MCP server (started from
-	// its service directory) share the same file. A relative path returned
-	// verbatim would be resolved against each process's cwd independently.
-	return resolve(overridden);
+	// Resolve relative overrides against the user's home directory (not
+	// process.cwd()) so the CLI (invoked from any directory) and the MCP
+	// server (started from its service directory) share the same file.
+	// A cwd-based resolve would map the same configuration to different
+	// files depending on where each process was launched.
+	if (overridden.startsWith("/")) {
+		return overridden;
+	}
+	return resolve(homedir(), overridden);
 }
 
 /**
@@ -299,7 +303,7 @@ export async function claimTransactionalSend(options: {
 	now?: () => Date;
 }): Promise<TransactionalClaimResult> {
 	const store = createTransactionalStore(options.storePath);
-	const now = (options.now ?? (() => new Date()))();
+	const nowFn = options.now ?? (() => new Date());
 	const ttlMs = options.ttlMs ?? DEFAULT_TRANSACTIONAL_TTL_MS;
 	// A non-positive TTL would produce an already-expired record; the next
 	// locked update would sweep it, so an identical retry would receive a
@@ -309,9 +313,13 @@ export async function claimTransactionalSend(options: {
 			`Transactional idempotency TTL must be a positive finite number of milliseconds (received ${String(ttlMs)})`,
 		);
 	}
-	const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
 
 	return updateJsonFileStore<StoredTransactionalDocument, TransactionalClaimResult>(store, (document) => {
+		// Capture the timestamp INSIDE the locked update so lock-wait time
+		// does not eat into the TTL. Computing it outside could persist a
+		// record whose expiration is already in the past after contention.
+		const now = nowFn();
+		const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
 		const swept = sweepExpiredRecords(document, now);
 		const records = swept.document.records;
 		const existing = getOwnRecord(records, options.key);

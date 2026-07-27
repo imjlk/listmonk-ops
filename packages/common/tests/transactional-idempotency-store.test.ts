@@ -127,15 +127,15 @@ describe("transactional idempotency file-backed store", () => {
 			}
 		});
 
-		test("resolves a relative override to an absolute path", () => {
+		test("resolves a relative override against the home directory (cwd-independent)", () => {
 			const previous = process.env.LISTMONK_OPS_TRANSACTIONAL_STORE;
 			process.env.LISTMONK_OPS_TRANSACTIONAL_STORE = "relative/store.json";
 			try {
 				const resolved = getTransactionalStorePath();
-				// Must be absolute so the CLI (any cwd) and MCP server
-				// (service cwd) share the same file.
+				// Must be absolute and anchored to home so the CLI (any cwd)
+				// and MCP server (service cwd) share the same file.
 				expect(resolved.startsWith("/")).toBe(true);
-				expect(resolved.endsWith("relative/store.json")).toBe(true);
+				expect(resolved).toBe(join(homedir(), "relative/store.json"));
 			} finally {
 				if (previous === undefined) {
 					delete process.env.LISTMONK_OPS_TRANSACTIONAL_STORE;

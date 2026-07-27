@@ -366,6 +366,14 @@ export function stableSerializeJson(
 		return Number.isNaN(time) ? "null" : JSON.stringify(value.toISOString());
 	}
 	if (Array.isArray(value)) {
+		// Honor a custom toJSON on the array itself before iterating
+		// elements: JSON.stringify calls array.toJSON() when present,
+		// replacing the whole array with the result.
+		const arrayToJSON = (value as unknown as { toJSON?: unknown }).toJSON;
+		if (typeof arrayToJSON === "function") {
+			const replaced = (arrayToJSON as () => unknown)();
+			return stableSerializeJson(replaced, seen);
+		}
 		if (seen.has(value)) {
 			throw new Error("Circular reference detected in transactional payload");
 		}

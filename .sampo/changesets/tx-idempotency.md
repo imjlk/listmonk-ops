@@ -11,7 +11,10 @@ When a key is supplied, the wrapper atomically claims an idempotency record
 before dispatch. Identical retries replay the original result instead of
 re-sending; a different payload under the same key is rejected as a conflict.
 Ambiguous transport failures (timeout, connection reset) leave an `unknown`
-record that blocks automatic retry until an operator reconciles.
+record that blocks automatic retry **for the TTL window** (24 hours by
+default). After the TTL expires the record is swept and the same key can be
+claimed again, so operators must reconcile within that window or supply a
+fresh key.
 
 The send output is extended to `{ sent, status, duplicate?, idempotency_key?, expires_at? }`
 where `status` is `"accepted" | "replayed" | "failed"`. The store path defaults
