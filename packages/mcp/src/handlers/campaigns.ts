@@ -145,7 +145,8 @@ const campaignLegacyTools: MCPTool[] = [
 	},
 	{
 		name: "listmonk_update_campaign_status",
-		description: "Update campaign status (start, pause, cancel, schedule, etc.)",
+		description:
+			"Deprecated: use listmonk_schedule_campaign, listmonk_start_campaign, listmonk_pause_campaign, or listmonk_cancel_campaign instead. Legacy campaign status update tool.",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -338,15 +339,27 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 						confirmed: args.confirm === true,
 						dryRun: false,
 					};
+					// Fail-closed: abort the lifecycle operation if the
+					// audit start event cannot be persisted. This matches
+					// the behavior of ListmonkMCPServer.callTool for
+					// catalog-registered mutations and prevents a
+					// destructive transition from becoming untraceable.
+					//
+					// NOTE: This legacy tool is deprecated and will be
+					// removed in a follow-up PR. Callers should migrate to
+					// listmonk_schedule_campaign, listmonk_start_campaign,
+					// listmonk_pause_campaign, listmonk_cancel_campaign,
+					// which use the server-level audit store and execution
+					// boundary directly.
 					try {
 						await recordOperationAudit(
 							{ ...auditBase, event: "started" },
 							undefined,
 						);
-					} catch {
-						// Non-fatal: proceed with the operation even if audit
-						// start fails. The lifecycle operation itself has
-						// already been confirmed above.
+					} catch (auditError) {
+						return createErrorResult(
+							`Unable to start audit for lifecycle operation '${mappedOperationId}': ${auditError instanceof Error ? auditError.message : String(auditError)}`,
+						);
 					}
 
 					// The HandlerFunction signature does not currently receive
