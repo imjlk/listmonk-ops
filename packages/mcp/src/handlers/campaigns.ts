@@ -5,6 +5,10 @@ import {
 	getOperationCatalogEntryByMcpName,
 	invokeCampaignOperationByMcpName,
 } from "@listmonk-ops/operations";
+import {
+	createOperationAuditExecutionId,
+	recordOperationAudit,
+} from "@listmonk-ops/common";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
 import type { HandlerFunction } from "../types/shared.js";
 import { mcpOperationCatalog } from "../operation-catalog.js";
@@ -318,16 +322,77 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 							args.confirm === true,
 						);
 					}
-					const lifecycleInvocation = await invokeCampaignOperationByMcpName(
-						{ client },
-						operationName,
-						args,
-					);
+
+					// Record an audit trail for the mapped lifecycle operation.
+					// The server's callTool boundary records audits under the
+					// legacy tool name (which is not in the catalog), so the
+					// destructive mutation would go unaudited without this
+					// explicit entry.
+					const auditExecutionId = createOperationAuditExecutionId();
+					const mappedOperationId = entry?.operation.id ?? operationName;
+					const auditBase = {
+						executionId: auditExecutionId,
+						surface: "mcp" as const,
+						operationId: mappedOperationId,
+						confirmationRequired: entry?.operation.safety.destructiveHint ?? true,
+						confirmed: args.confirm === true,
+						dryRun: false,
+					};
+					try {
+						await recordOperationAudit(
+							{ ...auditBase, event: "started" },
+							undefined,
+						);
+					} catch {
+						// Non-fatal: proceed with the operation even if audit
+						// start fails. The lifecycle operation itself has
+						// already been confirmed above.
+					}
+
+					// The HandlerFunction signature does not currently receive
+					// auditStoreOptions, so these writes fall back to the
+					// default store path. If the server is configured with a
+					// custom auditStorePath, entries will be split across
+					// two files. This is a known limitation of the legacy
+					// handler routing — the shared-operation path uses the
+					// server-level configured store.
+					let lifecycleInvocation;
+					let invocationError: Error | undefined;
+					try {
+						lifecycleInvocation = await invokeCampaignOperationByMcpName(
+							{ client },
+							operationName,
+							args,
+						);
+					} catch (error) {
+						invocationError = error instanceof Error ? error : new Error(String(error));
+						lifecycleInvocation = undefined;
+					}
 					if (lifecycleInvocation) {
+						try {
+							await recordOperationAudit(
+								{ ...auditBase, event: "succeeded" },
+								undefined,
+							);
+						} catch {
+							// Non-fatal: never replace a successful result
+							// with an audit write failure.
+						}
 						return createOperationResult(
 							lifecycleInvocation.operation,
 							lifecycleInvocation.output,
 						);
+					}
+					try {
+						await recordOperationAudit(
+							{ ...auditBase, event: "failed" },
+							undefined,
+						);
+					} catch {
+						// Non-fatal
+					}
+					if (invocationError) {
+						throw invocationError;
 					}
 					return createErrorResult(
 						`Lifecycle operation '${operationName}' could not be resolved for status '${rawStatus}'`,
