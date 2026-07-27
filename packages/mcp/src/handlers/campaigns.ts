@@ -142,7 +142,7 @@ const campaignLegacyTools: MCPTool[] = [
 	},
 	{
 		name: "listmonk_update_campaign_status",
-		description: "Update campaign status (start, pause, cancel, etc.)",
+		description: "Update campaign status (start, pause, cancel, schedule, etc.)",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -161,6 +161,11 @@ const campaignLegacyTools: MCPTool[] = [
 						"cancelled",
 					],
 					description: "New campaign status",
+				},
+				send_at: {
+					type: "string",
+					description:
+						"ISO 8601 scheduled send timestamp. Required when status is 'scheduled'.",
 				},
 			},
 			required: ["id", "status"],
@@ -276,9 +281,44 @@ export const handleCampaignsTools: HandlerFunction = withErrorHandler(
 					return createErrorResult(validation);
 				}
 
+				// Route destructive lifecycle statuses through the shared
+				// operations so the state-machine and confirmation gate
+				// apply. Explicit mapping avoids the status-past-tense vs
+				// operation-verb mismatch (running -> start, paused -> pause).
+				const lifecycleOperationNames: Record<string, string> = {
+					scheduled: "listmonk_schedule_campaign",
+					running: "listmonk_start_campaign",
+					paused: "listmonk_pause_campaign",
+					cancelled: "listmonk_cancel_campaign",
+				};
+				const rawStatus = String(args.status);
+				const operationName = lifecycleOperationNames[rawStatus];
+				if (operationName) {
+					const lifecycleInvocation = await invokeCampaignOperationByMcpName(
+						{ client },
+						operationName,
+						args,
+					);
+					if (lifecycleInvocation) {
+						return createOperationResult(
+							lifecycleInvocation.operation,
+							lifecycleInvocation.output,
+						);
+					}
+					return createErrorResult(
+						`Lifecycle operation '${operationName}' could not be resolved for status '${rawStatus}'`,
+					);
+				}
+
 				const response = await client.campaign.updateStatus({
 					path: { id: parseId(args.id) },
-					body: { status: castCampaignStatus(args.status) },
+					body: {
+						status: castCampaignStatus(rawStatus) as
+							| "scheduled"
+							| "running"
+							| "paused"
+							| "cancelled",
+					},
 				});
 				return handleDataResponse(response, "Failed to update campaign status");
 			}

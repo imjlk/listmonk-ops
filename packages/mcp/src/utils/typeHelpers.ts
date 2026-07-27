@@ -85,12 +85,20 @@ export function arrayToCommaString(arr: unknown): string | undefined {
  */
 export function castCampaignStatus(
 	status: unknown,
-): "scheduled" | "running" | "paused" | "cancelled" {
+):
+	| "scheduled"
+	| "running"
+	| "paused"
+	| "cancelled"
+	| "draft"
+	| "finished" {
 	const validStatuses = [
 		"scheduled",
 		"running",
 		"paused",
 		"cancelled",
+		"draft",
+		"finished",
 	] as const;
 	if (typeof status !== "string") {
 		throw new Error(
@@ -102,7 +110,7 @@ export function castCampaignStatus(
 			`Invalid campaign status: ${status}. Valid statuses: ${validStatuses.join(", ")}`,
 		);
 	}
-	return status as "scheduled" | "running" | "paused" | "cancelled";
+	return status as (typeof validStatuses)[number];
 }
 
 /**

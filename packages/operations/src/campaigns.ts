@@ -129,7 +129,7 @@ const campaignBodyFields = {
 	body_source: z.string().nullable().optional(),
 	altbody: z.string().optional(),
 	type: campaignTypeSchema.default("regular"),
-	template_id: resourceIdSchema,
+	template_id: resourceIdSchema.nullable(),
 	lists: z.array(resourceIdSchema).min(1),
 	tags: z.array(z.string()).default([]),
 	messenger: z.string().trim().min(1).default("email"),
@@ -657,7 +657,9 @@ export async function cloneCampaign(
 		content_type: source.content_type,
 		messenger: source.messenger,
 		tags: source.tags,
-		template_id: source.template_id ?? undefined,
+		// Normalize undefined to null so campaigns that omit the field
+		// entirely also clone cleanly.
+		template_id: source.template_id ?? null,
 		lists: sourceLists,
 		headers: source.headers,
 		attribs: source.attribs,
