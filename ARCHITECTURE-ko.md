@@ -436,8 +436,7 @@ export class GenerateReportCommand extends BaseCommand<ReportInput, Report> {
 
 ### Phase 1: 핵심 A/B 테스트
 
-- `packages/core` 및 `packages/operations` 구현
-- 기본 SvelteKit 대시보드
+- `packages/operations` 및 `packages/abtest` 구현
 - 기본 gunshi CLI
 
 ### Phase 2: 자동화 기능
