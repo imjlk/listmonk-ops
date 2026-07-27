@@ -121,3 +121,18 @@ export const deleteResourceSafety = {
 	idempotentHint: true,
 	openWorldHint: true,
 } as const;
+
+/**
+ * Safety metadata for campaign lifecycle transitions that start delivery
+ * (`schedule`, `start`) or move a campaign into a terminal state
+ * (`cancel`). These operations are idempotent (re-applying the same
+ * transition is a no-op) but they trigger or terminate mass mail delivery
+ * and are not reversible, so they must require explicit confirmation at
+ * every surface (CLI `--confirm`, MCP confirmation flow).
+ */
+export const deliveryTransitionSafety = {
+	readOnlyHint: false,
+	destructiveHint: true,
+	idempotentHint: true,
+	openWorldHint: true,
+} as const;

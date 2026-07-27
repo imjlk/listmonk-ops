@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
 	createResourceSafety,
 	deleteResourceSafety,
+	deliveryTransitionSafety,
 	jsonResourceValue,
 	normalizeResourceList,
 	readResourceSafety,
@@ -560,6 +561,10 @@ export async function cloneCampaign(
 		subject: source.subject,
 		from_email: source.from_email,
 		body: source.body,
+		// Preserve the visual-editor source so a clone of a `visual`
+		// campaign can still be edited in Listmonk's visual builder. The
+		// create schema allows null here for non-visual campaigns.
+		body_source: source.body_source ?? undefined,
 		altbody: source.altbody ?? undefined,
 		type: source.type,
 		content_type: source.content_type,
@@ -583,13 +588,20 @@ export async function cloneCampaign(
 		);
 	}
 	if (createResponse.data !== undefined) return asCampaign(createResponse.data);
-	const created = await findCreatedCampaign(ctx.client, input.name);
-	if (!created) {
+	// Listmonk occasionally accepts the create but returns no body. Falling
+	// back to a name lookup is ambiguous because campaign names are not
+	// unique; only accept a candidate that is not the source campaign
+	// (different id) so we never report a stale record as the clone.
+	const candidate = await findCreatedCampaign(ctx.client, input.name);
+	if (
+		!candidate ||
+		(candidate.id !== undefined && candidate.id === source.id)
+	) {
 		throw new Error(
-			"Campaign was cloned but the created record could not be resolved",
+			"Campaign was cloned but the created record could not be resolved unambiguously. Run `campaigns list --query` to locate it.",
 		);
 	}
-	return asCampaign(created);
+	return asCampaign(candidate);
 }
 
 /**
@@ -691,10 +703,10 @@ export const scheduleCampaignOperation = defineOperation({
 	id: "campaigns.schedule",
 	title: "Schedule campaign",
 	description:
-		"Schedule a campaign to send at a specific time. Validates the current status allows the transition.",
+		"Schedule a campaign to send at a specific time. Validates the current status allows the transition. Destructive because a scheduled campaign will begin mass delivery at the configured time.",
 	inputSchema: scheduleCampaignInputSchema,
 	outputSchema: campaignLifecycleOutputSchema,
-	safety: updateResourceSafety,
+	safety: deliveryTransitionSafety,
 	mcp: {
 		name: "listmonk_schedule_campaign",
 		legacySuccessText: jsonResourceValue,
@@ -706,10 +718,10 @@ export const startCampaignOperation = defineOperation({
 	id: "campaigns.start",
 	title: "Start campaign",
 	description:
-		"Transition a campaign into the running status. Validates the current status allows the transition.",
+		"Transition a campaign into the running status. Validates the current status allows the transition. Destructive because this begins mass delivery immediately.",
 	inputSchema: campaignLifecycleInputSchema,
 	outputSchema: campaignLifecycleOutputSchema,
-	safety: updateResourceSafety,
+	safety: deliveryTransitionSafety,
 	mcp: {
 		name: "listmonk_start_campaign",
 		legacySuccessText: jsonResourceValue,
@@ -736,10 +748,10 @@ export const cancelCampaignOperation = defineOperation({
 	id: "campaigns.cancel",
 	title: "Cancel campaign",
 	description:
-		"Transition a campaign into the cancelled status. Validates the current status allows the transition.",
+		"Transition a campaign into the cancelled status. Validates the current status allows the transition. Destructive because the cancellation is irreversible.",
 	inputSchema: campaignLifecycleInputSchema,
 	outputSchema: campaignLifecycleOutputSchema,
-	safety: updateResourceSafety,
+	safety: deliveryTransitionSafety,
 	mcp: {
 		name: "listmonk_cancel_campaign",
 		legacySuccessText: jsonResourceValue,

@@ -173,22 +173,6 @@ describe("transactional operations", () => {
 		expect(send).toHaveBeenCalledTimes(1);
 	});
 
-	test("accepts an idempotency_key without forwarding it to Listmonk", async () => {
-		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
-
-		const output = await invokeSendTransactionalOperation(context(send), {
-			template_id: 3,
-			subscriber_id: 42,
-			idempotency_key: "client-dedup-42",
-		});
-
-		expect(output).toEqual({ sent: true });
-		// The Listmonk transactional payload must NOT include idempotency_key.
-		expect(send).toHaveBeenCalledWith(
-			expect.not.objectContaining({ idempotency_key: expect.anything() }),
-		);
-	});
-
 	test("preserves API failures as operation execution errors", async () => {
 		const send = mock(async () => ({ error: { error: "smtp unavailable" } })) as unknown as TransactionalClient["transactional"]["send"];
 

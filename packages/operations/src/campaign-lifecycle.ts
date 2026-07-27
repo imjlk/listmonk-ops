@@ -102,9 +102,9 @@ export function assertCampaignTransition(
 }
 
 const ISO_8601_TIMESTAMP_PATTERN =
-	/^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2})(:(?<second>\d{2}))?(?:Z|[+-]\d{2}:?\d{2})$/;
+	/^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2})(:(?<second>\d{2})(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})$/;
 const LISTMONK_DATETIME_PATTERN =
-	/^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2}) (?<hour>\d{2}):(?<minute>\d{2})(:(?<second>\d{2}))?$/;
+	/^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2}) (?<hour>\d{2}):(?<minute>\d{2})(:(?<second>\d{2})(?:\.\d{1,9})?)?$/;
 
 /**
  * Listmonk accepts two `send_at` shapes: ISO 8601 (e.g.

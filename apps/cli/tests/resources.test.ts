@@ -293,7 +293,6 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 
 		await renderBlocklistSubscribers(cliContext, {
 			subscriber_ids: [1, 2],
-			action: "add",
 		});
 		expect(cliContext.output.success).toHaveBeenCalledWith(
 			"Blocklisted 2 of 2 subscribers",

@@ -270,20 +270,17 @@ const subscriberBulkListsInputSchema = z.object({
 	...bulkOperationOptionsFields,
 });
 
+// Blocklist and unblocklist share the same input shape: neither exposes an
+// `action` field. blocklist always sends `action: "add"` and unblocklist
+// always sends `action: "remove"` from inside the executor, so callers
+// cannot accidentally unblock subscribers by passing `action: "remove"` to
+// `blocklist` (or vice versa). Both operations live in the registry so the
+// intent is explicit at the call site.
 const subscriberBulkBlocklistInputSchema = z.object({
 	subscriber_ids: z.array(resourceIdSchema).min(1),
-	action: z.enum(["add", "remove"]),
 	...bulkOperationOptionsFields,
 });
-
-// unblocklist takes no `action` because the operation always removes from
-// the blocklist. Keeping this separate from subscriberBulkBlocklistInputSchema
-// avoids surfacing an `action: "add" | "remove"` field that the caller could
-// set but the operation would silently override.
-const subscriberBulkUnblocklistInputSchema = z.object({
-	subscriber_ids: z.array(resourceIdSchema).min(1),
-	...bulkOperationOptionsFields,
-});
+const subscriberBulkUnblocklistInputSchema = subscriberBulkBlocklistInputSchema;
 
 const bulkOperationOutputSchema = z.object({
 	processed: z.number(),
@@ -375,15 +372,16 @@ export async function removeSubscribersFromLists(
 }
 
 /**
- * Add or remove a batch of subscribers from the blocklist via
- * `manageBlocklist`. The action (`add` or `remove`) is taken from the
- * input. Respects the shared bulk options.
+ * Internal helper that runs either an `add` or `remove` blocklist action
+ * over the chunked subscriber list. Both `blocklistSubscribers` and
+ * `unblocklistSubscribers` call this with a fixed action so the public
+ * input schemas never expose an `action` field.
  */
-export async function blocklistSubscribers(
+async function applyBlocklistAction(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkBlocklistInputSchema>,
+	action: "add" | "remove",
 ): Promise<BulkOperationOutput> {
-	const action = input.action;
 	return runSubscriberBulk(input.subscriber_ids, {
 		dry_run: input.dry_run,
 		max_items: input.max_items,
@@ -401,18 +399,27 @@ export async function blocklistSubscribers(
 }
 
 /**
- * Remove a batch of subscribers from the blocklist. Delegates to
- * {@link blocklistSubscribers} with action `remove` so the input schema
- * stays symmetric and does not expose an action field.
+ * Add a batch of subscribers to the blocklist via `manageBlocklist` with
+ * `action: "add"`. The action is fixed; callers cannot override it.
+ * Respects the shared bulk options.
+ */
+export async function blocklistSubscribers(
+	ctx: SubscriberOperationContext,
+	input: z.output<typeof subscriberBulkBlocklistInputSchema>,
+): Promise<BulkOperationOutput> {
+	return applyBlocklistAction(ctx, input, "add");
+}
+
+/**
+ * Remove a batch of subscribers from the blocklist via `manageBlocklist`
+ * with `action: "remove"`. The action is fixed; callers cannot override
+ * it. Respects the shared bulk options.
  */
 export async function unblocklistSubscribers(
 	ctx: SubscriberOperationContext,
 	input: z.output<typeof subscriberBulkUnblocklistInputSchema>,
 ): Promise<BulkOperationOutput> {
-	// unblocklist always removes from the blocklist. We delegate to
-	// blocklistSubscribers with a fixed `action: "remove"` rather than
-	// exposing an action field on this operation's input schema.
-	return blocklistSubscribers(ctx, { ...input, action: "remove" });
+	return applyBlocklistAction(ctx, input, "remove");
 }
 
 export const getSubscribersOperation = defineOperation({

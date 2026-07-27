@@ -451,6 +451,30 @@ describe("shared CRUD resource operations", () => {
 		expect(updateStatus).not.toHaveBeenCalled();
 	});
 
+	test("accepts ISO 8601 timestamps with fractional seconds", async () => {
+		// `new Date().toISOString()` always emits milliseconds; the schedule
+		// operation must accept that form so callers do not have to strip
+		// the fractional component before scheduling.
+		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const getById = mock(async () => ({
+			data: { id: 10, status: "draft" },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		for (const ts of [
+			"2026-08-01T09:00:00.000Z",
+			"2026-08-01T09:00:00.123456Z",
+			"2026-08-01T09:00:00.123456789Z",
+		]) {
+			await expect(
+				invokeScheduleCampaignOperation(
+					campaignContext({ getById, update, updateStatus }),
+					{ id: 10, send_at: ts },
+				),
+			).resolves.toEqual({ id: 10, status: "scheduled" });
+		}
+	});
+
 	test("clones a campaign by copying its body and resetting runtime fields", async () => {
 		const getById = mock(async () => ({
 			data: {
@@ -567,7 +591,7 @@ describe("shared CRUD resource operations", () => {
 
 		const blocklisted = await invokeBlocklistSubscribersOperation(
 			subscriberContext({ manageBlocklist }),
-			{ subscriber_ids: [1, 2], action: "add" },
+			{ subscriber_ids: [1, 2] },
 		);
 		expect(blocklisted).toMatchObject({ processed: 2, succeeded: 2 });
 		expect(manageBlocklist).toHaveBeenCalledWith({
@@ -579,7 +603,7 @@ describe("shared CRUD resource operations", () => {
 			{ subscriber_ids: [1, 2] },
 		);
 		expect(unblocklisted).toMatchObject({ processed: 2, succeeded: 2 });
-		// unblocklist delegates to blocklistSubscribers with action: "remove".
+		// unblocklist always sends action: "remove".
 		expect(manageBlocklist).toHaveBeenLastCalledWith({
 			body: { action: "remove", ids: [1, 2] },
 		});

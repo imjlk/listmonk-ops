@@ -70,6 +70,19 @@ function collectHeaderIssues(
 		for (const [rawName, rawValue] of Object.entries(entry)) {
 			const name = rawName.trim();
 			const path: Array<string | number> = ["headers", entryIndex, name];
+			// Reject non-canonical raw names up front. Without this check the
+			// validated `name` would diverge from the `rawName` we forward
+			// to Listmonk, and a smuggled value like `"\r\nX-Trace"` would
+			// pass validation as `X-Trace` while the transport still saw the
+			// malformed key.
+			if (rawName !== name) {
+				issues.push({
+					path,
+					message:
+						"Header names must not contain leading or trailing whitespace",
+				});
+				continue;
+			}
 			if (name.length === 0) {
 				issues.push({ path, message: "Header name must not be empty" });
 				continue;
@@ -129,15 +142,6 @@ const sendTransactionalInputSchema = z
 			.enum(["html", "markdown", "plain"])
 			.optional()
 			.describe("Message content type"),
-		idempotency_key: z
-			.string()
-			.trim()
-			.min(1)
-			.max(255)
-			.optional()
-			.describe(
-				"Client-side deduplication key. The Listmonk server does not enforce idempotency; callers are responsible for deduplicating retries.",
-			),
 	})
 	.refine(
 		(input) =>
@@ -205,10 +209,6 @@ export async function sendTransactionalMessage(
 	{ client }: TransactionalOperationContext,
 	input: z.output<typeof sendTransactionalInputSchema>,
 ): Promise<SendTransactionalOutput> {
-	// NOTE: `idempotency_key` is intentionally omitted — Listmonk does not
-	// support idempotency on transactional sends; callers own deduplication.
-	// Spreading the full `input` here would leak the field, so the payload is
-	// enumerated explicitly.
 	const response = await client.transactional.send({
 		template_id: input.template_id,
 		subscriber_email: input.subscriber_email,

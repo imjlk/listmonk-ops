@@ -176,6 +176,47 @@ function inferContentTypeFromFilename(filename: string): string | undefined {
 	return FILENAME_EXTENSION_TO_MIME[ext];
 }
 
+/**
+ * Strict RFC 4648 base64 alphabet (standard `+/` and URL-safe `-_`) plus
+ * the optional padding. Used to reject malformed input up front because
+ * `atob` (and Node's `Buffer.from(..., "base64")`) silently ignore
+ * characters outside the alphabet, which would let corrupted payloads
+ * pass size/MIME checks.
+ */
+const BASE64_ALPHABET_PATTERN =
+	/^[A-Za-z0-9+/_-]*={0,2}$/;
+
+/**
+ * Decode a base64 string into a `Uint8Array` using only runtime-neutral
+ * web-platform APIs (`atob`). `packages/operations` must not depend on
+ * Node/Bun globals like `Buffer` so the same code runs in browsers and
+ * other neutral runtimes. Returns `null` when the input is not valid
+ * canonical base64.
+ */
+function decodeBase64ToBytes(value: string): Uint8Array | null {
+	// Strip optional data: URL prefix and inner whitespace/newlines so we
+	// do not reject legitimately encoded payloads that were wrapped for
+	// readability, but require the remaining characters to be canonical
+	// base64. `atob` accepts URL-safe alphabet on most engines, but the
+	// strict check below also covers alphabets that mix `-`/`_` with `+`/`/`.
+	const trimmed = value
+		.replace(/^data:.*?;base64,/, "")
+		.replace(/\s+/g, "");
+	if (!BASE64_ALPHABET_PATTERN.test(trimmed)) return null;
+	// Padding length must be 0, 1 (=), or 2 (==) and aligned to 4-byte groups.
+	if (trimmed.length % 4 !== 0) return null;
+	try {
+		const binary = atob(trimmed);
+		const bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i += 1) {
+			bytes[i] = binary.charCodeAt(i);
+		}
+		return bytes;
+	} catch {
+		return null;
+	}
+}
+
 const uploadMediaInputSchema = z
 	.object({
 		base64: z
@@ -197,7 +238,16 @@ const uploadMediaInputSchema = z
 			),
 	})
 	.superRefine((input, ctx) => {
-		const bytes = Buffer.from(input.base64, "base64");
+		const bytes = decodeBase64ToBytes(input.base64);
+		if (bytes === null) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["base64"],
+				message:
+					"base64 must be a valid RFC 4648 base64 string (standard or URL-safe alphabet, optional padding)",
+			});
+			return;
+		}
 		if (bytes.length === 0) {
 			ctx.addIssue({
 				code: "custom",
@@ -246,7 +296,13 @@ export async function uploadMediaFile(
 	{ client }: MediaOperationContext,
 	input: z.output<typeof uploadMediaInputSchema>,
 ): Promise<z.output<typeof mediaFileSchema>> {
-	const bytes = Buffer.from(input.base64, "base64");
+	// The schema's superRefine guarantees decode succeeds; re-derive the
+	// bytes here using the runtime-neutral decoder (no `Buffer` global).
+	const bytes = decodeBase64ToBytes(input.base64);
+	if (bytes === null) {
+		// Defensive: schema validation should have caught this already.
+		throw new Error("media upload payload is not valid base64");
+	}
 	// Resolve the effective MIME type for the upload. The schema's
 	// superRefine already verified this resolves to an allowlist entry;
 	// we re-derive it here so Listmonk receives a concrete Content-Type
@@ -255,7 +311,11 @@ export async function uploadMediaFile(
 		input.content_type ?? inferContentTypeFromFilename(input.filename);
 	// `File` (not `Blob`) carries the filename so Listmonk registers the
 	// upload under the caller's chosen name rather than a generated one.
-	const file = new File([bytes], input.filename, {
+	// Cast to BlobPart: TypeScript's lib defaults the underlying buffer to
+	// ArrayBufferLike, which technically includes SharedArrayBuffer, but
+	// our decoder always produces a fresh Uint8Array backed by an
+	// ArrayBuffer.
+	const file = new File([bytes as BlobPart], input.filename, {
 		type: effectiveContentType,
 	});
 	const response = await client.media.upload({ body: file });

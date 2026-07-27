@@ -123,7 +123,6 @@ interface SubscriberBulkListsInput {
 
 interface SubscriberBulkBlocklistInput {
 	subscriber_ids: number[];
-	action: "add" | "remove";
 	dry_run?: boolean;
 	max_items?: number;
 	continue_on_error?: boolean;
@@ -435,7 +434,6 @@ async function handleBlocklistSubscribersCommand({
 			{ client, output: getOutput() },
 			{
 				subscriber_ids: parseCsvNumbers(flags["subscriber-ids"]),
-				action: "add",
 				dry_run: flags["dry-run"],
 				max_items: flags["max-items"],
 				continue_on_error: flags["continue-on-error"],

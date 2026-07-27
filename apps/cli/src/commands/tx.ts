@@ -52,7 +52,6 @@ type SendTransactionalFlags = {
 	data?: string;
 	headers?: string;
 	"content-type"?: "html" | "markdown" | "plain";
-	"idempotency-key"?: string;
 };
 
 export async function handleSendTransactionalCommand({
@@ -84,7 +83,6 @@ export async function handleSendTransactionalCommand({
 				data,
 				headers,
 				content_type: flags["content-type"],
-				idempotency_key: flags["idempotency-key"],
 			},
 		);
 	} catch (error) {
@@ -125,10 +123,6 @@ export default defineGroup({
 						description: "Message content type",
 					},
 				),
-				"idempotency-key": option(z.string().trim().min(1).max(255).optional(), {
-					description:
-						"Client-side deduplication key (Listmonk does not enforce idempotency; caller must dedupe)",
-				}),
 			},
 			handler: handleSendTransactionalCommand,
 		}),
