@@ -46,7 +46,27 @@ export interface TransactionalOperationContext {
 type DataResponse<T> = {
 	data?: T;
 	error?: unknown;
+	// OpenAPI client includes the underlying Response on error envelopes so
+	// callers can inspect the HTTP status (e.g. 401/403/404) without it
+	// being reduced to a plain Error message.
+	response?: { status?: number };
 };
+
+/**
+ * Error raised when Listmonk returns a non-2xx response. Carries the HTTP
+ * status so the idempotency wrapper can distinguish a definitive
+ * pre-dispatch rejection (4xx — credentials, routing, validation) from an
+ * ambiguous transport failure (5xx, parse error) without relying on the
+ * error message text.
+ */
+class TransactionalDispatchError extends Error {
+	public readonly httpStatus: number | undefined;
+	public constructor(message: string, httpStatus?: number) {
+		super(message);
+		this.name = "TransactionalDispatchError";
+		this.httpStatus = httpStatus;
+	}
+}
 
 const positiveIdSchema = z.number().int().positive();
 const positiveIdInputSchema = z.codec(
@@ -290,10 +310,17 @@ function toErrorMessage(error: unknown): string {
 
 function unwrapData<T>(response: DataResponse<T>, context: string): T {
 	if (response.error !== undefined) {
-		throw new Error(`${context}: ${toErrorMessage(response.error)}`);
+		const status =
+			typeof response.response?.status === "number"
+				? response.response.status
+				: undefined;
+		throw new TransactionalDispatchError(
+			`${context}: ${toErrorMessage(response.error)}`,
+			status,
+		);
 	}
 	if (response.data === undefined) {
-		throw new Error(`${context}: received empty data`);
+		throw new TransactionalDispatchError(`${context}: received empty data`);
 	}
 	return response.data;
 }

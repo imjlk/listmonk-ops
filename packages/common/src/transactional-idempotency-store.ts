@@ -125,7 +125,12 @@ export function isStoredTransactionalSendRecord(
 	) {
 		return false;
 	}
+	// Status-discriminated invariants:
+	//   accepted requires sent:true (positive acknowledgement)
+	//   failed   requires sent !== true (definitive negative acknowledgement)
+	// so manually reconciled or malformed state cannot lie about the outcome.
 	if (value.status === "accepted" && value.sent !== true) return false;
+	if (value.status === "failed" && value.sent === true) return false;
 	if (value.sent !== undefined && typeof value.sent !== "boolean") return false;
 	if (value.errorMessage !== undefined && typeof value.errorMessage !== "string")
 		return false;
@@ -360,7 +365,18 @@ export async function commitTransactionalSend(options: {
 			if (existing.claimToken !== options.claimToken) {
 				return commitJsonFileStoreUpdate(swept.document, undefined);
 			}
-			const sent = options.status === "accepted" ? true : options.sent;
+			// Enforce the status-discriminated sent invariant at write time:
+			// accepted ⇒ true, failed ⇒ not true, unknown leaves it optional.
+			// This stops a caller (or a manual reconcile) from persisting a
+			// contradictory combination the read-side validator would reject.
+			const sent =
+				options.status === "accepted"
+					? true
+					: options.status === "failed"
+						? options.sent === true
+							? false
+							: options.sent
+						: options.sent;
 			const updated: TransactionalSendRecord = {
 				...existing,
 				status: options.status,

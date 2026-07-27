@@ -173,7 +173,11 @@ export function isValidTransactionalSendRecord(
 	) {
 		return false;
 	}
+	// Status-discriminated invariants: accepted ⇒ sent:true, failed ⇒
+	// sent !== true. Mirrors the file-backed validator so manually
+	// reconciled or malformed state fails closed at every boundary.
 	if (value.status === "accepted" && value.sent !== true) return false;
+	if (value.status === "failed" && value.sent === true) return false;
 	if (value.sent !== undefined && typeof value.sent !== "boolean") return false;
 	if (value.errorMessage !== undefined && typeof value.errorMessage !== "string")
 		return false;
@@ -321,9 +325,16 @@ export function stableSerializeJson(
 			throw new Error("Circular reference detected in transactional payload");
 		}
 		seen.add(value);
-		const result = `[${value
-			.map((entry) => stableSerializeJson(entry, seen))
-			.join(",")}]`;
+		// Iterate by index, not Array.prototype.map, so sparse-array holes
+		// are serialized as null — matching what JSON.stringify (and thus
+		// the wire transport) produces. `map` skips holes, which would
+		// hash `new Array(1)` like `[]` while the body sends `[null]`.
+		const parts: string[] = [];
+		for (let i = 0; i < value.length; i++) {
+			const entry = value[i];
+			parts.push(stableSerializeJson(i in value ? entry : undefined, seen));
+		}
+		const result = `[${parts.join(",")}]`;
 		seen.delete(value);
 		return result;
 	}
@@ -414,7 +425,24 @@ export function isDefinitivePreDispatchError(error: unknown): boolean {
 		"GetAddrInfoFailed",
 		"HostNotFoundError",
 	]);
-	return codes.some((code) => codeSignals.has(code));
+	if (codes.some((code) => codeSignals.has(code))) {
+		return true;
+	}
+	// Definitive HTTP rejections (4xx): the request reached Listmonk but
+	// was rejected before dispatch — bad credentials, unknown template,
+	// validation failure. A retry once the underlying issue is fixed
+	// (credentials refreshed, payload corrected) is safe. 5xx is NOT
+	// included because the server may have partially processed the message
+	// before failing.
+	const httpStatus = (error as { httpStatus?: unknown }).httpStatus;
+	if (
+		typeof httpStatus === "number" &&
+		httpStatus >= 400 &&
+		httpStatus < 500
+	) {
+		return true;
+	}
+	return false;
 }
 
 function collectErrorCodes(error: Error): string[] {

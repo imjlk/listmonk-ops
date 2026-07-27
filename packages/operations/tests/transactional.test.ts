@@ -627,6 +627,21 @@ describe("transactional idempotency pure helpers", () => {
 			expect(withUndef).toBe(withNull);
 		});
 
+		test("serializes sparse array holes as null (matches JSON transport)", () => {
+			// JSON.stringify(new Array(1)) === "[null]"; the hash must agree
+			// so a key reused with the sparse and the explicit-null forms
+			// does not falsely conflict or replay.
+			const sparse = serializeTransactionalPayload({
+				template_id: 3,
+				data: { xs: new Array(1) }, // eslint-disable-line no-sparse-arrays
+			});
+			const explicit = serializeTransactionalPayload({
+				template_id: 3,
+				data: { xs: [null] },
+			});
+			expect(sparse).toBe(explicit);
+		});
+
 		test("rejects cyclic payloads instead of overflowing the stack", () => {
 			const cyclic: Record<string, unknown> = { a: 1 };
 			cyclic.self = cyclic;
@@ -744,6 +759,28 @@ describe("transactional idempotency pure helpers", () => {
 			expect(
 				isDefinitivePreDispatchError(new SyntaxError("Unexpected end of JSON input")),
 			).toBe(false);
+		});
+
+		test("flags definitive 4xx HTTP rejections as pre-dispatch", () => {
+			// 401/403/404/422 reached Listmonk but were rejected before
+			// dispatch — safe to release so a retry can dispatch once the
+			// underlying issue (credentials, payload, routing) is fixed.
+			for (const status of [400, 401, 403, 404, 422]) {
+				const error = Object.assign(new Error("request rejected"), {
+					httpStatus: status,
+				});
+				expect(isDefinitivePreDispatchError(error)).toBe(true);
+			}
+		});
+
+		test("does not flag 5xx server errors as pre-dispatch", () => {
+			// 5xx means Listmonk may have partially processed the message.
+			for (const status of [500, 502, 503, 504]) {
+				const error = Object.assign(new Error("server error"), {
+					httpStatus: status,
+				});
+				expect(isDefinitivePreDispatchError(error)).toBe(false);
+			}
 		});
 
 		test("does not flag application errors", () => {

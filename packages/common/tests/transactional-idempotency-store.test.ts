@@ -401,6 +401,33 @@ describe("transactional idempotency file-backed store", () => {
 			expect(stored.records["order-1"]?.sent).toBe(true);
 		});
 
+		test("coerces failed commits to sent:false even when caller passes sent:true", async () => {
+			const payloadHash = hashPayload(makePayload());
+			const claim = await claimTransactionalSend({
+				storePath,
+				key: "order-1",
+				payloadHash,
+				targetHash: DEFAULT_TARGET_HASH,
+				now: fixedClock,
+			});
+			if (claim.kind !== "new") throw new Error("expected new claim");
+
+			await commitTransactionalSend({
+				storePath,
+				key: "order-1",
+				claimToken: claim.record.claimToken,
+				status: "failed",
+				sent: true, // caller mistake — must be coerced to false
+				now: fixedClock,
+			});
+
+			const stored = await loadStoredTransactionalDocument(storePath);
+			expect(stored.records["order-1"]).toMatchObject({
+				status: "failed",
+				sent: false,
+			});
+		});
+
 		test("records the error message on failed/unknown outcomes", async () => {
 			const payloadHash = hashPayload(makePayload());
 			const claim = await claimTransactionalSend({
@@ -629,6 +656,32 @@ describe("transactional idempotency file-backed store", () => {
 				targetHash: DEFAULT_TARGET_HASH,
 				status: "accepted",
 				sent: false,
+				claimToken: "abcdef0123456789",
+				createdAt: FIXED_NOW.toISOString(),
+				updatedAt: FIXED_NOW.toISOString(),
+				expiresAt: FIXED_NOW.toISOString(),
+			};
+			await writeFile(
+				storePath,
+				JSON.stringify(
+					{ version: 1, records: { "order-1": badRecord } },
+					null,
+					2,
+				),
+			);
+			await expect(
+				validateStoredTransactionalStore(storePath),
+			).rejects.toThrow(/failed schema validation/);
+		});
+
+		test("rejects a failed record with sent:true", async () => {
+			const payloadHash = hashPayload(makePayload());
+			const badRecord = {
+				key: "order-1",
+				payloadHash,
+				targetHash: DEFAULT_TARGET_HASH,
+				status: "failed",
+				sent: true, // invariant violation: failed must not report sent:true
 				claimToken: "abcdef0123456789",
 				createdAt: FIXED_NOW.toISOString(),
 				updatedAt: FIXED_NOW.toISOString(),
