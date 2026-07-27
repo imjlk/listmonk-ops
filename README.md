@@ -344,8 +344,8 @@ listmonk-cli media upload --file ./banner.png
 
 Campaign lifecycle transitions are validated client-side against an
 observed state machine (`draft → scheduled/running`, `scheduled →
-running/paused/cancelled`, `running → paused/cancelled`, `paused →
-running/cancelled`, `finished`/`cancelled` are terminal). Subscriber
+running`, `running → paused/cancelled`, `paused → running`,
+`finished`/`cancelled` are terminal). Subscriber
 bulk operations chunk IDs (default 500 per chunk) and support
 `--dry-run`, `--max-items`, and `--continue-on-error`. Media uploads
 enforce a MIME allowlist and a 10 MiB size cap.

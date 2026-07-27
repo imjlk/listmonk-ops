@@ -60,7 +60,13 @@ export function parseCsvNumbersStrict(
 				`Invalid ${label} '${token}': expected a positive integer`,
 			);
 		}
-		numbers.push(Number(token));
+		const num = Number(token);
+		if (!Number.isSafeInteger(num)) {
+			throw new Error(
+				`Invalid ${label} '${token}': exceeds the maximum safe integer (${Number.MAX_SAFE_INTEGER})`,
+			);
+		}
+		numbers.push(num);
 	}
 	return numbers;
 }

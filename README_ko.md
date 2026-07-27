@@ -342,8 +342,8 @@ listmonk-cli media upload --file ./banner.png
 ```
 
 캠페인 상태 전이는 관찰된 상태 머신에 따라 클라이언트에서 검증합니다
-(`draft → scheduled/running`, `scheduled → running/paused/cancelled`,
-`running → paused/cancelled`, `paused → running/cancelled`,
+(`draft → scheduled/running`, `scheduled → running`,
+`running → paused/cancelled`, `paused → running`,
 `finished`/`cancelled`는 종단 상태). 구독자 일괄 작업은 ID를 청크
 단위(기본 500개)로 나누며 `--dry-run`, `--max-items`,
 `--continue-on-error`를 지원합니다. 미디어 업로드는 MIME 허용 목록과

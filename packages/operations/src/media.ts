@@ -268,13 +268,19 @@ const uploadMediaInputSchema = z
 	.superRefine((input, ctx) => {
 		// Reject oversized uploads from the encoded length alone so we never
 		// allocate a full Uint8Array for a hostile hundreds-of-MiB payload.
-		// Base64 expands bytes by ~4/3, so the encoded length is a safe
-		// upper bound on the decoded length. Strip whitespace before the
-		// estimate so wrapped payloads are not falsely rejected.
-		const encodedLength = stripBase64Wrapper(input.base64).length;
-		// encodedLength / 4 * 3 is the max decoded size (ignoring padding).
-		// Use ceil to be conservative.
-		const maxDecodedLength = Math.ceil((encodedLength * 3) / 4);
+		// Base64 expands bytes by ~4/3, so the encoded length (minus padding)
+		// gives the decoded size. We subtract the padding character count so
+		// a file whose decoded size is exactly the cap is not falsely
+		// rejected by rounding slack.
+		const stripped = stripBase64Wrapper(input.base64);
+		let paddingCount = 0;
+		if (stripped.endsWith("==")) {
+			paddingCount = 2;
+		} else if (stripped.endsWith("=")) {
+			paddingCount = 1;
+		}
+		const encodedLength = stripped.length - paddingCount;
+		const maxDecodedLength = Math.floor((encodedLength * 3) / 4);
 		if (maxDecodedLength > MAX_MEDIA_UPLOAD_BYTES) {
 			ctx.addIssue({
 				code: "custom",
