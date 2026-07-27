@@ -94,8 +94,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * ISO 8601 timestamp pattern. The store is schema-versioned for
+ * interoperability, so `Date.parse` alone is too permissive — it accepts
+ * locale strings like "July 4, 2024" and slash dates like "2024/01/15",
+ * which would silently widen the on-disk contract.
+ */
+const ISO_8601_TIMESTAMP_PATTERN =
+	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
+
 function isIsoTimestamp(value: unknown): value is string {
-	return typeof value === "string" && !Number.isNaN(new Date(value).getTime());
+	return (
+		typeof value === "string" &&
+		ISO_8601_TIMESTAMP_PATTERN.test(value) &&
+		!Number.isNaN(new Date(value).getTime())
+	);
 }
 
 function isTransactionalSendRecord(value: unknown): value is TransactionalSendRecord {
@@ -210,18 +223,40 @@ export function computeTransactionalPayloadHash(input: {
  * in original order (array order is semantically meaningful for headers).
  * Uses a custom serializer rather than `JSON.stringify` because the native
  * serializer does not guarantee key ordering across engines.
+ *
+ * A `WeakSet` visited-guard rejects cyclic structures before they overflow
+ * the stack. JSON-parsed input cannot form cycles, but `data` is typed as
+ * `Record<string, unknown>` and a caller could hand in a live object graph;
+ * failing loudly is safer than crashing the process.
  */
-function stableSerializeJson(value: unknown): string {
+function stableSerializeJson(
+	value: unknown,
+	seen: WeakSet<object> = new WeakSet(),
+): string {
 	if (Array.isArray(value)) {
-		return `[${value.map(stableSerializeJson).join(",")}]`;
+		if (seen.has(value)) {
+			throw new Error("Circular reference detected in transactional payload");
+		}
+		seen.add(value);
+		const result = `[${value.map((entry) => stableSerializeJson(entry, seen)).join(",")}]`;
+		seen.delete(value);
+		return result;
 	}
 	if (isRecord(value)) {
+		if (seen.has(value)) {
+			throw new Error("Circular reference detected in transactional payload");
+		}
+		seen.add(value);
 		const entries = Object.entries(value)
 			.filter(([, v]) => v !== undefined)
 			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-		return `{${entries
-			.map(([k, v]) => `${JSON.stringify(k)}:${stableSerializeJson(v)}`)
+		const result = `{${entries
+			.map(
+				([k, v]) => `${JSON.stringify(k)}:${stableSerializeJson(v, seen)}`,
+			)
 			.join(",")}}`;
+		seen.delete(value);
+		return result;
 	}
 	return JSON.stringify(value);
 }
@@ -342,8 +377,11 @@ export async function commitTransactionalSend(options: {
 export function isAmbiguousTransportError(error: unknown): boolean {
 	if (!(error instanceof Error)) return false;
 	const message = error.message.toLowerCase();
-	// Common substrings emitted by fetch/undici/Node for transport failures.
-	// Match conservatively — anything ambiguous should be treated as unknown.
+	// Transport-level substrings emitted by fetch/undici/Node when the request
+	// may or may not have reached Listmonk. Kept specific on purpose: a broad
+	// match like "network" would also catch definitive rejections such as
+	// "invalid network configuration" and wrongly mark the record `unknown`,
+	// blocking retries for the full TTL window.
 	const ambiguousSignals = [
 		"timeout",
 		"timed out",
@@ -353,8 +391,10 @@ export function isAmbiguousTransportError(error: unknown): boolean {
 		"econnrefused",
 		"enotfound",
 		"epipe",
+		"enetunreach",
 		"fetch failed",
-		"network",
+		"network error",
+		"network is unreachable",
 		"aborted",
 		"terminated",
 	];

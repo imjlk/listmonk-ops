@@ -118,6 +118,24 @@ describe("transactional idempotency store", () => {
 				computeTransactionalPayloadHash(withoutFrom),
 			);
 		});
+
+		test("rejects cyclic payloads instead of overflowing the stack", () => {
+			const cyclic: Record<string, unknown> = { a: 1 };
+			cyclic.self = cyclic;
+			expect(() =>
+				computeTransactionalPayloadHash(
+					makePayload({ data: cyclic }),
+				),
+			).toThrow(/Circular reference detected/);
+		});
+
+		test("handles repeated (non-cyclic) object references without false positives", () => {
+			const shared = { tag: "x" };
+			const payloadA = makePayload({ data: { first: shared, second: shared } });
+			expect(() =>
+				computeTransactionalPayloadHash(payloadA),
+			).not.toThrow();
+		});
 	});
 
 	describe("claimTransactionalSend", () => {
@@ -406,6 +424,68 @@ describe("transactional idempotency store", () => {
 				/expected an object/,
 			);
 		});
+
+		test("rejects locale-style or slash timestamps that Date.parse accepts", async () => {
+			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			for (const malformedTimestamp of [
+				"July 4, 2024",
+				"2024/01/15",
+				"2024-01-15", // date-only, no time component
+				"not-a-date",
+			]) {
+				const validShape = {
+					key: "order-1",
+					payloadHash,
+					status: "accepted",
+					sent: true,
+					createdAt: malformedTimestamp,
+					updatedAt: FIXED_NOW.toISOString(),
+					expiresAt: FIXED_NOW.toISOString(),
+				};
+				await writeFile(
+					storePath,
+					JSON.stringify(
+						{ version: 1, records: { "order-1": validShape } },
+						null,
+						2,
+					),
+				);
+				await expect(
+					validateStoredTransactionalStore(storePath),
+				).rejects.toThrow(/failed schema validation/);
+			}
+		});
+
+		test("accepts ISO 8601 timestamps with millisecond and timezone variants", async () => {
+			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			for (const validTimestamp of [
+				FIXED_NOW.toISOString(),
+				"2026-01-01T00:00:00.123Z",
+				"2026-01-01T00:00:00+09:00",
+				"2026-01-01T00:00:00.123456789Z",
+			]) {
+				const record = {
+					key: "order-1",
+					payloadHash,
+					status: "accepted" as const,
+					sent: true,
+					createdAt: validTimestamp,
+					updatedAt: validTimestamp,
+					expiresAt: validTimestamp,
+				};
+				await writeFile(
+					storePath,
+					JSON.stringify(
+						{ version: 1, records: { "order-1": record } },
+						null,
+						2,
+					),
+				);
+				await expect(
+					validateStoredTransactionalStore(storePath),
+				).resolves.toBeUndefined();
+			}
+		});
 	});
 
 	describe("atomic read-modify-write", () => {
@@ -442,6 +522,39 @@ describe("transactional idempotency store", () => {
 			expect(isAmbiguousTransportError(new Error("ECONNRESET"))).toBe(true);
 			expect(isAmbiguousTransportError(new Error("fetch failed"))).toBe(true);
 			expect(isAmbiguousTransportError(new Error("The operation was aborted"))).toBe(true);
+		});
+
+		test("flags ENETUNREACH and 'network is unreachable' as ambiguous", () => {
+			// Genuinely ambiguous: the request may have left the host before
+			// the network dropped. Must stay classified as unknown so a
+			// retry is blocked for the TTL window.
+			expect(isAmbiguousTransportError(new Error("connect ENETUNREACH"))).toBe(true);
+			expect(
+				isAmbiguousTransportError(new Error("Network is unreachable")),
+			).toBe(true);
+		});
+
+		test("flags a specific network-error phrase", () => {
+			// "network error" is the undici/Node surface; the bare word
+			// "network" was intentionally removed to avoid classifying
+			// definitive rejections (e.g. "invalid network configuration")
+			// as ambiguous.
+			expect(isAmbiguousTransportError(new Error("network error"))).toBe(true);
+			expect(isAmbiguousTransportError(new Error("TypeError: network error"))).toBe(true);
+		});
+
+		test("does not flag definitive network-policy rejections", () => {
+			expect(
+				isAmbiguousTransportError(
+					new Error("invalid network configuration"),
+				),
+			).toBe(false);
+			expect(
+				isAmbiguousTransportError(new Error("network policy violation")),
+			).toBe(false);
+			expect(
+				isAmbiguousTransportError(new Error("not in network range")),
+			).toBe(false);
 		});
 
 		test("does not flag explicit Listmonk rejections", () => {

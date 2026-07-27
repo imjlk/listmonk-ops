@@ -422,8 +422,18 @@ export async function sendTransactionalMessage(
 	};
 }
 
+/**
+ * Human-readable explanation for why a replayed record cannot be retried
+ * automatically. Covers the non-`accepted` statuses the caller is allowed
+ * to encounter; `accepted` is handled directly by the replay output path.
+ *
+ * `assertExhaustiveStatus` is a compile-time exhaustiveness guard: adding a
+ * new `TransactionalSendStatus` member without handling it here surfaces as
+ * a type error rather than silently producing a trailing-space message.
+ */
 function reconcileReason(record: TransactionalSendRecord): string {
-	switch (record.status) {
+	const status = record.status;
+	switch (status) {
 		case "pending":
 			return "A previous request is still in flight or crashed before committing. Wait for it to settle or inspect the store.";
 		case "unknown":
@@ -434,9 +444,18 @@ function reconcileReason(record: TransactionalSendRecord): string {
 			return record.errorMessage
 				? `Previous dispatch was rejected by Listmonk: ${record.errorMessage}`
 				: "Previous dispatch was rejected by Listmonk.";
+		case "accepted":
+			// Defensive: accepted records are replayed as success before this
+			// function is reached. If we ever do see one, it still warrants
+			// a real message rather than an empty string.
+			return "The previous dispatch was accepted; replay the original result instead of reconciling.";
 		default:
-			return "";
+			return assertExhaustiveStatus(status);
 	}
+}
+
+function assertExhaustiveStatus(status: never): string {
+	return `Unexpected idempotency record status '${String(status)}'. Inspect the store and Listmonk before reconciling.`;
 }
 
 export const sendTransactionalOperation = defineOperation({
