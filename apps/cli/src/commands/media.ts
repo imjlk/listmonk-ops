@@ -155,13 +155,11 @@ export async function handleUploadMediaCommand({
 				{
 					base64,
 					filename,
-					// Prefer the caller's explicit override. Otherwise OMIT
-					// Bun's inferred type entirely so the shared operation
-					// can infer from the filename, which uses canonical MIME
-					// names (e.g. 'image/bmp') instead of Bun's aliases
-					// (e.g. 'image/x-ms-bmp'). Only forward Bun's value
-					// when no explicit override is given AND it's non-empty
-					// AND we've stripped any parameters.
+					// Prefer the caller's explicit override. Otherwise omit
+					// the type so the shared operation can infer it from the
+					// filename, which uses canonical MIME names instead of
+					// runtime-specific aliases (e.g. Bun reports
+					// 'image/x-ms-bmp' for .bmp files).
 					content_type: flags["content-type"]
 						? flags["content-type"].split(";")[0]
 						: undefined,

@@ -490,6 +490,62 @@ describe("shared CRUD resource operations", () => {
 		}
 	});
 
+	test("scheduling an already-scheduled campaign with the same send_at is a no-op", async () => {
+		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const getById = mock(async () => ({
+			data: { id: 10, status: "scheduled", send_at: "2026-08-01T09:00:00Z" },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		const result = await invokeScheduleCampaignOperation(
+			campaignContext({ getById, update, updateStatus }),
+			{ id: 10, send_at: "2026-08-01T09:00:00Z" },
+		);
+		expect(result).toEqual({ id: 10, status: "scheduled" });
+		expect(update).not.toHaveBeenCalled();
+		expect(updateStatus).not.toHaveBeenCalled();
+	});
+
+	test("rescheduling an already-scheduled campaign updates send_at without calling updateStatus", async () => {
+		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const getById = mock(async () => ({
+			data: { id: 10, status: "scheduled", send_at: "2026-08-01T09:00:00Z" },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		const result = await invokeScheduleCampaignOperation(
+			campaignContext({ getById, update, updateStatus }),
+			{ id: 10, send_at: "2026-09-01T10:00:00Z" },
+		);
+		expect(result).toEqual({ id: 10, status: "scheduled" });
+		expect(update).toHaveBeenCalledTimes(1);
+		expect(update).toHaveBeenCalledWith({
+			path: { id: 10 },
+			body: { send_at: "2026-09-01T10:00:00Z" },
+		});
+		expect(updateStatus).not.toHaveBeenCalled();
+	});
+
+	test("scheduling from draft calls both update and updateStatus", async () => {
+		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const getById = mock(async () => ({
+			data: { id: 10, status: "draft", send_at: null },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		const result = await invokeScheduleCampaignOperation(
+			campaignContext({ getById, update, updateStatus }),
+			{ id: 10, send_at: "2026-08-01T09:00:00Z" },
+		);
+		expect(result).toEqual({ id: 10, status: "scheduled" });
+		expect(update).toHaveBeenCalledTimes(1);
+		expect(updateStatus).toHaveBeenCalledTimes(1);
+		expect(updateStatus).toHaveBeenCalledWith({
+			path: { id: 10 },
+			body: { status: "scheduled" },
+		});
+	});
+
 	test("clones a campaign by copying its body and resetting runtime fields", async () => {
 		const getById = mock(async () => ({
 			data: {

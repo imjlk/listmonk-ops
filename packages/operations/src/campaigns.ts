@@ -460,29 +460,13 @@ export type CampaignLifecycleOutput = z.output<
 
 /**
  * Load the current campaign and assert that the requested transition is
- * allowed. Lifecycle operations always read-then-write so that the state
- * machine can reject obviously invalid transitions (e.g. `cancelled ->
- * running`) before hitting the Listmonk API.
- */
-async function loadCampaignForTransition(
-	client: Pick<ListmonkClient, "campaign">,
-	id: number,
-	target: CampaignLifecycleTarget,
-): Promise<{ id: number; status: string }> {
-	const response = await client.campaign.getById({ path: { id } });
-	const campaign = asCampaign(
-		unwrapResourceResponse(response, "Failed to load campaign for transition"),
-	);
-	const currentStatus = campaign.status;
-	assertCampaignTransition(currentStatus, target);
-	return { id, status: currentStatus ?? "<unknown>" };
-}
-
-/**
- * Like {@link loadCampaignForTransition} but allows the current status to
- * equal the target. Used by {@link transitionCampaign} to make same-status
- * requests a no-op (idempotent), aligning with the idempotentHint in the
- * safety metadata.
+ * allowed. When the campaign is already in the target status, the loader
+ * returns it as a successful idempotent match (no API write needed),
+ * aligning with the idempotentHint in the safety metadata and supporting
+ * safe retries after timeouts.
+ *
+ * Returns the campaign's `send_at` so `scheduleCampaign` can detect
+ * whether a reschedule is needed without a redundant `getById` call.
  */
 async function loadCampaignForTransitionForTarget(
 	client: Pick<ListmonkClient, "campaign">,
@@ -513,7 +497,7 @@ async function transitionCampaign(
 	id: number,
 	target: CampaignLifecycleTarget,
 ): Promise<{ id: number; status: string }> {
-	// loadCampaignForTransition reads the current campaign and asserts the
+	// loadCampaignForTransitionForTarget reads the current campaign and asserts the
 	// transition is legal. When the campaign is already in the target
 	// status, treat it as a successful no-op (idempotent) instead of
 	// rejecting it — this aligns with the idempotentHint in the safety
