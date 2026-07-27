@@ -25,4 +25,4 @@ The overlay currently:
 - aligns transactional messages with the tagged `TxMessage` model, including
   recipient arrays, subscriber mode, subject, headers, and `altbody`.
 
-The upstream specification does not cover every registered `/api` handler. The upstream specification may not cover every registered `/api` handler.
+The upstream specification does not cover every registered `/api` handler.

@@ -35,3 +35,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 _docs
 TODO
+
+# coding-agent local state (plans, auto-generated environments, etc.)
+.zcode/
+.codex/environments/
