@@ -1,5 +1,6 @@
 import {
 	createOperationAuditExecutionId,
+	normalizeListmonkApiUrl,
 	recordOperationAudit,
 	type OperationAuditEvent,
 	type OperationAuditStoreOptions,
@@ -56,26 +57,6 @@ function normalizeHostname(hostname: string): string {
 		.replace(/^\[/, "")
 		.replace(/\]$/, "")
 		.replace(/\.$/, "");
-}
-
-/**
- * Canonicalize a Listmonk API base URL the same way the CLI does: trim,
- * drop a trailing slash, and ensure the path ends with /api. Two URLs that
- * spell the same instance differently (e.g. http://h:9000/api vs
- * http://h:9000/api/) must hash to the same idempotency target or a key
- * used through one surface would conflict instead of replaying through
- * the other.
- */
-function normalizeListmonkBaseUrl(url: string): string {
-	const trimmed = url.trim();
-	if (!trimmed) return trimmed;
-	const withoutTrailingSlash = trimmed.endsWith("/")
-		? trimmed.slice(0, -1)
-		: trimmed;
-	if (withoutTrailingSlash.endsWith("/api")) {
-		return withoutTrailingSlash;
-	}
-	return `${withoutTrailingSlash}/api`;
 }
 
 function isLoopbackHostname(hostname: string): boolean {
@@ -197,12 +178,12 @@ export class ListmonkMCPServer {
 	}) {
 		this.app = new Hono();
 		this.tools = new Map();
-		// Canonicalize the baseUrl so idempotency target hashing matches
-		// the CLI (which normalizes trailing slashes and the /api suffix).
-		// Without this, the same Listmonk instance spelled two ways
-		// (http://localhost:9000/api vs .../api/) would compute different
-		// target hashes and conflict instead of replaying.
-		this.baseUrl = normalizeListmonkBaseUrl(config.baseUrl);
+		// Canonicalize baseUrl via the shared utility so the CLI and MCP
+		// compute identical idempotency target hashes and send to the same
+		// endpoint. The same value feeds both the client and the target
+		// namespace — a divergence would let one surface replay the other's
+		// result or hash a URL the client never used.
+		this.baseUrl = normalizeListmonkApiUrl(config.baseUrl);
 		this.username = config.username.trim();
 		this.auditStoreOptions = {
 			path: config.auditStorePath,
@@ -224,12 +205,14 @@ export class ListmonkMCPServer {
 			);
 		}
 
-		// Create ListmonkClient instance
+		// Create ListmonkClient instance. Auth uses the canonical username
+		// (this.username) so a value like " alice " authenticates with the
+		// same identity used for idempotency namespacing.
 		const credential = config.apiToken || config.password;
-		const authString = `${config.username}:${credential}`;
+		const authString = `${this.username}:${credential}`;
 
 		this.client = createListmonkClient({
-			baseUrl: config.baseUrl,
+			baseUrl: this.baseUrl,
 			headers: {
 				Authorization: `token ${authString}`,
 			},

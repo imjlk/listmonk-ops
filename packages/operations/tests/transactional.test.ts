@@ -706,6 +706,28 @@ describe("serializeTransactionalPayload", () => {
 			expect(a).toBe(asString);
 		});
 
+		test("unboxes boxed primitives like JSON.stringify", () => {
+			// new Number(1) and new Number(2) are objects but JSON.stringify
+			// sends 1 and 2; the hash must distinguish them, not collapse
+			// both to {}.
+			const one = serializeTransactionalPayload({
+				template_id: 3,
+				data: { n: new Number(1) },
+			});
+			const two = serializeTransactionalPayload({
+				template_id: 3,
+				data: { n: new Number(2) },
+			});
+			expect(one).not.toBe(two);
+			// And match their primitive counterparts.
+			expect(one).toBe(
+				serializeTransactionalPayload({
+					template_id: 3,
+					data: { n: 1 },
+				}),
+			);
+		});
+
 		test("rejects cyclic payloads instead of overflowing the stack", () => {
 			const cyclic: Record<string, unknown> = { a: 1 };
 			cyclic.self = cyclic;

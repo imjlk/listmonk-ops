@@ -349,6 +349,19 @@ export function stableSerializeJson(
 		return result;
 	}
 	if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+		// Boxed primitives (new Number(1), new Boolean(false), new String("x"))
+		// are objects but JSON.stringify unboxes them. Handle them the same
+		// way before falling into the generic object-enumeration path, which
+		// would otherwise hash every boxed Number as "{}".
+		if (value instanceof Number) {
+			return stableSerializeJson(value.valueOf(), seen);
+		}
+		if (value instanceof Boolean) {
+			return stableSerializeJson(value.valueOf(), seen);
+		}
+		if (value instanceof String) {
+			return stableSerializeJson(value.valueOf(), seen);
+		}
 		if (seen.has(value)) {
 			throw new Error("Circular reference detected in transactional payload");
 		}

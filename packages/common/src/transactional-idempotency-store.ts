@@ -294,6 +294,14 @@ export async function claimTransactionalSend(options: {
 	const store = createTransactionalStore(options.storePath);
 	const now = (options.now ?? (() => new Date()))();
 	const ttlMs = options.ttlMs ?? DEFAULT_TRANSACTIONAL_TTL_MS;
+	// A non-positive TTL would produce an already-expired record; the next
+	// locked update would sweep it, so an identical retry would receive a
+	// fresh claim and dispatch again — defeating idempotency.
+	if (!Number.isFinite(ttlMs) || ttlMs <= 0) {
+		throw new Error(
+			`Transactional idempotency TTL must be a positive finite number of milliseconds (received ${String(ttlMs)})`,
+		);
+	}
 	const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
 
 	return updateJsonFileStore<StoredTransactionalDocument, TransactionalClaimResult>(store, (document) => {

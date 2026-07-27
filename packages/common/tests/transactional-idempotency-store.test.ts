@@ -159,6 +159,22 @@ describe("transactional idempotency file-backed store", () => {
 			expect(stored.records["order-1"]?.status).toBe("pending");
 		});
 
+		test("rejects nonpositive TTL before creating a claim", async () => {
+			const payloadHash = hashPayload(makePayload());
+			for (const badTtl of [0, -1, -100, Number.NaN, Number.POSITIVE_INFINITY]) {
+				await expect(
+					claimTransactionalSend({
+						storePath,
+						key: "order-1",
+						payloadHash,
+						targetHash: DEFAULT_TARGET_HASH,
+						ttlMs: badTtl,
+						now: fixedClock,
+					}),
+				).rejects.toThrow(/TTL must be a positive finite number/);
+			}
+		});
+
 		test("replays an accepted record with the same payload and target", async () => {
 			const payloadHash = hashPayload(makePayload());
 			await claimAndCommitAccepted(storePath, "order-1", payloadHash);

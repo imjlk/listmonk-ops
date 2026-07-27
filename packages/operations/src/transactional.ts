@@ -61,8 +61,12 @@ type DataResponse<T> = {
  */
 class TransactionalDispatchError extends Error {
 	public readonly httpStatus: number | undefined;
-	public constructor(message: string, httpStatus?: number) {
-		super(message);
+	public constructor(
+		message: string,
+		httpStatus?: number,
+		cause?: unknown,
+	) {
+		super(message, cause !== undefined ? { cause } : undefined);
 		this.name = "TransactionalDispatchError";
 		this.httpStatus = httpStatus;
 	}
@@ -314,9 +318,16 @@ function unwrapData<T>(response: DataResponse<T>, context: string): T {
 			typeof response.response?.status === "number"
 				? response.response.status
 				: undefined;
+		// Preserve the original error as the cause so structured transport
+		// codes (error.code, error.cause.code) remain reachable for
+		// isDefinitivePreDispatchError. Without this, Bun's fetch errors
+		// (code: "ConnectionRefused", not in the message) would be lost and
+		// a definitive pre-dispatch outage would be misclassified as unknown.
+		const cause = response.error instanceof Error ? response.error : undefined;
 		throw new TransactionalDispatchError(
 			`${context}: ${toErrorMessage(response.error)}`,
 			status,
+			cause,
 		);
 	}
 	if (response.data === undefined) {
