@@ -58,7 +58,7 @@ listmonk-ops/
 ### 명령 인터페이스
 
 ```typescript
-// packages/commands/src/base/command.ts
+// packages/operations/src/base/command.ts
 export interface Command<TInput, TOutput> {
   execute(input: TInput): Promise<TOutput>;
 }
@@ -113,7 +113,7 @@ export class AbTestService {
 }
 ```
 
-### `packages/commands/` - 명령 구현
+### `packages/operations/` - 명령 구현
 
 ```typescript
 // A/B 테스트 생성 명령
@@ -375,7 +375,7 @@ export class EventBus {
 ### 1. 웰컴 이메일 자동화 추가
 
 ```typescript
-// packages/commands/src/automation/create-welcome-flow.ts
+// packages/operations/src/automation/create-welcome-flow.ts
 export class CreateWelcomeFlowCommand extends BaseCommand<WelcomeFlowInput, WelcomeFlow> {
   async execute(input: WelcomeFlowInput): Promise<WelcomeFlow> {
     // 웰컴 플로우 생성 로직
@@ -387,7 +387,7 @@ export class CreateWelcomeFlowCommand extends BaseCommand<WelcomeFlowInput, Welc
 ### 2. 세그먼테이션 기능 추가
 
 ```typescript
-// packages/commands/src/segmentation/create-segment.ts
+// packages/operations/src/segmentation/create-segment.ts
 export class CreateSegmentCommand extends BaseCommand<SegmentInput, Segment> {
   async execute(input: SegmentInput): Promise<Segment> {
     // 세그먼트 생성 로직
@@ -399,7 +399,7 @@ export class CreateSegmentCommand extends BaseCommand<SegmentInput, Segment> {
 ### 3. 고급 분석 기능 추가
 
 ```typescript
-// packages/commands/src/analytics/generate-report.ts
+// packages/operations/src/analytics/generate-report.ts
 export class GenerateReportCommand extends BaseCommand<ReportInput, Report> {
   async execute(input: ReportInput): Promise<Report> {
     // 보고서 생성 로직
@@ -428,15 +428,15 @@ export class GenerateReportCommand extends BaseCommand<ReportInput, Report> {
 
 ### 배포 옵션
 
-- **Edge Runtime**: Cloudflare Workers, Deno Deploy
-- **Traditional**: Docker, Kubernetes
-- **Serverless**: Vercel Functions, Netlify Functions
+- **CLI**: 로컬 Bun 런타임, 네이티브 바이너리
+- **MCP**: stdio 또는 loopback HTTP 전송
+- **Docker**: 로컬 개발용 Compose 스택
 
 ## 마이그레이션 및 확장 로드맵
 
 ### Phase 1: 핵심 A/B 테스트
 
-- `packages/core` 및 `packages/commands` 구현
+- `packages/core` 및 `packages/operations` 구현
 - 기본 SvelteKit 대시보드
 - 기본 gunshi CLI
 

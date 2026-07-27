@@ -58,7 +58,7 @@ listmonk-ops/
 ### Command Interface
 
 ```typescript
-// packages/commands/src/base/command.ts
+// packages/operations/src/base/command.ts
 export interface Command<TInput, TOutput> {
   execute(input: TInput): Promise<TOutput>;
 }
@@ -113,7 +113,7 @@ export class AbTestService {
 }
 ```
 
-### `packages/commands/` - Command Implementation
+### `packages/operations/` - Command Implementation
 
 ```typescript
 // A/B test creation command
@@ -376,7 +376,7 @@ export class EventBus {
 ### 1. Welcome Email Automation Addition
 
 ```typescript
-// packages/commands/src/automation/create-welcome-flow.ts
+// packages/operations/src/automation/create-welcome-flow.ts
 export class CreateWelcomeFlowCommand extends BaseCommand<WelcomeFlowInput, WelcomeFlow> {
   async execute(input: WelcomeFlowInput): Promise<WelcomeFlow> {
     // Welcome flow creation logic
@@ -388,7 +388,7 @@ export class CreateWelcomeFlowCommand extends BaseCommand<WelcomeFlowInput, Welc
 ### 2. Segmentation Feature Addition
 
 ```typescript
-// packages/commands/src/segmentation/create-segment.ts
+// packages/operations/src/segmentation/create-segment.ts
 export class CreateSegmentCommand extends BaseCommand<SegmentInput, Segment> {
   async execute(input: SegmentInput): Promise<Segment> {
     // Segment creation logic
@@ -400,7 +400,7 @@ export class CreateSegmentCommand extends BaseCommand<SegmentInput, Segment> {
 ### 3. Advanced Analytics Feature Addition
 
 ```typescript
-// packages/commands/src/analytics/generate-report.ts
+// packages/operations/src/analytics/generate-report.ts
 export class GenerateReportCommand extends BaseCommand<ReportInput, Report> {
   async execute(input: ReportInput): Promise<Report> {
     // Report generation logic
@@ -429,16 +429,15 @@ export class GenerateReportCommand extends BaseCommand<ReportInput, Report> {
 
 ### Deployment Options
 
-- **Edge Runtime**: Cloudflare Workers, Deno Deploy
-- **Traditional**: Docker, Kubernetes
-- **Serverless**: Vercel Functions, Netlify Functions
+- **CLI**: Local Bun runtime, native binary
+- **MCP**: stdio or loopback HTTP transport
+- **Docker**: Compose stack for local development
 
 ## Migration and Extension Roadmap
 
 ### Phase 1: Core A/B Testing
 
-- Implement `packages/core` and `packages/commands`
-- Basic SvelteKit dashboard
+- Implement `packages/operations` and `packages/abtest`
 - Basic gunshi CLI
 
 ### Phase 2: Automation Features
