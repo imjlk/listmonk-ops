@@ -1,5 +1,11 @@
 # @listmonk-ops/openapi
 
+## 0.4.1 — 2026-07-27
+
+### Changed
+
+- [a711306](https://github.com/imjlk/listmonk-ops/commit/a711306c3c6dc47b74bb0e262b6689c4bc4794c1) Update the OpenAPI spec README to remove a dangling reference to the deleted MISSING_API_ENDPOINTS.md document. — Thanks @imjlk!
+
 ## 0.4.0 — 2026-07-27
 
 ### Fixed
