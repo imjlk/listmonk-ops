@@ -388,7 +388,15 @@ export function stableSerializeJson(
 		seen.delete(value);
 		return result;
 	}
-	return JSON.stringify(value);
+	// Functions, symbols, and other non-JSON values serialize as undefined
+	// under JSON.stringify. The transport coerces them to null inside
+	// arrays/objects, so the hash must agree — otherwise [() => {}] and []
+	// would both hash as "[]" and a key reuse would falsely replay.
+	if (typeof value === "function" || typeof value === "symbol" || typeof value === "bigint") {
+		return "null";
+	}
+	const fallback = JSON.stringify(value);
+	return fallback === undefined ? "null" : fallback;
 }
 
 /**

@@ -52,4 +52,18 @@ describe("normalizeListmonkApiUrl", () => {
 			/Invalid Listmonk API URL/,
 		);
 	});
+
+	test("rejects a URL with a query string", () => {
+		// Naively appending /api would produce ...?tenant=1/api, mis-targeting
+		// the request. Reject up front so the misconfiguration is visible.
+		expect(() =>
+			normalizeListmonkApiUrl("https://host/api?tenant=1"),
+		).toThrow(/must not include a query string or fragment/);
+	});
+
+	test("rejects a URL with a fragment", () => {
+		expect(() =>
+			normalizeListmonkApiUrl("https://host/api#section"),
+		).toThrow(/must not include a query string or fragment/);
+	});
 });

@@ -728,6 +728,26 @@ describe("serializeTransactionalPayload", () => {
 			);
 		});
 
+		test("serializes non-JSON array values (functions, symbols) as null", () => {
+			// JSON.stringify coerces functions/symbols inside arrays to null;
+			// the hash must agree so [() => {}] does not collide with [].
+			const withFn = serializeTransactionalPayload({
+				template_id: 3,
+				data: { xs: [() => {}] },
+			});
+			const withNull = serializeTransactionalPayload({
+				template_id: 3,
+				data: { xs: [null] },
+			});
+			expect(withFn).toBe(withNull);
+			// And distinct from an empty array.
+			const empty = serializeTransactionalPayload({
+				template_id: 3,
+				data: { xs: [] },
+			});
+			expect(withFn).not.toBe(empty);
+		});
+
 		test("rejects cyclic payloads instead of overflowing the stack", () => {
 			const cyclic: Record<string, unknown> = { a: 1 };
 			cyclic.self = cyclic;
