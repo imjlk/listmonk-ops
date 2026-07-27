@@ -266,6 +266,20 @@ const uploadMediaInputSchema = z
 			),
 	})
 	.superRefine((input, ctx) => {
+		// Reject an excessive RAW payload before stripping so a hostile
+		// request cannot bury a small valid payload inside hundreds of MB
+		// of whitespace or data-URL metadata. The cap is the encoded form
+		// of MAX_MEDIA_UPLOAD_BYTES plus generous slack for padding,
+		// data-URL prefix, and whitespace wrapping.
+		const rawCap = Math.ceil((MAX_MEDIA_UPLOAD_BYTES * 4) / 3) + 1024;
+		if (input.base64.length > rawCap) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["base64"],
+				message: `media upload raw payload exceeds ${rawCap} characters (decoded cap is ${MAX_MEDIA_UPLOAD_BYTES} bytes)`,
+			});
+			return;
+		}
 		// Reject oversized uploads from the encoded length alone so we never
 		// allocate a full Uint8Array for a hostile hundreds-of-MiB payload.
 		// Base64 expands bytes by ~4/3, so the encoded length (minus padding)
@@ -332,6 +346,33 @@ const uploadMediaInputSchema = z
 					? `content_type '${input.content_type}' is not in the allowed media MIME set`
 					: `could not infer an allowed MIME type from filename '${input.filename}'`,
 			});
+		}
+		// When both an explicit content_type and a filename extension are
+		// provided, they must agree. This prevents bypassing the SVG /
+		// executable exclusion by setting content_type: 'image/png' on a
+		// payload named 'evil.svg'. A filename with an extension that does
+		// NOT map to any allowlisted MIME type is always rejected, because
+		// it signals a dangerous type (svg, exe, html, etc.) hiding behind
+		// a spoofed content_type.
+		if (input.content_type !== undefined) {
+			const inferred = inferContentTypeFromFilename(input.filename);
+			const dot = input.filename.lastIndexOf(".");
+			const hasExtension = dot >= 0 && dot !== input.filename.length - 1;
+			if (inferred !== undefined) {
+				if (inferred.toLowerCase() !== input.content_type.toLowerCase()) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["content_type"],
+						message: `content_type '${input.content_type}' does not match filename extension (expected '${inferred}')`,
+					});
+				}
+			} else if (hasExtension) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["content_type"],
+					message: `filename extension '.${input.filename.slice(dot + 1)}' is not in the allowed media set and cannot be overridden by content_type`,
+				});
+			}
 		}
 	});
 

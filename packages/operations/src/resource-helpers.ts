@@ -8,7 +8,15 @@ export const resourceIdSchema = z
 		]),
 		z.number().int().positive(),
 		{
-			decode: (value) => Number(value),
+			decode: (value) => {
+				const num = Number(value);
+				if (!Number.isSafeInteger(num)) {
+					throw new Error(
+						`resource ID ${value} exceeds the maximum safe integer (${Number.MAX_SAFE_INTEGER})`,
+					);
+				}
+				return num;
+			},
 			encode: (value) => value,
 		},
 	)

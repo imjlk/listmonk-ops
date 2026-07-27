@@ -716,7 +716,7 @@ export default defineGroup({
 		defineCommand({
 			name: "pause",
 			operationId: "campaigns.pause",
-			description: "Pause a running or scheduled campaign",
+			description: "Pause a running campaign",
 			options: {
 				id: option(z.coerce.number().int().positive(), {
 					description: "Campaign ID",

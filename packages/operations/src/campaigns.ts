@@ -329,22 +329,23 @@ async function findCreatedCampaignNotInSet(
 	name: string,
 	excludeIds: Set<number>,
 ): Promise<Campaign | undefined> {
-	let found: Campaign | undefined;
+	const candidates: Campaign[] = [];
 	await scanCampaignPages(client, (campaign) => {
-		// Require a numeric id that is NOT in the pre-create snapshot. A
-		// non-numeric or missing id cannot be the new clone — Listmonk
-		// always assigns a numeric id on create.
+		// Collect ALL same-name campaigns not in the pre-create snapshot.
+		// If exactly one candidate exists we can return it; if there are
+		// zero or more than one the result is ambiguous (e.g. concurrent
+		// clones with the same name) and the caller must resolve manually.
 		if (
 			campaign.name === name &&
 			typeof campaign.id === "number" &&
 			!excludeIds.has(campaign.id)
 		) {
-			found = campaign;
-			return true;
+			candidates.push(campaign);
 		}
 		return false;
 	});
-	return found;
+	if (candidates.length === 1) return candidates[0];
+	return undefined;
 }
 
 export async function createCampaign(
