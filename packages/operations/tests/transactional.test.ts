@@ -732,6 +732,28 @@ describe("serializeTransactionalPayload", () => {
 			expect(withOmitting).not.toBe(withNull);
 		});
 
+		test("passes the property key to toJSON (matches JSON.stringify)", () => {
+			// JSON.stringify calls toJSON(key), forwarding the property name.
+			// A value whose toJSON depends on its key must hash the way the
+			// transport serializes it, or two structurally different payloads
+			// could collide.
+			class KeyEcho {
+				toJSON(key: string): unknown {
+					return key;
+				}
+			}
+			const withKeyEcho = serializeTransactionalPayload({
+				template_id: 3,
+				data: { first: new KeyEcho(), second: new KeyEcho() },
+			});
+			// The wire body sends {"first":"first","second":"second"}.
+			const explicit = serializeTransactionalPayload({
+				template_id: 3,
+				data: { first: "first", second: "second" },
+			});
+			expect(withKeyEcho).toBe(explicit);
+		});
+
 		test("unboxes boxed primitives like JSON.stringify", () => {
 			// new Number(1) and new Number(2) are objects but JSON.stringify
 			// sends 1 and 2; the hash must distinguish them, not collapse

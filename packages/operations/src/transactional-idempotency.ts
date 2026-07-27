@@ -318,12 +318,16 @@ export function serializeTransactionalPayload(input: {
  */
 
 /**
- * Apply toJSON() at the object-property level. JSON.stringify calls toJSON
- * on the value and, if the result is undefined, omits the property entirely
- * (rather than serializing null). Returning undefined here lets the caller's
- * filter drop the property, preserving the wire payload's shape.
+ * Apply toJSON() at the object-property level. JSON.stringify calls
+ * toJSON(key) — passing the property name as the argument — and, if the
+ * result is undefined, omits the property entirely (rather than
+ * serializing null). Returning undefined here lets the caller's filter
+ * drop the property, preserving the wire payload's shape.
+ *
+ * The key is forwarded so a value whose toJSON depends on its property
+ * name (rare but valid) hashes the same way JSON.stringify serializes it.
  */
-function resolvePropertyValue(value: unknown): unknown {
+function resolvePropertyValue(value: unknown, key: string): unknown {
 	if (
 		typeof value === "object" &&
 		value !== null &&
@@ -335,7 +339,7 @@ function resolvePropertyValue(value: unknown): unknown {
 	) {
 		const toJSON = (value as { toJSON?: unknown }).toJSON;
 		if (typeof toJSON === "function") {
-			return (value as { toJSON: () => unknown }).toJSON();
+			return (value as { toJSON: (key: string) => unknown }).toJSON(key);
 		}
 	}
 	return value;
@@ -408,7 +412,7 @@ export function stableSerializeJson(
 			// Also apply toJSON() at the property level: if a value's toJSON
 			// returns undefined, JSON.stringify omits the property (rather
 			// than serializing null), so we must too or the hash diverges.
-			.map(([k, v]) => [k, resolvePropertyValue(v)] as const)
+			.map(([k, v]) => [k, resolvePropertyValue(v, k)] as const)
 			.filter(
 				([, v]) =>
 					v !== undefined &&
