@@ -136,3 +136,18 @@ export const deliveryTransitionSafety = {
 	idempotentHint: true,
 	openWorldHint: true,
 } as const;
+
+/**
+ * Safety metadata for bulk operations that suppress delivery to a large
+ * audience, e.g. blocklisting up to 10,000 subscribers in a single call.
+ * These operations are idempotent (re-applying blocklist to already
+ * blocklisted subscribers is a no-op) but they silently stop mail
+ * delivery for everyone in the batch, so they must require explicit
+ * confirmation at every surface (CLI `--confirm`, MCP confirmation flow).
+ */
+export const deliverySuppressionSafety = {
+	readOnlyHint: false,
+	destructiveHint: true,
+	idempotentHint: true,
+	openWorldHint: true,
+} as const;

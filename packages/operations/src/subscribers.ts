@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
 	createResourceSafety,
 	deleteResourceSafety,
+	deliverySuppressionSafety,
 	jsonResourceValue,
 	normalizeResourceList,
 	readResourceSafety,
@@ -523,10 +524,10 @@ export const blocklistSubscribersOperation = defineOperation({
 	id: "subscribers.blocklist",
 	title: "Blocklist subscribers",
 	description:
-		"Add a batch of subscribers to the blocklist (action: add). Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+		"Add a batch of subscribers to the blocklist (action: add). Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because blocklisting suppresses mail delivery for the entire batch.",
 	inputSchema: subscriberBulkBlocklistInputSchema,
 	outputSchema: bulkOperationOutputSchema,
-	safety: updateResourceSafety,
+	safety: deliverySuppressionSafety,
 	mcp: {
 		name: "listmonk_blocklist_subscribers",
 		legacySuccessText: jsonResourceValue,
