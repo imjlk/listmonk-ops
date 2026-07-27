@@ -9,29 +9,33 @@ import {
 	parseOperationOutput,
 } from "./operation";
 import {
-	claimTransactionalSend,
-	commitTransactionalSend,
-	computeTransactionalPayloadHash,
 	computeTransactionalTargetHash,
 	isAmbiguousTransportError,
+	serializeTransactionalPayload,
 	TransactionalReconcileError,
+	type TransactionalIdempotencyStore,
 	type TransactionalSendRecord,
 } from "./transactional-idempotency";
 
 export interface TransactionalOperationContext {
 	client: Pick<ListmonkClient, "transactional">;
 	/**
-	 * Optional override for the idempotency store path. CLI and MCP adapters
-	 * do not set this; the default resolves via
-	 * `LISTMONK_OPS_TRANSACTIONAL_STORE` then `~/.listmonk-ops/transactional.json`.
+	 * Adapter-supplied idempotency store. When absent, `idempotency_key` is
+	 * rejected as unsupported on this surface. CLI and MCP inject a
+	 * file-backed implementation; other consumers can inject an in-memory
+	 * one for tests.
 	 */
-	storePath?: string;
+	idempotencyStore?: TransactionalIdempotencyStore;
+	/**
+	 * Hash function the adapter uses to derive a stable payload digest
+	 * (e.g. SHA-256 via `node:crypto`). Paired with `idempotencyStore` so
+	 * the operations package itself stays runtime-neutral.
+	 */
+	hashPayload?: (serialized: string) => string;
 	/**
 	 * Optional Listmonk target identity used to namespace idempotency records.
-	 * When supplied, records and payload hashes are scoped to this target so
-	 * a key reused across staging and production cannot replay the wrong
-	 * instance's result. Adapters typically derive this from the resolved
-	 * baseUrl + username.
+	 * Adapters must pass the resolved baseUrl + username so records scoped to
+	 * staging cannot replay against production.
 	 */
 	target?: {
 		baseUrl?: string;
@@ -369,10 +373,20 @@ export async function sendTransactionalMessage(
 		};
 	}
 
-	const payloadHash = computeTransactionalPayloadHash(payload);
+	const store = context.idempotencyStore;
+	if (store === undefined || context.hashPayload === undefined) {
+		// Surface is not wired for idempotency (e.g. a runtime-neutral
+		// caller that did not inject a store). Reject rather than silently
+		// dispatching without the safety net the caller asked for.
+		throw new OperationInputError(
+			"idempotency_key was supplied but this surface does not provide an idempotency store. Omit idempotency_key or run through the CLI/MCP adapter.",
+		);
+	}
+
+	const serializedPayload = serializeTransactionalPayload(payload);
+	const payloadHash = context.hashPayload(serializedPayload);
 	const targetHash = computeTransactionalTargetHash(context.target ?? {});
-	const claim = await claimTransactionalSend({
-		storePath: context.storePath,
+	const claim = await store.claim({
 		key: input.idempotency_key,
 		payloadHash,
 		targetHash,
@@ -386,9 +400,12 @@ export async function sendTransactionalMessage(
 
 	if (claim.kind === "replay") {
 		const record = claim.record;
-		// Terminal results (accepted or failed) are safe to replay verbatim
-		// without re-dispatching — a definitive negative acknowledgement is
-		// just as deterministic the second time around.
+		// Only deterministic terminal results are replayed verbatim:
+		//   accepted — Listmonk returned sent:true
+		//   failed   — Listmonk returned sent:false (negative acknowledgement)
+		// Thrown dispatch errors are NOT persisted as `failed` (see below),
+		// so a transient connection-refused does not suppress the message
+		// for the TTL window.
 		if (record.status === "accepted" || record.status === "failed") {
 			return recordToOutput(record, "replayed");
 		}
@@ -408,31 +425,40 @@ export async function sendTransactionalMessage(
 	try {
 		sent = await dispatchToListmonk(context, payload);
 	} catch (error) {
-		// Distinguish ambiguous transport failures from explicit Listmonk
-		// rejections. Ambiguous → unknown (no auto-retry); explicit → failed.
-		const status = isAmbiguousTransportError(error) ? "unknown" : "failed";
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		// Persist best-effort: the dispatch result is the source of truth.
-		// A store write failure must not mask the original transport error.
-		await commitBestEffort({
-			storePath: context.storePath,
-			key: input.idempotency_key,
-			claimToken: record.claimToken,
-			status,
-			errorMessage,
-		});
-		if (status === "unknown") {
+		if (isAmbiguousTransportError(error)) {
+			// Ambiguous transport failure: Listmonk may or may not have
+			// received the message. Record `unknown` so auto-retry is
+			// blocked and the operator must reconcile.
+			const errorMessage = error instanceof Error
+				? error.message
+				: String(error);
+			await commitBestEffort(store, {
+				key: input.idempotency_key,
+				claimToken: record.claimToken,
+				status: "unknown",
+				errorMessage,
+			});
 			throw new TransactionalReconcileError(
 				input.idempotency_key,
-				status,
+				"unknown",
 				`Transactional dispatch failed ambiguously ('${errorMessage}'). The message may or may not have been sent. Automatic retry is blocked; inspect Listmonk and the idempotency record before reconciling.`,
 			);
 		}
+		// Definitive thrown error (ECONNREFUSED, ENOTFOUND, application
+		// exception): the request never reached Listmonk or was rejected
+		// before delivery. Release the claim so a retry can dispatch once
+		// the underlying issue clears — a stored `failed` would otherwise
+		// replay the error and suppress the message for the TTL window.
+		await releaseBestEffort(store, {
+			key: input.idempotency_key,
+			claimToken: record.claimToken,
+		});
 		throw error;
 	}
 
-	await commitBestEffort({
-		storePath: context.storePath,
+	// Dispatch returned a definitive acknowledgement (sent: true|false).
+	// Persist best-effort: the dispatch result is the source of truth.
+	await commitBestEffort(store, {
 		key: input.idempotency_key,
 		claimToken: record.claimToken,
 		status: sent ? "accepted" : "failed",
@@ -449,20 +475,40 @@ export async function sendTransactionalMessage(
 }
 
 /**
- * Wrap `commitTransactionalSend` so a persistence failure (lock timeout,
- * EACCES, full disk) cannot replace the dispatch outcome. The dispatch
- * result is the source of truth; the record stays claimed until it expires
- * or a later sweep reclaims it. Mirrors the "record vanished" reasoning
- * already used inside `commitTransactionalSend`.
+ * Wrap `store.commit` so a persistence failure (lock timeout, EACCES, full
+ * disk) cannot replace the dispatch outcome. The dispatch result is the
+ * source of truth; the record stays claimed until it expires or a later
+ * sweep reclaims it.
  */
 async function commitBestEffort(
-	options: Parameters<typeof commitTransactionalSend>[0],
+	store: TransactionalIdempotencyStore,
+	options: Parameters<TransactionalIdempotencyStore["commit"]>[0],
 ): Promise<void> {
 	try {
-		await commitTransactionalSend(options);
+		await store.commit(options);
 	} catch (error) {
 		console.warn(
 			`Failed to persist transactional idempotency record for key '${options.key}': ${
+				error instanceof Error ? error.message : String(error)
+			}`,
+		);
+	}
+}
+
+/**
+ * Best-effort release of a claim whose dispatch threw a definitive error.
+ * A persistence failure must not mask the original transport error; the
+ * claim will still expire at its TTL if the release did not land.
+ */
+async function releaseBestEffort(
+	store: TransactionalIdempotencyStore,
+	options: Parameters<TransactionalIdempotencyStore["release"]>[0],
+): Promise<void> {
+	try {
+		await store.release(options);
+	} catch (error) {
+		console.warn(
+			`Failed to release transactional idempotency claim for key '${options.key}': ${
 				error instanceof Error ? error.message : String(error)
 			}`,
 		);

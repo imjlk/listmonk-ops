@@ -1,23 +1,112 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import {
+	computeTransactionalTargetHash,
 	getTransactionalOperationByMcpName,
 	invokeSendTransactionalOperation,
 	invokeTransactionalOperationByMcpName,
+	isAmbiguousTransportError,
 	OperationExecutionError,
 	OperationInputError,
+	serializeTransactionalPayload,
 	sendTransactionalOperation,
 	transactionalOperations,
+	DEFAULT_TRANSACTIONAL_TTL_MS,
+	type TransactionalClaimResult,
+	type TransactionalIdempotencyStore,
 	type TransactionalOperationContext,
+	type TransactionalSendRecord,
 } from "../src";
 
 type TransactionalClient = Pick<ListmonkClient, "transactional">;
 
 function context(send: TransactionalClient["transactional"]["send"]) {
 	return { client: { transactional: { send } } as TransactionalClient };
+}
+
+/**
+ * Minimal in-memory store implementing the operations-package interface.
+ * Keeps a single Map keyed by idempotency_key; not atomic, but sufficient
+ * for wrapper-level unit tests that exercise one request at a time.
+ */
+function createInMemoryTransactionalIdempotencyStore(): TransactionalIdempotencyStore & {
+	snapshot(): Map<string, TransactionalSendRecord>;
+} {
+	const records = new Map<string, TransactionalSendRecord>();
+	let tokenCounter = 0;
+	return {
+		claim({ key, payloadHash, targetHash, ttlMs, now }) {
+			const at = (now ?? (() => new Date()))();
+			const ttl = ttlMs ?? DEFAULT_TRANSACTIONAL_TTL_MS;
+			const expiresAt = new Date(at.getTime() + ttl).toISOString();
+			// Sweep expired first so the test reflects the file-store behavior.
+			for (const [k, r] of records) {
+				if (new Date(r.expiresAt).getTime() < at.getTime()) {
+					records.delete(k);
+				}
+			}
+			const existing = records.get(key);
+			if (existing) {
+				const samePayload =
+					existing.payloadHash === payloadHash &&
+					existing.targetHash === targetHash;
+				if (!samePayload) {
+					return Promise.resolve({
+						kind: "conflict",
+						existing,
+					} satisfies TransactionalClaimResult);
+				}
+				return Promise.resolve({
+					kind: "replay",
+					record: existing,
+				} satisfies TransactionalClaimResult);
+			}
+			const record: TransactionalSendRecord = {
+				key,
+				payloadHash,
+				targetHash,
+				status: "pending",
+				claimToken: `tok-${tokenCounter++}`,
+				createdAt: at.toISOString(),
+				updatedAt: at.toISOString(),
+				expiresAt,
+			};
+			records.set(key, record);
+			return Promise.resolve({
+				kind: "new",
+				record,
+			} satisfies TransactionalClaimResult);
+		},
+		commit({ key, claimToken, status, sent, errorMessage, now }) {
+			const at = (now ?? (() => new Date()))();
+			const existing = records.get(key);
+			if (existing && existing.claimToken === claimToken) {
+				records.set(key, {
+					...existing,
+					status,
+					sent: status === "accepted" ? true : sent,
+					errorMessage,
+					updatedAt: at.toISOString(),
+				});
+			}
+			return Promise.resolve();
+		},
+		release({ key, claimToken }) {
+			const existing = records.get(key);
+			if (existing && existing.claimToken === claimToken) {
+				records.delete(key);
+			}
+			return Promise.resolve();
+		},
+		load() {
+			const doc = { version: 1 as const, records: {} as Record<string, TransactionalSendRecord> };
+			for (const [k, v] of records) doc.records[k] = v;
+			return Promise.resolve(doc);
+		},
+		snapshot() {
+			return new Map(records);
+		},
+	};
 }
 
 describe("transactional operations", () => {
@@ -260,33 +349,33 @@ describe("transactional operations", () => {
 });
 
 describe("transactional idempotency wrapper integration", () => {
-	let tempDir: string;
-	let storePath: string;
-
-	beforeEach(async () => {
-		tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-tx-wrap-"));
-		storePath = join(tempDir, "transactional.json");
-	});
-
-	afterEach(async () => {
-		await rm(tempDir, { recursive: true, force: true });
-	});
-
 	type TransactionalClient = Pick<ListmonkClient, "transactional">;
+
+	// Simple in-memory SHA-256 stand-in: the wrapper only needs a stable
+	// equality token, not cryptographic strength, for these unit tests.
+	function naiveHash(value: string): string {
+		let h = 0;
+		for (let i = 0; i < value.length; i++) {
+			h = (Math.imul(31, h) + value.charCodeAt(i)) | 0;
+		}
+		return (h >>> 0).toString(16).padStart(8, "0");
+	}
 
 	function contextWithStore(
 		send: TransactionalClient["transactional"]["send"],
-		path: string,
 	): TransactionalOperationContext {
+		const store = createInMemoryTransactionalIdempotencyStore();
 		return {
 			client: { transactional: { send } } as TransactionalClient,
-			storePath: path,
+			idempotencyStore: store,
+			hashPayload: (serialized: string) =>
+				naiveHash(serialized).padEnd(8, "0"),
 		};
 	}
 
 	test("replays the original result when the same key+payload is retried", async () => {
 		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
-		const ctx = contextWithStore(send, storePath);
+		const ctx = contextWithStore(send);
 		const input = {
 			template_id: 3,
 			subscriber_id: 42,
@@ -320,7 +409,7 @@ describe("transactional idempotency wrapper integration", () => {
 
 	test("rejects a different payload under the same idempotency key as a conflict", async () => {
 		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
-		const ctx = contextWithStore(send, storePath);
+		const ctx = contextWithStore(send);
 
 		await invokeSendTransactionalOperation(ctx, {
 			template_id: 3,
@@ -350,7 +439,7 @@ describe("transactional idempotency wrapper integration", () => {
 		const send = mock(async () => {
 			throw new Error("fetch failed: ECONNRESET");
 		}) as unknown as TransactionalClient["transactional"]["send"];
-		const ctx = contextWithStore(send, storePath);
+		const ctx = contextWithStore(send);
 
 		await expect(
 			invokeSendTransactionalOperation(ctx, {
@@ -390,7 +479,7 @@ describe("transactional idempotency wrapper integration", () => {
 
 	test("replays an explicit Listmonk rejection without re-dispatching", async () => {
 		const send = mock(async () => ({ data: false })) as unknown as TransactionalClient["transactional"]["send"];
-		const ctx = contextWithStore(send, storePath);
+		const ctx = contextWithStore(send);
 
 		const first = await invokeSendTransactionalOperation(ctx, {
 			template_id: 3,
@@ -416,5 +505,144 @@ describe("transactional idempotency wrapper integration", () => {
 			duplicate: true,
 		});
 		expect(send).toHaveBeenCalledTimes(1);
+	});
+
+	test("does not terminally record a definitive thrown dispatch error", async () => {
+		// ECONNREFUSED is definitive (nothing listening); the wrapper must NOT
+		// persist it as `failed` or a retry would replay the stored error and
+		// suppress the message for the TTL window. The claim stays pending
+		// and a retry can dispatch once the outage clears.
+		const send = mock(async () => {
+			throw new Error("connect ECONNREFUSED 127.0.0.1:9000");
+		}) as unknown as TransactionalClient["transactional"]["send"];
+		const ctx = contextWithStore(send);
+
+		await expect(
+			invokeSendTransactionalOperation(ctx, {
+				template_id: 3,
+				subscriber_id: 42,
+				idempotency_key: "order-1",
+			}),
+		).rejects.toThrow(/ECONNREFUSED/);
+
+		// A retry after the outage clears must dispatch again (not replay).
+		send.mockImplementation(
+			async () => ({ data: true }) as unknown as Awaited<
+				ReturnType<TransactionalClient["transactional"]["send"]>
+			>,
+		);
+		const retry = await invokeSendTransactionalOperation(ctx, {
+			template_id: 3,
+			subscriber_id: 42,
+			idempotency_key: "order-1",
+		});
+		expect(retry).toMatchObject({
+			sent: true,
+			status: "accepted",
+		});
+		expect(send).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe("transactional idempotency pure helpers", () => {
+	describe("serializeTransactionalPayload", () => {
+		test("is stable across object key reordering", () => {
+			const a = serializeTransactionalPayload({
+				template_id: 3,
+				data: { a: 1, b: 2, c: 3 },
+			});
+			const b = serializeTransactionalPayload({
+				template_id: 3,
+				data: { c: 3, a: 1, b: 2 },
+			});
+			expect(a).toBe(b);
+		});
+
+		test("treats Date instances like their transport ISO string", () => {
+			const withDate = serializeTransactionalPayload({
+				template_id: 3,
+				data: { when: new Date("2026-01-01T00:00:00.000Z") },
+			});
+			const withIso = serializeTransactionalPayload({
+				template_id: 3,
+				data: { when: "2026-01-01T00:00:00.000Z" },
+			});
+			expect(withDate).toBe(withIso);
+		});
+
+		test("treats undefined inside arrays like null (transport semantics)", () => {
+			const withUndef = serializeTransactionalPayload({
+				template_id: 3,
+				data: { xs: [undefined] },
+			});
+			const withNull = serializeTransactionalPayload({
+				template_id: 3,
+				data: { xs: [null] },
+			});
+			expect(withUndef).toBe(withNull);
+		});
+
+		test("rejects cyclic payloads instead of overflowing the stack", () => {
+			const cyclic: Record<string, unknown> = { a: 1 };
+			cyclic.self = cyclic;
+			expect(() =>
+				serializeTransactionalPayload({
+					template_id: 3,
+					data: cyclic,
+				}),
+			).toThrow(/Circular reference detected/);
+		});
+	});
+
+	describe("computeTransactionalTargetHash", () => {
+		test("differs across Listmonk targets", () => {
+			const staging = computeTransactionalTargetHash({
+				baseUrl: "http://staging.example.com/api",
+				username: "ops",
+			});
+			const production = computeTransactionalTargetHash({
+				baseUrl: "https://listmonk.example.com/api",
+				username: "ops",
+			});
+			expect(staging).not.toBe(production);
+		});
+
+		test("ignores leading/trailing whitespace", () => {
+			const a = computeTransactionalTargetHash({
+				baseUrl: "http://x/api",
+				username: "ops",
+			});
+			const b = computeTransactionalTargetHash({
+				baseUrl: "  http://x/api  ",
+				username: "  ops  ",
+			});
+			expect(a).toBe(b);
+		});
+	});
+
+	describe("isAmbiguousTransportError", () => {
+		test("flags timeout, connection reset, fetch failures, and aborts", () => {
+			expect(isAmbiguousTransportError(new Error("Request timed out"))).toBe(true);
+			expect(isAmbiguousTransportError(new Error("ECONNRESET"))).toBe(true);
+			expect(isAmbiguousTransportError(new Error("fetch failed"))).toBe(true);
+			expect(isAmbiguousTransportError(new Error("connect ENETUNREACH"))).toBe(true);
+			expect(isAmbiguousTransportError(new Error("The operation was aborted"))).toBe(true);
+		});
+
+		test("does not flag definitive connection-refused or DNS failures", () => {
+			expect(isAmbiguousTransportError(new Error("connect ECONNREFUSED"))).toBe(false);
+			expect(isAmbiguousTransportError(new Error("getaddrinfo ENOTFOUND"))).toBe(false);
+		});
+
+		test("does not flag explicit Listmonk application errors", () => {
+			expect(isAmbiguousTransportError(new Error("template not found"))).toBe(false);
+			expect(isAmbiguousTransportError(new Error("subscriber blocklisted"))).toBe(false);
+			expect(isAmbiguousTransportError(new Error("invalid network configuration"))).toBe(false);
+		});
+
+		test("does not flag non-Error values", () => {
+			expect(isAmbiguousTransportError("timeout")).toBe(false);
+			expect(isAmbiguousTransportError({ code: "ECONNRESET" })).toBe(false);
+		});
 	});
 });

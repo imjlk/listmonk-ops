@@ -118,18 +118,28 @@ const sendTransactionalAction =
 	"packages/operations/src/transactional.ts#sendTransactionalMessage:function";
 const dispatchTransactionalToListmonk =
 	"packages/operations/src/transactional.ts#dispatchToListmonk:function";
-const transactionalIdempotencyClaim =
-	"packages/operations/src/transactional-idempotency.ts#claimTransactionalSend:function";
-const transactionalIdempotencyCommit =
-	"packages/operations/src/transactional-idempotency.ts#commitTransactionalSend:function";
 const transactionalIdempotencyCommitBestEffort =
 	"packages/operations/src/transactional.ts#commitBestEffort:function";
-const transactionalIdempotencyHash =
-	"packages/operations/src/transactional-idempotency.ts#computeTransactionalPayloadHash:function";
+const transactionalIdempotencyReleaseBestEffort =
+	"packages/operations/src/transactional.ts#releaseBestEffort:function";
+const transactionalSerializePayload =
+	"packages/operations/src/transactional-idempotency.ts#serializeTransactionalPayload:function";
+// File-backed implementation lives in common (Node-only) so the operations
+// package stays runtime-neutral; adapters inject it via the interface.
+const commonTransactionalClaim =
+	"packages/common/src/transactional-idempotency-store.ts#claimTransactionalSend:function";
+const commonTransactionalCommit =
+	"packages/common/src/transactional-idempotency-store.ts#commitTransactionalSend:function";
+const commonTransactionalRelease =
+	"packages/common/src/transactional-idempotency-store.ts#releaseTransactionalSend:function";
+const commonTransactionalStoreFactory =
+	"packages/common/src/transactional-idempotency-store.ts#createFileBackedTransactionalIdempotencyStore:function";
+const commonTransactionalHash =
+	"packages/common/src/transactional-idempotency-store.ts#hashTransactionalPayload:function";
 const transactionalIdempotencyStoreUpdate =
 	"packages/common/src/json-file-store.ts#updateJsonFileStore:function";
-const transactionalIdempotencyDomainTest =
-	"packages/operations/tests/transactional-idempotency.test.ts#packages/operations/tests/transactional-idempotency.test.ts:module";
+const transactionalIdempotencyStoreTest =
+	"packages/common/tests/transactional-idempotency-store.test.ts#packages/common/tests/transactional-idempotency-store.test.ts:module";
 const openapiTransactionalMethod =
 	"packages/openapi/src/client/contracts.ts#TransactionalOperations.send:method";
 const mcpTestClientCallTool =
@@ -1661,29 +1671,52 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 		],
 	},
 	{
-		label: "transactional idempotency wrapper reaches the persistence layer",
-		path: [
-			sendTransactionalAction,
-			transactionalIdempotencyClaim,
-			transactionalIdempotencyStoreUpdate,
-		],
+		label: "transactional wrapper serializes the payload for adapter hashing",
+		path: [sendTransactionalAction, transactionalSerializePayload],
 	},
 	{
-		label: "transactional idempotency wrapper commits terminal state",
-		path: [
-			sendTransactionalAction,
-			transactionalIdempotencyCommitBestEffort,
-			transactionalIdempotencyCommit,
-			transactionalIdempotencyStoreUpdate,
-		],
+		label: "transactional wrapper commits terminal state through the store",
+		path: [sendTransactionalAction, transactionalIdempotencyCommitBestEffort],
 	},
 	{
-		label: "transactional idempotency wrapper derives the replay payload hash",
-		path: [sendTransactionalAction, transactionalIdempotencyHash],
+		label: "transactional wrapper releases claims on definitive thrown errors",
+		path: [sendTransactionalAction, transactionalIdempotencyReleaseBestEffort],
 	},
 	{
-		label: "transactional idempotency domain tests anchor the store contract",
-		path: [transactionalIdempotencyDomainTest, transactionalIdempotencyClaim],
+		label: "common file-backed idempotency store reaches the JSON persistence layer",
+		path: [commonTransactionalClaim, transactionalIdempotencyStoreUpdate],
+	},
+	{
+		label: "common file-backed idempotency store commits terminal state atomically",
+		path: [commonTransactionalCommit, transactionalIdempotencyStoreUpdate],
+	},
+	{
+		label: "common file-backed idempotency store releases claims atomically",
+		path: [commonTransactionalRelease, transactionalIdempotencyStoreUpdate],
+	},
+	{
+		label: "common store factory wires claim into the store interface",
+		path: [commonTransactionalStoreFactory, commonTransactionalClaim],
+	},
+	{
+		label: "common store factory wires commit into the store interface",
+		path: [commonTransactionalStoreFactory, commonTransactionalCommit],
+	},
+	{
+		label: "common store factory wires release into the store interface",
+		path: [commonTransactionalStoreFactory, commonTransactionalRelease],
+	},
+	{
+		label: "common store tests anchor the file-backed claim contract",
+		path: [transactionalIdempotencyStoreTest, commonTransactionalClaim],
+	},
+	{
+		label: "common store tests anchor the file-backed commit contract",
+		path: [transactionalIdempotencyStoreTest, commonTransactionalCommit],
+	},
+	{
+		label: "common store tests anchor the file-backed release contract",
+		path: [transactionalIdempotencyStoreTest, commonTransactionalRelease],
 	},
 	{
 		label: "CLI tests anchor the transactional send path",

@@ -1,12 +1,3 @@
-import { createHash } from "node:crypto";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import {
-	commitJsonFileStoreUpdate,
-	readJsonFileStore,
-	type JsonFileStore,
-	updateJsonFileStore,
-} from "@listmonk-ops/common";
 import { OperationExecutionError } from "./operation";
 
 /**
@@ -17,18 +8,12 @@ import { OperationExecutionError } from "./operation";
 export const DEFAULT_TRANSACTIONAL_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Lock window for the transactional idempotency store. Shorter than the
- * abtest store because transactional sends should resolve in seconds, not
- * minutes; a long-held lock usually means a hung dispatch.
+ * Soft cap on the number of unexpired records the store retains. Adapters
+ * that hit this cap must reject new claims rather than evicting a live
+ * record, so a high-volume installation cannot silently break the
+ * idempotency guarantee for an in-flight key.
  */
-const TRANSACTIONAL_STORE_LOCK_TIMEOUT_MS = 30_000;
-
-/**
- * Maximum number of records the store retains after a sweep. Each locked
- * update sweeps expired records; this cap also bounds growth when the clock
- * is mocked or many records share a far-future expiry.
- */
-const TRANSACTIONAL_STORE_MAX_RECORDS = 10_000;
+export const TRANSACTIONAL_STORE_MAX_RECORDS = 10_000;
 
 export type TransactionalSendStatus = "pending" | "accepted" | "failed" | "unknown";
 
@@ -39,7 +24,8 @@ export type TransactionalSendStatus = "pending" | "accepted" | "failed" | "unkno
  *   pending   — claimed by a request, dispatch in progress
  *   accepted  — Listmonk returned a positive acknowledgement (`sent: true`)
  *   failed    — Listmonk returned a definitive negative acknowledgement
- *               (`sent: false`) or a deterministic application error
+ *               (`sent: false`). Thrown dispatch errors are NOT recorded as
+ *               `failed`; they release the claim so a retry can dispatch.
  *   unknown   — the dispatch did not complete cleanly (timeout, connection
  *               reset). Automatic retry is blocked; an operator must inspect
  *               Listmonk and decide whether to reconcile.
@@ -75,18 +61,73 @@ export interface StoredTransactionalDocument {
 	records: Record<string, TransactionalSendRecord>;
 }
 
-const TRANSACTIONAL_STATUSES = new Set<TransactionalSendStatus>([
-	"pending",
-	"accepted",
-	"failed",
-	"unknown",
-]);
+export type TransactionalClaimResult =
+	| { kind: "new"; record: TransactionalSendRecord }
+	| { kind: "replay"; record: TransactionalSendRecord }
+	| { kind: "conflict"; existing: TransactionalSendRecord };
 
 /**
- * A caller supplied a target namespace that does not match the record's
- * persisted target. This is raised (as an operation input error) rather
- * than silently replaying cross-instance, so a key reused across staging
- * and production cannot mask a real send.
+ * Persistence boundary for the transactional idempotency wrapper.
+ *
+ * Implementations MUST be atomic read-modify-write over the full document
+ * (typically via an exclusive lock) so concurrent claims for different keys
+ * cannot lose records, and so a stale post-TTL commit cannot complete into
+ * a replacement record. The operations package depends only on this
+ * interface; the file-backed implementation lives in a Node-compatible
+ * package and is injected by the CLI/MCP adapters.
+ */
+export interface TransactionalIdempotencyStore {
+	/**
+	 * Atomically claim (or replay) an idempotency slot. Implementations
+	 * should also sweep expired records on each locked update, and reject
+	 * new claims once `TRANSACTIONAL_STORE_MAX_RECORDS` unexpired records
+	 * are retained.
+	 */
+	claim(options: {
+		key: string;
+		payloadHash: string;
+		targetHash: string;
+		ttlMs?: number;
+		now?: () => Date;
+	}): Promise<TransactionalClaimResult>;
+
+	/**
+	 * Transition a claimed record to a terminal state. `claimToken` binds
+	 * the commit to the originating claim; a mismatched token is a no-op.
+	 *
+	 * `status: "unknown"` is reserved for ambiguous transport failures.
+	 * Definitive thrown errors MUST NOT be committed as `failed`; the
+	 * adapter calls `release` instead so a retry can dispatch.
+	 */
+	commit(options: {
+		key: string;
+		claimToken: string;
+		status: "accepted" | "failed" | "unknown";
+		sent?: boolean;
+		errorMessage?: string;
+		now?: () => Date;
+	}): Promise<void>;
+
+	/**
+	 * Release (delete) a claim whose dispatch threw a definitive error —
+	 * the request never reached Listmonk or was rejected before delivery,
+	 * so a retry must be allowed to dispatch again. `claimToken` binds the
+	 * release to the originating claim; a mismatched token is a no-op.
+	 */
+	release(options: {
+		key: string;
+		claimToken: string;
+		now?: () => Date;
+	}): Promise<void>;
+
+	/** Read the full document (for diagnostics/validation). */
+	load(): Promise<StoredTransactionalDocument>;
+}
+
+/**
+ * Raised when an idempotent transactional send cannot be safely retried
+ * automatically (record in `pending`/`unknown` state, or a target
+ * mismatch). Surfaces enough context for an operator to reconcile.
  */
 export class TransactionalReconcileError extends OperationExecutionError {
 	public readonly key: string;
@@ -104,33 +145,23 @@ export class TransactionalReconcileError extends OperationExecutionError {
 	}
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+const TRANSACTIONAL_STATUSES = new Set<TransactionalSendStatus>([
+	"pending",
+	"accepted",
+	"failed",
+	"unknown",
+]);
 
 /**
- * ISO 8601 timestamp pattern. The store is schema-versioned for
- * interoperability, so `Date.parse` alone is too permissive — it accepts
- * locale strings like "July 4, 2024" and slash dates like "2024/01/15",
- * which would silently widen the on-disk contract.
+ * Status-discriminated invariant check used by both write and read paths.
+ * `accepted` requires a positive acknowledgement (`sent: true`); a manually
+ * reconciled or malformed record that claims `accepted` without it must
+ * fail closed.
  */
-const ISO_8601_TIMESTAMP_PATTERN =
-	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
-
-function isIsoTimestamp(value: unknown): value is string {
-	return (
-		typeof value === "string" &&
-		ISO_8601_TIMESTAMP_PATTERN.test(value) &&
-		!Number.isNaN(new Date(value).getTime())
-	);
-}
-
-function isUuid(value: unknown): value is string {
-	return typeof value === "string" && value.length > 0;
-}
-
-function isTransactionalSendRecord(value: unknown): value is TransactionalSendRecord {
-	if (!isRecord(value)) return false;
+export function isValidTransactionalSendRecord(
+	value: unknown,
+): value is TransactionalSendRecord {
+	if (!isRecordValue(value)) return false;
 	if (typeof value.key !== "string" || value.key.length === 0) return false;
 	if (typeof value.payloadHash !== "string" || value.payloadHash.length === 0)
 		return false;
@@ -142,22 +173,28 @@ function isTransactionalSendRecord(value: unknown): value is TransactionalSendRe
 	) {
 		return false;
 	}
-	// Status-discriminated invariant: `accepted` requires a positive
-	// acknowledgement. A manually reconciled or malformed record that claims
-	// `accepted` without `sent: true` must fail closed at load time.
 	if (value.status === "accepted" && value.sent !== true) return false;
 	if (value.sent !== undefined && typeof value.sent !== "boolean") return false;
 	if (value.errorMessage !== undefined && typeof value.errorMessage !== "string")
 		return false;
-	if (!isUuid(value.claimToken)) return false;
-	if (!isIsoTimestamp(value.createdAt)) return false;
-	if (!isIsoTimestamp(value.updatedAt)) return false;
-	if (!isIsoTimestamp(value.expiresAt)) return false;
+	if (typeof value.claimToken !== "string" || value.claimToken.length === 0)
+		return false;
+	if (!isIsoTimestampValue(value.createdAt)) return false;
+	if (!isIsoTimestampValue(value.updatedAt)) return false;
+	if (!isIsoTimestampValue(value.expiresAt)) return false;
 	return true;
 }
 
-function parseStoredTransactionalDocument(value: unknown): StoredTransactionalDocument {
-	if (!isRecord(value)) {
+/**
+ * Validate a raw document into the schema-versioned shape. Adapters call
+ * this at the persistence boundary so corrupt state is rejected before it
+ * reaches domain code. The operations package keeps this pure (no file I/O)
+ * to stay runtime-neutral.
+ */
+export function parseStoredTransactionalDocument(
+	value: unknown,
+): StoredTransactionalDocument {
+	if (!isRecordValue(value)) {
 		throw new Error("Invalid transactional store: expected an object");
 	}
 	if (value.version !== 1) {
@@ -165,54 +202,40 @@ function parseStoredTransactionalDocument(value: unknown): StoredTransactionalDo
 			`Invalid transactional store: unsupported schema version ${String(value.version)} (expected 1)`,
 		);
 	}
-	if (!isRecord(value.records)) {
+	if (!isRecordValue(value.records)) {
 		throw new Error("Invalid transactional store: records must be an object");
 	}
-	// Hydrate into a null-prototype map so subsequent own-property lookups
-	// cannot be poisoned by `constructor`/`__proto__`/`toString` keys.
-	const records: Record<string, TransactionalSendRecord> = Object.create(null);
 	for (const [key, record] of Object.entries(value.records)) {
-		if (!isTransactionalSendRecord(record)) {
+		if (!isValidTransactionalSendRecord(record)) {
 			throw new Error(
 				`Invalid transactional store: record '${key}' failed schema validation`,
 			);
 		}
-		if (record.key !== key) {
+		const typed = record as TransactionalSendRecord;
+		if (typed.key !== key) {
 			throw new Error(
-				`Invalid transactional store: record key '${record.key}' does not match map key '${key}'`,
+				`Invalid transactional store: record key '${typed.key}' does not match map key '${key}'`,
 			);
 		}
-		records[key] = record;
 	}
-	return { version: 1, records };
-}
-
-export function getTransactionalStorePath(): string {
-	const overridden = process.env.LISTMONK_OPS_TRANSACTIONAL_STORE?.trim();
-	return overridden || join(homedir(), ".listmonk-ops", "transactional.json");
-}
-
-function createTransactionalStore(
-	storePath = getTransactionalStorePath(),
-): JsonFileStore<StoredTransactionalDocument> {
 	return {
-		path: storePath,
-		createDefault: () => ({ version: 1, records: Object.create(null) }),
-		parse: parseStoredTransactionalDocument,
-		lock: { timeoutMs: TRANSACTIONAL_STORE_LOCK_TIMEOUT_MS },
+		version: 1,
+		records: value.records as Record<string, TransactionalSendRecord>,
 	};
 }
 
-export async function loadStoredTransactionalDocument(
-	storePath = getTransactionalStorePath(),
-): Promise<StoredTransactionalDocument> {
-	return readJsonFileStore(createTransactionalStore(storePath));
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export async function validateStoredTransactionalStore(
-	storePath = getTransactionalStorePath(),
-): Promise<void> {
-	await readJsonFileStore(createTransactionalStore(storePath));
+function isIsoTimestampValue(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/.test(
+			value,
+		) &&
+		!Number.isNaN(new Date(value).getTime())
+	);
 }
 
 /**
@@ -220,30 +243,34 @@ export async function validateStoredTransactionalStore(
  * Including this in both the record and the payload hash prevents a key reused
  * across staging and production from replaying the wrong instance's result.
  *
- * Both inputs are optional: when unset (typical for a single-instance
- * deployment) the hash degrades to a constant so existing behavior is
- * preserved.
+ * Both inputs are optional: when unset the hash degrades to a constant so
+ * single-instance deployments keep working. Adapters must pass the resolved
+ * baseUrl + username so cross-instance isolation actually takes effect.
+ *
+ * Pure (no `node:crypto`) so the operations package stays runtime-neutral.
  */
 export function computeTransactionalTargetHash(options: {
 	baseUrl?: string;
 	username?: string;
 }): string {
 	const normalized = `${(options.baseUrl ?? "").trim()}\u0000${(options.username ?? "").trim()}`;
-	return createHash("sha256").update(normalized).digest("hex");
+	// FNV-1a 32-bit over UTF-16 code units. Target identity has low entropy
+	// (two short strings) so 32 bits are ample; the strong collision
+	// resistance lives in the payload hash computed by the adapter.
+	let hash = 0x811c9dc5;
+	for (let i = 0; i < normalized.length; i++) {
+		hash ^= normalized.charCodeAt(i);
+		hash = Math.imul(hash, 0x01000193);
+	}
+	return (hash >>> 0).toString(16).padStart(8, "0").repeat(2);
 }
 
 /**
- * Canonical, stable SHA-256 over the normalized send payload. The hash is
- * the replay-equality contract: two requests with the same `idempotency_key`
- * must hash identically, or `claimTransactionalSend` returns a conflict.
- *
- * Normalization intentionally excludes `idempotency_key` itself (it is the
- * map key, not part of the payload) and uses sorted keys so callers cannot
- * trivially produce a hash mismatch by reordering object fields. `undefined`
- * is normalized to `null` and `Date` instances to their ISO string so the
- * hash matches what the JSON transport actually sends.
+ * Canonical serialized form of the send payload, ready for the adapter to
+ * hash with whatever primitive its runtime provides. The operations package
+ * stays runtime-neutral by not depending on `node:crypto`.
  */
-export function computeTransactionalPayloadHash(input: {
+export function serializeTransactionalPayload(input: {
 	template_id: number;
 	subscriber_email?: string;
 	subscriber_id?: number;
@@ -261,8 +288,7 @@ export function computeTransactionalPayloadHash(input: {
 		headers: input.headers,
 		content_type: input.content_type,
 	};
-	const serialized = stableSerializeJson(normalized);
-	return createHash("sha256").update(serialized).digest("hex");
+	return stableSerializeJson(normalized);
 }
 
 /**
@@ -272,16 +298,23 @@ export function computeTransactionalPayloadHash(input: {
  * and `Date` instances serialized as ISO strings — matching what
  * `JSON.stringify` would actually send on the wire.
  *
+ * Pure (no node: imports) so the operations package stays runtime-neutral.
  * A `WeakSet` visited-guard rejects cyclic structures before they overflow
- * the stack. JSON-parsed input cannot form cycles, but `data` is typed as
- * `Record<string, unknown>` and a caller could hand in a live object graph;
- * failing loudly is safer than crashing the process.
+ * the stack.
  */
-function stableSerializeJson(
+export function stableSerializeJson(
 	value: unknown,
 	seen: WeakSet<object> = new WeakSet(),
 ): string {
 	if (value === undefined) return "null";
+	if (
+		typeof value === "string" ||
+		typeof value === "number" ||
+		typeof value === "boolean" ||
+		value === null
+	) {
+		return JSON.stringify(value);
+	}
 	if (value instanceof Date) return JSON.stringify(value.toISOString());
 	if (Array.isArray(value)) {
 		if (seen.has(value)) {
@@ -294,7 +327,7 @@ function stableSerializeJson(
 		seen.delete(value);
 		return result;
 	}
-	if (isRecord(value)) {
+	if (typeof value === "object" && value !== null && !Array.isArray(value)) {
 		if (seen.has(value)) {
 			throw new Error("Circular reference detected in transactional payload");
 		}
@@ -313,199 +346,6 @@ function stableSerializeJson(
 	return JSON.stringify(value);
 }
 
-export type TransactionalClaimResult =
-	| { kind: "new"; record: TransactionalSendRecord }
-	| { kind: "replay"; record: TransactionalSendRecord }
-	| { kind: "conflict"; existing: TransactionalSendRecord };
-
-function newClaimToken(): string {
-	// 16 hex chars of entropy are more than enough to make a stale worker's
-	// post-TTL commit vanishingly unlikely to collide with a fresh claim.
-	return createHash("sha256")
-		.update(`${Date.now()}-${Math.random()}-${process.pid}`)
-		.digest("hex")
-		.slice(0, 16);
-}
-
-/**
- * Drop expired records (and trim to a hard cap) under the lock so a sustained
- * send rate cannot grow the JSON document without bound. Returns the swept
- * document and the set of survivors.
- */
-function sweepExpiredRecords(
-	document: StoredTransactionalDocument,
-	now: Date,
-): StoredTransactionalDocument {
-	const nowMs = now.getTime();
-	const survivors: Record<string, TransactionalSendRecord> = Object.create(
-		null,
-	);
-	let alive = 0;
-	for (const [key, record] of Object.entries(document.records)) {
-		if (new Date(record.expiresAt).getTime() >= nowMs) {
-			survivors[key] = record;
-			alive++;
-		}
-	}
-	// Hard cap on store size as a backstop against pathological traffic.
-	if (alive <= TRANSACTIONAL_STORE_MAX_RECORDS) {
-		return alive === Object.keys(document.records).length
-			? document
-			: { version: 1, records: survivors };
-	}
-	// Evict oldest-expiring records first when over the cap.
-	const sorted = Object.entries(survivors).sort(
-		(a, b) =>
-			new Date(a[1].expiresAt).getTime() -
-			new Date(b[1].expiresAt).getTime(),
-	);
-	const trimmed: Record<string, TransactionalSendRecord> = Object.create(null);
-	for (const [key, record] of sorted.slice(
-		sorted.length - TRANSACTIONAL_STORE_MAX_RECORDS,
-	)) {
-		trimmed[key] = record;
-	}
-	return { version: 1, records: trimmed };
-}
-
-/**
- * Return the record at `key` only when it is an own property of `records`.
- * Used instead of `records[key]` directly so `__proto__`/`constructor`
- * inherited values cannot poison the lookup, and so the caller gets a
- * narrowed `TransactionalSendRecord` (not `T | undefined`).
- */
-function getOwnRecord(
-	records: Record<string, TransactionalSendRecord>,
-	key: string,
-): TransactionalSendRecord | undefined {
-	if (!Object.prototype.hasOwnProperty.call(records, key)) return undefined;
-	return records[key];
-}
-
-/**
- * Atomically claim (or replay) an idempotency slot for the given key.
- *
- * Semantics:
- *   - No prior record (or prior record has expired) → write `pending`,
- *     return `{ kind: "new" }`. The caller must dispatch and then call
- *     `commitTransactionalSend` with the returned `claimToken` to reach
- *     a terminal state.
- *   - Prior record with identical payloadHash AND targetHash, in a
- *     terminal state (`accepted` or `failed`) → `{ kind: "replay" }`.
- *     The caller returns the stored result without calling Listmonk.
- *   - Prior record in a non-terminal state (`pending`/`unknown`) →
- *     `{ kind: "replay" }` so the caller surfaces the reconcile-required
- *     error rather than silently re-dispatching.
- *   - Prior record with a different payloadHash or targetHash →
- *     `{ kind: "conflict" }`. The caller rejects with `OperationInputError`.
- */
-export async function claimTransactionalSend(options: {
-	storePath?: string;
-	key: string;
-	payloadHash: string;
-	targetHash: string;
-	ttlMs?: number;
-	now?: () => Date;
-}): Promise<TransactionalClaimResult> {
-	const store = createTransactionalStore(options.storePath);
-	const now = (options.now ?? (() => new Date()))();
-	const ttlMs = options.ttlMs ?? DEFAULT_TRANSACTIONAL_TTL_MS;
-	const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
-
-	return updateJsonFileStore<StoredTransactionalDocument, TransactionalClaimResult>(store, (document) => {
-		const swept = sweepExpiredRecords(document, now);
-		const records = swept.records;
-		const existing = getOwnRecord(records, options.key);
-
-		if (existing !== undefined) {
-			const samePayload =
-				existing.payloadHash === options.payloadHash &&
-				existing.targetHash === options.targetHash;
-			if (!samePayload) {
-				return commitJsonFileStoreUpdate(swept, {
-					kind: "conflict",
-					existing,
-				});
-			}
-			return commitJsonFileStoreUpdate(swept, { kind: "replay", record: existing });
-		}
-
-		const record: TransactionalSendRecord = {
-			key: options.key,
-			payloadHash: options.payloadHash,
-			targetHash: options.targetHash,
-			status: "pending",
-			claimToken: newClaimToken(),
-			createdAt: now.toISOString(),
-			updatedAt: now.toISOString(),
-			expiresAt,
-		};
-		const nextRecords: Record<string, TransactionalSendRecord> =
-			Object.create(null);
-		for (const [k, v] of Object.entries(records)) nextRecords[k] = v;
-		nextRecords[options.key] = record;
-		return commitJsonFileStoreUpdate(
-			{ version: 1, records: nextRecords },
-			{ kind: "new", record },
-		);
-	});
-}
-
-/**
- * Transition a claimed record to a terminal state. Called exactly once after
- * the Listmonk dispatch settles (success, negative acknowledgement, or an
- * unknown outcome such as a connection reset).
- *
- * `claimToken` binds the commit to the claim that started it: if the record
- * expired and was replaced between claim and commit, the token will not
- * match and the commit becomes a no-op (the dispatch result is still
- * surfaced to the caller).
- *
- * If the record has vanished (concurrent expiry or manual cleanup), the
- * update is a no-op; the caller has already observed the dispatch result
- * and there is nothing useful to persist.
- */
-export async function commitTransactionalSend(options: {
-	storePath?: string;
-	key: string;
-	claimToken: string;
-	status: "accepted" | "failed" | "unknown";
-	sent?: boolean;
-	errorMessage?: string;
-	now?: () => Date;
-}): Promise<void> {
-	const store = createTransactionalStore(options.storePath);
-	const now = (options.now ?? (() => new Date()))();
-
-	await updateJsonFileStore<StoredTransactionalDocument, undefined>(store, (document) => {
-		const swept = sweepExpiredRecords(document, now);
-		const existing = getOwnRecord(swept.records, options.key);
-		if (existing === undefined) {
-			return commitJsonFileStoreUpdate(swept, undefined);
-		}
-		// Stale-commit guard: a dispatch whose record expired and was
-		// replaced must not be able to complete into the replacement.
-		if (existing.claimToken !== options.claimToken) {
-			return commitJsonFileStoreUpdate(swept, undefined);
-		}
-		// Enforce the accepted ⇒ sent:true invariant at write time so the
-		// read-side validator never has to recover from bad state.
-		const sent = options.status === "accepted" ? true : options.sent;
-		const updated: TransactionalSendRecord = {
-			...existing,
-			status: options.status,
-			sent,
-			errorMessage: options.errorMessage,
-			updatedAt: now.toISOString(),
-		};
-		const nextRecords: Record<string, TransactionalSendRecord> =
-			Object.create(null);
-		for (const [k, v] of Object.entries(swept.records)) nextRecords[k] = v;
-		nextRecords[options.key] = updated;
-		return commitJsonFileStoreUpdate({ version: 1, records: nextRecords }, undefined);
-	});
-}
-
 /**
  * Heuristic: does this dispatch failure look like an ambiguous transport
  * outcome (timeout, connection reset, socket hang)? Such outcomes must be
@@ -514,8 +354,7 @@ export async function commitTransactionalSend(options: {
  *
  * Kept specific on purpose. Direct `ECONNREFUSED` (nothing is listening)
  * and `ENOTFOUND` (DNS failure) are definitive: the request never reached
- * Listmonk, so a retry is safe and classifying them as `unknown` would
- * needlessly block the caller for the full TTL window.
+ * Listmonk, so a retry is safe.
  */
 export function isAmbiguousTransportError(error: unknown): boolean {
 	if (!(error instanceof Error)) return false;

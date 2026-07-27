@@ -5,11 +5,16 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
 	claimTransactionalSend,
 	commitTransactionalSend,
-	computeTransactionalPayloadHash,
 	computeTransactionalTargetHash,
+	createFileBackedTransactionalIdempotencyStore,
 	getTransactionalStorePath,
-	isAmbiguousTransportError,
+	hashTransactionalPayload,
+	isStoredTransactionalSendRecord,
 	loadStoredTransactionalDocument,
+	parseStoredTransactionalDocument,
+	releaseTransactionalSend,
+	TransactionalStoreCapacityError,
+	TRANSACTIONAL_STORE_MAX_RECORDS,
 	validateStoredTransactionalStore,
 	DEFAULT_TRANSACTIONAL_TTL_MS,
 } from "../src";
@@ -28,23 +33,26 @@ const OTHER_TARGET_HASH = computeTransactionalTargetHash({
 	username: "ops",
 });
 
-function makePayload(
-	overrides: Partial<{
-		template_id: number;
-		subscriber_email: string;
-		from_email: string;
-		data: Record<string, unknown>;
-		headers: Array<Record<string, string>>;
-		content_type: "html" | "markdown" | "plain";
-	}> = {},
-) {
+/**
+ * Hash helper for tests. The store treats `payloadHash` as an opaque
+ * equality token; canonical serialization correctness is exercised in the
+ * operations package's pure-function tests.
+ */
+function hashPayload(value: unknown): string {
+	return hashTransactionalPayload(JSON.stringify(value));
+}
+
+interface Payload {
+	template_id: number;
+	subscriber_email: string;
+	data: Record<string, unknown>;
+}
+
+function makePayload(overrides: Partial<Payload> = {}): Payload {
 	return {
 		template_id: overrides.template_id ?? 3,
 		subscriber_email: overrides.subscriber_email ?? "recipient@example.com",
-		from_email: overrides.from_email ?? "Sender <sender@example.com>",
 		data: overrides.data ?? { order_id: "OPS-1" },
-		headers: overrides.headers ?? [{ "X-Request-ID": "req-1" }],
-		content_type: overrides.content_type ?? "html",
 	};
 }
 
@@ -74,12 +82,12 @@ async function claimAndCommitAccepted(
 	});
 }
 
-describe("transactional idempotency store", () => {
+describe("transactional idempotency file-backed store", () => {
 	let tempDir: string;
 	let storePath: string;
 
 	beforeEach(async () => {
-		tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-tx-idem-"));
+		tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-tx-store-"));
 		storePath = join(tempDir, "transactional.json");
 	});
 
@@ -120,106 +128,9 @@ describe("transactional idempotency store", () => {
 		});
 	});
 
-	describe("computeTransactionalTargetHash", () => {
-		test("differs across Listmonk targets", () => {
-			expect(DEFAULT_TARGET_HASH).not.toBe(OTHER_TARGET_HASH);
-		});
-
-		test("is stable for identical inputs", () => {
-			expect(
-				computeTransactionalTargetHash({
-					baseUrl: "http://localhost:9000/api",
-					username: "api-admin",
-				}),
-			).toBe(DEFAULT_TARGET_HASH);
-		});
-
-		test("ignores leading/trailing whitespace in inputs", () => {
-			expect(
-				computeTransactionalTargetHash({
-					baseUrl: "  http://localhost:9000/api  ",
-					username: "  api-admin  ",
-				}),
-			).toBe(DEFAULT_TARGET_HASH);
-		});
-	});
-
-	describe("computeTransactionalPayloadHash", () => {
-		test("is stable across object key reordering", () => {
-			const payloadA = makePayload({ data: { a: 1, b: 2, c: 3 } });
-			const payloadB = makePayload({ data: { c: 3, a: 1, b: 2 } });
-			expect(computeTransactionalPayloadHash(payloadA)).toBe(
-				computeTransactionalPayloadHash(payloadB),
-			);
-		});
-
-		test("changes when any field changes", () => {
-			const base = makePayload();
-			expect(computeTransactionalPayloadHash(base)).not.toBe(
-				computeTransactionalPayloadHash(makePayload({ template_id: 4 })),
-			);
-			expect(computeTransactionalPayloadHash(base)).not.toBe(
-				computeTransactionalPayloadHash(
-					makePayload({ subscriber_email: "other@example.com" }),
-				),
-			);
-			expect(computeTransactionalPayloadHash(base)).not.toBe(
-				computeTransactionalPayloadHash(
-					makePayload({ content_type: "plain" }),
-				),
-			);
-		});
-
-		test("treats Date instances like their transport ISO string", () => {
-			// The wire body serializes a Date as its ISO string; the hash must
-			// agree so reusing a key across structurally equal payloads does
-			// not falsely conflict.
-			const withDate = makePayload({ data: { when: new Date("2026-01-01T00:00:00.000Z") } });
-			const withIso = makePayload({ data: { when: "2026-01-01T00:00:00.000Z" } });
-			expect(computeTransactionalPayloadHash(withDate)).toBe(
-				computeTransactionalPayloadHash(withIso),
-			);
-		});
-
-		test("treats undefined inside arrays like null (transport semantics)", () => {
-			// JSON.stringify([undefined]) === "[null]"; the hash must match.
-			const withUndef = makePayload({ data: { xs: [undefined] } });
-			const withNull = makePayload({ data: { xs: [null] } });
-			expect(computeTransactionalPayloadHash(withUndef)).toBe(
-				computeTransactionalPayloadHash(withNull),
-			);
-		});
-
-		test("excludes undefined optional fields deterministically", () => {
-			const withFrom = makePayload({ from_email: "x@example.com" });
-			const withoutFrom = { ...withFrom, from_email: undefined };
-			expect(computeTransactionalPayloadHash(withFrom)).not.toBe(
-				computeTransactionalPayloadHash(withoutFrom),
-			);
-		});
-
-		test("rejects cyclic payloads instead of overflowing the stack", () => {
-			const cyclic: Record<string, unknown> = { a: 1 };
-			cyclic.self = cyclic;
-			expect(() =>
-				computeTransactionalPayloadHash(makePayload({ data: cyclic })),
-			).toThrow(/Circular reference detected/);
-		});
-
-		test("handles repeated (non-cyclic) object references without false positives", () => {
-			const shared = { tag: "x" };
-			const payloadA = makePayload({
-				data: { first: shared, second: shared },
-			});
-			expect(() =>
-				computeTransactionalPayloadHash(payloadA),
-			).not.toThrow();
-		});
-	});
-
 	describe("claimTransactionalSend", () => {
 		test("claims a new pending record on first use", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			const result = await claimTransactionalSend({
 				storePath,
 				key: "order-1",
@@ -249,7 +160,7 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("replays an accepted record with the same payload and target", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			await claimAndCommitAccepted(storePath, "order-1", payloadHash);
 
 			const second = await claimTransactionalSend({
@@ -268,7 +179,7 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("replays a failed record without re-dispatching", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			const claim = await claimTransactionalSend({
 				storePath,
 				key: "order-1",
@@ -302,12 +213,8 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("returns conflict when payload differs for the same key", async () => {
-			const hashA = computeTransactionalPayloadHash(
-				makePayload({ data: { order_id: "OPS-1" } }),
-			);
-			const hashB = computeTransactionalPayloadHash(
-				makePayload({ data: { order_id: "OPS-2" } }),
-			);
+			const hashA = hashPayload(makePayload({ data: { order_id: "OPS-1" } }));
+			const hashB = hashPayload(makePayload({ data: { order_id: "OPS-2" } }));
 
 			await claimTransactionalSend({
 				storePath,
@@ -331,7 +238,7 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("returns conflict when target differs for the same key", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			await claimTransactionalSend({
 				storePath,
 				key: "order-1",
@@ -350,19 +257,16 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("treats an expired record as a fresh claim", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
-			const shortTtl = 1;
-			const first = await claimTransactionalSend({
+			const payloadHash = hashPayload(makePayload());
+			await claimTransactionalSend({
 				storePath,
 				key: "order-1",
 				payloadHash,
 				targetHash: DEFAULT_TARGET_HASH,
-				ttlMs: shortTtl,
+				ttlMs: 1,
 				now: () => new Date("2026-01-01T00:00:00.000Z"),
 			});
-			if (first.kind !== "new") throw new Error("expected new");
 
-			// Advance the clock past expiry.
 			const later = () => new Date("2026-01-02T00:00:00.000Z");
 			const result = await claimTransactionalSend({
 				storePath,
@@ -379,10 +283,10 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("replays pending/unknown records to block silent re-dispatch", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			for (const status of ["pending", "unknown", "failed"] as const) {
 				const dir = await mkdtemp(
-					join(tmpdir(), "listmonk-ops-tx-idem-cycle-"),
+					join(tmpdir(), "listmonk-ops-tx-cycle-"),
 				);
 				const path = join(dir, "transactional.json");
 				try {
@@ -413,8 +317,6 @@ describe("transactional idempotency store", () => {
 						targetHash: DEFAULT_TARGET_HASH,
 						now: fixedClock,
 					});
-					// pending/unknown → replay (caller surfaces reconcile error);
-					// failed → replay (caller returns stored negative ack).
 					expect(replay.kind).toBe("replay");
 					if (replay.kind === "replay") {
 						expect(replay.record.status).toBe(status);
@@ -426,18 +328,13 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("does not consult Object.prototype for inherited keys", async () => {
-			// A bare records[key] lookup would return an inherited value for
-			// 'constructor'/'toString'/'__proto__' and follow the conflict
-			// path. Own-property lookup must treat these as fresh claims.
 			for (const inheritedKey of ["constructor", "toString", "__proto__"]) {
 				const dir = await mkdtemp(
 					join(tmpdir(), "listmonk-ops-tx-proto-"),
 				);
 				const path = join(dir, "transactional.json");
 				try {
-					const payloadHash = computeTransactionalPayloadHash(
-						makePayload(),
-					);
+					const payloadHash = hashPayload(makePayload());
 					const result = await claimTransactionalSend({
 						storePath: path,
 						key: inheritedKey,
@@ -455,7 +352,7 @@ describe("transactional idempotency store", () => {
 
 	describe("commitTransactionalSend", () => {
 		test("transitions a claimed record to accepted with sent:true", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			const claim = await claimTransactionalSend({
 				storePath,
 				key: "order-1",
@@ -482,7 +379,7 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("coerces accepted commits to sent:true even when caller omits sent", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			const claim = await claimTransactionalSend({
 				storePath,
 				key: "order-1",
@@ -505,7 +402,7 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("records the error message on failed/unknown outcomes", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			const claim = await claimTransactionalSend({
 				storePath,
 				key: "order-1",
@@ -532,9 +429,7 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("is a no-op when the claim token does not match (stale commit)", async () => {
-			// Simulate: dispatch A claims, record expires, dispatch B reclaims
-			// with a new token, then A tries to commit.
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			const first = await claimTransactionalSend({
 				storePath,
 				key: "order-1",
@@ -546,7 +441,6 @@ describe("transactional idempotency store", () => {
 			if (first.kind !== "new") throw new Error("expected new");
 			const staleToken = first.record.claimToken;
 
-			// Advance past expiry and reclaim.
 			await claimTransactionalSend({
 				storePath,
 				key: "order-1",
@@ -555,7 +449,6 @@ describe("transactional idempotency store", () => {
 				now: () => new Date("2026-01-02T00:00:00.000Z"),
 			});
 
-			// Stale commit must NOT overwrite the fresh claim.
 			await commitTransactionalSend({
 				storePath,
 				key: "order-1",
@@ -583,9 +476,75 @@ describe("transactional idempotency store", () => {
 		});
 	});
 
+	describe("releaseTransactionalSend", () => {
+		test("deletes a claim so a retry can dispatch again", async () => {
+			const payloadHash = hashPayload(makePayload());
+			const claim = await claimTransactionalSend({
+				storePath,
+				key: "order-1",
+				payloadHash,
+				targetHash: DEFAULT_TARGET_HASH,
+				now: fixedClock,
+			});
+			if (claim.kind !== "new") throw new Error("expected new");
+
+			await releaseTransactionalSend({
+				storePath,
+				key: "order-1",
+				claimToken: claim.record.claimToken,
+				now: fixedClock,
+			});
+
+			const stored = await loadStoredTransactionalDocument(storePath);
+			expect(stored.records["order-1"]).toBeUndefined();
+
+			// A new claim with the same key must succeed now.
+			const reclaim = await claimTransactionalSend({
+				storePath,
+				key: "order-1",
+				payloadHash,
+				targetHash: DEFAULT_TARGET_HASH,
+				now: fixedClock,
+			});
+			expect(reclaim.kind).toBe("new");
+		});
+
+		test("is a no-op when the claim token does not match", async () => {
+			const payloadHash = hashPayload(makePayload());
+			await claimTransactionalSend({
+				storePath,
+				key: "order-1",
+				payloadHash,
+				targetHash: DEFAULT_TARGET_HASH,
+				now: fixedClock,
+			});
+
+			await releaseTransactionalSend({
+				storePath,
+				key: "order-1",
+				claimToken: "wrong-token",
+				now: fixedClock,
+			});
+
+			const stored = await loadStoredTransactionalDocument(storePath);
+			expect(stored.records["order-1"]?.status).toBe("pending");
+		});
+
+		test("is a no-op when the record has vanished", async () => {
+			await releaseTransactionalSend({
+				storePath,
+				key: "never-claimed",
+				claimToken: "deadbeefdeadbeef",
+				now: fixedClock,
+			});
+			const stored = await loadStoredTransactionalDocument(storePath);
+			expect(Object.keys(stored.records)).toEqual([]);
+		});
+	});
+
 	describe("validateStoredTransactionalStore", () => {
 		test("accepts a well-formed v1 document", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			await claimTransactionalSend({
 				storePath,
 				key: "order-1",
@@ -617,7 +576,6 @@ describe("transactional idempotency store", () => {
 						records: {
 							"order-1": {
 								key: "order-1",
-								// missing payloadHash, status, timestamps
 							},
 						},
 					},
@@ -631,7 +589,7 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("rejects a record whose key does not match the map key", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			const validRecord = {
 				key: "wrong-key",
 				payloadHash,
@@ -664,13 +622,13 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("rejects an accepted record without sent:true", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			const badRecord = {
 				key: "order-1",
 				payloadHash,
 				targetHash: DEFAULT_TARGET_HASH,
 				status: "accepted",
-				sent: false, // invariant violation
+				sent: false,
 				claimToken: "abcdef0123456789",
 				createdAt: FIXED_NOW.toISOString(),
 				updatedAt: FIXED_NOW.toISOString(),
@@ -690,7 +648,7 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("rejects locale-style or slash timestamps that Date.parse accepts", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			for (const malformedTimestamp of [
 				"July 4, 2024",
 				"2024/01/15",
@@ -723,7 +681,7 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("accepts ISO 8601 timestamps with millisecond and timezone variants", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			for (const validTimestamp of [
 				FIXED_NOW.toISOString(),
 				"2026-01-01T00:00:00.123Z",
@@ -758,7 +716,7 @@ describe("transactional idempotency store", () => {
 
 	describe("atomic read-modify-write", () => {
 		test("serialized claims never lose a record to a concurrent writer", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
+			const payloadHash = hashPayload(makePayload());
 			await Promise.all([
 				claimTransactionalSend({
 					storePath,
@@ -784,8 +742,7 @@ describe("transactional idempotency store", () => {
 		});
 
 		test("purges expired records during a locked update", async () => {
-			const payloadHash = computeTransactionalPayloadHash(makePayload());
-			// Seed an expired record with a 1ms TTL.
+			const payloadHash = hashPayload(makePayload());
 			await claimTransactionalSend({
 				storePath,
 				key: "expired",
@@ -794,7 +751,6 @@ describe("transactional idempotency store", () => {
 				ttlMs: 1,
 				now: () => new Date("2026-01-01T00:00:00.000Z"),
 			});
-			// A later claim for a different key should sweep the expired one.
 			await claimTransactionalSend({
 				storePath,
 				key: "fresh",
@@ -806,56 +762,136 @@ describe("transactional idempotency store", () => {
 			const stored = await loadStoredTransactionalDocument(storePath);
 			expect(Object.keys(stored.records).sort()).toEqual(["fresh"]);
 		});
+
+		test("rejects new claims at capacity instead of evicting a live record", async () => {
+			// Seed the store to capacity with far-future-TTL records via a
+			// single write so the test stays fast.
+			const records: Record<string, unknown> = Object.create(null);
+			const farFuture = new Date(
+				FIXED_NOW.getTime() + 10 * DEFAULT_TRANSACTIONAL_TTL_MS,
+			).toISOString();
+			for (let i = 0; i < TRANSACTIONAL_STORE_MAX_RECORDS; i++) {
+				const key = `order-${i}`;
+				records[key] = {
+					key,
+					payloadHash: hashPayload({ i }),
+					targetHash: DEFAULT_TARGET_HASH,
+					status: "accepted",
+					sent: true,
+					claimToken: "abcdef0123456789",
+					createdAt: FIXED_NOW.toISOString(),
+					updatedAt: FIXED_NOW.toISOString(),
+					expiresAt: farFuture,
+				};
+			}
+			await writeFile(
+				storePath,
+				JSON.stringify({ version: 1, records }, null, 2),
+			);
+
+			// Sanity: the seeded document is valid and full.
+			const loaded = await loadStoredTransactionalDocument(storePath);
+			expect(Object.keys(loaded.records)).toHaveLength(
+				TRANSACTIONAL_STORE_MAX_RECORDS,
+			);
+
+			// A new claim must reject rather than silently evicting a live
+			// record (which would break the idempotency guarantee for the
+			// evicted key).
+			await expect(
+				claimTransactionalSend({
+					storePath,
+					key: "order-overflow",
+					payloadHash: hashPayload(makePayload()),
+					targetHash: DEFAULT_TARGET_HASH,
+					now: fixedClock,
+				}),
+			).rejects.toBeInstanceOf(TransactionalStoreCapacityError);
+
+			// Capacity guard did not drop any existing record.
+			const after = await loadStoredTransactionalDocument(storePath);
+			expect(Object.keys(after.records)).toHaveLength(
+				TRANSACTIONAL_STORE_MAX_RECORDS,
+			);
+		});
 	});
 
-	describe("isAmbiguousTransportError", () => {
-		test("flags timeout, connection reset, and abort signals", () => {
-			expect(isAmbiguousTransportError(new Error("Request timed out"))).toBe(true);
-			expect(isAmbiguousTransportError(new Error("ECONNRESET"))).toBe(true);
-			expect(isAmbiguousTransportError(new Error("fetch failed"))).toBe(true);
-			expect(isAmbiguousTransportError(new Error("The operation was aborted"))).toBe(true);
+	describe("createFileBackedTransactionalIdempotencyStore", () => {
+		test("exposes claim/commit/load behind the injected-store interface", async () => {
+			const store = createFileBackedTransactionalIdempotencyStore({
+				storePath,
+			});
+			const payloadHash = hashPayload(makePayload());
+			const claim = await store.claim({
+				key: "order-1",
+				payloadHash,
+				targetHash: DEFAULT_TARGET_HASH,
+				now: fixedClock,
+			});
+			expect(claim.kind).toBe("new");
+			if (claim.kind !== "new") return;
+			await store.commit({
+				key: "order-1",
+				claimToken: claim.record.claimToken,
+				status: "accepted",
+				sent: true,
+				now: fixedClock,
+			});
+			const loaded = await store.load();
+			expect(loaded.records["order-1"]?.status).toBe("accepted");
+		});
+	});
+
+	describe("pure helpers", () => {
+		test("isStoredTransactionalSendRecord accepts a valid record", () => {
+			const record = {
+				key: "k",
+				payloadHash: "p",
+				targetHash: "t",
+				status: "accepted",
+				sent: true,
+				claimToken: "tok",
+				createdAt: FIXED_NOW.toISOString(),
+				updatedAt: FIXED_NOW.toISOString(),
+				expiresAt: FIXED_NOW.toISOString(),
+			};
+			expect(isStoredTransactionalSendRecord(record)).toBe(true);
 		});
 
-		test("flags ENETUNREACH and 'network is unreachable' as ambiguous", () => {
-			expect(isAmbiguousTransportError(new Error("connect ENETUNREACH"))).toBe(true);
-			expect(
-				isAmbiguousTransportError(new Error("Network is unreachable")),
-			).toBe(true);
+		test("isStoredTransactionalSendRecord rejects accepted-without-sent", () => {
+			const record = {
+				key: "k",
+				payloadHash: "p",
+				targetHash: "t",
+				status: "accepted",
+				claimToken: "tok",
+				createdAt: FIXED_NOW.toISOString(),
+				updatedAt: FIXED_NOW.toISOString(),
+				expiresAt: FIXED_NOW.toISOString(),
+			};
+			expect(isStoredTransactionalSendRecord(record)).toBe(false);
 		});
 
-		test("flags a specific network-error phrase", () => {
-			expect(isAmbiguousTransportError(new Error("network error"))).toBe(true);
-			expect(isAmbiguousTransportError(new Error("TypeError: network error"))).toBe(true);
-		});
-
-		test("does not flag definitive connection-refused or DNS failures", () => {
-			// ECONNREFUSED (nothing listening) and ENOTFOUND (DNS) are
-			// definitive — the request never reached Listmonk, so a retry
-			// is safe and classifying them as unknown would needlessly
-			// block the caller for the TTL window.
-			expect(isAmbiguousTransportError(new Error("connect ECONNREFUSED"))).toBe(false);
-			expect(isAmbiguousTransportError(new Error("getaddrinfo ENOTFOUND"))).toBe(false);
-		});
-
-		test("does not flag definitive network-policy rejections", () => {
-			expect(
-				isAmbiguousTransportError(
-					new Error("invalid network configuration"),
-				),
-			).toBe(false);
-			expect(
-				isAmbiguousTransportError(new Error("network policy violation")),
-			).toBe(false);
-		});
-
-		test("does not flag explicit Listmonk rejections", () => {
-			expect(isAmbiguousTransportError(new Error("template not found"))).toBe(false);
-			expect(isAmbiguousTransportError(new Error("subscriber blocklisted"))).toBe(false);
-		});
-
-		test("does not flag non-Error values", () => {
-			expect(isAmbiguousTransportError("timeout")).toBe(false);
-			expect(isAmbiguousTransportError({ code: "ECONNRESET" })).toBe(false);
+		test("parseStoredTransactionalDocument round-trips a valid document", () => {
+			const doc = {
+				version: 1,
+				records: {
+					k: {
+						key: "k",
+						payloadHash: "p",
+						targetHash: "t",
+						status: "accepted",
+						sent: true,
+						claimToken: "tok",
+						createdAt: FIXED_NOW.toISOString(),
+						updatedAt: FIXED_NOW.toISOString(),
+						expiresAt: FIXED_NOW.toISOString(),
+					},
+				},
+			};
+			const parsed = parseStoredTransactionalDocument(doc);
+			expect(parsed.version).toBe(1);
+			expect(parsed.records["k"]?.status).toBe("accepted");
 		});
 	});
 });

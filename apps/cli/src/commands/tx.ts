@@ -1,4 +1,8 @@
-import type { OutputUtils } from "@listmonk-ops/common";
+import {
+	createFileBackedTransactionalIdempotencyStore,
+	hashTransactionalPayload,
+	type OutputUtils,
+} from "@listmonk-ops/common";
 import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
@@ -17,13 +21,20 @@ import {
 	option,
 } from "../lib/command";
 import { parseJson, toErrorMessage } from "../lib/command-utils";
-import { getListmonkClient } from "../lib/listmonk";
+import { resolveListmonkSession } from "../lib/listmonk";
 
 type TransactionalOutput = Pick<typeof OutputUtils, "json" | "success">;
 
 export interface TransactionalCliContext {
 	client: Pick<ListmonkClient, "transactional">;
 	output: TransactionalOutput;
+	idempotencyStore?: Parameters<
+		typeof invokeSendTransactionalOperation
+	>[0]["idempotencyStore"];
+	hashPayload?: Parameters<
+		typeof invokeSendTransactionalOperation
+	>[0]["hashPayload"];
+	target?: { baseUrl?: string; username?: string };
 }
 
 export function createTransactionalCommandError(error: unknown): Error {
@@ -76,7 +87,13 @@ export async function handleSendTransactionalCommand({
 	...args
 }: HandlerArgs<SendTransactionalFlags>): Promise<void> {
 	try {
-		const client = await getListmonkClient(args);
+		// Resolve the full session (not just the client) so the idempotency
+		// wrapper can namespace records by the resolved Listmonk target.
+		const session = await resolveListmonkSession(args, { requireAuth: true });
+		if (!session.client) {
+			throw new Error("Listmonk client is not available");
+		}
+		const client = session.client;
 		const data = flags.data
 			? parseJson<NonNullable<SendTransactionalInput["data"]>>(
 					flags.data,
@@ -91,7 +108,14 @@ export async function handleSendTransactionalCommand({
 			: undefined;
 
 		await renderTransactionalSend(
-			{ client, output: getOutput() },
+			{
+				client,
+				output: getOutput(),
+				idempotencyStore:
+					createFileBackedTransactionalIdempotencyStore(),
+				hashPayload: hashTransactionalPayload,
+				target: { baseUrl: session.baseUrl, username: session.username },
+			},
 			{
 				template_id: flags["template-id"],
 				subscriber_email: flags["subscriber-email"],

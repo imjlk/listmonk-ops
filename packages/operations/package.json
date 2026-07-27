@@ -24,7 +24,7 @@
 	],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/common --external:@listmonk-ops/openapi --external:zod",
+		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=neutral --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/openapi --external:zod",
 		"typecheck": "ttsc --noEmit",
 		"format": "ttsc format",
 		"lint": "ttsc --noEmit",
@@ -33,7 +33,6 @@
 		"prepublishOnly": "bun run build && bun run test"
 	},
 	"dependencies": {
-		"@listmonk-ops/common": "^0.4.0",
 		"@listmonk-ops/openapi": "^0.4.0",
 		"zod": "4.3.6"
 	},
