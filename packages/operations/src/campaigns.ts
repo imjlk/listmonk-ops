@@ -561,6 +561,11 @@ export async function scheduleCampaign(
 	if (loaded.status === "scheduled" && loaded.send_at === input.send_at) {
 		return { id: input.id, status: "scheduled" };
 	}
+	// When the campaign is already scheduled with a different send_at,
+	// only the update call is needed — the status is already "scheduled"
+	// and calling updateStatus(scheduled→scheduled) would be rejected by
+	// the server. Only call updateStatus when transitioning from a
+	// non-scheduled status (e.g. draft).
 	const updateResponse = await ctx.client.campaign.update({
 		path: { id: input.id },
 		body: { send_at: input.send_at } as CampaignUpdateBody,
@@ -568,6 +573,11 @@ export async function scheduleCampaign(
 	asCampaign(
 		unwrapResourceResponse(updateResponse, "Failed to set campaign send_at"),
 	);
+	if (loaded.status === "scheduled") {
+		// Re-scheduling an already-scheduled campaign: send_at was updated
+		// above, no status transition needed.
+		return { id: input.id, status: "scheduled" };
+	}
 	try {
 		const statusResponse = await ctx.client.campaign.updateStatus({
 			path: { id: input.id },
