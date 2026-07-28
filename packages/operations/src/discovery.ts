@@ -129,7 +129,7 @@ const playbookValueSourceSchema = z.discriminatedUnion("kind", [
 	}),
 	z.object({
 		kind: z.literal("step-output"),
-		stepId: z.string().min(1),
+		step_id: z.string().min(1),
 		path: z.string().min(1),
 	}),
 	z.object({
@@ -157,26 +157,26 @@ const operationPlaybookSchema = z.object({
 				operation: z.string().min(1),
 				approval: z.enum(["none", "human"]),
 				description: z.string().min(1),
-				dependsOn: z.array(z.string().min(1)),
+				depends_on: z.array(z.string().min(1)),
 				input: z.array(
 					z.object({
 						parameter: z.string().min(1),
 						source: playbookValueSourceSchema,
 					}),
 				),
-				resultGuard: z
+				result_guard: z
 					.object({
 						path: z.string().min(1),
 						operator: z.enum(["equals", "not-equals"]),
 						expected: playbookPrimitiveSchema,
-						onFailure: z.literal("stop"),
+						on_failure: z.literal("stop"),
 						message: z.string().min(1),
 					})
 					.optional(),
 			}),
 		)
 		.min(1),
-	recoveryOperation: z.string().min(1),
+	recovery_operation: z.string().min(1),
 });
 
 const playbookOperationReferenceSchema = z.object({
@@ -337,6 +337,9 @@ function toSpecOnlySearchResult(
 		stability: spec.stability,
 		safety: {
 			read_only: spec.effects.every(({ kind }) => kind === "read"),
+			// The runtime projection defines destructiveHint as the
+			// confirmation gate, including suppression and bulk delivery.
+			// Keep spec-only playbook references aligned with that contract.
 			destructive: spec.policy.confirmation === "required",
 			idempotent: specRetryIsIdempotent(spec),
 			confirmation_required: spec.policy.confirmation === "required",
@@ -486,6 +489,57 @@ function summarizePlaybook(playbook: OperationPlaybook) {
 	};
 }
 
+function toPlaybookValueSource(
+	source: OperationPlaybook["steps"][number]["input"][number]["source"],
+): z.output<typeof playbookValueSourceSchema> {
+	switch (source.kind) {
+		case "playbook-input":
+			return { kind: source.kind, name: source.name };
+		case "step-output":
+			return {
+				kind: source.kind,
+				step_id: source.stepId,
+				path: source.path,
+			};
+		case "literal":
+			return { kind: source.kind, value: source.value };
+	}
+}
+
+function toPlaybookDetail(
+	playbook: OperationPlaybook,
+): z.output<typeof operationPlaybookSchema> {
+	return {
+		id: playbook.id,
+		title: playbook.title,
+		goal: playbook.goal,
+		inputs: playbook.inputs.map((input) => ({ ...input })),
+		steps: playbook.steps.map((step) => ({
+			id: step.id,
+			operation: step.operation,
+			approval: step.approval,
+			description: step.description,
+			depends_on: step.dependsOn.slice(),
+			input: step.input.map((binding) => ({
+				parameter: binding.parameter,
+				source: toPlaybookValueSource(binding.source),
+			})),
+			...(step.resultGuard === undefined
+				? {}
+				: {
+						result_guard: {
+							path: step.resultGuard.path,
+							operator: step.resultGuard.operator,
+							expected: step.resultGuard.expected,
+							on_failure: step.resultGuard.onFailure,
+							message: step.resultGuard.message,
+						},
+					}),
+		})),
+		recovery_operation: playbook.recoveryOperation,
+	};
+}
+
 export async function listOperationPlaybooks(
 	context: DiscoveryOperationContext,
 ): Promise<z.output<typeof playbookListOutputSchema>> {
@@ -511,9 +565,7 @@ export async function getOperationPlaybook(
 		]),
 	);
 	return {
-		playbook: cloneSpecValue(playbook) as unknown as z.output<
-			typeof operationPlaybookSchema
-		>,
+		playbook: toPlaybookDetail(playbook),
 		operations: playbook.steps.map((step) => {
 			const summary = summaries.get(step.operation);
 			if (summary === undefined) {
@@ -572,15 +624,22 @@ export async function primeOperationsAgent(
 	input: z.output<typeof controlPrimeInputSchema>,
 ): Promise<z.output<typeof controlPrimeOutputSchema>> {
 	const capabilities = await getControlCapabilities(context);
+	const defaultRecommendedIds = [
+		"control.status",
+		"specs.search",
+		"playbooks.list",
+	] as const;
+	const defaultPriority = new Map<string, number>(
+		defaultRecommendedIds.map((id, index) => [id, index]),
+	);
 	const recommendedOperations =
 		input.goal === undefined
 			? listOperationCatalogSummaries(context.catalog)
-					.filter(({ id }) =>
-						[
-							"control.status",
-							"specs.search",
-							"playbooks.list",
-						].includes(id),
+					.filter(({ id }) => defaultPriority.has(id))
+					.sort(
+						(left, right) =>
+							defaultPriority.get(left.id)! -
+							defaultPriority.get(right.id)!,
 					)
 					.slice(0, input.limit)
 					.map((summary) => toOperationSearchResult(summary, 1))
@@ -644,6 +703,7 @@ export async function getControlStatus(
 	context: ControlStatusOperationContext,
 ): Promise<z.output<typeof controlStatusOutputSchema>> {
 	const capabilities = await getControlCapabilities(context);
+	const configured = context.target !== undefined;
 	let reachable = false;
 	let healthError: string | undefined;
 	if (context.probeListmonk !== undefined) {
@@ -667,7 +727,7 @@ export async function getControlStatus(
 					},
 				}),
 		listmonk: {
-			configured: context.probeListmonk !== undefined,
+			configured,
 			reachable,
 			...(healthError === undefined ? {} : { health_error: healthError }),
 		},
@@ -681,7 +741,7 @@ export async function getControlStatus(
 		readiness: {
 			catalog: capabilities.operations > 0,
 			specs: capabilities.described_operations > 0,
-			listmonk: reachable,
+			listmonk: configured && reachable,
 		},
 	};
 }

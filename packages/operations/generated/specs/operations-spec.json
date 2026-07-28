@@ -2696,7 +2696,7 @@
                     },
                     "type": "array"
                   },
-                  "recoveryOperation": {
+                  "recovery_operation": {
                     "$ref": "#/components/schemas/NonEmptyString"
                   },
                   "steps": {
@@ -2716,7 +2716,7 @@
                   "goal",
                   "inputs",
                   "steps",
-                  "recoveryOperation"
+                  "recovery_operation"
                 ],
                 "type": "object"
               },
@@ -2841,7 +2841,7 @@
                   "message": {
                     "$ref": "#/components/schemas/NonEmptyString"
                   },
-                  "onFailure": {
+                  "on_failure": {
                     "const": "stop"
                   },
                   "operator": {
@@ -2862,7 +2862,7 @@
                   "path",
                   "operator",
                   "expected",
-                  "onFailure",
+                  "on_failure",
                   "message"
                 ],
                 "type": "object"
@@ -2880,7 +2880,7 @@
                       }
                     ]
                   },
-                  "dependsOn": {
+                  "depends_on": {
                     "items": {
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
@@ -2901,7 +2901,7 @@
                   "operation": {
                     "$ref": "#/components/schemas/NonEmptyString"
                   },
-                  "resultGuard": {
+                  "result_guard": {
                     "$ref": "#/components/schemas/PlaybookResultGuard"
                   }
                 },
@@ -2910,7 +2910,7 @@
                   "operation",
                   "approval",
                   "description",
-                  "dependsOn",
+                  "depends_on",
                   "input"
                 ],
                 "type": "object"
@@ -2942,13 +2942,13 @@
                       "path": {
                         "$ref": "#/components/schemas/NonEmptyString"
                       },
-                      "stepId": {
+                      "step_id": {
                         "$ref": "#/components/schemas/NonEmptyString"
                       }
                     },
                     "required": [
                       "kind",
-                      "stepId",
+                      "step_id",
                       "path"
                     ],
                     "type": "object"

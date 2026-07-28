@@ -280,7 +280,7 @@ export type PlaybookValueSource =
 	  }
 	| {
 			kind: "step-output";
-			stepId: NonEmptyString;
+			step_id: NonEmptyString;
 			path: NonEmptyString;
 	  }
 	| {
@@ -297,7 +297,7 @@ export interface PlaybookResultGuard {
 	path: NonEmptyString;
 	operator: "equals" | "not-equals";
 	expected: PlaybookPrimitive;
-	onFailure: "stop";
+	on_failure: "stop";
 	message: NonEmptyString;
 }
 
@@ -306,9 +306,9 @@ export interface PlaybookStep {
 	operation: NonEmptyString;
 	approval: "none" | "human";
 	description: NonEmptyString;
-	dependsOn: NonEmptyString[];
+	depends_on: NonEmptyString[];
 	input: PlaybookInputBinding[];
-	resultGuard?: PlaybookResultGuard | undefined;
+	result_guard?: PlaybookResultGuard | undefined;
 }
 
 export interface PlaybookDetail {
@@ -317,7 +317,7 @@ export interface PlaybookDetail {
 	goal: NonEmptyString;
 	inputs: PlaybookInput[];
 	steps: PlaybookStep[] & tags.MinItems<1>;
-	recoveryOperation: NonEmptyString;
+	recovery_operation: NonEmptyString;
 }
 
 export interface PlaybookGetOutput {

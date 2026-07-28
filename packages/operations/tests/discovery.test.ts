@@ -99,6 +99,22 @@ describe("agent discovery operations", () => {
 			"campaigns.get",
 		]);
 		expect(result.operations[2]?.approval).toBe("human");
+		expect(result.playbook).toHaveProperty("recovery_operation");
+		expect(result.playbook).not.toHaveProperty("recoveryOperation");
+		expect(result.playbook.steps[1]).toHaveProperty("depends_on");
+
+		const specOnly = await invokePlaybookGetOperation(
+			{ catalog: composeOperationCatalogs([discoveryOperationCatalog]) },
+			{ id: "campaign.safe-start" },
+		);
+		expect(
+			specOnly.operations.find(
+				({ operation }) => operation.id === "campaigns.start",
+			)?.operation.safety,
+		).toMatchObject({
+			destructive: true,
+			confirmation_required: true,
+		});
 	});
 
 	test("summarizes capabilities and primes an agent without live credentials", async () => {
@@ -126,6 +142,13 @@ describe("agent discovery operations", () => {
 				expect.stringContaining("confirmation"),
 			]),
 		);
+
+		const defaultPrime = await invokeControlPrimeOperation(context, {
+			limit: 3,
+		});
+		expect(
+			defaultPrime.recommended_operations.map(({ id }) => id),
+		).toEqual(["control.status", "specs.search", "playbooks.list"]);
 	});
 
 	test("reports runtime and live readiness while keeping health failures structured", async () => {
@@ -195,9 +218,29 @@ describe("agent discovery operations", () => {
 			{},
 		);
 		expect(unavailable.listmonk).toEqual({
-			configured: true,
+			configured: false,
 			reachable: false,
 			health_error: "connection refused",
+		});
+
+		const probeOnly = await invokeControlStatusOperation(
+			{
+				...context,
+				surface: "mcp",
+				version: "test",
+				runtime: { node: "test" },
+				probeListmonk: async () => true,
+			},
+			{},
+		);
+		expect(probeOnly).toMatchObject({
+			listmonk: {
+				configured: false,
+				reachable: true,
+			},
+			readiness: {
+				listmonk: false,
+			},
 		});
 	});
 
