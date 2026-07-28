@@ -10,6 +10,11 @@ export type NonNegativeInteger = number &
 	tags.Minimum<0> &
 	tags.Maximum<9007199254740991>;
 
+export type PositiveInteger = number &
+	tags.Type<"int64"> &
+	tags.Minimum<1> &
+	tags.Maximum<9007199254740991>;
+
 export type NonEmptyString = string & tags.MinLength<1>;
 
 export interface CampaignGetInput {
@@ -76,7 +81,7 @@ export interface SubscriberBlocklistInput {
 	/** Resolve the audience and report work without mutating Listmonk. */
 	dry_run: boolean;
 	/** Maximum number of subscribers accepted by this invocation. */
-	max_items: ResourceId;
+	max_items: PositiveInteger;
 	/** Continue processing later chunks when an earlier chunk fails. */
 	continue_on_error: boolean;
 }

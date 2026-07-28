@@ -167,6 +167,12 @@ export function defineProductOperation<
 		operation.effects,
 		operation.policy as OperationPolicy,
 	);
+	for (const [label, nodePath] of Object.entries(operation.projection.graph)) {
+		assertNonBlank(
+			nodePath,
+			`Product operation ${operation.id} projection graph ${label}`,
+		);
+	}
 	assertObjectContractSchema(operation.id, "input", operation.contract.input);
 	assertObjectContractSchema(operation.id, "output", operation.contract.output);
 	for (const guidance of [
@@ -179,14 +185,8 @@ export function defineProductOperation<
 			`Product operation ${operation.id} agent guidance`,
 		);
 	}
-	const operationId: string = operation.id;
-	const lifecycle = operation as {
-		stability: ProductOperationLifecycle["stability"];
-		deprecated?: {
-			since: string;
-			replacedBy: `${string}.${string}`;
-		};
-	};
+	const operationId = operation.id;
+	const lifecycle: ProductOperationLifecycle = operation;
 	if (
 		lifecycle.stability === "deprecated" &&
 		lifecycle.deprecated === undefined

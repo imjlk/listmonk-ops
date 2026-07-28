@@ -102,6 +102,26 @@ describe("email operations product schema", () => {
 			audit: "required",
 			dryRun: false,
 		});
+		expect(
+			expectedPolicyForEffects([
+				{
+					kind: "delivery",
+					resource: "campaign",
+					audience: "bulk",
+					timing: "scheduled",
+				},
+				{
+					kind: "suppression",
+					resource: "subscriber",
+					scope: "audience",
+					reversible: true,
+				},
+			]),
+		).toEqual({
+			confirmation: "required",
+			audit: "required",
+			dryRun: true,
+		});
 	});
 
 	test("rejects duplicate identities and invalid resource transitions", () => {
@@ -164,6 +184,39 @@ describe("email operations product schema", () => {
 					...campaignScheduleProductOperation.state,
 					from: [],
 				},
+			}),
+		).toThrow("at least one source state");
+
+		expect(() =>
+			defineProductOperation({
+				...campaignGetProductOperation,
+				projection: {
+					...campaignGetProductOperation.projection,
+					graph: {
+						...campaignGetProductOperation.projection.graph,
+						executorNode: " ",
+					},
+				},
+			}),
+		).toThrow("projection graph executorNode must not be blank");
+
+		expect(() =>
+			defineEmailOperationsProductSchema({
+				schemaVersion: "test",
+				title: "Raw invalid transition",
+				description: "Raw operation fixture",
+				resources: [campaignResource, subscriberResource],
+				operations: [
+					{
+						...campaignScheduleProductOperation,
+						state: {
+							...campaignScheduleProductOperation.state,
+							from: [],
+						},
+					},
+				],
+				events: [],
+				playbooks: [],
 			}),
 		).toThrow("at least one source state");
 

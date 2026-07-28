@@ -32,6 +32,9 @@ export function defineProductResource<const State extends string>(
 	if (resource.states.length === 0) {
 		throw new TypeError(`Product resource ${resource.id} must define states`);
 	}
+	for (const state of resource.states) {
+		assertNonBlank(state, `Product resource ${resource.id} state`);
+	}
 	assertDistinct(resource.states, `Product resource ${resource.id} states`);
 	assertDistinct(
 		resource.terminalStates,
@@ -39,9 +42,6 @@ export function defineProductResource<const State extends string>(
 	);
 
 	const stateSet = new Set<string>(resource.states);
-	for (const state of resource.states) {
-		assertNonBlank(state, `Product resource ${resource.id} state`);
-	}
 	for (const from of Object.keys(resource.transitions)) {
 		if (!stateSet.has(from)) {
 			throw new TypeError(

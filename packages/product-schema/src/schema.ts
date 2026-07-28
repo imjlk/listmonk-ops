@@ -52,6 +52,11 @@ function validateStateTransition(
 			`Product operation ${operation.id} has unknown target state ${operation.state.to}`,
 		);
 	}
+	if (operation.state.from.length === 0) {
+		throw new TypeError(
+			`Product operation ${operation.id} state transition must declare at least one source state`,
+		);
+	}
 	for (const from of operation.state.from) {
 		if (!states.has(from)) {
 			throw new TypeError(

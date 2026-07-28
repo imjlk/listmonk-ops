@@ -1,9 +1,9 @@
 import type { OperationEffect } from "./effect";
 
 export interface OperationPolicy {
-	confirmation: "never" | "required";
-	audit: "optional" | "required";
-	dryRun: boolean;
+	readonly confirmation: "never" | "required";
+	readonly audit: "optional" | "required";
+	readonly dryRun: boolean;
 }
 
 type EffectOfKind<
@@ -16,6 +16,12 @@ type HasEffect<
 	Kind extends OperationEffect["kind"],
 > = [EffectOfKind<Effects, Kind>] extends [never] ? false : true;
 
+/**
+ * Safety precedence is intentionally conservative:
+ * suppression requires a preview and confirmation; delivery and deletion
+ * require confirmation; ordinary writes are audited; pure reads need neither.
+ * Higher tiers win when an operation declares more than one effect.
+ */
 export type PolicyForEffects<
 	Effects extends readonly OperationEffect[],
 > = HasEffect<Effects, "suppression"> extends true

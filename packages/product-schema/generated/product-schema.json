@@ -686,6 +686,11 @@
         "input": {
           "components": {
             "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
               "ResourceId": {
                 "maximum": 9007199254740991,
                 "minimum": 1,
@@ -703,7 +708,7 @@
                     "type": "boolean"
                   },
                   "max_items": {
-                    "$ref": "#/components/schemas/ResourceId",
+                    "$ref": "#/components/schemas/PositiveInteger",
                     "description": "Maximum number of subscribers accepted by this invocation."
                   },
                   "subscriber_ids": {
@@ -738,7 +743,7 @@
                 "type": "boolean"
               },
               "max_items": {
-                "$ref": "#/components/schemas/ResourceId",
+                "$ref": "#/components/schemas/PositiveInteger",
                 "description": "Maximum number of subscribers accepted by this invocation."
               },
               "subscriber_ids": {

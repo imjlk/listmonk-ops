@@ -19,10 +19,18 @@ function productOperationIsReadOnly(operation: AnyProductOperation): boolean {
 }
 
 function productOperationIsIdempotent(operation: AnyProductOperation): boolean {
-	return (
-		operation.retry.kind === "safe" ||
-		(operation.retry.kind === "reconcile" && operation.retry.idempotent)
-	);
+	switch (operation.retry.kind) {
+		case "safe":
+			return true;
+		case "reconcile":
+			return operation.retry.idempotent;
+		case "unsafe":
+			return false;
+		default: {
+			const unhandled: never = operation.retry;
+			return unhandled;
+		}
+	}
 }
 
 export function assertRuntimeOperationProjection(

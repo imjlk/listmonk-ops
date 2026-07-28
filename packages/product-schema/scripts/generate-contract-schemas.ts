@@ -34,6 +34,19 @@ function stableValue(value: unknown): unknown {
 	return value;
 }
 
+function stableRecord(
+	value: unknown,
+	label: string,
+): Readonly<Record<string, unknown>> {
+	const stable = stableValue(value);
+	if (typeof stable !== "object" || stable === null || Array.isArray(stable)) {
+		throw new TypeError(
+			`Typia generated non-object ${label}: ${JSON.stringify(stable)}`,
+		);
+	}
+	return stable as Readonly<Record<string, unknown>>;
+}
+
 function contractSchema(generated: {
 	schema: unknown;
 	components: unknown;
@@ -41,13 +54,13 @@ function contractSchema(generated: {
 	return {
 		dialect: "openapi-3.1",
 		stage: "normalized",
-		schema: stableValue(generated.schema) as Readonly<Record<string, unknown>>,
-		components: stableValue(generated.components) as Readonly<
-			Record<string, unknown>
-		>,
+		schema: stableRecord(generated.schema, "contract schema"),
+		components: stableRecord(generated.components, "contract components"),
 	};
 }
 
+// Keep this map aligned with the normalized contract types above and the
+// typed accessors in ../src/contract-schemas.ts.
 const contracts = {
 	campaignGetInputContract: contractSchema(
 		typia.json.schema<CampaignGetInput>(),
