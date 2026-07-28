@@ -7,7 +7,6 @@ import {
 import packageJson from "../../package.json" with { type: "json" };
 import { mcpOperationCatalog } from "../operation-catalog.js";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
-import type { HandlerFunction } from "../types/shared.js";
 import { createErrorResult } from "../utils/response.js";
 import { withErrorHandler } from "../utils/typeHelpers.js";
 import { createOperationResult, toMcpTool } from "./operation-adapter.js";

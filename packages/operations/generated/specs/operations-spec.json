@@ -1956,7 +1956,17 @@
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
                   "stability": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "oneOf": [
+                      {
+                        "const": "deprecated"
+                      },
+                      {
+                        "const": "experimental"
+                      },
+                      {
+                        "const": "stable"
+                      }
+                    ]
                   },
                   "title": {
                     "$ref": "#/components/schemas/NonEmptyString"
@@ -2190,7 +2200,17 @@
                     "$ref": "#/components/schemas/Recordstringunknown"
                   },
                   "stability": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "oneOf": [
+                      {
+                        "const": "deprecated"
+                      },
+                      {
+                        "const": "experimental"
+                      },
+                      {
+                        "const": "stable"
+                      }
+                    ]
                   },
                   "title": {
                     "$ref": "#/components/schemas/NonEmptyString"
@@ -2612,7 +2632,17 @@
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
                   "stability": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "oneOf": [
+                      {
+                        "const": "deprecated"
+                      },
+                      {
+                        "const": "experimental"
+                      },
+                      {
+                        "const": "stable"
+                      }
+                    ]
                   },
                   "title": {
                     "$ref": "#/components/schemas/NonEmptyString"
@@ -2651,6 +2681,45 @@
                   }
                 ]
               },
+              "PlaybookDetail": {
+                "additionalProperties": false,
+                "properties": {
+                  "goal": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "inputs": {
+                    "items": {
+                      "$ref": "#/components/schemas/PlaybookInput"
+                    },
+                    "type": "array"
+                  },
+                  "recoveryOperation": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "steps": {
+                    "items": {
+                      "$ref": "#/components/schemas/PlaybookStep"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "title": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "goal",
+                  "inputs",
+                  "steps",
+                  "recoveryOperation"
+                ],
+                "type": "object"
+              },
               "PlaybookGetOutput": {
                 "additionalProperties": false,
                 "properties": {
@@ -2661,12 +2730,62 @@
                     "type": "array"
                   },
                   "playbook": {
-                    "$ref": "#/components/schemas/Recordstringunknown"
+                    "$ref": "#/components/schemas/PlaybookDetail"
                   }
                 },
                 "required": [
                   "playbook",
                   "operations"
+                ],
+                "type": "object"
+              },
+              "PlaybookInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "boolean"
+                      },
+                      {
+                        "const": "number"
+                      },
+                      {
+                        "const": "string"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "type",
+                  "required",
+                  "description"
+                ],
+                "type": "object"
+              },
+              "PlaybookInputBinding": {
+                "additionalProperties": false,
+                "properties": {
+                  "parameter": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "source": {
+                    "$ref": "#/components/schemas/PlaybookValueSource"
+                  }
+                },
+                "required": [
+                  "parameter",
+                  "source"
                 ],
                 "type": "object"
               },
@@ -2697,9 +2816,160 @@
                 ],
                 "type": "object"
               },
-              "Recordstringunknown": {
-                "additionalProperties": {},
+              "PlaybookPrimitive": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "PlaybookResultGuard": {
+                "additionalProperties": false,
+                "properties": {
+                  "expected": {
+                    "$ref": "#/components/schemas/PlaybookPrimitive"
+                  },
+                  "message": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "onFailure": {
+                    "const": "stop"
+                  },
+                  "operator": {
+                    "oneOf": [
+                      {
+                        "const": "equals"
+                      },
+                      {
+                        "const": "not-equals"
+                      }
+                    ]
+                  },
+                  "path": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "path",
+                  "operator",
+                  "expected",
+                  "onFailure",
+                  "message"
+                ],
                 "type": "object"
+              },
+              "PlaybookStep": {
+                "additionalProperties": false,
+                "properties": {
+                  "approval": {
+                    "oneOf": [
+                      {
+                        "const": "human"
+                      },
+                      {
+                        "const": "none"
+                      }
+                    ]
+                  },
+                  "dependsOn": {
+                    "items": {
+                      "$ref": "#/components/schemas/NonEmptyString"
+                    },
+                    "type": "array"
+                  },
+                  "description": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "input": {
+                    "items": {
+                      "$ref": "#/components/schemas/PlaybookInputBinding"
+                    },
+                    "type": "array"
+                  },
+                  "operation": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "resultGuard": {
+                    "$ref": "#/components/schemas/PlaybookResultGuard"
+                  }
+                },
+                "required": [
+                  "id",
+                  "operation",
+                  "approval",
+                  "description",
+                  "dependsOn",
+                  "input"
+                ],
+                "type": "object"
+              },
+              "PlaybookValueSource": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "playbook-input"
+                      },
+                      "name": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "name"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "step-output"
+                      },
+                      "path": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "stepId": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "stepId",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "literal"
+                      },
+                      "value": {
+                        "$ref": "#/components/schemas/PlaybookPrimitive"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  }
+                ]
               }
             }
           },
@@ -2714,7 +2984,7 @@
                 "type": "array"
               },
               "playbook": {
-                "$ref": "#/components/schemas/Recordstringunknown"
+                "$ref": "#/components/schemas/PlaybookDetail"
               }
             },
             "required": [
@@ -3209,7 +3479,17 @@
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
                   "stability": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "oneOf": [
+                      {
+                        "const": "deprecated"
+                      },
+                      {
+                        "const": "experimental"
+                      },
+                      {
+                        "const": "stable"
+                      }
+                    ]
                   },
                   "title": {
                     "$ref": "#/components/schemas/NonEmptyString"

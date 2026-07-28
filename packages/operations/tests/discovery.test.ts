@@ -146,6 +146,42 @@ describe("agent discovery operations", () => {
 			readiness: { catalog: true, specs: true, listmonk: true },
 		});
 
+		const sanitized = await invokeControlStatusOperation(
+			{
+				...context,
+				surface: "cli",
+				version: "test",
+				runtime: { platform: "test" },
+				target: {
+					url: "https://inline-user:inline-password@example.com/api",
+					auth: "token",
+				},
+			},
+			{},
+		);
+		expect(sanitized.target).toEqual({
+			url: "https://example.com/api",
+			auth: "token",
+		});
+
+		const invalidTarget = await invokeControlStatusOperation(
+			{
+				...context,
+				surface: "cli",
+				version: "test",
+				runtime: { platform: "test" },
+				target: {
+					url: "https://inline-user:inline-password@invalid host",
+					auth: "token",
+				},
+			},
+			{},
+		);
+		expect(invalidTarget.target).toEqual({
+			url: "[invalid URL]",
+			auth: "token",
+		});
+
 		const unavailable = await invokeControlStatusOperation(
 			{
 				...context,

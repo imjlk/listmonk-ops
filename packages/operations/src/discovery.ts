@@ -59,7 +59,7 @@ const operationSearchResultSchema = z.object({
 	coverage: z.enum(["described", "migration"]),
 	resource: z.string().min(1).optional(),
 	verb: z.string().min(1).optional(),
-	stability: z.string().min(1).optional(),
+	stability: z.enum(["experimental", "stable", "deprecated"]).optional(),
 	safety: operationDiscoverySafetySchema,
 	use_when: z.array(z.string()),
 	avoid_when: z.array(z.string()),
@@ -115,6 +115,70 @@ const playbookGetInputSchema = z.object({
 	id: z.string().trim().min(1),
 });
 
+const playbookPrimitiveSchema = z.union([
+	z.string(),
+	z.number(),
+	z.boolean(),
+	z.null(),
+]);
+
+const playbookValueSourceSchema = z.discriminatedUnion("kind", [
+	z.object({
+		kind: z.literal("playbook-input"),
+		name: z.string().min(1),
+	}),
+	z.object({
+		kind: z.literal("step-output"),
+		stepId: z.string().min(1),
+		path: z.string().min(1),
+	}),
+	z.object({
+		kind: z.literal("literal"),
+		value: playbookPrimitiveSchema,
+	}),
+]);
+
+const operationPlaybookSchema = z.object({
+	id: z.string().min(1),
+	title: z.string().min(1),
+	goal: z.string().min(1),
+	inputs: z.array(
+		z.object({
+			name: z.string().min(1),
+			type: z.enum(["string", "number", "boolean"]),
+			required: z.boolean(),
+			description: z.string().min(1),
+		}),
+	),
+	steps: z
+		.array(
+			z.object({
+				id: z.string().min(1),
+				operation: z.string().min(1),
+				approval: z.enum(["none", "human"]),
+				description: z.string().min(1),
+				dependsOn: z.array(z.string().min(1)),
+				input: z.array(
+					z.object({
+						parameter: z.string().min(1),
+						source: playbookValueSourceSchema,
+					}),
+				),
+				resultGuard: z
+					.object({
+						path: z.string().min(1),
+						operator: z.enum(["equals", "not-equals"]),
+						expected: playbookPrimitiveSchema,
+						onFailure: z.literal("stop"),
+						message: z.string().min(1),
+					})
+					.optional(),
+			}),
+		)
+		.min(1),
+	recoveryOperation: z.string().min(1),
+});
+
 const playbookOperationReferenceSchema = z.object({
 	step_id: z.string().min(1),
 	operation: operationSearchResultSchema,
@@ -122,7 +186,7 @@ const playbookOperationReferenceSchema = z.object({
 });
 
 const playbookGetOutputSchema = z.object({
-	playbook: z.record(z.string(), z.unknown()),
+	playbook: operationPlaybookSchema,
 	operations: z.array(playbookOperationReferenceSchema),
 });
 
@@ -261,7 +325,7 @@ function toSpecOnlySearchResult(
 	score: number,
 ): OperationSearchResult {
 	return {
-		family: spec.id.split(".")[0] ?? spec.resource,
+		family: spec.id.split(".")[0]!,
 		id: spec.id,
 		mcp_name: spec.projection.mcpName,
 		title: spec.title,
@@ -447,7 +511,9 @@ export async function getOperationPlaybook(
 		]),
 	);
 	return {
-		playbook: cloneSpecValue(playbook) as unknown as Record<string, unknown>,
+		playbook: cloneSpecValue(playbook) as unknown as z.output<
+			typeof operationPlaybookSchema
+		>,
 		operations: playbook.steps.map((step) => {
 			const summary = summaries.get(step.operation);
 			if (summary === undefined) {
@@ -526,17 +592,24 @@ export async function primeOperationsAgent(
 				).results;
 	const normalizedGoal = input.goal?.toLowerCase();
 	const recommendedPlaybooks = operationSpec(context).playbooks
-		.filter(
-			(playbook) => {
-				if (normalizedGoal === undefined) return true;
-				const searchable = `${playbook.title} ${playbook.goal}`.toLowerCase();
-				return normalizedGoal
-					.split(/\s+/u)
-					.some((token) => searchable.includes(token));
-			},
+		.map((playbook, index) => {
+			if (normalizedGoal === undefined) {
+				return { playbook, score: 1, index };
+			}
+			const searchable = `${playbook.title} ${playbook.goal}`.toLowerCase();
+			const tokens = normalizedGoal.split(/\s+/u);
+			const score =
+				tokens.filter((token) => searchable.includes(token)).length +
+				(searchable.includes(normalizedGoal) ? tokens.length : 0);
+			return { playbook, score, index };
+		})
+		.filter(({ score }) => score > 0)
+		.sort(
+			(left, right) =>
+				right.score - left.score || left.index - right.index,
 		)
 		.slice(0, input.limit)
-		.map(summarizePlaybook);
+		.map(({ playbook }) => summarizePlaybook(playbook));
 
 	return {
 		...(input.goal === undefined ? {} : { goal: input.goal }),
@@ -554,6 +627,17 @@ export async function primeOperationsAgent(
 
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+function sanitizeTargetUrl(url: string): string {
+	try {
+		const parsed = new URL(url);
+		parsed.username = "";
+		parsed.password = "";
+		return parsed.toString();
+	} catch {
+		return "[invalid URL]";
+	}
 }
 
 export async function getControlStatus(
@@ -574,7 +658,14 @@ export async function getControlStatus(
 		surface: context.surface,
 		version: context.version,
 		runtime: { ...context.runtime },
-		...(context.target === undefined ? {} : { target: { ...context.target } }),
+		...(context.target === undefined
+			? {}
+			: {
+					target: {
+						url: sanitizeTargetUrl(context.target.url),
+						auth: context.target.auth,
+					},
+				}),
 		listmonk: {
 			configured: context.probeListmonk !== undefined,
 			reachable,

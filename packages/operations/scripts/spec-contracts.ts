@@ -200,7 +200,7 @@ export interface OperationSearchResult {
 	coverage: OperationSpecCoverage;
 	resource?: NonEmptyString | undefined;
 	verb?: NonEmptyString | undefined;
-	stability?: NonEmptyString | undefined;
+	stability?: "experimental" | "stable" | "deprecated" | undefined;
 	safety: OperationDiscoverySafety;
 	use_when: string[];
 	avoid_when: string[];
@@ -264,8 +264,64 @@ export interface PlaybookOperationReference {
 	approval: "none" | "human";
 }
 
+export type PlaybookPrimitive = string | number | boolean | null;
+
+export interface PlaybookInput {
+	name: NonEmptyString;
+	type: "string" | "number" | "boolean";
+	required: boolean;
+	description: NonEmptyString;
+}
+
+export type PlaybookValueSource =
+	| {
+			kind: "playbook-input";
+			name: NonEmptyString;
+	  }
+	| {
+			kind: "step-output";
+			stepId: NonEmptyString;
+			path: NonEmptyString;
+	  }
+	| {
+			kind: "literal";
+			value: PlaybookPrimitive;
+	  };
+
+export interface PlaybookInputBinding {
+	parameter: NonEmptyString;
+	source: PlaybookValueSource;
+}
+
+export interface PlaybookResultGuard {
+	path: NonEmptyString;
+	operator: "equals" | "not-equals";
+	expected: PlaybookPrimitive;
+	onFailure: "stop";
+	message: NonEmptyString;
+}
+
+export interface PlaybookStep {
+	id: NonEmptyString;
+	operation: NonEmptyString;
+	approval: "none" | "human";
+	description: NonEmptyString;
+	dependsOn: NonEmptyString[];
+	input: PlaybookInputBinding[];
+	resultGuard?: PlaybookResultGuard | undefined;
+}
+
+export interface PlaybookDetail {
+	id: NonEmptyString;
+	title: NonEmptyString;
+	goal: NonEmptyString;
+	inputs: PlaybookInput[];
+	steps: PlaybookStep[] & tags.MinItems<1>;
+	recoveryOperation: NonEmptyString;
+}
+
 export interface PlaybookGetOutput {
-	playbook: Record<string, unknown>;
+	playbook: PlaybookDetail;
 	operations: PlaybookOperationReference[];
 }
 
