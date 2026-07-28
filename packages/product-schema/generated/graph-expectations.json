@@ -1,0 +1,86 @@
+{
+  "operations": [
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#getCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/product-schema/src/pilot.ts#bindCampaignGetProductOperation:function"
+        },
+        {
+          "from": "packages/product-schema/src/pilot.ts#bindCampaignGetProductOperation:function",
+          "kind": "type_ref",
+          "to": "packages/product-schema/src/pilot.ts#campaignGetProductOperation:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeGetCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#getCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/product-schema/src/pilot.ts#bindCampaignGetProductOperation:function",
+        "descriptorNode": "packages/product-schema/src/pilot.ts#campaignGetProductOperation:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#getCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeGetCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#getCampaignOperation:variable"
+      },
+      "operationId": "campaigns.get"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#scheduleCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/product-schema/src/pilot.ts#bindCampaignScheduleProductOperation:function"
+        },
+        {
+          "from": "packages/product-schema/src/pilot.ts#bindCampaignScheduleProductOperation:function",
+          "kind": "type_ref",
+          "to": "packages/product-schema/src/pilot.ts#campaignScheduleProductOperation:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeScheduleCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#scheduleCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/product-schema/src/pilot.ts#bindCampaignScheduleProductOperation:function",
+        "descriptorNode": "packages/product-schema/src/pilot.ts#campaignScheduleProductOperation:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#scheduleCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeScheduleCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#scheduleCampaignOperation:variable"
+      },
+      "operationId": "campaigns.schedule"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#blocklistSubscribersOperation:variable",
+          "kind": "calls",
+          "to": "packages/product-schema/src/pilot.ts#bindSubscriberBlocklistProductOperation:function"
+        },
+        {
+          "from": "packages/product-schema/src/pilot.ts#bindSubscriberBlocklistProductOperation:function",
+          "kind": "type_ref",
+          "to": "packages/product-schema/src/pilot.ts#subscriberBlocklistProductOperation:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeBlocklistSubscribersOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#blocklistSubscribers:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/product-schema/src/pilot.ts#bindSubscriberBlocklistProductOperation:function",
+        "descriptorNode": "packages/product-schema/src/pilot.ts#subscriberBlocklistProductOperation:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#blocklistSubscribers:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeBlocklistSubscribersOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#blocklistSubscribersOperation:variable"
+      },
+      "operationId": "subscribers.blocklist"
+    }
+  ],
+  "schemaVersion": "1.0.0"
+}

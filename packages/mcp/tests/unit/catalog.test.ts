@@ -38,6 +38,7 @@ type CatalogOperation = {
 		auditRequired: boolean;
 		dryRunSupported: boolean;
 	};
+	product?: Record<string, unknown>;
 };
 
 type CatalogOutput = {
@@ -131,6 +132,7 @@ function stableCatalogFields(output: CatalogOutput) {
 		outputSchema: operation.outputSchema,
 		safety: operation.safety,
 		execution: operation.execution,
+		product: operation.product,
 	}));
 }
 
@@ -148,6 +150,9 @@ describe("operation catalog MCP adapter", () => {
 							type: "object",
 							properties: {
 								execution: {
+									type: "object",
+								},
+								product: {
 									type: "object",
 								},
 							},
@@ -183,6 +188,19 @@ describe("operation catalog MCP adapter", () => {
 		expect(mcpOperationCatalog.entries).toHaveLength(58);
 		expect(listMcpOperationCatalogSummaries("ops")).toHaveLength(9);
 		expect(listMcpOperationCatalogSummaries("media")).toHaveLength(4);
+		expect(
+			listMcpOperationCatalogSummaries("subscribers").find(
+				(operation) => operation.id === "subscribers.blocklist",
+			)?.product,
+		).toMatchObject({
+			resource: "subscriber",
+			verb: "blocklist",
+			policy: {
+				confirmation: "required",
+				audit: "required",
+				dryRun: true,
+			},
+		});
 
 		const result = await handleOperationCatalogTools(request({ family: "lists" }), {} as never);
 		expect(result.isError).not.toBe(true);

@@ -12,3 +12,10 @@ executor. Resource and transactional operations export named
 functions preserve the registry validation and error contract while keeping
 CLI/MCP-to-domain call paths visible to static tooling. Surface packages remain
 responsible for authentication and presentation.
+
+Selected operations can also attach an
+`@listmonk-ops/product-schema` descriptor. The operation definition validates
+that runtime identity, safety hints, and MCP metadata still match the product
+declaration, while catalog summaries expose a detached descriptor for agent
+discovery. This does not replace Zod runtime validation or the named executor
+path.

@@ -1,4 +1,8 @@
 import type { Campaign, ListmonkClient } from "@listmonk-ops/openapi";
+import {
+	bindCampaignGetProductOperation,
+	bindCampaignScheduleProductOperation,
+} from "@listmonk-ops/product-schema";
 import { z } from "zod";
 import {
 	createResourceSafety,
@@ -778,6 +782,7 @@ export const getCampaignOperation = defineOperation({
 	outputSchema: campaignSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_campaign", legacySuccessText: jsonResourceValue },
+	product: bindCampaignGetProductOperation(),
 	execute: getCampaign,
 });
 
@@ -835,6 +840,7 @@ export const scheduleCampaignOperation = defineOperation({
 		name: "listmonk_schedule_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
+	product: bindCampaignScheduleProductOperation(),
 	execute: scheduleCampaign,
 });
 

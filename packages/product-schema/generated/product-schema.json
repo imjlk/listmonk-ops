@@ -1,0 +1,939 @@
+{
+  "description": "Typed, policy-aware, and verifiable email operations for humans and AI agents.",
+  "events": [],
+  "operations": [
+    {
+      "agent": {
+        "avoidWhen": [
+          "A campaign collection or aggregate statistics are required."
+        ],
+        "prerequisites": [],
+        "related": [
+          "campaigns.schedule",
+          "campaigns.stats"
+        ],
+        "retryGuidance": "Retry transient read failures with normal backoff.",
+        "useWhen": [
+          "A campaign must be inspected before a mutation or verification."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignGetInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Listmonk campaign ID."
+                  },
+                  "no_body": {
+                    "description": "Omit the potentially large message body when the server supports it.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Listmonk campaign ID."
+              },
+              "no_body": {
+                "description": "Omit the potentially large message body when the server supports it.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignGetOutput": {
+                "additionalProperties": {},
+                "properties": {
+                  "altbody": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "body": {
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "bounces": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "clicks": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "from_email": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "sent": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "started_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "to_send": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "type": "string"
+                  },
+                  "views": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "altbody": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "archive": {
+                "type": "boolean"
+              },
+              "body": {
+                "type": "string"
+              },
+              "body_source": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "bounces": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "clicks": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "content_type": {
+                "oneOf": [
+                  {
+                    "const": "html"
+                  },
+                  {
+                    "const": "markdown"
+                  },
+                  {
+                    "const": "plain"
+                  },
+                  {
+                    "const": "richtext"
+                  },
+                  {
+                    "const": "visual"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "from_email": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "lists": {
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "media": {
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "messenger": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "send_at": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "sent": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "started_at": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "tags": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "template_id": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                ]
+              },
+              "to_send": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "type": {
+                "oneOf": [
+                  {
+                    "const": "optin"
+                  },
+                  {
+                    "const": "regular"
+                  }
+                ]
+              },
+              "updated_at": {
+                "type": "string"
+              },
+              "uuid": {
+                "type": "string"
+              },
+              "views": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Get a campaign by ID",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "campaign"
+        }
+      ],
+      "id": "campaigns.get",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/product-schema/src/pilot.ts#bindCampaignGetProductOperation:function",
+          "descriptorNode": "packages/product-schema/src/pilot.ts#campaignGetProductOperation:variable",
+          "executorNode": "packages/operations/src/campaigns.ts#getCampaign:function",
+          "invokerNode": "packages/operations/src/campaigns.ts#invokeGetCampaignOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#getCampaignOperation:variable"
+        },
+        "mcpName": "listmonk_get_campaign",
+        "openWorld": true
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current campaign representation."
+      },
+      "since": "0.1.0",
+      "stability": "experimental",
+      "title": "Get campaign",
+      "verb": "get"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The campaign is already running or terminal.",
+          "Campaign preflight has not passed."
+        ],
+        "prerequisites": [
+          "campaigns.get",
+          "ops.campaign.preflight"
+        ],
+        "related": [
+          "campaigns.pause",
+          "campaigns.cancel",
+          "campaigns.stats"
+        ],
+        "retryGuidance": "On timeout, inspect campaigns.get before deciding whether to retry.",
+        "useWhen": [
+          "A reviewed campaign must start bulk delivery at a future time."
+        ],
+        "verifyWith": [
+          "campaigns.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignScheduleInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Listmonk campaign ID."
+                  },
+                  "send_at": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "ISO 8601 or Listmonk-compatible `YYYY-MM-DD HH:MM:SS` send timestamp.\nStateful validation remains in the campaign domain executor."
+                  }
+                },
+                "required": [
+                  "id",
+                  "send_at"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Listmonk campaign ID."
+              },
+              "send_at": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "ISO 8601 or Listmonk-compatible `YYYY-MM-DD HH:MM:SS` send timestamp.\nStateful validation remains in the campaign domain executor."
+              }
+            },
+            "required": [
+              "id",
+              "send_at"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignScheduleOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "status"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Schedule a campaign to send at a specific time. Validates the current status allows the transition. Destructive because a scheduled campaign will begin mass delivery at the configured time.",
+      "effects": [
+        {
+          "audience": "bulk",
+          "kind": "delivery",
+          "resource": "campaign",
+          "timing": "scheduled"
+        }
+      ],
+      "id": "campaigns.schedule",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/product-schema/src/pilot.ts#bindCampaignScheduleProductOperation:function",
+          "descriptorNode": "packages/product-schema/src/pilot.ts#campaignScheduleProductOperation:variable",
+          "executorNode": "packages/operations/src/campaigns.ts#scheduleCampaign:function",
+          "invokerNode": "packages/operations/src/campaigns.ts#invokeScheduleCampaignOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#scheduleCampaignOperation:variable"
+        },
+        "mcpName": "listmonk_schedule_campaign",
+        "openWorld": true
+      },
+      "resource": "campaign",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Scheduling writes send_at before the status transition, so a timeout can leave an ambiguous remote state.",
+        "reconcileWith": "campaigns.get"
+      },
+      "since": "0.1.0",
+      "stability": "experimental",
+      "state": {
+        "allowNoopFromTarget": true,
+        "from": [
+          "draft"
+        ],
+        "resource": "campaign",
+        "to": "scheduled"
+      },
+      "title": "Schedule campaign",
+      "verb": "schedule"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The target audience has not been previewed with dry_run.",
+          "A per-list unsubscribe is intended instead of global suppression."
+        ],
+        "prerequisites": [
+          "subscribers.get"
+        ],
+        "related": [
+          "subscribers.unblocklist",
+          "subscribers.remove-from-lists"
+        ],
+        "retryGuidance": "Prefer dry_run first; an identical confirmed retry is safe after transient failure.",
+        "useWhen": [
+          "One or more subscribers must be prevented from receiving future mail."
+        ],
+        "verifyWith": [
+          "subscribers.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberBlocklistInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "continue_on_error": {
+                    "description": "Continue processing later chunks when an earlier chunk fails.",
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "description": "Resolve the audience and report work without mutating Listmonk.",
+                    "type": "boolean"
+                  },
+                  "max_items": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Maximum number of subscribers accepted by this invocation."
+                  },
+                  "subscriber_ids": {
+                    "description": "One or more Listmonk subscriber IDs.",
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "subscriber_ids",
+                  "dry_run",
+                  "max_items",
+                  "continue_on_error"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "continue_on_error": {
+                "description": "Continue processing later chunks when an earlier chunk fails.",
+                "type": "boolean"
+              },
+              "dry_run": {
+                "description": "Resolve the audience and report work without mutating Listmonk.",
+                "type": "boolean"
+              },
+              "max_items": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Maximum number of subscribers accepted by this invocation."
+              },
+              "subscriber_ids": {
+                "description": "One or more Listmonk subscriber IDs.",
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "subscriber_ids",
+              "dry_run",
+              "max_items",
+              "continue_on_error"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "SubscriberBulkOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "errors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "processed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "processed",
+                  "succeeded",
+                  "failed",
+                  "errors"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "errors": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "failed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "processed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "succeeded": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "processed",
+              "succeeded",
+              "failed",
+              "errors"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Add a batch of subscribers to the blocklist (action: add). Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because blocklisting suppresses mail delivery for the entire batch.",
+      "effects": [
+        {
+          "kind": "suppression",
+          "resource": "subscriber",
+          "reversible": true,
+          "scope": "audience"
+        }
+      ],
+      "id": "subscribers.blocklist",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/product-schema/src/pilot.ts#bindSubscriberBlocklistProductOperation:function",
+          "descriptorNode": "packages/product-schema/src/pilot.ts#subscriberBlocklistProductOperation:variable",
+          "executorNode": "packages/operations/src/subscribers.ts#blocklistSubscribers:function",
+          "invokerNode": "packages/operations/src/subscribers.ts#invokeBlocklistSubscribersOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#blocklistSubscribersOperation:variable"
+        },
+        "mcpName": "listmonk_blocklist_subscribers",
+        "openWorld": true
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "safe",
+        "reason": "Re-applying blocklist to the same subscriber IDs is idempotent, including after partial chunk completion."
+      },
+      "since": "0.1.0",
+      "stability": "experimental",
+      "state": {
+        "allowNoopFromTarget": true,
+        "from": [
+          "enabled",
+          "disabled"
+        ],
+        "resource": "subscriber",
+        "to": "blocklisted"
+      },
+      "title": "Blocklist subscribers",
+      "verb": "blocklist"
+    }
+  ],
+  "playbooks": [],
+  "resources": [
+    {
+      "id": "campaign",
+      "states": [
+        "draft",
+        "scheduled",
+        "running",
+        "paused",
+        "finished",
+        "cancelled"
+      ],
+      "terminalStates": [
+        "finished",
+        "cancelled"
+      ],
+      "title": "Campaign",
+      "transitions": {
+        "cancelled": [],
+        "draft": [
+          "scheduled",
+          "running"
+        ],
+        "finished": [],
+        "paused": [
+          "running"
+        ],
+        "running": [
+          "paused",
+          "cancelled"
+        ],
+        "scheduled": [
+          "running"
+        ]
+      }
+    },
+    {
+      "id": "subscriber",
+      "states": [
+        "enabled",
+        "disabled",
+        "blocklisted"
+      ],
+      "terminalStates": [],
+      "title": "Subscriber",
+      "transitions": {
+        "blocklisted": [
+          "enabled"
+        ],
+        "disabled": [
+          "enabled",
+          "blocklisted"
+        ],
+        "enabled": [
+          "disabled",
+          "blocklisted"
+        ]
+      }
+    }
+  ],
+  "schemaVersion": "1.0.0",
+  "title": "listmonk-ops Email Operations Product Schema"
+}

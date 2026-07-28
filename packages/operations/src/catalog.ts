@@ -3,6 +3,10 @@ import type {
 	OperationMcpMetadata,
 	OperationSafety,
 } from "./operation";
+import {
+	projectProductOperation,
+	type AnyProductOperation,
+} from "@listmonk-ops/product-schema";
 import type { z } from "zod";
 import {
 	getOperationExecutionPolicy,
@@ -25,6 +29,7 @@ export type OperationCatalogItem = Readonly<{
 	outputJsonSchema: ObjectJsonSchema;
 	safety: OperationSafety;
 	mcp: OperationMcpMetadata;
+	product?: AnyProductOperation | undefined;
 }>;
 
 export type OperationCatalog<
@@ -58,6 +63,7 @@ export type OperationCatalogSummary = Readonly<{
 	outputSchema: ObjectJsonSchema;
 	safety: OperationSafety;
 	execution: OperationExecutionPolicy;
+	product?: AnyProductOperation | undefined;
 }>;
 
 function assertNonBlank(value: string, label: string): void {
@@ -172,7 +178,7 @@ function toTransportSchema(schema: ObjectJsonSchema): ObjectJsonSchema {
 
 function toSummary(entry: OperationCatalogEntry): OperationCatalogSummary {
 	const { family, familyTitle, operation } = entry;
-	return {
+	const summary: OperationCatalogSummary = {
 		family,
 		familyTitle,
 		id: operation.id,
@@ -184,6 +190,13 @@ function toSummary(entry: OperationCatalogEntry): OperationCatalogSummary {
 		safety: { ...operation.safety },
 		execution: getOperationExecutionPolicy(operation),
 	};
+	if (operation.product !== undefined) {
+		return {
+			...summary,
+			product: projectProductOperation(operation.product),
+		};
+	}
+	return summary;
 }
 
 /**
