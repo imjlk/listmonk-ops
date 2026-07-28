@@ -1,5 +1,11 @@
 # @listmonk-ops/mcp
 
+## 0.7.1 — 2026-07-28
+
+### Patch changes
+
+- Updated dependencies: abtest@0.4.3, automation@0.2.3, operations@0.7.0
+
 ## 0.7.0 — 2026-07-28
 
 ### Added
