@@ -1,7 +1,11 @@
 import type { Campaign, ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	bindCampaignCancelOperationSpec,
 	bindCampaignGetOperationSpec,
 	bindCampaignScheduleOperationSpec,
+	bindCampaignStartOperationSpec,
+	bindOperationSpecMigrationExemption,
+	operationSpecMigrationExemptionsByFamily,
 } from "./specs";
 import { z } from "zod";
 import {
@@ -771,6 +775,7 @@ export const getCampaignsOperation = defineOperation({
 	outputSchema: campaignListOutputSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_campaigns", legacySuccessText: jsonResourceValue },
+	specMigration: bindOperationSpecMigrationExemption("campaigns.list"),
 	execute: listCampaigns,
 });
 
@@ -797,6 +802,7 @@ export const createCampaignOperation = defineOperation({
 		name: "listmonk_create_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("campaigns.create"),
 	execute: createCampaign,
 });
 
@@ -811,6 +817,7 @@ export const updateCampaignOperation = defineOperation({
 		name: "listmonk_update_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("campaigns.update"),
 	execute: updateCampaign,
 });
 
@@ -825,6 +832,7 @@ export const deleteCampaignOperation = defineOperation({
 		name: "listmonk_delete_campaign",
 		legacySuccessText: "Campaign deleted successfully",
 	},
+	specMigration: bindOperationSpecMigrationExemption("campaigns.delete"),
 	execute: deleteCampaign,
 });
 
@@ -856,6 +864,7 @@ export const startCampaignOperation = defineOperation({
 		name: "listmonk_start_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
+	spec: bindCampaignStartOperationSpec(),
 	execute: startCampaign,
 });
 
@@ -871,6 +880,7 @@ export const pauseCampaignOperation = defineOperation({
 		name: "listmonk_pause_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("campaigns.pause"),
 	execute: pauseCampaign,
 });
 
@@ -886,6 +896,7 @@ export const cancelCampaignOperation = defineOperation({
 		name: "listmonk_cancel_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
+	spec: bindCampaignCancelOperationSpec(),
 	execute: cancelCampaign,
 });
 
@@ -901,6 +912,7 @@ export const cloneCampaignOperation = defineOperation({
 		name: "listmonk_clone_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("campaigns.clone"),
 	execute: cloneCampaign,
 });
 
@@ -916,6 +928,7 @@ export const getCampaignStatsOperation = defineOperation({
 		name: "listmonk_get_campaign_stats",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("campaigns.stats"),
 	execute: getCampaignStats,
 });
 
@@ -1168,6 +1181,8 @@ export const campaignOperationCatalog = defineOperationCatalog({
 	id: "campaigns",
 	title: "Campaigns",
 	operations: campaignOperations,
+	specMigrationExemptions:
+		operationSpecMigrationExemptionsByFamily.campaigns,
 });
 
 export type CampaignOperation = (typeof campaignOperations)[number];

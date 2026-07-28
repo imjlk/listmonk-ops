@@ -6,6 +6,10 @@ import {
 	parseOperationInput,
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
+import {
+	bindOperationSpecMigrationExemption,
+	operationSpecMigrationExemptionsByFamily,
+} from "@listmonk-ops/operations/specs";
 import { z } from "zod";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { AbTestNotFoundError } from "./errors";
@@ -764,6 +768,7 @@ export const listAbTestsOperation = defineOperation({
 		name: "listmonk_abtest_list",
 		legacySuccessText: (output) => jsonValue(output["tests"]),
 	},
+	specMigration: bindOperationSpecMigrationExemption("abtest.list"),
 	execute: executeListAbTestsOperation,
 });
 
@@ -778,6 +783,7 @@ export const getAbTestOperation = defineOperation({
 		name: "listmonk_abtest_get",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
+	specMigration: bindOperationSpecMigrationExemption("abtest.get"),
 	execute: executeGetAbTestOperation,
 });
 
@@ -793,6 +799,7 @@ export const createAbTestOperation = defineOperation({
 		name: "listmonk_abtest_create",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
+	specMigration: bindOperationSpecMigrationExemption("abtest.create"),
 	execute: executeCreateAbTestOperation,
 });
 
@@ -807,6 +814,7 @@ export const analyzeAbTestOperation = defineOperation({
 		name: "listmonk_abtest_analyze",
 		legacySuccessText: (output) => jsonValue(output["analysis"]),
 	},
+	specMigration: bindOperationSpecMigrationExemption("abtest.analyze"),
 	execute: executeAnalyzeAbTestOperation,
 });
 
@@ -821,6 +829,7 @@ export const launchAbTestOperation = defineOperation({
 		name: "listmonk_abtest_launch",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
+	specMigration: bindOperationSpecMigrationExemption("abtest.launch"),
 	execute: executeLaunchAbTestOperation,
 });
 
@@ -835,6 +844,7 @@ export const stopAbTestOperation = defineOperation({
 		name: "listmonk_abtest_stop",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
+	specMigration: bindOperationSpecMigrationExemption("abtest.stop"),
 	execute: executeStopAbTestOperation,
 });
 
@@ -849,6 +859,7 @@ export const deleteAbTestOperation = defineOperation({
 		name: "listmonk_abtest_delete",
 		legacySuccessText: (output) => jsonValue(output),
 	},
+	specMigration: bindOperationSpecMigrationExemption("abtest.delete"),
 	execute: executeDeleteAbTestOperation,
 });
 
@@ -863,6 +874,9 @@ export const recommendAbTestSampleSizeOperation = defineOperation({
 		name: "listmonk_abtest_recommend_sample_size",
 		legacySuccessText: (output) => jsonValue(output["recommendation"]),
 	},
+	specMigration: bindOperationSpecMigrationExemption(
+		"abtest.recommend-sample-size",
+	),
 	execute: executeRecommendAbTestSampleSizeOperation,
 });
 
@@ -877,6 +891,7 @@ export const deployAbTestWinnerOperation = defineOperation({
 		name: "listmonk_abtest_deploy_winner",
 		legacySuccessText: (output) => jsonValue(output),
 	},
+	specMigration: bindOperationSpecMigrationExemption("abtest.deploy-winner"),
 	execute: executeDeployAbTestWinnerOperation,
 });
 
@@ -904,6 +919,7 @@ export const runAbTestOperation = defineOperation({
 		name: "listmonk_abtest_run",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
+	specMigration: bindOperationSpecMigrationExemption("abtest.run"),
 	execute: executeRunAbTestOperation,
 });
 
@@ -922,6 +938,7 @@ export const tickAbTestsOperation = defineOperation({
 		name: "listmonk_abtest_tick",
 		legacySuccessText: (output) => jsonValue(output),
 	},
+	specMigration: bindOperationSpecMigrationExemption("abtest.tick"),
 	execute: executeTickAbTestsOperation,
 });
 
@@ -942,6 +959,7 @@ export const reconcileAbTestOperation = defineOperation({
 		name: "listmonk_abtest_reconcile",
 		legacySuccessText: (output) => jsonValue(output),
 	},
+	specMigration: bindOperationSpecMigrationExemption("abtest.reconcile"),
 	execute: executeReconcileAbTestOperation,
 });
 
@@ -964,6 +982,9 @@ export const exportAbTestAssignmentOperation = defineOperation({
 		name: "listmonk_abtest_export_assignment",
 		legacySuccessText: (output) => jsonValue(output),
 	},
+	specMigration: bindOperationSpecMigrationExemption(
+		"abtest.export-assignment",
+	),
 	execute: executeExportAbTestAssignmentOperation,
 });
 
@@ -987,6 +1008,8 @@ export const abTestOperationCatalog = defineOperationCatalog({
 	id: "abtest",
 	title: "A/B tests",
 	operations: abTestOperations,
+	specMigrationExemptions:
+		operationSpecMigrationExemptionsByFamily.abtest,
 });
 
 export type AbTestOperation = (typeof abTestOperations)[number];

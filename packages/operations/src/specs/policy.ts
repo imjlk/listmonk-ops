@@ -22,12 +22,19 @@ type HasIrreversibleWrite<Effects extends readonly OperationEffect[]> = [
 	? false
 	: true;
 
+type HasBulkDelivery<Effects extends readonly OperationEffect[]> = [
+	Extract<Effects[number], { kind: "delivery"; audience: "bulk" }>,
+] extends [never]
+	? false
+	: true;
+
 /**
  * Safety precedence is intentionally conservative:
- * suppression requires a preview and confirmation; delivery and deletion
- * require confirmation; irreversible writes also require confirmation;
- * reversible writes are audited; pure reads need neither. Higher tiers win
- * when an operation declares more than one effect.
+ * suppression requires a preview and confirmation; bulk delivery and deletion
+ * require confirmation; irreversible writes also require confirmation. A
+ * single-recipient delivery is audited but does not require a destructive
+ * confirmation. Reversible writes are audited; pure reads need neither.
+ * Higher tiers win when an operation declares more than one effect.
  */
 export type PolicyForEffects<
 	Effects extends readonly OperationEffect[],
@@ -37,29 +44,35 @@ export type PolicyForEffects<
 			audit: "required";
 			dryRun: true;
 		}
-	: HasEffect<Effects, "delivery" | "delete"> extends true
+	: HasBulkDelivery<Effects> extends true
 		? {
 				confirmation: "required";
 				audit: "required";
 				dryRun: false;
 			}
-		: HasIrreversibleWrite<Effects> extends true
+		: HasEffect<Effects, "delete"> extends true
 			? {
 					confirmation: "required";
 					audit: "required";
 					dryRun: false;
 				}
-			: HasEffect<Effects, "write"> extends true
+			: HasIrreversibleWrite<Effects> extends true
 				? {
-						confirmation: "never";
+						confirmation: "required";
 						audit: "required";
 						dryRun: false;
 					}
-				: {
-						confirmation: "never";
-						audit: "optional";
-						dryRun: false;
-					};
+				: HasEffect<Effects, "delivery" | "write"> extends true
+					? {
+							confirmation: "never";
+							audit: "required";
+							dryRun: false;
+						}
+					: {
+							confirmation: "never";
+							audit: "optional";
+							dryRun: false;
+						};
 
 function hasEffectKind(
 	effects: readonly OperationEffect[],
@@ -78,7 +91,13 @@ export function expectedPolicyForEffects(
 			dryRun: true,
 		};
 	}
-	if (hasEffectKind(effects, ["delivery", "delete"])) {
+	if (
+		effects.some(
+			(effect) =>
+				effect.kind === "delivery" && effect.audience === "bulk",
+		) ||
+		hasEffectKind(effects, ["delete"])
+	) {
 		return {
 			confirmation: "required",
 			audit: "required",
@@ -96,7 +115,7 @@ export function expectedPolicyForEffects(
 			dryRun: false,
 		};
 	}
-	if (hasEffectKind(effects, ["write"])) {
+	if (hasEffectKind(effects, ["delivery", "write"])) {
 		return {
 			confirmation: "never",
 			audit: "required",

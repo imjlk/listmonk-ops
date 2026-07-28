@@ -5,10 +5,16 @@ import typia from "typia";
 import type {
 	CampaignGetInput,
 	CampaignGetOutput,
+	CampaignLifecycleInput,
+	CampaignLifecycleOutput,
+	CampaignPreflightInput,
+	CampaignPreflightOutput,
 	CampaignScheduleInput,
 	CampaignScheduleOutput,
 	SubscriberBlocklistInput,
 	SubscriberBulkOutput,
+	TransactionalSendInput,
+	TransactionalSendOutput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 
@@ -68,6 +74,18 @@ const contracts = {
 	campaignGetOutputContract: contractSchema(
 		typia.json.schema<CampaignGetOutput>(),
 	),
+	campaignLifecycleInputContract: contractSchema(
+		typia.json.schema<CampaignLifecycleInput>(),
+	),
+	campaignLifecycleOutputContract: contractSchema(
+		typia.json.schema<CampaignLifecycleOutput>(),
+	),
+	campaignPreflightInputContract: contractSchema(
+		typia.json.schema<CampaignPreflightInput>(),
+	),
+	campaignPreflightOutputContract: contractSchema(
+		typia.json.schema<CampaignPreflightOutput>(),
+	),
 	campaignScheduleInputContract: contractSchema(
 		typia.json.schema<CampaignScheduleInput>(),
 	),
@@ -79,6 +97,12 @@ const contracts = {
 	),
 	subscriberBulkOutputContract: contractSchema(
 		typia.json.schema<SubscriberBulkOutput>(),
+	),
+	transactionalSendInputContract: contractSchema(
+		typia.json.schema<TransactionalSendInput>(),
+	),
+	transactionalSendOutputContract: contractSchema(
+		typia.json.schema<TransactionalSendOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

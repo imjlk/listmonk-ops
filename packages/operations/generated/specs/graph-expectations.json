@@ -80,7 +80,115 @@
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#blocklistSubscribersOperation:variable"
       },
       "operationId": "subscribers.blocklist"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#startCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/high-risk.ts#bindCampaignStartOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/high-risk.ts#bindCampaignStartOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/high-risk.ts#campaignStartOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeStartCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#startCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/high-risk.ts#bindCampaignStartOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/high-risk.ts#campaignStartOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#startCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeStartCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#startCampaignOperation:variable"
+      },
+      "operationId": "campaigns.start"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#cancelCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/high-risk.ts#bindCampaignCancelOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/high-risk.ts#bindCampaignCancelOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/high-risk.ts#campaignCancelOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeCancelCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#cancelCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/high-risk.ts#bindCampaignCancelOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/high-risk.ts#campaignCancelOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#cancelCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeCancelCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#cancelCampaignOperation:variable"
+      },
+      "operationId": "campaigns.cancel"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/transactional.ts#sendTransactionalOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/high-risk.ts#bindTransactionalSendOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/high-risk.ts#bindTransactionalSendOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/high-risk.ts#transactionalSendOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/transactional.ts#invokeSendTransactionalOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/transactional.ts#sendTransactionalMessage:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/high-risk.ts#bindTransactionalSendOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/high-risk.ts#transactionalSendOperationSpec:variable",
+        "executorNode": "packages/operations/src/transactional.ts#sendTransactionalMessage:function",
+        "invokerNode": "packages/operations/src/transactional.ts#invokeSendTransactionalOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/transactional.ts#sendTransactionalOperation:variable"
+      },
+      "operationId": "transactional.send"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/ops-operations.ts#campaignPreflightOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/high-risk.ts#bindCampaignPreflightOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/high-risk.ts#bindCampaignPreflightOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/high-risk.ts#campaignPreflightOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeCampaignPreflightOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeCampaignPreflightOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/high-risk.ts#bindCampaignPreflightOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/high-risk.ts#campaignPreflightOperationSpec:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeCampaignPreflightOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeCampaignPreflightOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#campaignPreflightOperation:variable"
+      },
+      "operationId": "ops.campaign.preflight"
     }
   ],
-  "schemaVersion": "1.0.0"
+  "schemaVersion": "1.1.0"
 }

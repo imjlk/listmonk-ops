@@ -1,4 +1,8 @@
 import type { List, ListmonkClient } from "@listmonk-ops/openapi";
+import {
+	bindOperationSpecMigrationExemption,
+	operationSpecMigrationExemptionsByFamily,
+} from "./specs";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
 import {
@@ -282,6 +286,7 @@ export const getListsOperation = defineOperation({
 	outputSchema: listPageSchema,
 	safety: readSafety,
 	mcp: { name: "listmonk_get_lists" },
+	specMigration: bindOperationSpecMigrationExemption("lists.list"),
 	execute: listSubscriberLists,
 });
 
@@ -293,6 +298,7 @@ export const getListOperation = defineOperation({
 	outputSchema: subscriberListSchema,
 	safety: readSafety,
 	mcp: { name: "listmonk_get_list" },
+	specMigration: bindOperationSpecMigrationExemption("lists.get"),
 	execute: getSubscriberList,
 });
 
@@ -309,6 +315,7 @@ export const createListOperation = defineOperation({
 		openWorldHint: true,
 	},
 	mcp: { name: "listmonk_create_list" },
+	specMigration: bindOperationSpecMigrationExemption("lists.create"),
 	execute: createSubscriberList,
 });
 
@@ -328,6 +335,7 @@ export const updateListOperation = defineOperation({
 		name: "listmonk_update_list",
 		legacySuccessText: "List updated successfully",
 	},
+	specMigration: bindOperationSpecMigrationExemption("lists.update"),
 	execute: updateSubscriberList,
 });
 
@@ -347,6 +355,7 @@ export const deleteListOperation = defineOperation({
 		name: "listmonk_delete_list",
 		legacySuccessText: "List deleted successfully",
 	},
+	specMigration: bindOperationSpecMigrationExemption("lists.delete"),
 	execute: deleteSubscriberList,
 });
 
@@ -464,6 +473,8 @@ export const listOperationCatalog = defineOperationCatalog({
 	id: "lists",
 	title: "Subscriber lists",
 	operations: listOperations,
+	specMigrationExemptions:
+		operationSpecMigrationExemptionsByFamily.lists,
 });
 
 export type ListOperation = (typeof listOperations)[number];

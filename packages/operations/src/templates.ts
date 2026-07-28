@@ -1,4 +1,8 @@
 import type { ListmonkClient, Template } from "@listmonk-ops/openapi";
+import {
+	bindOperationSpecMigrationExemption,
+	operationSpecMigrationExemptionsByFamily,
+} from "./specs";
 import { z } from "zod";
 import {
 	createResourceSafety,
@@ -268,6 +272,7 @@ export const getTemplatesOperation = defineOperation({
 	outputSchema: templateListOutputSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_templates", legacySuccessText: jsonResourceValue },
+	specMigration: bindOperationSpecMigrationExemption("templates.list"),
 	execute: listTemplates,
 });
 
@@ -279,6 +284,7 @@ export const getTemplateOperation = defineOperation({
 	outputSchema: templateSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_template", legacySuccessText: jsonResourceValue },
+	specMigration: bindOperationSpecMigrationExemption("templates.get"),
 	execute: getTemplate,
 });
 
@@ -293,6 +299,7 @@ export const createTemplateOperation = defineOperation({
 		name: "listmonk_create_template",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("templates.create"),
 	execute: createTemplate,
 });
 
@@ -307,6 +314,7 @@ export const updateTemplateOperation = defineOperation({
 		name: "listmonk_update_template",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("templates.update"),
 	execute: updateTemplate,
 });
 
@@ -321,6 +329,7 @@ export const deleteTemplateOperation = defineOperation({
 		name: "listmonk_delete_template",
 		legacySuccessText: "Template deleted successfully",
 	},
+	specMigration: bindOperationSpecMigrationExemption("templates.delete"),
 	execute: deleteTemplate,
 });
 
@@ -335,6 +344,7 @@ export const setDefaultTemplateOperation = defineOperation({
 		name: "listmonk_set_default_template",
 		legacySuccessText: "Default template set successfully",
 	},
+	specMigration: bindOperationSpecMigrationExemption("templates.set-default"),
 	execute: setDefaultTemplate,
 });
 
@@ -480,6 +490,8 @@ export const templateOperationCatalog = defineOperationCatalog({
 	id: "templates",
 	title: "Templates",
 	operations: templateOperations,
+	specMigrationExemptions:
+		operationSpecMigrationExemptionsByFamily.templates,
 });
 
 export type TemplateOperation = (typeof templateOperations)[number];

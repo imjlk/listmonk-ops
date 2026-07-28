@@ -1,4 +1,8 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import {
+	bindTransactionalSendOperationSpec,
+	operationSpecMigrationExemptionsByFamily,
+} from "./specs";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
 import {
@@ -624,6 +628,7 @@ export const sendTransactionalOperation = defineOperation({
 		name: "listmonk_send_transactional",
 		legacySuccessText: (output) => String(output.sent),
 	},
+	spec: bindTransactionalSendOperationSpec(),
 	execute: sendTransactionalMessage,
 });
 
@@ -657,6 +662,8 @@ export const transactionalOperationCatalog = defineOperationCatalog({
 	id: "transactional",
 	title: "Transactional mail",
 	operations: transactionalOperations,
+	specMigrationExemptions:
+		operationSpecMigrationExemptionsByFamily.transactional,
 });
 
 export type TransactionalOperation = (typeof transactionalOperations)[number];

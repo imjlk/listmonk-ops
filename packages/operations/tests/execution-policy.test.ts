@@ -23,6 +23,13 @@ const dryRunOperation = defineOperation({
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_test_dry_run" },
+	specMigration: {
+		operationId: "test.dry-run",
+		owner: "operations",
+		reason: "Test fixture intentionally exercises pre-spec execution policy.",
+		targetPhase: "test-fixture",
+		expiresOn: "2099-12-31",
+	},
 	execute: async () => ({ ok: true }),
 });
 

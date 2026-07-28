@@ -32,6 +32,6 @@ if (import.meta.main) {
 		`Main graph preserves ${architectureCallPaths.length} architecture paths across ${countArchitectureCallEdges()} direct call edges.`,
 	);
 	console.log(
-		`Operations spec preserves ${operationsSpecOperationCount} pilot operations across ${operationsSpecGraphEdges.length} direct graph edges.`,
+		`Operations spec preserves ${operationsSpecOperationCount} described operations across ${operationsSpecGraphEdges.length} direct graph edges.`,
 	);
 }

@@ -877,9 +877,1049 @@
       },
       "title": "Blocklist subscribers",
       "verb": "blocklist"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Campaign preflight has not passed.",
+          "The campaign should begin at a future time instead of immediately."
+        ],
+        "prerequisites": [
+          "campaigns.get",
+          "ops.campaign.preflight"
+        ],
+        "related": [
+          "campaigns.schedule",
+          "campaigns.pause",
+          "campaigns.cancel"
+        ],
+        "retryGuidance": "On timeout, inspect campaigns.get before repeating the confirmed start.",
+        "useWhen": [
+          "A reviewed campaign must begin bulk delivery immediately."
+        ],
+        "verifyWith": [
+          "campaigns.get",
+          "campaigns.stats"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignLifecycleInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Listmonk campaign ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Listmonk campaign ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignLifecycleOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "status"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Transition a campaign into the running status. Validates the current status allows the transition. Destructive because this begins mass delivery immediately.",
+      "effects": [
+        {
+          "audience": "bulk",
+          "kind": "delivery",
+          "resource": "campaign",
+          "timing": "immediate"
+        }
+      ],
+      "id": "campaigns.start",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/high-risk.ts#bindCampaignStartOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/high-risk.ts#campaignStartOperationSpec:variable",
+          "executorNode": "packages/operations/src/campaigns.ts#startCampaign:function",
+          "invokerNode": "packages/operations/src/campaigns.ts#invokeStartCampaignOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#startCampaignOperation:variable"
+        },
+        "mcpName": "listmonk_start_campaign",
+        "openWorld": true
+      },
+      "resource": "campaign",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "The executor reads the current state first and treats an already-running campaign as a no-op after an ambiguous status update.",
+        "reconcileWith": "campaigns.get"
+      },
+      "since": "0.7.0",
+      "stability": "experimental",
+      "state": {
+        "allowNoopFromTarget": true,
+        "from": [
+          "draft",
+          "scheduled",
+          "paused"
+        ],
+        "resource": "campaign",
+        "to": "running"
+      },
+      "title": "Start campaign",
+      "verb": "start"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "A temporary pause is sufficient.",
+          "The campaign is scheduled but has not started; Listmonk only cancels active campaigns."
+        ],
+        "prerequisites": [
+          "campaigns.get"
+        ],
+        "related": [
+          "campaigns.pause",
+          "campaigns.delete",
+          "campaigns.stats"
+        ],
+        "retryGuidance": "On timeout, inspect campaigns.get before repeating the confirmed cancellation.",
+        "useWhen": [
+          "An actively sending campaign must be stopped permanently."
+        ],
+        "verifyWith": [
+          "campaigns.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignLifecycleInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Listmonk campaign ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Listmonk campaign ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignLifecycleOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "status"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Transition a campaign into the cancelled status. Validates the current status allows the transition. Destructive because the cancellation is irreversible.",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": false
+        }
+      ],
+      "id": "campaigns.cancel",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/high-risk.ts#bindCampaignCancelOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/high-risk.ts#campaignCancelOperationSpec:variable",
+          "executorNode": "packages/operations/src/campaigns.ts#cancelCampaign:function",
+          "invokerNode": "packages/operations/src/campaigns.ts#invokeCancelCampaignOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#cancelCampaignOperation:variable"
+        },
+        "mcpName": "listmonk_cancel_campaign",
+        "openWorld": true
+      },
+      "resource": "campaign",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "The executor reads the current state first and treats an already-cancelled campaign as a no-op after an ambiguous status update.",
+        "reconcileWith": "campaigns.get"
+      },
+      "since": "0.7.0",
+      "stability": "experimental",
+      "state": {
+        "allowNoopFromTarget": true,
+        "from": [
+          "running"
+        ],
+        "resource": "campaign",
+        "to": "cancelled"
+      },
+      "title": "Cancel campaign",
+      "verb": "cancel"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "A campaign or sequence is the correct delivery mechanism.",
+          "A retryable workflow cannot provide a stable idempotency_key."
+        ],
+        "prerequisites": [],
+        "related": [
+          "templates.get",
+          "subscribers.get"
+        ],
+        "retryGuidance": "Always provide a stable idempotency_key for agent retries; reconcile pending or unknown records instead of changing the key.",
+        "useWhen": [
+          "One transactional template must be sent to exactly one recipient."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmailAddress": {
+                "format": "email",
+                "type": "string"
+              },
+              "IdempotencyKey": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "Recordstringstring": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TransactionalSendBaseInput__type": {
+                "additionalProperties": false,
+                "properties": {
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      }
+                    ]
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "RFC 5322 From header value. This may include a display name such as\n`Newsletter <news@example.com>`, so it is intentionally not narrowed to\nthe bare-address-only EmailAddress contract."
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "idempotency_key": {
+                    "$ref": "#/components/schemas/IdempotencyKey"
+                  },
+                  "subscriber_email": {
+                    "$ref": "#/components/schemas/EmailAddress"
+                  },
+                  "template_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "template_id",
+                  "subscriber_email"
+                ],
+                "type": "object"
+              },
+              "TransactionalSendBaseInput__type-o1": {
+                "additionalProperties": false,
+                "properties": {
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      }
+                    ]
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "RFC 5322 From header value. This may include a display name such as\n`Newsletter <news@example.com>`, so it is intentionally not narrowed to\nthe bare-address-only EmailAddress contract."
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "idempotency_key": {
+                    "$ref": "#/components/schemas/IdempotencyKey"
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "template_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "template_id",
+                  "subscriber_id"
+                ],
+                "type": "object"
+              },
+              "TransactionalSendInput": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TransactionalSendBaseInput__type"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TransactionalSendBaseInput__type-o1"
+                  }
+                ]
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TransactionalSendBaseInput__type"
+              },
+              {
+                "$ref": "#/components/schemas/TransactionalSendBaseInput__type-o1"
+              }
+            ]
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IdempotencyKey": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "TransactionalSendOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "duplicate": {
+                    "type": "boolean"
+                  },
+                  "expires_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "idempotency_key": {
+                    "$ref": "#/components/schemas/IdempotencyKey"
+                  },
+                  "sent": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "accepted"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "replayed"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "sent",
+                  "status"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "duplicate": {
+                "type": "boolean"
+              },
+              "expires_at": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "idempotency_key": {
+                "$ref": "#/components/schemas/IdempotencyKey"
+              },
+              "sent": {
+                "type": "boolean"
+              },
+              "status": {
+                "oneOf": [
+                  {
+                    "const": "accepted"
+                  },
+                  {
+                    "const": "failed"
+                  },
+                  {
+                    "const": "replayed"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "sent",
+              "status"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Send a transactional email through Listmonk",
+      "effects": [
+        {
+          "audience": "single",
+          "kind": "delivery",
+          "resource": "message",
+          "timing": "immediate"
+        }
+      ],
+      "id": "transactional.send",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/high-risk.ts#bindTransactionalSendOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/high-risk.ts#transactionalSendOperationSpec:variable",
+          "executorNode": "packages/operations/src/transactional.ts#sendTransactionalMessage:function",
+          "invokerNode": "packages/operations/src/transactional.ts#invokeSendTransactionalOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/transactional.ts#sendTransactionalOperation:variable"
+        },
+        "mcpName": "listmonk_send_transactional",
+        "openWorld": true
+      },
+      "resource": "message",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "Identical requests replay an accepted or failed record and ambiguous records block automatic redelivery."
+            },
+            "when": "idempotency_key is present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "A timeout may occur after Listmonk accepted the message, so a retry can deliver a duplicate."
+            },
+            "when": "idempotency_key is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller supplies the optional idempotency key."
+      },
+      "since": "0.7.0",
+      "stability": "experimental",
+      "title": "Send transactional message",
+      "verb": "send"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The campaign does not yet have its final audience, content, sender, and delivery profile."
+        ],
+        "prerequisites": [
+          "campaigns.get"
+        ],
+        "related": [
+          "campaigns.schedule",
+          "campaigns.start",
+          "ops.campaign.deliverability-guard"
+        ],
+        "retryGuidance": "Retry transient reads or public-link probes; re-evaluate the returned checks because remote state may have changed.",
+        "useWhen": [
+          "A campaign must be checked immediately before scheduling or starting delivery."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignPreflightInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "campaign_id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Listmonk campaign ID."
+                  },
+                  "check_links": {
+                    "description": "Whether to validate outbound links after SSRF policy checks.",
+                    "type": "boolean"
+                  },
+                  "link_check_timeout_ms": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Per-link timeout in milliseconds."
+                  },
+                  "max_audience": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Warning threshold for the resolved audience size."
+                  }
+                },
+                "required": [
+                  "campaign_id",
+                  "max_audience",
+                  "check_links",
+                  "link_check_timeout_ms"
+                ],
+                "type": "object"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "campaign_id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Listmonk campaign ID."
+              },
+              "check_links": {
+                "description": "Whether to validate outbound links after SSRF policy checks.",
+                "type": "boolean"
+              },
+              "link_check_timeout_ms": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Per-link timeout in milliseconds."
+              },
+              "max_audience": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Warning threshold for the resolved audience size."
+              }
+            },
+            "required": [
+              "campaign_id",
+              "max_audience",
+              "check_links",
+              "link_check_timeout_ms"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignPreflightCheck": {
+                "additionalProperties": false,
+                "properties": {
+                  "details": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "level": {
+                    "oneOf": [
+                      {
+                        "const": "fail"
+                      },
+                      {
+                        "const": "pass"
+                      },
+                      {
+                        "const": "warn"
+                      }
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "level",
+                  "message"
+                ],
+                "type": "object"
+              },
+              "CampaignPreflightOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "audienceEstimate": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "campaignId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "campaignName": {
+                    "type": "string"
+                  },
+                  "checkedAt": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "checks": {
+                    "items": {
+                      "$ref": "#/components/schemas/CampaignPreflightCheck"
+                    },
+                    "type": "array"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "fail": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "pass": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "warn": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      }
+                    },
+                    "required": [
+                      "pass",
+                      "warn",
+                      "fail"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "campaignId",
+                  "campaignName",
+                  "status",
+                  "audienceEstimate",
+                  "checkedAt",
+                  "checks",
+                  "summary"
+                ],
+                "type": "object"
+              },
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "audienceEstimate": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "campaignId": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "campaignName": {
+                "type": "string"
+              },
+              "checkedAt": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "checks": {
+                "items": {
+                  "$ref": "#/components/schemas/CampaignPreflightCheck"
+                },
+                "type": "array"
+              },
+              "status": {
+                "type": "string"
+              },
+              "summary": {
+                "additionalProperties": false,
+                "properties": {
+                  "fail": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "pass": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "warn": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "pass",
+                  "warn",
+                  "fail"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "campaignId",
+              "campaignName",
+              "status",
+              "audienceEstimate",
+              "checkedAt",
+              "checks",
+              "summary"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Run pre-send checks against a Listmonk campaign",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "campaign"
+        }
+      ],
+      "id": "ops.campaign.preflight",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/high-risk.ts#bindCampaignPreflightOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/high-risk.ts#campaignPreflightOperationSpec:variable",
+          "executorNode": "packages/automation/src/ops-operations.ts#executeCampaignPreflightOperation:function",
+          "invokerNode": "packages/automation/src/ops-operations.ts#invokeCampaignPreflightOperation:function",
+          "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#campaignPreflightOperation:variable"
+        },
+        "mcpName": "listmonk_ops_preflight",
+        "openWorld": true
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "safe",
+        "reason": "Preflight reads campaign state and optionally probes policy-approved public links without mutating Listmonk."
+      },
+      "since": "0.7.0",
+      "stability": "experimental",
+      "title": "Run campaign preflight",
+      "verb": "preflight"
     }
   ],
-  "playbooks": [],
+  "playbooks": [
+    {
+      "goal": "Inspect and preflight a reviewed campaign, obtain human approval, start bulk delivery, and verify the resulting state.",
+      "id": "campaign.safe-start",
+      "inputs": [
+        {
+          "description": "Listmonk campaign ID to start",
+          "name": "campaign_id",
+          "required": true,
+          "type": "number"
+        }
+      ],
+      "recoveryOperation": "campaigns.get",
+      "steps": [
+        {
+          "approval": "none",
+          "dependsOn": [],
+          "description": "Inspect the current campaign and its lifecycle status.",
+          "id": "inspect",
+          "input": [
+            {
+              "parameter": "id",
+              "source": {
+                "kind": "playbook-input",
+                "name": "campaign_id"
+              }
+            }
+          ],
+          "operation": "campaigns.get"
+        },
+        {
+          "approval": "none",
+          "dependsOn": [
+            "inspect"
+          ],
+          "description": "Run pre-send checks against the final campaign.",
+          "id": "preflight",
+          "input": [
+            {
+              "parameter": "campaign_id",
+              "source": {
+                "kind": "playbook-input",
+                "name": "campaign_id"
+              }
+            },
+            {
+              "parameter": "max_audience",
+              "source": {
+                "kind": "literal",
+                "value": 200000
+              }
+            },
+            {
+              "parameter": "check_links",
+              "source": {
+                "kind": "literal",
+                "value": true
+              }
+            },
+            {
+              "parameter": "link_check_timeout_ms",
+              "source": {
+                "kind": "literal",
+                "value": 4000
+              }
+            }
+          ],
+          "operation": "ops.campaign.preflight",
+          "resultGuard": {
+            "expected": 0,
+            "message": "Do not start delivery while any preflight check fails.",
+            "onFailure": "stop",
+            "operator": "equals",
+            "path": "summary.fail"
+          }
+        },
+        {
+          "approval": "human",
+          "dependsOn": [
+            "preflight"
+          ],
+          "description": "Begin bulk delivery after explicit human confirmation.",
+          "id": "start",
+          "input": [
+            {
+              "parameter": "id",
+              "source": {
+                "kind": "playbook-input",
+                "name": "campaign_id"
+              }
+            }
+          ],
+          "operation": "campaigns.start"
+        },
+        {
+          "approval": "none",
+          "dependsOn": [
+            "start"
+          ],
+          "description": "Verify that the campaign entered the running state.",
+          "id": "verify",
+          "input": [
+            {
+              "parameter": "id",
+              "source": {
+                "kind": "step-output",
+                "path": "id",
+                "stepId": "start"
+              }
+            }
+          ],
+          "operation": "campaigns.get",
+          "resultGuard": {
+            "expected": "running",
+            "message": "Stop and reconcile the campaign state if running cannot be verified.",
+            "onFailure": "stop",
+            "operator": "equals",
+            "path": "status"
+          }
+        }
+      ],
+      "title": "Safely start a campaign"
+    }
+  ],
   "resources": [
     {
       "id": "campaign",
@@ -937,8 +1977,35 @@
           "blocklisted"
         ]
       }
+    },
+    {
+      "id": "message",
+      "states": [
+        "ready",
+        "accepted",
+        "failed",
+        "unknown"
+      ],
+      "terminalStates": [
+        "accepted",
+        "failed"
+      ],
+      "title": "Transactional message",
+      "transitions": {
+        "accepted": [],
+        "failed": [],
+        "ready": [
+          "accepted",
+          "failed",
+          "unknown"
+        ],
+        "unknown": [
+          "accepted",
+          "failed"
+        ]
+      }
     }
   ],
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "title": "listmonk-ops Email Operations Specification"
 }
