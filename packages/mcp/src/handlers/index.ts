@@ -7,6 +7,7 @@ import {
 	handleOperationCatalogTools,
 	operationCatalogTools,
 } from "./catalog.js";
+import { discoveryTools, handleDiscoveryTools } from "./discovery.js";
 import { handleListsTools, listsTools } from "./lists.js";
 import { handleMediaTools, mediaTools } from "./media.js";
 import { handleOpsTools, opsTools } from "./ops.js";
@@ -22,6 +23,7 @@ export * from "./abtest.js";
 export * from "./bounces.js";
 export * from "./campaigns.js";
 export * from "./catalog.js";
+export * from "./discovery.js";
 export * from "./lists.js";
 export * from "./media.js";
 export * from "./ops.js";
@@ -36,6 +38,7 @@ export const allTools: readonly MCPTool[] = [
 	...campaignsTools,
 	...templatesTools,
 	...operationCatalogTools,
+	...discoveryTools,
 	...mediaTools,
 	...opsTools,
 	...bouncesTools,
@@ -53,6 +56,7 @@ export const toolNameSets = {
 	bounces: createToolNameSet(bouncesTools),
 	campaigns: createToolNameSet(campaignsTools),
 	catalog: createToolNameSet(operationCatalogTools),
+	discovery: createToolNameSet(discoveryTools),
 	lists: createToolNameSet(listsTools),
 	media: createToolNameSet(mediaTools),
 	ops: createToolNameSet(opsTools),
@@ -73,6 +77,7 @@ export const toolRegistrations: readonly ToolRegistration[] = [
 	{ tools: campaignsTools, handler: handleCampaignsTools },
 	{ tools: templatesTools, handler: handleTemplatesTools },
 	{ tools: operationCatalogTools, handler: handleOperationCatalogTools },
+	{ tools: discoveryTools, handler: handleDiscoveryTools },
 	{ tools: mediaTools, handler: handleMediaTools },
 	{ tools: opsTools, handler: handleOpsTools },
 	{ tools: bouncesTools, handler: handleBouncesTools },

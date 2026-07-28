@@ -3,6 +3,7 @@ import { opsOperationCatalog } from "../packages/automation/src/ops-operations";
 import {
 	campaignOperationCatalog,
 	composeOperationCatalogs,
+	discoveryOperationCatalog,
 	listOperationCatalog,
 	mediaOperationCatalog,
 	subscriberOperationCatalog,
@@ -25,6 +26,7 @@ export const sharedOperationCatalog = composeOperationCatalogs([
 	transactionalOperationCatalog,
 	opsOperationCatalog,
 	abTestOperationCatalog,
+	discoveryOperationCatalog,
 ]);
 
 export function checkOperationSpecCoverage(

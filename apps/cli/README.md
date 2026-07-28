@@ -28,12 +28,23 @@ listmonk-cli lists create --name "Product updates"
 listmonk-cli media list
 listmonk-cli ops digest --hours 24
 listmonk-cli operations --family campaigns
+listmonk-cli specs search --query "schedule campaign"
+listmonk-cli specs describe --operation campaigns.schedule
+listmonk-cli playbooks get --id campaign.safe-start
+listmonk-cli capabilities
+listmonk-cli prime --goal "schedule campaign"
 ```
 
 `listmonk-cli operations` lists the shared typed contracts available through
 both the CLI and MCP server. Use `--family` to filter by `lists`,
 `subscribers`, `campaigns`, `templates`, `media`, `transactional`, `ops`, or
-`abtest`.
+`abtest`, or `discovery`.
+
+`specs search` and `specs describe` expose effect-derived safety, execution
+requirements, retry semantics, and agent guidance. `playbooks` returns typed
+multi-step workflows. `capabilities` and `prime` require no credentials;
+`status` adds the current runtime and a live Listmonk health probe when a token
+is configured.
 
 Shared operations with `confirmationRequired: true` need the global
 `--confirm` flag, for example `listmonk-cli lists delete --id 10 --confirm`.

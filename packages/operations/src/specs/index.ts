@@ -1,5 +1,6 @@
 export * from "./agent";
 export * from "./coverage";
+export * from "./discovery";
 export * from "./effect";
 export * from "./event";
 export * from "./high-risk";

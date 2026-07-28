@@ -3,6 +3,7 @@ import { opsOperationCatalog } from "@listmonk-ops/automation";
 import {
 	campaignOperationCatalog,
 	composeOperationCatalogs,
+	discoveryOperationCatalog,
 	listOperationCatalog,
 	listOperationCatalogSummaries,
 	mediaOperationCatalog,
@@ -20,6 +21,7 @@ export const mcpOperationCatalog = composeOperationCatalogs([
 	transactionalOperationCatalog,
 	opsOperationCatalog,
 	abTestOperationCatalog,
+	discoveryOperationCatalog,
 ]);
 
 export function listMcpOperationCatalogSummaries(

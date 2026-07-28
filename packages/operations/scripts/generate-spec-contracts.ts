@@ -11,6 +11,19 @@ import type {
 	CampaignPreflightOutput,
 	CampaignScheduleInput,
 	CampaignScheduleOutput,
+	ControlCapabilitiesOutput,
+	ControlPrimeInput,
+	ControlPrimeOutput,
+	ControlStatusInput,
+	ControlStatusOutput,
+	EmptyInput,
+	PlaybookGetInput,
+	PlaybookGetOutput,
+	PlaybookListOutput,
+	SpecDescribeInput,
+	SpecDescribeOutput,
+	SpecSearchInput,
+	SpecSearchOutput,
 	SubscriberBlocklistInput,
 	SubscriberBulkOutput,
 	TransactionalSendInput,
@@ -103,6 +116,41 @@ const contracts = {
 	),
 	transactionalSendOutputContract: contractSchema(
 		typia.json.schema<TransactionalSendOutput>(),
+	),
+	specSearchInputContract: contractSchema(typia.json.schema<SpecSearchInput>()),
+	specSearchOutputContract: contractSchema(
+		typia.json.schema<SpecSearchOutput>(),
+	),
+	specDescribeInputContract: contractSchema(
+		typia.json.schema<SpecDescribeInput>(),
+	),
+	specDescribeOutputContract: contractSchema(
+		typia.json.schema<SpecDescribeOutput>(),
+	),
+	emptyInputContract: contractSchema(typia.json.schema<EmptyInput>()),
+	playbookListOutputContract: contractSchema(
+		typia.json.schema<PlaybookListOutput>(),
+	),
+	playbookGetInputContract: contractSchema(
+		typia.json.schema<PlaybookGetInput>(),
+	),
+	playbookGetOutputContract: contractSchema(
+		typia.json.schema<PlaybookGetOutput>(),
+	),
+	controlCapabilitiesOutputContract: contractSchema(
+		typia.json.schema<ControlCapabilitiesOutput>(),
+	),
+	controlPrimeInputContract: contractSchema(
+		typia.json.schema<ControlPrimeInput>(),
+	),
+	controlPrimeOutputContract: contractSchema(
+		typia.json.schema<ControlPrimeOutput>(),
+	),
+	controlStatusInputContract: contractSchema(
+		typia.json.schema<ControlStatusInput>(),
+	),
+	controlStatusOutputContract: contractSchema(
+		typia.json.schema<ControlStatusOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

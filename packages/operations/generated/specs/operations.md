@@ -82,3 +82,80 @@ Run pre-send checks against a Listmonk campaign
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.7.0`
+
+## `specs.search`
+
+Search shared Listmonk operation contracts and agent guidance by intent, family, resource, or verb.
+
+- Resource / verb: `spec.search`
+- MCP tool: `listmonk_schema_search`
+- Effects: `read:spec`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `specs.describe`
+
+Describe one shared operation by operation ID or MCP tool name, including safety, retry, and agent guidance.
+
+- Resource / verb: `spec.describe`
+- MCP tool: `listmonk_schema_describe`
+- Effects: `read:spec`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `playbooks.list`
+
+List typed operation playbooks that encode safe multi-step Listmonk workflows.
+
+- Resource / verb: `playbook.list`
+- MCP tool: `listmonk_list_playbooks`
+- Effects: `read:playbook`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `playbooks.get`
+
+Get a typed operation playbook and the operation contracts referenced by its steps.
+
+- Resource / verb: `playbook.get`
+- MCP tool: `listmonk_playbook_get`
+- Effects: `read:playbook`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `control.capabilities`
+
+Summarize shared operation families, typed specification coverage, resources, and playbooks.
+
+- Resource / verb: `control.capabilities`
+- MCP tool: `listmonk_capabilities`
+- Effects: `read:control`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `control.prime`
+
+Return installation capabilities and goal-oriented operation and playbook recommendations for an AI agent.
+
+- Resource / verb: `control.prime`
+- MCP tool: `listmonk_prime`
+- Effects: `read:control`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `control.status`
+
+Check catalog integrity, typed specification coverage, runtime identity, and live Listmonk connectivity.
+
+- Resource / verb: `control.status`
+- MCP tool: `listmonk_status`
+- Effects: `read:control`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`

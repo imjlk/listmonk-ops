@@ -52,6 +52,7 @@ export type OperationCatalogEntry = Readonly<{
 export type ComposedOperationCatalog = Readonly<{
 	catalogs: readonly OperationCatalog[];
 	entries: readonly OperationCatalogEntry[];
+	entriesByOperationId: ReadonlyMap<string, OperationCatalogEntry>;
 	entriesByMcpName: ReadonlyMap<string, OperationCatalogEntry>;
 }>;
 
@@ -67,6 +68,7 @@ export type OperationCatalogSummary = Readonly<{
 	safety: OperationSafety;
 	execution: OperationExecutionPolicy;
 	spec?: AnyOperationSpec | undefined;
+	specMigration?: OperationSpecMigrationExemption | undefined;
 }>;
 
 function assertNonBlank(value: string, label: string): void {
@@ -199,10 +201,20 @@ export function composeOperationCatalogs(
 	return {
 		catalogs,
 		entries,
+		entriesByOperationId: new Map(
+			entries.map((entry) => [entry.operation.id, entry] as const),
+		),
 		entriesByMcpName: new Map(
 			entries.map((entry) => [entry.operation.mcp.name, entry] as const),
 		),
 	};
+}
+
+export function getOperationCatalogEntryById(
+	catalog: ComposedOperationCatalog,
+	operationId: string,
+): OperationCatalogEntry | undefined {
+	return catalog.entriesByOperationId.get(operationId);
 }
 
 export function getOperationCatalogEntryByMcpName(
@@ -240,7 +252,10 @@ function toSummary(entry: OperationCatalogEntry): OperationCatalogSummary {
 			spec: projectOperationSpec(operation.spec),
 		};
 	}
-	return summary;
+	return {
+		...summary,
+		specMigration: operation.specMigration,
+	};
 }
 
 /**

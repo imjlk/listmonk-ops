@@ -104,6 +104,17 @@ export const operationCoverageContracts: readonly OperationCoverageContract[] = 
 		dispatcher:
 			"packages/abtest/src/operations.ts#invokeAbTestOperationByMcpName:function",
 	},
+	{
+		family: "agent discovery and readiness",
+		registry:
+			"packages/operations/src/discovery.ts#discoveryOperations:variable",
+		testAnchor:
+			"scripts/shared-operation-coverage.ts#assertDiscoveryOperationsPublished:function",
+		mcpHandler:
+			"packages/mcp/src/handlers/discovery.ts#handleDiscoveryTools:variable",
+		dispatcher:
+			"packages/operations/src/discovery.ts#invokeDiscoveryOperationByMcpName:function",
+	},
 ];
 
 export const operationCoverageEdges: readonly GraphEdgeContract[] =

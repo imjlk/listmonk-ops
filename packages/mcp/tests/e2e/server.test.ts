@@ -50,6 +50,15 @@ describe("MCP Server Integration", () => {
 		expect(toolNames).toContain("listmonk_get_logs");
 		expect(toolNames).toContain("listmonk_reload_app");
 
+		// Agent discovery and readiness tools
+		expect(toolNames).toContain("listmonk_schema_search");
+		expect(toolNames).toContain("listmonk_schema_describe");
+		expect(toolNames).toContain("listmonk_list_playbooks");
+		expect(toolNames).toContain("listmonk_playbook_get");
+		expect(toolNames).toContain("listmonk_capabilities");
+		expect(toolNames).toContain("listmonk_prime");
+		expect(toolNames).toContain("listmonk_status");
+
 		// Media tools
 		expect(toolNames).toContain("listmonk_get_media");
 		expect(toolNames).toContain("listmonk_get_media_file");
