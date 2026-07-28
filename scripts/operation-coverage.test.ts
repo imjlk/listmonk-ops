@@ -18,6 +18,7 @@ import { mediaTools } from "../packages/mcp/src/handlers/media";
 import {
 	assertAbTestOperationsPublished,
 	assertCampaignOperationsPublished,
+	assertDiscoveryOperationsPublished,
 	assertOperationFamilyPublished,
 	assertListOperationsPublished,
 	assertMediaOperationsPublished,
@@ -65,8 +66,8 @@ const registeredServerTools = toolRegistrations.flatMap(
 
 describe("shared operation coverage", () => {
 	test("keeps CLI and MCP discovery catalogs in direct parity", () => {
-		expect(cliOperationCatalog.entries).toHaveLength(58);
-		expect(mcpOperationCatalog.entries).toHaveLength(58);
+		expect(cliOperationCatalog.entries).toHaveLength(65);
+		expect(mcpOperationCatalog.entries).toHaveLength(65);
 		expect(listCliOperationCatalogSummaries()).toEqual(
 			listMcpOperationCatalogSummaries(),
 		);
@@ -81,6 +82,7 @@ describe("shared operation coverage", () => {
 		assertTransactionalOperationsPublished();
 		assertOpsOperationsPublished();
 		assertAbTestOperationsPublished();
+		assertDiscoveryOperationsPublished();
 	});
 
 	test("publishes media operations with matching shared metadata", () => {

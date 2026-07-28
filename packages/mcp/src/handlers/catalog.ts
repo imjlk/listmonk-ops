@@ -46,6 +46,11 @@ const operationSummarySchema = {
 			description:
 				"Optional Email Operations Spec descriptor with normalized contracts, effects, policy, retry, state, agent guidance, and projection metadata",
 		},
+		specMigration: {
+			type: "object",
+			description:
+				"Temporary typed-spec migration exemption for an operation that is not yet fully described",
+		},
 	},
 	required: [
 		"family",

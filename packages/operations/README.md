@@ -13,9 +13,10 @@ functions preserve the registry validation and error contract while keeping
 CLI/MCP-to-domain call paths visible to static tooling. Surface packages remain
 responsible for authentication and presentation.
 
-Seven operations attach an `@listmonk-ops/operations/specs` descriptor: the
+Fourteen operations attach an `@listmonk-ops/operations/specs` descriptor: the
 campaign get/schedule/start/cancel lifecycle, subscriber blocklisting,
-transactional send, and campaign preflight operations. The operation
+transactional send, campaign preflight, and seven agent discovery/readiness
+operations. The operation
 definition validates that runtime identity, safety hints, and MCP metadata
 still match the declaration, while catalog summaries expose a detached
 descriptor for agent discovery. This does not replace Zod runtime validation
@@ -32,3 +33,10 @@ not as a separate workspace. After changing a normalized contract or
 descriptor, run `bun run generate:specs`; generated references are checked in
 under `generated/specs`, including operation, playbook, agent-skill, graph, and
 migration-exemption artifacts.
+
+The main package exports a `discoveryOperationCatalog` with shared named
+invokers for `specs.search`, `specs.describe`, `playbooks.list`,
+`playbooks.get`, `control.capabilities`, `control.prime`, and
+`control.status`. CLI and MCP adapters supply their composed catalog and
+runtime health probe; search, safety policy, playbook expansion, and readiness
+semantics remain transport-neutral.

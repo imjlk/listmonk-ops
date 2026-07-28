@@ -34,7 +34,11 @@ export type OperationSpecVerb =
 	| "doctor"
 	| "diff"
 	| "preflight"
-	| "blocklist";
+	| "blocklist"
+	| "search"
+	| "describe"
+	| "capabilities"
+	| "prime";
 
 export type OperationSpecLifecycle =
 	| {

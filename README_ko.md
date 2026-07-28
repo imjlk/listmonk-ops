@@ -369,15 +369,30 @@ safety hint와 실행 정책(`confirmationRequired`, `auditRequired`,
 ```bash
 listmonk-cli operations
 listmonk-cli operations --family campaigns
+listmonk-cli specs search --query "schedule a reviewed campaign"
+listmonk-cli specs describe --operation campaigns.schedule
+listmonk-cli playbooks get --id campaign.safe-start
+listmonk-cli capabilities
+listmonk-cli prime --goal "schedule a reviewed campaign"
+listmonk-cli status
 ```
 
 MCP 클라이언트에서는 같은 선택적 `family` 필터와 함께 read-only
 `listmonk_list_operations` 도구를 호출하면 됩니다. 이 카탈로그는 공용 타입드
 Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제공됩니다.
-현재 7개 Operation에 `spec` descriptor가 포함됩니다. 기존 파일럿인
+에이전트는 `listmonk_schema_search`, `listmonk_schema_describe`,
+`listmonk_list_playbooks`, `listmonk_playbook_get`,
+`listmonk_capabilities`, `listmonk_prime`, `listmonk_status` 도구도 사용할
+수 있습니다. 검색과 prime 결과에는 typed spec 적용 여부, effect에서 파생한
+안전 정책, 실행 요건, `useWhen`/`avoidWhen` 지침이 포함됩니다. status는
+자격 증명을 노출하지 않으면서 런타임 정보와 실제 Listmonk health probe
+결과를 함께 제공합니다.
+
+현재 14개 Operation에 `spec` descriptor가 포함됩니다. 기존 파일럿인
 `campaigns.get`, `campaigns.schedule`, `subscribers.blocklist`에 더해
 고위험 Operation인 `campaigns.start`, `campaigns.cancel`,
-`transactional.send`, `ops.campaign.preflight`가 포함됩니다. descriptor는
+`transactional.send`, `ops.campaign.preflight`, 그리고 위 7개
+discovery/readiness Operation이 포함됩니다. descriptor는
 Typia가 생성한 정규화 계약, 리소스/상태 의미, effect에서 파생한 안전 정책,
 재시도·reconcile 지침, 에이전트 사용 맥락을 제공합니다. 트랜잭셔널 발송의
 재시도 의미는 `idempotency_key` 유무에 따라 달라지며, 수신자 계약은
@@ -396,7 +411,7 @@ coverage를 거부합니다.
 저장됩니다. 계약이나 descriptor를 바꾼 뒤에는
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
-executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 58개 공용
+executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 65개 공용
 Operation 전체의 descriptor/exemption coverage도 검증합니다.
 
 Spec API는 별도 npm 패키지가 아니라 기존 operations 패키지의

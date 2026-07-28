@@ -28,7 +28,7 @@ export function createMCPProtocolServer(provider: MCPToolProvider): Server {
 			tools: {},
 		},
 		instructions:
-			"Manage Listmonk resources and listmonk-ops automation through the available tools.",
+			"Manage Listmonk resources and listmonk-ops automation through typed, policy-aware tools. Start with listmonk_prime or listmonk_schema_search when the operation is unknown, inspect listmonk_schema_describe before mutations, and run listmonk_status before work that depends on live Listmonk state.",
 	});
 
 	server.setRequestHandler(ListToolsRequestSchema, async (request) =>

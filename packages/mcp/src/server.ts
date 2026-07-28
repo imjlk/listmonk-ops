@@ -20,6 +20,7 @@ import {
 	handleAbTestTools,
 	handleBouncesTools,
 	handleCampaignsTools,
+	handleDiscoveryTools,
 	handleOperationCatalogTools,
 	handleListsTools,
 	handleMediaTools,
@@ -477,6 +478,11 @@ export class ListmonkMCPServer {
 					operationRequest,
 					this.client,
 				);
+			} else if (toolNameSets.discovery.has(name)) {
+				result = await handleDiscoveryTools(operationRequest, this.client, {
+					url: this.baseUrl,
+					auth: "token",
+				});
 			} else if (toolNameSets.media.has(name)) {
 				result = await handleMediaTools(operationRequest, this.client);
 			} else if (toolNameSets.bounces.has(name)) {

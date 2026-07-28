@@ -1,6 +1,7 @@
 import {
 	campaignOperationCatalog,
 	composeOperationCatalogs,
+	discoveryOperationCatalog,
 	listOperationCatalog,
 	listOperationCatalogSummaries,
 	mediaOperationCatalog,
@@ -20,6 +21,7 @@ export const cliOperationCatalog = composeOperationCatalogs([
 	transactionalOperationCatalog,
 	opsOperationCatalog,
 	abTestOperationCatalog,
+	discoveryOperationCatalog,
 ]);
 
 export function listCliOperationCatalogSummaries(

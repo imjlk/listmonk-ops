@@ -2,6 +2,7 @@ export * from "./campaign-lifecycle";
 export * from "./campaigns";
 export * from "./catalog";
 export * from "./execution-policy";
+export * from "./discovery";
 export * from "./lists";
 export * from "./media";
 export * from "./operation";

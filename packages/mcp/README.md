@@ -17,8 +17,20 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 
 - `listmonk_list_operations` - Read-only catalog of typed contracts shared by
   the CLI and MCP server. Pass an optional exact `family` filter (`lists`,
-  `subscribers`, `campaigns`, `templates`, `media`, `transactional`, `ops`, or
-  `abtest`) to discover operation schemas, safety hints, and execution policy.
+  `subscribers`, `campaigns`, `templates`, `media`, `transactional`, `ops`,
+  `abtest`, or `discovery`) to discover operation schemas, safety hints, and
+  execution policy.
+- `listmonk_schema_search` - Search operation contracts and agent guidance by
+  intent, family, resource, or verb.
+- `listmonk_schema_describe` - Describe one operation by shared ID or MCP tool
+  name, including typed spec or migration coverage.
+- `listmonk_list_playbooks` / `listmonk_playbook_get` - Discover typed,
+  approval-aware multi-step workflows.
+- `listmonk_capabilities` - Summarize operation families and spec coverage.
+- `listmonk_prime` - Return goal-oriented operation and playbook
+  recommendations.
+- `listmonk_status` - Report MCP runtime, catalog/spec readiness, and live
+  Listmonk connectivity.
 
 ### Execution Safety for Shared Operations
 

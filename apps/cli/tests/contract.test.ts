@@ -52,6 +52,8 @@ describe("CLI contract", () => {
 		expect(result.output).toContain("listmonk-cli");
 		for (const command of [
 			"status",
+			"capabilities",
+			"prime",
 			"examples",
 			"campaigns",
 			"lists",
@@ -62,10 +64,52 @@ describe("CLI contract", () => {
 			"abtest",
 			"ops",
 			"operations",
+			"specs",
+			"playbooks",
 		]) {
 			expect(result.output).toContain(command);
 		}
 		expect(result.output).toMatch(/completions?|complete/);
+	});
+
+	test("discovers specs, playbooks, and capabilities without credentials", () => {
+		const search = runCli([
+			"specs",
+			"search",
+			"--query",
+			"schedule campaign",
+			"--format=json",
+		]);
+		const describe = runCli([
+			"specs",
+			"describe",
+			"--operation",
+			"campaigns.schedule",
+			"--format=json",
+		]);
+		const playbooks = runCli(["playbooks", "list", "--format=json"]);
+		const capabilities = runCli(["capabilities", "--format=json"]);
+		const prime = runCli([
+			"prime",
+			"--goal",
+			"schedule campaign",
+			"--format=json",
+		]);
+
+		for (const result of [
+			search,
+			describe,
+			playbooks,
+			capabilities,
+			prime,
+		]) {
+			expect(result.exitCode).toBe(0);
+		}
+		expect(search.output).toContain('"id": "campaigns.schedule"');
+		expect(describe.output).toContain('"confirmation": "required"');
+		expect(playbooks.output).toContain('"campaign.safe-start"');
+		expect(capabilities.output).toContain('"schema_version": "1.2.0"');
+		expect(prime.output).toContain('"recommended_operations"');
 	});
 
 	test("lists shared operation contracts without Listmonk credentials", () => {

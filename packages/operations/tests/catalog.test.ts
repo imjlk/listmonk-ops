@@ -3,6 +3,7 @@ import {
 	campaignOperationCatalog,
 	composeOperationCatalogs,
 	defineOperationCatalog,
+	getOperationCatalogEntryById,
 	getOperationCatalogEntryByMcpName,
 	listOperationCatalog,
 	listOperationCatalogSummaries,
@@ -40,6 +41,13 @@ describe("operation catalog", () => {
 			dryRunSupported: false,
 		});
 		expect(
+			getOperationCatalogEntryById(catalog, "campaigns.get")?.operation,
+		).toBe(
+			campaignOperationCatalog.operations.find(
+				(operation) => operation.id === "campaigns.get",
+			),
+		);
+		expect(
 			getOperationCatalogEntryByMcpName(
 				catalog,
 				"listmonk_get_campaigns",
@@ -76,6 +84,9 @@ describe("operation catalog", () => {
 				(operation) => operation.id === "campaigns.schedule",
 			)?.spec,
 		);
+		expect(first?.specMigration).toMatchObject({
+			operationId: first?.id,
+		});
 	});
 
 	test("rejects duplicate family, operation, and MCP identities", () => {

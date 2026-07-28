@@ -39,6 +39,7 @@ type CatalogOperation = {
 		dryRunSupported: boolean;
 	};
 	spec?: Record<string, unknown>;
+	specMigration?: Record<string, unknown>;
 };
 
 type CatalogOutput = {
@@ -133,6 +134,7 @@ function stableCatalogFields(output: CatalogOutput) {
 		safety: operation.safety,
 		execution: operation.execution,
 		spec: operation.spec,
+		specMigration: operation.specMigration,
 	}));
 }
 
@@ -185,7 +187,7 @@ describe("operation catalog MCP adapter", () => {
 			"auditRequired",
 			"dryRunSupported",
 		]);
-		expect(mcpOperationCatalog.entries).toHaveLength(58);
+		expect(mcpOperationCatalog.entries).toHaveLength(65);
 		expect(listMcpOperationCatalogSummaries("ops")).toHaveLength(9);
 		expect(listMcpOperationCatalogSummaries("media")).toHaveLength(4);
 		expect(

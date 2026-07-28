@@ -188,7 +188,196 @@
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#campaignPreflightOperation:variable"
       },
       "operationId": "ops.campaign.preflight"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/discovery.ts#specSearchOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/discovery.ts#bindSpecSearchOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/discovery.ts#bindSpecSearchOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/discovery.ts#specSearchOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/discovery.ts#invokeSpecSearchOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/discovery.ts#searchOperationSpecs:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/discovery.ts#bindSpecSearchOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/discovery.ts#specSearchOperationSpec:variable",
+        "executorNode": "packages/operations/src/discovery.ts#searchOperationSpecs:function",
+        "invokerNode": "packages/operations/src/discovery.ts#invokeSpecSearchOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/discovery.ts#specSearchOperation:variable"
+      },
+      "operationId": "specs.search"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/discovery.ts#specDescribeOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/discovery.ts#bindSpecDescribeOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/discovery.ts#bindSpecDescribeOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/discovery.ts#specDescribeOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/discovery.ts#invokeSpecDescribeOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/discovery.ts#describeOperationSpec:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/discovery.ts#bindSpecDescribeOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/discovery.ts#specDescribeOperationSpec:variable",
+        "executorNode": "packages/operations/src/discovery.ts#describeOperationSpec:function",
+        "invokerNode": "packages/operations/src/discovery.ts#invokeSpecDescribeOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/discovery.ts#specDescribeOperation:variable"
+      },
+      "operationId": "specs.describe"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/discovery.ts#playbookListOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/discovery.ts#bindPlaybookListOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/discovery.ts#bindPlaybookListOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/discovery.ts#playbookListOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/discovery.ts#invokePlaybookListOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/discovery.ts#listOperationPlaybooks:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/discovery.ts#bindPlaybookListOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/discovery.ts#playbookListOperationSpec:variable",
+        "executorNode": "packages/operations/src/discovery.ts#listOperationPlaybooks:function",
+        "invokerNode": "packages/operations/src/discovery.ts#invokePlaybookListOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/discovery.ts#playbookListOperation:variable"
+      },
+      "operationId": "playbooks.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/discovery.ts#playbookGetOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/discovery.ts#bindPlaybookGetOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/discovery.ts#bindPlaybookGetOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/discovery.ts#playbookGetOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/discovery.ts#invokePlaybookGetOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/discovery.ts#getOperationPlaybook:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/discovery.ts#bindPlaybookGetOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/discovery.ts#playbookGetOperationSpec:variable",
+        "executorNode": "packages/operations/src/discovery.ts#getOperationPlaybook:function",
+        "invokerNode": "packages/operations/src/discovery.ts#invokePlaybookGetOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/discovery.ts#playbookGetOperation:variable"
+      },
+      "operationId": "playbooks.get"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/discovery.ts#controlCapabilitiesOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/discovery.ts#bindControlCapabilitiesOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/discovery.ts#bindControlCapabilitiesOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/discovery.ts#controlCapabilitiesOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/discovery.ts#invokeControlCapabilitiesOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/discovery.ts#getControlCapabilities:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/discovery.ts#bindControlCapabilitiesOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/discovery.ts#controlCapabilitiesOperationSpec:variable",
+        "executorNode": "packages/operations/src/discovery.ts#getControlCapabilities:function",
+        "invokerNode": "packages/operations/src/discovery.ts#invokeControlCapabilitiesOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/discovery.ts#controlCapabilitiesOperation:variable"
+      },
+      "operationId": "control.capabilities"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/discovery.ts#controlPrimeOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/discovery.ts#bindControlPrimeOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/discovery.ts#bindControlPrimeOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/discovery.ts#controlPrimeOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/discovery.ts#invokeControlPrimeOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/discovery.ts#primeOperationsAgent:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/discovery.ts#bindControlPrimeOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/discovery.ts#controlPrimeOperationSpec:variable",
+        "executorNode": "packages/operations/src/discovery.ts#primeOperationsAgent:function",
+        "invokerNode": "packages/operations/src/discovery.ts#invokeControlPrimeOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/discovery.ts#controlPrimeOperation:variable"
+      },
+      "operationId": "control.prime"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/discovery.ts#controlStatusOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/discovery.ts#bindControlStatusOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/discovery.ts#bindControlStatusOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/discovery.ts#controlStatusOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/discovery.ts#invokeControlStatusOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/discovery.ts#getControlStatus:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/discovery.ts#bindControlStatusOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/discovery.ts#controlStatusOperationSpec:variable",
+        "executorNode": "packages/operations/src/discovery.ts#getControlStatus:function",
+        "invokerNode": "packages/operations/src/discovery.ts#invokeControlStatusOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/discovery.ts#controlStatusOperation:variable"
+      },
+      "operationId": "control.status"
     }
   ],
-  "schemaVersion": "1.1.0"
+  "schemaVersion": "1.2.0"
 }

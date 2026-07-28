@@ -31,6 +31,13 @@ describe("email operations specification", () => {
 			"campaigns.cancel",
 			"transactional.send",
 			"ops.campaign.preflight",
+			"specs.search",
+			"specs.describe",
+			"playbooks.list",
+			"playbooks.get",
+			"control.capabilities",
+			"control.prime",
+			"control.status",
 		]);
 		expect(campaignGetOperationSpec.contract.input).toMatchObject({
 			dialect: "openapi-3.1",

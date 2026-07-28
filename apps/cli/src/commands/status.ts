@@ -1,41 +1,43 @@
+import { invokeControlStatusOperation } from "@listmonk-ops/operations";
+import packageJson from "../../package.json" with { type: "json" };
+import { cliOperationCatalog } from "../operation-catalog";
 import { getOutput } from "../lib/output";
 import { defineCommand } from "../lib/command";
-import { toErrorMessage } from "../lib/command-utils";
 import { resolveListmonkSession } from "../lib/listmonk";
 
 export default defineCommand({
 	name: "status",
 	description: "Check runtime and Listmonk connectivity",
+	operationId: "control.status",
 	handler: async (args) => {
 		const session = await resolveListmonkSession(args, { requireAuth: false });
-
-		let reachable = false;
-		let auth = session.apiToken ? "token" : "none";
-		let healthError: string | undefined;
-
-		if (session.client) {
-			auth = "token";
-			try {
-				const health = await session.client.getHealthCheck();
-				reachable = Boolean(health.data);
-			} catch (error) {
-				healthError = toErrorMessage(error);
-			}
-		}
-
-		getOutput().json({
-			runtime: {
-				platform: process.platform,
-				arch: process.arch,
-				bun: Bun.version,
-				node: process.version,
-			},
-			listmonk: {
-				url: session.baseUrl,
-				auth,
-				reachable,
-				healthError,
-			},
-		});
+		getOutput().json(
+			await invokeControlStatusOperation(
+				{
+					catalog: cliOperationCatalog,
+					surface: "cli",
+					version: packageJson.version,
+					runtime: {
+						platform: process.platform,
+						arch: process.arch,
+						bun: Bun.version,
+						node: process.version,
+					},
+					target: {
+						url: session.baseUrl,
+						auth: session.apiToken ? "token" : "none",
+					},
+					...(session.client === null
+						? {}
+						: {
+								probeListmonk: async () => {
+									const health = await session.client?.getHealthCheck();
+									return Boolean(health?.data);
+								},
+							}),
+				},
+				{},
+			),
+		);
 	},
 });

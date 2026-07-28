@@ -370,15 +370,30 @@ schema, safety hints, and execution policy (`confirmationRequired`,
 ```bash
 listmonk-cli operations
 listmonk-cli operations --family campaigns
+listmonk-cli specs search --query "schedule a reviewed campaign"
+listmonk-cli specs describe --operation campaigns.schedule
+listmonk-cli playbooks get --id campaign.safe-start
+listmonk-cli capabilities
+listmonk-cli prime --goal "schedule a reviewed campaign"
+listmonk-cli status
 ```
 
 MCP clients can call the read-only `listmonk_list_operations` tool with the
 same optional `family` filter. The catalog intentionally covers shared typed
 operations only; legacy transport-specific tools remain available separately.
-Seven operations currently include a `spec` descriptor: the original
+Agents can use the corresponding `listmonk_schema_search`,
+`listmonk_schema_describe`, `listmonk_list_playbooks`,
+`listmonk_playbook_get`, `listmonk_capabilities`, `listmonk_prime`, and
+`listmonk_status` tools. Search and prime results include typed-spec coverage,
+effect-derived safety, execution requirements, and `useWhen`/`avoidWhen`
+guidance. Status adds runtime identity and a live Listmonk health probe without
+returning credentials.
+
+Fourteen operations currently include a `spec` descriptor: the original
 `campaigns.get`, `campaigns.schedule`, and `subscribers.blocklist` pilot plus
 the high-risk `campaigns.start`, `campaigns.cancel`, `transactional.send`, and
-`ops.campaign.preflight` operations. A descriptor adds normalized
+`ops.campaign.preflight` operations, and the seven discovery/readiness
+operations above. A descriptor adds normalized
 Typia-generated contracts, resource/state semantics, effects, derived safety
 policy, retry/reconciliation guidance, and agent usage context. Transactional
 send retry semantics are conditional on `idempotency_key`; its recipient
@@ -397,7 +412,7 @@ Operations Spec artifacts are checked in under
 after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
-also verifies all 58 shared operations against descriptor/exemption coverage.
+also verifies all 65 shared operations against descriptor/exemption coverage.
 
 The spec API is published from the existing operations package through the
 `@listmonk-ops/operations/specs` subpath; it is not a separate npm package.

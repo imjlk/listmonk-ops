@@ -1,6 +1,7 @@
 import { abTestOperations } from "../packages/abtest/src/operations";
 import { abtestTools } from "../packages/mcp/src/handlers/abtest";
 import { campaignsTools } from "../packages/mcp/src/handlers/campaigns";
+import { discoveryTools } from "../packages/mcp/src/handlers/discovery";
 import {
 	allTools,
 	toolRegistrations,
@@ -14,6 +15,7 @@ import { transactionalTools } from "../packages/mcp/src/handlers/transactional";
 import { withMcpOperationConfirmationInputSchema } from "../packages/mcp/src/operation-execution";
 import { opsOperations } from "../packages/automation/src/ops-operations";
 import { campaignOperations } from "../packages/operations/src/campaigns";
+import { discoveryOperations } from "../packages/operations/src/discovery";
 import { listOperations } from "../packages/operations/src/lists";
 import { mediaOperations } from "../packages/operations/src/media";
 import { subscriberOperations } from "../packages/operations/src/subscribers";
@@ -24,6 +26,7 @@ import type { MCPTool } from "../packages/mcp/src/types/mcp";
 export type SharedOperation =
 	| (typeof abTestOperations)[number]
 	| (typeof campaignOperations)[number]
+	| (typeof discoveryOperations)[number]
 	| (typeof listOperations)[number]
 	| (typeof mediaOperations)[number]
 	| (typeof opsOperations)[number]
@@ -191,4 +194,12 @@ export function assertOpsOperationsPublished(): void {
 
 export function assertAbTestOperationsPublished(): void {
 	assertOperationFamilyPublished("A/B tests", abTestOperations, abtestTools);
+}
+
+export function assertDiscoveryOperationsPublished(): void {
+	assertOperationFamilyPublished(
+		"agent discovery and readiness",
+		discoveryOperations,
+		discoveryTools,
+	);
 }

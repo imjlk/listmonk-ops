@@ -6,7 +6,10 @@ export type OperationResourceKind =
 	| "template"
 	| "provider"
 	| "experiment"
-	| "sequence";
+	| "sequence"
+	| "spec"
+	| "playbook"
+	| "control";
 
 export type OperationEffect =
 	| ReadEffect

@@ -1794,6 +1794,2183 @@
       "stability": "experimental",
       "title": "Run campaign preflight",
       "verb": "preflight"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The exact operation ID is already known and its complete contract is required."
+        ],
+        "prerequisites": [],
+        "related": [
+          "specs.describe",
+          "control.prime",
+          "playbooks.list"
+        ],
+        "retryGuidance": "Retrying the same catalog search is safe.",
+        "useWhen": [
+          "The agent knows an operational intent but not the exact operation or MCP tool name."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SpecSearchInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "family": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "limit": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "query": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "resource": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "verb": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "query"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "family": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "limit": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              },
+              "query": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "resource": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "verb": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "OperationDiscoverySafety": {
+                "additionalProperties": false,
+                "properties": {
+                  "audit_required": {
+                    "type": "boolean"
+                  },
+                  "confirmation_required": {
+                    "type": "boolean"
+                  },
+                  "destructive": {
+                    "type": "boolean"
+                  },
+                  "dry_run_supported": {
+                    "type": "boolean"
+                  },
+                  "idempotent": {
+                    "type": "boolean"
+                  },
+                  "read_only": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "read_only",
+                  "destructive",
+                  "idempotent",
+                  "confirmation_required",
+                  "audit_required",
+                  "dry_run_supported"
+                ],
+                "type": "object"
+              },
+              "OperationSearchResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "avoid_when": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "coverage": {
+                    "$ref": "#/components/schemas/OperationSpecCoverage"
+                  },
+                  "description": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "family": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "mcp_name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "resource": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "safety": {
+                    "$ref": "#/components/schemas/OperationDiscoverySafety"
+                  },
+                  "score": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "stability": {
+                    "oneOf": [
+                      {
+                        "const": "deprecated"
+                      },
+                      {
+                        "const": "experimental"
+                      },
+                      {
+                        "const": "stable"
+                      }
+                    ]
+                  },
+                  "title": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "use_when": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "verb": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "family",
+                  "id",
+                  "mcp_name",
+                  "title",
+                  "description",
+                  "score",
+                  "coverage",
+                  "safety",
+                  "use_when",
+                  "avoid_when"
+                ],
+                "type": "object"
+              },
+              "OperationSpecCoverage": {
+                "oneOf": [
+                  {
+                    "const": "described"
+                  },
+                  {
+                    "const": "migration"
+                  }
+                ]
+              },
+              "SpecSearchOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "query": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/OperationSearchResult"
+                    },
+                    "type": "array"
+                  },
+                  "total": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "query",
+                  "total",
+                  "results"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "query": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "results": {
+                "items": {
+                  "$ref": "#/components/schemas/OperationSearchResult"
+                },
+                "type": "array"
+              },
+              "total": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "query",
+              "total",
+              "results"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Search shared Listmonk operation contracts and agent guidance by intent, family, resource, or verb.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "spec"
+        }
+      ],
+      "id": "specs.search",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/discovery.ts#bindSpecSearchOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/discovery.ts#specSearchOperationSpec:variable",
+          "executorNode": "packages/operations/src/discovery.ts#searchOperationSpecs:function",
+          "invokerNode": "packages/operations/src/discovery.ts#invokeSpecSearchOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/discovery.ts#specSearchOperation:variable"
+        },
+        "mcpName": "listmonk_schema_search",
+        "openWorld": false
+      },
+      "resource": "spec",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation deterministically searches immutable in-process catalog metadata."
+      },
+      "since": "0.8.0",
+      "stability": "experimental",
+      "title": "Search operation specs",
+      "verb": "search"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The agent is still searching for the correct operation."
+        ],
+        "prerequisites": [],
+        "related": [
+          "specs.search",
+          "control.capabilities",
+          "playbooks.get"
+        ],
+        "retryGuidance": "Retrying the same catalog lookup is safe.",
+        "useWhen": [
+          "The exact operation ID or MCP tool name is known and the full contract must be inspected before execution."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "SpecDescribeInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Shared operation ID or MCP tool name."
+                  }
+                },
+                "required": [
+                  "operation"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "operation": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Shared operation ID or MCP tool name."
+              }
+            },
+            "required": [
+              "operation"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "OperationDescription": {
+                "additionalProperties": false,
+                "properties": {
+                  "avoid_when": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "coverage": {
+                    "$ref": "#/components/schemas/OperationSpecCoverage"
+                  },
+                  "description": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "family": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "family_title": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "input_schema": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "mcp_name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "migration": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "output_schema": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "resource": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "safety": {
+                    "$ref": "#/components/schemas/OperationDiscoverySafety"
+                  },
+                  "spec": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "stability": {
+                    "oneOf": [
+                      {
+                        "const": "deprecated"
+                      },
+                      {
+                        "const": "experimental"
+                      },
+                      {
+                        "const": "stable"
+                      }
+                    ]
+                  },
+                  "title": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "use_when": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "verb": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "family",
+                  "id",
+                  "mcp_name",
+                  "title",
+                  "description",
+                  "coverage",
+                  "safety",
+                  "use_when",
+                  "avoid_when",
+                  "family_title",
+                  "input_schema",
+                  "output_schema"
+                ],
+                "type": "object"
+              },
+              "OperationDiscoverySafety": {
+                "additionalProperties": false,
+                "properties": {
+                  "audit_required": {
+                    "type": "boolean"
+                  },
+                  "confirmation_required": {
+                    "type": "boolean"
+                  },
+                  "destructive": {
+                    "type": "boolean"
+                  },
+                  "dry_run_supported": {
+                    "type": "boolean"
+                  },
+                  "idempotent": {
+                    "type": "boolean"
+                  },
+                  "read_only": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "read_only",
+                  "destructive",
+                  "idempotent",
+                  "confirmation_required",
+                  "audit_required",
+                  "dry_run_supported"
+                ],
+                "type": "object"
+              },
+              "OperationSpecCoverage": {
+                "oneOf": [
+                  {
+                    "const": "described"
+                  },
+                  {
+                    "const": "migration"
+                  }
+                ]
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "SpecDescribeOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "operation": {
+                    "$ref": "#/components/schemas/OperationDescription"
+                  }
+                },
+                "required": [
+                  "operation"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "operation": {
+                "$ref": "#/components/schemas/OperationDescription"
+              }
+            },
+            "required": [
+              "operation"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Describe one shared operation by operation ID or MCP tool name, including safety, retry, and agent guidance.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "spec"
+        }
+      ],
+      "id": "specs.describe",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/discovery.ts#bindSpecDescribeOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/discovery.ts#specDescribeOperationSpec:variable",
+          "executorNode": "packages/operations/src/discovery.ts#describeOperationSpec:function",
+          "invokerNode": "packages/operations/src/discovery.ts#invokeSpecDescribeOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/discovery.ts#specDescribeOperation:variable"
+        },
+        "mcpName": "listmonk_schema_describe",
+        "openWorld": false
+      },
+      "resource": "spec",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation reads immutable in-process catalog metadata without side effects."
+      },
+      "since": "0.8.0",
+      "stability": "experimental",
+      "title": "Describe operation spec",
+      "verb": "describe"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "A single exact operation is sufficient for the requested task."
+        ],
+        "prerequisites": [],
+        "related": [
+          "playbooks.get",
+          "control.prime",
+          "specs.search"
+        ],
+        "retryGuidance": "Retrying the same playbook listing is safe.",
+        "useWhen": [
+          "The agent needs a predefined safe workflow instead of composing raw operations."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "PlaybookListOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "playbooks": {
+                    "items": {
+                      "$ref": "#/components/schemas/PlaybookSummary"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "playbooks"
+                ],
+                "type": "object"
+              },
+              "PlaybookSummary": {
+                "additionalProperties": false,
+                "properties": {
+                  "goal": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "recovery_operation": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "step_count": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "title": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "goal",
+                  "step_count",
+                  "recovery_operation"
+                ],
+                "type": "object"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "playbooks": {
+                "items": {
+                  "$ref": "#/components/schemas/PlaybookSummary"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "playbooks"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "List typed operation playbooks that encode safe multi-step Listmonk workflows.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "playbook"
+        }
+      ],
+      "id": "playbooks.list",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/discovery.ts#bindPlaybookListOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/discovery.ts#playbookListOperationSpec:variable",
+          "executorNode": "packages/operations/src/discovery.ts#listOperationPlaybooks:function",
+          "invokerNode": "packages/operations/src/discovery.ts#invokePlaybookListOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/discovery.ts#playbookListOperation:variable"
+        },
+        "mcpName": "listmonk_list_playbooks",
+        "openWorld": false
+      },
+      "resource": "playbook",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation reads immutable in-process playbook metadata."
+      },
+      "since": "0.8.0",
+      "stability": "experimental",
+      "title": "List operation playbooks",
+      "verb": "list"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The agent has not yet selected a playbook."
+        ],
+        "prerequisites": [
+          "playbooks.list"
+        ],
+        "related": [
+          "specs.describe",
+          "control.prime"
+        ],
+        "retryGuidance": "Retrying the same playbook lookup is safe.",
+        "useWhen": [
+          "A known playbook must be inspected before executing any of its steps."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "PlaybookGetInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "OperationDiscoverySafety": {
+                "additionalProperties": false,
+                "properties": {
+                  "audit_required": {
+                    "type": "boolean"
+                  },
+                  "confirmation_required": {
+                    "type": "boolean"
+                  },
+                  "destructive": {
+                    "type": "boolean"
+                  },
+                  "dry_run_supported": {
+                    "type": "boolean"
+                  },
+                  "idempotent": {
+                    "type": "boolean"
+                  },
+                  "read_only": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "read_only",
+                  "destructive",
+                  "idempotent",
+                  "confirmation_required",
+                  "audit_required",
+                  "dry_run_supported"
+                ],
+                "type": "object"
+              },
+              "OperationSearchResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "avoid_when": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "coverage": {
+                    "$ref": "#/components/schemas/OperationSpecCoverage"
+                  },
+                  "description": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "family": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "mcp_name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "resource": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "safety": {
+                    "$ref": "#/components/schemas/OperationDiscoverySafety"
+                  },
+                  "score": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "stability": {
+                    "oneOf": [
+                      {
+                        "const": "deprecated"
+                      },
+                      {
+                        "const": "experimental"
+                      },
+                      {
+                        "const": "stable"
+                      }
+                    ]
+                  },
+                  "title": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "use_when": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "verb": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "family",
+                  "id",
+                  "mcp_name",
+                  "title",
+                  "description",
+                  "score",
+                  "coverage",
+                  "safety",
+                  "use_when",
+                  "avoid_when"
+                ],
+                "type": "object"
+              },
+              "OperationSpecCoverage": {
+                "oneOf": [
+                  {
+                    "const": "described"
+                  },
+                  {
+                    "const": "migration"
+                  }
+                ]
+              },
+              "PlaybookDetail": {
+                "additionalProperties": false,
+                "properties": {
+                  "goal": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "inputs": {
+                    "items": {
+                      "$ref": "#/components/schemas/PlaybookInput"
+                    },
+                    "type": "array"
+                  },
+                  "recovery_operation": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "steps": {
+                    "items": {
+                      "$ref": "#/components/schemas/PlaybookStep"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "title": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "goal",
+                  "inputs",
+                  "steps",
+                  "recovery_operation"
+                ],
+                "type": "object"
+              },
+              "PlaybookGetOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "operations": {
+                    "items": {
+                      "$ref": "#/components/schemas/PlaybookOperationReference"
+                    },
+                    "type": "array"
+                  },
+                  "playbook": {
+                    "$ref": "#/components/schemas/PlaybookDetail"
+                  }
+                },
+                "required": [
+                  "playbook",
+                  "operations"
+                ],
+                "type": "object"
+              },
+              "PlaybookInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "boolean"
+                      },
+                      {
+                        "const": "number"
+                      },
+                      {
+                        "const": "string"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "type",
+                  "required",
+                  "description"
+                ],
+                "type": "object"
+              },
+              "PlaybookInputBinding": {
+                "additionalProperties": false,
+                "properties": {
+                  "parameter": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "source": {
+                    "$ref": "#/components/schemas/PlaybookValueSource"
+                  }
+                },
+                "required": [
+                  "parameter",
+                  "source"
+                ],
+                "type": "object"
+              },
+              "PlaybookOperationReference": {
+                "additionalProperties": false,
+                "properties": {
+                  "approval": {
+                    "oneOf": [
+                      {
+                        "const": "human"
+                      },
+                      {
+                        "const": "none"
+                      }
+                    ]
+                  },
+                  "operation": {
+                    "$ref": "#/components/schemas/OperationSearchResult"
+                  },
+                  "step_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "step_id",
+                  "operation",
+                  "approval"
+                ],
+                "type": "object"
+              },
+              "PlaybookPrimitive": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "PlaybookResultGuard": {
+                "additionalProperties": false,
+                "properties": {
+                  "expected": {
+                    "$ref": "#/components/schemas/PlaybookPrimitive"
+                  },
+                  "message": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "on_failure": {
+                    "const": "stop"
+                  },
+                  "operator": {
+                    "oneOf": [
+                      {
+                        "const": "equals"
+                      },
+                      {
+                        "const": "not-equals"
+                      }
+                    ]
+                  },
+                  "path": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "path",
+                  "operator",
+                  "expected",
+                  "on_failure",
+                  "message"
+                ],
+                "type": "object"
+              },
+              "PlaybookStep": {
+                "additionalProperties": false,
+                "properties": {
+                  "approval": {
+                    "oneOf": [
+                      {
+                        "const": "human"
+                      },
+                      {
+                        "const": "none"
+                      }
+                    ]
+                  },
+                  "depends_on": {
+                    "items": {
+                      "$ref": "#/components/schemas/NonEmptyString"
+                    },
+                    "type": "array"
+                  },
+                  "description": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "input": {
+                    "items": {
+                      "$ref": "#/components/schemas/PlaybookInputBinding"
+                    },
+                    "type": "array"
+                  },
+                  "operation": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "result_guard": {
+                    "$ref": "#/components/schemas/PlaybookResultGuard"
+                  }
+                },
+                "required": [
+                  "id",
+                  "operation",
+                  "approval",
+                  "description",
+                  "depends_on",
+                  "input"
+                ],
+                "type": "object"
+              },
+              "PlaybookValueSource": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "playbook-input"
+                      },
+                      "name": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "name"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "step-output"
+                      },
+                      "path": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "step_id": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "step_id",
+                      "path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "literal"
+                      },
+                      "value": {
+                        "$ref": "#/components/schemas/PlaybookPrimitive"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "operations": {
+                "items": {
+                  "$ref": "#/components/schemas/PlaybookOperationReference"
+                },
+                "type": "array"
+              },
+              "playbook": {
+                "$ref": "#/components/schemas/PlaybookDetail"
+              }
+            },
+            "required": [
+              "playbook",
+              "operations"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Get a typed operation playbook and the operation contracts referenced by its steps.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "playbook"
+        }
+      ],
+      "id": "playbooks.get",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/discovery.ts#bindPlaybookGetOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/discovery.ts#playbookGetOperationSpec:variable",
+          "executorNode": "packages/operations/src/discovery.ts#getOperationPlaybook:function",
+          "invokerNode": "packages/operations/src/discovery.ts#invokePlaybookGetOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/discovery.ts#playbookGetOperation:variable"
+        },
+        "mcpName": "listmonk_playbook_get",
+        "openWorld": false
+      },
+      "resource": "playbook",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation reads immutable in-process playbook metadata."
+      },
+      "since": "0.8.0",
+      "stability": "experimental",
+      "title": "Get operation playbook",
+      "verb": "get"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Live Listmonk connectivity is the only readiness question."
+        ],
+        "prerequisites": [],
+        "related": [
+          "control.status",
+          "control.prime",
+          "specs.search"
+        ],
+        "retryGuidance": "Retrying the same capability inspection is safe.",
+        "useWhen": [
+          "The agent must discover the breadth and typed coverage of the current listmonk-ops installation."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmptyInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CapabilityFamily": {
+                "additionalProperties": false,
+                "properties": {
+                  "described": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "operations": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "title": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "operations",
+                  "described"
+                ],
+                "type": "object"
+              },
+              "ControlCapabilitiesOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "described_operations": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "families": {
+                    "items": {
+                      "$ref": "#/components/schemas/CapabilityFamily"
+                    },
+                    "type": "array"
+                  },
+                  "migration_operations": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "operations": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "playbooks": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "resources": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "schema_version": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "spec_coverage_complete": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "resources",
+                  "playbooks",
+                  "operations",
+                  "described_operations",
+                  "migration_operations",
+                  "spec_coverage_complete",
+                  "families"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "described_operations": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "families": {
+                "items": {
+                  "$ref": "#/components/schemas/CapabilityFamily"
+                },
+                "type": "array"
+              },
+              "migration_operations": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "operations": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "playbooks": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "resources": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "schema_version": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "spec_coverage_complete": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "schema_version",
+              "resources",
+              "playbooks",
+              "operations",
+              "described_operations",
+              "migration_operations",
+              "spec_coverage_complete",
+              "families"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Summarize shared operation families, typed specification coverage, resources, and playbooks.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "control"
+        }
+      ],
+      "id": "control.capabilities",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/discovery.ts#bindControlCapabilitiesOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/discovery.ts#controlCapabilitiesOperationSpec:variable",
+          "executorNode": "packages/operations/src/discovery.ts#getControlCapabilities:function",
+          "invokerNode": "packages/operations/src/discovery.ts#invokeControlCapabilitiesOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/discovery.ts#controlCapabilitiesOperation:variable"
+        },
+        "mcpName": "listmonk_capabilities",
+        "openWorld": false
+      },
+      "resource": "control",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation deterministically summarizes immutable catalog metadata."
+      },
+      "since": "0.8.0",
+      "stability": "experimental",
+      "title": "Get control-plane capabilities",
+      "verb": "capabilities"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The exact operation contract is already known."
+        ],
+        "prerequisites": [],
+        "related": [
+          "specs.search",
+          "playbooks.list",
+          "control.capabilities"
+        ],
+        "retryGuidance": "Retrying the same prime request is safe.",
+        "useWhen": [
+          "An agent is beginning an email operations task and needs a compact, goal-oriented starting context."
+        ],
+        "verifyWith": [
+          "control.status"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ControlPrimeInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "goal": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "limit": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "goal": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "limit": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CapabilityFamily": {
+                "additionalProperties": false,
+                "properties": {
+                  "described": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "operations": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "title": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "operations",
+                  "described"
+                ],
+                "type": "object"
+              },
+              "ControlCapabilitiesOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "described_operations": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "families": {
+                    "items": {
+                      "$ref": "#/components/schemas/CapabilityFamily"
+                    },
+                    "type": "array"
+                  },
+                  "migration_operations": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "operations": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "playbooks": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "resources": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "schema_version": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "spec_coverage_complete": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "resources",
+                  "playbooks",
+                  "operations",
+                  "described_operations",
+                  "migration_operations",
+                  "spec_coverage_complete",
+                  "families"
+                ],
+                "type": "object"
+              },
+              "ControlPrimeOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "capabilities": {
+                    "$ref": "#/components/schemas/ControlCapabilitiesOutput"
+                  },
+                  "goal": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "guidance": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "recommended_operations": {
+                    "items": {
+                      "$ref": "#/components/schemas/OperationSearchResult"
+                    },
+                    "type": "array"
+                  },
+                  "recommended_playbooks": {
+                    "items": {
+                      "$ref": "#/components/schemas/PlaybookSummary"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "capabilities",
+                  "recommended_operations",
+                  "recommended_playbooks",
+                  "guidance"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "OperationDiscoverySafety": {
+                "additionalProperties": false,
+                "properties": {
+                  "audit_required": {
+                    "type": "boolean"
+                  },
+                  "confirmation_required": {
+                    "type": "boolean"
+                  },
+                  "destructive": {
+                    "type": "boolean"
+                  },
+                  "dry_run_supported": {
+                    "type": "boolean"
+                  },
+                  "idempotent": {
+                    "type": "boolean"
+                  },
+                  "read_only": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "read_only",
+                  "destructive",
+                  "idempotent",
+                  "confirmation_required",
+                  "audit_required",
+                  "dry_run_supported"
+                ],
+                "type": "object"
+              },
+              "OperationSearchResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "avoid_when": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "coverage": {
+                    "$ref": "#/components/schemas/OperationSpecCoverage"
+                  },
+                  "description": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "family": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "mcp_name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "resource": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "safety": {
+                    "$ref": "#/components/schemas/OperationDiscoverySafety"
+                  },
+                  "score": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "stability": {
+                    "oneOf": [
+                      {
+                        "const": "deprecated"
+                      },
+                      {
+                        "const": "experimental"
+                      },
+                      {
+                        "const": "stable"
+                      }
+                    ]
+                  },
+                  "title": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "use_when": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "verb": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "family",
+                  "id",
+                  "mcp_name",
+                  "title",
+                  "description",
+                  "score",
+                  "coverage",
+                  "safety",
+                  "use_when",
+                  "avoid_when"
+                ],
+                "type": "object"
+              },
+              "OperationSpecCoverage": {
+                "oneOf": [
+                  {
+                    "const": "described"
+                  },
+                  {
+                    "const": "migration"
+                  }
+                ]
+              },
+              "PlaybookSummary": {
+                "additionalProperties": false,
+                "properties": {
+                  "goal": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "recovery_operation": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "step_count": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "title": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "goal",
+                  "step_count",
+                  "recovery_operation"
+                ],
+                "type": "object"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "capabilities": {
+                "$ref": "#/components/schemas/ControlCapabilitiesOutput"
+              },
+              "goal": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "guidance": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "recommended_operations": {
+                "items": {
+                  "$ref": "#/components/schemas/OperationSearchResult"
+                },
+                "type": "array"
+              },
+              "recommended_playbooks": {
+                "items": {
+                  "$ref": "#/components/schemas/PlaybookSummary"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "capabilities",
+              "recommended_operations",
+              "recommended_playbooks",
+              "guidance"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Return installation capabilities and goal-oriented operation and playbook recommendations for an AI agent.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "control"
+        }
+      ],
+      "id": "control.prime",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/discovery.ts#bindControlPrimeOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/discovery.ts#controlPrimeOperationSpec:variable",
+          "executorNode": "packages/operations/src/discovery.ts#primeOperationsAgent:function",
+          "invokerNode": "packages/operations/src/discovery.ts#invokeControlPrimeOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/discovery.ts#controlPrimeOperation:variable"
+        },
+        "mcpName": "listmonk_prime",
+        "openWorld": false
+      },
+      "resource": "control",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation deterministically derives recommendations from immutable catalog metadata."
+      },
+      "since": "0.8.0",
+      "stability": "experimental",
+      "title": "Prime an operations agent",
+      "verb": "prime"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Only static catalog capabilities are required."
+        ],
+        "prerequisites": [],
+        "related": [
+          "control.capabilities",
+          "control.prime"
+        ],
+        "retryGuidance": "Retry transient health failures with normal backoff; do not infer authentication from reachability alone.",
+        "useWhen": [
+          "The agent must confirm the current surface and Listmonk target are ready before operational work."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ControlStatusInput": {
+                "additionalProperties": false,
+                "properties": {},
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ControlStatusOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "listmonk": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "configured": {
+                        "type": "boolean"
+                      },
+                      "health_error": {
+                        "type": "string"
+                      },
+                      "reachable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "configured",
+                      "reachable"
+                    ],
+                    "type": "object"
+                  },
+                  "readiness": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "catalog": {
+                        "type": "boolean"
+                      },
+                      "listmonk": {
+                        "type": "boolean"
+                      },
+                      "specs": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "catalog",
+                      "specs",
+                      "listmonk"
+                    ],
+                    "type": "object"
+                  },
+                  "runtime": {
+                    "$ref": "#/components/schemas/Recordstringstring"
+                  },
+                  "specs": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "complete": {
+                        "type": "boolean"
+                      },
+                      "described": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "migrations": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "operations": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "schema_version": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      }
+                    },
+                    "required": [
+                      "schema_version",
+                      "operations",
+                      "described",
+                      "migrations",
+                      "complete"
+                    ],
+                    "type": "object"
+                  },
+                  "surface": {
+                    "oneOf": [
+                      {
+                        "const": "cli"
+                      },
+                      {
+                        "const": "mcp"
+                      }
+                    ]
+                  },
+                  "target": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "auth": {
+                        "oneOf": [
+                          {
+                            "const": "none"
+                          },
+                          {
+                            "const": "token"
+                          }
+                        ]
+                      },
+                      "url": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      }
+                    },
+                    "required": [
+                      "url",
+                      "auth"
+                    ],
+                    "type": "object"
+                  },
+                  "version": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "surface",
+                  "version",
+                  "runtime",
+                  "listmonk",
+                  "specs",
+                  "readiness"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "Recordstringstring": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "listmonk": {
+                "additionalProperties": false,
+                "properties": {
+                  "configured": {
+                    "type": "boolean"
+                  },
+                  "health_error": {
+                    "type": "string"
+                  },
+                  "reachable": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "configured",
+                  "reachable"
+                ],
+                "type": "object"
+              },
+              "readiness": {
+                "additionalProperties": false,
+                "properties": {
+                  "catalog": {
+                    "type": "boolean"
+                  },
+                  "listmonk": {
+                    "type": "boolean"
+                  },
+                  "specs": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "catalog",
+                  "specs",
+                  "listmonk"
+                ],
+                "type": "object"
+              },
+              "runtime": {
+                "$ref": "#/components/schemas/Recordstringstring"
+              },
+              "specs": {
+                "additionalProperties": false,
+                "properties": {
+                  "complete": {
+                    "type": "boolean"
+                  },
+                  "described": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "migrations": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "operations": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "schema_version": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "operations",
+                  "described",
+                  "migrations",
+                  "complete"
+                ],
+                "type": "object"
+              },
+              "surface": {
+                "oneOf": [
+                  {
+                    "const": "cli"
+                  },
+                  {
+                    "const": "mcp"
+                  }
+                ]
+              },
+              "target": {
+                "additionalProperties": false,
+                "properties": {
+                  "auth": {
+                    "oneOf": [
+                      {
+                        "const": "none"
+                      },
+                      {
+                        "const": "token"
+                      }
+                    ]
+                  },
+                  "url": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "url",
+                  "auth"
+                ],
+                "type": "object"
+              },
+              "version": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              }
+            },
+            "required": [
+              "surface",
+              "version",
+              "runtime",
+              "listmonk",
+              "specs",
+              "readiness"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Check catalog integrity, typed specification coverage, runtime identity, and live Listmonk connectivity.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "control"
+        }
+      ],
+      "id": "control.status",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/discovery.ts#bindControlStatusOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/discovery.ts#controlStatusOperationSpec:variable",
+          "executorNode": "packages/operations/src/discovery.ts#getControlStatus:function",
+          "invokerNode": "packages/operations/src/discovery.ts#invokeControlStatusOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/discovery.ts#controlStatusOperation:variable"
+        },
+        "mcpName": "listmonk_status",
+        "openWorld": true
+      },
+      "resource": "control",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation performs read-only local checks and a Listmonk health probe."
+      },
+      "since": "0.8.0",
+      "stability": "experimental",
+      "title": "Get control-plane status",
+      "verb": "status"
     }
   ],
   "playbooks": [
@@ -2004,8 +4181,41 @@
           "failed"
         ]
       }
+    },
+    {
+      "id": "spec",
+      "states": [
+        "available"
+      ],
+      "terminalStates": [],
+      "title": "Operation specification",
+      "transitions": {
+        "available": []
+      }
+    },
+    {
+      "id": "playbook",
+      "states": [
+        "available"
+      ],
+      "terminalStates": [],
+      "title": "Operation playbook",
+      "transitions": {
+        "available": []
+      }
+    },
+    {
+      "id": "control",
+      "states": [
+        "ready"
+      ],
+      "terminalStates": [],
+      "title": "Operations control plane",
+      "transitions": {
+        "ready": []
+      }
     }
   ],
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "title": "listmonk-ops Email Operations Specification"
 }

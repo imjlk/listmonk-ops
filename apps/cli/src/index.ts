@@ -6,11 +6,15 @@ import packageJson from "../package.json" with { type: "json" };
 
 import abtestCommand from "./commands/abtest";
 import campaignsCommand from "./commands/campaigns";
+import capabilitiesCommand from "./commands/capabilities";
 import examplesCommand from "./commands/examples";
 import listsCommand from "./commands/lists";
 import mediaCommand from "./commands/media";
 import opsCommand from "./commands/ops";
 import operationsCommand from "./commands/operations";
+import playbooksCommand from "./commands/playbooks";
+import primeCommand from "./commands/prime";
+import specsCommand from "./commands/specs";
 import statusCommand from "./commands/status";
 import subscribersCommand from "./commands/subscribers";
 import templatesCommand from "./commands/templates";
@@ -25,6 +29,8 @@ const entry = define({
 
 const subCommands = {
 	status: statusCommand,
+	capabilities: capabilitiesCommand,
+	prime: primeCommand,
 	examples: examplesCommand,
 	campaigns: campaignsCommand,
 	lists: listsCommand,
@@ -35,6 +41,8 @@ const subCommands = {
 	abtest: abtestCommand,
 	ops: opsCommand,
 	operations: operationsCommand,
+	specs: specsCommand,
+	playbooks: playbooksCommand,
 };
 
 import { getRuntimeFlags } from "./lib/command";

@@ -86,6 +86,90 @@ Verify with: none
 
 Retry guidance: Retry transient reads or public-link probes; re-evaluate the returned checks because remote state may have changed.
 
+## Search operation specs (`specs.search`)
+
+Use when: The agent knows an operational intent but not the exact operation or MCP tool name.
+
+Avoid when: The exact operation ID is already known and its complete contract is required.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same catalog search is safe.
+
+## Describe operation spec (`specs.describe`)
+
+Use when: The exact operation ID or MCP tool name is known and the full contract must be inspected before execution.
+
+Avoid when: The agent is still searching for the correct operation.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same catalog lookup is safe.
+
+## List operation playbooks (`playbooks.list`)
+
+Use when: The agent needs a predefined safe workflow instead of composing raw operations.
+
+Avoid when: A single exact operation is sufficient for the requested task.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same playbook listing is safe.
+
+## Get operation playbook (`playbooks.get`)
+
+Use when: A known playbook must be inspected before executing any of its steps.
+
+Avoid when: The agent has not yet selected a playbook.
+
+Prerequisites: `playbooks.list`
+
+Verify with: none
+
+Retry guidance: Retrying the same playbook lookup is safe.
+
+## Get control-plane capabilities (`control.capabilities`)
+
+Use when: The agent must discover the breadth and typed coverage of the current listmonk-ops installation.
+
+Avoid when: Live Listmonk connectivity is the only readiness question.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same capability inspection is safe.
+
+## Prime an operations agent (`control.prime`)
+
+Use when: An agent is beginning an email operations task and needs a compact, goal-oriented starting context.
+
+Avoid when: The exact operation contract is already known.
+
+Prerequisites: none
+
+Verify with: `control.status`
+
+Retry guidance: Retrying the same prime request is safe.
+
+## Get control-plane status (`control.status`)
+
+Use when: The agent must confirm the current surface and Listmonk target are ready before operational work.
+
+Avoid when: Only static catalog capabilities are required.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient health failures with normal backoff; do not infer authentication from reachability alone.
+
 # Typed playbooks
 
 ## `campaign.safe-start` — Safely start a campaign
