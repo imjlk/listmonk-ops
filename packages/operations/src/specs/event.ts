@@ -1,6 +1,6 @@
-import type { ProductResourceKind } from "./effect";
+import type { OperationResourceKind } from "./effect";
 
-export interface ProductEventDefinition {
+export interface OperationEventSpec {
 	type: `${string}.${string}`;
 	title: string;
 	description: string;
@@ -10,6 +10,6 @@ export interface ProductEventDefinition {
 		| "operation"
 		| "abtest"
 		| "sequence";
-	subject: ProductResourceKind;
+	subject: OperationResourceKind;
 	schemaVersion: number;
 }

@@ -1,7 +1,7 @@
-import type { ProductResourceKind } from "./effect";
+import type { OperationResourceKind } from "./effect";
 
-export interface ProductResource<State extends string = string> {
-	id: ProductResourceKind;
+export interface OperationResourceSpec<State extends string = string> {
+	id: OperationResourceKind;
 	title: string;
 	states: readonly State[];
 	transitions: Readonly<Partial<Record<State, readonly State[]>>>;
@@ -24,28 +24,36 @@ function assertDistinct(values: readonly string[], label: string): void {
 	}
 }
 
-export function defineProductResource<const State extends string>(
-	resource: ProductResource<State>,
-): ProductResource<State> {
-	assertNonBlank(resource.id, "Product resource id");
-	assertNonBlank(resource.title, `Product resource ${resource.id} title`);
+export function defineOperationResourceSpec<const State extends string>(
+	resource: OperationResourceSpec<State>,
+): OperationResourceSpec<State> {
+	assertNonBlank(resource.id, "Operation resource spec id");
+	assertNonBlank(
+		resource.title,
+		`Operation resource spec ${resource.id} title`,
+	);
 	if (resource.states.length === 0) {
-		throw new TypeError(`Product resource ${resource.id} must define states`);
+		throw new TypeError(
+			`Operation resource spec ${resource.id} must define states`,
+		);
 	}
 	for (const state of resource.states) {
-		assertNonBlank(state, `Product resource ${resource.id} state`);
+		assertNonBlank(state, `Operation resource spec ${resource.id} state`);
 	}
-	assertDistinct(resource.states, `Product resource ${resource.id} states`);
+	assertDistinct(
+		resource.states,
+		`Operation resource spec ${resource.id} states`,
+	);
 	assertDistinct(
 		resource.terminalStates,
-		`Product resource ${resource.id} terminal states`,
+		`Operation resource spec ${resource.id} terminal states`,
 	);
 
 	const stateSet = new Set<string>(resource.states);
 	for (const from of Object.keys(resource.transitions)) {
 		if (!stateSet.has(from)) {
 			throw new TypeError(
-				`Product resource ${resource.id} transition has unknown source state: ${from}`,
+				`Operation resource spec ${resource.id} transition has unknown source state: ${from}`,
 			);
 		}
 	}
@@ -54,7 +62,7 @@ export function defineProductResource<const State extends string>(
 		for (const target of targets) {
 			if (!stateSet.has(target)) {
 				throw new TypeError(
-					`Product resource ${resource.id} transition has unknown target state: ${target}`,
+					`Operation resource spec ${resource.id} transition has unknown target state: ${target}`,
 				);
 			}
 		}
@@ -62,12 +70,12 @@ export function defineProductResource<const State extends string>(
 	for (const terminalState of resource.terminalStates) {
 		if (!stateSet.has(terminalState)) {
 			throw new TypeError(
-				`Product resource ${resource.id} has unknown terminal state: ${terminalState}`,
+				`Operation resource spec ${resource.id} has unknown terminal state: ${terminalState}`,
 			);
 		}
 		if ((resource.transitions[terminalState] ?? []).length > 0) {
 			throw new TypeError(
-				`Product resource ${resource.id} terminal state ${terminalState} must not have outgoing transitions`,
+				`Operation resource spec ${resource.id} terminal state ${terminalState} must not have outgoing transitions`,
 			);
 		}
 	}

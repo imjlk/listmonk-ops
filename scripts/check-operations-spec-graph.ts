@@ -1,20 +1,20 @@
 import {
-	emailOperationsProductSchema,
-} from "../packages/product-schema/src";
+	emailOperationsSpec,
+} from "../packages/operations/src/specs";
 import type { GraphDump } from "./check-graph-architecture";
 
-export type ProductSchemaGraphEdge = {
+export type OperationsSpecGraphEdge = {
 	operationId: string;
 	kind: "calls" | "type_ref";
 	from: string;
 	to: string;
 };
 
-export const productSchemaOperationCount =
-	emailOperationsProductSchema.operations.length;
+export const operationsSpecOperationCount =
+	emailOperationsSpec.operations.length;
 
-export const productSchemaGraphEdges: readonly ProductSchemaGraphEdge[] =
-	emailOperationsProductSchema.operations.flatMap((operation) => [
+export const operationsSpecGraphEdges: readonly OperationsSpecGraphEdge[] =
+	emailOperationsSpec.operations.flatMap((operation) => [
 		{
 			operationId: operation.id,
 			kind: "calls" as const,
@@ -35,9 +35,9 @@ export const productSchemaGraphEdges: readonly ProductSchemaGraphEdge[] =
 		},
 	]);
 
-export function assertProductSchemaGraph(
+export function assertOperationsSpecGraph(
 	graph: GraphDump,
-	contracts: readonly ProductSchemaGraphEdge[] = productSchemaGraphEdges,
+	contracts: readonly OperationsSpecGraphEdge[] = operationsSpecGraphEdges,
 ): void {
 	const nodes = new Set(graph.nodes.map((node) => node.id));
 	const edges = new Set(
@@ -65,7 +65,7 @@ export function assertProductSchemaGraph(
 
 	if (failures.length > 0) {
 		throw new Error(
-			`Product schema graph projection failed:\n${failures
+			`Operations spec graph projection failed:\n${failures
 				.map((failure) => `- ${failure}`)
 				.join("\n")}`,
 		);
@@ -74,8 +74,8 @@ export function assertProductSchemaGraph(
 
 if (import.meta.main) {
 	const graph = (await Bun.stdin.json()) as GraphDump;
-	assertProductSchemaGraph(graph);
+	assertOperationsSpecGraph(graph);
 	console.log(
-		`Product schema preserves ${productSchemaOperationCount} pilot operations across ${productSchemaGraphEdges.length} direct graph edges.`,
+		`Operations spec preserves ${operationsSpecOperationCount} pilot operations across ${operationsSpecGraphEdges.length} direct graph edges.`,
 	);
 }

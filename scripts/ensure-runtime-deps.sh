@@ -5,12 +5,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 COMMON_DIST="$ROOT_DIR/packages/common/dist/index.js"
 OPENAPI_DIST="$ROOT_DIR/packages/openapi/dist/index.js"
-PRODUCT_SCHEMA_DIST="$ROOT_DIR/packages/product-schema/dist/index.js"
 OPERATIONS_DIST="$ROOT_DIR/packages/operations/dist/index.js"
 AUTOMATION_DIST="$ROOT_DIR/packages/automation/dist/index.js"
 ABTEST_DIST="$ROOT_DIR/packages/abtest/dist/index.js"
 
-if [[ -f "$COMMON_DIST" && -f "$OPENAPI_DIST" && -f "$PRODUCT_SCHEMA_DIST" && -f "$OPERATIONS_DIST" && -f "$AUTOMATION_DIST" && -f "$ABTEST_DIST" ]]; then
+if [[ -f "$COMMON_DIST" && -f "$OPENAPI_DIST" && -f "$OPERATIONS_DIST" && -f "$AUTOMATION_DIST" && -f "$ABTEST_DIST" ]]; then
 	exit 0
 fi
 
@@ -22,10 +21,6 @@ fi
 
 if [[ ! -f "$OPENAPI_DIST" ]]; then
 	bun run --cwd "$ROOT_DIR/packages/openapi" build
-fi
-
-if [[ ! -f "$PRODUCT_SCHEMA_DIST" ]]; then
-	bun run --cwd "$ROOT_DIR/packages/product-schema" build
 fi
 
 if [[ ! -f "$OPERATIONS_DIST" ]]; then

@@ -38,7 +38,7 @@ type CatalogOperation = {
 		auditRequired: boolean;
 		dryRunSupported: boolean;
 	};
-	product?: Record<string, unknown>;
+	spec?: Record<string, unknown>;
 };
 
 type CatalogOutput = {
@@ -132,7 +132,7 @@ function stableCatalogFields(output: CatalogOutput) {
 		outputSchema: operation.outputSchema,
 		safety: operation.safety,
 		execution: operation.execution,
-		product: operation.product,
+		spec: operation.spec,
 	}));
 }
 
@@ -152,7 +152,7 @@ describe("operation catalog MCP adapter", () => {
 								execution: {
 									type: "object",
 								},
-								product: {
+								spec: {
 									type: "object",
 								},
 							},
@@ -191,7 +191,7 @@ describe("operation catalog MCP adapter", () => {
 		expect(
 			listMcpOperationCatalogSummaries("subscribers").find(
 				(operation) => operation.id === "subscribers.blocklist",
-			)?.product,
+			)?.spec,
 		).toMatchObject({
 			resource: "subscriber",
 			verb: "blocklist",

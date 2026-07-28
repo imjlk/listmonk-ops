@@ -1,27 +1,27 @@
 import { describe, expect, test } from "bun:test";
 import {
 	assertRuntimeOperationProjection,
-	campaignGetProductOperation,
+	campaignGetOperationSpec,
 	campaignResource,
-	campaignScheduleProductOperation,
-	defineEmailOperationsProductSchema,
-	defineProductOperation,
-	defineProductResource,
-	emailOperationsProductSchema,
+	campaignScheduleOperationSpec,
+	defineEmailOperationsSpec,
+	defineOperationSpec,
+	defineOperationResourceSpec,
+	emailOperationsSpec,
 	expectedPolicyForEffects,
-	projectProductOperation,
-	subscriberBlocklistProductOperation,
+	projectOperationSpec,
+	subscriberBlocklistOperationSpec,
 	subscriberResource,
-} from "../src";
+} from "../src/specs";
 
-describe("email operations product schema", () => {
+describe("email operations specification", () => {
 	test("models the three pilot operations as normalized typed contracts", () => {
-		expect(emailOperationsProductSchema.operations.map(({ id }) => id)).toEqual([
+		expect(emailOperationsSpec.operations.map(({ id }) => id)).toEqual([
 			"campaigns.get",
 			"campaigns.schedule",
 			"subscribers.blocklist",
 		]);
-		expect(campaignGetProductOperation.contract.input).toMatchObject({
+		expect(campaignGetOperationSpec.contract.input).toMatchObject({
 			dialect: "openapi-3.1",
 			stage: "normalized",
 			schema: {
@@ -30,21 +30,21 @@ describe("email operations product schema", () => {
 			},
 		});
 		expect(
-			subscriberBlocklistProductOperation.contract.input.schema.required,
+			subscriberBlocklistOperationSpec.contract.input.schema.required,
 		).toEqual([
 			"subscriber_ids",
 			"dry_run",
 			"max_items",
 			"continue_on_error",
 		]);
-		expect(campaignScheduleProductOperation.retry).toEqual(
+		expect(campaignScheduleOperationSpec.retry).toEqual(
 			expect.objectContaining({
 				kind: "reconcile",
 				reconcileWith: "campaigns.get",
 				idempotent: true,
 			}),
 		);
-		expect(campaignScheduleProductOperation.agent.prerequisites).toContain(
+		expect(campaignScheduleOperationSpec.agent.prerequisites).toContain(
 			"ops.campaign.preflight",
 		);
 	});
@@ -135,14 +135,14 @@ describe("email operations product schema", () => {
 
 	test("rejects duplicate identities and invalid resource transitions", () => {
 		expect(() =>
-			defineEmailOperationsProductSchema({
+			defineEmailOperationsSpec({
 				schemaVersion: "test",
 				title: "Duplicate",
 				description: "Duplicate fixture",
 				resources: [campaignResource, subscriberResource],
 				operations: [
-					campaignGetProductOperation,
-					campaignGetProductOperation,
+					campaignGetOperationSpec,
+					campaignGetOperationSpec,
 				],
 				events: [],
 				playbooks: [],
@@ -150,14 +150,14 @@ describe("email operations product schema", () => {
 		).toThrow("duplicate operation id");
 
 		expect(() =>
-			defineEmailOperationsProductSchema({
+			defineEmailOperationsSpec({
 				schemaVersion: "test",
 				title: "Invalid transition",
 				description: "Invalid transition fixture",
 				resources: [campaignResource, subscriberResource],
 				operations: [
 					{
-						...campaignScheduleProductOperation,
+						...campaignScheduleOperationSpec,
 						state: {
 							resource: "campaign",
 							from: ["finished"],
@@ -174,7 +174,7 @@ describe("email operations product schema", () => {
 
 	test("rejects invalid state machines and dangling playbook or event references", () => {
 		expect(() =>
-			defineProductResource({
+			defineOperationResourceSpec({
 				id: "campaign",
 				title: "Invalid terminal resource",
 				states: ["draft", "finished"],
@@ -187,25 +187,25 @@ describe("email operations product schema", () => {
 		).toThrow("must not have outgoing transitions");
 
 		expect(() =>
-			defineProductOperation({
-				...campaignScheduleProductOperation,
+			defineOperationSpec({
+				...campaignScheduleOperationSpec,
 				state: {
-					...campaignScheduleProductOperation.state,
+					...campaignScheduleOperationSpec.state,
 					from: [],
 				},
 			}),
 		).toThrow("at least one source state");
 
 		expect(() =>
-			defineProductOperation({
-				...campaignGetProductOperation,
+			defineOperationSpec({
+				...campaignGetOperationSpec,
 				verb: "list",
 			}),
 		).toThrow("id verb (get) must match declared verb (list)");
 
 		expect(() =>
-			defineProductOperation({
-				...campaignGetProductOperation,
+			defineOperationSpec({
+				...campaignGetOperationSpec,
 				effects: [{ kind: "read", resource: "subscriber" }],
 			}),
 		).toThrow(
@@ -213,10 +213,10 @@ describe("email operations product schema", () => {
 		);
 
 		expect(() =>
-			defineProductOperation({
-				...campaignScheduleProductOperation,
+			defineOperationSpec({
+				...campaignScheduleOperationSpec,
 				state: {
-					...campaignScheduleProductOperation.state,
+					...campaignScheduleOperationSpec.state,
 					resource: "subscriber",
 				},
 			}),
@@ -225,12 +225,12 @@ describe("email operations product schema", () => {
 		);
 
 		expect(() =>
-			defineProductOperation({
-				...campaignGetProductOperation,
+			defineOperationSpec({
+				...campaignGetOperationSpec,
 				projection: {
-					...campaignGetProductOperation.projection,
+					...campaignGetOperationSpec.projection,
 					graph: {
-						...campaignGetProductOperation.projection.graph,
+						...campaignGetOperationSpec.projection.graph,
 						executorNode: " ",
 					},
 				},
@@ -238,16 +238,16 @@ describe("email operations product schema", () => {
 		).toThrow("projection graph executorNode must not be blank");
 
 		expect(() =>
-			defineEmailOperationsProductSchema({
+			defineEmailOperationsSpec({
 				schemaVersion: "test",
 				title: "Raw invalid transition",
 				description: "Raw operation fixture",
 				resources: [campaignResource, subscriberResource],
 				operations: [
 					{
-						...campaignScheduleProductOperation,
+						...campaignScheduleOperationSpec,
 						state: {
-							...campaignScheduleProductOperation.state,
+							...campaignScheduleOperationSpec.state,
 							from: [],
 						},
 					},
@@ -258,12 +258,12 @@ describe("email operations product schema", () => {
 		).toThrow("at least one source state");
 
 		expect(() =>
-			defineEmailOperationsProductSchema({
+			defineEmailOperationsSpec({
 				schemaVersion: "test",
 				title: "Dangling playbook",
 				description: "Dangling playbook fixture",
 				resources: [campaignResource, subscriberResource],
-				operations: [campaignGetProductOperation],
+				operations: [campaignGetOperationSpec],
 				events: [],
 				playbooks: [
 					{
@@ -285,12 +285,12 @@ describe("email operations product schema", () => {
 		).toThrow("references unknown operation campaigns.schedule");
 
 		expect(() =>
-			defineEmailOperationsProductSchema({
+			defineEmailOperationsSpec({
 				schemaVersion: "test",
 				title: "Dangling event",
 				description: "Dangling event fixture",
 				resources: [campaignResource, subscriberResource],
-				operations: [campaignGetProductOperation],
+				operations: [campaignGetOperationSpec],
 				events: [
 					{
 						type: "provider.drifted",
@@ -308,11 +308,11 @@ describe("email operations product schema", () => {
 
 	test("keeps runtime metadata aligned while returning detached projections", () => {
 		expect(() =>
-			assertRuntimeOperationProjection(campaignGetProductOperation, {
-				id: campaignGetProductOperation.id,
-				title: campaignGetProductOperation.title,
-				description: campaignGetProductOperation.description,
-				mcpName: campaignGetProductOperation.projection.mcpName,
+			assertRuntimeOperationProjection(campaignGetOperationSpec, {
+				id: campaignGetOperationSpec.id,
+				title: campaignGetOperationSpec.title,
+				description: campaignGetOperationSpec.description,
+				mcpName: campaignGetOperationSpec.projection.mcpName,
 				safety: {
 					readOnlyHint: true,
 					destructiveHint: false,
@@ -322,11 +322,11 @@ describe("email operations product schema", () => {
 			}),
 		).not.toThrow();
 		expect(() =>
-			assertRuntimeOperationProjection(campaignGetProductOperation, {
-				id: campaignGetProductOperation.id,
+			assertRuntimeOperationProjection(campaignGetOperationSpec, {
+				id: campaignGetOperationSpec.id,
 				title: "Drifted",
-				description: campaignGetProductOperation.description,
-				mcpName: campaignGetProductOperation.projection.mcpName,
+				description: campaignGetOperationSpec.description,
+				mcpName: campaignGetOperationSpec.projection.mcpName,
 				safety: {
 					readOnlyHint: true,
 					destructiveHint: false,
@@ -339,17 +339,17 @@ describe("email operations product schema", () => {
 		expect(() =>
 			assertRuntimeOperationProjection(
 				{
-					...campaignScheduleProductOperation,
+					...campaignScheduleOperationSpec,
 					retry: {
-						...campaignScheduleProductOperation.retry,
+						...campaignScheduleOperationSpec.retry,
 						idempotent: false,
 					},
 				},
 				{
-					id: campaignScheduleProductOperation.id,
-					title: campaignScheduleProductOperation.title,
-					description: campaignScheduleProductOperation.description,
-					mcpName: campaignScheduleProductOperation.projection.mcpName,
+					id: campaignScheduleOperationSpec.id,
+					title: campaignScheduleOperationSpec.title,
+					description: campaignScheduleOperationSpec.description,
+					mcpName: campaignScheduleOperationSpec.projection.mcpName,
 					safety: {
 						readOnlyHint: false,
 						destructiveHint: true,
@@ -360,10 +360,10 @@ describe("email operations product schema", () => {
 			),
 		).not.toThrow();
 
-		const projected = projectProductOperation(
-			subscriberBlocklistProductOperation,
+		const projected = projectOperationSpec(
+			subscriberBlocklistOperationSpec,
 		);
-		expect(projected).toEqual(subscriberBlocklistProductOperation);
-		expect(projected).not.toBe(subscriberBlocklistProductOperation);
+		expect(projected).toEqual(subscriberBlocklistOperationSpec);
+		expect(projected).not.toBe(subscriberBlocklistOperationSpec);
 	});
 });

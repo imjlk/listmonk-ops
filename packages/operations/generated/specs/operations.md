@@ -1,6 +1,6 @@
-# Email Operations Product Schema
+# Email Operations Specification
 
-> Generated from `@listmonk-ops/product-schema`. Do not edit manually.
+> Generated from `@listmonk-ops/operations/specs`. Do not edit manually.
 
 ## `campaigns.get`
 
@@ -11,7 +11,7 @@ Get a campaign by ID
 - Effects: `read:campaign`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.1.0`
+- Stability: `experimental` since `0.6.0`
 
 ## `campaigns.schedule`
 
@@ -22,7 +22,7 @@ Schedule a campaign to send at a specific time. Validates the current status all
 - Effects: `delivery:bulk:scheduled`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.1.0`
+- Stability: `experimental` since `0.6.0`
 - State: `draft -> scheduled` (target-state no-op allowed)
 
 ## `subscribers.blocklist`
@@ -34,5 +34,5 @@ Add a batch of subscribers to the blocklist (action: add). Processes subscribers
 - Effects: `suppression:audience`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `safe`
-- Stability: `experimental` since `0.1.0`
+- Stability: `experimental` since `0.6.0`
 - State: `enabled | disabled -> blocklisted` (target-state no-op allowed)

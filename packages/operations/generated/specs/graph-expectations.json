@@ -5,12 +5,12 @@
         {
           "from": "packages/operations/src/campaigns.ts#getCampaignOperation:variable",
           "kind": "calls",
-          "to": "packages/product-schema/src/pilot.ts#bindCampaignGetProductOperation:function"
+          "to": "packages/operations/src/specs/pilot.ts#bindCampaignGetOperationSpec:function"
         },
         {
-          "from": "packages/product-schema/src/pilot.ts#bindCampaignGetProductOperation:function",
+          "from": "packages/operations/src/specs/pilot.ts#bindCampaignGetOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/product-schema/src/pilot.ts#campaignGetProductOperation:variable"
+          "to": "packages/operations/src/specs/pilot.ts#campaignGetOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/campaigns.ts#invokeGetCampaignOperation:function",
@@ -19,8 +19,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/product-schema/src/pilot.ts#bindCampaignGetProductOperation:function",
-        "descriptorNode": "packages/product-schema/src/pilot.ts#campaignGetProductOperation:variable",
+        "bindingNode": "packages/operations/src/specs/pilot.ts#bindCampaignGetOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/pilot.ts#campaignGetOperationSpec:variable",
         "executorNode": "packages/operations/src/campaigns.ts#getCampaign:function",
         "invokerNode": "packages/operations/src/campaigns.ts#invokeGetCampaignOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#getCampaignOperation:variable"
@@ -32,12 +32,12 @@
         {
           "from": "packages/operations/src/campaigns.ts#scheduleCampaignOperation:variable",
           "kind": "calls",
-          "to": "packages/product-schema/src/pilot.ts#bindCampaignScheduleProductOperation:function"
+          "to": "packages/operations/src/specs/pilot.ts#bindCampaignScheduleOperationSpec:function"
         },
         {
-          "from": "packages/product-schema/src/pilot.ts#bindCampaignScheduleProductOperation:function",
+          "from": "packages/operations/src/specs/pilot.ts#bindCampaignScheduleOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/product-schema/src/pilot.ts#campaignScheduleProductOperation:variable"
+          "to": "packages/operations/src/specs/pilot.ts#campaignScheduleOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/campaigns.ts#invokeScheduleCampaignOperation:function",
@@ -46,8 +46,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/product-schema/src/pilot.ts#bindCampaignScheduleProductOperation:function",
-        "descriptorNode": "packages/product-schema/src/pilot.ts#campaignScheduleProductOperation:variable",
+        "bindingNode": "packages/operations/src/specs/pilot.ts#bindCampaignScheduleOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/pilot.ts#campaignScheduleOperationSpec:variable",
         "executorNode": "packages/operations/src/campaigns.ts#scheduleCampaign:function",
         "invokerNode": "packages/operations/src/campaigns.ts#invokeScheduleCampaignOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#scheduleCampaignOperation:variable"
@@ -59,12 +59,12 @@
         {
           "from": "packages/operations/src/subscribers.ts#blocklistSubscribersOperation:variable",
           "kind": "calls",
-          "to": "packages/product-schema/src/pilot.ts#bindSubscriberBlocklistProductOperation:function"
+          "to": "packages/operations/src/specs/pilot.ts#bindSubscriberBlocklistOperationSpec:function"
         },
         {
-          "from": "packages/product-schema/src/pilot.ts#bindSubscriberBlocklistProductOperation:function",
+          "from": "packages/operations/src/specs/pilot.ts#bindSubscriberBlocklistOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/product-schema/src/pilot.ts#subscriberBlocklistProductOperation:variable"
+          "to": "packages/operations/src/specs/pilot.ts#subscriberBlocklistOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/subscribers.ts#invokeBlocklistSubscribersOperation:function",
@@ -73,8 +73,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/product-schema/src/pilot.ts#bindSubscriberBlocklistProductOperation:function",
-        "descriptorNode": "packages/product-schema/src/pilot.ts#subscriberBlocklistProductOperation:variable",
+        "bindingNode": "packages/operations/src/specs/pilot.ts#bindSubscriberBlocklistOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/pilot.ts#subscriberBlocklistOperationSpec:variable",
         "executorNode": "packages/operations/src/subscribers.ts#blocklistSubscribers:function",
         "invokerNode": "packages/operations/src/subscribers.ts#invokeBlocklistSubscribersOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#blocklistSubscribersOperation:variable"

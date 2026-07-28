@@ -1,15 +1,15 @@
 import generatedContractSchemas from "./generated/contract-schemas.json" with {
 	type: "json",
 };
-import type { ProductContractSchema } from "./json";
+import type { NormalizedContractSchema } from "./json";
 
 const contracts = generatedContractSchemas as unknown as Readonly<{
-	campaignGetInputContract: ProductContractSchema;
-	campaignGetOutputContract: ProductContractSchema;
-	campaignScheduleInputContract: ProductContractSchema;
-	campaignScheduleOutputContract: ProductContractSchema;
-	subscriberBlocklistInputContract: ProductContractSchema;
-	subscriberBulkOutputContract: ProductContractSchema;
+	campaignGetInputContract: NormalizedContractSchema;
+	campaignGetOutputContract: NormalizedContractSchema;
+	campaignScheduleInputContract: NormalizedContractSchema;
+	campaignScheduleOutputContract: NormalizedContractSchema;
+	subscriberBlocklistInputContract: NormalizedContractSchema;
+	subscriberBulkOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;

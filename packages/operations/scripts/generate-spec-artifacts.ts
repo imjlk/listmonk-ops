@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
-import { emailOperationsProductSchema, type AnyProductOperation } from "../src";
+import { emailOperationsSpec, type AnyOperationSpec } from "../src/specs";
 
-const outputDirectory = resolve(import.meta.dir, "../generated");
+const outputDirectory = resolve(import.meta.dir, "../generated/specs");
 const checkOnly = Bun.argv.includes("--check");
 
 function stableValue(value: unknown): unknown {
@@ -29,7 +29,7 @@ function markdownArtifact(value: string): string {
 	return `${value.trimEnd()}\n`;
 }
 
-function renderEffects(operation: AnyProductOperation): string {
+function renderEffects(operation: AnyOperationSpec): string {
 	return operation.effects
 		.map((effect) => {
 			switch (effect.kind) {
@@ -55,7 +55,7 @@ function renderEffects(operation: AnyProductOperation): string {
 }
 
 function renderOperationReference(): string {
-	const sections = emailOperationsProductSchema.operations.map((operation) => {
+	const sections = emailOperationsSpec.operations.map((operation) => {
 		const transition = operation.state
 			? `\n- State: \`${operation.state.from.join(" | ")} -> ${operation.state.to}\`${operation.state.allowNoopFromTarget ? " (target-state no-op allowed)" : ""}`
 			: "";
@@ -74,16 +74,16 @@ function renderOperationReference(): string {
 		].join("\n");
 	});
 	return [
-		"# Email Operations Product Schema",
+		"# Email Operations Specification",
 		"",
-		"> Generated from `@listmonk-ops/product-schema`. Do not edit manually.",
+		"> Generated from `@listmonk-ops/operations/specs`. Do not edit manually.",
 		"",
 		...sections,
 	].join("\n");
 }
 
 function renderAgentSkill(): string {
-	const sections = emailOperationsProductSchema.operations.map((operation) => [
+	const sections = emailOperationsSpec.operations.map((operation) => [
 		`## ${operation.title} (\`${operation.id}\`)`,
 		"",
 		`Use when: ${operation.agent.useWhen.join(" ")}`,
@@ -100,15 +100,15 @@ function renderAgentSkill(): string {
 	return [
 		"# listmonk-ops agent operation reference",
 		"",
-		"> Generated from the product schema. Runtime safety gates and explicit confirmation remain authoritative.",
+		"> Generated from the Email Operations Specification. Runtime safety gates and explicit confirmation remain authoritative.",
 		"",
 		...sections,
 	].join("\n");
 }
 
 const schemaSnapshot = {
-	schemaVersion: emailOperationsProductSchema.schemaVersion,
-	operations: emailOperationsProductSchema.operations.map((operation) => ({
+	schemaVersion: emailOperationsSpec.schemaVersion,
+	operations: emailOperationsSpec.operations.map((operation) => ({
 		id: operation.id,
 		input: operation.contract.input,
 		output: operation.contract.output,
@@ -120,8 +120,8 @@ const schemaSnapshot = {
 };
 
 const graphExpectations = {
-	schemaVersion: emailOperationsProductSchema.schemaVersion,
-	operations: emailOperationsProductSchema.operations.map((operation) => ({
+	schemaVersion: emailOperationsSpec.schemaVersion,
+	operations: emailOperationsSpec.operations.map((operation) => ({
 		operationId: operation.id,
 		nodes: operation.projection.graph,
 		edges: [
@@ -145,7 +145,7 @@ const graphExpectations = {
 };
 
 const artifacts = {
-	"product-schema.json": stableJson(emailOperationsProductSchema),
+	"operations-spec.json": stableJson(emailOperationsSpec),
 	"schema-snapshot.json": stableJson(schemaSnapshot),
 	"graph-expectations.json": stableJson(graphExpectations),
 	"operations.md": markdownArtifact(renderOperationReference()),
@@ -158,7 +158,7 @@ for (const [fileName, expected] of Object.entries(artifacts)) {
 	if (checkOnly) {
 		if (current !== expected) {
 			throw new Error(
-				`Generated product-schema artifact ${fileName} is stale. Run \`bun run --cwd packages/product-schema generate\`.`,
+				`Generated operations-spec artifact ${fileName} is stale. Run \`bun run --cwd packages/operations generate:specs\`.`,
 			);
 		}
 	} else {

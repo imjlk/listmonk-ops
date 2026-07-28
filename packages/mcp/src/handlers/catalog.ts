@@ -41,10 +41,10 @@ const operationSummarySchema = {
 			},
 			required: ["confirmationRequired", "auditRequired", "dryRunSupported"],
 		},
-		product: {
+		spec: {
 			type: "object",
 			description:
-				"Optional Email Operations Product Schema descriptor with normalized contracts, effects, policy, retry, state, agent guidance, and projection metadata",
+				"Optional Email Operations Spec descriptor with normalized contracts, effects, policy, retry, state, agent guidance, and projection metadata",
 		},
 	},
 	required: [

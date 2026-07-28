@@ -1,16 +1,16 @@
 import type { OperationId } from "./retry";
 
-export interface ProductPlaybookStep {
+export interface OperationPlaybookStep {
 	id: string;
 	operation: OperationId;
 	approval: "none" | "human";
 	description: string;
 }
 
-export interface ProductPlaybook {
+export interface OperationPlaybook {
 	id: `${string}.${string}`;
 	title: string;
 	goal: string;
-	steps: readonly [ProductPlaybookStep, ...ProductPlaybookStep[]];
+	steps: readonly [OperationPlaybookStep, ...OperationPlaybookStep[]];
 	recoveryOperation: OperationId;
 }

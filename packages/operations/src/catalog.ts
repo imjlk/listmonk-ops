@@ -3,10 +3,7 @@ import type {
 	OperationMcpMetadata,
 	OperationSafety,
 } from "./operation";
-import {
-	projectProductOperation,
-	type AnyProductOperation,
-} from "@listmonk-ops/product-schema";
+import { projectOperationSpec, type AnyOperationSpec } from "./specs";
 import type { z } from "zod";
 import {
 	getOperationExecutionPolicy,
@@ -29,7 +26,7 @@ export type OperationCatalogItem = Readonly<{
 	outputJsonSchema: ObjectJsonSchema;
 	safety: OperationSafety;
 	mcp: OperationMcpMetadata;
-	product?: AnyProductOperation | undefined;
+	spec?: AnyOperationSpec | undefined;
 }>;
 
 export type OperationCatalog<
@@ -63,7 +60,7 @@ export type OperationCatalogSummary = Readonly<{
 	outputSchema: ObjectJsonSchema;
 	safety: OperationSafety;
 	execution: OperationExecutionPolicy;
-	product?: AnyProductOperation | undefined;
+	spec?: AnyOperationSpec | undefined;
 }>;
 
 function assertNonBlank(value: string, label: string): void {
@@ -190,10 +187,10 @@ function toSummary(entry: OperationCatalogEntry): OperationCatalogSummary {
 		safety: { ...operation.safety },
 		execution: getOperationExecutionPolicy(operation),
 	};
-	if (operation.product !== undefined) {
+	if (operation.spec !== undefined) {
 		return {
 			...summary,
-			product: projectProductOperation(operation.product),
+			spec: projectOperationSpec(operation.spec),
 		};
 	}
 	return summary;

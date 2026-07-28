@@ -1,5 +1,4 @@
 export * from "./agent";
-export * from "./contracts";
 export * from "./effect";
 export * from "./event";
 export * from "./json";

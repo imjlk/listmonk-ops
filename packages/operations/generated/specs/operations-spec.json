@@ -473,8 +473,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/product-schema/src/pilot.ts#bindCampaignGetProductOperation:function",
-          "descriptorNode": "packages/product-schema/src/pilot.ts#campaignGetProductOperation:variable",
+          "bindingNode": "packages/operations/src/specs/pilot.ts#bindCampaignGetOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/pilot.ts#campaignGetOperationSpec:variable",
           "executorNode": "packages/operations/src/campaigns.ts#getCampaign:function",
           "invokerNode": "packages/operations/src/campaigns.ts#invokeGetCampaignOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#getCampaignOperation:variable"
@@ -487,7 +487,7 @@
         "kind": "safe",
         "reason": "The operation only reads the current campaign representation."
       },
-      "since": "0.1.0",
+      "since": "0.6.0",
       "stability": "experimental",
       "title": "Get campaign",
       "verb": "get"
@@ -632,8 +632,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/product-schema/src/pilot.ts#bindCampaignScheduleProductOperation:function",
-          "descriptorNode": "packages/product-schema/src/pilot.ts#campaignScheduleProductOperation:variable",
+          "bindingNode": "packages/operations/src/specs/pilot.ts#bindCampaignScheduleOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/pilot.ts#campaignScheduleOperationSpec:variable",
           "executorNode": "packages/operations/src/campaigns.ts#scheduleCampaign:function",
           "invokerNode": "packages/operations/src/campaigns.ts#invokeScheduleCampaignOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#scheduleCampaignOperation:variable"
@@ -648,7 +648,7 @@
         "reason": "Scheduling writes send_at before the status transition, so a timeout can leave an ambiguous remote state.",
         "reconcileWith": "campaigns.get"
       },
-      "since": "0.1.0",
+      "since": "0.6.0",
       "stability": "experimental",
       "state": {
         "allowNoopFromTarget": true,
@@ -850,8 +850,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/product-schema/src/pilot.ts#bindSubscriberBlocklistProductOperation:function",
-          "descriptorNode": "packages/product-schema/src/pilot.ts#subscriberBlocklistProductOperation:variable",
+          "bindingNode": "packages/operations/src/specs/pilot.ts#bindSubscriberBlocklistOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/pilot.ts#subscriberBlocklistOperationSpec:variable",
           "executorNode": "packages/operations/src/subscribers.ts#blocklistSubscribers:function",
           "invokerNode": "packages/operations/src/subscribers.ts#invokeBlocklistSubscribersOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#blocklistSubscribersOperation:variable"
@@ -864,7 +864,7 @@
         "kind": "safe",
         "reason": "Re-applying blocklist to the same subscriber IDs is idempotent, including after partial chunk completion."
       },
-      "since": "0.1.0",
+      "since": "0.6.0",
       "stability": "experimental",
       "state": {
         "allowNoopFromTarget": true,
@@ -940,5 +940,5 @@
     }
   ],
   "schemaVersion": "1.0.0",
-  "title": "listmonk-ops Email Operations Product Schema"
+  "title": "listmonk-ops Email Operations Specification"
 }

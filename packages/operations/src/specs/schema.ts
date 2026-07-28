@@ -1,16 +1,16 @@
-import type { ProductEventDefinition } from "./event";
-import type { AnyProductOperation } from "./operation";
-import type { ProductPlaybook } from "./playbook";
-import type { ProductResource } from "./resource";
+import type { OperationEventSpec } from "./event";
+import type { AnyOperationSpec } from "./operation";
+import type { OperationPlaybook } from "./playbook";
+import type { OperationResourceSpec } from "./resource";
 
-export interface EmailOperationsProductSchema {
+export interface EmailOperationsSpec {
 	schemaVersion: string;
 	title: string;
 	description: string;
-	resources: readonly ProductResource[];
-	operations: readonly AnyProductOperation[];
-	events: readonly ProductEventDefinition[];
-	playbooks: readonly ProductPlaybook[];
+	resources: readonly OperationResourceSpec[];
+	operations: readonly AnyOperationSpec[];
+	events: readonly OperationEventSpec[];
+	playbooks: readonly OperationPlaybook[];
 }
 
 function assertDistinct(
@@ -21,7 +21,7 @@ function assertDistinct(
 	for (const value of values) {
 		if (seen.has(value)) {
 			throw new TypeError(
-				`Product schema contains duplicate ${label}: ${value}`,
+				`Operations spec contains duplicate ${label}: ${value}`,
 			);
 		}
 		seen.add(value);
@@ -29,57 +29,57 @@ function assertDistinct(
 }
 
 function validateStateTransition(
-	operation: AnyProductOperation,
-	resources: ReadonlyMap<string, ProductResource>,
+	operation: AnyOperationSpec,
+	resources: ReadonlyMap<string, OperationResourceSpec>,
 ): void {
 	if (operation.state === undefined) {
 		return;
 	}
 	if (operation.state.resource !== operation.resource) {
 		throw new TypeError(
-			`Product operation ${operation.id} state resource does not match operation resource`,
+			`Operation spec ${operation.id} state resource does not match operation resource`,
 		);
 	}
 	const resource = resources.get(operation.state.resource);
 	if (!resource) {
 		throw new TypeError(
-			`Product operation ${operation.id} references unknown state resource ${operation.state.resource}`,
+			`Operation spec ${operation.id} references unknown state resource ${operation.state.resource}`,
 		);
 	}
 	const states = new Set<string>(resource.states);
 	if (!states.has(operation.state.to)) {
 		throw new TypeError(
-			`Product operation ${operation.id} has unknown target state ${operation.state.to}`,
+			`Operation spec ${operation.id} has unknown target state ${operation.state.to}`,
 		);
 	}
 	if (operation.state.from.length === 0) {
 		throw new TypeError(
-			`Product operation ${operation.id} state transition must declare at least one source state`,
+			`Operation spec ${operation.id} state transition must declare at least one source state`,
 		);
 	}
 	for (const from of operation.state.from) {
 		if (!states.has(from)) {
 			throw new TypeError(
-				`Product operation ${operation.id} has unknown source state ${from}`,
+				`Operation spec ${operation.id} has unknown source state ${from}`,
 			);
 		}
 		const allowed = resource.transitions[from] ?? [];
 		if (!allowed.includes(operation.state.to)) {
 			throw new TypeError(
-				`Product operation ${operation.id} declares invalid transition ${from} -> ${operation.state.to}`,
+				`Operation spec ${operation.id} declares invalid transition ${from} -> ${operation.state.to}`,
 			);
 		}
 	}
 }
 
-export function defineEmailOperationsProductSchema(
-	schema: EmailOperationsProductSchema,
-): EmailOperationsProductSchema {
+export function defineEmailOperationsSpec(
+	schema: EmailOperationsSpec,
+): EmailOperationsSpec {
 	if (schema.resources.length === 0) {
-		throw new TypeError("Product schema must define resources");
+		throw new TypeError("Operations spec must define resources");
 	}
 	if (schema.operations.length === 0) {
-		throw new TypeError("Product schema must define operations");
+		throw new TypeError("Operations spec must define operations");
 	}
 	assertDistinct(
 		schema.resources.map((resource) => resource.id),
@@ -111,7 +111,7 @@ export function defineEmailOperationsProductSchema(
 	for (const operation of schema.operations) {
 		if (!resources.has(operation.resource)) {
 			throw new TypeError(
-				`Product operation ${operation.id} references unknown resource ${operation.resource}`,
+				`Operation spec ${operation.id} references unknown resource ${operation.resource}`,
 			);
 		}
 		validateStateTransition(operation, resources);
@@ -119,7 +119,7 @@ export function defineEmailOperationsProductSchema(
 	for (const event of schema.events) {
 		if (!resources.has(event.subject)) {
 			throw new TypeError(
-				`Product event ${event.type} references unknown resource ${event.subject}`,
+				`Operation event spec ${event.type} references unknown resource ${event.subject}`,
 			);
 		}
 	}
@@ -127,13 +127,13 @@ export function defineEmailOperationsProductSchema(
 		for (const step of playbook.steps) {
 			if (!operationIds.has(step.operation)) {
 				throw new TypeError(
-					`Product playbook ${playbook.id} step ${step.id} references unknown operation ${step.operation}`,
+					`Operation playbook ${playbook.id} step ${step.id} references unknown operation ${step.operation}`,
 				);
 			}
 		}
 		if (!operationIds.has(playbook.recoveryOperation)) {
 			throw new TypeError(
-				`Product playbook ${playbook.id} references unknown recovery operation ${playbook.recoveryOperation}`,
+				`Operation playbook ${playbook.id} references unknown recovery operation ${playbook.recoveryOperation}`,
 			);
 		}
 	}

@@ -22,7 +22,7 @@
 		"dev": "bun src/index.ts",
 		"build": "ttsc",
 		"start": "bun dist/index.js",
-		"test": "bun run --cwd ../common build && bun run --cwd ../openapi build && bun run --cwd ../product-schema build && bun run --cwd ../operations build && bun run --cwd ../automation build && bun run --cwd ../abtest build && bun run build && bun test tests/unit",
+		"test": "bun run --cwd ../common build && bun run --cwd ../openapi build && bun run --cwd ../operations build && bun run --cwd ../automation build && bun run --cwd ../abtest build && bun run build && bun test tests/unit",
 		"test:e2e": "bun test tests/e2e",
 		"typecheck": "ttsc --noEmit",
 		"format": "ttsc format",

@@ -25,7 +25,7 @@ async function runCheck(cwd: string, base: string) {
 }
 
 describe("Sampo changeset guard", () => {
-	test("requires a changeset for product-schema-only changes", async () => {
+	test("requires an operations changeset for specs-only changes", async () => {
 		const repository = await mkdtemp(
 			join(tmpdir(), "listmonk-ops-sampo-check-"),
 		);
@@ -39,27 +39,29 @@ describe("Sampo changeset guard", () => {
 			const packageDirectory = join(
 				repository,
 				"packages",
-				"product-schema",
+				"operations",
+				"src",
+				"specs",
 			);
 			await mkdir(packageDirectory, { recursive: true });
-			const packageFile = join(packageDirectory, "package.json");
-			await writeFile(packageFile, '{"version":"0.0.0"}\n');
+			const packageFile = join(packageDirectory, "operation.ts");
+			await writeFile(packageFile, "export const version = 0;\n");
 			await run(["git", "add", "."], repository);
 			await run(["git", "commit", "-m", "initial"], repository);
 			const base = (await run(["git", "rev-parse", "HEAD"], repository)).trim();
 
-			await writeFile(packageFile, '{"version":"0.0.1"}\n');
+			await writeFile(packageFile, "export const version = 1;\n");
 			const missing = await runCheck(repository, base);
 			expect(missing.exitCode).toBe(1);
 			expect(missing.stdout).toContain(
-				"packages/product-schema/package.json",
+				"packages/operations/src/specs/operation.ts",
 			);
 
 			const changesetDirectory = join(repository, ".sampo", "changesets");
 			await mkdir(changesetDirectory, { recursive: true });
 			await writeFile(
-				join(changesetDirectory, "product-schema.md"),
-				"---\nnpm/@listmonk-ops/product-schema: patch (Changed)\n---\n",
+				join(changesetDirectory, "operations-specs.md"),
+				"---\nnpm/@listmonk-ops/operations: patch (Changed)\n---\n",
 			);
 			const accepted = await runCheck(repository, base);
 			expect(accepted).toEqual(
