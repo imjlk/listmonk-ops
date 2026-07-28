@@ -13,14 +13,22 @@ functions preserve the registry validation and error contract while keeping
 CLI/MCP-to-domain call paths visible to static tooling. Surface packages remain
 responsible for authentication and presentation.
 
-Selected operations can also attach an
-`@listmonk-ops/operations/specs` descriptor. The operation definition validates
-that runtime identity, safety hints, and MCP metadata still match the operation
-declaration, while catalog summaries expose a detached descriptor for agent
-discovery. This does not replace Zod runtime validation or the named executor
-path.
+Seven operations attach an `@listmonk-ops/operations/specs` descriptor: the
+campaign get/schedule/start/cancel lifecycle, subscriber blocklisting,
+transactional send, and campaign preflight operations. The operation
+definition validates that runtime identity, safety hints, and MCP metadata
+still match the declaration, while catalog summaries expose a detached
+descriptor for agent discovery. This does not replace Zod runtime validation
+or the named executor path.
+
+The same subpath exports the guarded `campaign.safe-start` typed playbook and
+the staged migration manifest. Every shared `defineOperation()` call must bind
+exactly one descriptor or dated migration exemption. Each family catalog
+checks its exemption set, and the repository's post-build coverage gate checks
+all shared families together.
 
 The specs live in `src/specs` and are published as a subpath of this package,
 not as a separate workspace. After changing a normalized contract or
 descriptor, run `bun run generate:specs`; generated references are checked in
-under `generated/specs`.
+under `generated/specs`, including operation, playbook, agent-skill, graph, and
+migration-exemption artifacts.

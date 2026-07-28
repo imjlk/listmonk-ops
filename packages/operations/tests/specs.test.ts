@@ -1,25 +1,36 @@
 import { describe, expect, test } from "bun:test";
 import {
 	assertRuntimeOperationProjection,
+	campaignCancelOperationSpec,
 	campaignGetOperationSpec,
+	campaignPreflightOperationSpec,
 	campaignResource,
+	campaignSafeStartPlaybook,
 	campaignScheduleOperationSpec,
+	campaignStartOperationSpec,
 	defineEmailOperationsSpec,
+	defineOperationPlaybook,
 	defineOperationSpec,
 	defineOperationResourceSpec,
 	emailOperationsSpec,
 	expectedPolicyForEffects,
+	messageResource,
 	projectOperationSpec,
 	subscriberBlocklistOperationSpec,
 	subscriberResource,
+	transactionalSendOperationSpec,
 } from "../src/specs";
 
 describe("email operations specification", () => {
-	test("models the three pilot operations as normalized typed contracts", () => {
+	test("models pilot and high-risk operations as normalized typed contracts", () => {
 		expect(emailOperationsSpec.operations.map(({ id }) => id)).toEqual([
 			"campaigns.get",
 			"campaigns.schedule",
 			"subscribers.blocklist",
+			"campaigns.start",
+			"campaigns.cancel",
+			"transactional.send",
+			"ops.campaign.preflight",
 		]);
 		expect(campaignGetOperationSpec.contract.input).toMatchObject({
 			dialect: "openapi-3.1",
@@ -47,6 +58,27 @@ describe("email operations specification", () => {
 		expect(campaignScheduleOperationSpec.agent.prerequisites).toContain(
 			"ops.campaign.preflight",
 		);
+		expect(transactionalSendOperationSpec.retry).toMatchObject({
+			kind: "conditional",
+		});
+		expect(campaignStartOperationSpec.state).toEqual({
+			resource: "campaign",
+			from: ["draft", "scheduled", "paused"],
+			to: "running",
+			allowNoopFromTarget: true,
+		});
+		expect(campaignCancelOperationSpec.state?.to).toBe("cancelled");
+		expect(
+			campaignPreflightOperationSpec.contract.output.schema.type,
+		).toBe("object");
+		expect(
+			campaignPreflightOperationSpec.contract.output.schema.properties
+				?.checkedAt,
+		).toEqual({ $ref: "#/components/schemas/IsoDateTime" });
+		expect(
+			campaignPreflightOperationSpec.contract.output.components?.schemas
+				?.IsoDateTime,
+		).toMatchObject({ type: "string", format: "date-time" });
 	});
 
 	test("derives safety requirements from operation effects", () => {
@@ -67,6 +99,20 @@ describe("email operations specification", () => {
 			]),
 		).toEqual({
 			confirmation: "required",
+			audit: "required",
+			dryRun: false,
+		});
+		expect(
+			expectedPolicyForEffects([
+				{
+					kind: "delivery",
+					resource: "message",
+					audience: "single",
+					timing: "immediate",
+				},
+			]),
+		).toEqual({
+			confirmation: "never",
 			audit: "required",
 			dryRun: false,
 		});
@@ -262,7 +308,11 @@ describe("email operations specification", () => {
 				schemaVersion: "test",
 				title: "Dangling playbook",
 				description: "Dangling playbook fixture",
-				resources: [campaignResource, subscriberResource],
+				resources: [
+					campaignResource,
+					subscriberResource,
+					messageResource,
+				],
 				operations: [campaignGetOperationSpec],
 				events: [],
 				playbooks: [
@@ -270,12 +320,15 @@ describe("email operations specification", () => {
 						id: "campaign.invalid",
 						title: "Invalid",
 						goal: "Reference an unavailable operation",
+						inputs: [],
 						steps: [
 							{
 								id: "schedule",
 								operation: "campaigns.schedule",
 								approval: "human",
 								description: "Unavailable in this schema",
+								dependsOn: [],
+								input: [],
 							},
 						],
 						recoveryOperation: "campaigns.get",
@@ -304,6 +357,100 @@ describe("email operations specification", () => {
 				playbooks: [],
 			}),
 		).toThrow("references unknown resource provider");
+	});
+
+	test("defines a guarded human-approved campaign start playbook", () => {
+		expect(emailOperationsSpec.playbooks).toEqual([
+			campaignSafeStartPlaybook,
+		]);
+		expect(
+			campaignSafeStartPlaybook.steps.map(
+				({ id, operation, approval }) => ({
+					id,
+					operation,
+					approval,
+				}),
+			),
+		).toEqual([
+			{
+				id: "inspect",
+				operation: "campaigns.get",
+				approval: "none",
+			},
+			{
+				id: "preflight",
+				operation: "ops.campaign.preflight",
+				approval: "none",
+			},
+			{
+				id: "start",
+				operation: "campaigns.start",
+				approval: "human",
+			},
+			{
+				id: "verify",
+				operation: "campaigns.get",
+				approval: "none",
+			},
+		]);
+		expect(
+			campaignSafeStartPlaybook.steps[1]?.resultGuard,
+		).toMatchObject({
+			path: "summary.fail",
+			operator: "equals",
+			expected: 0,
+			onFailure: "stop",
+		});
+		expect(
+			campaignSafeStartPlaybook.steps[1]?.input.map(
+				({ parameter, source }) => ({ parameter, source }),
+			),
+		).toEqual([
+			{
+				parameter: "campaign_id",
+				source: { kind: "playbook-input", name: "campaign_id" },
+			},
+			{
+				parameter: "max_audience",
+				source: { kind: "literal", value: 200_000 },
+			},
+			{
+				parameter: "check_links",
+				source: { kind: "literal", value: true },
+			},
+			{
+				parameter: "link_check_timeout_ms",
+				source: { kind: "literal", value: 4_000 },
+			},
+		]);
+
+		expect(() =>
+			defineOperationPlaybook({
+				...campaignSafeStartPlaybook,
+				steps: [
+					{
+						...campaignSafeStartPlaybook.steps[0],
+						dependsOn: ["later"],
+					},
+				],
+			}),
+		).toThrow("depends on unavailable prior step later");
+
+		expect(() =>
+			defineEmailOperationsSpec({
+				...emailOperationsSpec,
+				playbooks: [
+					{
+						...campaignSafeStartPlaybook,
+						steps: campaignSafeStartPlaybook.steps.map((step) =>
+							step.id === "start"
+								? { ...step, approval: "none" as const }
+								: step,
+						) as unknown as typeof campaignSafeStartPlaybook.steps,
+					},
+				],
+			}),
+		).toThrow("must require human approval");
 	});
 
 	test("keeps runtime metadata aligned while returning detached projections", () => {

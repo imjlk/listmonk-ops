@@ -1,6 +1,7 @@
 export type OperationResourceKind =
 	| "campaign"
 	| "subscriber"
+	| "message"
 	| "audience"
 	| "template"
 	| "provider"
@@ -27,7 +28,10 @@ export interface WriteEffect {
 
 export interface DeliveryEffect {
 	kind: "delivery";
-	resource: "campaign" | "sequence";
+	resource: Extract<
+		OperationResourceKind,
+		"campaign" | "message" | "sequence"
+	>;
 	audience: "single" | "bulk";
 	timing: "immediate" | "scheduled";
 }

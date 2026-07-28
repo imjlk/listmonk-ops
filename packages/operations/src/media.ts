@@ -1,4 +1,8 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import {
+	bindOperationSpecMigrationExemption,
+	operationSpecMigrationExemptionsByFamily,
+} from "./specs";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
 import {
@@ -427,6 +431,7 @@ export const getMediaOperation = defineOperation({
 	outputSchema: mediaListOutputSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_media", legacySuccessText: jsonResourceValue },
+	specMigration: bindOperationSpecMigrationExemption("media.list"),
 	execute: listMedia,
 });
 
@@ -441,6 +446,7 @@ export const getMediaFileOperation = defineOperation({
 		name: "listmonk_get_media_file",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("media.get"),
 	execute: getMediaFile,
 });
 
@@ -455,6 +461,7 @@ export const deleteMediaOperation = defineOperation({
 		name: "listmonk_delete_media",
 		legacySuccessText: "Media file deleted successfully",
 	},
+	specMigration: bindOperationSpecMigrationExemption("media.delete"),
 	execute: deleteMediaFile,
 });
 
@@ -470,6 +477,7 @@ export const uploadMediaOperation = defineOperation({
 		name: "listmonk_upload_media",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("media.upload"),
 	execute: uploadMediaFile,
 });
 
@@ -565,6 +573,8 @@ export const mediaOperationCatalog = defineOperationCatalog({
 	id: "media",
 	title: "Media",
 	operations: mediaOperations,
+	specMigrationExemptions:
+		operationSpecMigrationExemptionsByFamily.media,
 });
 
 export type MediaOperation = (typeof mediaOperations)[number];

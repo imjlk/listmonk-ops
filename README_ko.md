@@ -374,17 +374,30 @@ listmonk-cli operations --family campaigns
 MCP 클라이언트에서는 같은 선택적 `family` 필터와 함께 read-only
 `listmonk_list_operations` 도구를 호출하면 됩니다. 이 카탈로그는 공용 타입드
 Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제공됩니다.
-파일럿 Operation(`campaigns.get`, `campaigns.schedule`,
-`subscribers.blocklist`)에는 선택적인 `spec` descriptor도 포함됩니다.
-이 descriptor는 Typia가 생성한 정규화 계약, 리소스/상태 의미, effect에서
-파생한 안전 정책, 재시도·reconcile 지침, 에이전트 사용 맥락을 제공합니다.
-기존 Zod schema는 계속 transport 정규화와 런타임 검증의 기준입니다.
+현재 7개 Operation에 `spec` descriptor가 포함됩니다. 기존 파일럿인
+`campaigns.get`, `campaigns.schedule`, `subscribers.blocklist`에 더해
+고위험 Operation인 `campaigns.start`, `campaigns.cancel`,
+`transactional.send`, `ops.campaign.preflight`가 포함됩니다. descriptor는
+Typia가 생성한 정규화 계약, 리소스/상태 의미, effect에서 파생한 안전 정책,
+재시도·reconcile 지침, 에이전트 사용 맥락을 제공합니다. 트랜잭셔널 발송의
+재시도 의미는 `idempotency_key` 유무에 따라 달라지며, 수신자 계약은
+email 또는 ID 중 정확히 하나를 받는 XOR schema로 생성됩니다. 기존 Zod
+schema는 계속 transport 정규화와 런타임 검증의 기준입니다.
+
+Spec에는 타입드 `campaign.safe-start` 플레이북도 포함됩니다. 캠페인 확인,
+`summary.fail == 0`으로 보호되는 preflight, 사람 승인이 필요한 대량 발송
+시작, 시작 상태 검증을 순서대로 선언합니다. 모든 공용 Operation은 이제
+descriptor 또는 기한이 있는 migration exemption 중 정확히 하나를
+연결해야 합니다. family catalog와 build 후 실행되는
+`operations:specs:coverage` gate는 누락·dangling·중복·불일치·만료된
+coverage를 거부합니다.
 
 생성된 Operations Spec 산출물은 `packages/operations/generated/specs`에
 저장됩니다. 계약이나 descriptor를 바꾼 뒤에는
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
-drift를 거부하고 각 파일럿 descriptor가 compiler graph에서 named invoker와
-executor에 계속 연결되어 있는지 검증합니다.
+drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
+executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 58개 공용
+Operation 전체의 descriptor/exemption coverage도 검증합니다.
 
 Spec API는 별도 npm 패키지가 아니라 기존 operations 패키지의
 `@listmonk-ops/operations/specs` 서브패스로 배포됩니다.

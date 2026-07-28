@@ -437,6 +437,335 @@
     },
     "stage": "normalized"
   },
+  "campaignLifecycleInputContract": {
+    "components": {
+      "schemas": {
+        "CampaignLifecycleInput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Listmonk campaign ID."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId",
+          "description": "Listmonk campaign ID."
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "campaignLifecycleOutputContract": {
+    "components": {
+      "schemas": {
+        "CampaignLifecycleOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "status": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "status"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "campaignPreflightInputContract": {
+    "components": {
+      "schemas": {
+        "CampaignPreflightInput": {
+          "additionalProperties": false,
+          "properties": {
+            "campaign_id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Listmonk campaign ID."
+            },
+            "check_links": {
+              "description": "Whether to validate outbound links after SSRF policy checks.",
+              "type": "boolean"
+            },
+            "link_check_timeout_ms": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Per-link timeout in milliseconds."
+            },
+            "max_audience": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Warning threshold for the resolved audience size."
+            }
+          },
+          "required": [
+            "campaign_id",
+            "max_audience",
+            "check_links",
+            "link_check_timeout_ms"
+          ],
+          "type": "object"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "campaign_id": {
+          "$ref": "#/components/schemas/ResourceId",
+          "description": "Listmonk campaign ID."
+        },
+        "check_links": {
+          "description": "Whether to validate outbound links after SSRF policy checks.",
+          "type": "boolean"
+        },
+        "link_check_timeout_ms": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Per-link timeout in milliseconds."
+        },
+        "max_audience": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Warning threshold for the resolved audience size."
+        }
+      },
+      "required": [
+        "campaign_id",
+        "max_audience",
+        "check_links",
+        "link_check_timeout_ms"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "campaignPreflightOutputContract": {
+    "components": {
+      "schemas": {
+        "CampaignPreflightCheck": {
+          "additionalProperties": false,
+          "properties": {
+            "details": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "id": {
+              "type": "string"
+            },
+            "level": {
+              "oneOf": [
+                {
+                  "const": "fail"
+                },
+                {
+                  "const": "pass"
+                },
+                {
+                  "const": "warn"
+                }
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "level",
+            "message"
+          ],
+          "type": "object"
+        },
+        "CampaignPreflightOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "audienceEstimate": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "campaignId": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "campaignName": {
+              "type": "string"
+            },
+            "checkedAt": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/components/schemas/CampaignPreflightCheck"
+              },
+              "type": "array"
+            },
+            "status": {
+              "type": "string"
+            },
+            "summary": {
+              "additionalProperties": false,
+              "properties": {
+                "fail": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "pass": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "warn": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "pass",
+                "warn",
+                "fail"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "campaignId",
+            "campaignName",
+            "status",
+            "audienceEstimate",
+            "checkedAt",
+            "checks",
+            "summary"
+          ],
+          "type": "object"
+        },
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "audienceEstimate": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        },
+        "campaignId": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "campaignName": {
+          "type": "string"
+        },
+        "checkedAt": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/components/schemas/CampaignPreflightCheck"
+          },
+          "type": "array"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "additionalProperties": false,
+          "properties": {
+            "fail": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "pass": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "warn": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "pass",
+            "warn",
+            "fail"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "campaignId",
+        "campaignName",
+        "status",
+        "audienceEstimate",
+        "checkedAt",
+        "checks",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
   "campaignScheduleInputContract": {
     "components": {
       "schemas": {
@@ -679,6 +1008,241 @@
         "succeeded",
         "failed",
         "errors"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "transactionalSendInputContract": {
+    "components": {
+      "schemas": {
+        "EmailAddress": {
+          "format": "email",
+          "type": "string"
+        },
+        "IdempotencyKey": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "Recordstringstring": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TransactionalSendBaseInput__type": {
+          "additionalProperties": false,
+          "properties": {
+            "content_type": {
+              "oneOf": [
+                {
+                  "const": "html"
+                },
+                {
+                  "const": "markdown"
+                },
+                {
+                  "const": "plain"
+                }
+              ]
+            },
+            "data": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "from_email": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "RFC 5322 From header value. This may include a display name such as\n`Newsletter <news@example.com>`, so it is intentionally not narrowed to\nthe bare-address-only EmailAddress contract."
+            },
+            "headers": {
+              "items": {
+                "$ref": "#/components/schemas/Recordstringstring"
+              },
+              "type": "array"
+            },
+            "idempotency_key": {
+              "$ref": "#/components/schemas/IdempotencyKey"
+            },
+            "subscriber_email": {
+              "$ref": "#/components/schemas/EmailAddress"
+            },
+            "template_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "template_id",
+            "subscriber_email"
+          ],
+          "type": "object"
+        },
+        "TransactionalSendBaseInput__type-o1": {
+          "additionalProperties": false,
+          "properties": {
+            "content_type": {
+              "oneOf": [
+                {
+                  "const": "html"
+                },
+                {
+                  "const": "markdown"
+                },
+                {
+                  "const": "plain"
+                }
+              ]
+            },
+            "data": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "from_email": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "RFC 5322 From header value. This may include a display name such as\n`Newsletter <news@example.com>`, so it is intentionally not narrowed to\nthe bare-address-only EmailAddress contract."
+            },
+            "headers": {
+              "items": {
+                "$ref": "#/components/schemas/Recordstringstring"
+              },
+              "type": "array"
+            },
+            "idempotency_key": {
+              "$ref": "#/components/schemas/IdempotencyKey"
+            },
+            "subscriber_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "template_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "template_id",
+            "subscriber_id"
+          ],
+          "type": "object"
+        },
+        "TransactionalSendInput": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/TransactionalSendBaseInput__type"
+            },
+            {
+              "$ref": "#/components/schemas/TransactionalSendBaseInput__type-o1"
+            }
+          ]
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "oneOf": [
+        {
+          "$ref": "#/components/schemas/TransactionalSendBaseInput__type"
+        },
+        {
+          "$ref": "#/components/schemas/TransactionalSendBaseInput__type-o1"
+        }
+      ]
+    },
+    "stage": "normalized"
+  },
+  "transactionalSendOutputContract": {
+    "components": {
+      "schemas": {
+        "IdempotencyKey": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "TransactionalSendOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "duplicate": {
+              "type": "boolean"
+            },
+            "expires_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "idempotency_key": {
+              "$ref": "#/components/schemas/IdempotencyKey"
+            },
+            "sent": {
+              "type": "boolean"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "accepted"
+                },
+                {
+                  "const": "failed"
+                },
+                {
+                  "const": "replayed"
+                }
+              ]
+            }
+          },
+          "required": [
+            "sent",
+            "status"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "duplicate": {
+          "type": "boolean"
+        },
+        "expires_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "idempotency_key": {
+          "$ref": "#/components/schemas/IdempotencyKey"
+        },
+        "sent": {
+          "type": "boolean"
+        },
+        "status": {
+          "oneOf": [
+            {
+              "const": "accepted"
+            },
+            {
+              "const": "failed"
+            },
+            {
+              "const": "replayed"
+            }
+          ]
+        }
+      },
+      "required": [
+        "sent",
+        "status"
       ],
       "type": "object"
     },

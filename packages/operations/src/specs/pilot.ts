@@ -8,7 +8,6 @@ import {
 } from "./contract-schemas";
 import { defineOperationSpec } from "./operation";
 import { defineOperationResourceSpec } from "./resource";
-import { defineEmailOperationsSpec } from "./schema";
 
 export const campaignResource = defineOperationResourceSpec({
 	id: "campaign",
@@ -240,15 +239,3 @@ export function bindCampaignScheduleOperationSpec(): typeof campaignScheduleOper
 export function bindSubscriberBlocklistOperationSpec(): typeof subscriberBlocklistOperationSpec {
 	return subscriberBlocklistOperationSpec;
 }
-
-export const emailOperationsSpec =
-	defineEmailOperationsSpec({
-		schemaVersion: "1.0.0",
-		title: "listmonk-ops Email Operations Specification",
-		description:
-			"Typed, policy-aware, and verifiable email operations for humans and AI agents.",
-		resources: [campaignResource, subscriberResource],
-		operations: pilotOperationSpecs,
-		events: [],
-		playbooks: [],
-	});

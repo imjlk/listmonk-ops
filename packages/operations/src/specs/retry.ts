@@ -1,6 +1,6 @@
 export type OperationId = `${string}.${string}`;
 
-export type RetrySemantics =
+export type UnconditionalRetrySemantics =
 	| {
 			kind: "safe";
 			reason: string;
@@ -18,5 +18,22 @@ export type RetrySemantics =
 			 * idempotency or non-idempotency.
 			 */
 			idempotent: boolean;
+			reason: string;
+		};
+
+export type RetrySemantics =
+	| UnconditionalRetrySemantics
+	| {
+			kind: "conditional";
+			cases: readonly [
+				{
+					when: string;
+					semantics: UnconditionalRetrySemantics;
+				},
+				...{
+					when: string;
+					semantics: UnconditionalRetrySemantics;
+				}[],
+			];
 			reason: string;
 		};

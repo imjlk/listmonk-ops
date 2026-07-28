@@ -1,6 +1,8 @@
 import type { ListmonkClient, Subscriber } from "@listmonk-ops/openapi";
 import {
+	bindOperationSpecMigrationExemption,
 	bindSubscriberBlocklistOperationSpec,
+	operationSpecMigrationExemptionsByFamily,
 } from "./specs";
 import { z } from "zod";
 import {
@@ -446,6 +448,7 @@ export const getSubscribersOperation = defineOperation({
 		name: "listmonk_get_subscribers",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("subscribers.list"),
 	execute: listSubscribers,
 });
 
@@ -457,6 +460,7 @@ export const getSubscriberOperation = defineOperation({
 	outputSchema: subscriberSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_subscriber", legacySuccessText: jsonResourceValue },
+	specMigration: bindOperationSpecMigrationExemption("subscribers.get"),
 	execute: getSubscriber,
 });
 
@@ -471,6 +475,7 @@ export const createSubscriberOperation = defineOperation({
 		name: "listmonk_create_subscriber",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("subscribers.create"),
 	execute: createSubscriber,
 });
 
@@ -485,6 +490,7 @@ export const updateSubscriberOperation = defineOperation({
 		name: "listmonk_update_subscriber",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption("subscribers.update"),
 	execute: updateSubscriber,
 });
 
@@ -499,6 +505,7 @@ export const deleteSubscriberOperation = defineOperation({
 		name: "listmonk_delete_subscriber",
 		legacySuccessText: "Subscriber deleted successfully",
 	},
+	specMigration: bindOperationSpecMigrationExemption("subscribers.delete"),
 	execute: deleteSubscriber,
 });
 
@@ -514,6 +521,9 @@ export const addSubscribersToListsOperation = defineOperation({
 		name: "listmonk_add_subscribers_to_lists",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption(
+		"subscribers.add-to-lists",
+	),
 	execute: addSubscribersToLists,
 });
 
@@ -529,6 +539,9 @@ export const removeSubscribersFromListsOperation = defineOperation({
 		name: "listmonk_remove_subscribers_from_lists",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption(
+		"subscribers.remove-from-lists",
+	),
 	execute: removeSubscribersFromLists,
 });
 
@@ -560,6 +573,9 @@ export const unblocklistSubscribersOperation = defineOperation({
 		name: "listmonk_unblocklist_subscribers",
 		legacySuccessText: jsonResourceValue,
 	},
+	specMigration: bindOperationSpecMigrationExemption(
+		"subscribers.unblocklist",
+	),
 	execute: unblocklistSubscribers,
 });
 
@@ -780,6 +796,8 @@ export const subscriberOperationCatalog = defineOperationCatalog({
 	id: "subscribers",
 	title: "Subscribers",
 	operations: subscriberOperations,
+	specMigrationExemptions:
+		operationSpecMigrationExemptionsByFamily.subscribers,
 });
 
 export type SubscriberOperation = (typeof subscriberOperations)[number];

@@ -105,8 +105,8 @@ export function defineEmailOperationsSpec(
 	const resources = new Map(
 		schema.resources.map((resource) => [resource.id, resource] as const),
 	);
-	const operationIds = new Set(
-		schema.operations.map((operation) => operation.id),
+	const operationsById = new Map(
+		schema.operations.map((operation) => [operation.id, operation] as const),
 	);
 	for (const operation of schema.operations) {
 		if (!resources.has(operation.resource)) {
@@ -125,13 +125,22 @@ export function defineEmailOperationsSpec(
 	}
 	for (const playbook of schema.playbooks) {
 		for (const step of playbook.steps) {
-			if (!operationIds.has(step.operation)) {
+			const operation = operationsById.get(step.operation);
+			if (operation === undefined) {
 				throw new TypeError(
 					`Operation playbook ${playbook.id} step ${step.id} references unknown operation ${step.operation}`,
 				);
 			}
+			if (
+				operation.policy.confirmation === "required" &&
+				step.approval !== "human"
+			) {
+				throw new TypeError(
+					`Operation playbook ${playbook.id} step ${step.id} must require human approval for ${step.operation}`,
+				);
+			}
 		}
-		if (!operationIds.has(playbook.recoveryOperation)) {
+		if (!operationsById.has(playbook.recoveryOperation)) {
 			throw new TypeError(
 				`Operation playbook ${playbook.id} references unknown recovery operation ${playbook.recoveryOperation}`,
 			);

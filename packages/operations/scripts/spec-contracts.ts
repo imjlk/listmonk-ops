@@ -16,6 +16,12 @@ export type PositiveInteger = number &
 	tags.Maximum<9007199254740991>;
 
 export type NonEmptyString = string & tags.MinLength<1>;
+export type EmailAddress = string & tags.Format<"email">;
+export type IsoDateTime = string & tags.Format<"date-time">;
+export type IdempotencyKey = string &
+	tags.MinLength<1> &
+	tags.MaxLength<128> &
+	tags.Pattern<"^[A-Za-z0-9._:-]+$">;
 
 export interface CampaignGetInput {
 	/** Listmonk campaign ID. */
@@ -79,6 +85,48 @@ export interface CampaignScheduleOutput {
 	status: string;
 }
 
+export interface CampaignLifecycleInput {
+	/** Listmonk campaign ID. */
+	id: ResourceId;
+}
+
+export interface CampaignLifecycleOutput {
+	id: ResourceId;
+	status: string;
+}
+
+export interface CampaignPreflightInput {
+	/** Listmonk campaign ID. */
+	campaign_id: ResourceId;
+	/** Warning threshold for the resolved audience size. */
+	max_audience: PositiveInteger;
+	/** Whether to validate outbound links after SSRF policy checks. */
+	check_links: boolean;
+	/** Per-link timeout in milliseconds. */
+	link_check_timeout_ms: PositiveInteger;
+}
+
+export interface CampaignPreflightCheck {
+	id: string;
+	level: "pass" | "warn" | "fail";
+	message: string;
+	details?: Record<string, unknown> | undefined;
+}
+
+export interface CampaignPreflightOutput {
+	campaignId: ResourceId;
+	campaignName: string;
+	status: string;
+	audienceEstimate: NonNegativeInteger;
+	checkedAt: IsoDateTime;
+	checks: CampaignPreflightCheck[];
+	summary: {
+		pass: NonNegativeInteger;
+		warn: NonNegativeInteger;
+		fail: NonNegativeInteger;
+	};
+}
+
 export interface SubscriberBlocklistInput {
 	/** One or more Listmonk subscriber IDs. */
 	subscriber_ids: ResourceId[] & tags.MinItems<1>;
@@ -95,4 +143,38 @@ export interface SubscriberBulkOutput {
 	succeeded: NonNegativeInteger;
 	failed: NonNegativeInteger;
 	errors: string[];
+}
+
+interface TransactionalSendBaseInput {
+	template_id: ResourceId;
+	/**
+	 * RFC 5322 From header value. This may include a display name such as
+	 * `Newsletter <news@example.com>`, so it is intentionally not narrowed to
+	 * the bare-address-only EmailAddress contract.
+	 */
+	from_email?: NonEmptyString | undefined;
+	data?: Record<string, unknown> | undefined;
+	headers?: Record<string, string>[] | undefined;
+	content_type?: "html" | "markdown" | "plain" | undefined;
+	idempotency_key?: IdempotencyKey | undefined;
+}
+
+export type TransactionalSendInput = TransactionalSendBaseInput &
+	(
+		| {
+				subscriber_email: EmailAddress;
+				subscriber_id?: never;
+		  }
+		| {
+				subscriber_email?: never;
+				subscriber_id: ResourceId;
+		  }
+	);
+
+export interface TransactionalSendOutput {
+	sent: boolean;
+	status: "accepted" | "replayed" | "failed";
+	duplicate?: boolean | undefined;
+	idempotency_key?: IdempotencyKey | undefined;
+	expires_at?: IsoDateTime | undefined;
 }

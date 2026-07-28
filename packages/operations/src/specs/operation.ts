@@ -17,6 +17,7 @@ export type OperationSpecVerb =
 	| "update"
 	| "delete"
 	| "schedule"
+	| "send"
 	| "start"
 	| "pause"
 	| "cancel"
@@ -32,6 +33,7 @@ export type OperationSpecVerb =
 	| "status"
 	| "doctor"
 	| "diff"
+	| "preflight"
 	| "blocklist";
 
 export type OperationSpecLifecycle =
@@ -116,9 +118,17 @@ function assertObjectContractSchema(
 	const hasObjectReference =
 		typeof contract.schema.$ref === "string" &&
 		contract.schema.$ref.length > 0;
-	if (rootType !== "object" && !hasObjectReference) {
+	const hasObjectComposition = ["allOf", "anyOf", "oneOf"].some((keyword) => {
+		const branches = contract.schema[keyword];
+		return Array.isArray(branches) && branches.length > 0;
+	});
+	if (
+		rootType !== "object" &&
+		!hasObjectReference &&
+		!hasObjectComposition
+	) {
 		throw new TypeError(
-			`Operation spec ${operationId} ${direction} contract must have an object root or reference`,
+			`Operation spec ${operationId} ${direction} contract must have an object root, reference, or composition`,
 		);
 	}
 }
@@ -200,6 +210,22 @@ export function defineOperationSpec<
 	]) {
 		assertNonBlank(guidance, `Operation spec ${operation.id} agent guidance`);
 	}
+	if (operation.retry.kind === "conditional") {
+		for (const retryCase of operation.retry.cases) {
+			assertNonBlank(
+				retryCase.when,
+				`Operation spec ${operation.id} conditional retry predicate`,
+			);
+			assertNonBlank(
+				retryCase.semantics.reason,
+				`Operation spec ${operation.id} conditional retry reason`,
+			);
+		}
+	}
+	assertNonBlank(
+		operation.retry.reason,
+		`Operation spec ${operation.id} retry reason`,
+	);
 	const operationId = operation.id;
 	const lifecycle: OperationSpecLifecycle = operation;
 	if (

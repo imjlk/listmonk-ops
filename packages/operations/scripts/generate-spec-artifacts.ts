@@ -1,5 +1,10 @@
 import { resolve } from "node:path";
-import { emailOperationsSpec, type AnyOperationSpec } from "../src/specs";
+import {
+	emailOperationsSpec,
+	operationSpecMigrationExemptions,
+	type AnyOperationSpec,
+	type OperationPlaybook,
+} from "../src/specs";
 
 const outputDirectory = resolve(import.meta.dir, "../generated/specs");
 const checkOnly = Bun.argv.includes("--check");
@@ -97,12 +102,59 @@ function renderAgentSkill(): string {
 		`Retry guidance: ${operation.agent.retryGuidance}`,
 		"",
 	].join("\n"));
+	const playbooks = emailOperationsSpec.playbooks.map((playbook) =>
+		renderPlaybook(playbook),
+	);
 	return [
 		"# listmonk-ops agent operation reference",
 		"",
 		"> Generated from the Email Operations Specification. Runtime safety gates and explicit confirmation remain authoritative.",
 		"",
 		...sections,
+		"# Typed playbooks",
+		"",
+		...playbooks,
+	].join("\n");
+}
+
+function renderPlaybook(playbook: OperationPlaybook): string {
+	const inputs = playbook.inputs.map(
+		(input) =>
+			`- \`${input.name}\` (\`${input.type}\`${input.required ? ", required" : ""}): ${input.description}`,
+	);
+	const steps = playbook.steps.map((step, index) => {
+		const guard = step.resultGuard
+			? ` Guard: \`${step.resultGuard.path} ${step.resultGuard.operator} ${JSON.stringify(step.resultGuard.expected)}\`; on failure: ${step.resultGuard.message}`
+			: "";
+		return `${index + 1}. \`${step.id}\` → \`${step.operation}\` (${step.approval} approval). ${step.description}${guard}`;
+	});
+	return [
+		`## \`${playbook.id}\` — ${playbook.title}`,
+		"",
+		playbook.goal,
+		"",
+		"Inputs:",
+		"",
+		...inputs,
+		"",
+		"Steps:",
+		"",
+		...steps,
+		"",
+		`Recovery operation: \`${playbook.recoveryOperation}\``,
+		"",
+	].join("\n");
+}
+
+function renderPlaybookReference(): string {
+	return [
+		"# Email Operations Playbooks",
+		"",
+		"> Generated from `@listmonk-ops/operations/specs`. Do not edit manually.",
+		"",
+		...emailOperationsSpec.playbooks.map((playbook) =>
+			renderPlaybook(playbook),
+		),
 	].join("\n");
 }
 
@@ -146,9 +198,11 @@ const graphExpectations = {
 
 const artifacts = {
 	"operations-spec.json": stableJson(emailOperationsSpec),
+	"migration-exemptions.json": stableJson(operationSpecMigrationExemptions),
 	"schema-snapshot.json": stableJson(schemaSnapshot),
 	"graph-expectations.json": stableJson(graphExpectations),
 	"operations.md": markdownArtifact(renderOperationReference()),
+	"playbooks.md": markdownArtifact(renderPlaybookReference()),
 	"agent-skill.md": markdownArtifact(renderAgentSkill()),
 };
 

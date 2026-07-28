@@ -76,6 +76,6 @@ if (import.meta.main) {
 	const graph = (await Bun.stdin.json()) as GraphDump;
 	assertOperationsSpecGraph(graph);
 	console.log(
-		`Operations spec preserves ${operationsSpecOperationCount} pilot operations across ${operationsSpecGraphEdges.length} direct graph edges.`,
+		`Operations spec preserves ${operationsSpecOperationCount} described operations across ${operationsSpecGraphEdges.length} direct graph edges.`,
 	);
 }

@@ -1,5 +1,6 @@
 import type { AnyOperationSpec } from "./operation";
 import { cloneSpecValue } from "./json";
+import type { RetrySemantics, UnconditionalRetrySemantics } from "./retry";
 
 export interface RuntimeOperationProjection {
 	id: string;
@@ -18,19 +19,34 @@ function operationSpecIsReadOnly(operation: AnyOperationSpec): boolean {
 	return operation.effects.every((effect) => effect.kind === "read");
 }
 
-function operationSpecIsIdempotent(operation: AnyOperationSpec): boolean {
-	switch (operation.retry.kind) {
+function unconditionalRetryIsIdempotent(
+	retry: UnconditionalRetrySemantics,
+): boolean {
+	switch (retry.kind) {
 		case "safe":
 			return true;
 		case "reconcile":
-			return operation.retry.idempotent;
+			return retry.idempotent;
 		case "unsafe":
 			return false;
 		default: {
-			const unhandled: never = operation.retry;
+			const unhandled: never = retry;
 			return unhandled;
 		}
 	}
+}
+
+function retryIsIdempotent(retry: RetrySemantics): boolean {
+	if (retry.kind === "conditional") {
+		return retry.cases.every(({ semantics }) =>
+			unconditionalRetryIsIdempotent(semantics),
+		);
+	}
+	return unconditionalRetryIsIdempotent(retry);
+}
+
+function operationSpecIsIdempotent(operation: AnyOperationSpec): boolean {
+	return retryIsIdempotent(operation.retry);
 }
 
 export function assertRuntimeOperationProjection(

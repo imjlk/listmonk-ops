@@ -89,6 +89,8 @@ describe("operation catalog", () => {
 				id: "duplicate",
 				title: "Duplicate operation",
 				operations: [firstListOperation, firstListOperation],
+				specMigrationExemptions:
+					listOperationCatalog.specMigrationExemptions,
 			}),
 		).toThrow("duplicate operation id");
 		expect(() =>
@@ -101,6 +103,10 @@ describe("operation catalog", () => {
 					id: "copied-list",
 					title: "Copied list",
 					operations: [firstListOperation],
+					specMigrationExemptions:
+						firstListOperation.specMigration === undefined
+							? []
+							: [firstListOperation.specMigration],
 				}),
 			]),
 		).toThrow("duplicate operation id");
@@ -116,6 +122,16 @@ describe("operation catalog", () => {
 						mcp: { ...firstListOperation.mcp },
 					},
 				],
+				specMigrationExemptions:
+					firstListOperation.specMigration === undefined
+						? []
+						: [
+								firstListOperation.specMigration,
+								{
+									...firstListOperation.specMigration,
+									operationId: "lists.copied",
+								},
+							],
 			}),
 		).toThrow("duplicate MCP tool name");
 	});

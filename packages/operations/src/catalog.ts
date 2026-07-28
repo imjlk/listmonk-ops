@@ -3,7 +3,11 @@ import type {
 	OperationMcpMetadata,
 	OperationSafety,
 } from "./operation";
-import { projectOperationSpec, type AnyOperationSpec } from "./specs";
+import {
+	projectOperationSpec,
+	type AnyOperationSpec,
+	type OperationSpecMigrationExemption,
+} from "./specs";
 import type { z } from "zod";
 import {
 	getOperationExecutionPolicy,
@@ -27,6 +31,7 @@ export type OperationCatalogItem = Readonly<{
 	safety: OperationSafety;
 	mcp: OperationMcpMetadata;
 	spec?: AnyOperationSpec | undefined;
+	specMigration?: OperationSpecMigrationExemption | undefined;
 }>;
 
 export type OperationCatalog<
@@ -35,6 +40,7 @@ export type OperationCatalog<
 	id: string;
 	title: string;
 	operations: Operations;
+	specMigrationExemptions: readonly OperationSpecMigrationExemption[];
 }>;
 
 export type OperationCatalogEntry = Readonly<{
@@ -94,6 +100,14 @@ function validateCatalog(catalog: OperationCatalog): void {
 	for (const operation of catalog.operations) {
 		assertNonBlank(operation.id, "operation id");
 		assertNonBlank(operation.mcp.name, "MCP tool name");
+		if (
+			(operation.spec === undefined) ===
+			(operation.specMigration === undefined)
+		) {
+			throw new Error(
+				`Operation catalog ${operation.id} must declare exactly one OperationSpec descriptor or migration exemption`,
+			);
+		}
 	}
 	assertDistinct(
 		catalog.operations.map((operation) => operation.id),
@@ -103,6 +117,39 @@ function validateCatalog(catalog: OperationCatalog): void {
 		catalog.operations.map((operation) => operation.mcp.name),
 		"MCP tool name",
 	);
+	for (const operation of catalog.operations) {
+		if (
+			operation.spec !== undefined &&
+			operation.spec.id !== operation.id
+		) {
+			throw new Error(
+				`Operation catalog ${operation.id} binds mismatched descriptor ${operation.spec.id}`,
+			);
+		}
+		if (
+			operation.specMigration !== undefined &&
+			operation.specMigration.operationId !== operation.id
+		) {
+			throw new Error(
+				`Operation catalog ${operation.id} binds mismatched spec migration exemption ${operation.specMigration.operationId}`,
+			);
+		}
+	}
+	const expectedMigrationIds = catalog.operations
+		.filter((operation) => operation.spec === undefined)
+		.map((operation) => operation.id)
+		.sort();
+	const declaredMigrationIds = catalog.specMigrationExemptions
+		.map((exemption) => exemption.operationId)
+		.sort();
+	if (
+		JSON.stringify(expectedMigrationIds) !==
+		JSON.stringify(declaredMigrationIds)
+	) {
+		throw new Error(
+			`Operation catalog ${catalog.id} spec migration exemptions do not match uncovered operations: expected ${JSON.stringify(expectedMigrationIds)}, received ${JSON.stringify(declaredMigrationIds)}`,
+		);
+	}
 }
 
 /**

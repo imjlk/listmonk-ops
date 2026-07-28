@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
+	assertOperationSpecMigrationExemptionActive,
 	assertRuntimeOperationProjection,
 	type AnyOperationSpec,
+	type OperationSpecMigrationExemption,
 } from "./specs";
 
 export type ObjectJsonSchema = {
@@ -41,6 +43,7 @@ export interface OperationDefinition<
 	safety: OperationSafety;
 	mcp: OperationMcpMetadata;
 	spec?: AnyOperationSpec | undefined;
+	specMigration?: OperationSpecMigrationExemption | undefined;
 	invoke(context: Context, input: unknown): Promise<z.output<OutputSchema>>;
 }
 
@@ -184,7 +187,8 @@ export function defineOperation<
 	Context,
 	const InputSchema extends z.ZodType,
 	const OutputSchema extends z.ZodType,
->(config: {
+>(
+	config: {
 	id: string;
 	title: string;
 	description: string;
@@ -192,12 +196,20 @@ export function defineOperation<
 	outputSchema: OutputSchema;
 	safety: OperationSafety;
 	mcp: OperationMcpMetadata;
-	spec?: AnyOperationSpec | undefined;
 	execute(
 		context: Context,
 		input: z.output<InputSchema>,
 	): Promise<z.output<OutputSchema>>;
-}): OperationDefinition<Context, InputSchema, OutputSchema> {
+} & (
+		| {
+				spec: AnyOperationSpec;
+				specMigration?: never;
+		  }
+		| {
+				spec?: never;
+				specMigration: OperationSpecMigrationExemption;
+		  }
+	)): OperationDefinition<Context, InputSchema, OutputSchema> {
 	if (config.spec !== undefined) {
 		assertRuntimeOperationProjection(config.spec, {
 			id: config.id,
@@ -206,6 +218,13 @@ export function defineOperation<
 			mcpName: config.mcp.name,
 			safety: config.safety,
 		});
+	} else {
+		if (config.specMigration.operationId !== config.id) {
+			throw new TypeError(
+				`Runtime operation ${config.id} binds mismatched spec migration exemption ${config.specMigration.operationId}`,
+			);
+		}
+		assertOperationSpecMigrationExemptionActive(config.specMigration);
 	}
 	return {
 		id: config.id,
@@ -218,6 +237,9 @@ export function defineOperation<
 		safety: config.safety,
 		mcp: config.mcp,
 		...(config.spec === undefined ? {} : { spec: config.spec }),
+		...(config.specMigration === undefined
+			? {}
+			: { specMigration: config.specMigration }),
 		async invoke(context, input) {
 			const parsedInput = parseOperationInput(config.inputSchema, input);
 

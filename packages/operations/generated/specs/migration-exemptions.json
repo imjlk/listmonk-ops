@@ -1,0 +1,359 @@
+[
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "lists.list",
+    "owner": "operations",
+    "reason": "Subscriber-list CRUD is lower risk than delivery and suppression; migrate it as one coherent resource contract.",
+    "targetPhase": "resource-crud"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "lists.get",
+    "owner": "operations",
+    "reason": "Subscriber-list CRUD is lower risk than delivery and suppression; migrate it as one coherent resource contract.",
+    "targetPhase": "resource-crud"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "lists.create",
+    "owner": "operations",
+    "reason": "Subscriber-list CRUD is lower risk than delivery and suppression; migrate it as one coherent resource contract.",
+    "targetPhase": "resource-crud"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "lists.update",
+    "owner": "operations",
+    "reason": "Subscriber-list CRUD is lower risk than delivery and suppression; migrate it as one coherent resource contract.",
+    "targetPhase": "resource-crud"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "lists.delete",
+    "owner": "operations",
+    "reason": "Subscriber-list CRUD is lower risk than delivery and suppression; migrate it as one coherent resource contract.",
+    "targetPhase": "resource-crud"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "subscribers.list",
+    "owner": "operations",
+    "reason": "Subscriber CRUD and list-membership operations will migrate together around the existing typed blocklist contract.",
+    "targetPhase": "subscriber-lifecycle"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "subscribers.get",
+    "owner": "operations",
+    "reason": "Subscriber CRUD and list-membership operations will migrate together around the existing typed blocklist contract.",
+    "targetPhase": "subscriber-lifecycle"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "subscribers.create",
+    "owner": "operations",
+    "reason": "Subscriber CRUD and list-membership operations will migrate together around the existing typed blocklist contract.",
+    "targetPhase": "subscriber-lifecycle"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "subscribers.update",
+    "owner": "operations",
+    "reason": "Subscriber CRUD and list-membership operations will migrate together around the existing typed blocklist contract.",
+    "targetPhase": "subscriber-lifecycle"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "subscribers.delete",
+    "owner": "operations",
+    "reason": "Subscriber CRUD and list-membership operations will migrate together around the existing typed blocklist contract.",
+    "targetPhase": "subscriber-lifecycle"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "subscribers.add-to-lists",
+    "owner": "operations",
+    "reason": "Subscriber CRUD and list-membership operations will migrate together around the existing typed blocklist contract.",
+    "targetPhase": "subscriber-lifecycle"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "subscribers.remove-from-lists",
+    "owner": "operations",
+    "reason": "Subscriber CRUD and list-membership operations will migrate together around the existing typed blocklist contract.",
+    "targetPhase": "subscriber-lifecycle"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "subscribers.unblocklist",
+    "owner": "operations",
+    "reason": "Subscriber CRUD and list-membership operations will migrate together around the existing typed blocklist contract.",
+    "targetPhase": "subscriber-lifecycle"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "campaigns.list",
+    "owner": "operations",
+    "reason": "Remaining campaign CRUD and observability operations will migrate after the high-risk lifecycle contracts stabilize.",
+    "targetPhase": "campaign-resource-and-observability"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "campaigns.create",
+    "owner": "operations",
+    "reason": "Remaining campaign CRUD and observability operations will migrate after the high-risk lifecycle contracts stabilize.",
+    "targetPhase": "campaign-resource-and-observability"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "campaigns.update",
+    "owner": "operations",
+    "reason": "Remaining campaign CRUD and observability operations will migrate after the high-risk lifecycle contracts stabilize.",
+    "targetPhase": "campaign-resource-and-observability"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "campaigns.delete",
+    "owner": "operations",
+    "reason": "Remaining campaign CRUD and observability operations will migrate after the high-risk lifecycle contracts stabilize.",
+    "targetPhase": "campaign-resource-and-observability"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "campaigns.pause",
+    "owner": "operations",
+    "reason": "Remaining campaign CRUD and observability operations will migrate after the high-risk lifecycle contracts stabilize.",
+    "targetPhase": "campaign-resource-and-observability"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "campaigns.clone",
+    "owner": "operations",
+    "reason": "Remaining campaign CRUD and observability operations will migrate after the high-risk lifecycle contracts stabilize.",
+    "targetPhase": "campaign-resource-and-observability"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "campaigns.stats",
+    "owner": "operations",
+    "reason": "Remaining campaign CRUD and observability operations will migrate after the high-risk lifecycle contracts stabilize.",
+    "targetPhase": "campaign-resource-and-observability"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "templates.list",
+    "owner": "operations",
+    "reason": "Template operations need a shared content/version resource model before descriptor migration.",
+    "targetPhase": "templates-and-media"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "templates.get",
+    "owner": "operations",
+    "reason": "Template operations need a shared content/version resource model before descriptor migration.",
+    "targetPhase": "templates-and-media"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "templates.create",
+    "owner": "operations",
+    "reason": "Template operations need a shared content/version resource model before descriptor migration.",
+    "targetPhase": "templates-and-media"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "templates.update",
+    "owner": "operations",
+    "reason": "Template operations need a shared content/version resource model before descriptor migration.",
+    "targetPhase": "templates-and-media"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "templates.delete",
+    "owner": "operations",
+    "reason": "Template operations need a shared content/version resource model before descriptor migration.",
+    "targetPhase": "templates-and-media"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "templates.set-default",
+    "owner": "operations",
+    "reason": "Template operations need a shared content/version resource model before descriptor migration.",
+    "targetPhase": "templates-and-media"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "media.list",
+    "owner": "operations",
+    "reason": "Media operations will migrate with template content references and upload side-effect policy.",
+    "targetPhase": "templates-and-media"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "media.get",
+    "owner": "operations",
+    "reason": "Media operations will migrate with template content references and upload side-effect policy.",
+    "targetPhase": "templates-and-media"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "media.delete",
+    "owner": "operations",
+    "reason": "Media operations will migrate with template content references and upload side-effect policy.",
+    "targetPhase": "templates-and-media"
+  },
+  {
+    "expiresOn": "2027-03-31",
+    "operationId": "media.upload",
+    "owner": "operations",
+    "reason": "Media operations will migrate with template content references and upload side-effect policy.",
+    "targetPhase": "templates-and-media"
+  },
+  {
+    "expiresOn": "2027-06-30",
+    "operationId": "ops.campaign.deliverability-guard",
+    "owner": "automation",
+    "reason": "Automation workflows require multi-effect and local-persistence descriptors beyond the single-operation pilot.",
+    "targetPhase": "automation-workflows"
+  },
+  {
+    "expiresOn": "2027-06-30",
+    "operationId": "ops.subscribers.hygiene",
+    "owner": "automation",
+    "reason": "Automation workflows require multi-effect and local-persistence descriptors beyond the single-operation pilot.",
+    "targetPhase": "automation-workflows"
+  },
+  {
+    "expiresOn": "2027-06-30",
+    "operationId": "ops.segments.drift",
+    "owner": "automation",
+    "reason": "Automation workflows require multi-effect and local-persistence descriptors beyond the single-operation pilot.",
+    "targetPhase": "automation-workflows"
+  },
+  {
+    "expiresOn": "2027-06-30",
+    "operationId": "ops.templates.registry-sync",
+    "owner": "automation",
+    "reason": "Automation workflows require multi-effect and local-persistence descriptors beyond the single-operation pilot.",
+    "targetPhase": "automation-workflows"
+  },
+  {
+    "expiresOn": "2027-06-30",
+    "operationId": "ops.templates.registry-history",
+    "owner": "automation",
+    "reason": "Automation workflows require multi-effect and local-persistence descriptors beyond the single-operation pilot.",
+    "targetPhase": "automation-workflows"
+  },
+  {
+    "expiresOn": "2027-06-30",
+    "operationId": "ops.templates.registry-promote",
+    "owner": "automation",
+    "reason": "Automation workflows require multi-effect and local-persistence descriptors beyond the single-operation pilot.",
+    "targetPhase": "automation-workflows"
+  },
+  {
+    "expiresOn": "2027-06-30",
+    "operationId": "ops.templates.registry-rollback",
+    "owner": "automation",
+    "reason": "Automation workflows require multi-effect and local-persistence descriptors beyond the single-operation pilot.",
+    "targetPhase": "automation-workflows"
+  },
+  {
+    "expiresOn": "2027-06-30",
+    "operationId": "ops.digest.daily",
+    "owner": "automation",
+    "reason": "Automation workflows require multi-effect and local-persistence descriptors beyond the single-operation pilot.",
+    "targetPhase": "automation-workflows"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.list",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.get",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.create",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.analyze",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.launch",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.stop",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.delete",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.recommend-sample-size",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.deploy-winner",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.run",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.tick",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.reconcile",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  },
+  {
+    "expiresOn": "2027-09-30",
+    "operationId": "abtest.export-assignment",
+    "owner": "abtest",
+    "reason": "A/B test operations will migrate as one experiment state machine so lifecycle and statistical invariants remain coherent.",
+    "targetPhase": "experiment-state-machine"
+  }
+]
