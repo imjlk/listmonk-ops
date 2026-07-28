@@ -1,5 +1,15 @@
 # @listmonk-ops/abtest
 
+## 0.4.3 — 2026-07-28
+
+### Changed
+
+- [2117c34](https://github.com/imjlk/listmonk-ops/commit/2117c342c0415c1f75d9a323dc9c5f665f4f962b) Register automation and A/B test operations with explicit operation-spec migration coverage. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: operations@0.7.0
+
 ## 0.4.2 — 2026-07-28
 
 ### Patch changes

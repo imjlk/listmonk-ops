@@ -1,5 +1,11 @@
 # @listmonk-ops/operations
 
+## 0.7.0 — 2026-07-28
+
+### Added
+
+- [2117c34](https://github.com/imjlk/listmonk-ops/commit/2117c342c0415c1f75d9a323dc9c5f665f4f962b) Expand operation specs with high-risk email operation descriptors, a typed safe-start playbook, and compiler-enforced migration coverage. — Thanks @imjlk!
+
 ## 0.6.0 — 2026-07-28
 
 ### Added
