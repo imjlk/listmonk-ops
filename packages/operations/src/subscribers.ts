@@ -1,4 +1,7 @@
 import type { ListmonkClient, Subscriber } from "@listmonk-ops/openapi";
+import {
+	bindSubscriberBlocklistProductOperation,
+} from "@listmonk-ops/product-schema";
 import { z } from "zod";
 import {
 	createResourceSafety,
@@ -541,6 +544,7 @@ export const blocklistSubscribersOperation = defineOperation({
 		name: "listmonk_blocklist_subscribers",
 		legacySuccessText: jsonResourceValue,
 	},
+	product: bindSubscriberBlocklistProductOperation(),
 	execute: blocklistSubscribers,
 });
 

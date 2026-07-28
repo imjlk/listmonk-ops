@@ -1,0 +1,687 @@
+{
+  "campaignGetInputContract": {
+    "components": {
+      "schemas": {
+        "CampaignGetInput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Listmonk campaign ID."
+            },
+            "no_body": {
+              "description": "Omit the potentially large message body when the server supports it.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId",
+          "description": "Listmonk campaign ID."
+        },
+        "no_body": {
+          "description": "Omit the potentially large message body when the server supports it.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "campaignGetOutputContract": {
+    "components": {
+      "schemas": {
+        "CampaignGetOutput": {
+          "additionalProperties": {},
+          "properties": {
+            "altbody": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "archive": {
+              "type": "boolean"
+            },
+            "body": {
+              "type": "string"
+            },
+            "body_source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "bounces": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "clicks": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "content_type": {
+              "oneOf": [
+                {
+                  "const": "html"
+                },
+                {
+                  "const": "markdown"
+                },
+                {
+                  "const": "plain"
+                },
+                {
+                  "const": "richtext"
+                },
+                {
+                  "const": "visual"
+                }
+              ]
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "from_email": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "type": "array"
+            },
+            "media": {
+              "items": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "type": "array"
+            },
+            "messenger": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "send_at": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "sent": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "started_at": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "template_id": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceId"
+                }
+              ]
+            },
+            "to_send": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "optin"
+                },
+                {
+                  "const": "regular"
+                }
+              ]
+            },
+            "updated_at": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            },
+            "views": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": {},
+      "properties": {
+        "altbody": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "archive": {
+          "type": "boolean"
+        },
+        "body": {
+          "type": "string"
+        },
+        "body_source": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "bounces": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "clicks": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "content_type": {
+          "oneOf": [
+            {
+              "const": "html"
+            },
+            {
+              "const": "markdown"
+            },
+            {
+              "const": "plain"
+            },
+            {
+              "const": "richtext"
+            },
+            {
+              "const": "visual"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "from_email": {
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "lists": {
+          "items": {
+            "$ref": "#/components/schemas/Recordstringunknown"
+          },
+          "type": "array"
+        },
+        "media": {
+          "items": {
+            "$ref": "#/components/schemas/Recordstringunknown"
+          },
+          "type": "array"
+        },
+        "messenger": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "send_at": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "sent": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "started_at": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "template_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          ]
+        },
+        "to_send": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "type": {
+          "oneOf": [
+            {
+              "const": "optin"
+            },
+            {
+              "const": "regular"
+            }
+          ]
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "uuid": {
+          "type": "string"
+        },
+        "views": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "campaignScheduleInputContract": {
+    "components": {
+      "schemas": {
+        "CampaignScheduleInput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Listmonk campaign ID."
+            },
+            "send_at": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "ISO 8601 or Listmonk-compatible `YYYY-MM-DD HH:MM:SS` send timestamp.\nStateful validation remains in the campaign domain executor."
+            }
+          },
+          "required": [
+            "id",
+            "send_at"
+          ],
+          "type": "object"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId",
+          "description": "Listmonk campaign ID."
+        },
+        "send_at": {
+          "$ref": "#/components/schemas/NonEmptyString",
+          "description": "ISO 8601 or Listmonk-compatible `YYYY-MM-DD HH:MM:SS` send timestamp.\nStateful validation remains in the campaign domain executor."
+        }
+      },
+      "required": [
+        "id",
+        "send_at"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "campaignScheduleOutputContract": {
+    "components": {
+      "schemas": {
+        "CampaignScheduleOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "status": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "status"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "subscriberBlocklistInputContract": {
+    "components": {
+      "schemas": {
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberBlocklistInput": {
+          "additionalProperties": false,
+          "properties": {
+            "continue_on_error": {
+              "description": "Continue processing later chunks when an earlier chunk fails.",
+              "type": "boolean"
+            },
+            "dry_run": {
+              "description": "Resolve the audience and report work without mutating Listmonk.",
+              "type": "boolean"
+            },
+            "max_items": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Maximum number of subscribers accepted by this invocation."
+            },
+            "subscriber_ids": {
+              "description": "One or more Listmonk subscriber IDs.",
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "subscriber_ids",
+            "dry_run",
+            "max_items",
+            "continue_on_error"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "continue_on_error": {
+          "description": "Continue processing later chunks when an earlier chunk fails.",
+          "type": "boolean"
+        },
+        "dry_run": {
+          "description": "Resolve the audience and report work without mutating Listmonk.",
+          "type": "boolean"
+        },
+        "max_items": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Maximum number of subscribers accepted by this invocation."
+        },
+        "subscriber_ids": {
+          "description": "One or more Listmonk subscriber IDs.",
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "subscriber_ids",
+        "dry_run",
+        "max_items",
+        "continue_on_error"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "subscriberBulkOutputContract": {
+    "components": {
+      "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "SubscriberBulkOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "errors": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "failed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "processed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "succeeded": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "processed",
+            "succeeded",
+            "failed",
+            "errors"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "errors": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "failed": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        },
+        "processed": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        },
+        "succeeded": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        }
+      },
+      "required": [
+        "processed",
+        "succeeded",
+        "failed",
+        "errors"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  }
+}

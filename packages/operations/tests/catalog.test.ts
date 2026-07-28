@@ -45,6 +45,37 @@ describe("operation catalog", () => {
 				"listmonk_get_campaigns",
 			)?.operation,
 		).toBe(campaignOperationCatalog.operations[0]);
+
+		const getCampaign = listOperationCatalogSummaries(
+			catalog,
+			"campaigns",
+		).find((operation) => operation.id === "campaigns.get");
+		const scheduleCampaign = listOperationCatalogSummaries(
+			catalog,
+			"campaigns",
+		).find((operation) => operation.id === "campaigns.schedule");
+		expect(getCampaign?.product).toMatchObject({
+			resource: "campaign",
+			verb: "get",
+			policy: {
+				confirmation: "never",
+				audit: "optional",
+				dryRun: false,
+			},
+		});
+		expect(scheduleCampaign?.product).toMatchObject({
+			resource: "campaign",
+			verb: "schedule",
+			retry: {
+				kind: "reconcile",
+				reconcileWith: "campaigns.get",
+			},
+		});
+		expect(scheduleCampaign?.product).not.toBe(
+			campaignOperationCatalog.operations.find(
+				(operation) => operation.id === "campaigns.schedule",
+			)?.product,
+		);
 	});
 
 	test("rejects duplicate family, operation, and MCP identities", () => {

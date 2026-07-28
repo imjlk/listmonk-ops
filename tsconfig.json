@@ -12,6 +12,7 @@
 		"moduleResolution": "bundler",
 		"types": ["bun", "node"],
 		"allowImportingTsExtensions": true,
+		"resolveJsonModule": true,
 		"verbatimModuleSyntax": true,
 		"noEmit": true,
 

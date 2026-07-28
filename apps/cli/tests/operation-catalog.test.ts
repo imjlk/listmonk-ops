@@ -16,5 +16,16 @@ describe("CLI operation catalog", () => {
 				mcpName: "listmonk_send_transactional",
 			}),
 		]);
+		expect(getOperationCatalogOutput("campaigns").operations).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: "campaigns.schedule",
+					product: expect.objectContaining({
+						resource: "campaign",
+						verb: "schedule",
+					}),
+				}),
+			]),
+		);
 	});
 });

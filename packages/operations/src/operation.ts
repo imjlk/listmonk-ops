@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+	assertRuntimeOperationProjection,
+	type AnyProductOperation,
+} from "@listmonk-ops/product-schema";
 
 export type ObjectJsonSchema = {
 	$schema?: string;
@@ -36,6 +40,7 @@ export interface OperationDefinition<
 	outputJsonSchema: ObjectJsonSchema;
 	safety: OperationSafety;
 	mcp: OperationMcpMetadata;
+	product?: AnyProductOperation | undefined;
 	invoke(context: Context, input: unknown): Promise<z.output<OutputSchema>>;
 }
 
@@ -187,11 +192,21 @@ export function defineOperation<
 	outputSchema: OutputSchema;
 	safety: OperationSafety;
 	mcp: OperationMcpMetadata;
+	product?: AnyProductOperation | undefined;
 	execute(
 		context: Context,
 		input: z.output<InputSchema>,
 	): Promise<z.output<OutputSchema>>;
 }): OperationDefinition<Context, InputSchema, OutputSchema> {
+	if (config.product !== undefined) {
+		assertRuntimeOperationProjection(config.product, {
+			id: config.id,
+			title: config.title,
+			description: config.description,
+			mcpName: config.mcp.name,
+			safety: config.safety,
+		});
+	}
 	return {
 		id: config.id,
 		title: config.title,
@@ -202,6 +217,7 @@ export function defineOperation<
 		outputJsonSchema: toObjectJsonSchema(config.outputSchema, "output"),
 		safety: config.safety,
 		mcp: config.mcp,
+		...(config.product === undefined ? {} : { product: config.product }),
 		async invoke(context, input) {
 			const parsedInput = parseOperationInput(config.inputSchema, input);
 
