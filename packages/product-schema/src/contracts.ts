@@ -57,6 +57,10 @@ export interface CampaignGetOutput {
 	to_send?: number | null | undefined;
 	sent?: number | null | undefined;
 	started_at?: string | null | undefined;
+	/**
+	 * Preserve additional fields returned by newer Listmonk releases so this
+	 * read contract remains forward-compatible at the handwritten API boundary.
+	 */
 	[key: string]: unknown;
 }
 

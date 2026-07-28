@@ -95,6 +95,15 @@ describe("email operations product schema", () => {
 		});
 		expect(
 			expectedPolicyForEffects([
+				{ kind: "write", resource: "template", reversible: false },
+			]),
+		).toEqual({
+			confirmation: "required",
+			audit: "required",
+			dryRun: false,
+		});
+		expect(
+			expectedPolicyForEffects([
 				{ kind: "delete", resource: "campaign", reversible: false },
 			]),
 		).toEqual({
@@ -186,6 +195,34 @@ describe("email operations product schema", () => {
 				},
 			}),
 		).toThrow("at least one source state");
+
+		expect(() =>
+			defineProductOperation({
+				...campaignGetProductOperation,
+				verb: "list",
+			}),
+		).toThrow("id verb (get) must match declared verb (list)");
+
+		expect(() =>
+			defineProductOperation({
+				...campaignGetProductOperation,
+				effects: [{ kind: "read", resource: "subscriber" }],
+			}),
+		).toThrow(
+			"effect resource (subscriber) must match operation resource (campaign)",
+		);
+
+		expect(() =>
+			defineProductOperation({
+				...campaignScheduleProductOperation,
+				state: {
+					...campaignScheduleProductOperation.state,
+					resource: "subscriber",
+				},
+			}),
+		).toThrow(
+			"state resource (subscriber) must match operation resource (campaign)",
+		);
 
 		expect(() =>
 			defineProductOperation({

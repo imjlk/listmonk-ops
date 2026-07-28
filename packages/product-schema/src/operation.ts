@@ -146,7 +146,25 @@ export function defineProductOperation<
 			`Product operation ${operation.id} must declare at least one effect`,
 		);
 	}
+	const idVerb = operation.id.slice(operation.id.lastIndexOf(".") + 1);
+	if (idVerb !== operation.verb) {
+		throw new TypeError(
+			`Product operation ${operation.id} id verb (${idVerb}) must match declared verb (${operation.verb})`,
+		);
+	}
+	for (const effect of operation.effects) {
+		if (effect.resource !== operation.resource) {
+			throw new TypeError(
+				`Product operation ${operation.id} effect resource (${effect.resource}) must match operation resource (${operation.resource})`,
+			);
+		}
+	}
 	if (operation.state !== undefined) {
+		if (operation.state.resource !== operation.resource) {
+			throw new TypeError(
+				`Product operation ${operation.id} state resource (${operation.state.resource}) must match operation resource (${operation.resource})`,
+			);
+		}
 		if (operation.state.from.length === 0) {
 			throw new TypeError(
 				`Product operation ${operation.id} state transition must declare at least one source state`,

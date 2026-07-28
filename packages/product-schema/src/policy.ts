@@ -16,11 +16,18 @@ type HasEffect<
 	Kind extends OperationEffect["kind"],
 > = [EffectOfKind<Effects, Kind>] extends [never] ? false : true;
 
+type HasIrreversibleWrite<Effects extends readonly OperationEffect[]> = [
+	Extract<Effects[number], { kind: "write"; reversible: false }>,
+] extends [never]
+	? false
+	: true;
+
 /**
  * Safety precedence is intentionally conservative:
  * suppression requires a preview and confirmation; delivery and deletion
- * require confirmation; ordinary writes are audited; pure reads need neither.
- * Higher tiers win when an operation declares more than one effect.
+ * require confirmation; irreversible writes also require confirmation;
+ * reversible writes are audited; pure reads need neither. Higher tiers win
+ * when an operation declares more than one effect.
  */
 export type PolicyForEffects<
 	Effects extends readonly OperationEffect[],
@@ -36,17 +43,23 @@ export type PolicyForEffects<
 				audit: "required";
 				dryRun: false;
 			}
-		: HasEffect<Effects, "write"> extends true
+		: HasIrreversibleWrite<Effects> extends true
 			? {
-					confirmation: "never";
+					confirmation: "required";
 					audit: "required";
 					dryRun: false;
 				}
-			: {
-					confirmation: "never";
-					audit: "optional";
-					dryRun: false;
-				};
+			: HasEffect<Effects, "write"> extends true
+				? {
+						confirmation: "never";
+						audit: "required";
+						dryRun: false;
+					}
+				: {
+						confirmation: "never";
+						audit: "optional";
+						dryRun: false;
+					};
 
 function hasEffectKind(
 	effects: readonly OperationEffect[],
@@ -66,6 +79,17 @@ export function expectedPolicyForEffects(
 		};
 	}
 	if (hasEffectKind(effects, ["delivery", "delete"])) {
+		return {
+			confirmation: "required",
+			audit: "required",
+			dryRun: false,
+		};
+	}
+	if (
+		effects.some(
+			(effect) => effect.kind === "write" && effect.reversible === false,
+		)
+	) {
 		return {
 			confirmation: "required",
 			audit: "required",

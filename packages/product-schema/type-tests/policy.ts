@@ -156,6 +156,73 @@ defineProductOperation({
 });
 
 defineProductOperation({
+	id: "tests.irreversible-write.update",
+	resource: "template",
+	verb: "update",
+	title: "Valid irreversible write",
+	description: "An irreversible write requires confirmation",
+	contract: { input: objectContract, output: objectContract },
+	effects: [{ kind: "write", resource: "template", reversible: false }],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
+	retry: { kind: "safe", reason: "fixture" },
+	agent: {
+		useWhen: ["fixture"],
+		avoidWhen: ["fixture"],
+		prerequisites: [],
+		verifyWith: [],
+		related: [],
+		retryGuidance: "fixture",
+	},
+	projection: {
+		mcpName: "listmonk_tests_irreversible_write",
+		openWorld: false,
+		graph: {
+			descriptorNode: "descriptor",
+			bindingNode: "binding",
+			runtimeDefinitionNode: "definition",
+			invokerNode: "invoker",
+			executorNode: "executor",
+		},
+	},
+	stability: "experimental",
+	since: "0.1.0",
+});
+
+defineProductOperation({
+	id: "tests.invalid-irreversible-write.update",
+	resource: "template",
+	verb: "update",
+	title: "Invalid irreversible write",
+	description: "Compile-time rejection fixture",
+	contract: { input: objectContract, output: objectContract },
+	effects: [{ kind: "write", resource: "template", reversible: false }],
+	// @ts-expect-error Irreversible writes must require confirmation.
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: { kind: "safe", reason: "fixture" },
+	agent: {
+		useWhen: ["fixture"],
+		avoidWhen: ["fixture"],
+		prerequisites: [],
+		verifyWith: [],
+		related: [],
+		retryGuidance: "fixture",
+	},
+	projection: {
+		mcpName: "listmonk_tests_invalid_irreversible_write",
+		openWorld: false,
+		graph: {
+			descriptorNode: "descriptor",
+			bindingNode: "binding",
+			runtimeDefinitionNode: "definition",
+			invokerNode: "invoker",
+			executorNode: "executor",
+		},
+	},
+	stability: "experimental",
+	since: "0.1.0",
+});
+
+defineProductOperation({
 	id: "tests.invalid-write",
 	resource: "template",
 	verb: "update",
