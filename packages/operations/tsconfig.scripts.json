@@ -5,6 +5,9 @@
 		"noEmit": true,
 		"rewriteRelativeImportExtensions": true
 	},
-	"include": ["src/**/*.ts", "scripts/**/*.ts"],
+	"files": [
+		"scripts/generate-spec-contracts.ts",
+		"scripts/spec-contracts.ts"
+	],
 	"exclude": ["node_modules", "dist", "type-tests"]
 }
