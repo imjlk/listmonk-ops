@@ -26,23 +26,11 @@ describe("Renovate changeset generator", () => {
 			await mkdir(packageDirectory, { recursive: true });
 			const packageFile = join(packageDirectory, "package.json");
 			await writeFile(packageFile, '{"version":"0.1.0"}\n');
-			const productSchemaDirectory = join(
-				repository,
-				"packages",
-				"product-schema",
-			);
-			await mkdir(productSchemaDirectory, { recursive: true });
-			const productSchemaFile = join(
-				productSchemaDirectory,
-				"package.json",
-			);
-			await writeFile(productSchemaFile, '{"version":"0.0.0"}\n');
 			await run(["git", "add", "."], repository);
 			await run(["git", "commit", "-m", "initial"], repository);
 			const base = (await run(["git", "rev-parse", "HEAD"], repository)).trim();
 
 			await writeFile(packageFile, '{"version":"0.1.1"}\n');
-			await writeFile(productSchemaFile, '{"version":"0.0.1"}\n');
 			await run(["git", "add", "."], repository);
 			await run(["git", "commit", "-m", "update workspaces"], repository);
 			const head = (await run(["git", "rev-parse", "HEAD"], repository)).trim();
@@ -54,9 +42,6 @@ describe("Renovate changeset generator", () => {
 			);
 			expect(changeset).toContain(
 				"npm/@listmonk-ops/operations: patch (Changed)",
-			);
-			expect(changeset).toContain(
-				"npm/@listmonk-ops/product-schema: patch (Changed)",
 			);
 		} finally {
 			await rm(repository, { recursive: true, force: true });

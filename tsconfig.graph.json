@@ -11,8 +11,8 @@
 			"@listmonk-ops/openapi": ["./packages/openapi/index.ts"],
 			"@listmonk-ops/openapi/sdk": ["./packages/openapi/sdk.ts"],
 			"@listmonk-ops/operations": ["./packages/operations/src/index.ts"],
-			"@listmonk-ops/product-schema": [
-				"./packages/product-schema/src/index.ts"
+			"@listmonk-ops/operations/specs": [
+				"./packages/operations/src/specs/index.ts"
 			]
 		}
 	},

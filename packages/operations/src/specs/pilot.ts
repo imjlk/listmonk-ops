@@ -6,11 +6,11 @@ import {
 	subscriberBlocklistInputContract,
 	subscriberBulkOutputContract,
 } from "./contract-schemas";
-import { defineProductOperation } from "./operation";
-import { defineProductResource } from "./resource";
-import { defineEmailOperationsProductSchema } from "./schema";
+import { defineOperationSpec } from "./operation";
+import { defineOperationResourceSpec } from "./resource";
+import { defineEmailOperationsSpec } from "./schema";
 
-export const campaignResource = defineProductResource({
+export const campaignResource = defineOperationResourceSpec({
 	id: "campaign",
 	title: "Campaign",
 	states: ["draft", "scheduled", "running", "paused", "finished", "cancelled"],
@@ -25,7 +25,7 @@ export const campaignResource = defineProductResource({
 	terminalStates: ["finished", "cancelled"],
 });
 
-export const subscriberResource = defineProductResource({
+export const subscriberResource = defineOperationResourceSpec({
 	id: "subscriber",
 	title: "Subscriber",
 	states: ["enabled", "disabled", "blocklisted"],
@@ -37,7 +37,7 @@ export const subscriberResource = defineProductResource({
 	terminalStates: [],
 });
 
-export const campaignGetProductOperation = defineProductOperation({
+export const campaignGetOperationSpec = defineOperationSpec({
 	id: "campaigns.get",
 	resource: "campaign",
 	verb: "get",
@@ -70,9 +70,9 @@ export const campaignGetProductOperation = defineProductOperation({
 		openWorld: true,
 		graph: {
 			descriptorNode:
-				"packages/product-schema/src/pilot.ts#campaignGetProductOperation:variable",
+				"packages/operations/src/specs/pilot.ts#campaignGetOperationSpec:variable",
 			bindingNode:
-				"packages/product-schema/src/pilot.ts#bindCampaignGetProductOperation:function",
+				"packages/operations/src/specs/pilot.ts#bindCampaignGetOperationSpec:function",
 			runtimeDefinitionNode:
 				"packages/operations/src/campaigns.ts#getCampaignOperation:variable",
 			invokerNode:
@@ -82,10 +82,10 @@ export const campaignGetProductOperation = defineProductOperation({
 		},
 	},
 	stability: "experimental",
-	since: "0.1.0",
+	since: "0.6.0",
 });
 
-export const campaignScheduleProductOperation = defineProductOperation({
+export const campaignScheduleOperationSpec = defineOperationSpec({
 	id: "campaigns.schedule",
 	resource: "campaign",
 	verb: "schedule",
@@ -139,9 +139,9 @@ export const campaignScheduleProductOperation = defineProductOperation({
 		openWorld: true,
 		graph: {
 			descriptorNode:
-				"packages/product-schema/src/pilot.ts#campaignScheduleProductOperation:variable",
+				"packages/operations/src/specs/pilot.ts#campaignScheduleOperationSpec:variable",
 			bindingNode:
-				"packages/product-schema/src/pilot.ts#bindCampaignScheduleProductOperation:function",
+				"packages/operations/src/specs/pilot.ts#bindCampaignScheduleOperationSpec:function",
 			runtimeDefinitionNode:
 				"packages/operations/src/campaigns.ts#scheduleCampaignOperation:variable",
 			invokerNode:
@@ -151,10 +151,10 @@ export const campaignScheduleProductOperation = defineProductOperation({
 		},
 	},
 	stability: "experimental",
-	since: "0.1.0",
+	since: "0.6.0",
 });
 
-export const subscriberBlocklistProductOperation = defineProductOperation({
+export const subscriberBlocklistOperationSpec = defineOperationSpec({
 	id: "subscribers.blocklist",
 	resource: "subscriber",
 	verb: "blocklist",
@@ -208,9 +208,9 @@ export const subscriberBlocklistProductOperation = defineProductOperation({
 		openWorld: true,
 		graph: {
 			descriptorNode:
-				"packages/product-schema/src/pilot.ts#subscriberBlocklistProductOperation:variable",
+				"packages/operations/src/specs/pilot.ts#subscriberBlocklistOperationSpec:variable",
 			bindingNode:
-				"packages/product-schema/src/pilot.ts#bindSubscriberBlocklistProductOperation:function",
+				"packages/operations/src/specs/pilot.ts#bindSubscriberBlocklistOperationSpec:function",
 			runtimeDefinitionNode:
 				"packages/operations/src/subscribers.ts#blocklistSubscribersOperation:variable",
 			invokerNode:
@@ -220,35 +220,35 @@ export const subscriberBlocklistProductOperation = defineProductOperation({
 		},
 	},
 	stability: "experimental",
-	since: "0.1.0",
+	since: "0.6.0",
 });
 
-export const pilotProductOperations = [
-	campaignGetProductOperation,
-	campaignScheduleProductOperation,
-	subscriberBlocklistProductOperation,
+export const pilotOperationSpecs = [
+	campaignGetOperationSpec,
+	campaignScheduleOperationSpec,
+	subscriberBlocklistOperationSpec,
 ] as const;
 
-export function bindCampaignGetProductOperation(): typeof campaignGetProductOperation {
-	return campaignGetProductOperation;
+export function bindCampaignGetOperationSpec(): typeof campaignGetOperationSpec {
+	return campaignGetOperationSpec;
 }
 
-export function bindCampaignScheduleProductOperation(): typeof campaignScheduleProductOperation {
-	return campaignScheduleProductOperation;
+export function bindCampaignScheduleOperationSpec(): typeof campaignScheduleOperationSpec {
+	return campaignScheduleOperationSpec;
 }
 
-export function bindSubscriberBlocklistProductOperation(): typeof subscriberBlocklistProductOperation {
-	return subscriberBlocklistProductOperation;
+export function bindSubscriberBlocklistOperationSpec(): typeof subscriberBlocklistOperationSpec {
+	return subscriberBlocklistOperationSpec;
 }
 
-export const emailOperationsProductSchema =
-	defineEmailOperationsProductSchema({
+export const emailOperationsSpec =
+	defineEmailOperationsSpec({
 		schemaVersion: "1.0.0",
-		title: "listmonk-ops Email Operations Product Schema",
+		title: "listmonk-ops Email Operations Specification",
 		description:
 			"Typed, policy-aware, and verifiable email operations for humans and AI agents.",
 		resources: [campaignResource, subscriberResource],
-		operations: pilotProductOperations,
+		operations: pilotOperationSpecs,
 		events: [],
 		playbooks: [],
 	});

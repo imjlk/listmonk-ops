@@ -20,7 +20,7 @@ describe("CLI operation catalog", () => {
 			expect.arrayContaining([
 				expect.objectContaining({
 					id: "campaigns.schedule",
-					product: expect.objectContaining({
+					spec: expect.objectContaining({
 						resource: "campaign",
 						verb: "schedule",
 					}),

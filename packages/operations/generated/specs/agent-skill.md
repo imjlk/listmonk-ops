@@ -1,6 +1,6 @@
 # listmonk-ops agent operation reference
 
-> Generated from the product schema. Runtime safety gates and explicit confirmation remain authoritative.
+> Generated from the Email Operations Specification. Runtime safety gates and explicit confirmation remain authoritative.
 
 ## Get campaign (`campaigns.get`)
 

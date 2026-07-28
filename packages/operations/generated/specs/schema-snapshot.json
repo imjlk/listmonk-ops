@@ -449,7 +449,7 @@
         "kind": "safe",
         "reason": "The operation only reads the current campaign representation."
       },
-      "since": "0.1.0",
+      "since": "0.6.0",
       "stability": "experimental"
     },
     {
@@ -563,7 +563,7 @@
         "reason": "Scheduling writes send_at before the status transition, so a timeout can leave an ambiguous remote state.",
         "reconcileWith": "campaigns.get"
       },
-      "since": "0.1.0",
+      "since": "0.6.0",
       "stability": "experimental"
     },
     {
@@ -726,7 +726,7 @@
         "kind": "safe",
         "reason": "Re-applying blocklist to the same subscriber IDs is idempotent, including after partial chunk completion."
       },
-      "since": "0.1.0",
+      "since": "0.6.0",
       "stability": "experimental"
     }
   ],

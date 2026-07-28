@@ -10,15 +10,15 @@ import {
 	operationCoverageEdges,
 } from "./check-operation-coverage";
 import {
-	assertProductSchemaGraph,
-	productSchemaGraphEdges,
-	productSchemaOperationCount,
-} from "./check-product-schema-graph";
+	assertOperationsSpecGraph,
+	operationsSpecGraphEdges,
+	operationsSpecOperationCount,
+} from "./check-operations-spec-graph";
 
 export function assertMainGraphContracts(graph: GraphDump): void {
 	assertOperationCoverage(graph);
 	assertArchitectureCallPaths(graph);
-	assertProductSchemaGraph(graph);
+	assertOperationsSpecGraph(graph);
 }
 
 if (import.meta.main) {
@@ -32,6 +32,6 @@ if (import.meta.main) {
 		`Main graph preserves ${architectureCallPaths.length} architecture paths across ${countArchitectureCallEdges()} direct call edges.`,
 	);
 	console.log(
-		`Product schema preserves ${productSchemaOperationCount} pilot operations across ${productSchemaGraphEdges.length} direct graph edges.`,
+		`Operations spec preserves ${operationsSpecOperationCount} pilot operations across ${operationsSpecGraphEdges.length} direct graph edges.`,
 	);
 }

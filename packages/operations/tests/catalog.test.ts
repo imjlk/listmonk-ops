@@ -54,7 +54,7 @@ describe("operation catalog", () => {
 			catalog,
 			"campaigns",
 		).find((operation) => operation.id === "campaigns.schedule");
-		expect(getCampaign?.product).toMatchObject({
+		expect(getCampaign?.spec).toMatchObject({
 			resource: "campaign",
 			verb: "get",
 			policy: {
@@ -63,7 +63,7 @@ describe("operation catalog", () => {
 				dryRun: false,
 			},
 		});
-		expect(scheduleCampaign?.product).toMatchObject({
+		expect(scheduleCampaign?.spec).toMatchObject({
 			resource: "campaign",
 			verb: "schedule",
 			retry: {
@@ -71,10 +71,10 @@ describe("operation catalog", () => {
 				reconcileWith: "campaigns.get",
 			},
 		});
-		expect(scheduleCampaign?.product).not.toBe(
+		expect(scheduleCampaign?.spec).not.toBe(
 			campaignOperationCatalog.operations.find(
 				(operation) => operation.id === "campaigns.schedule",
-			)?.product,
+			)?.spec,
 		);
 	});
 

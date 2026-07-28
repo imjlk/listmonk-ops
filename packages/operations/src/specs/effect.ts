@@ -1,4 +1,4 @@
-export type ProductResourceKind =
+export type OperationResourceKind =
 	| "campaign"
 	| "subscriber"
 	| "audience"
@@ -16,12 +16,12 @@ export type OperationEffect =
 
 export interface ReadEffect {
 	kind: "read";
-	resource: ProductResourceKind;
+	resource: OperationResourceKind;
 }
 
 export interface WriteEffect {
 	kind: "write";
-	resource: ProductResourceKind;
+	resource: OperationResourceKind;
 	reversible: boolean;
 }
 
@@ -41,6 +41,6 @@ export interface SuppressionEffect {
 
 export interface DeleteEffect {
 	kind: "delete";
-	resource: ProductResourceKind;
+	resource: OperationResourceKind;
 	reversible: false;
 }

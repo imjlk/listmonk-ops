@@ -26,8 +26,7 @@ This repository is designed for teams operating [Listmonk](https://listmonk.app/
 | --- | --- |
 | `apps/cli` | `listmonk-cli` command line app (Gunshi) |
 | `packages/openapi` | Generated API SDK and typed client wrappers |
-| `packages/product-schema` | Compiler-driven email resource, operation, policy, retry, and agent declarations |
-| `packages/operations` | Shared typed operation contracts and executors for CLI/MCP adapters |
+| `packages/operations` | Shared typed operation contracts and executors, plus compiler-driven specs for CLI/MCP and agents |
 | `packages/abtest` | A/B test services and analysis logic |
 | `packages/automation` | `@listmonk-ops/automation` high-level operational workflows (preflight/guard/hygiene/drift/digest) |
 | `packages/mcp` | MCP server exposing Listmonk operations |
@@ -35,7 +34,7 @@ This repository is designed for teams operating [Listmonk](https://listmonk.app/
 
 Runtime policy:
 - Executable packages (`apps/cli`, `packages/mcp`) target the Bun runtime.
-- Library packages are ESM. `openapi`, `product-schema`, and `operations` remain runtime-neutral; the file-backed APIs in `common`, `automation`, and `abtest` require a Node-compatible file-system runtime such as Bun.
+- Library packages are ESM. `openapi` and `operations` remain runtime-neutral; the file-backed APIs in `common`, `automation`, and `abtest` require a Node-compatible file-system runtime such as Bun.
 
 ## Prerequisites
 
@@ -198,7 +197,7 @@ After a PR is merged into `main`, workflow `.github/workflows/sampo-release-publ
 4. Pushes release commit and tags after publish succeeds
 
 CI guard:
-- PRs changing releasable packages (`apps/cli`, `packages/openapi`, `packages/product-schema`, `packages/operations`, `packages/automation`, `packages/common`, `packages/abtest`, `packages/mcp`) must include `.sampo/changesets/*.md`
+- PRs changing releasable packages (`apps/cli`, `packages/openapi`, `packages/operations`, `packages/automation`, `packages/common`, `packages/abtest`, `packages/mcp`) must include `.sampo/changesets/*.md`
 - Workflow: `.github/workflows/sampo-changeset-check.yml`
 - Renovate PRs that touch releasable packages receive a bot-generated changeset via `.github/workflows/renovate-changeset.yml`
 
@@ -377,17 +376,20 @@ MCP clients can call the read-only `listmonk_list_operations` tool with the
 same optional `family` filter. The catalog intentionally covers shared typed
 operations only; legacy transport-specific tools remain available separately.
 Pilot operations (`campaigns.get`, `campaigns.schedule`, and
-`subscribers.blocklist`) also include an optional `product` descriptor. It
+`subscribers.blocklist`) also include an optional `spec` descriptor. It
 adds normalized Typia-generated contracts, resource/state semantics, effects,
 derived safety policy, retry/reconciliation guidance, and agent usage context.
 The existing Zod schemas remain the transport normalization and runtime
 validation authority.
 
-Product-schema artifacts are checked in under
-`packages/product-schema/generated`. Run `bun run product-schema:generate`
+Operations Spec artifacts are checked in under
+`packages/operations/generated/specs`. Run `bun run operations:specs:generate`
 after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that each pilot descriptor remains connected to its named
 operation invoker and executor in the compiler graph.
+
+The spec API is published from the existing operations package through the
+`@listmonk-ops/operations/specs` subpath; it is not a separate npm package.
 
 For a destructive shared MCP operation, include the MCP-only
 `"confirm": true` input. The adapter removes that control before invoking the

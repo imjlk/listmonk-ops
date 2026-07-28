@@ -9,12 +9,12 @@ import type {
 	CampaignScheduleOutput,
 	SubscriberBlocklistInput,
 	SubscriberBulkOutput,
-} from "../src/contracts";
-import type { ProductContractSchema } from "../src/json";
+} from "./spec-contracts";
+import type { NormalizedContractSchema } from "../src/specs/json";
 
 const outputPath = resolve(
 	dirname(fileURLToPath(import.meta.url)),
-	"../src/generated/contract-schemas.json",
+	"../src/specs/generated/contract-schemas.json",
 );
 const checkOnly = process.argv.includes("--check");
 
@@ -50,7 +50,7 @@ function stableRecord(
 function contractSchema(generated: {
 	schema: unknown;
 	components: unknown;
-}): ProductContractSchema {
+}): NormalizedContractSchema {
 	return {
 		dialect: "openapi-3.1",
 		stage: "normalized",
@@ -60,7 +60,7 @@ function contractSchema(generated: {
 }
 
 // Keep this map aligned with the normalized contract types above and the
-// typed accessors in ../src/contract-schemas.ts.
+// typed accessors in ../src/specs/contract-schemas.ts.
 const contracts = {
 	campaignGetInputContract: contractSchema(
 		typia.json.schema<CampaignGetInput>(),
@@ -80,7 +80,7 @@ const contracts = {
 	subscriberBulkOutputContract: contractSchema(
 		typia.json.schema<SubscriberBulkOutput>(),
 	),
-} satisfies Record<string, ProductContractSchema>;
+} satisfies Record<string, NormalizedContractSchema>;
 
 function renderContracts(): string {
 	return `${JSON.stringify(stableValue(contracts), null, 2)}\n`;
@@ -96,7 +96,7 @@ try {
 if (checkOnly) {
 	if (current !== expected) {
 		throw new Error(
-			"Generated contract schemas are stale. Run `bun run --cwd packages/product-schema generate`.",
+			"Generated contract schemas are stale. Run `bun run --cwd packages/operations generate:specs`.",
 		);
 	}
 } else {

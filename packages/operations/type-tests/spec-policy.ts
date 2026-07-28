@@ -1,18 +1,21 @@
-import { defineProductOperation, type ProductContractSchema } from "../src";
+import {
+	defineOperationSpec,
+	type NormalizedContractSchema,
+} from "../src/specs";
 
 const objectContract = {
 	dialect: "openapi-3.1",
 	stage: "normalized",
 	schema: { type: "object" },
 	components: {},
-} as const satisfies ProductContractSchema;
+} as const satisfies NormalizedContractSchema;
 
-defineProductOperation({
+defineOperationSpec({
 	id: "tests.read",
 	resource: "campaign",
 	verb: "get",
 	title: "Valid read",
-	description: "A valid read-only product operation",
+	description: "A valid read-only operation spec",
 	contract: { input: objectContract, output: objectContract },
 	effects: [{ kind: "read", resource: "campaign" }],
 	policy: { confirmation: "never", audit: "optional", dryRun: false },
@@ -40,7 +43,7 @@ defineProductOperation({
 	since: "0.1.0",
 });
 
-defineProductOperation({
+defineOperationSpec({
 	id: "tests.invalid-delivery",
 	resource: "campaign",
 	verb: "schedule",
@@ -81,7 +84,7 @@ defineProductOperation({
 	since: "0.1.0",
 });
 
-defineProductOperation({
+defineOperationSpec({
 	id: "tests.invalid-suppression",
 	resource: "subscriber",
 	verb: "blocklist",
@@ -122,7 +125,7 @@ defineProductOperation({
 	since: "0.1.0",
 });
 
-defineProductOperation({
+defineOperationSpec({
 	id: "tests.write",
 	resource: "template",
 	verb: "update",
@@ -155,7 +158,7 @@ defineProductOperation({
 	since: "0.1.0",
 });
 
-defineProductOperation({
+defineOperationSpec({
 	id: "tests.irreversible-write.update",
 	resource: "template",
 	verb: "update",
@@ -188,7 +191,7 @@ defineProductOperation({
 	since: "0.1.0",
 });
 
-defineProductOperation({
+defineOperationSpec({
 	id: "tests.invalid-irreversible-write.update",
 	resource: "template",
 	verb: "update",
@@ -222,7 +225,7 @@ defineProductOperation({
 	since: "0.1.0",
 });
 
-defineProductOperation({
+defineOperationSpec({
 	id: "tests.invalid-write",
 	resource: "template",
 	verb: "update",
@@ -256,7 +259,7 @@ defineProductOperation({
 	since: "0.1.0",
 });
 
-defineProductOperation({
+defineOperationSpec({
 	id: "tests.delete",
 	resource: "campaign",
 	verb: "delete",
@@ -289,7 +292,7 @@ defineProductOperation({
 	since: "0.1.0",
 });
 
-defineProductOperation({
+defineOperationSpec({
 	id: "tests.invalid-delete",
 	resource: "campaign",
 	verb: "delete",

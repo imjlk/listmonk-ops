@@ -26,8 +26,7 @@
 | --- | --- |
 | `apps/cli` | `listmonk-cli` 커맨드라인 앱 (Gunshi) |
 | `packages/openapi` | 생성형 API SDK 및 타입드 클라이언트 래퍼 |
-| `packages/product-schema` | 컴파일러 기반 이메일 리소스·Operation·정책·재시도·에이전트 선언 |
-| `packages/operations` | CLI/MCP 어댑터가 공유하는 타입드 Operation 계약 및 실행기 |
+| `packages/operations` | CLI/MCP가 공유하는 타입드 Operation 계약·실행기와 컴파일러 기반 spec |
 | `packages/abtest` | A/B 테스트 서비스 및 분석 로직 |
 | `packages/automation` | `@listmonk-ops/automation` 고수준 운영 워크플로 (preflight/guard/hygiene/drift/digest) |
 | `packages/mcp` | Listmonk 작업을 노출하는 MCP 서버 |
@@ -35,7 +34,7 @@
 
 런타임 정책:
 - 실행 패키지(`apps/cli`, `packages/mcp`)는 Bun 런타임을 대상으로 합니다.
-- 라이브러리 패키지는 ESM입니다. `openapi`, `product-schema`, `operations`는 런타임 중립을 유지하며, `common`, `automation`, `abtest`의 파일 저장 API는 Bun 같은 Node 호환 파일 시스템 런타임이 필요합니다.
+- 라이브러리 패키지는 ESM입니다. `openapi`와 `operations`는 런타임 중립을 유지하며, `common`, `automation`, `abtest`의 파일 저장 API는 Bun 같은 Node 호환 파일 시스템 런타임이 필요합니다.
 
 ## 사전 요구사항
 
@@ -197,7 +196,7 @@ PR이 `main`에 머지되면 `.github/workflows/sampo-release-publish.yml`가 �
 4. publish 성공 후 릴리즈 커밋/태그 push
 
 CI 가드:
-- 릴리즈 대상 패키지(`apps/cli`, `packages/openapi`, `packages/product-schema`, `packages/operations`, `packages/automation`, `packages/common`, `packages/abtest`, `packages/mcp`) 변경 PR에는 `.sampo/changesets/*.md`가 반드시 포함되어야 함
+- 릴리즈 대상 패키지(`apps/cli`, `packages/openapi`, `packages/operations`, `packages/automation`, `packages/common`, `packages/abtest`, `packages/mcp`) 변경 PR에는 `.sampo/changesets/*.md`가 반드시 포함되어야 함
 - 워크플로우: `.github/workflows/sampo-changeset-check.yml`
 - 릴리즈 대상 패키지를 건드리는 Renovate PR에는 `.github/workflows/renovate-changeset.yml`가 bot-generated changeset을 추가함
 
@@ -376,16 +375,19 @@ MCP 클라이언트에서는 같은 선택적 `family` 필터와 함께 read-onl
 `listmonk_list_operations` 도구를 호출하면 됩니다. 이 카탈로그는 공용 타입드
 Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제공됩니다.
 파일럿 Operation(`campaigns.get`, `campaigns.schedule`,
-`subscribers.blocklist`)에는 선택적인 `product` descriptor도 포함됩니다.
+`subscribers.blocklist`)에는 선택적인 `spec` descriptor도 포함됩니다.
 이 descriptor는 Typia가 생성한 정규화 계약, 리소스/상태 의미, effect에서
 파생한 안전 정책, 재시도·reconcile 지침, 에이전트 사용 맥락을 제공합니다.
 기존 Zod schema는 계속 transport 정규화와 런타임 검증의 기준입니다.
 
-생성된 Product Schema 산출물은 `packages/product-schema/generated`에
+생성된 Operations Spec 산출물은 `packages/operations/generated/specs`에
 저장됩니다. 계약이나 descriptor를 바꾼 뒤에는
-`bun run product-schema:generate`를 실행하세요. `bun run check`는 생성물
+`bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 파일럿 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다.
+
+Spec API는 별도 npm 패키지가 아니라 기존 operations 패키지의
+`@listmonk-ops/operations/specs` 서브패스로 배포됩니다.
 
 destructive 공용 MCP Operation에는 MCP 전용 입력인 `"confirm": true`를
 반드시 포함해야 합니다. 어댑터는 타입드 도메인 Operation을 호출하기 전에 이

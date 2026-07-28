@@ -6,7 +6,7 @@ export interface AgentOperationContext {
 	/**
 	 * Runtime operation catalog IDs that should run first. During incremental
 	 * migration these references may target existing operations that do not yet
-	 * have Product Schema descriptors.
+	 * have Operations Spec descriptors.
 	 */
 	prerequisites: readonly OperationId[];
 	/** Runtime operation catalog IDs used to verify the result. */

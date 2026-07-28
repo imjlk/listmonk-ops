@@ -16,30 +16,41 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
+		},
+		"./specs": {
+			"types": "./dist/specs/index.d.ts",
+			"import": "./dist/specs/index.js",
+			"default": "./dist/specs/index.js"
 		}
 	},
 	"files": [
 		"dist",
+		"generated",
 		"README.md"
 	],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=neutral --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/openapi --external:@listmonk-ops/product-schema --external:zod",
+		"generate:specs:contracts": "ttsx --project ./tsconfig.scripts.json ./scripts/generate-spec-contracts.ts",
+		"generate:specs:artifacts": "bun ./scripts/generate-spec-artifacts.ts",
+		"generate:specs": "bun run generate:specs:contracts && bun run generate:specs:artifacts",
+		"generate:specs:check": "ttsx --project ./tsconfig.scripts.json ./scripts/generate-spec-contracts.ts -- --check && bun ./scripts/generate-spec-artifacts.ts --check",
+		"build": "bun run generate:specs:check && bun run clean && ttsc -p tsconfig.build.json && esbuild src/index.ts src/specs/index.ts --bundle --platform=neutral --format=esm --outbase=src --outdir=dist --minify --external:@listmonk-ops/openapi --external:zod && bun ./scripts/check-spec-subpath.ts",
 		"typecheck": "ttsc --noEmit",
 		"format": "ttsc format",
 		"lint": "ttsc --noEmit",
 		"lint:fix": "ttsc fix",
-		"test": "bun run --cwd ../product-schema build && bun test",
+		"test": "bun run generate:specs:check && bun test",
 		"prepublishOnly": "bun run build && bun run test"
 	},
 	"dependencies": {
 		"@listmonk-ops/openapi": "^0.4.0",
-		"@listmonk-ops/product-schema": "workspace:^0.0.0",
 		"zod": "4.3.6"
 	},
 	"devDependencies": {
 		"@types/bun": "1.3.10",
 		"esbuild": "0.27.4",
+		"ttsc": "0.22.0",
+		"typia": "13.2.0",
 		"typescript": "7.0.2"
 	}
 }

@@ -17,11 +17,10 @@ unless the task explicitly adds it.
 
 - `apps/cli`: Bun/Gunshi CLI, shell completion, JS bundle, and native binaries.
 - `packages/openapi`: generated Listmonk SDK plus handwritten client wrappers.
-- `packages/product-schema`: pure compiler-driven declarations for email
-  resources, normalized operation contracts, effects, policies, retry
-  semantics, agent guidance, and generated projections.
 - `packages/operations`: shared typed operation contracts and runtime-neutral
-  executors used by CLI and MCP adapters.
+  executors used by CLI and MCP adapters. Its `src/specs` subtree contains the
+  compiler-driven resource, effect, policy, retry, playbook, and agent
+  declarations projected through `@listmonk-ops/operations/specs`.
 - `packages/automation`: high-level operational workflows such as campaign
   preflight, deliverability guard, hygiene, drift, templates, and digest.
 - `packages/abtest`: A/B test lifecycle, Listmonk integration, and statistics.
@@ -32,8 +31,8 @@ unless the task explicitly adds it.
 - `docker-compose.yml`: local Listmonk 6.2.0, PostgreSQL, and Mailpit stack.
 
 Executable packages (`apps/cli` and `packages/mcp`) target Bun. Library
-packages are ESM. `packages/openapi`, `packages/product-schema`, and
-`packages/operations` remain runtime-neutral; the file-backed persistence APIs in `packages/common`,
+packages are ESM. `packages/openapi` and `packages/operations` remain
+runtime-neutral; the file-backed persistence APIs in `packages/common`,
 `packages/automation`, and `packages/abtest` require a Node-compatible file
 system runtime such as Bun.
 

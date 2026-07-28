@@ -1,7 +1,7 @@
 import type { AgentOperationContext } from "./agent";
-import type { OperationEffect, ProductResourceKind } from "./effect";
+import type { OperationEffect, OperationResourceKind } from "./effect";
 import type {
-	ProductContractSchema,
+	NormalizedContractSchema,
 } from "./json";
 import {
 	assertPolicyMatchesEffects,
@@ -10,7 +10,7 @@ import {
 } from "./policy";
 import type { RetrySemantics } from "./retry";
 
-export type ProductOperationVerb =
+export type OperationSpecVerb =
 	| "list"
 	| "get"
 	| "create"
@@ -34,7 +34,7 @@ export type ProductOperationVerb =
 	| "diff"
 	| "blocklist";
 
-export type ProductOperationLifecycle =
+export type OperationSpecLifecycle =
 	| {
 			stability: "experimental" | "stable";
 			since: string;
@@ -49,14 +49,14 @@ export type ProductOperationLifecycle =
 			};
 		};
 
-export interface ProductStateTransition {
-	resource: ProductResourceKind;
+export interface OperationStateTransitionSpec {
+	resource: OperationResourceKind;
 	from: readonly string[];
 	to: string;
 	allowNoopFromTarget: boolean;
 }
 
-export interface ProductOperationProjection {
+export interface OperationProjectionSpec {
 	mcpName: `listmonk_${string}`;
 	openWorld: boolean;
 	graph: {
@@ -68,35 +68,35 @@ export interface ProductOperationProjection {
 	};
 }
 
-export interface ProductOperationContract {
-	input: ProductContractSchema;
-	output: ProductContractSchema;
+export interface OperationContractSpec {
+	input: NormalizedContractSchema;
+	output: NormalizedContractSchema;
 }
 
-interface ProductOperationBase {
+interface OperationSpecBase {
 	id: `${string}.${string}`;
-	resource: ProductResourceKind;
-	verb: ProductOperationVerb;
+	resource: OperationResourceKind;
+	verb: OperationSpecVerb;
 	title: string;
 	description: string;
-	contract: ProductOperationContract;
+	contract: OperationContractSpec;
 	retry: RetrySemantics;
-	state?: ProductStateTransition | undefined;
+	state?: OperationStateTransitionSpec | undefined;
 	agent: AgentOperationContext;
-	projection: ProductOperationProjection;
+	projection: OperationProjectionSpec;
 }
 
-export type ProductOperation<
+export type OperationSpec<
 	Effects extends readonly OperationEffect[] = readonly OperationEffect[],
-> = ProductOperationBase & {
+> = OperationSpecBase & {
 	effects: Effects;
 	policy: PolicyForEffects<Effects>;
-} & ProductOperationLifecycle;
+} & OperationSpecLifecycle;
 
-export type AnyProductOperation = ProductOperationBase & {
+export type AnyOperationSpec = OperationSpecBase & {
 	effects: readonly OperationEffect[];
 	policy: OperationPolicy;
-} & ProductOperationLifecycle;
+} & OperationSpecLifecycle;
 
 const OPERATION_ID_PATTERN = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/;
 const MCP_NAME_PATTERN = /^listmonk_[a-z][a-z0-9_]*$/;
@@ -110,7 +110,7 @@ function assertNonBlank(value: string, label: string): void {
 function assertObjectContractSchema(
 	operationId: string,
 	direction: "input" | "output",
-	contract: ProductContractSchema,
+	contract: NormalizedContractSchema,
 ): void {
 	const rootType = contract.schema.type;
 	const hasObjectReference =
@@ -118,67 +118,67 @@ function assertObjectContractSchema(
 		contract.schema.$ref.length > 0;
 	if (rootType !== "object" && !hasObjectReference) {
 		throw new TypeError(
-			`Product operation ${operationId} ${direction} contract must have an object root or reference`,
+			`Operation spec ${operationId} ${direction} contract must have an object root or reference`,
 		);
 	}
 }
 
-export function defineProductOperation<
+export function defineOperationSpec<
 	const Effects extends readonly OperationEffect[],
 >(
-	operation: ProductOperation<Effects>,
-): ProductOperation<Effects> {
+	operation: OperationSpec<Effects>,
+): OperationSpec<Effects> {
 	if (!OPERATION_ID_PATTERN.test(operation.id)) {
-		throw new TypeError(`Invalid product operation id: ${operation.id}`);
+		throw new TypeError(`Invalid operation spec id: ${operation.id}`);
 	}
 	if (!MCP_NAME_PATTERN.test(operation.projection.mcpName)) {
 		throw new TypeError(
-			`Invalid product operation MCP name: ${operation.projection.mcpName}`,
+			`Invalid operation spec MCP name: ${operation.projection.mcpName}`,
 		);
 	}
-	assertNonBlank(operation.title, `Product operation ${operation.id} title`);
+	assertNonBlank(operation.title, `Operation spec ${operation.id} title`);
 	assertNonBlank(
 		operation.description,
-		`Product operation ${operation.id} description`,
+		`Operation spec ${operation.id} description`,
 	);
 	if (operation.effects.length === 0) {
 		throw new TypeError(
-			`Product operation ${operation.id} must declare at least one effect`,
+			`Operation spec ${operation.id} must declare at least one effect`,
 		);
 	}
 	const idVerb = operation.id.slice(operation.id.lastIndexOf(".") + 1);
 	if (idVerb !== operation.verb) {
 		throw new TypeError(
-			`Product operation ${operation.id} id verb (${idVerb}) must match declared verb (${operation.verb})`,
+			`Operation spec ${operation.id} id verb (${idVerb}) must match declared verb (${operation.verb})`,
 		);
 	}
 	for (const effect of operation.effects) {
 		if (effect.resource !== operation.resource) {
 			throw new TypeError(
-				`Product operation ${operation.id} effect resource (${effect.resource}) must match operation resource (${operation.resource})`,
+				`Operation spec ${operation.id} effect resource (${effect.resource}) must match operation resource (${operation.resource})`,
 			);
 		}
 	}
 	if (operation.state !== undefined) {
 		if (operation.state.resource !== operation.resource) {
 			throw new TypeError(
-				`Product operation ${operation.id} state resource (${operation.state.resource}) must match operation resource (${operation.resource})`,
+				`Operation spec ${operation.id} state resource (${operation.state.resource}) must match operation resource (${operation.resource})`,
 			);
 		}
 		if (operation.state.from.length === 0) {
 			throw new TypeError(
-				`Product operation ${operation.id} state transition must declare at least one source state`,
+				`Operation spec ${operation.id} state transition must declare at least one source state`,
 			);
 		}
 		for (const source of operation.state.from) {
 			assertNonBlank(
 				source,
-				`Product operation ${operation.id} state transition source`,
+				`Operation spec ${operation.id} state transition source`,
 			);
 		}
 		assertNonBlank(
 			operation.state.to,
-			`Product operation ${operation.id} state transition target`,
+			`Operation spec ${operation.id} state transition target`,
 		);
 	}
 	assertPolicyMatchesEffects(
@@ -188,7 +188,7 @@ export function defineProductOperation<
 	for (const [label, nodePath] of Object.entries(operation.projection.graph)) {
 		assertNonBlank(
 			nodePath,
-			`Product operation ${operation.id} projection graph ${label}`,
+			`Operation spec ${operation.id} projection graph ${label}`,
 		);
 	}
 	assertObjectContractSchema(operation.id, "input", operation.contract.input);
@@ -198,19 +198,16 @@ export function defineProductOperation<
 		...operation.agent.avoidWhen,
 		operation.agent.retryGuidance,
 	]) {
-		assertNonBlank(
-			guidance,
-			`Product operation ${operation.id} agent guidance`,
-		);
+		assertNonBlank(guidance, `Operation spec ${operation.id} agent guidance`);
 	}
 	const operationId = operation.id;
-	const lifecycle: ProductOperationLifecycle = operation;
+	const lifecycle: OperationSpecLifecycle = operation;
 	if (
 		lifecycle.stability === "deprecated" &&
 		lifecycle.deprecated === undefined
 	) {
 		throw new TypeError(
-			`Deprecated product operation ${operationId} must declare replacedBy`,
+			`Deprecated operation spec ${operationId} must declare replacedBy`,
 		);
 	}
 	if (
@@ -218,7 +215,7 @@ export function defineProductOperation<
 		lifecycle.deprecated !== undefined
 	) {
 		throw new TypeError(
-			`Active product operation ${operationId} must not declare deprecated metadata`,
+			`Active operation spec ${operationId} must not declare deprecated metadata`,
 		);
 	}
 	return operation;
