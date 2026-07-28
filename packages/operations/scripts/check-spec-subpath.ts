@@ -5,7 +5,7 @@ type BuiltSpecModule = {
 };
 
 const specModule = (await import(
-	new URL("../dist/specs/index.js", import.meta.url).href
+	"@listmonk-ops/operations/specs"
 )) as BuiltSpecModule;
 
 if (
