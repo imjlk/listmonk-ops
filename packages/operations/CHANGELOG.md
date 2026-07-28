@@ -1,5 +1,11 @@
 # @listmonk-ops/operations
 
+## 0.6.0 — 2026-07-28
+
+### Added
+
+- [5578960](https://github.com/imjlk/listmonk-ops/commit/557896096810d21701f49834a46a6c9b6dbbd6b7) Add a compiler-driven Email Operations Specification with Typia-generated normalized contracts, effect-derived safety policies, agent guidance, catalog projection, and graph-enforced pilot bindings for campaign get/schedule and subscriber blocklist. — Thanks @imjlk!
+
 ## 0.5.0 — 2026-07-27
 
 ### Added

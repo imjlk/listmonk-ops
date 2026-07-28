@@ -1,5 +1,11 @@
 # @listmonk-ops/automation
 
+## 0.2.2 — 2026-07-28
+
+### Patch changes
+
+- Updated dependencies: operations@0.6.0
+
 ## 0.2.1 — 2026-07-27
 
 ### Patch changes
