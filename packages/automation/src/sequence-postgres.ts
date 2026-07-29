@@ -93,6 +93,10 @@ type ActiveEnrollmentConflictRow = {
 	enrollment_ids: string[];
 };
 
+type ActiveEnrollmentConflictCountRow = {
+	count: number;
+};
+
 function assertConnectionString(value: string): string {
 	const trimmed = value.trim();
 	let parsed: URL;
@@ -229,6 +233,18 @@ async function initializeSchema(sql: Sql): Promise<void> {
 			`;
 		}
 		if (storedVersion < 2) {
+			const conflictCountRows =
+				await transaction<ActiveEnrollmentConflictCountRow[]>`
+					SELECT count(*)::integer AS count
+					FROM (
+						SELECT 1
+						FROM listmonk_ops.sequence_enrollments
+						WHERE status NOT IN ('completed', 'failed', 'cancelled')
+						GROUP BY sequence_id, subscriber_id
+						HAVING count(*) > 1
+					) AS conflicts
+				`;
+			const conflictCount = conflictCountRows[0]?.count ?? 0;
 			const conflicts = await transaction<ActiveEnrollmentConflictRow[]>`
 				SELECT
 					sequence_id::text AS sequence_id,
@@ -250,7 +266,8 @@ async function initializeSchema(sql: Sql): Promise<void> {
 					.join("; ");
 				throw new Error(
 					"Cannot migrate sequence Postgres schema to version 2 because duplicate active enrollments exist across revisions. " +
-						`Resolve all but one active enrollment for each sequence/subscriber pair and retry. Conflicts: ${details}`,
+						`Resolve all but one active enrollment for each sequence/subscriber pair and retry. ` +
+						`Conflicts (showing first ${conflicts.length} of ${conflictCount}): ${details}`,
 				);
 			}
 			await transaction`

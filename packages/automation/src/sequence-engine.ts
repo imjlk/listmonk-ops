@@ -30,6 +30,7 @@ export interface SequenceExecutionContext {
 		baseUrl?: string;
 		username?: string;
 	};
+	retryJitter?: () => number;
 	now?: () => Date;
 }
 
@@ -54,6 +55,7 @@ export type SequenceAmbiguousResolution = "sent" | "not_sent";
 
 export const SEQUENCE_RETRY_BASE_DELAY_MS = 5_000;
 export const SEQUENCE_RETRY_MAX_DELAY_MS = 5 * 60_000;
+export const SEQUENCE_RETRY_MAX_ATTEMPTS = 24;
 
 function toErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -187,11 +189,29 @@ function retryEnrollment(
 	enrollment: SequenceEnrollment,
 	now: Date,
 	error: unknown,
+	jitter: number,
 ): Omit<SequenceEnrollment, "leaseToken" | "leaseExpiresAt"> {
 	const retryCount = enrollment.retryCount + 1;
-	const delayMs = Math.min(
+	if (retryCount >= SEQUENCE_RETRY_MAX_ATTEMPTS) {
+		return withoutLease(
+			enrollment,
+			{
+				status: "failed",
+				retryCount,
+				lastError: `Sequence delivery failed after ${retryCount} retryable attempts: ${truncateError(error)}`,
+			},
+			now,
+		);
+	}
+	const cappedDelayMs = Math.min(
 		SEQUENCE_RETRY_BASE_DELAY_MS * 2 ** Math.min(retryCount - 1, 16),
 		SEQUENCE_RETRY_MAX_DELAY_MS,
+	);
+	const normalizedJitter = Number.isFinite(jitter)
+		? Math.min(Math.max(jitter, 0), 1)
+		: 0.5;
+	const delayMs = Math.round(
+		cappedDelayMs / 2 + (cappedDelayMs / 2) * normalizedJitter,
 	);
 	return withoutLease(
 		enrollment,
@@ -271,7 +291,12 @@ async function executeSendStep(
 	} catch (error) {
 		if (error instanceof TransactionalReconcileError) {
 			if (error.status === "pending") {
-				return retryEnrollment(claimed.enrollment, now, error);
+				return retryEnrollment(
+					claimed.enrollment,
+					now,
+					error,
+					context.retryJitter?.() ?? Math.random(),
+				);
 			}
 			return withoutLease(
 				claimed.enrollment,
@@ -295,7 +320,12 @@ async function executeSendStep(
 			);
 		}
 		if (isDefinitivePreDispatchError(error)) {
-			return retryEnrollment(claimed.enrollment, now, error);
+			return retryEnrollment(
+				claimed.enrollment,
+				now,
+				error,
+				context.retryJitter?.() ?? Math.random(),
+			);
 		}
 		return withoutLease(
 			claimed.enrollment,

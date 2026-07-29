@@ -815,8 +815,9 @@ listmonk-cli sequences worker --interval-ms 5000 --confirm
 Before every `send`, the worker reloads the subscriber and cancels delivery
 when the subscriber is blocklisted, disabled, or unsubscribed from every
 returned list. Transactional sends use a deterministic enrollment/revision/step
-idempotency key. Definitive pre-dispatch failures retry with bounded
-exponential backoff, exposed as `retry_count` on enrollment list/get output.
+idempotency key. Definitive pre-dispatch failures retry with jittered, bounded
+exponential backoff for at most 24 attempts, exposed as `retry_count` on
+enrollment list/get output.
 A response-lost send becomes `ambiguous` and is never retried automatically;
 after checking Listmonk/Mailpit/provider evidence, resolve it explicitly with
 `sequences reconcile --enrollment-id ... --resolution sent` or `not_sent`,

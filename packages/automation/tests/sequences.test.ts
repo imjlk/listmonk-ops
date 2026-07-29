@@ -80,6 +80,7 @@ function executionContext(
 		client: listmonk,
 		idempotencyStore,
 		hashPayload: hashTransactionalPayload,
+		retryJitter: () => 1,
 		target: {
 			baseUrl: "http://127.0.0.1:9000",
 			username: "test",
@@ -613,6 +614,82 @@ describe("sequence execution", () => {
 			retryCount: 0,
 		});
 		expect(attempts).toBe(4);
+	});
+
+	test("jitters retries and terminalizes a persistently unavailable send", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "bounded retry outage",
+					steps: [{ id: "send", type: "send", templateId: 9 }],
+				},
+				now,
+			),
+		);
+		const enrollment = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{ sequenceId: definition.id, subscriberId: 42 },
+				now,
+			),
+		);
+		const [claimed] = await repository.claimDue({
+			limit: 1,
+			now,
+			leaseMs: 90_000,
+		});
+		const {
+			leaseToken: _leaseToken,
+			leaseExpiresAt: _leaseExpiresAt,
+			...withoutLease
+		} = claimed!.enrollment;
+		await repository.completeClaim(claimed!.enrollment, {
+			...withoutLease,
+			status: "pending",
+			retryCount: 23,
+			nextRunAt: now.toISOString(),
+			lastTransitionAt: now.toISOString(),
+			updatedAt: now.toISOString(),
+		});
+		const context = {
+			...executionContext(
+				repository,
+				idempotencyStore,
+				client({
+					send: async () => {
+						throw Object.assign(new Error("connect ECONNREFUSED"), {
+							code: "ECONNREFUSED",
+						});
+					},
+				}),
+			),
+			retryJitter: () => 0,
+		};
+
+		await runSequenceTick(context, { now });
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
+			status: "failed",
+			retryCount: 24,
+			lastError: expect.stringContaining(
+				"failed after 24 retryable attempts",
+			),
+		});
+
+		const secondEnrollment = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{ sequenceId: definition.id, subscriberId: 43 },
+				now,
+			),
+		);
+		await runSequenceTick(context, { now });
+		expect(await repository.getEnrollment(secondEnrollment.id)).toMatchObject({
+			status: "pending",
+			retryCount: 1,
+			nextRunAt: "2026-08-01T09:00:02.500Z",
+		});
 	});
 
 	test("recovers a pending replay after the original worker commits", async () => {
