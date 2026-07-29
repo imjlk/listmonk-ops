@@ -87,7 +87,7 @@ export const providerProfileSchema = z
 			.default([]),
 		mail_from_domain: domainSchema.optional(),
 		expected_spf_include: spfDnsTargetSchema.optional(),
-		region: z.string().trim().min(1).max(64).optional(),
+		region: z.string().trim().toLowerCase().min(1).max(64).optional(),
 		secret_ref: awsSecretReferenceSchema.optional(),
 		webhook_source: z.string().trim().min(1).max(100).optional(),
 		webhook_max_age_hours: z.number().int().min(1).max(8_760).default(168),

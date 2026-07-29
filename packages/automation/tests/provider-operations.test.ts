@@ -162,6 +162,27 @@ function context(
 }
 
 describe("provider and deliverability operations", () => {
+	test("normalizes SES region identifiers before deriving DNS and SMTP hosts", () => {
+		const normalized = providerProfileSchema.parse({
+			...profile,
+			region: "AP-NORTHEAST-2",
+		});
+		expect(normalized.region).toBe("ap-northeast-2");
+		expect(
+			inspectListmonkProviderSettings(normalized, {
+				smtp: [
+					{
+						host: "email-smtp.ap-northeast-2.amazonaws.com",
+						enabled: true,
+					},
+				],
+			}),
+		).toMatchObject({
+			smtp_configured: true,
+			smtp_enabled: true,
+		});
+	});
+
 	test("exposes one shared typed operation family without credential values", async () => {
 		expect(providerOperationCatalog.operations).toHaveLength(7);
 		const output = await invokeProviderListOperation(context(), {});
