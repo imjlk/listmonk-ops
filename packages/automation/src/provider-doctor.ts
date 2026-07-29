@@ -13,6 +13,12 @@ import { z } from "zod";
 const DEFAULT_DNS_TIMEOUT_MS = 5_000;
 const DEFAULT_DNS_INSPECTION_TIMEOUT_MS = 10_000;
 const MAX_DMARC_TREE_WALK_QUERIES = 8;
+const ED25519_FIELD_PRIME = (1n << 255n) - 19n;
+const ED25519_CURVE_D =
+	37095705934669439343138083508754565189542113879843219016388785533085940283555n;
+const ED25519_SQRT_MINUS_ONE =
+	19681161376707505956807079304988542015446066515923890162744021073123829784752n;
+const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 const REQUIRED_READINESS_CHECK_IDS = new Set([
 	"listmonk.from-alignment",
 	"dns.dmarc",
@@ -358,13 +364,11 @@ function hasAmbiguousMessengerBinding(
 	profile: ProviderProfile,
 	profiles: readonly ProviderProfile[],
 ): boolean {
-	const expectedHosts = new Set(expectedSmtpHosts(profile));
 	const messenger = normalizeMessengerName(profile.messenger);
 	return profiles.some(
 		(candidate) =>
 			candidate.id !== profile.id &&
-			normalizeMessengerName(candidate.messenger) === messenger &&
-			expectedSmtpHosts(candidate).some((host) => expectedHosts.has(host)),
+			normalizeMessengerName(candidate.messenger) === messenger,
 	);
 }
 
@@ -1134,13 +1138,18 @@ function parseTagRecord(
 	options: { lowercaseValues?: boolean } = {},
 ): ReadonlyMap<string, string> | undefined {
 	const tags = new Map<string, string>();
-	for (const item of record.split(";")) {
+	const items = record.split(";");
+	for (const [index, item] of items.entries()) {
+		if (!item.trim()) {
+			if (index === items.length - 1 && items.length > 1) continue;
+			return undefined;
+		}
 		const separator = item.indexOf("=");
-		if (separator < 1) continue;
+		if (separator < 1) return undefined;
 		const key = item.slice(0, separator).trim().toLowerCase();
 		const rawValue = item.slice(separator + 1).trim();
 		const value = options.lowercaseValues ? rawValue.toLowerCase() : rawValue;
-		if (!key) continue;
+		if (!key) return undefined;
 		if (tags.has(key)) return undefined;
 		tags.set(key, value);
 	}
@@ -1304,12 +1313,166 @@ async function discoverDmarcPolicy(
 	};
 }
 
+function positiveModulo(value: bigint, modulus: bigint): bigint {
+	const remainder = value % modulus;
+	return remainder < 0n ? remainder + modulus : remainder;
+}
+
+function modularPower(base: bigint, exponent: bigint, modulus: bigint): bigint {
+	let result = 1n;
+	let factor = positiveModulo(base, modulus);
+	let remaining = exponent;
+	while (remaining > 0n) {
+		if ((remaining & 1n) === 1n) {
+			result = (result * factor) % modulus;
+		}
+		factor = (factor * factor) % modulus;
+		remaining >>= 1n;
+	}
+	return result;
+}
+
+function littleEndianBigInt(bytes: Uint8Array): bigint {
+	let value = 0n;
+	for (let index = bytes.length - 1; index >= 0; index -= 1) {
+		value = (value << 8n) | BigInt(bytes[index]!);
+	}
+	return value;
+}
+
+interface EdwardsPoint {
+	x: bigint;
+	y: bigint;
+}
+
+function addEdwardsPoints(
+	left: EdwardsPoint,
+	right: EdwardsPoint,
+): EdwardsPoint | undefined {
+	const modulus = ED25519_FIELD_PRIME;
+	const product = positiveModulo(
+		ED25519_CURVE_D * left.x * right.x * left.y * right.y,
+		modulus,
+	);
+	const xDenominator = positiveModulo(1n + product, modulus);
+	const yDenominator = positiveModulo(1n - product, modulus);
+	if (xDenominator === 0n || yDenominator === 0n) return undefined;
+	return {
+		x: positiveModulo(
+			(left.x * right.y + left.y * right.x) *
+				modularPower(xDenominator, modulus - 2n, modulus),
+			modulus,
+		),
+		y: positiveModulo(
+			(left.y * right.y + left.x * right.x) *
+				modularPower(yDenominator, modulus - 2n, modulus),
+			modulus,
+		),
+	};
+}
+
+function isValidEd25519PublicKey(publicKey: Buffer): boolean {
+	if (publicKey.length !== 32) return false;
+	// RFC 8032 encodes the y-coordinate in little-endian form and stores the
+	// x-coordinate sign in the high bit. Decompress it so non-canonical,
+	// off-curve, and small-order values cannot masquerade as usable DKIM keys.
+	const encoded = littleEndianBigInt(publicKey);
+	const sign = encoded >> 255n;
+	const y = encoded & ((1n << 255n) - 1n);
+	if (y >= ED25519_FIELD_PRIME) return false;
+	const ySquared = (y * y) % ED25519_FIELD_PRIME;
+	const numerator = positiveModulo(ySquared - 1n, ED25519_FIELD_PRIME);
+	const denominator = positiveModulo(
+		ED25519_CURVE_D * ySquared + 1n,
+		ED25519_FIELD_PRIME,
+	);
+	if (denominator === 0n) return false;
+	const xSquared = positiveModulo(
+		numerator *
+			modularPower(
+				denominator,
+				ED25519_FIELD_PRIME - 2n,
+				ED25519_FIELD_PRIME,
+			),
+		ED25519_FIELD_PRIME,
+	);
+	let x = modularPower(
+		xSquared,
+		(ED25519_FIELD_PRIME + 3n) / 8n,
+		ED25519_FIELD_PRIME,
+	);
+	if ((x * x) % ED25519_FIELD_PRIME !== xSquared) {
+		x = (x * ED25519_SQRT_MINUS_ONE) % ED25519_FIELD_PRIME;
+	}
+	if ((x * x) % ED25519_FIELD_PRIME !== xSquared) return false;
+	if (x === 0n && sign === 1n) return false;
+	if ((x & 1n) !== sign) x = ED25519_FIELD_PRIME - x;
+
+	let multiplied: EdwardsPoint = { x, y };
+	for (let index = 0; index < 3; index += 1) {
+		const doubled = addEdwardsPoints(multiplied, multiplied);
+		if (doubled === undefined) return false;
+		multiplied = doubled;
+	}
+	if (multiplied.x === 0n && multiplied.y === 1n) return false;
+	try {
+		// Confirm that the platform crypto implementation also recognizes the
+		// validated raw point when wrapped in its standard SPKI envelope.
+		const key = createPublicKey({
+			key: Buffer.concat([ED25519_SPKI_PREFIX, publicKey]),
+			format: "der",
+			type: "spki",
+		});
+		return key.asymmetricKeyType === "ed25519";
+	} catch {
+		return false;
+	}
+}
+
+function allowsEmailDkimService(
+	tags: ReadonlyMap<string, string>,
+): boolean {
+	const service = tags.get("s");
+	if (service === undefined) return true;
+	const services = service
+		.split(":")
+		.map((value) => value.trim().toLowerCase());
+	return (
+		services.length > 0 &&
+		services.every(Boolean) &&
+		(services.includes("*") || services.includes("email"))
+	);
+}
+
+function isValidRsaDkimPublicKey(publicKey: Buffer): boolean {
+	for (const type of ["spki", "pkcs1"] as const) {
+		try {
+			const key = createPublicKey({
+				key: publicKey,
+				format: "der",
+				type,
+			});
+			if (
+				key.asymmetricKeyType === "rsa" &&
+				(key.asymmetricKeyDetails?.modulusLength ?? 0) >= 1_024
+			) {
+				return true;
+			}
+		} catch {
+			// RFC 6376 names RSAPublicKey while common DKIM tooling emits
+			// SubjectPublicKeyInfo, so validate both DER encodings.
+		}
+	}
+	return false;
+}
+
 function hasDirectDkimKey(record: string): boolean {
 	const tags = parseTagRecord(record);
 	const version = tags?.get("v")?.toLowerCase();
 	if (
 		tags === undefined ||
-		(version !== undefined && version !== "dkim1")
+		(version !== undefined && version !== "dkim1") ||
+		!allowsEmailDkimService(tags)
 	) {
 		return false;
 	}
@@ -1331,26 +1494,8 @@ function hasDirectDkimKey(record: string): boolean {
 		return false;
 	}
 	const keyType = tags.get("k")?.toLowerCase() ?? "rsa";
-	if (keyType === "ed25519") return publicKey.length === 32;
-	if (keyType !== "rsa") return false;
-	for (const type of ["spki", "pkcs1"] as const) {
-		try {
-			const key = createPublicKey({
-				key: publicKey,
-				format: "der",
-				type,
-			});
-			if (
-				key.asymmetricKeyType === "rsa" &&
-				(key.asymmetricKeyDetails?.modulusLength ?? 0) >= 1_024
-			) {
-				return true;
-			}
-		} catch {
-			// RFC 6376 names RSAPublicKey while common DKIM tooling emits
-			// SubjectPublicKeyInfo, so validate both DER encodings.
-		}
-	}
+	if (keyType === "ed25519") return isValidEd25519PublicKey(publicKey);
+	if (keyType === "rsa") return isValidRsaDkimPublicKey(publicKey);
 	return false;
 }
 
@@ -1451,21 +1596,27 @@ async function inspectProviderDnsUnbounded(
 				let delegatedObservations: DnsObservation[] = [];
 				let delegatedReady = false;
 				let delegatedIndeterminate = false;
+				let delegatedTargets: string[] = [];
 				if (profile.kind === "ses") {
 					const expectedTarget = normalizeDomain(
 						`${selector}.dkim.amazonses.com`,
 					);
-					delegatedReady =
+					if (
 						cname.values.length === 1 &&
-						normalizeDomain(cname.values[0]!) === expectedTarget;
-				} else if (cname.values.length > 0) {
+						normalizeDomain(cname.values[0]!) === expectedTarget
+					) {
+						delegatedTargets = [expectedTarget];
+					}
+				} else {
+					delegatedTargets = cname.values.map(normalizeDomain);
+				}
+				if (delegatedTargets.length > 0) {
 					const delegatedResults = await Promise.all(
-						cname.values.map(async (target) => {
-							const normalizedTarget = normalizeDomain(target);
+						delegatedTargets.map(async (target) => {
 							return resolveDnsObservation(
-								normalizedTarget,
+								target,
 								"TXT",
-								() => dns.txt(normalizedTarget),
+								() => dns.txt(target),
 							);
 						}),
 					);
@@ -1612,12 +1763,27 @@ async function inspectProviderDnsUnbounded(
 		const expectedInclude =
 			profile.expected_spf_include ??
 			(profile.kind === "ses" ? "amazonses.com" : undefined);
+		const include =
+			expectedInclude === undefined
+				? undefined
+				: await resolveDnsObservation(expectedInclude, "TXT", () =>
+						dns.txt(expectedInclude),
+					);
+		if (include !== undefined) observations.push(include.observation);
+		const includeSpfRecords =
+			include?.values.filter((record) => isSpfVersionOneRecord(record)) ??
+			[];
+		const includeReady =
+			include !== undefined && includeSpfRecords.length === 1;
 		const spfReady =
 			spfRecords.length === 1 &&
 			expectedInclude !== undefined &&
-			hasExactSpfInclude(spfRecords[0]!, expectedInclude);
+			hasExactSpfInclude(spfRecords[0]!, expectedInclude) &&
+			includeReady;
 		const spfStatus: DoctorCheckStatus =
-			txt.outcome === "error" || expectedInclude === undefined
+			txt.outcome === "error" ||
+			include?.outcome === "error" ||
+			expectedInclude === undefined
 				? "unknown"
 				: spfReady
 					? "pass"
@@ -1628,8 +1794,8 @@ async function inspectProviderDnsUnbounded(
 				: expectedInclude === undefined
 					? "Generic SMTP SPF readiness requires expected_spf_include so authorization can be verified."
 					: spfReady
-						? "Custom MAIL FROM SPF record is present."
-						: "Custom MAIL FROM SPF record is missing, duplicated, or lacks the expected include.";
+						? "Custom MAIL FROM SPF and its expected include target are present."
+						: "Custom MAIL FROM SPF or its expected include target is missing, duplicated, or invalid.";
 		checks.push({
 			id: "dns.spf",
 			status: spfStatus,

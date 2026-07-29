@@ -11,6 +11,9 @@ import {
 } from "../../src/handlers/providers.js";
 import type { CallToolRequest } from "../../src/types/mcp.js";
 
+const validRsaDkimPublicKey =
+	"MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCiRZP7BQUD9YLLLsAGRpKXPw/vidM72qPEBYY7HOv+NJ58tSojO2KTq3tOjWd0XVZA7c4r5k8ZnnIbUIa9fj/5Xkiu7c3mZ0aaJIjJsF1N9G7OYHV/nipUAzGJNDXY4N1MFPBHYwJMbpDRCMtSF7IejXWFm3m586oXZANtNvGw0wIDAQAB";
+
 function request(
 	name: string,
 	arguments_: Record<string, unknown> = {},
@@ -63,6 +66,12 @@ const dns: ProviderDnsResolver = {
 		}
 		if (name.startsWith("bounce.")) {
 			return ["v=spf1 include:amazonses.com ~all"];
+		}
+		if (name === "amazonses.com") {
+			return ["v=spf1 ip4:192.0.2.0/24 -all"];
+		}
+		if (name.endsWith(".dkim.amazonses.com")) {
+			return [`v=DKIM1; p=${validRsaDkimPublicKey}`];
 		}
 		return [];
 	},

@@ -25,6 +25,12 @@ import {
 const fixedNow = new Date("2026-07-29T00:00:00.000Z");
 const validRsaDkimPublicKey =
 	"MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCiRZP7BQUD9YLLLsAGRpKXPw/vidM72qPEBYY7HOv+NJ58tSojO2KTq3tOjWd0XVZA7c4r5k8ZnnIbUIa9fj/5Xkiu7c3mZ0aaJIjJsF1N9G7OYHV/nipUAzGJNDXY4N1MFPBHYwJMbpDRCMtSF7IejXWFm3m586oXZANtNvGw0wIDAQAB";
+const validEd25519DkimPublicKey =
+	"11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=";
+const nonCanonicalEd25519DkimPublicKey =
+	"7f///////////////////////////////////////38=";
+const smallOrderEd25519DkimPublicKey =
+	"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 const profile = providerProfileSchema.parse({
 	id: "marketing-primary",
 	kind: "ses",
@@ -75,6 +81,12 @@ const dns: ProviderDnsResolver = {
 		}
 		if (name === "bounce.news.example.com") {
 			return ["v=spf1 include:amazonses.com ~all"];
+		}
+		if (name === "amazonses.com") {
+			return ["v=spf1 ip4:192.0.2.0/24 -all"];
+		}
+		if (name.endsWith(".dkim.amazonses.com")) {
+			return [`v=DKIM1; k=rsa; p=${validRsaDkimPublicKey}`];
 		}
 		return [];
 	},
@@ -674,6 +686,26 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("rejects provider bindings that share a messenger across distinct endpoints", async () => {
+		const secondary = providerProfileSchema.parse({
+			...profile,
+			id: "marketing-secondary",
+			sending_domain: "other.example.com",
+			from_email: "newsletter@other.example.com",
+			region: "us-east-1",
+			secret_ref: "aws:profile:secondary",
+		});
+		const status = await invokeProviderStatusOperation(
+			context({ profiles: [profile, secondary] }),
+			{ provider_id: profile.id },
+		);
+		expect(status.listmonk).toMatchObject({
+			messenger_binding_ambiguous: true,
+			messenger_configured: false,
+			messenger_enabled: false,
+		});
+	});
+
 	test("preserves punctuation when matching messenger identifiers", () => {
 		const punctuatedProfile = providerProfileSchema.parse({
 			...profile,
@@ -874,6 +906,94 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("rejects malformed DMARC and DKIM tag-list segments", async () => {
+		const malformedTagsDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name === "_dmarc.news.example.com") {
+					return ["v=DMARC1; p=quarantine; broken"];
+				}
+				if (name.endsWith("._domainkey.news.example.com")) {
+					return [
+						`v=DKIM1; p=${validRsaDkimPublicKey}; broken`,
+					];
+				}
+				return dns.txt(name);
+			},
+			async cname() {
+				return [];
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: malformedTagsDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dmarc", status: "fail" }),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "fail" }),
+		);
+	});
+
+	test("requires a direct DKIM key to permit the email service", async () => {
+		for (const [service, status] of [
+			["sms", "fail"],
+			["sms:email", "pass"],
+			["*", "pass"],
+		] as const) {
+			const serviceDns: ProviderDnsResolver = {
+				...dns,
+				async txt(name) {
+					if (name.endsWith("._domainkey.news.example.com")) {
+						return [
+							`v=DKIM1; s=${service}; p=${validRsaDkimPublicKey}`,
+						];
+					}
+					return dns.txt(name);
+				},
+				async cname() {
+					return [];
+				},
+			};
+			const output = await invokeDeliverabilityDnsCheckOperation(
+				context({ dns: serviceDns }),
+				{ provider_id: profile.id },
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.dkim", status }),
+			);
+		}
+	});
+
+	test("validates the encoded Ed25519 DKIM curve point", async () => {
+		for (const [publicKey, status] of [
+			[validEd25519DkimPublicKey, "pass"],
+			[nonCanonicalEd25519DkimPublicKey, "fail"],
+			[smallOrderEd25519DkimPublicKey, "fail"],
+		] as const) {
+			const ed25519Dns: ProviderDnsResolver = {
+				...dns,
+				async txt(name) {
+					if (name.endsWith("._domainkey.news.example.com")) {
+						return [`v=DKIM1; k=ed25519; p=${publicKey}`];
+					}
+					return dns.txt(name);
+				},
+				async cname() {
+					return [];
+				},
+			};
+			const output = await invokeDeliverabilityDnsCheckOperation(
+				context({ dns: ed25519Dns }),
+				{ provider_id: profile.id },
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.dkim", status }),
+			);
+		}
+	});
+
 	test("requires an exact SES DKIM delegation target", async () => {
 		const wrongSesDkimDns: ProviderDnsResolver = {
 			...dns,
@@ -889,6 +1009,23 @@ describe("provider and deliverability operations", () => {
 		};
 		const output = await invokeDeliverabilityDnsCheckOperation(
 			context({ dns: wrongSesDkimDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "fail" }),
+		);
+	});
+
+	test("requires the exact SES DKIM delegation target to publish a key", async () => {
+		const danglingSesDkimDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name.endsWith(".dkim.amazonses.com")) return [];
+				return dns.txt(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: danglingSesDkimDns }),
 			{ provider_id: profile.id },
 		);
 		expect(output.checks).toContainEqual(
@@ -1310,9 +1447,13 @@ describe("provider and deliverability operations", () => {
 		};
 		const strictDkimDns: ProviderDnsResolver = {
 			async txt(name) {
-				return name === "_dmarc.news.example.com"
-					? ["v=DMARC1; p=reject; adkim=s"]
-					: [];
+				if (name === "_dmarc.news.example.com") {
+					return ["v=DMARC1; p=reject; adkim=s"];
+				}
+				if (name === "token-a.dkim.amazonses.com") {
+					return [`v=DKIM1; p=${validRsaDkimPublicKey}`];
+				}
+				return [];
 			},
 			async cname(name) {
 				return name === "token-a._domainkey.example.com"
@@ -1535,6 +1676,9 @@ describe("provider and deliverability operations", () => {
 				if (name === "bounce.mail.example.com") {
 					return ["v=spf1 include:_spf.google.com ~all"];
 				}
+				if (name === "_spf.google.com") {
+					return ["v=spf1 ip4:192.0.2.0/24 -all"];
+				}
 				if (name === "provider-dkim.example.net") {
 					return [`k=rsa; p=${validRsaDkimPublicKey}`];
 				}
@@ -1569,6 +1713,45 @@ describe("provider and deliverability operations", () => {
 				id: "dns.mail-from-mx",
 				status: "pass",
 			}),
+		);
+	});
+
+	test("requires the expected SPF include target to publish one SPF record", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "dangling-spf-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_include: "_spf.missing.example",
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const danglingSpfDns: ProviderDnsResolver = {
+			async txt(name) {
+				if (name === "_dmarc.mail.example.com") {
+					return ["v=DMARC1; p=quarantine"];
+				}
+				if (name === "bounce.mail.example.com") {
+					return [
+						"v=spf1 include:_spf.missing.example ~all",
+					];
+				}
+				return [];
+			},
+			async cname() {
+				return [];
+			},
+			async mx(name) {
+				return name === "bounce.mail.example.com"
+					? [{ priority: 10, exchange: "mx.example.com" }]
+					: [];
+			},
+		};
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({ profiles: [smtpProfile], dns: danglingSpfDns }),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "fail" }),
 		);
 	});
 
