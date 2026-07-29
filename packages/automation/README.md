@@ -175,9 +175,12 @@ heartbeats and graceful shutdown.
 
 Every send rechecks the Listmonk subscriber's blocklist/disabled/unsubscribe
 state and uses the existing transactional idempotency store with a stable
-sequence/enrollment/revision/step key. Ambiguous outcomes are durable and
-require `reconcileAmbiguousSequenceEnrollment()` with an operator-reviewed
-`sent` or `not_sent` decision.
+sequence/enrollment/revision/step key. Definitive pre-dispatch failures retry
+with bounded exponential backoff and expose the persisted retry count through
+enrollment operations. Ambiguous outcomes are durable and require
+`reconcileAmbiguousSequenceEnrollment()` with an operator-reviewed `sent` or
+`not_sent` decision; pending send claims cannot be reconciled while delivery
+may remain in flight.
 
 Use `createFileSequenceRepository()` for a single host. Set
 `LISTMONK_OPS_SEQUENCE_DATABASE_URL` (instead of

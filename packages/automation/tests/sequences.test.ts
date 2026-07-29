@@ -565,7 +565,7 @@ describe("sequence execution", () => {
 			client({
 				send: async () => {
 					attempts += 1;
-					if (attempts === 1) {
+					if (attempts <= 3) {
 						throw Object.assign(new Error("connect ECONNREFUSED"), {
 							code: "ECONNREFUSED",
 						});
@@ -578,14 +578,41 @@ describe("sequence execution", () => {
 		await runSequenceTick(context, { now });
 		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
 			status: "pending",
+			retryCount: 1,
+			nextRunAt: "2026-08-01T09:00:05.000Z",
 			lastError: expect.stringContaining("ECONNREFUSED"),
+		});
+		await runSequenceTick(context, {
+			now: new Date(now.getTime() + 5_000),
+		});
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
+			status: "pending",
+			retryCount: 2,
+			nextRunAt: "2026-08-01T09:00:15.000Z",
 		});
 		expect(
 			await runSequenceTick(context, {
-				now: new Date(now.getTime() + 5_000),
+				now: new Date(now.getTime() + 14_999),
+			}),
+		).toMatchObject({ claimed: 0 });
+		await runSequenceTick(context, {
+			now: new Date(now.getTime() + 15_000),
+		});
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
+			status: "pending",
+			retryCount: 3,
+			nextRunAt: "2026-08-01T09:00:35.000Z",
+		});
+		expect(
+			await runSequenceTick(context, {
+				now: new Date(now.getTime() + 35_000),
 			}),
 		).toMatchObject({ completed: 1 });
-		expect(attempts).toBe(2);
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
+			status: "completed",
+			retryCount: 0,
+		});
+		expect(attempts).toBe(4);
 	});
 
 	test("recovers a pending replay after the original worker commits", async () => {
@@ -721,6 +748,59 @@ describe("sequence execution", () => {
 			completed: 1,
 		});
 		expect(sends).toBe(2);
+	});
+
+	test("rejects operator reconciliation while a send claim is still pending", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "pending operator reconciliation",
+					steps: [{ id: "send", type: "send", templateId: 9 }],
+				},
+				now,
+			),
+		);
+		const enrollment = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{ sequenceId: definition.id, subscriberId: 42 },
+				now,
+			),
+		);
+		const [claimed] = await repository.claimDue({
+			limit: 1,
+			now,
+			leaseMs: 90_000,
+		});
+		const {
+			leaseToken: _leaseToken,
+			leaseExpiresAt: _leaseExpiresAt,
+			...withoutLease
+		} = claimed!.enrollment;
+		await repository.completeClaim(claimed!.enrollment, {
+			...withoutLease,
+			status: "ambiguous",
+			lastError: "delivery outcome unknown",
+			lastTransitionAt: now.toISOString(),
+			updatedAt: now.toISOString(),
+		});
+		await idempotencyStore.claim({
+			key: `sequence:${enrollment.id}:revision:1:step:send`,
+			payloadHash: "payload",
+			targetHash: "target",
+			now: () => now,
+		});
+
+		await expect(
+			reconcileAmbiguousSequenceEnrollment(
+				executionContext(repository, idempotencyStore),
+				enrollment.id,
+				"sent",
+				now,
+			),
+		).rejects.toThrow("still pending");
 	});
 
 	test("commits an operator-confirmed ambiguous send before advancing", async () => {

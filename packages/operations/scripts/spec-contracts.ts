@@ -245,6 +245,7 @@ export interface SequenceEnrollment {
 		| "failed"
 		| "ambiguous"
 		| "cancelled";
+	retry_count: NonNegativeInteger;
 	current_step_id: NonEmptyString;
 	next_run_at: IsoDateTime;
 	last_error?: string | undefined;

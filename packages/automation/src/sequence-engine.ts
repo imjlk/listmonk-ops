@@ -52,6 +52,9 @@ export interface RunSequenceWorkerOptions {
 
 export type SequenceAmbiguousResolution = "sent" | "not_sent";
 
+export const SEQUENCE_RETRY_BASE_DELAY_MS = 5_000;
+export const SEQUENCE_RETRY_MAX_DELAY_MS = 5 * 60_000;
+
 function toErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
@@ -133,6 +136,7 @@ function transitionToNext(
 			claimed.enrollment,
 			{
 				status: "completed",
+				retryCount: 0,
 				lastError: undefined,
 				...overrides,
 			},
@@ -143,6 +147,7 @@ function transitionToNext(
 		claimed.enrollment,
 		{
 			status: "pending",
+			retryCount: 0,
 			currentStepId: step.id,
 			nextRunAt: now.toISOString(),
 			lastError: undefined,
@@ -183,11 +188,17 @@ function retryEnrollment(
 	now: Date,
 	error: unknown,
 ): Omit<SequenceEnrollment, "leaseToken" | "leaseExpiresAt"> {
+	const retryCount = enrollment.retryCount + 1;
+	const delayMs = Math.min(
+		SEQUENCE_RETRY_BASE_DELAY_MS * 2 ** Math.min(retryCount - 1, 16),
+		SEQUENCE_RETRY_MAX_DELAY_MS,
+	);
 	return withoutLease(
 		enrollment,
 		{
 			status: "pending",
-			nextRunAt: new Date(now.getTime() + 5_000).toISOString(),
+			retryCount,
+			nextRunAt: new Date(now.getTime() + delayMs).toISOString(),
 			lastError: truncateError(error),
 		},
 		now,
@@ -216,6 +227,7 @@ async function executeSendStep(
 				claimed.enrollment,
 				{
 					status: "cancelled",
+					retryCount: 0,
 					lastError: `Sequence delivery cancelled because ${cannotReceive}`,
 				},
 				now,
@@ -249,6 +261,7 @@ async function executeSendStep(
 				claimed.enrollment,
 				{
 					status: "failed",
+					retryCount: 0,
 					lastError: "Listmonk rejected the sequence message",
 				},
 				now,
@@ -274,6 +287,7 @@ async function executeSendStep(
 				claimed.enrollment,
 				{
 					status: "cancelled",
+					retryCount: 0,
 					lastError:
 						"Sequence delivery cancelled because the subscriber no longer exists",
 				},
@@ -287,6 +301,7 @@ async function executeSendStep(
 			claimed.enrollment,
 			{
 				status: "failed",
+				retryCount: 0,
 				lastError: truncateError(error),
 			},
 			now,
@@ -309,6 +324,7 @@ async function executeClaimedEnrollment(
 				claimed.enrollment,
 				{
 					status: "failed",
+					retryCount: 0,
 					lastError: `Current step ${claimed.enrollment.currentStepId} is missing from revision ${claimed.revision.revision}`,
 				},
 				now,
@@ -328,6 +344,7 @@ async function executeClaimedEnrollment(
 						claimed.enrollment,
 						{
 							status: "waiting",
+							retryCount: 0,
 							currentStepId: following.id,
 							nextRunAt: new Date(
 								now.getTime() + step.durationSeconds * 1_000,
@@ -338,7 +355,7 @@ async function executeClaimedEnrollment(
 					)
 				: withoutLease(
 						claimed.enrollment,
-						{ status: "completed", lastError: undefined },
+						{ status: "completed", retryCount: 0, lastError: undefined },
 						now,
 					);
 			break;
@@ -352,6 +369,7 @@ async function executeClaimedEnrollment(
 						{
 							status:
 								at.getTime() > now.getTime() ? "waiting" : "pending",
+							retryCount: 0,
 							currentStepId: following.id,
 							nextRunAt:
 								at.getTime() > now.getTime()
@@ -363,7 +381,7 @@ async function executeClaimedEnrollment(
 					)
 				: withoutLease(
 						claimed.enrollment,
-						{ status: "completed", lastError: undefined },
+						{ status: "completed", retryCount: 0, lastError: undefined },
 						now,
 					);
 			break;
@@ -376,6 +394,7 @@ async function executeClaimedEnrollment(
 				claimed.enrollment,
 				{
 					status: "pending",
+					retryCount: 0,
 					currentStepId: targetId,
 					nextRunAt: now.toISOString(),
 					lastError: undefined,
@@ -387,7 +406,7 @@ async function executeClaimedEnrollment(
 		case "stop":
 			next = withoutLease(
 				claimed.enrollment,
-				{ status: "completed", lastError: undefined },
+				{ status: "completed", retryCount: 0, lastError: undefined },
 				now,
 			);
 			break;
@@ -506,6 +525,11 @@ export async function reconcileAmbiguousSequenceEnrollment(
 	if (!record) {
 		throw new Error(`Transactional idempotency record ${key} is missing`);
 	}
+	if (record.status === "pending") {
+		throw new Error(
+			`Transactional idempotency record ${key} is still pending and cannot be reconciled while delivery may be in flight`,
+		);
+	}
 	if (record.status === "accepted" && resolution !== "sent") {
 		throw new Error(
 			`Transactional idempotency record ${key} was already accepted and must be reconciled as sent`,
@@ -523,11 +547,12 @@ export async function reconcileAmbiguousSequenceEnrollment(
 			following
 				? {
 						status: "pending",
+						retryCount: 0,
 						currentStepId: following.id,
 						nextRunAt: now.toISOString(),
 						lastError: undefined,
 					}
-				: { status: "completed", lastError: undefined },
+				: { status: "completed", retryCount: 0, lastError: undefined },
 			now,
 		);
 		const resolved = await forceCompleteAmbiguous(
@@ -550,6 +575,7 @@ export async function reconcileAmbiguousSequenceEnrollment(
 		enrollment,
 		{
 			status: "pending",
+			retryCount: 0,
 			nextRunAt: now.toISOString(),
 			lastError: undefined,
 		},

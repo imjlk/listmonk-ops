@@ -87,6 +87,12 @@ type IdempotencyRow = {
 	expires_at: string | Date;
 };
 
+type ActiveEnrollmentConflictRow = {
+	sequence_id: string;
+	subscriber_id: string;
+	enrollment_ids: string[];
+};
+
 function assertConnectionString(value: string): string {
 	const trimmed = value.trim();
 	let parsed: URL;
@@ -223,6 +229,30 @@ async function initializeSchema(sql: Sql): Promise<void> {
 			`;
 		}
 		if (storedVersion < 2) {
+			const conflicts = await transaction<ActiveEnrollmentConflictRow[]>`
+				SELECT
+					sequence_id::text AS sequence_id,
+					subscriber_id::text AS subscriber_id,
+					array_agg(id::text ORDER BY created_at, id) AS enrollment_ids
+				FROM listmonk_ops.sequence_enrollments
+				WHERE status NOT IN ('completed', 'failed', 'cancelled')
+				GROUP BY sequence_id, subscriber_id
+				HAVING count(*) > 1
+				ORDER BY sequence_id, subscriber_id
+				LIMIT 10
+			`;
+			if (conflicts.length > 0) {
+				const details = conflicts
+					.map(
+						(conflict) =>
+							`sequence=${conflict.sequence_id}, subscriber=${conflict.subscriber_id}, enrollments=${conflict.enrollment_ids.join(",")}`,
+					)
+					.join("; ");
+				throw new Error(
+					"Cannot migrate sequence Postgres schema to version 2 because duplicate active enrollments exist across revisions. " +
+						`Resolve all but one active enrollment for each sequence/subscriber pair and retry. Conflicts: ${details}`,
+				);
+			}
 			await transaction`
 				DROP INDEX IF EXISTS
 					listmonk_ops.sequence_enrollments_active_unique_idx
@@ -323,6 +353,19 @@ function toIdempotencyRecord(row: IdempotencyRow): TransactionalSendRecord {
 		updatedAt: requiredTimestamp(row.updated_at),
 		expiresAt: requiredTimestamp(row.expires_at),
 	};
+}
+
+function normalizeCommittedSent(
+	status: TransactionalSendRecord["status"],
+	sent: boolean | undefined,
+): boolean | undefined {
+	if (status === "accepted") {
+		return true;
+	}
+	if (status === "failed" && sent === true) {
+		return false;
+	}
+	return sent;
 }
 
 async function lockIdempotencyStore(
@@ -430,14 +473,7 @@ function createPostgresTransactionalIdempotencyStore(
 				if (!existing || existing.claim_token !== options.claimToken) {
 					return;
 				}
-				const sent =
-					options.status === "accepted"
-						? true
-						: options.status === "failed"
-							? options.sent === true
-								? false
-								: options.sent
-							: options.sent;
+				const sent = normalizeCommittedSent(options.status, options.sent);
 				await transaction`
 					UPDATE listmonk_ops.sequence_idempotency_records
 					SET
@@ -465,6 +501,9 @@ function createPostgresTransactionalIdempotencyStore(
 		},
 		async load(): Promise<StoredTransactionalDocument> {
 			await ready();
+			// Deliberately preserve expired records for read-only diagnostics and
+			// ambiguous-send reconciliation. Mutating paths sweep them under the
+			// shared advisory lock, matching the file-backed store contract.
 			const rows = await sql<IdempotencyRow[]>`
 				SELECT *
 				FROM listmonk_ops.sequence_idempotency_records

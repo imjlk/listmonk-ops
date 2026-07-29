@@ -10587,6 +10587,11 @@
               "minLength": 1,
               "type": "string"
             },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "PositiveInteger": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -10615,6 +10620,9 @@
                 },
                 "next_run_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "retry_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
                 },
                 "revision": {
                   "$ref": "#/components/schemas/PositiveInteger"
@@ -10664,6 +10672,7 @@
                 "revision",
                 "subscriber_id",
                 "status",
+                "retry_count",
                 "current_step_id",
                 "next_run_at",
                 "created_at",
@@ -10839,6 +10848,11 @@
               "minLength": 1,
               "type": "string"
             },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "PositiveInteger": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -10867,6 +10881,9 @@
                 },
                 "next_run_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "retry_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
                 },
                 "revision": {
                   "$ref": "#/components/schemas/PositiveInteger"
@@ -10916,6 +10933,7 @@
                 "revision",
                 "subscriber_id",
                 "status",
+                "retry_count",
                 "current_step_id",
                 "next_run_at",
                 "created_at",
@@ -11017,6 +11035,11 @@
               "minLength": 1,
               "type": "string"
             },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "PositiveInteger": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -11045,6 +11068,9 @@
                 },
                 "next_run_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "retry_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
                 },
                 "revision": {
                   "$ref": "#/components/schemas/PositiveInteger"
@@ -11094,6 +11120,7 @@
                 "revision",
                 "subscriber_id",
                 "status",
+                "retry_count",
                 "current_step_id",
                 "next_run_at",
                 "created_at",
@@ -12054,6 +12081,9 @@
                 "next_run_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
+                "retry_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
                 "revision": {
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
@@ -12102,6 +12132,7 @@
                 "revision",
                 "subscriber_id",
                 "status",
+                "retry_count",
                 "current_step_id",
                 "next_run_at",
                 "created_at",

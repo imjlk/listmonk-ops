@@ -5,6 +5,7 @@ import { createPostgresSequenceRepository } from "../src/sequence-postgres";
 import {
 	createSequenceDefinition,
 	createSequenceEnrollment,
+	parseSequenceDefinition,
 	SequenceConflictError,
 	type SequenceEnrollment,
 	type SequenceRepository,
@@ -283,6 +284,143 @@ describe("Postgres sequence repository", () => {
 			expect(
 				await first.listEnrollments({ sequenceId: definition.id }),
 			).toEqual([]);
+		},
+	);
+
+	postgresTest(
+		"reports legacy cross-revision conflicts before schema migration",
+		async () => {
+			if (!databaseUrl) {
+				throw new Error("Postgres integration database is unavailable");
+			}
+			const sql = postgres(databaseUrl, { max: 1, prepare: false });
+			const now = new Date("2026-07-29T01:00:00.000Z");
+			const initial = createSequenceDefinition(
+				{
+					id: randomUUID(),
+					name: `migration-conflict-${randomUUID()}`,
+					steps: [{ id: "stop-v1", type: "stop" }],
+				},
+				now,
+			);
+			const definition = parseSequenceDefinition({
+				...initial,
+				currentRevision: 2,
+				revisions: [
+					...initial.revisions,
+					{
+						revision: 2,
+						steps: [{ id: "stop-v2", type: "stop" }],
+						createdAt: now.toISOString(),
+					},
+				],
+			});
+			const firstEnrollment = createSequenceEnrollment(
+				initial,
+				{
+					id: randomUUID(),
+					sequenceId: initial.id,
+					subscriberId: 404,
+				},
+				now,
+			);
+			const secondEnrollment = createSequenceEnrollment(
+				definition,
+				{
+					id: randomUUID(),
+					sequenceId: definition.id,
+					subscriberId: 404,
+				},
+				now,
+			);
+			let migrationRepository: SequenceRepository | undefined;
+			try {
+				await sql`DELETE FROM listmonk_ops.sequence_enrollments`;
+				await sql`DELETE FROM listmonk_ops.sequence_definitions`;
+				await sql`
+					DROP INDEX IF EXISTS
+						listmonk_ops.sequence_enrollments_active_unique_idx
+				`;
+				await sql`
+					CREATE UNIQUE INDEX sequence_enrollments_active_unique_idx
+					ON listmonk_ops.sequence_enrollments (
+						sequence_id,
+						revision,
+						subscriber_id
+					)
+					WHERE status NOT IN ('completed', 'failed', 'cancelled')
+				`;
+				await sql`
+					UPDATE listmonk_ops.sequence_runtime_meta
+					SET value = '1', updated_at = now()
+					WHERE key = 'schema_version'
+				`;
+				await sql`
+					INSERT INTO listmonk_ops.sequence_definitions (
+						id, name_key, status, definition, created_at, updated_at
+					)
+					VALUES (
+						${definition.id}::uuid,
+						${definition.name.toLowerCase()},
+						${definition.status},
+						${sql.json(definition as never)},
+						${definition.createdAt}::timestamptz,
+						${definition.updatedAt}::timestamptz
+					)
+				`;
+				for (const enrollment of [firstEnrollment, secondEnrollment]) {
+					await sql`
+						INSERT INTO listmonk_ops.sequence_enrollments (
+							id, sequence_id, revision, subscriber_id, status,
+							next_run_at, lease_token, lease_expires_at,
+							enrollment, created_at, updated_at
+						)
+						VALUES (
+							${enrollment.id}::uuid,
+							${enrollment.sequenceId}::uuid,
+							${enrollment.revision},
+							${enrollment.subscriberId},
+							${enrollment.status},
+							${enrollment.nextRunAt}::timestamptz,
+							NULL,
+							NULL,
+							${sql.json(enrollment as never)},
+							${enrollment.createdAt}::timestamptz,
+							${enrollment.updatedAt}::timestamptz
+						)
+					`;
+				}
+
+				migrationRepository = createPostgresSequenceRepository({
+					connectionString: databaseUrl,
+					maxConnections: 1,
+				});
+				await expect(migrationRepository.listDefinitions()).rejects.toThrow(
+					`sequence=${definition.id}, subscriber=404`,
+				);
+			} finally {
+				await migrationRepository?.close?.();
+				await sql`DELETE FROM listmonk_ops.sequence_enrollments`;
+				await sql`DELETE FROM listmonk_ops.sequence_definitions`;
+				await sql`
+					DROP INDEX IF EXISTS
+						listmonk_ops.sequence_enrollments_active_unique_idx
+				`;
+				await sql`
+					CREATE UNIQUE INDEX sequence_enrollments_active_unique_idx
+					ON listmonk_ops.sequence_enrollments (
+						sequence_id,
+						subscriber_id
+					)
+					WHERE status NOT IN ('completed', 'failed', 'cancelled')
+				`;
+				await sql`
+					UPDATE listmonk_ops.sequence_runtime_meta
+					SET value = '2', updated_at = now()
+					WHERE key = 'schema_version'
+				`;
+				await sql.end({ timeout: 5 });
+			}
 		},
 	);
 });

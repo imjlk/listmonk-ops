@@ -19,6 +19,7 @@ import {
 	invokeSequenceUpdateOperation,
 	invokeSequenceValidateOperation,
 	runSequenceWorker,
+	sequenceEnrollmentStatusSchema,
 	type SequenceOperationContext,
 } from "@listmonk-ops/automation";
 import { z } from "zod";
@@ -234,18 +235,7 @@ const enrollmentListCommand = defineCommand({
 			description: "Filter by Listmonk subscriber ID",
 		}),
 		status: option(
-			z
-				.enum([
-					"pending",
-					"running",
-					"waiting",
-					"paused",
-					"completed",
-					"failed",
-					"ambiguous",
-					"cancelled",
-				])
-				.optional(),
+			sequenceEnrollmentStatusSchema.optional(),
 			{ description: "Filter by enrollment status" },
 		),
 		limit: option(z.coerce.number().int().min(1).max(1_000).default(100), {

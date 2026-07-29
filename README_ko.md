@@ -804,10 +804,13 @@ listmonk-cli sequences worker --interval-ms 5000 --confirm
 Worker는 매 `send` 직전에 subscriber를 다시 조회하고 blocklisted, disabled,
 또는 반환된 모든 list에서 unsubscribed 상태이면 발송을 취소합니다.
 Transactional 발송은 enrollment/revision/step으로 결정되는 idempotency key를
-사용합니다. 응답이 유실된 발송은 `ambiguous`가 되며 자동 재시도하지 않습니다.
-Listmonk, Mailpit 또는 provider 근거를 확인한 후
+사용합니다. 발송 전 단계에서 확실히 실패한 요청은 제한된 exponential
+backoff로 재시도하며, enrollment list/get 결과의 `retry_count`로 횟수를
+확인할 수 있습니다. 응답이 유실된 발송은 `ambiguous`가 되며 자동
+재시도하지 않습니다. Listmonk, Mailpit 또는 provider 근거를 확인한 후
 `sequences reconcile --enrollment-id ... --resolution sent` 또는 `not_sent`와
-`--no-dry-run --confirm`으로 명시적으로 복구합니다.
+`--no-dry-run --confirm`으로 명시적으로 복구합니다. 발송이 여전히 진행 중일
+수 있는 `pending` 멱등성 claim은 운영자가 수동 reconcile할 수 없습니다.
 
 기본 파일 저장소는 `~/.listmonk-ops/sequences.json`입니다. 여러 worker가
 동시에 처리할 때는 `LISTMONK_OPS_SEQUENCE_DATABASE_URL`을 설정하세요.

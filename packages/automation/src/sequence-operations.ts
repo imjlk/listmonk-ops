@@ -33,6 +33,7 @@ import { getSequenceRepositoryFromEnvironment } from "./sequence-runtime";
 import {
 	createSequenceDefinition,
 	createSequenceEnrollment,
+	sequenceEnrollmentStatusSchema,
 	type SequenceDefinition,
 	type SequenceEnrollment,
 	type SequenceRepository,
@@ -159,16 +160,7 @@ const sequenceEnrollInputSchema = z.object({
 	context: z.record(z.string(), z.unknown()).default({}),
 	start_at: isoDateTimeInput.optional(),
 });
-const sequenceEnrollmentStatusInput = z.enum([
-	"pending",
-	"running",
-	"waiting",
-	"paused",
-	"completed",
-	"failed",
-	"ambiguous",
-	"cancelled",
-]);
+const sequenceEnrollmentStatusInput = sequenceEnrollmentStatusSchema;
 const sequenceEnrollmentListInputSchema = z.object({
 	sequence_id: sequenceIdInput.optional(),
 	subscriber_id: positiveIntegerInput.optional(),
@@ -254,6 +246,7 @@ const sequenceEnrollmentOutputSchema = z.object({
 	revision: z.number().int().positive(),
 	subscriber_id: z.number().int().positive(),
 	status: sequenceEnrollmentStatusInput,
+	retry_count: z.number().int().nonnegative(),
 	current_step_id: z.string(),
 	next_run_at: isoDateTimeInput,
 	last_error: z.string().optional(),
@@ -430,6 +423,7 @@ function toEnrollmentOutput(enrollment: SequenceEnrollment) {
 		revision: enrollment.revision,
 		subscriber_id: enrollment.subscriberId,
 		status: enrollment.status,
+		retry_count: enrollment.retryCount,
 		current_step_id: enrollment.currentStepId,
 		next_run_at: enrollment.nextRunAt,
 		last_error: enrollment.lastError,

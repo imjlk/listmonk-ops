@@ -102,6 +102,7 @@ export type SequenceEnrollment = Readonly<{
 	subscriberId: number;
 	context: Readonly<Record<string, unknown>>;
 	status: SequenceEnrollmentStatus;
+	retryCount: number;
 	currentStepId: string;
 	nextRunAt: string;
 	leaseToken?: string | undefined;
@@ -279,7 +280,7 @@ const definitionSchema = z.object({
 	createdAt: isoDateTimeSchema,
 	updatedAt: isoDateTimeSchema,
 });
-const enrollmentStatusSchema = z.enum([
+export const sequenceEnrollmentStatusSchema = z.enum([
 	"pending",
 	"running",
 	"waiting",
@@ -295,7 +296,8 @@ const enrollmentSchema = z.object({
 	revision: z.number().int().positive(),
 	subscriberId: z.number().int().positive(),
 	context: jsonObjectSchema,
-	status: enrollmentStatusSchema,
+	status: sequenceEnrollmentStatusSchema,
+	retryCount: z.number().int().nonnegative().default(0),
 	currentStepId: stepIdSchema,
 	nextRunAt: isoDateTimeSchema,
 	leaseToken: sequenceIdSchema.optional(),
@@ -487,6 +489,7 @@ export function createSequenceEnrollment(
 		subscriberId: input.subscriberId,
 		context: input.context ?? {},
 		status: "pending",
+		retryCount: 0,
 		currentStepId: firstStep.id,
 		nextRunAt: input.startAt ?? timestamp,
 		lastTransitionAt: timestamp,
@@ -872,7 +875,7 @@ export function buildSequenceRuntimeHealth(
 ): SequenceRuntimeHealth {
 	const nowMs = options.now.getTime();
 	const enrollmentCounts = Object.fromEntries(
-		enrollmentStatusSchema.options.map((status) => [
+		sequenceEnrollmentStatusSchema.options.map((status) => [
 			status,
 			enrollments.filter((entry) => entry.status === status).length,
 		]),

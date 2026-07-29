@@ -18,7 +18,6 @@ import {
 	unwrapResourceResponse,
 	updateResourceSafety,
 } from "./resource-helpers";
-export { isResourceMissingError } from "./resource-helpers";
 import { defineOperationCatalog } from "./catalog";
 import {
 	defineOperation,
@@ -30,6 +29,8 @@ import {
 	type BulkExecutorResult,
 	executeSubscriberBulk,
 } from "./subscriber-bulk";
+
+export { isResourceMissingError } from "./resource-helpers";
 
 export interface SubscriberOperationContext {
 	client: Pick<ListmonkClient, "subscriber">;

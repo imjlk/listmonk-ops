@@ -53,16 +53,14 @@ export type ResponseWithData<T> = {
 
 export class ResourceResponseError extends Error {
 	public readonly status: number | undefined;
-	public readonly empty: boolean;
 
 	public constructor(
 		message: string,
-		options: { status?: number; empty?: boolean; cause?: unknown } = {},
+		options: { status?: number; cause?: unknown } = {},
 	) {
 		super(message, { cause: options.cause });
 		this.name = "ResourceResponseError";
 		this.status = options.status;
-		this.empty = options.empty ?? false;
 	}
 }
 
@@ -106,7 +104,6 @@ export function unwrapResourceResponse<T>(
 	if (response.data === undefined) {
 		throw new ResourceResponseError(`${context}: received empty data`, {
 			status: response.response?.status,
-			empty: true,
 		});
 	}
 	return response.data;
