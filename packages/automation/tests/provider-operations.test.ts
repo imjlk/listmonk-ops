@@ -299,6 +299,7 @@ describe("provider and deliverability operations", () => {
 			error = caught;
 		}
 		expect(error).toBeInstanceOf(Error);
+		expect(error).not.toBeInstanceOf(TypeError);
 		const message = error instanceof Error ? error.message : String(error);
 		expect(message).toContain("SES provider inspection failed");
 		expect(message).not.toContain("newsletter");
@@ -362,6 +363,17 @@ describe("provider and deliverability operations", () => {
 			messenger_enabled: true,
 		});
 		expect(configured).not.toHaveProperty("from_domain");
+
+		const malformedEnabled = inspectListmonkProviderSettings(
+			{ ...profile, messenger: "marketing" },
+			{
+				messengers: [{ name: "marketing" }],
+			},
+		);
+		expect(malformedEnabled).toMatchObject({
+			messenger_configured: true,
+			messenger_enabled: false,
+		});
 
 		const clientWithoutFrom = {
 			...context().client!,
@@ -515,6 +527,47 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("uses the RFC 9989 eight-query shortcut for deep DMARC trees", async () => {
+		const domain = "a.b.c.d.e.f.g.h.i.j.mail.example.com";
+		const deepProfile = providerProfileSchema.parse({
+			...profile,
+			id: "deep-domain",
+			sending_domain: domain,
+			from_email: `newsletter@${domain}`,
+		});
+		const dmarcQueries: string[] = [];
+		const deepDns: ProviderDnsResolver = {
+			async txt(name) {
+				if (name.startsWith("_dmarc.")) {
+					dmarcQueries.push(name);
+					return name === "_dmarc.example.com"
+						? ["v=DMARC1; p=quarantine"]
+						: [];
+				}
+				return dns.txt(name);
+			},
+			cname: dns.cname,
+			mx: dns.mx,
+		};
+		await invokeDeliverabilityDnsCheckOperation(
+			context({
+				profiles: [deepProfile],
+				dns: deepDns,
+			}),
+			{ provider_id: deepProfile.id },
+		);
+		expect(dmarcQueries.slice(0, 8)).toEqual([
+			`_dmarc.${domain}`,
+			"_dmarc.g.h.i.j.mail.example.com",
+			"_dmarc.h.i.j.mail.example.com",
+			"_dmarc.i.j.mail.example.com",
+			"_dmarc.j.mail.example.com",
+			"_dmarc.mail.example.com",
+			"_dmarc.example.com",
+			"_dmarc.com",
+		]);
+	});
+
 	test("reports transient DNS failures as unknown", async () => {
 		const failingDns: ProviderDnsResolver = {
 			async txt() {
@@ -544,25 +597,30 @@ describe("provider and deliverability operations", () => {
 		}
 	});
 
-	test("requires an exact SPF include mechanism", async () => {
-		const misleadingSpfDns: ProviderDnsResolver = {
-			...dns,
-			async txt(name) {
-				if (name === "bounce.news.example.com") {
-					return [
-						"v=spf1 include:amazonses.com.attacker.example ~all",
-					];
-				}
-				return dns.txt(name);
-			},
-		};
-		const output = await invokeDeliverabilityDnsCheckOperation(
-			context({ dns: misleadingSpfDns }),
-			{ provider_id: profile.id },
-		);
-		expect(output.checks).toContainEqual(
-			expect.objectContaining({ id: "dns.spf", status: "fail" }),
-		);
+	test("requires a positively qualified exact SPF include mechanism", async () => {
+		for (const spfRecord of [
+			"v=spf1 include:amazonses.com.attacker.example ~all",
+			"v=spf1 -include:amazonses.com ~all",
+			"v=spf1 ~include:amazonses.com ~all",
+			"v=spf1 ?include:amazonses.com ~all",
+		]) {
+			const misleadingSpfDns: ProviderDnsResolver = {
+				...dns,
+				async txt(name) {
+					if (name === "bounce.news.example.com") {
+						return [spfRecord];
+					}
+					return dns.txt(name);
+				},
+			};
+			const output = await invokeDeliverabilityDnsCheckOperation(
+				context({ dns: misleadingSpfDns }),
+				{ provider_id: profile.id },
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.spf", status: "fail" }),
+			);
+		}
 	});
 
 	test("preserves operation results when provider cleanup fails", async () => {

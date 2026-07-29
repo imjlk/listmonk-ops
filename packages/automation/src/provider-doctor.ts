@@ -211,6 +211,8 @@ function recordName(
 }
 
 function isRecordEnabled(record: Readonly<Record<string, unknown>>): boolean {
+	// Listmonk serializes this setting as a boolean. Treat missing or malformed
+	// values as disabled so readiness remains fail-closed.
 	return record.enabled === true;
 }
 
@@ -356,6 +358,27 @@ function settingsChecks(
 	profile: ProviderProfile,
 	snapshot: ProviderListmonkSnapshot,
 ): DoctorCheck[] {
+	let fromAlignmentStatus: DoctorCheckStatus;
+	let fromAlignmentMessage: string;
+	if (snapshot.from_domain === undefined) {
+		fromAlignmentStatus =
+			snapshot.from_email === undefined ? "unknown" : "fail";
+		fromAlignmentMessage =
+			snapshot.from_email === undefined
+				? "Listmonk did not return an app.from_email setting."
+				: "Listmonk app.from_email is not a valid email address.";
+	} else if (
+		isSameOrSubdomain(snapshot.from_domain, profile.sending_domain)
+	) {
+		fromAlignmentStatus = "pass";
+		fromAlignmentMessage =
+			"Listmonk From domain aligns with the provider sending domain.";
+	} else {
+		fromAlignmentStatus = "fail";
+		fromAlignmentMessage =
+			"Listmonk From domain does not align with the provider sending domain.";
+	}
+
 	const checks: DoctorCheck[] = [
 		{
 			id: "listmonk.smtp",
@@ -383,28 +406,8 @@ function settingsChecks(
 		},
 		{
 			id: "listmonk.from-alignment",
-			status:
-				snapshot.from_domain === undefined
-					? snapshot.from_email === undefined
-						? "unknown"
-						: "fail"
-					: isSameOrSubdomain(
-								snapshot.from_domain,
-								profile.sending_domain,
-							)
-						? "pass"
-						: "fail",
-			message:
-				snapshot.from_domain === undefined
-					? snapshot.from_email === undefined
-						? "Listmonk did not return an app.from_email setting."
-						: "Listmonk app.from_email is not a valid email address."
-					: isSameOrSubdomain(
-								snapshot.from_domain,
-								profile.sending_domain,
-							)
-					? "Listmonk From domain aligns with the provider sending domain."
-					: "Listmonk From domain does not align with the provider sending domain.",
+			status: fromAlignmentStatus,
+			message: fromAlignmentMessage,
 			details: {
 				from_domain: snapshot.from_domain,
 				sending_domain: profile.sending_domain,
@@ -660,7 +663,7 @@ export async function inspectProviderQuota(
 	try {
 		account = await context.inspector.inspectAccount();
 	} catch (error) {
-		throw new TypeError(providerApiFailureMessage(profile, error));
+		throw new Error(providerApiFailureMessage(profile, error));
 	}
 	const max = account.max_24_hour_send;
 	const sent = account.sent_last_24_hours;
@@ -734,6 +737,23 @@ export async function inspectProviderWebhook(
 			: ageMs <= maxAgeHours * 3_600_000
 				? "fresh"
 				: "stale";
+	let freshnessStatus: DoctorCheckStatus;
+	let freshnessMessage: string;
+	if (freshness === "fresh") {
+		freshnessStatus = "pass";
+		freshnessMessage = "A recent provider event reached Listmonk.";
+	} else if (freshness === "stale") {
+		freshnessStatus = "warn";
+		freshnessMessage = `The latest provider event is older than ${maxAgeHours} hours.`;
+	} else if (futureTimestamp) {
+		freshnessStatus = "unknown";
+		freshnessMessage =
+			"The latest provider event has a future timestamp; verify system clocks before treating it as freshness evidence.";
+	} else {
+		freshnessStatus = "unknown";
+		freshnessMessage =
+			"No provider event is available; use an SES simulator address to verify the webhook path.";
+	}
 	const bounceProcessing = settingBoolean(settings, "bounce.enabled");
 	const bounceWebhooks = settingBoolean(settings, "bounce.webhooks_enabled");
 	const providerEnabled =
@@ -758,20 +778,8 @@ export async function inspectProviderWebhook(
 		},
 		{
 			id: "webhook.freshness",
-			status:
-				freshness === "fresh"
-					? "pass"
-					: freshness === "stale"
-						? "warn"
-						: "unknown",
-			message:
-				freshness === "fresh"
-					? "A recent provider event reached Listmonk."
-					: freshness === "stale"
-						? `The latest provider event is older than ${maxAgeHours} hours.`
-						: futureTimestamp
-							? "The latest provider event has a future timestamp; verify system clocks before treating it as freshness evidence."
-							: "No provider event is available; use an SES simulator address to verify the webhook path.",
+			status: freshnessStatus,
+			message: freshnessMessage,
 		},
 	];
 	return {
@@ -913,6 +921,8 @@ function dmarcTreeWalkDomains(domain: string): string[] {
 	if (labels.length <= MAX_DMARC_TREE_WALK_QUERIES) {
 		return labels.map((_, index) => labels.slice(index).join("."));
 	}
+	// RFC 9989 section 4.10 always queries the full domain first, then skips
+	// directly to seven labels before continuing towards the root.
 	const suffixStart = labels.length - (MAX_DMARC_TREE_WALK_QUERIES - 1);
 	return [
 		labels.join("."),
@@ -922,16 +932,24 @@ function dmarcTreeWalkDomains(domain: string): string[] {
 	];
 }
 
-function parseDmarcTags(record: string): ReadonlyMap<string, string> {
+function parseTagRecord(
+	record: string,
+	options: { lowercaseValues?: boolean } = {},
+): ReadonlyMap<string, string> {
 	const tags = new Map<string, string>();
 	for (const item of record.split(";")) {
 		const separator = item.indexOf("=");
 		if (separator < 1) continue;
 		const key = item.slice(0, separator).trim().toLowerCase();
-		const value = item.slice(separator + 1).trim().toLowerCase();
+		const rawValue = item.slice(separator + 1).trim();
+		const value = options.lowercaseValues ? rawValue.toLowerCase() : rawValue;
 		if (key && !tags.has(key)) tags.set(key, value);
 	}
 	return tags;
+}
+
+function parseDmarcTags(record: string): ReadonlyMap<string, string> {
+	return parseTagRecord(record, { lowercaseValues: true });
 }
 
 function childDomainBelow(startingDomain: string, parentDomain: string): string {
@@ -1012,15 +1030,7 @@ async function discoverDmarcPolicy(
 }
 
 function hasDirectDkimKey(record: string): boolean {
-	const tags = new Map<string, string>();
-	for (const item of record.split(";")) {
-		const separator = item.indexOf("=");
-		if (separator < 1) continue;
-		tags.set(
-			item.slice(0, separator).trim().toLowerCase(),
-			item.slice(separator + 1).trim(),
-		);
-	}
+	const tags = parseTagRecord(record);
 	return (
 		tags.get("v")?.toLowerCase() === "dkim1" &&
 		(tags.get("p")?.length ?? 0) > 0
@@ -1034,6 +1044,8 @@ function hasExactSpfInclude(record: string, expectedDomain: string): boolean {
 		.split(/\s+/)
 		.slice(1)
 		.some((mechanism) => {
+			const qualifier = /^[+?~-]/.exec(mechanism)?.[0];
+			if (qualifier !== undefined && qualifier !== "+") return false;
 			const unqualified = mechanism.replace(/^[+?~-]/, "");
 			if (!unqualified.toLowerCase().startsWith("include:")) return false;
 			return normalizeDomain(unqualified.slice("include:".length)) === expected;
