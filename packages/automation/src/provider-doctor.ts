@@ -6,6 +6,7 @@ import type {
 	SesAccountSnapshot,
 	SesIdentitySnapshot,
 } from "./provider-profiles";
+import { z } from "zod";
 
 const DEFAULT_DNS_TIMEOUT_MS = 5_000;
 const MAX_DMARC_TREE_WALK_QUERIES = 8;
@@ -181,8 +182,28 @@ function providerApiFailureMessage(
 
 function fromDomain(fromEmail: string | undefined): string | undefined {
 	if (!fromEmail) return undefined;
-	const match = /@([^>\s]+)>?$/.exec(fromEmail.trim());
-	return match?.[1]?.toLowerCase().replace(/\.$/, "");
+	const value = fromEmail.trim();
+	let mailbox = value;
+	if (value.includes("<") || value.includes(">")) {
+		// Accept a plain mailbox, Name <mailbox>, "Quoted Name" <mailbox>,
+		// and the bare <mailbox> form emitted by some mail configuration UIs.
+		const displayMailbox =
+			/^(?:"[^"\r\n]*"|[^<>\r\n]*)?\s*<([^<>\r\n]+)>$/.exec(value);
+		if (!displayMailbox) return undefined;
+		mailbox = displayMailbox[1]!.trim();
+	}
+	const parsed = z.email().safeParse(mailbox);
+	if (!parsed.success) return undefined;
+	return parsed.data.slice(parsed.data.lastIndexOf("@") + 1).toLowerCase();
+}
+
+function validatedDomain(domain: string | undefined): string | undefined {
+	if (!domain) return undefined;
+	const normalized = normalizeDomain(domain.trim());
+	if (!normalized) return undefined;
+	return z.email().safeParse(`probe@${normalized}`).success
+		? normalized
+		: undefined;
 }
 
 function normalizeDomain(domain: string): string {
@@ -351,6 +372,7 @@ async function readListmonkSettings(
 		throw new TypeError("Listmonk client is required for provider inspection");
 	}
 	const result = await context.client.settings.get();
+	throwOnListmonkResponseError(result, "Listmonk settings inspection");
 	return result.data as Readonly<Record<string, unknown>>;
 }
 
@@ -532,6 +554,8 @@ export async function inspectProviderStatus(
 	const startedAt = Date.now();
 	let account: SesAccountSnapshot | undefined;
 	let identity: SesIdentitySnapshot | undefined;
+	let accountError: unknown;
+	let identityError: unknown;
 	let api: ProviderApiProbe;
 
 	if (profile.kind !== "ses" || context.inspector === undefined) {
@@ -541,27 +565,37 @@ export async function inspectProviderStatus(
 			authenticated: false,
 		};
 	} else {
-		try {
-			[account, identity] = await Promise.all([
-				context.inspector.inspectAccount(),
-				context.inspector.inspectIdentity(),
-			]);
-			api = {
-				supported: true,
-				reachable: true,
-				authenticated: true,
-				latency_ms: Math.max(0, Date.now() - startedAt),
-			};
-		} catch (error) {
-			api = {
-				supported: true,
-				reachable: false,
-				authenticated: false,
-				latency_ms: Math.max(0, Date.now() - startedAt),
-				error_code: errorCode(error),
-				error_message: providerApiFailureMessage(profile, error),
-			};
+		const [accountResult, identityResult] = await Promise.allSettled([
+			context.inspector.inspectAccount(),
+			context.inspector.inspectIdentity(),
+		]);
+		if (accountResult.status === "fulfilled") {
+			account = accountResult.value;
+		} else {
+			accountError = accountResult.reason;
 		}
+		if (identityResult.status === "fulfilled") {
+			identity = identityResult.value;
+		} else {
+			identityError = identityResult.reason;
+		}
+		const firstError = accountError ?? identityError;
+		const hasSuccessfulRequest =
+			account !== undefined || identity !== undefined;
+		const hasAnyError =
+			accountError !== undefined || identityError !== undefined;
+		api = {
+			supported: true,
+			reachable: hasSuccessfulRequest,
+			authenticated: hasSuccessfulRequest && !hasAnyError,
+			latency_ms: Math.max(0, Date.now() - startedAt),
+			...(firstError === undefined
+				? {}
+				: {
+						error_code: errorCode(firstError),
+						error_message: providerApiFailureMessage(profile, firstError),
+					}),
+		};
 	}
 
 	let listmonk: ProviderListmonkSnapshot | undefined;
@@ -581,6 +615,20 @@ export async function inspectProviderStatus(
 	}
 	if (account) checks.push(...accountChecks(account));
 	if (identity) checks.push(...identityChecks(identity));
+	if (accountError !== undefined) {
+		checks.push({
+			id: "provider.account",
+			status: "fail",
+			message: providerApiFailureMessage(profile, accountError),
+		});
+	}
+	if (identityError !== undefined) {
+		checks.push({
+			id: "provider.identity",
+			status: "fail",
+			message: providerApiFailureMessage(profile, identityError),
+		});
+	}
 	if (profile.kind === "ses" && !api.authenticated) {
 		checks.push({
 			id: "provider.api",
@@ -706,6 +754,22 @@ function bounceItems(result: unknown): ReadonlyArray<Readonly<Record<string, unk
 	);
 }
 
+function throwOnListmonkResponseError(
+	result: unknown,
+	operation: string,
+): void {
+	if (
+		typeof result === "object" &&
+		result !== null &&
+		"error" in result &&
+		(result as { error?: unknown }).error !== undefined
+	) {
+		throw new Error(
+			`${operation} failed. Verify Listmonk credentials and API availability.`,
+		);
+	}
+}
+
 export async function inspectProviderWebhook(
 	profile: ProviderProfile,
 	context: ProviderInspectionContext,
@@ -723,6 +787,7 @@ export async function inspectProviderWebhook(
 		order_by: "created_at",
 		order: "desc",
 	});
+	throwOnListmonkResponseError(bounceResult, "Listmonk bounce inspection");
 	const latest = bounceItems(bounceResult)[0];
 	const createdAt =
 		typeof latest?.created_at === "string" ? latest.created_at : undefined;
@@ -952,6 +1017,30 @@ function parseDmarcTags(record: string): ReadonlyMap<string, string> {
 	return parseTagRecord(record, { lowercaseValues: true });
 }
 
+const DMARC_POLICIES = new Set(["none", "quarantine", "reject"]);
+
+function validDmarcPolicyRecord(
+	record: string,
+): { value: string; tags: ReadonlyMap<string, string> } | undefined {
+	const firstTag = record.split(";", 1)[0]?.trim();
+	if (firstTag?.toLowerCase() !== "v=dmarc1") return undefined;
+	const tags = parseDmarcTags(record);
+	if (tags.get("v") !== "dmarc1") return undefined;
+	const policy = tags.get("p");
+	if (policy === undefined || !DMARC_POLICIES.has(policy)) return undefined;
+	for (const key of ["sp", "np"]) {
+		const value = tags.get(key);
+		if (value !== undefined && !DMARC_POLICIES.has(value)) return undefined;
+	}
+	for (const key of ["adkim", "aspf"]) {
+		const value = tags.get(key);
+		if (value !== undefined && value !== "r" && value !== "s") return undefined;
+	}
+	const psd = tags.get("psd");
+	if (psd !== undefined && psd !== "y" && psd !== "n") return undefined;
+	return { value: record, tags };
+}
+
 function childDomainBelow(startingDomain: string, parentDomain: string): string {
 	const startingLabels = normalizeDomain(startingDomain).split(".");
 	const parentLabels = normalizeDomain(parentDomain).split(".");
@@ -978,20 +1067,27 @@ async function discoverDmarcPolicy(
 		);
 		observations.push(result.observation);
 		if (result.outcome === "error") indeterminate = true;
-		const policyRecords = result.values.filter((record) =>
-			record.trim().toLowerCase().startsWith("v=dmarc1"),
-		);
+		const policyRecords = result.values
+			.map(validDmarcPolicyRecord)
+			.filter(
+				(
+					record,
+				): record is {
+					value: string;
+					tags: ReadonlyMap<string, string>;
+				} => record !== undefined,
+			);
 		if (policyRecords.length > 1) {
 			duplicateDomains.push(candidate);
 			continue;
 		}
-		const value = policyRecords[0];
-		if (value !== undefined) {
+		const policyRecord = policyRecords[0];
+		if (policyRecord !== undefined) {
 			records.push({
 				domain: candidate,
 				name,
-				value,
-				tags: parseDmarcTags(value),
+				value: policyRecord.value,
+				tags: policyRecord.tags,
 			});
 		}
 	}
@@ -1056,13 +1152,16 @@ export async function inspectProviderDns(
 	profile: ProviderProfile,
 	context: ProviderInspectionContext,
 	identity?: SesIdentitySnapshot,
+	fromDomainOverride?: string,
 ): Promise<ProviderDnsSnapshot> {
 	const now = context.now?.() ?? new Date();
 	const dns = context.dns ?? createNodeDnsResolver();
 	const observations: DnsObservation[] = [];
 	const checks: DoctorCheck[] = [];
 	const effectiveFromDomain =
-		fromDomain(profile.from_email) ?? profile.sending_domain;
+		validatedDomain(fromDomainOverride) ??
+		fromDomain(profile.from_email) ??
+		profile.sending_domain;
 	const dmarc = await discoverDmarcPolicy(effectiveFromDomain, dns);
 	observations.push(...dmarc.observations);
 	const dmarcStatus: DoctorCheckStatus =
@@ -1343,7 +1442,12 @@ export async function runProviderDoctor(
 			// The provider status check already reports the sanitized API failure.
 		}
 	}
-	const dns = await inspectProviderDns(profile, snapshotContext, identity);
+	const dns = await inspectProviderDns(
+		profile,
+		snapshotContext,
+		identity,
+		status.listmonk?.from_domain,
+	);
 	const checks = [
 		...status.checks,
 		...webhook.checks,

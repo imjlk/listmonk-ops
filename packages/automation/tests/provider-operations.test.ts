@@ -11,6 +11,7 @@ import {
 	invokeProviderTestOperation,
 	invokeProviderWebhookStatusOperation,
 	inspectListmonkProviderSettings,
+	inspectProviderDns,
 	loadProviderProfiles,
 	providerOperationCatalog,
 	providerConfigSchema,
@@ -260,6 +261,75 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("rejects Listmonk bounce error envelopes instead of reporting healthy freshness", async () => {
+		const errorContext = context({
+			client: {
+				...context().client!,
+				bounce: {
+					async list() {
+						return {
+							error: new Error("401 unauthorized"),
+							data: {
+								results: [],
+								total: 0,
+								per_page: 0,
+								page: 1,
+							},
+						} as never;
+					},
+				},
+			},
+		});
+		await expect(
+			invokeProviderWebhookStatusOperation(errorContext, {
+				provider_id: profile.id,
+			}),
+		).rejects.toThrow("Listmonk bounce inspection failed");
+		const doctor = await invokeDeliverabilityDoctorOperation(errorContext, {
+			provider_id: profile.id,
+		});
+		expect(doctor.ready).toBe(false);
+		expect(doctor.webhook.healthy).toBe(false);
+		expect(doctor.checks).toContainEqual(
+			expect.objectContaining({
+				id: "webhook.inspection",
+				status: "fail",
+			}),
+		);
+		expect(JSON.stringify(doctor)).not.toContain("401 unauthorized");
+	});
+
+	test("rejects Listmonk settings error envelopes", async () => {
+		const errorContext = context({
+			client: {
+				...context().client!,
+				settings: {
+					async get() {
+						return {
+							error: new Error("credential detail must-not-leak"),
+							data: {},
+						} as never;
+					},
+				},
+			},
+		});
+		const status = await invokeProviderStatusOperation(errorContext, {
+			provider_id: profile.id,
+		});
+		expect(status.checks).toContainEqual(
+			expect.objectContaining({
+				id: "listmonk.settings",
+				status: "fail",
+			}),
+		);
+		expect(JSON.stringify(status)).not.toContain("must-not-leak");
+		const doctor = await invokeDeliverabilityDoctorOperation(errorContext, {
+			provider_id: profile.id,
+		});
+		expect(doctor.ready).toBe(false);
+		expect(JSON.stringify(doctor)).not.toContain("must-not-leak");
+	});
+
 	test("does not expose credential references through provider API failures", async () => {
 		const failingInspector: ProviderInspector = {
 			async inspectAccount() {
@@ -281,6 +351,36 @@ describe("provider and deliverability operations", () => {
 		expect(JSON.stringify(output)).not.toContain("newsletter");
 		expect(JSON.stringify(output)).not.toContain("AKIA");
 		expect(JSON.stringify(output)).not.toContain("aws:profile");
+	});
+
+	test("preserves successful SES account evidence when identity inspection fails", async () => {
+		const partialInspector = inspector();
+		partialInspector.inspectIdentity = async () => {
+			throw Object.assign(new Error("identity not found"), {
+				name: "NotFoundException",
+			});
+		};
+		const output = await invokeProviderStatusOperation(
+			context({ createInspector: () => partialInspector }),
+			{ provider_id: profile.id },
+		);
+		expect(output.account).toMatchObject({
+			production_access_enabled: true,
+			max_24_hour_send: 50_000,
+		});
+		expect(output).not.toHaveProperty("identity");
+		expect(output.api).toMatchObject({
+			supported: true,
+			reachable: true,
+			authenticated: false,
+			error_code: "NotFoundException",
+		});
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "provider.identity",
+				status: "fail",
+			}),
+		);
 	});
 
 	test("sanitizes standalone quota inspection failures", async () => {
@@ -364,6 +464,25 @@ describe("provider and deliverability operations", () => {
 			messenger_enabled: true,
 		});
 		expect(configured).not.toHaveProperty("from_domain");
+
+		for (const malformedFrom of [
+			"@news.example.com",
+			"invalid address @news.example.com",
+			"Newsletter <newsletter@news.example.com",
+		]) {
+			const malformed = inspectListmonkProviderSettings(profile, {
+				"app.from_email": malformedFrom,
+			});
+			expect(malformed.from_email).toBe(malformedFrom);
+			expect(malformed).not.toHaveProperty("from_domain");
+		}
+		expect(
+			inspectListmonkProviderSettings(profile, {
+				"app.from_email": "<newsletter@news.example.com>",
+			}),
+		).toMatchObject({
+			from_domain: "news.example.com",
+		});
 
 		const malformedEnabled = inspectListmonkProviderSettings(
 			{ ...profile, messenger: "marketing" },
@@ -506,6 +625,62 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("uses the observed Listmonk From domain for aggregate DNS readiness", async () => {
+		const broadProfile = providerProfileSchema.parse({
+			...profile,
+			id: "broad-domain",
+			sending_domain: "example.com",
+			from_email: "sender@news.example.com",
+		});
+		const observedQueries: string[] = [];
+		const observedDns: ProviderDnsResolver = {
+			async txt(name) {
+				observedQueries.push(name);
+				if (name === "_dmarc.other.example.com") {
+					return ["v=DMARC1; p=quarantine; aspf=s"];
+				}
+				if (name === "bounce.news.example.com") {
+					return ["v=spf1 include:amazonses.com ~all"];
+				}
+				return [];
+			},
+			cname: dns.cname,
+			mx: dns.mx,
+		};
+		const observedClient = {
+			...context().client!,
+			settings: {
+				async get() {
+					return {
+						data: {
+							"app.from_email": "Sender <sender@other.example.com>",
+							"privacy.unsubscribe_header": true,
+							"bounce.enabled": true,
+							"bounce.webhooks_enabled": true,
+							"bounce.ses_enabled": true,
+							smtp: [
+								{
+									host: "email-smtp.ap-northeast-2.amazonaws.com",
+									enabled: true,
+								},
+							],
+						},
+					} as never;
+				},
+			},
+		};
+		const output = await invokeDeliverabilityDoctorOperation(
+			context({
+				profiles: [broadProfile],
+				client: observedClient,
+				dns: observedDns,
+			}),
+			{ provider_id: broadProfile.id },
+		);
+		expect(output.dns.from_domain).toBe("other.example.com");
+		expect(observedQueries[0]).toBe("_dmarc.other.example.com");
+	});
+
 	test("honors strict DMARC SPF alignment", async () => {
 		const strictDns: ProviderDnsResolver = {
 			...dns,
@@ -526,6 +701,32 @@ describe("provider and deliverability operations", () => {
 				status: "fail",
 			}),
 		);
+	});
+
+	test("rejects malformed or incomplete DMARC policy records", async () => {
+		for (const policyRecord of [
+			"v=DMARC1garbage; p=reject",
+			"v=DMARC1",
+			"v=DMARC1; p=invalid",
+			"v=DMARC1; p=reject; aspf=invalid",
+		]) {
+			const malformedDmarcDns: ProviderDnsResolver = {
+				...dns,
+				async txt(name) {
+					if (name === "_dmarc.news.example.com") {
+						return [policyRecord];
+					}
+					return dns.txt(name);
+				},
+			};
+			const output = await invokeDeliverabilityDnsCheckOperation(
+				context({ dns: malformedDmarcDns }),
+				{ provider_id: profile.id },
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.dmarc", status: "fail" }),
+			);
+		}
 	});
 
 	test("uses the RFC 9989 eight-query shortcut for deep DMARC trees", async () => {
@@ -567,6 +768,26 @@ describe("provider and deliverability operations", () => {
 			"_dmarc.example.com",
 			"_dmarc.com",
 		]);
+	});
+
+	test("rejects an empty From-domain override before querying DNS", async () => {
+		const queries: string[] = [];
+		const trackingDns: ProviderDnsResolver = {
+			async txt(name) {
+				queries.push(name);
+				return dns.txt(name);
+			},
+			cname: dns.cname,
+			mx: dns.mx,
+		};
+		const output = await inspectProviderDns(
+			profile,
+			context({ dns: trackingDns }),
+			await inspector().inspectIdentity(),
+			"",
+		);
+		expect(output.from_domain).toBe("news.example.com");
+		expect(queries).not.toContain("_dmarc.");
 	});
 
 	test("reports transient DNS failures as unknown", async () => {
