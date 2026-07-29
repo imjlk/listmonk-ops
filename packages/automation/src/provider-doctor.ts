@@ -8,6 +8,15 @@ import type {
 } from "./provider-profiles";
 
 const DEFAULT_DNS_TIMEOUT_MS = 5_000;
+const MAX_DMARC_TREE_WALK_QUERIES = 8;
+const REQUIRED_READINESS_CHECK_IDS = new Set([
+	"listmonk.from-alignment",
+	"dns.dmarc",
+	"dns.dkim",
+	"dns.spf",
+	"dns.mail-from-mx",
+	"dns.spf-alignment",
+]);
 
 export type DoctorCheckStatus = "pass" | "warn" | "fail" | "unknown";
 
@@ -34,6 +43,8 @@ export interface ProviderListmonkSnapshot {
 	from_email?: string | undefined;
 	from_domain?: string | undefined;
 	messenger: string;
+	messenger_configured: boolean;
+	messenger_enabled: boolean;
 	smtp_hosts: string[];
 	matching_smtp_hosts: string[];
 	smtp_configured: boolean;
@@ -168,19 +179,49 @@ function providerApiFailureMessage(
 	return `${profile.kind.toUpperCase()} provider inspection failed (${errorCode(error)}). Check the configured credential reference and provider permissions.`;
 }
 
-function fromDomain(fromEmail: string | undefined, fallback: string): string {
-	if (!fromEmail) return fallback;
+function fromDomain(fromEmail: string | undefined): string | undefined {
+	if (!fromEmail) return undefined;
 	const match = /@([^>\s]+)>?$/.exec(fromEmail.trim());
-	return match?.[1]?.toLowerCase().replace(/\.$/, "") ?? fallback;
+	return match?.[1]?.toLowerCase().replace(/\.$/, "");
 }
 
-function aligned(left: string, right: string): boolean {
-	const normalizedLeft = left.toLowerCase().replace(/\.$/, "");
-	const normalizedRight = right.toLowerCase().replace(/\.$/, "");
+function normalizeDomain(domain: string): string {
+	return domain.toLowerCase().replace(/\.$/, "");
+}
+
+function isSameOrSubdomain(domain: string, parentDomain: string): boolean {
+	const normalizedDomain = normalizeDomain(domain);
+	const normalizedParent = normalizeDomain(parentDomain);
 	return (
-		normalizedLeft === normalizedRight ||
-		normalizedLeft.endsWith(`.${normalizedRight}`) ||
-		normalizedRight.endsWith(`.${normalizedLeft}`)
+		normalizedDomain === normalizedParent ||
+		normalizedDomain.endsWith(`.${normalizedParent}`)
+	);
+}
+
+function normalizeMessengerName(name: string): string {
+	return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function recordName(
+	record: Readonly<Record<string, unknown>>,
+): string | undefined {
+	return typeof record.name === "string"
+		? normalizeMessengerName(record.name)
+		: undefined;
+}
+
+function isRecordEnabled(record: Readonly<Record<string, unknown>>): boolean {
+	return record.enabled === true;
+}
+
+function messengerRecords(
+	settings: Readonly<Record<string, unknown>>,
+): ReadonlyArray<Readonly<Record<string, unknown>>> {
+	const value = settings.messengers;
+	if (!Array.isArray(value)) return [];
+	return value.filter(
+		(entry): entry is Readonly<Record<string, unknown>> =>
+			typeof entry === "object" && entry !== null,
 	);
 }
 
@@ -248,15 +289,31 @@ export function inspectListmonkProviderSettings(
 		const host = smtpHost(record);
 		return host !== undefined && expectedHosts.includes(host);
 	});
+	const messengerName = normalizeMessengerName(profile.messenger);
+	const namedSmtp = matching.filter(
+		(record) => recordName(record) === messengerName,
+	);
+	const namedCustomMessenger = messengerRecords(settings).filter(
+		(record) => recordName(record) === messengerName,
+	);
+	const matchingMessengers =
+		messengerName === "email"
+			? matching
+			: [...namedSmtp, ...namedCustomMessenger];
 	const configuredFrom =
 		typeof settings["app.from_email"] === "string"
 			? settings["app.from_email"]
 			: undefined;
+	const configuredFromDomain = fromDomain(configuredFrom);
 
 	return {
 		...(configuredFrom === undefined ? {} : { from_email: configuredFrom }),
-		from_domain: fromDomain(configuredFrom, profile.sending_domain),
+		...(configuredFromDomain === undefined
+			? {}
+			: { from_domain: configuredFromDomain }),
 		messenger: profile.messenger,
+		messenger_configured: matchingMessengers.length > 0,
+		messenger_enabled: matchingMessengers.some(isRecordEnabled),
 		smtp_hosts: smtp
 			.map(smtpHost)
 			.filter((host): host is string => host !== undefined),
@@ -264,7 +321,7 @@ export function inspectListmonkProviderSettings(
 			.map(smtpHost)
 			.filter((host): host is string => host !== undefined),
 		smtp_configured: matching.length > 0,
-		smtp_enabled: matching.some((record) => record.enabled !== false),
+		smtp_enabled: matching.some(isRecordEnabled),
 		unsubscribe_header_enabled: settingBoolean(
 			settings,
 			"privacy.unsubscribe_header",
@@ -314,15 +371,38 @@ function settingsChecks(
 			},
 		},
 		{
-			id: "listmonk.from-alignment",
+			id: "listmonk.messenger",
 			status:
-				snapshot.from_domain &&
-				aligned(snapshot.from_domain, profile.sending_domain)
+				snapshot.messenger_configured && snapshot.messenger_enabled
 					? "pass"
 					: "fail",
 			message:
-				snapshot.from_domain &&
-				aligned(snapshot.from_domain, profile.sending_domain)
+				snapshot.messenger_configured && snapshot.messenger_enabled
+					? `Listmonk messenger '${snapshot.messenger}' is configured and enabled.`
+					: `Listmonk messenger '${snapshot.messenger}' is missing or disabled.`,
+		},
+		{
+			id: "listmonk.from-alignment",
+			status:
+				snapshot.from_domain === undefined
+					? snapshot.from_email === undefined
+						? "unknown"
+						: "fail"
+					: isSameOrSubdomain(
+								snapshot.from_domain,
+								profile.sending_domain,
+							)
+						? "pass"
+						: "fail",
+			message:
+				snapshot.from_domain === undefined
+					? snapshot.from_email === undefined
+						? "Listmonk did not return an app.from_email setting."
+						: "Listmonk app.from_email is not a valid email address."
+					: isSameOrSubdomain(
+								snapshot.from_domain,
+								profile.sending_domain,
+							)
 					? "Listmonk From domain aligns with the provider sending domain."
 					: "Listmonk From domain does not align with the provider sending domain.",
 			details: {
@@ -376,7 +456,7 @@ function accountChecks(account: SesAccountSnapshot): DoctorCheck[] {
 		},
 		{
 			id: "provider.production-access",
-			status: account.production_access_enabled === true ? "pass" : "warn",
+			status: account.production_access_enabled === true ? "pass" : "fail",
 			message:
 				account.production_access_enabled === true
 					? "SES production access is enabled."
@@ -576,7 +656,12 @@ export async function inspectProviderQuota(
 			checked_at: checkedAt,
 		};
 	}
-	const account = await context.inspector.inspectAccount();
+	let account: SesAccountSnapshot;
+	try {
+		account = await context.inspector.inspectAccount();
+	} catch (error) {
+		throw new TypeError(providerApiFailureMessage(profile, error));
+	}
 	const max = account.max_24_hour_send;
 	const sent = account.sent_last_24_hours;
 	const unlimited = max === -1;
@@ -642,8 +727,9 @@ export async function inspectProviderWebhook(
 		typeof latest?.type === "string" ? latest.type : undefined;
 	const parsed = createdAt === undefined ? Number.NaN : Date.parse(createdAt);
 	const ageMs = Number.isFinite(parsed) ? now.getTime() - parsed : undefined;
+	const futureTimestamp = ageMs !== undefined && ageMs < 0;
 	const freshness =
-		ageMs === undefined
+		ageMs === undefined || futureTimestamp
 			? "unknown"
 			: ageMs <= maxAgeHours * 3_600_000
 				? "fresh"
@@ -683,7 +769,9 @@ export async function inspectProviderWebhook(
 					? "A recent provider event reached Listmonk."
 					: freshness === "stale"
 						? `The latest provider event is older than ${maxAgeHours} hours.`
-						: "No provider event is available; use an SES simulator address to verify the webhook path.",
+						: futureTimestamp
+							? "The latest provider event has a future timestamp; verify system clocks before treating it as freshness evidence."
+							: "No provider event is available; use an SES simulator address to verify the webhook path.",
 		},
 	];
 	return {
@@ -775,25 +863,22 @@ export function createNodeDnsResolver(
 	};
 }
 
-async function observeDns(
-	observations: DnsObservation[],
-	name: string,
-	type: DnsObservation["type"],
-	load: () => Promise<string[]>,
-): Promise<string[]> {
-	const result = await resolveDnsObservation(name, type, load);
-	observations.push(result.observation);
-	return result.values;
-}
-
 async function resolveDnsObservation(
 	name: string,
 	type: DnsObservation["type"],
 	load: () => Promise<string[]>,
-): Promise<{ observation: DnsObservation; values: string[] }> {
+): Promise<{
+	observation: DnsObservation;
+	values: string[];
+	outcome: "found" | "missing" | "error";
+}> {
 	try {
 		const values = await load();
-		return { observation: { name, type, values }, values };
+		return {
+			observation: { name, type, values },
+			values,
+			outcome: values.length > 0 ? "found" : "missing",
+		};
 	} catch (error) {
 		return {
 			observation: {
@@ -803,8 +888,156 @@ async function resolveDnsObservation(
 				error: errorMessage(error),
 			},
 			values: [],
+			outcome: "error",
 		};
 	}
+}
+
+interface DmarcPolicyRecord {
+	domain: string;
+	name: string;
+	value: string;
+	tags: ReadonlyMap<string, string>;
+}
+
+interface DmarcDiscovery {
+	organizationalDomain: string;
+	policy?: DmarcPolicyRecord | undefined;
+	observations: DnsObservation[];
+	indeterminate: boolean;
+	duplicateDomains: string[];
+}
+
+function dmarcTreeWalkDomains(domain: string): string[] {
+	const labels = normalizeDomain(domain).split(".");
+	if (labels.length <= MAX_DMARC_TREE_WALK_QUERIES) {
+		return labels.map((_, index) => labels.slice(index).join("."));
+	}
+	const suffixStart = labels.length - (MAX_DMARC_TREE_WALK_QUERIES - 1);
+	return [
+		labels.join("."),
+		...labels.slice(suffixStart).map((_, index) =>
+			labels.slice(suffixStart + index).join("."),
+		),
+	];
+}
+
+function parseDmarcTags(record: string): ReadonlyMap<string, string> {
+	const tags = new Map<string, string>();
+	for (const item of record.split(";")) {
+		const separator = item.indexOf("=");
+		if (separator < 1) continue;
+		const key = item.slice(0, separator).trim().toLowerCase();
+		const value = item.slice(separator + 1).trim().toLowerCase();
+		if (key && !tags.has(key)) tags.set(key, value);
+	}
+	return tags;
+}
+
+function childDomainBelow(startingDomain: string, parentDomain: string): string {
+	const startingLabels = normalizeDomain(startingDomain).split(".");
+	const parentLabels = normalizeDomain(parentDomain).split(".");
+	if (startingLabels.length <= parentLabels.length) return startingDomain;
+	return startingLabels.slice(startingLabels.length - parentLabels.length - 1).join(
+		".",
+	);
+}
+
+async function discoverDmarcPolicy(
+	domain: string,
+	dns: ProviderDnsResolver,
+): Promise<DmarcDiscovery> {
+	const startingDomain = normalizeDomain(domain);
+	const records: DmarcPolicyRecord[] = [];
+	const observations: DnsObservation[] = [];
+	const duplicateDomains: string[] = [];
+	let indeterminate = false;
+
+	for (const candidate of dmarcTreeWalkDomains(startingDomain)) {
+		const name = `_dmarc.${candidate}`;
+		const result = await resolveDnsObservation(name, "TXT", () =>
+			dns.txt(name),
+		);
+		observations.push(result.observation);
+		if (result.outcome === "error") indeterminate = true;
+		const policyRecords = result.values.filter((record) =>
+			record.trim().toLowerCase().startsWith("v=dmarc1"),
+		);
+		if (policyRecords.length > 1) {
+			duplicateDomains.push(candidate);
+			continue;
+		}
+		const value = policyRecords[0];
+		if (value !== undefined) {
+			records.push({
+				domain: candidate,
+				name,
+				value,
+				tags: parseDmarcTags(value),
+			});
+		}
+	}
+
+	let organizationalDomain: string | undefined;
+	for (const record of records) {
+		if (record.tags.get("psd") === "n") {
+			organizationalDomain = record.domain;
+			break;
+		}
+		if (
+			record.domain !== startingDomain &&
+			record.tags.get("psd") === "y"
+		) {
+			organizationalDomain = childDomainBelow(startingDomain, record.domain);
+			break;
+		}
+	}
+	organizationalDomain ??= records.at(-1)?.domain ?? startingDomain;
+
+	const policy =
+		records.find(
+			({ domain: recordDomain }) => recordDomain === startingDomain,
+		) ??
+		records.find(
+			({ domain: recordDomain }) => recordDomain === organizationalDomain,
+		) ??
+		records.at(-1);
+	return {
+		organizationalDomain,
+		...(policy === undefined ? {} : { policy }),
+		observations,
+		indeterminate,
+		duplicateDomains,
+	};
+}
+
+function hasDirectDkimKey(record: string): boolean {
+	const tags = new Map<string, string>();
+	for (const item of record.split(";")) {
+		const separator = item.indexOf("=");
+		if (separator < 1) continue;
+		tags.set(
+			item.slice(0, separator).trim().toLowerCase(),
+			item.slice(separator + 1).trim(),
+		);
+	}
+	return (
+		tags.get("v")?.toLowerCase() === "dkim1" &&
+		(tags.get("p")?.length ?? 0) > 0
+	);
+}
+
+function hasExactSpfInclude(record: string, expectedDomain: string): boolean {
+	const expected = normalizeDomain(expectedDomain);
+	return record
+		.trim()
+		.split(/\s+/)
+		.slice(1)
+		.some((mechanism) => {
+			const unqualified = mechanism.replace(/^[+?~-]/, "");
+			if (!unqualified.toLowerCase().startsWith("include:")) return false;
+			return normalizeDomain(unqualified.slice("include:".length)) === expected;
+		});
 }
 
 export async function inspectProviderDns(
@@ -816,25 +1049,39 @@ export async function inspectProviderDns(
 	const dns = context.dns ?? createNodeDnsResolver();
 	const observations: DnsObservation[] = [];
 	const checks: DoctorCheck[] = [];
-	const effectiveFromDomain = fromDomain(
-		profile.from_email,
-		profile.sending_domain,
-	);
-	const dmarcName = `_dmarc.${effectiveFromDomain}`;
-	const dmarc = await observeDns(observations, dmarcName, "TXT", () =>
-		dns.txt(dmarcName),
-	);
-	const dmarcRecords = dmarc.filter((record) =>
-		record.trim().toLowerCase().startsWith("v=dmarc1"),
-	);
+	const effectiveFromDomain =
+		fromDomain(profile.from_email) ?? profile.sending_domain;
+	const dmarc = await discoverDmarcPolicy(effectiveFromDomain, dns);
+	observations.push(...dmarc.observations);
+	const dmarcStatus: DoctorCheckStatus =
+		dmarc.duplicateDomains.length > 0
+			? "fail"
+			: dmarc.indeterminate
+				? "unknown"
+				: dmarc.policy !== undefined
+					? "pass"
+					: "fail";
+	let dmarcMessage: string;
+	if (dmarc.duplicateDomains.length > 0) {
+		dmarcMessage = `Multiple DMARC records are published for ${dmarc.duplicateDomains.join(", ")}.`;
+	} else if (dmarc.indeterminate) {
+		dmarcMessage =
+			"DMARC policy could not be determined because a DNS lookup failed.";
+	} else if (dmarc.policy === undefined) {
+		dmarcMessage = "No applicable DMARC policy record is published.";
+	} else if (dmarc.policy.domain === effectiveFromDomain) {
+		dmarcMessage = "A DMARC policy record is published for the From domain.";
+	} else {
+		dmarcMessage = `The From domain inherits DMARC policy from ${dmarc.policy.domain}.`;
+	}
 	checks.push({
 		id: "dns.dmarc",
-		status: dmarcRecords.length === 1 ? "pass" : "fail",
-		message:
-			dmarcRecords.length === 1
-				? "Exactly one DMARC policy record is published."
-				: `Expected exactly one DMARC policy record, found ${dmarcRecords.length}.`,
-		details: { name: dmarcName },
+		status: dmarcStatus,
+		message: dmarcMessage,
+		details: {
+			name: dmarc.policy?.name ?? `_dmarc.${effectiveFromDomain}`,
+			organizational_domain: dmarc.organizationalDomain,
+		},
 	});
 
 	const selectors = identity?.dkim_tokens.length
@@ -851,32 +1098,54 @@ export async function inspectProviderDns(
 		const results = await Promise.all(
 			selectors.map(async (selector) => {
 				const name = `${selector}._domainkey.${profile.sending_domain}`;
-				const result = await resolveDnsObservation(name, "CNAME", () =>
+				const cname = await resolveDnsObservation(name, "CNAME", () =>
 					dns.cname(name),
 				);
+				const cnameReady = cname.values.some((record) =>
+					profile.kind === "ses"
+						? normalizeDomain(record).endsWith(".dkim.amazonses.com")
+						: record.length > 0,
+				);
+				const txt = cnameReady
+					? undefined
+					: await resolveDnsObservation(name, "TXT", () => dns.txt(name));
+				const directReady =
+					txt?.values.some((record) => hasDirectDkimKey(record)) ?? false;
 				return {
-					...result,
-					ready: result.values.some((record) =>
-						profile.kind === "ses"
-							? record.toLowerCase().replace(/\.$/, "").endsWith(
-									".dkim.amazonses.com",
-								)
-							: record.length > 0,
-					),
+					observations: [
+						cname.observation,
+						...(txt === undefined ? [] : [txt.observation]),
+					],
+					ready: cnameReady || directReady,
+					indeterminate:
+						!cnameReady &&
+						!directReady &&
+						(cname.outcome === "error" || txt?.outcome === "error"),
 				};
 			}),
 		);
 		for (const result of results) {
-			observations.push(result.observation);
+			observations.push(...result.observations);
 		}
 		const ready = results.filter((result) => result.ready).length;
+		const indeterminate = results.filter(
+			(result) => !result.ready && result.indeterminate,
+		).length;
+		const failed = selectors.length - ready - indeterminate;
 		checks.push({
 			id: "dns.dkim",
-			status: ready === selectors.length ? "pass" : "fail",
+			status:
+				ready === selectors.length
+					? "pass"
+					: failed > 0
+						? "fail"
+						: "unknown",
 			message:
 				ready === selectors.length
 					? `All ${selectors.length} DKIM records resolve.`
-					: `${ready} of ${selectors.length} DKIM records resolve as expected.`,
+					: failed > 0
+						? `${ready} of ${selectors.length} DKIM records resolve as expected.`
+						: "DKIM readiness could not be determined because a DNS lookup failed.",
 		});
 	}
 
@@ -890,11 +1159,11 @@ export async function inspectProviderDns(
 				"No custom MAIL FROM domain is configured; DMARC must rely on aligned DKIM.",
 		});
 	} else {
-		const txt = await observeDns(observations, mailFromDomain, "TXT", () =>
+		const txt = await resolveDnsObservation(mailFromDomain, "TXT", () =>
 			dns.txt(mailFromDomain),
 		);
-		const mxRecords = await observeDns(
-			observations,
+		observations.push(txt.observation);
+		const mx = await resolveDnsObservation(
 			mailFromDomain,
 			"MX",
 			async () =>
@@ -903,7 +1172,8 @@ export async function inspectProviderDns(
 						`${priority} ${exchange.toLowerCase().replace(/\.$/, "")}`,
 				),
 		);
-		const spfRecords = txt.filter((record) =>
+		observations.push(mx.observation);
+		const spfRecords = txt.values.filter((record) =>
 			record.trim().toLowerCase().startsWith("v=spf1"),
 		);
 		const expectedInclude =
@@ -912,15 +1182,19 @@ export async function inspectProviderDns(
 		const spfReady =
 			spfRecords.length === 1 &&
 			(expectedInclude === undefined ||
-				spfRecords[0]!.toLowerCase().includes(
-					`include:${expectedInclude.toLowerCase()}`,
-				));
+				hasExactSpfInclude(spfRecords[0]!, expectedInclude));
+		const spfStatus: DoctorCheckStatus =
+			txt.outcome === "error" ? "unknown" : spfReady ? "pass" : "fail";
+		const spfMessage =
+			spfStatus === "unknown"
+				? "Custom MAIL FROM SPF could not be determined because the DNS lookup failed."
+				: spfReady
+					? "Custom MAIL FROM SPF record is present."
+					: "Custom MAIL FROM SPF record is missing, duplicated, or lacks the expected include.";
 		checks.push({
 			id: "dns.spf",
-			status: spfReady ? "pass" : "fail",
-			message: spfReady
-				? "Custom MAIL FROM SPF record is present."
-				: "Custom MAIL FROM SPF record is missing, duplicated, or lacks the expected include.",
+			status: spfStatus,
+			message: spfMessage,
 			details: {
 				name: mailFromDomain,
 				expected_include: expectedInclude,
@@ -931,26 +1205,63 @@ export async function inspectProviderDns(
 				? `feedback-smtp.${profile.region}.amazonses.com`
 				: undefined;
 		const mxReady =
-			mxRecords.length === 1 &&
-			(expectedMx === undefined ||
-				mxRecords[0]!.endsWith(` ${expectedMx}`));
+			mx.values.length === 1 &&
+			(expectedMx === undefined || mx.values[0]!.endsWith(` ${expectedMx}`));
+		const mxStatus: DoctorCheckStatus =
+			mx.outcome === "error" ? "unknown" : mxReady ? "pass" : "fail";
+		const mxMessage =
+			mxStatus === "unknown"
+				? "Custom MAIL FROM MX could not be determined because the DNS lookup failed."
+				: mxReady
+					? "Custom MAIL FROM MX record is present."
+					: "Custom MAIL FROM requires exactly one expected MX record.";
 		checks.push({
 			id: "dns.mail-from-mx",
-			status: mxReady ? "pass" : "fail",
-			message: mxReady
-				? "Custom MAIL FROM MX record is present."
-				: "Custom MAIL FROM requires exactly one expected MX record.",
+			status: mxStatus,
+			message: mxMessage,
 			details: { name: mailFromDomain, expected_exchange: expectedMx },
 		});
+		const alignmentMode =
+			dmarc.policy?.tags.get("aspf") === "s" ? "strict" : "relaxed";
+		let alignmentStatus: DoctorCheckStatus;
+		let mailFromOrganizationalDomain: string | undefined;
+		if (dmarc.policy === undefined) {
+			alignmentStatus = "unknown";
+		} else if (alignmentMode === "strict") {
+			const domainsMatch =
+				normalizeDomain(effectiveFromDomain) ===
+				normalizeDomain(mailFromDomain);
+			alignmentStatus = domainsMatch ? "pass" : "fail";
+		} else {
+			const mailFromDmarc = await discoverDmarcPolicy(mailFromDomain, dns);
+			observations.push(...mailFromDmarc.observations);
+			mailFromOrganizationalDomain = mailFromDmarc.organizationalDomain;
+			const domainsMatch =
+				normalizeDomain(dmarc.organizationalDomain) ===
+				normalizeDomain(mailFromDmarc.organizationalDomain);
+			alignmentStatus =
+				dmarc.indeterminate || mailFromDmarc.indeterminate
+					? "unknown"
+					: domainsMatch
+						? "pass"
+						: "fail";
+		}
+		const alignmentMessage =
+			alignmentStatus === "pass"
+				? `MAIL FROM and From domains have ${alignmentMode} DMARC alignment.`
+				: alignmentStatus === "unknown"
+					? "DMARC SPF alignment could not be determined from the available DNS policy."
+					: `MAIL FROM and From domains do not have ${alignmentMode} DMARC alignment.`;
 		checks.push({
 			id: "dns.spf-alignment",
-			status: aligned(effectiveFromDomain, mailFromDomain) ? "pass" : "fail",
-			message: aligned(effectiveFromDomain, mailFromDomain)
-				? "MAIL FROM and From domains are aligned."
-				: "MAIL FROM and From domains are not aligned.",
+			status: alignmentStatus,
+			message: alignmentMessage,
 			details: {
 				from_domain: effectiveFromDomain,
 				mail_from_domain: mailFromDomain,
+				alignment_mode: alignmentMode,
+				from_organizational_domain: dmarc.organizationalDomain,
+				mail_from_organizational_domain: mailFromOrganizationalDomain,
 			},
 		});
 	}
@@ -1044,10 +1355,15 @@ export async function runProviderDoctor(
 		fail: checks.filter(({ status }) => status === "fail").length,
 		unknown: checks.filter(({ status }) => status === "unknown").length,
 	};
+	const hasReadinessBlocker = checks.some(
+		({ id, status }) =>
+			status === "fail" ||
+			(status === "unknown" && REQUIRED_READINESS_CHECK_IDS.has(id)),
+	);
 	return {
 		provider_id: profile.id,
 		checked_at: now.toISOString(),
-		ready: summary.fail === 0,
+		ready: !hasReadinessBlocker,
 		summary,
 		status,
 		quota,

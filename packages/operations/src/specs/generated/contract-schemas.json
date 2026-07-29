@@ -2025,11 +2025,6 @@
           "minimum": 0,
           "type": "integer"
         },
-        "PositiveInteger": {
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
         "ProviderApiProbe": {
           "additionalProperties": false,
           "properties": {
@@ -2093,6 +2088,12 @@
             "messenger": {
               "$ref": "#/components/schemas/NonEmptyString"
             },
+            "messenger_configured": {
+              "type": "boolean"
+            },
+            "messenger_enabled": {
+              "type": "boolean"
+            },
             "provider_bounce_enabled": {
               "type": "boolean"
             },
@@ -2114,6 +2115,8 @@
           },
           "required": [
             "messenger",
+            "messenger_configured",
+            "messenger_enabled",
             "smtp_hosts",
             "matching_smtp_hosts",
             "smtp_configured",
@@ -2269,6 +2272,11 @@
           ],
           "type": "object"
         },
+        "ProviderWebhookMaxAgeHours": {
+          "maximum": 8760,
+          "minimum": 1,
+          "type": "integer"
+        },
         "ProviderWebhookStatusOutput": {
           "additionalProperties": false,
           "properties": {
@@ -2310,7 +2318,7 @@
               "$ref": "#/components/schemas/NonEmptyString"
             },
             "max_age_hours": {
-              "$ref": "#/components/schemas/PositiveInteger"
+              "$ref": "#/components/schemas/ProviderWebhookMaxAgeHours"
             },
             "provider_bounce_enabled": {
               "type": "boolean"
@@ -3464,6 +3472,12 @@
             "messenger": {
               "$ref": "#/components/schemas/NonEmptyString"
             },
+            "messenger_configured": {
+              "type": "boolean"
+            },
+            "messenger_enabled": {
+              "type": "boolean"
+            },
             "provider_bounce_enabled": {
               "type": "boolean"
             },
@@ -3485,6 +3499,8 @@
           },
           "required": [
             "messenger",
+            "messenger_configured",
+            "messenger_enabled",
             "smtp_hosts",
             "matching_smtp_hosts",
             "smtp_configured",
@@ -3829,22 +3845,22 @@
   "providerWebhookStatusInputContract": {
     "components": {
       "schemas": {
-        "PositiveInteger": {
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
         "ProviderProfileId": {
           "maxLength": 80,
           "minLength": 1,
           "pattern": "^[a-z][a-z0-9._-]*$",
           "type": "string"
         },
+        "ProviderWebhookMaxAgeHours": {
+          "maximum": 8760,
+          "minimum": 1,
+          "type": "integer"
+        },
         "ProviderWebhookStatusInput": {
           "additionalProperties": false,
           "properties": {
             "max_age_hours": {
-              "$ref": "#/components/schemas/PositiveInteger"
+              "$ref": "#/components/schemas/ProviderWebhookMaxAgeHours"
             },
             "provider_id": {
               "$ref": "#/components/schemas/ProviderProfileId"
@@ -3862,7 +3878,7 @@
       "additionalProperties": false,
       "properties": {
         "max_age_hours": {
-          "$ref": "#/components/schemas/PositiveInteger"
+          "$ref": "#/components/schemas/ProviderWebhookMaxAgeHours"
         },
         "provider_id": {
           "$ref": "#/components/schemas/ProviderProfileId"
@@ -3925,16 +3941,16 @@
           "minLength": 1,
           "type": "string"
         },
-        "PositiveInteger": {
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
         "ProviderProfileId": {
           "maxLength": 80,
           "minLength": 1,
           "pattern": "^[a-z][a-z0-9._-]*$",
           "type": "string"
+        },
+        "ProviderWebhookMaxAgeHours": {
+          "maximum": 8760,
+          "minimum": 1,
+          "type": "integer"
         },
         "ProviderWebhookStatusOutput": {
           "additionalProperties": false,
@@ -3977,7 +3993,7 @@
               "$ref": "#/components/schemas/NonEmptyString"
             },
             "max_age_hours": {
-              "$ref": "#/components/schemas/PositiveInteger"
+              "$ref": "#/components/schemas/ProviderWebhookMaxAgeHours"
             },
             "provider_bounce_enabled": {
               "type": "boolean"
@@ -4050,7 +4066,7 @@
           "$ref": "#/components/schemas/NonEmptyString"
         },
         "max_age_hours": {
-          "$ref": "#/components/schemas/PositiveInteger"
+          "$ref": "#/components/schemas/ProviderWebhookMaxAgeHours"
         },
         "provider_bounce_enabled": {
           "type": "boolean"

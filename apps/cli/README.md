@@ -134,7 +134,9 @@ Set `LISTMONK_OPS_PROVIDER_CONFIG` to a versioned JSON profile file. SES
 profiles use `aws:default` or `aws:profile:<name>` credential references; raw
 access keys are rejected and neither references nor credentials are returned.
 The probes read SES account/identity state, Listmonk configuration and bounce
-evidence, and DNS records. They never send mail.
+evidence, and DNS records. They validate the selected messenger and From
+address, follow inherited DMARC policy and strict/relaxed alignment, and
+distinguish transient DNS failures from missing records. They never send mail.
 
 ## Shell completion
 

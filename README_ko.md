@@ -871,7 +871,11 @@ listmonk-cli deliverability doctor --provider-id marketing-primary
 Doctor는 Listmonk messenger·bounce 설정, SES 계정 quota·identity 상태,
 DMARC/DKIM/custom MAIL FROM DNS, From-domain 정렬, Listmonk의 최신 일치
 bounce event를 하나의 보고서로 합칩니다. Provider event가 아직 한 번도 없다면
-webhook freshness를 실패로 추측하지 않고 `unknown`으로 보고합니다. Generic
+webhook freshness를 실패로 추측하지 않고 `unknown`으로 보고합니다. 설정된
+Listmonk messenger와 실제 `app.from_email`을 검증하고, 제한된 DMARC DNS
+tree walk로 상속 policy와 strict/relaxed 정렬을 판정하며, CNAME 위임과 직접
+TXT DKIM 레코드를 모두 지원합니다. 일시적인 DNS 오류는 `unknown`으로
+구분하고 SES sandbox 상태는 전체 준비 완료 판정을 차단합니다. Generic
 SMTP profile은 Listmonk, DNS, webhook 진단을 지원하고 provider API·quota
 probe는 `unsupported`로 보고합니다.
 

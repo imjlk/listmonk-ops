@@ -78,7 +78,11 @@ probes.
 state, identity verification and DKIM, Listmonk SMTP/from/unsubscribe/bounce
 settings, DMARC/DKIM/custom MAIL FROM DNS, domain alignment, and the latest
 matching Listmonk bounce source. Missing webhook evidence remains `unknown`
-until a real event exists.
+until a real event exists. It requires the selected Listmonk messenger and
+actual `app.from_email`, follows a bounded DMARC tree walk, honors
+strict/relaxed SPF alignment, checks CNAME and direct TXT DKIM, and reports
+transient resolver errors as `unknown`. SES sandbox access is a readiness
+failure.
 
 ## Persistent Store Paths
 

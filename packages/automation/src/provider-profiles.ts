@@ -76,6 +76,7 @@ export const providerProfileSchema = z
 		webhook_source: z.string().trim().min(1).max(100).optional(),
 		webhook_max_age_hours: z.number().int().min(1).max(8_760).default(168),
 	})
+	.strict()
 	.superRefine((profile, context) => {
 		if (profile.kind === "ses") {
 			if (profile.region === undefined) {
@@ -118,6 +119,7 @@ const providerConfigSchema = z
 		schema_version: z.literal(1),
 		profiles: z.array(providerProfileSchema).max(100),
 	})
+	.strict()
 	.superRefine((config, context) => {
 		const seen = new Set<string>();
 		for (const [index, profile] of config.profiles.entries()) {

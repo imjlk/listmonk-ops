@@ -882,6 +882,11 @@ The doctor composes Listmonk messenger and bounce settings, SES account quota
 and identity state, DMARC/DKIM/custom MAIL FROM DNS, From-domain alignment, and
 the latest matching Listmonk bounce event. If no provider event exists yet,
 webhook freshness is reported as `unknown` rather than inventing a failure.
+It verifies the selected Listmonk messenger and real `app.from_email`, follows
+the bounded DMARC DNS tree walk for inherited policy and strict/relaxed
+alignment, and accepts both delegated CNAME and direct TXT DKIM records.
+Transient DNS failures remain `unknown`, while SES sandbox access blocks the
+aggregate readiness result.
 Generic SMTP profiles support Listmonk, DNS, and webhook diagnostics; provider
 API and quota probes report `unsupported`.
 

@@ -217,7 +217,10 @@ profiles accept only `aws:default` or `aws:profile:<name>` references and use
 read-only SES account/identity APIs; they never send mail. Raw credentials,
 secret references, subscriber emails, and bounce addresses are not exposed in
 tool results. Generic SMTP profiles return `unsupported` for provider API and
-quota probes while retaining Listmonk, DNS, and webhook diagnostics.
+quota probes while retaining Listmonk, DNS, and webhook diagnostics. DNS checks
+follow inherited DMARC policy, strict/relaxed alignment, and both CNAME and
+direct TXT DKIM while keeping transient resolver errors distinct from missing
+records.
 
 ### Operations & Observability
 

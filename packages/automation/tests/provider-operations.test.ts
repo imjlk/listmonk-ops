@@ -10,6 +10,7 @@ import {
 	invokeProviderStatusOperation,
 	invokeProviderTestOperation,
 	invokeProviderWebhookStatusOperation,
+	inspectListmonkProviderSettings,
 	loadProviderProfiles,
 	providerOperationCatalog,
 	providerProfileSchema,
@@ -180,6 +181,8 @@ describe("provider and deliverability operations", () => {
 			authenticated: true,
 		});
 		expect(status.listmonk).toMatchObject({
+			messenger_configured: true,
+			messenger_enabled: true,
 			smtp_configured: true,
 			smtp_enabled: true,
 			unsubscribe_header_enabled: true,
@@ -277,6 +280,289 @@ describe("provider and deliverability operations", () => {
 		expect(JSON.stringify(output)).not.toContain("newsletter");
 		expect(JSON.stringify(output)).not.toContain("AKIA");
 		expect(JSON.stringify(output)).not.toContain("aws:profile");
+	});
+
+	test("sanitizes standalone quota inspection failures", async () => {
+		const failingInspector = inspector();
+		failingInspector.inspectAccount = async () => {
+			throw new Error(
+				"failed to load aws:profile:newsletter from /private/credentials",
+			);
+		};
+		let error: unknown;
+		try {
+			await invokeProviderQuotaOperation(
+				context({ createInspector: () => failingInspector }),
+				{ provider_id: profile.id },
+			);
+		} catch (caught) {
+			error = caught;
+		}
+		expect(error).toBeInstanceOf(Error);
+		const message = error instanceof Error ? error.message : String(error);
+		expect(message).toContain("SES provider inspection failed");
+		expect(message).not.toContain("newsletter");
+		expect(message).not.toContain("/private");
+	});
+
+	test("treats SES sandbox access as not ready", async () => {
+		const sandboxInspector = inspector();
+		sandboxInspector.inspectAccount = async () => ({
+			...(await inspector().inspectAccount()),
+			production_access_enabled: false,
+		});
+		const output = await invokeDeliverabilityDoctorOperation(
+			context({ createInspector: () => sandboxInspector }),
+			{ provider_id: profile.id },
+		);
+		expect(output.ready).toBe(false);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "provider.production-access",
+				status: "fail",
+			}),
+		);
+	});
+
+	test("requires the configured Listmonk messenger and real From evidence", async () => {
+		const missing = inspectListmonkProviderSettings(
+			{ ...profile, messenger: "marketing" },
+			{
+				smtp: [
+					{
+						name: "wrong",
+						host: "email-smtp.ap-northeast-2.amazonaws.com",
+						enabled: true,
+					},
+				],
+			},
+		);
+		expect(missing).toMatchObject({
+			messenger_configured: false,
+			messenger_enabled: false,
+		});
+		expect(missing).not.toHaveProperty("from_domain");
+
+		const configured = inspectListmonkProviderSettings(
+			{ ...profile, messenger: "marketing" },
+			{
+				"app.from_email": "not-an-email",
+				smtp: [
+					{
+						name: "wrong",
+						host: "email-smtp.ap-northeast-2.amazonaws.com",
+						enabled: true,
+					},
+				],
+				messengers: [{ name: "marketing", enabled: true }],
+			},
+		);
+		expect(configured).toMatchObject({
+			messenger_configured: true,
+			messenger_enabled: true,
+		});
+		expect(configured).not.toHaveProperty("from_domain");
+
+		const clientWithoutFrom = {
+			...context().client!,
+			settings: {
+				async get() {
+					return {
+						data: {
+							"privacy.unsubscribe_header": true,
+							"bounce.enabled": true,
+							"bounce.webhooks_enabled": true,
+							"bounce.ses_enabled": true,
+							smtp: [
+								{
+									host: "email-smtp.ap-northeast-2.amazonaws.com",
+									enabled: true,
+								},
+							],
+						},
+					} as never;
+				},
+			},
+		};
+		const status = await invokeProviderStatusOperation(
+			context({ client: clientWithoutFrom }),
+			{ provider_id: profile.id },
+		);
+		expect(status.checks).toContainEqual(
+			expect.objectContaining({
+				id: "listmonk.from-alignment",
+				status: "unknown",
+			}),
+		);
+		const doctor = await invokeDeliverabilityDoctorOperation(
+			context({ client: clientWithoutFrom }),
+			{ provider_id: profile.id },
+		);
+		expect(doctor.ready).toBe(false);
+	});
+
+	test("does not accept future webhook timestamps as freshness evidence", async () => {
+		const operationContext = context({
+			client: {
+				...context().client!,
+				bounce: {
+					async list() {
+						return {
+							data: {
+								results: [
+									{
+										source: "ses",
+										type: "hard",
+										created_at: "2026-07-29T01:00:00.000Z",
+									},
+								],
+								total: 1,
+								per_page: 1,
+								page: 1,
+							},
+						} as never;
+					},
+				},
+			},
+		});
+		const output = await invokeProviderWebhookStatusOperation(
+			operationContext,
+			{ provider_id: profile.id },
+		);
+		expect(output.freshness).toBe("unknown");
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "webhook.freshness",
+				status: "unknown",
+			}),
+		);
+	});
+
+	test("supports inherited DMARC, direct DKIM TXT, and relaxed sibling alignment", async () => {
+		const inheritedDns: ProviderDnsResolver = {
+			async txt(name) {
+				if (name === "_dmarc.example.com") {
+					return ["v=DMARC1; p=quarantine"];
+				}
+				if (name.endsWith("._domainkey.news.example.com")) {
+					return ["v=DKIM1; k=rsa; p=public-key"];
+				}
+				if (name === "bounce.example.com") {
+					return ["v=spf1 include:amazonses.com ~all"];
+				}
+				return [];
+			},
+			async cname() {
+				return [];
+			},
+			async mx(name) {
+				return name === "bounce.example.com"
+					? [
+							{
+								priority: 10,
+								exchange:
+									"feedback-smtp.ap-northeast-2.amazonses.com",
+							},
+						]
+					: [];
+			},
+		};
+		const siblingInspector = inspector();
+		siblingInspector.inspectIdentity = async () => ({
+			...(await inspector().inspectIdentity()),
+			mail_from_domain: "bounce.example.com",
+		});
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({
+				dns: inheritedDns,
+				createInspector: () => siblingInspector,
+			}),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dmarc", status: "pass" }),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "pass" }),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.spf-alignment",
+				status: "pass",
+			}),
+		);
+	});
+
+	test("honors strict DMARC SPF alignment", async () => {
+		const strictDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name === "_dmarc.news.example.com") {
+					return ["v=DMARC1; p=quarantine; aspf=s"];
+				}
+				return dns.txt(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: strictDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.spf-alignment",
+				status: "fail",
+			}),
+		);
+	});
+
+	test("reports transient DNS failures as unknown", async () => {
+		const failingDns: ProviderDnsResolver = {
+			async txt() {
+				throw new Error("resolver timeout");
+			},
+			async cname() {
+				throw new Error("resolver timeout");
+			},
+			async mx() {
+				throw new Error("resolver timeout");
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: failingDns }),
+			{ provider_id: profile.id },
+		);
+		for (const id of [
+			"dns.dmarc",
+			"dns.dkim",
+			"dns.spf",
+			"dns.mail-from-mx",
+			"dns.spf-alignment",
+		]) {
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id, status: "unknown" }),
+			);
+		}
+	});
+
+	test("requires an exact SPF include mechanism", async () => {
+		const misleadingSpfDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name === "bounce.news.example.com") {
+					return [
+						"v=spf1 include:amazonses.com.attacker.example ~all",
+					];
+				}
+				return dns.txt(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: misleadingSpfDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "fail" }),
+		);
 	});
 
 	test("preserves operation results when provider cleanup fails", async () => {
@@ -386,6 +672,12 @@ describe("provider profile loader", () => {
 				secret_ref: "AKIAABCDEFGHIJKLMNOP",
 			}),
 		).toThrow();
+		expect(() =>
+			providerProfileSchema.parse({
+				...profile,
+				password: "must-not-be-accepted",
+			}),
+		).toThrow("Unrecognized key");
 	});
 
 	test("does not expose an inaccessible provider config path", async () => {

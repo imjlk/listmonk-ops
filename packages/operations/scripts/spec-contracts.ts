@@ -601,6 +601,10 @@ export type ProviderProfileId = NonEmptyString &
 	tags.Pattern<"^[a-z][a-z0-9._-]*$">;
 export type ProviderKind = "ses" | "smtp";
 export type DoctorCheckStatus = "pass" | "warn" | "fail" | "unknown";
+export type ProviderWebhookMaxAgeHours = number &
+	tags.Type<"int64"> &
+	tags.Minimum<1> &
+	tags.Maximum<8760>;
 
 export interface ProviderListInput {}
 
@@ -627,7 +631,7 @@ export interface ProviderIdInput {
 
 export interface ProviderWebhookStatusInput {
 	provider_id: ProviderProfileId;
-	max_age_hours?: PositiveInteger | undefined;
+	max_age_hours?: ProviderWebhookMaxAgeHours | undefined;
 }
 
 export interface DoctorCheck {
@@ -673,6 +677,8 @@ export interface ProviderListmonkSnapshot {
 	from_email?: NonEmptyString | undefined;
 	from_domain?: NonEmptyString | undefined;
 	messenger: NonEmptyString;
+	messenger_configured: boolean;
+	messenger_enabled: boolean;
 	smtp_hosts: string[];
 	matching_smtp_hosts: string[];
 	smtp_configured: boolean;
@@ -718,7 +724,7 @@ export interface ProviderWebhookStatusOutput {
 	provider_id: ProviderProfileId;
 	source: NonEmptyString;
 	checked_at: IsoDateTime;
-	max_age_hours: PositiveInteger;
+	max_age_hours: ProviderWebhookMaxAgeHours;
 	bounce_processing_enabled: boolean;
 	bounce_webhooks_enabled: boolean;
 	provider_bounce_enabled?: boolean | undefined;
