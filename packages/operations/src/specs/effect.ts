@@ -69,7 +69,7 @@ export type MaintenanceEffect =
 	| {
 			kind: "maintenance";
 			resource: OperationResourceKind;
-			action: "prune";
+			action: "prune" | "replay";
 			destructive: true;
 	  };
 

@@ -17,13 +17,15 @@ import {
 	type OutboundWebhookDelivery,
 	type OutboundWebhookDeliveryListOptions,
 	type OutboundWebhookEndpoint,
+	type OutboundWebhookEndpointRuntime,
 	type OutboundWebhookEvent,
 	type OutboundWebhookRepository,
 	type PruneOutboundWebhooksResult,
 	type ReconcileOutboundWebhooksResult,
+	DEFAULT_OUTBOUND_WEBHOOK_WORKER_RETENTION_MS,
 } from "./outbound-webhooks";
 
-const POSTGRES_SCHEMA_VERSION = 1;
+export const OUTBOUND_WEBHOOK_POSTGRES_SCHEMA_VERSION = 2;
 const POSTGRES_UUID_TYPE_OID = 2950;
 
 export interface PostgresOutboundWebhookRepositoryOptions {
@@ -42,6 +44,14 @@ type EndpointRow = {
 	enabled: boolean;
 	timeout_ms: number;
 	max_attempts: number;
+	circuit_failure_threshold: number;
+	circuit_cooldown_ms: number;
+	consecutive_failures?: number;
+	circuit_state?: "closed" | "open";
+	circuit_opened_at?: Date | string | null;
+	circuit_open_until?: Date | string | null;
+	last_failure_at?: Date | string | null;
+	last_success_at?: Date | string | null;
 	created_at: Date | string;
 	updated_at: Date | string;
 };
@@ -83,9 +93,23 @@ function toEndpoint(row: EndpointRow): OutboundWebhookEndpoint {
 		enabled: row.enabled,
 		timeoutMs: row.timeout_ms,
 		maxAttempts: row.max_attempts,
+		circuitFailureThreshold: row.circuit_failure_threshold,
+		circuitCooldownMs: row.circuit_cooldown_ms,
 		createdAt: toIso(row.created_at),
 		updatedAt: toIso(row.updated_at),
 	});
+}
+
+function toEndpointRuntime(row: EndpointRow): OutboundWebhookEndpointRuntime {
+	return {
+		endpointId: row.id,
+		consecutiveFailures: row.consecutive_failures ?? 0,
+		circuitState: row.circuit_state ?? "closed",
+		circuitOpenedAt: toOptionalIso(row.circuit_opened_at ?? null),
+		circuitOpenUntil: toOptionalIso(row.circuit_open_until ?? null),
+		lastFailureAt: toOptionalIso(row.last_failure_at ?? null),
+		lastSuccessAt: toOptionalIso(row.last_success_at ?? null),
+	};
 }
 
 function toDelivery(row: DeliveryRow): OutboundWebhookDelivery {
@@ -169,7 +193,7 @@ async function initializeSchema(sql: Sql): Promise<void> {
 		`;
 		await transaction`
 			INSERT INTO listmonk_ops.webhook_runtime_meta (key, value)
-			VALUES ('schema_version', ${String(POSTGRES_SCHEMA_VERSION)})
+			VALUES ('schema_version', '0')
 			ON CONFLICT (key) DO NOTHING
 		`;
 		const versionRows = await transaction<{ value: string }[]>`
@@ -177,12 +201,18 @@ async function initializeSchema(sql: Sql): Promise<void> {
 			FROM listmonk_ops.webhook_runtime_meta
 			WHERE key = 'schema_version'
 		`;
-		if (versionRows[0]?.value !== String(POSTGRES_SCHEMA_VERSION)) {
+		const storedVersion = Number(versionRows[0]?.value ?? Number.NaN);
+		if (
+			!Number.isInteger(storedVersion) ||
+			storedVersion < 0 ||
+			storedVersion > OUTBOUND_WEBHOOK_POSTGRES_SCHEMA_VERSION
+		) {
 			throw new Error(
 				`Unsupported webhook Postgres schema version: ${versionRows[0]?.value ?? "missing"}`,
 			);
 		}
-		await transaction`
+		if (storedVersion < 1) {
+			await transaction`
 			CREATE TABLE IF NOT EXISTS listmonk_ops.webhook_endpoints (
 				id uuid PRIMARY KEY,
 				name text NOT NULL,
@@ -196,8 +226,8 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				created_at timestamptz NOT NULL,
 				updated_at timestamptz NOT NULL
 			)
-		`;
-		await transaction`
+			`;
+			await transaction`
 			CREATE TABLE IF NOT EXISTS listmonk_ops.webhook_deliveries (
 				id uuid PRIMARY KEY,
 				event_id uuid NOT NULL,
@@ -217,23 +247,78 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				lease_expires_at timestamptz,
 				UNIQUE (event_id, endpoint_id)
 			)
-		`;
-		await transaction`
+			`;
+			await transaction`
 			CREATE INDEX IF NOT EXISTS webhook_deliveries_due_idx
 			ON listmonk_ops.webhook_deliveries (
 				status,
 				next_attempt_at,
 				lease_expires_at
 			)
-		`;
-		await transaction`
+			`;
+			await transaction`
 			CREATE INDEX IF NOT EXISTS webhook_deliveries_endpoint_idx
 			ON listmonk_ops.webhook_deliveries (endpoint_id, status)
-		`;
-		await transaction`
+			`;
+			await transaction`
 			CREATE INDEX IF NOT EXISTS webhook_deliveries_completed_idx
 			ON listmonk_ops.webhook_deliveries (completed_at)
 			WHERE status IN ('succeeded', 'exhausted')
+			`;
+			await transaction`
+				UPDATE listmonk_ops.webhook_runtime_meta
+				SET value = '1', updated_at = now()
+				WHERE key = 'schema_version'
+			`;
+		}
+		if (storedVersion < 2) {
+			await transaction`
+				ALTER TABLE listmonk_ops.webhook_endpoints
+				ADD COLUMN IF NOT EXISTS circuit_failure_threshold integer NOT NULL DEFAULT 5,
+				ADD COLUMN IF NOT EXISTS circuit_cooldown_ms integer NOT NULL DEFAULT 300000,
+				ADD COLUMN IF NOT EXISTS consecutive_failures integer NOT NULL DEFAULT 0,
+				ADD COLUMN IF NOT EXISTS circuit_state text NOT NULL DEFAULT 'closed',
+				ADD COLUMN IF NOT EXISTS circuit_opened_at timestamptz,
+				ADD COLUMN IF NOT EXISTS circuit_open_until timestamptz,
+				ADD COLUMN IF NOT EXISTS last_failure_at timestamptz,
+				ADD COLUMN IF NOT EXISTS last_success_at timestamptz
+			`;
+			await transaction`
+				CREATE TABLE IF NOT EXISTS listmonk_ops.webhook_workers (
+					id uuid PRIMARY KEY,
+					status text NOT NULL CHECK (status IN ('running', 'stopped', 'failed')),
+					started_at timestamptz NOT NULL,
+					heartbeat_at timestamptz NOT NULL,
+					stopped_at timestamptz,
+					last_error text,
+					last_tick jsonb
+				)
+			`;
+			await transaction`
+				CREATE INDEX IF NOT EXISTS webhook_workers_heartbeat_idx
+				ON listmonk_ops.webhook_workers (heartbeat_at DESC)
+			`;
+			await transaction`
+				UPDATE listmonk_ops.webhook_runtime_meta
+				SET value = '2', updated_at = now()
+				WHERE key = 'schema_version'
+			`;
+		}
+		await transaction`
+			DO $$
+			BEGIN
+				IF NOT EXISTS (
+					SELECT 1
+					FROM pg_constraint
+					WHERE conname = 'webhook_endpoints_circuit_state_check'
+						AND conrelid = 'listmonk_ops.webhook_endpoints'::regclass
+				) THEN
+					ALTER TABLE listmonk_ops.webhook_endpoints
+					ADD CONSTRAINT webhook_endpoints_circuit_state_check
+					CHECK (circuit_state IN ('closed', 'open'));
+				END IF;
+			END
+			$$
 		`;
 	});
 }
@@ -285,7 +370,8 @@ export function createPostgresOutboundWebhookRepository(
 			const rows = await sql<EndpointRow[]>`
 				SELECT
 					id, name, url, secret_ref, event_filters, enabled,
-					timeout_ms, max_attempts, created_at, updated_at
+					timeout_ms, max_attempts, circuit_failure_threshold,
+					circuit_cooldown_ms, created_at, updated_at
 				FROM listmonk_ops.webhook_endpoints
 				ORDER BY created_at ASC
 			`;
@@ -297,7 +383,8 @@ export function createPostgresOutboundWebhookRepository(
 			const rows = await sql<EndpointRow[]>`
 				SELECT
 					id, name, url, secret_ref, event_filters, enabled,
-					timeout_ms, max_attempts, created_at, updated_at
+					timeout_ms, max_attempts, circuit_failure_threshold,
+					circuit_cooldown_ms, created_at, updated_at
 				FROM listmonk_ops.webhook_endpoints
 				WHERE id = ${id}
 			`;
@@ -314,7 +401,8 @@ export function createPostgresOutboundWebhookRepository(
 				const rows = await sql<EndpointRow[]>`
 					INSERT INTO listmonk_ops.webhook_endpoints (
 						id, name, name_key, url, secret_ref, event_filters, enabled,
-						timeout_ms, max_attempts, created_at, updated_at
+						timeout_ms, max_attempts, circuit_failure_threshold,
+						circuit_cooldown_ms, created_at, updated_at
 					)
 					VALUES (
 						${endpoint.id},
@@ -326,12 +414,15 @@ export function createPostgresOutboundWebhookRepository(
 						${endpoint.enabled},
 						${endpoint.timeoutMs},
 						${endpoint.maxAttempts},
+						${endpoint.circuitFailureThreshold},
+						${endpoint.circuitCooldownMs},
 						${endpoint.createdAt},
 						${endpoint.updatedAt}
 					)
 					RETURNING
 						id, name, url, secret_ref, event_filters, enabled,
-						timeout_ms, max_attempts, created_at, updated_at
+						timeout_ms, max_attempts, circuit_failure_threshold,
+						circuit_cooldown_ms, created_at, updated_at
 				`;
 				return toEndpoint(rows[0]!);
 			} catch (error) {
@@ -351,7 +442,8 @@ export function createPostgresOutboundWebhookRepository(
 					const currentRows = await transaction<EndpointRow[]>`
 						SELECT
 							id, name, url, secret_ref, event_filters, enabled,
-							timeout_ms, max_attempts, created_at, updated_at
+							timeout_ms, max_attempts, circuit_failure_threshold,
+							circuit_cooldown_ms, created_at, updated_at
 						FROM listmonk_ops.webhook_endpoints
 						WHERE id = ${id}
 						FOR UPDATE
@@ -376,11 +468,14 @@ export function createPostgresOutboundWebhookRepository(
 							enabled = ${endpoint.enabled},
 							timeout_ms = ${endpoint.timeoutMs},
 							max_attempts = ${endpoint.maxAttempts},
+							circuit_failure_threshold = ${endpoint.circuitFailureThreshold},
+							circuit_cooldown_ms = ${endpoint.circuitCooldownMs},
 							updated_at = ${endpoint.updatedAt}
 						WHERE id = ${id}
 						RETURNING
 							id, name, url, secret_ref, event_filters, enabled,
-							timeout_ms, max_attempts, created_at, updated_at
+							timeout_ms, max_attempts, circuit_failure_threshold,
+							circuit_cooldown_ms, created_at, updated_at
 					`;
 					return toEndpoint(rows[0]!);
 				});
@@ -400,7 +495,8 @@ export function createPostgresOutboundWebhookRepository(
 				const rows = await transaction<EndpointRow[]>`
 					SELECT
 						id, name, url, secret_ref, event_filters, enabled,
-						timeout_ms, max_attempts, created_at, updated_at
+						timeout_ms, max_attempts, circuit_failure_threshold,
+						circuit_cooldown_ms, created_at, updated_at
 					FROM listmonk_ops.webhook_endpoints
 					WHERE id = ${id}
 					FOR UPDATE
@@ -440,7 +536,8 @@ export function createPostgresOutboundWebhookRepository(
 				const endpointRows = await transaction<EndpointRow[]>`
 					SELECT
 						id, name, url, secret_ref, event_filters, enabled,
-						timeout_ms, max_attempts, created_at, updated_at
+						timeout_ms, max_attempts, circuit_failure_threshold,
+						circuit_cooldown_ms, created_at, updated_at
 					FROM listmonk_ops.webhook_endpoints
 					WHERE enabled = true
 					ORDER BY created_at ASC
@@ -617,6 +714,16 @@ export function createPostgresOutboundWebhookRepository(
 					(claimOptions.excludeDeliveryIds?.length ?? 0) === 0
 						? transaction``
 						: transaction`AND NOT (id = ANY(${transaction.array([...(claimOptions.excludeDeliveryIds ?? [])], POSTGRES_UUID_TYPE_OID)}))`;
+				const circuitFilter =
+					claimOptions.bypassCircuitBreaker === true
+						? transaction``
+						: transaction`
+							AND (
+								circuit_state = 'closed'
+								OR circuit_open_until IS NULL
+								OR circuit_open_until <= ${claimOptions.now}
+							)
+						`;
 				const rows = await transaction<DeliveryRow[]>`
 					SELECT
 						id, event_id, endpoint_id, event, status, attempt_count,
@@ -633,6 +740,12 @@ export function createPostgresOutboundWebhookRepository(
 							status = 'delivering'
 							AND lease_expires_at <= ${claimOptions.now}
 						)
+					)
+					AND endpoint_id IN (
+						SELECT id
+						FROM listmonk_ops.webhook_endpoints
+						WHERE true
+							${circuitFilter}
 					)
 					${selectedFilter}
 					${excludedFilter}
@@ -669,7 +782,8 @@ export function createPostgresOutboundWebhookRepository(
 				const endpointRows = await transaction<EndpointRow[]>`
 					SELECT
 						id, name, url, secret_ref, event_filters, enabled,
-						timeout_ms, max_attempts, created_at, updated_at
+						timeout_ms, max_attempts, circuit_failure_threshold,
+						circuit_cooldown_ms, created_at, updated_at
 					FROM listmonk_ops.webhook_endpoints
 					WHERE id = ANY(${transaction.array(claimed.map((entry) => entry.endpointId), POSTGRES_UUID_TYPE_OID)})
 				`;
@@ -711,35 +825,74 @@ export function createPostgresOutboundWebhookRepository(
 				status === "succeeded" || status === "exhausted"
 					? completeOptions.now
 					: null;
-			const rows = await sql<DeliveryRow[]>`
-				UPDATE listmonk_ops.webhook_deliveries
-				SET
-					status = ${status},
-					next_attempt_at = ${nextAttemptAt},
-					completed_at = ${completedAt},
-					status_code = ${result.statusCode ?? null},
-					last_error = ${
-						result.error === undefined
-							? null
-							: truncateOutboundWebhookError(result.error)
-					},
-					lease_token = NULL,
-					lease_expires_at = NULL
-				WHERE id = ${claimed.id}
-					AND status = 'delivering'
-					AND lease_token = ${claimed.leaseToken ?? null}
-				RETURNING
-					id, event_id, endpoint_id, event, status, attempt_count,
-					manual_retry_count, next_attempt_at, last_attempt_at,
-					completed_at, status_code, last_error, lease_token,
-					lease_expires_at
-			`;
-			if (!rows[0]) {
-				throw new OutboundWebhookConflictError(
-					`Delivery ${claimed.id} lease is no longer owned by this worker`,
-				);
-			}
-			return toDelivery(rows[0]);
+			return sql.begin(async (transaction) => {
+				const rows = await transaction<DeliveryRow[]>`
+					UPDATE listmonk_ops.webhook_deliveries
+					SET
+						status = ${status},
+						next_attempt_at = ${nextAttemptAt},
+						completed_at = ${completedAt},
+						status_code = ${result.statusCode ?? null},
+						last_error = ${
+							result.error === undefined
+								? null
+								: truncateOutboundWebhookError(result.error)
+						},
+						lease_token = NULL,
+						lease_expires_at = NULL
+					WHERE id = ${claimed.id}
+						AND status = 'delivering'
+						AND lease_token = ${claimed.leaseToken ?? null}
+					RETURNING
+						id, event_id, endpoint_id, event, status, attempt_count,
+						manual_retry_count, next_attempt_at, last_attempt_at,
+						completed_at, status_code, last_error, lease_token,
+						lease_expires_at
+				`;
+				if (!rows[0]) {
+					throw new OutboundWebhookConflictError(
+						`Delivery ${claimed.id} lease is no longer owned by this worker`,
+					);
+				}
+				if (endpoint) {
+					if (result.success) {
+						await transaction`
+							UPDATE listmonk_ops.webhook_endpoints
+							SET
+								consecutive_failures = 0,
+								circuit_state = 'closed',
+								circuit_opened_at = NULL,
+								circuit_open_until = NULL,
+								last_success_at = ${completeOptions.now}
+							WHERE id = ${endpoint.id}
+						`;
+					} else {
+						await transaction`
+							UPDATE listmonk_ops.webhook_endpoints
+							SET
+								consecutive_failures = consecutive_failures + 1,
+								circuit_state = CASE
+									WHEN consecutive_failures + 1 >= circuit_failure_threshold
+									THEN 'open'
+									ELSE 'closed'
+								END,
+								circuit_opened_at = CASE
+									WHEN consecutive_failures + 1 >= circuit_failure_threshold
+									THEN ${completeOptions.now}
+									ELSE NULL
+								END,
+								circuit_open_until = CASE
+									WHEN consecutive_failures + 1 >= circuit_failure_threshold
+									THEN ${completeOptions.now} + circuit_cooldown_ms * interval '1 millisecond'
+									ELSE NULL
+								END,
+								last_failure_at = ${completeOptions.now}
+							WHERE id = ${endpoint.id}
+						`;
+					}
+				}
+				return toDelivery(rows[0]);
+			});
 		},
 
 		async reconcile(reconcileOptions) {
@@ -864,6 +1017,224 @@ export function createPostgresOutboundWebhookRepository(
 					before: pruneOptions.before.toISOString(),
 				} satisfies PruneOutboundWebhooksResult;
 			});
+		},
+
+		async getRuntimeHealth(healthOptions) {
+			await ensureInitialized();
+			const staleBefore = new Date(
+				healthOptions.now.getTime() - healthOptions.workerStaleMs,
+			);
+			const [endpointRows, deliveryRows, workerRows] = await Promise.all([
+				sql<
+					{
+						total: number;
+						enabled: number;
+						circuit_open: number;
+					}[]
+				>`
+					SELECT
+						count(*)::integer AS total,
+						count(*) FILTER (WHERE enabled)::integer AS enabled,
+						count(*) FILTER (
+							WHERE circuit_state = 'open'
+								AND (
+									circuit_open_until IS NULL
+									OR circuit_open_until > ${healthOptions.now}
+								)
+						)::integer AS circuit_open
+					FROM listmonk_ops.webhook_endpoints
+				`,
+				sql<
+					{
+						pending: number;
+						delivering: number;
+						retry: number;
+						succeeded: number;
+						exhausted: number;
+						due: number;
+						oldest_due_at: Date | string | null;
+					}[]
+				>`
+					SELECT
+						count(*) FILTER (WHERE status = 'pending')::integer AS pending,
+						count(*) FILTER (WHERE status = 'delivering')::integer AS delivering,
+						count(*) FILTER (WHERE status = 'retry')::integer AS retry,
+						count(*) FILTER (WHERE status = 'succeeded')::integer AS succeeded,
+						count(*) FILTER (WHERE status = 'exhausted')::integer AS exhausted,
+						count(*) FILTER (
+							WHERE (
+								status IN ('pending', 'retry')
+								AND next_attempt_at <= ${healthOptions.now}
+							)
+							OR (
+								status = 'delivering'
+								AND (
+									lease_expires_at IS NULL
+									OR lease_expires_at <= ${healthOptions.now}
+								)
+							)
+						)::integer AS due,
+						min(
+							CASE
+								WHEN status = 'delivering'
+									THEN coalesce(lease_expires_at, last_attempt_at, next_attempt_at)
+								ELSE next_attempt_at
+							END
+						) FILTER (
+							WHERE (
+								status IN ('pending', 'retry')
+								AND next_attempt_at <= ${healthOptions.now}
+							)
+							OR (
+								status = 'delivering'
+								AND (
+									lease_expires_at IS NULL
+									OR lease_expires_at <= ${healthOptions.now}
+								)
+							)
+						) AS oldest_due_at
+					FROM listmonk_ops.webhook_deliveries
+				`,
+				sql<{
+					running: number;
+					stale: number;
+					stopped: number;
+					failed: number;
+					last_heartbeat_at: Date | string | null;
+				}[]>`
+					SELECT
+						count(*) FILTER (
+							WHERE status = 'running'
+								AND heartbeat_at >= ${staleBefore}
+						)::integer AS running,
+						count(*) FILTER (
+							WHERE status = 'running'
+								AND heartbeat_at < ${staleBefore}
+						)::integer AS stale,
+						count(*) FILTER (WHERE status = 'stopped')::integer AS stopped,
+						count(*) FILTER (WHERE status = 'failed')::integer AS failed,
+						max(heartbeat_at) FILTER (
+							WHERE status = 'running'
+								AND heartbeat_at >= ${staleBefore}
+						) AS last_heartbeat_at
+					FROM listmonk_ops.webhook_workers
+				`,
+			]);
+			const endpoints = endpointRows[0] ?? {
+				total: 0,
+				enabled: 0,
+				circuit_open: 0,
+			};
+			const deliveries = deliveryRows[0] ?? {
+				pending: 0,
+				delivering: 0,
+				retry: 0,
+				succeeded: 0,
+				exhausted: 0,
+				due: 0,
+				oldest_due_at: null,
+			};
+			const workers = workerRows[0] ?? {
+				running: 0,
+				stale: 0,
+				stopped: 0,
+				failed: 0,
+				last_heartbeat_at: null,
+			};
+			return {
+				store: "postgres",
+				schemaVersion: OUTBOUND_WEBHOOK_POSTGRES_SCHEMA_VERSION,
+				healthy:
+					endpoints.circuit_open === 0 &&
+					(deliveries.due === 0 || workers.running > 0),
+				checkedAt: healthOptions.now.toISOString(),
+				endpoints: {
+					total: endpoints.total,
+					enabled: endpoints.enabled,
+					circuitOpen: endpoints.circuit_open,
+				},
+				deliveries: {
+					pending: deliveries.pending,
+					delivering: deliveries.delivering,
+					retry: deliveries.retry,
+					succeeded: deliveries.succeeded,
+					exhausted: deliveries.exhausted,
+					due: deliveries.due,
+					deadLetter: deliveries.exhausted,
+					oldestDueAt: toOptionalIso(deliveries.oldest_due_at),
+				},
+				workers: {
+					running: workers.running,
+					stale: workers.stale,
+					stopped: workers.stopped,
+					failed: workers.failed,
+					lastHeartbeatAt: toOptionalIso(workers.last_heartbeat_at),
+				},
+			};
+		},
+
+		async upsertWorker(worker) {
+			await ensureInitialized();
+			await sql.begin(async (transaction) => {
+				await transaction`
+					INSERT INTO listmonk_ops.webhook_workers (
+						id, status, started_at, heartbeat_at, stopped_at,
+						last_error, last_tick
+					)
+					VALUES (
+						${worker.id},
+						${worker.status},
+						${worker.startedAt},
+						${worker.heartbeatAt},
+						${worker.stoppedAt ?? null},
+						${worker.lastError ?? null},
+						${
+							worker.lastTick === undefined
+								? null
+								: transaction.json(worker.lastTick)
+						}
+					)
+					ON CONFLICT (id) DO UPDATE
+					SET
+						status = EXCLUDED.status,
+						started_at = EXCLUDED.started_at,
+						heartbeat_at = EXCLUDED.heartbeat_at,
+						stopped_at = EXCLUDED.stopped_at,
+						last_error = EXCLUDED.last_error,
+						last_tick = EXCLUDED.last_tick
+				`;
+				await transaction`
+					DELETE FROM listmonk_ops.webhook_workers
+					WHERE id <> ${worker.id}
+						AND status IN ('stopped', 'failed')
+						AND coalesce(stopped_at, heartbeat_at) <
+							${worker.heartbeatAt}::timestamptz -
+							${DEFAULT_OUTBOUND_WEBHOOK_WORKER_RETENTION_MS} * interval '1 millisecond'
+				`;
+			});
+		},
+
+		async resetEndpointCircuit(endpointId, _now) {
+			await ensureInitialized();
+			const rows = await sql<EndpointRow[]>`
+				UPDATE listmonk_ops.webhook_endpoints
+				SET
+					consecutive_failures = 0,
+					circuit_state = 'closed',
+					circuit_opened_at = NULL,
+					circuit_open_until = NULL
+				WHERE id = ${endpointId}
+				RETURNING
+					id, name, url, secret_ref, event_filters, enabled,
+					timeout_ms, max_attempts, circuit_failure_threshold,
+					circuit_cooldown_ms, consecutive_failures, circuit_state,
+					circuit_opened_at, circuit_open_until, last_failure_at,
+					last_success_at, created_at, updated_at
+			`;
+			if (!rows[0]) {
+				throw new OutboundWebhookNotFoundError("endpoint", endpointId);
+			}
+			return toEndpointRuntime(rows[0]);
 		},
 
 		async close() {

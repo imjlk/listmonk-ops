@@ -147,6 +147,15 @@ existing behavior until they are migrated.
 - `listmonk_webhook_deliveries_list` - Inspect redacted delivery history
 - `listmonk_webhook_delivery_retry` - Requeue one retryable or exhausted
   delivery (requires `confirm: true`)
+- `listmonk_webhooks_runtime_status` - Inspect schema, backlog, circuits, DLQ,
+  and worker heartbeat health
+- `listmonk_webhooks_inbound_ingest` - Normalize a verified provider delivery
+  event into the shared idempotent envelope (unsubscribe requires a subscriber
+  UUID; metadata is capped at 16 KiB)
+- `listmonk_webhooks_dlq_list` / `listmonk_webhooks_dlq_replay` - Inspect or
+  replay exhausted deliveries (replay apply requires `confirm: true`)
+- `listmonk_webhooks_circuit_reset` - Close a corrected endpoint circuit
+  (requires `confirm: true`)
 
 Endpoint records persist only `secret_ref`, never the HMAC value. Delivery uses
 the same versioned JSON outbox as the CLI, stable event IDs, at-least-once
@@ -159,6 +168,9 @@ operation retry.
 Successful campaign, subscriber, and A/B lifecycle operations also enqueue
 their typed domain events. Set `LISTMONK_OPS_WEBHOOK_DATABASE_URL` instead of
 the JSON store path when multiple worker processes share the outbox.
+The long-running worker is intentionally a CLI process; MCP exposes typed
+health, ingestion, DLQ, and circuit control operations without owning a daemon
+inside an MCP request.
 
 ### Operations & Observability
 

@@ -4,6 +4,7 @@ import postgres from "postgres";
 import { createPostgresOutboundWebhookRepository } from "../src/outbound-webhook-postgres";
 import {
 	createOutboundWebhookEndpoint,
+	dispatchOutboundWebhooks,
 	enqueueOutboundWebhookEvent,
 	listOutboundWebhookDeliveries,
 	pruneOutboundWebhookDeliveries,
@@ -61,7 +62,8 @@ beforeAll(async () => {
 		await sql`
 			TRUNCATE TABLE
 				listmonk_ops.webhook_deliveries,
-				listmonk_ops.webhook_endpoints
+				listmonk_ops.webhook_endpoints,
+				listmonk_ops.webhook_workers
 		`;
 	} finally {
 		await sql.end({ timeout: 5 });
@@ -157,6 +159,46 @@ describe("Postgres outbound webhook repository", () => {
 					),
 				).size,
 			).toBe(8);
+			await first.upsertWorker({
+				id: randomUUID(),
+				status: "stopped",
+				startedAt: "2026-06-01T00:00:00.000Z",
+				heartbeatAt: "2026-06-01T00:00:01.000Z",
+				stoppedAt: "2026-06-01T00:00:01.000Z",
+			});
+			const staleWorkerId = randomUUID();
+			await first.upsertWorker({
+				id: staleWorkerId,
+				status: "running",
+				startedAt: "2026-07-28T23:59:58.000Z",
+				heartbeatAt: "2026-07-28T23:59:58.000Z",
+			});
+			expect(
+				await first.getRuntimeHealth({
+					now: new Date("2026-07-29T00:00:02.000Z"),
+					workerStaleMs: 1_000,
+				}),
+			).toMatchObject({
+				healthy: false,
+				deliveries: { due: 8 },
+				workers: { running: 0, stale: 1 },
+			});
+			await first.upsertWorker({
+				id: randomUUID(),
+				status: "running",
+				startedAt: "2026-07-29T00:00:01.500Z",
+				heartbeatAt: "2026-07-29T00:00:01.500Z",
+			});
+			expect(
+				await first.getRuntimeHealth({
+					now: new Date("2026-07-29T00:00:02.000Z"),
+					workerStaleMs: 1_000,
+				}),
+			).toMatchObject({
+				healthy: true,
+				deliveries: { due: 8 },
+				workers: { running: 1, stale: 1, stopped: 0 },
+			});
 
 			const stale = firstClaims[0]!;
 			const reclaimed = await second.claimDeliveries({
@@ -318,6 +360,190 @@ describe("Postgres outbound webhook repository", () => {
 			enqueueResult.deliveryIds.forEach((id) => deliveryIds.add(id));
 			expect(enqueueResult.queuedDeliveries).toBe(1);
 			expect(pruneResult.deleted).toBeGreaterThanOrEqual(1);
+
+			const circuitEndpoint = await createOutboundWebhookEndpoint(
+				{
+					name: `postgres-circuit-${randomUUID()}`,
+					url: "https://8.8.8.8/hooks",
+					secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_POSTGRES_CIRCUIT",
+					eventFilters: ["operation.*"],
+					circuitFailureThreshold: 1,
+				},
+				{ repository: first },
+			);
+			endpointIds.add(circuitEndpoint.id);
+			const failedCircuitEvent = await enqueueOutboundWebhookEvent(
+				{
+					id: randomUUID(),
+					type: "operation.succeeded",
+					source: "operation",
+					data: {},
+				},
+				{
+					repository: first,
+					endpointIds: [circuitEndpoint.id],
+					now: initialAt,
+				},
+			);
+			failedCircuitEvent.deliveryIds.forEach((id) => deliveryIds.add(id));
+			expect(
+				await dispatchOutboundWebhooks({
+					store: { repository: first },
+					deliveryIds: failedCircuitEvent.deliveryIds,
+					now: initialAt,
+					fetcher: async () => new Response(null, { status: 500 }),
+					resolveSecret: () => "secret",
+				}),
+			).toMatchObject({ exhausted: 0, retried: 1 });
+			const probeEvent = await enqueueOutboundWebhookEvent(
+				{
+					id: randomUUID(),
+					type: "operation.succeeded",
+					source: "operation",
+					data: {},
+				},
+				{
+					repository: first,
+					endpointIds: [circuitEndpoint.id],
+					now: initialAt,
+				},
+			);
+			probeEvent.deliveryIds.forEach((id) => deliveryIds.add(id));
+			expect(
+				await dispatchOutboundWebhooks({
+					store: { repository: first },
+					deliveryIds: probeEvent.deliveryIds,
+					now: initialAt,
+					fetcher: async () => new Response(null, { status: 204 }),
+					resolveSecret: () => "secret",
+				}),
+			).toMatchObject({ claimed: 0 });
+			expect(
+				await dispatchOutboundWebhooks({
+					store: { repository: first },
+					deliveryIds: probeEvent.deliveryIds,
+					bypassCircuitBreaker: true,
+					now: initialAt,
+					fetcher: async () => new Response(null, { status: 204 }),
+					resolveSecret: () => "secret",
+				}),
+			).toMatchObject({ claimed: 1, succeeded: 1 });
+			await first.resetEndpointCircuit(
+				circuitEndpoint.id,
+				new Date("2026-07-30T00:00:00.000Z"),
+			);
+			expect(await first.getEndpoint(circuitEndpoint.id)).toMatchObject({
+				updatedAt: circuitEndpoint.updatedAt,
+			});
+
+			const disabledEndpoint = await createOutboundWebhookEndpoint(
+				{
+					name: `postgres-disabled-${randomUUID()}`,
+					url: "https://8.8.8.8/hooks",
+					secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_POSTGRES_DISABLED",
+					eventFilters: ["operation.*"],
+				},
+				{ repository: first },
+			);
+			endpointIds.add(disabledEndpoint.id);
+			const disabledEvent = await enqueueOutboundWebhookEvent(
+				{
+					id: randomUUID(),
+					type: "operation.succeeded",
+					source: "operation",
+					data: {},
+				},
+				{
+					repository: first,
+					endpointIds: [disabledEndpoint.id],
+					now: initialAt,
+				},
+			);
+			disabledEvent.deliveryIds.forEach((id) => deliveryIds.add(id));
+			await updateOutboundWebhookEndpoint(
+				disabledEndpoint.id,
+				{ enabled: false },
+				{ repository: first, now: initialAt },
+			);
+			expect(
+				await dispatchOutboundWebhooks({
+					store: { repository: first },
+					deliveryIds: disabledEvent.deliveryIds,
+					now: initialAt,
+					resolveSecret: () => "secret",
+				}),
+			).toMatchObject({ claimed: 1, exhausted: 1 });
+		},
+	);
+
+	postgresTest(
+		"migrates an existing v1 schema to v2 under the initialization lock",
+		async () => {
+			if (!databaseUrl) {
+				throw new Error("Postgres integration database is unavailable");
+			}
+			const sql = postgres(databaseUrl, { max: 1, prepare: false });
+			try {
+				await sql`
+					TRUNCATE TABLE
+						listmonk_ops.webhook_deliveries,
+						listmonk_ops.webhook_endpoints,
+						listmonk_ops.webhook_workers
+				`;
+				await sql`DROP TABLE IF EXISTS listmonk_ops.webhook_workers`;
+				await sql`
+					ALTER TABLE listmonk_ops.webhook_endpoints
+						DROP COLUMN IF EXISTS circuit_failure_threshold,
+						DROP COLUMN IF EXISTS circuit_cooldown_ms,
+						DROP COLUMN IF EXISTS consecutive_failures,
+						DROP COLUMN IF EXISTS circuit_state,
+						DROP COLUMN IF EXISTS circuit_opened_at,
+						DROP COLUMN IF EXISTS circuit_open_until,
+						DROP COLUMN IF EXISTS last_failure_at,
+						DROP COLUMN IF EXISTS last_success_at
+				`;
+				await sql`
+					UPDATE listmonk_ops.webhook_runtime_meta
+					SET value = '1'
+					WHERE key = 'schema_version'
+				`;
+			} finally {
+				await sql.end({ timeout: 5 });
+			}
+
+			const migrated = createPostgresOutboundWebhookRepository({
+				connectionString: databaseUrl,
+				maxConnections: 1,
+			});
+			repositories.push(migrated);
+			expect(
+				await migrated.getRuntimeHealth({
+					now: new Date(),
+					workerStaleMs: 90_000,
+				}),
+			).toMatchObject({
+				store: "postgres",
+				schemaVersion: 2,
+			});
+			const verify = postgres(databaseUrl, { max: 1, prepare: false });
+			try {
+				const versions = await verify<{ value: string }[]>`
+					SELECT value
+					FROM listmonk_ops.webhook_runtime_meta
+					WHERE key = 'schema_version'
+				`;
+				expect(versions[0]?.value).toBe("2");
+				const columns = await verify<{ column_name: string }[]>`
+					SELECT column_name
+					FROM information_schema.columns
+					WHERE table_schema = 'listmonk_ops'
+						AND table_name = 'webhook_endpoints'
+						AND column_name = 'circuit_state'
+				`;
+				expect(columns).toHaveLength(1);
+			} finally {
+				await verify.end({ timeout: 5 });
+			}
 		},
 	);
 });

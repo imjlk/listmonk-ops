@@ -7,6 +7,7 @@ import {
 	createOutboundWebhookEndpoint,
 	dispatchOutboundWebhooks,
 	enqueueOutboundWebhookEvent,
+	getOutboundWebhookRuntimeHealth,
 	listOutboundWebhookDeliveries,
 	pruneOutboundWebhookDeliveries,
 	reconcileOutboundWebhookDeliveries,
@@ -60,6 +61,20 @@ describe("outbound webhook repository maintenance", () => {
 			leaseMs: 1_000,
 		});
 		expect(claimed?.delivery).toMatchObject({ status: "delivering" });
+		expect(
+			await getOutboundWebhookRuntimeHealth({
+				repository,
+				now: new Date("2026-07-29T00:00:02.000Z"),
+				workerStaleMs: 1_000,
+			}),
+		).toMatchObject({
+			healthy: false,
+			deliveries: {
+				delivering: 1,
+				due: 1,
+				oldestDueAt: "2026-07-29T00:00:01.000Z",
+			},
+		});
 
 		expect(
 			await reconcileOutboundWebhookDeliveries({

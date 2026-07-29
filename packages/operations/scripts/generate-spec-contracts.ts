@@ -32,14 +32,22 @@ import type {
 	WebhookCreateOutput,
 	WebhookDeleteInput,
 	WebhookDeleteOutput,
+	WebhookCircuitResetInput,
+	WebhookCircuitResetOutput,
 	WebhookDeliveryListInput,
 	WebhookDeliveryListOutput,
 	WebhookDeliveryRetryInput,
 	WebhookDeliveryRetryOutput,
+	WebhookDlqListInput,
+	WebhookDlqListOutput,
+	WebhookDlqReplayInput,
+	WebhookDlqReplayOutput,
 	WebhookDispatchInput,
 	WebhookDispatchOutput,
 	WebhookListInput,
 	WebhookListOutput,
+	WebhookInboundIngestInput,
+	WebhookInboundIngestOutput,
 	WebhookPruneInput,
 	WebhookPruneOutput,
 	WebhookReconcileInput,
@@ -48,6 +56,8 @@ import type {
 	WebhookTestOutput,
 	WebhookTickInput,
 	WebhookTickOutput,
+	WebhookRuntimeStatusInput,
+	WebhookRuntimeStatusOutput,
 	WebhookUpdateInput,
 	WebhookUpdateOutput,
 } from "./spec-contracts";
@@ -239,6 +249,36 @@ const contracts = {
 	),
 	webhookTickOutputContract: contractSchema(
 		typia.json.schema<WebhookTickOutput>(),
+	),
+	webhookRuntimeStatusInputContract: contractSchema(
+		typia.json.schema<WebhookRuntimeStatusInput>(),
+	),
+	webhookRuntimeStatusOutputContract: contractSchema(
+		typia.json.schema<WebhookRuntimeStatusOutput>(),
+	),
+	webhookInboundIngestInputContract: contractSchema(
+		typia.json.schema<WebhookInboundIngestInput>(),
+	),
+	webhookInboundIngestOutputContract: contractSchema(
+		typia.json.schema<WebhookInboundIngestOutput>(),
+	),
+	webhookDlqListInputContract: contractSchema(
+		typia.json.schema<WebhookDlqListInput>(),
+	),
+	webhookDlqListOutputContract: contractSchema(
+		typia.json.schema<WebhookDlqListOutput>(),
+	),
+	webhookDlqReplayInputContract: contractSchema(
+		typia.json.schema<WebhookDlqReplayInput>(),
+	),
+	webhookDlqReplayOutputContract: contractSchema(
+		typia.json.schema<WebhookDlqReplayOutput>(),
+	),
+	webhookCircuitResetInputContract: contractSchema(
+		typia.json.schema<WebhookCircuitResetInput>(),
+	),
+	webhookCircuitResetOutputContract: contractSchema(
+		typia.json.schema<WebhookCircuitResetOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

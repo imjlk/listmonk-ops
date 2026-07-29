@@ -3392,9 +3392,29 @@
               "format": "date-time",
               "type": "string"
             },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookCircuitCooldownMs": {
+              "maximum": 86400000,
+              "minimum": 1000,
+              "type": "integer"
+            },
+            "WebhookCircuitFailureThreshold": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
             "WebhookEndpoint": {
               "additionalProperties": false,
               "properties": {
+                "circuit_cooldown_ms": {
+                  "$ref": "#/components/schemas/WebhookCircuitCooldownMs"
+                },
+                "circuit_failure_threshold": {
+                  "$ref": "#/components/schemas/WebhookCircuitFailureThreshold"
+                },
                 "created_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
@@ -3409,7 +3429,7 @@
                   "type": "array"
                 },
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "max_attempts": {
                   "$ref": "#/components/schemas/WebhookMaxAttempts"
@@ -3439,6 +3459,8 @@
                 "enabled",
                 "timeout_ms",
                 "max_attempts",
+                "circuit_failure_threshold",
+                "circuit_cooldown_ms",
                 "created_at",
                 "updated_at"
               ],
@@ -3501,6 +3523,9 @@
                   "const": "delivery.delivered"
                 },
                 {
+                  "const": "delivery.rejected"
+                },
+                {
                   "const": "operation.*"
                 },
                 {
@@ -3537,10 +3562,6 @@
                   "const": "webhook.test"
                 }
               ]
-            },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
             },
             "WebhookListOutput": {
               "additionalProperties": false,
@@ -3619,9 +3640,25 @@
       "input": {
         "components": {
           "schemas": {
+            "WebhookCircuitCooldownMs": {
+              "maximum": 86400000,
+              "minimum": 1000,
+              "type": "integer"
+            },
+            "WebhookCircuitFailureThreshold": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
             "WebhookCreateInput": {
               "additionalProperties": false,
               "properties": {
+                "circuit_cooldown_ms": {
+                  "$ref": "#/components/schemas/WebhookCircuitCooldownMs"
+                },
+                "circuit_failure_threshold": {
+                  "$ref": "#/components/schemas/WebhookCircuitFailureThreshold"
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -3714,6 +3751,9 @@
                   "const": "delivery.delivered"
                 },
                 {
+                  "const": "delivery.rejected"
+                },
+                {
                   "const": "operation.*"
                 },
                 {
@@ -3782,6 +3822,12 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "circuit_cooldown_ms": {
+              "$ref": "#/components/schemas/WebhookCircuitCooldownMs"
+            },
+            "circuit_failure_threshold": {
+              "$ref": "#/components/schemas/WebhookCircuitFailureThreshold"
+            },
             "enabled": {
               "type": "boolean"
             },
@@ -3826,6 +3872,20 @@
               "format": "date-time",
               "type": "string"
             },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookCircuitCooldownMs": {
+              "maximum": 86400000,
+              "minimum": 1000,
+              "type": "integer"
+            },
+            "WebhookCircuitFailureThreshold": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
             "WebhookCreateOutput": {
               "additionalProperties": false,
               "properties": {
@@ -3841,6 +3901,12 @@
             "WebhookEndpoint": {
               "additionalProperties": false,
               "properties": {
+                "circuit_cooldown_ms": {
+                  "$ref": "#/components/schemas/WebhookCircuitCooldownMs"
+                },
+                "circuit_failure_threshold": {
+                  "$ref": "#/components/schemas/WebhookCircuitFailureThreshold"
+                },
                 "created_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
@@ -3855,7 +3921,7 @@
                   "type": "array"
                 },
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "max_attempts": {
                   "$ref": "#/components/schemas/WebhookMaxAttempts"
@@ -3885,6 +3951,8 @@
                 "enabled",
                 "timeout_ms",
                 "max_attempts",
+                "circuit_failure_threshold",
+                "circuit_cooldown_ms",
                 "created_at",
                 "updated_at"
               ],
@@ -3947,6 +4015,9 @@
                   "const": "delivery.delivered"
                 },
                 {
+                  "const": "delivery.rejected"
+                },
+                {
                   "const": "operation.*"
                 },
                 {
@@ -3983,10 +4054,6 @@
                   "const": "webhook.test"
                 }
               ]
-            },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
             },
             "WebhookMaxAttempts": {
               "maximum": 12,
@@ -4049,6 +4116,20 @@
       "input": {
         "components": {
           "schemas": {
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookCircuitCooldownMs": {
+              "maximum": 86400000,
+              "minimum": 1000,
+              "type": "integer"
+            },
+            "WebhookCircuitFailureThreshold": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
             "WebhookEventFilter": {
               "oneOf": [
                 {
@@ -4106,6 +4187,9 @@
                   "const": "delivery.delivered"
                 },
                 {
+                  "const": "delivery.rejected"
+                },
+                {
                   "const": "operation.*"
                 },
                 {
@@ -4143,10 +4227,6 @@
                 }
               ]
             },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
-            },
             "WebhookMaxAttempts": {
               "maximum": 12,
               "minimum": 1,
@@ -4169,6 +4249,12 @@
             "WebhookUpdateInput": {
               "additionalProperties": false,
               "properties": {
+                "circuit_cooldown_ms": {
+                  "$ref": "#/components/schemas/WebhookCircuitCooldownMs"
+                },
+                "circuit_failure_threshold": {
+                  "$ref": "#/components/schemas/WebhookCircuitFailureThreshold"
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -4180,7 +4266,7 @@
                   "type": "array"
                 },
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "max_attempts": {
                   "$ref": "#/components/schemas/WebhookMaxAttempts"
@@ -4215,6 +4301,12 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "circuit_cooldown_ms": {
+              "$ref": "#/components/schemas/WebhookCircuitCooldownMs"
+            },
+            "circuit_failure_threshold": {
+              "$ref": "#/components/schemas/WebhookCircuitFailureThreshold"
+            },
             "enabled": {
               "type": "boolean"
             },
@@ -4226,7 +4318,7 @@
               "type": "array"
             },
             "id": {
-              "$ref": "#/components/schemas/WebhookId"
+              "$ref": "#/components/schemas/Uuid"
             },
             "max_attempts": {
               "$ref": "#/components/schemas/WebhookMaxAttempts"
@@ -4258,9 +4350,29 @@
               "format": "date-time",
               "type": "string"
             },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookCircuitCooldownMs": {
+              "maximum": 86400000,
+              "minimum": 1000,
+              "type": "integer"
+            },
+            "WebhookCircuitFailureThreshold": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
             "WebhookEndpoint": {
               "additionalProperties": false,
               "properties": {
+                "circuit_cooldown_ms": {
+                  "$ref": "#/components/schemas/WebhookCircuitCooldownMs"
+                },
+                "circuit_failure_threshold": {
+                  "$ref": "#/components/schemas/WebhookCircuitFailureThreshold"
+                },
                 "created_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
@@ -4275,7 +4387,7 @@
                   "type": "array"
                 },
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "max_attempts": {
                   "$ref": "#/components/schemas/WebhookMaxAttempts"
@@ -4305,6 +4417,8 @@
                 "enabled",
                 "timeout_ms",
                 "max_attempts",
+                "circuit_failure_threshold",
+                "circuit_cooldown_ms",
                 "created_at",
                 "updated_at"
               ],
@@ -4367,6 +4481,9 @@
                   "const": "delivery.delivered"
                 },
                 {
+                  "const": "delivery.rejected"
+                },
+                {
                   "const": "operation.*"
                 },
                 {
@@ -4403,10 +4520,6 @@
                   "const": "webhook.test"
                 }
               ]
-            },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
             },
             "WebhookMaxAttempts": {
               "maximum": 12,
@@ -4479,21 +4592,21 @@
       "input": {
         "components": {
           "schemas": {
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
             "WebhookDeleteInput": {
               "additionalProperties": false,
               "properties": {
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 }
               },
               "required": [
                 "id"
               ],
               "type": "object"
-            },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
             }
           }
         },
@@ -4502,7 +4615,7 @@
           "additionalProperties": false,
           "properties": {
             "id": {
-              "$ref": "#/components/schemas/WebhookId"
+              "$ref": "#/components/schemas/Uuid"
             }
           },
           "required": [
@@ -4518,6 +4631,20 @@
             "IsoDateTime": {
               "format": "date-time",
               "type": "string"
+            },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookCircuitCooldownMs": {
+              "maximum": 86400000,
+              "minimum": 1000,
+              "type": "integer"
+            },
+            "WebhookCircuitFailureThreshold": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
             },
             "WebhookDeleteOutput": {
               "additionalProperties": false,
@@ -4538,6 +4665,12 @@
             "WebhookEndpoint": {
               "additionalProperties": false,
               "properties": {
+                "circuit_cooldown_ms": {
+                  "$ref": "#/components/schemas/WebhookCircuitCooldownMs"
+                },
+                "circuit_failure_threshold": {
+                  "$ref": "#/components/schemas/WebhookCircuitFailureThreshold"
+                },
                 "created_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
@@ -4552,7 +4685,7 @@
                   "type": "array"
                 },
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "max_attempts": {
                   "$ref": "#/components/schemas/WebhookMaxAttempts"
@@ -4582,6 +4715,8 @@
                 "enabled",
                 "timeout_ms",
                 "max_attempts",
+                "circuit_failure_threshold",
+                "circuit_cooldown_ms",
                 "created_at",
                 "updated_at"
               ],
@@ -4644,6 +4779,9 @@
                   "const": "delivery.delivered"
                 },
                 {
+                  "const": "delivery.rejected"
+                },
+                {
                   "const": "operation.*"
                 },
                 {
@@ -4680,10 +4818,6 @@
                   "const": "webhook.test"
                 }
               ]
-            },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
             },
             "WebhookMaxAttempts": {
               "maximum": 12,
@@ -4754,7 +4888,7 @@
               "minLength": 1,
               "type": "string"
             },
-            "WebhookId": {
+            "Uuid": {
               "format": "uuid",
               "type": "string"
             },
@@ -4765,7 +4899,7 @@
                   "$ref": "#/components/schemas/NonEmptyString"
                 },
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 }
               },
               "required": [
@@ -4783,7 +4917,7 @@
               "$ref": "#/components/schemas/NonEmptyString"
             },
             "id": {
-              "$ref": "#/components/schemas/WebhookId"
+              "$ref": "#/components/schemas/Uuid"
             }
           },
           "required": [
@@ -4809,6 +4943,10 @@
               "maximum": 9007199254740991,
               "minimum": 1,
               "type": "integer"
+            },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
             },
             "WebhookDispatchOutput": {
               "additionalProperties": false,
@@ -4851,10 +4989,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "delivery_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "endpoint_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "error": {
                       "$ref": "#/components/schemas/NonEmptyString"
@@ -4887,10 +5025,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "delivery_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "endpoint_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "error": {
                       "$ref": "#/components/schemas/NonEmptyString"
@@ -4909,21 +5047,17 @@
                 }
               ]
             },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
-            },
             "WebhookTestOutput": {
               "additionalProperties": false,
               "properties": {
                 "delivery_id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "dispatch": {
                   "$ref": "#/components/schemas/WebhookDispatchOutput"
                 },
                 "event_id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 }
               },
               "required": [
@@ -4939,13 +5073,13 @@
           "additionalProperties": false,
           "properties": {
             "delivery_id": {
-              "$ref": "#/components/schemas/WebhookId"
+              "$ref": "#/components/schemas/Uuid"
             },
             "dispatch": {
               "$ref": "#/components/schemas/WebhookDispatchOutput"
             },
             "event_id": {
-              "$ref": "#/components/schemas/WebhookId"
+              "$ref": "#/components/schemas/Uuid"
             }
           },
           "required": [
@@ -5020,6 +5154,10 @@
               "minimum": 1,
               "type": "integer"
             },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
             "WebhookDispatchOutput": {
               "additionalProperties": false,
               "properties": {
@@ -5061,10 +5199,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "delivery_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "endpoint_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "error": {
                       "$ref": "#/components/schemas/NonEmptyString"
@@ -5097,10 +5235,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "delivery_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "endpoint_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "error": {
                       "$ref": "#/components/schemas/NonEmptyString"
@@ -5118,10 +5256,6 @@
                   "type": "object"
                 }
               ]
-            },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
             }
           }
         },
@@ -5182,11 +5316,15 @@
       "input": {
         "components": {
           "schemas": {
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
             "WebhookDeliveryListInput": {
               "additionalProperties": false,
               "properties": {
                 "endpoint_id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "event_type": {
                   "oneOf": [
@@ -5231,6 +5369,9 @@
                     },
                     {
                       "const": "delivery.delivered"
+                    },
+                    {
+                      "const": "delivery.rejected"
                     },
                     {
                       "const": "operation.blocked"
@@ -5291,10 +5432,6 @@
               "maximum": 1000,
               "minimum": 1,
               "type": "integer"
-            },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
             }
           }
         },
@@ -5303,7 +5440,7 @@
           "additionalProperties": false,
           "properties": {
             "endpoint_id": {
-              "$ref": "#/components/schemas/WebhookId"
+              "$ref": "#/components/schemas/Uuid"
             },
             "event_type": {
               "oneOf": [
@@ -5348,6 +5485,9 @@
                 },
                 {
                   "const": "delivery.delivered"
+                },
+                {
+                  "const": "delivery.rejected"
                 },
                 {
                   "const": "operation.blocked"
@@ -5427,6 +5567,10 @@
               "minimum": 1,
               "type": "integer"
             },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
             "WebhookDelivery": {
               "additionalProperties": false,
               "properties": {
@@ -5437,16 +5581,16 @@
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
                 "endpoint_id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "event": {
                   "$ref": "#/components/schemas/WebhookDeliveryEventSummary"
                 },
                 "event_id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "last_attempt_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
@@ -5486,7 +5630,7 @@
                   "$ref": "#/components/schemas/NonEmptyString"
                 },
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "occurred_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
@@ -5627,6 +5771,9 @@
                   "const": "delivery.delivered"
                 },
                 {
+                  "const": "delivery.rejected"
+                },
+                {
                   "const": "operation.blocked"
                 },
                 {
@@ -5654,10 +5801,6 @@
                   "const": "webhook.test"
                 }
               ]
-            },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
             },
             "WebhookSubjectKind": {
               "oneOf": [
@@ -5718,21 +5861,21 @@
       "input": {
         "components": {
           "schemas": {
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
             "WebhookDeliveryRetryInput": {
               "additionalProperties": false,
               "properties": {
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 }
               },
               "required": [
                 "id"
               ],
               "type": "object"
-            },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
             }
           }
         },
@@ -5741,7 +5884,7 @@
           "additionalProperties": false,
           "properties": {
             "id": {
-              "$ref": "#/components/schemas/WebhookId"
+              "$ref": "#/components/schemas/Uuid"
             }
           },
           "required": [
@@ -5772,6 +5915,10 @@
               "minimum": 1,
               "type": "integer"
             },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
             "WebhookDelivery": {
               "additionalProperties": false,
               "properties": {
@@ -5782,16 +5929,16 @@
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
                 "endpoint_id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "event": {
                   "$ref": "#/components/schemas/WebhookDeliveryEventSummary"
                 },
                 "event_id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "last_attempt_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
@@ -5831,7 +5978,7 @@
                   "$ref": "#/components/schemas/NonEmptyString"
                 },
                 "id": {
-                  "$ref": "#/components/schemas/WebhookId"
+                  "$ref": "#/components/schemas/Uuid"
                 },
                 "occurred_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
@@ -5969,6 +6116,9 @@
                   "const": "delivery.delivered"
                 },
                 {
+                  "const": "delivery.rejected"
+                },
+                {
                   "const": "operation.blocked"
                 },
                 {
@@ -5996,10 +6146,6 @@
                   "const": "webhook.test"
                 }
               ]
-            },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
             },
             "WebhookSubjectKind": {
               "oneOf": [
@@ -6368,6 +6514,10 @@
               "minimum": 1,
               "type": "integer"
             },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
             "WebhookDispatchOutput": {
               "additionalProperties": false,
               "properties": {
@@ -6409,10 +6559,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "delivery_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "endpoint_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "error": {
                       "$ref": "#/components/schemas/NonEmptyString"
@@ -6445,10 +6595,10 @@
                   "additionalProperties": false,
                   "properties": {
                     "delivery_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "endpoint_id": {
-                      "$ref": "#/components/schemas/WebhookId"
+                      "$ref": "#/components/schemas/Uuid"
                     },
                     "error": {
                       "$ref": "#/components/schemas/NonEmptyString"
@@ -6466,10 +6616,6 @@
                   "type": "object"
                 }
               ]
-            },
-            "WebhookId": {
-              "format": "uuid",
-              "type": "string"
             },
             "WebhookReconcileOutput": {
               "additionalProperties": false,
@@ -6549,7 +6695,1281 @@
       },
       "since": "0.8.0",
       "stability": "experimental"
+    },
+    {
+      "id": "webhooks.runtime.status",
+      "input": {
+        "components": {
+          "schemas": {
+            "WebhookRuntimeStatusInput": {
+              "additionalProperties": false,
+              "properties": {
+                "worker_stale_ms": {
+                  "maximum": 86400000,
+                  "minimum": 1000,
+                  "type": "integer"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "worker_stale_ms": {
+              "maximum": 86400000,
+              "minimum": 1000,
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "IsoDateTime": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookRuntimeStatusOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "checked_at": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "deliveries": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "dead_letter": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    },
+                    "delivering": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    },
+                    "due": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    },
+                    "exhausted": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    },
+                    "oldest_due_at": {
+                      "$ref": "#/components/schemas/IsoDateTime"
+                    },
+                    "pending": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    },
+                    "retry": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    },
+                    "succeeded": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    }
+                  },
+                  "required": [
+                    "pending",
+                    "delivering",
+                    "retry",
+                    "succeeded",
+                    "exhausted",
+                    "due",
+                    "dead_letter"
+                  ],
+                  "type": "object"
+                },
+                "endpoints": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "circuit_open": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    },
+                    "enabled": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    },
+                    "total": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "enabled",
+                    "circuit_open"
+                  ],
+                  "type": "object"
+                },
+                "healthy": {
+                  "type": "boolean"
+                },
+                "schema_version": {
+                  "$ref": "#/components/schemas/PositiveInteger"
+                },
+                "store": {
+                  "oneOf": [
+                    {
+                      "const": "file"
+                    },
+                    {
+                      "const": "postgres"
+                    }
+                  ]
+                },
+                "workers": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "failed": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    },
+                    "last_heartbeat_at": {
+                      "$ref": "#/components/schemas/IsoDateTime"
+                    },
+                    "running": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    },
+                    "stale": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    },
+                    "stopped": {
+                      "$ref": "#/components/schemas/NonNegativeInteger"
+                    }
+                  },
+                  "required": [
+                    "running",
+                    "stale",
+                    "stopped",
+                    "failed"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "store",
+                "schema_version",
+                "healthy",
+                "checked_at",
+                "endpoints",
+                "deliveries",
+                "workers"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "checked_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "deliveries": {
+              "additionalProperties": false,
+              "properties": {
+                "dead_letter": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "delivering": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "due": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "exhausted": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "oldest_due_at": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "pending": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "retry": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "succeeded": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "pending",
+                "delivering",
+                "retry",
+                "succeeded",
+                "exhausted",
+                "due",
+                "dead_letter"
+              ],
+              "type": "object"
+            },
+            "endpoints": {
+              "additionalProperties": false,
+              "properties": {
+                "circuit_open": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "enabled": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "total": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "total",
+                "enabled",
+                "circuit_open"
+              ],
+              "type": "object"
+            },
+            "healthy": {
+              "type": "boolean"
+            },
+            "schema_version": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "store": {
+              "oneOf": [
+                {
+                  "const": "file"
+                },
+                {
+                  "const": "postgres"
+                }
+              ]
+            },
+            "workers": {
+              "additionalProperties": false,
+              "properties": {
+                "failed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "last_heartbeat_at": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "running": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "stale": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "stopped": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "running",
+                "stale",
+                "stopped",
+                "failed"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "store",
+            "schema_version",
+            "healthy",
+            "checked_at",
+            "endpoints",
+            "deliveries",
+            "workers"
+          ],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads durable runtime state."
+      },
+      "since": "0.8.0",
+      "stability": "experimental"
+    },
+    {
+      "id": "webhooks.inbound.ingest",
+      "input": {
+        "components": {
+          "schemas": {
+            "IsoDateTime": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "Recordstringunknown": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookInboundIngestBaseInput__type": {
+              "additionalProperties": false,
+              "properties": {
+                "campaign_id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "kind": {
+                  "const": "unsubscribed"
+                },
+                "message_id": {
+                  "maxLength": 300,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "metadata": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "occurred_at": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "provider": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "provider_event_id": {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "subscriber_uuid": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "required": [
+                "provider",
+                "provider_event_id",
+                "kind",
+                "subscriber_uuid"
+              ],
+              "type": "object"
+            },
+            "WebhookInboundIngestBaseInput__type-o1": {
+              "additionalProperties": false,
+              "properties": {
+                "campaign_id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "kind": {
+                  "oneOf": [
+                    {
+                      "const": "bounced"
+                    },
+                    {
+                      "const": "complained"
+                    },
+                    {
+                      "const": "delayed"
+                    },
+                    {
+                      "const": "delivered"
+                    },
+                    {
+                      "const": "rejected"
+                    }
+                  ]
+                },
+                "message_id": {
+                  "maxLength": 300,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "metadata": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "occurred_at": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "provider": {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "provider_event_id": {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "subscriber_uuid": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "required": [
+                "provider",
+                "provider_event_id",
+                "kind"
+              ],
+              "type": "object"
+            },
+            "WebhookInboundIngestInput": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/WebhookInboundIngestBaseInput__type"
+                },
+                {
+                  "$ref": "#/components/schemas/WebhookInboundIngestBaseInput__type-o1"
+                }
+              ]
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/WebhookInboundIngestBaseInput__type"
+            },
+            {
+              "$ref": "#/components/schemas/WebhookInboundIngestBaseInput__type-o1"
+            }
+          ]
+        },
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookEventType": {
+              "oneOf": [
+                {
+                  "const": "abtest.failed"
+                },
+                {
+                  "const": "abtest.inconclusive"
+                },
+                {
+                  "const": "abtest.ready-for-analysis"
+                },
+                {
+                  "const": "abtest.started"
+                },
+                {
+                  "const": "abtest.winner-selected"
+                },
+                {
+                  "const": "campaign.cancelled"
+                },
+                {
+                  "const": "campaign.finished"
+                },
+                {
+                  "const": "campaign.paused"
+                },
+                {
+                  "const": "campaign.scheduled"
+                },
+                {
+                  "const": "campaign.started"
+                },
+                {
+                  "const": "delivery.bounced"
+                },
+                {
+                  "const": "delivery.complained"
+                },
+                {
+                  "const": "delivery.delayed"
+                },
+                {
+                  "const": "delivery.delivered"
+                },
+                {
+                  "const": "delivery.rejected"
+                },
+                {
+                  "const": "operation.blocked"
+                },
+                {
+                  "const": "operation.failed"
+                },
+                {
+                  "const": "operation.started"
+                },
+                {
+                  "const": "operation.succeeded"
+                },
+                {
+                  "const": "subscriber.blocklisted"
+                },
+                {
+                  "const": "subscriber.created"
+                },
+                {
+                  "const": "subscriber.unsubscribed"
+                },
+                {
+                  "const": "subscriber.updated"
+                },
+                {
+                  "const": "webhook.test"
+                }
+              ]
+            },
+            "WebhookInboundIngestOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "delivery_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "type": "array"
+                },
+                "duplicate_deliveries": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "event_id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "event_type": {
+                  "$ref": "#/components/schemas/WebhookEventType"
+                },
+                "matched_endpoints": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "queued_deliveries": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "event_id",
+                "event_type",
+                "matched_endpoints",
+                "queued_deliveries",
+                "duplicate_deliveries",
+                "delivery_ids"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "delivery_ids": {
+              "items": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "type": "array"
+            },
+            "duplicate_deliveries": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "event_id": {
+              "$ref": "#/components/schemas/Uuid"
+            },
+            "event_type": {
+              "$ref": "#/components/schemas/WebhookEventType"
+            },
+            "matched_endpoints": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "queued_deliveries": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "event_id",
+            "event_type",
+            "matched_endpoints",
+            "queued_deliveries",
+            "duplicate_deliveries",
+            "delivery_ids"
+          ],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "Stable provider event IDs produce deterministic event IDs and duplicate outbox rows are ignored."
+      },
+      "since": "0.8.0",
+      "stability": "experimental"
+    },
+    {
+      "id": "webhooks.dlq.list",
+      "input": {
+        "components": {
+          "schemas": {
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookDeliveryListLimit": {
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookDlqListInput": {
+              "additionalProperties": false,
+              "properties": {
+                "endpoint_id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "limit": {
+                  "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "endpoint_id": {
+              "$ref": "#/components/schemas/Uuid"
+            },
+            "limit": {
+              "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "IsoDateTime": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "NonEmptyString": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookDelivery": {
+              "additionalProperties": false,
+              "properties": {
+                "attempt_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "completed_at": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "endpoint_id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "event": {
+                  "$ref": "#/components/schemas/WebhookDeliveryEventSummary"
+                },
+                "event_id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "last_attempt_at": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "last_error": {
+                  "$ref": "#/components/schemas/NonEmptyString"
+                },
+                "manual_retry_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "next_attempt_at": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/WebhookDeliveryStatus"
+                },
+                "status_code": {
+                  "$ref": "#/components/schemas/PositiveInteger"
+                }
+              },
+              "required": [
+                "id",
+                "event_id",
+                "endpoint_id",
+                "event",
+                "status",
+                "attempt_count",
+                "manual_retry_count",
+                "next_attempt_at"
+              ],
+              "type": "object"
+            },
+            "WebhookDeliveryEventSummary": {
+              "additionalProperties": false,
+              "properties": {
+                "correlation_id": {
+                  "$ref": "#/components/schemas/NonEmptyString"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "occurred_at": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "schema_version": {
+                  "$ref": "#/components/schemas/PositiveInteger"
+                },
+                "source": {
+                  "$ref": "#/components/schemas/WebhookEventSource"
+                },
+                "subject": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/NonEmptyString"
+                    },
+                    "kind": {
+                      "$ref": "#/components/schemas/WebhookSubjectKind"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "key"
+                  ],
+                  "type": "object"
+                },
+                "type": {
+                  "$ref": "#/components/schemas/WebhookEventType"
+                }
+              },
+              "required": [
+                "id",
+                "type",
+                "schema_version",
+                "occurred_at",
+                "source"
+              ],
+              "type": "object"
+            },
+            "WebhookDeliveryListOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "deliveries": {
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookDelivery"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "deliveries"
+              ],
+              "type": "object"
+            },
+            "WebhookDeliveryStatus": {
+              "oneOf": [
+                {
+                  "const": "delivering"
+                },
+                {
+                  "const": "exhausted"
+                },
+                {
+                  "const": "pending"
+                },
+                {
+                  "const": "retry"
+                },
+                {
+                  "const": "succeeded"
+                }
+              ]
+            },
+            "WebhookEventSource": {
+              "oneOf": [
+                {
+                  "const": "abtest"
+                },
+                {
+                  "const": "listmonk"
+                },
+                {
+                  "const": "operation"
+                },
+                {
+                  "const": "provider"
+                },
+                {
+                  "const": "sequence"
+                },
+                {
+                  "const": "webhook"
+                }
+              ]
+            },
+            "WebhookEventType": {
+              "oneOf": [
+                {
+                  "const": "abtest.failed"
+                },
+                {
+                  "const": "abtest.inconclusive"
+                },
+                {
+                  "const": "abtest.ready-for-analysis"
+                },
+                {
+                  "const": "abtest.started"
+                },
+                {
+                  "const": "abtest.winner-selected"
+                },
+                {
+                  "const": "campaign.cancelled"
+                },
+                {
+                  "const": "campaign.finished"
+                },
+                {
+                  "const": "campaign.paused"
+                },
+                {
+                  "const": "campaign.scheduled"
+                },
+                {
+                  "const": "campaign.started"
+                },
+                {
+                  "const": "delivery.bounced"
+                },
+                {
+                  "const": "delivery.complained"
+                },
+                {
+                  "const": "delivery.delayed"
+                },
+                {
+                  "const": "delivery.delivered"
+                },
+                {
+                  "const": "delivery.rejected"
+                },
+                {
+                  "const": "operation.blocked"
+                },
+                {
+                  "const": "operation.failed"
+                },
+                {
+                  "const": "operation.started"
+                },
+                {
+                  "const": "operation.succeeded"
+                },
+                {
+                  "const": "subscriber.blocklisted"
+                },
+                {
+                  "const": "subscriber.created"
+                },
+                {
+                  "const": "subscriber.unsubscribed"
+                },
+                {
+                  "const": "subscriber.updated"
+                },
+                {
+                  "const": "webhook.test"
+                }
+              ]
+            },
+            "WebhookSubjectKind": {
+              "oneOf": [
+                {
+                  "const": "campaign"
+                },
+                {
+                  "const": "experiment"
+                },
+                {
+                  "const": "message"
+                },
+                {
+                  "const": "operation"
+                },
+                {
+                  "const": "subscriber"
+                },
+                {
+                  "const": "webhook"
+                }
+              ]
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "deliveries": {
+              "items": {
+                "$ref": "#/components/schemas/WebhookDelivery"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "deliveries"
+          ],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads exhausted deliveries."
+      },
+      "since": "0.8.0",
+      "stability": "experimental"
+    },
+    {
+      "id": "webhooks.dlq.replay",
+      "input": {
+        "components": {
+          "schemas": {
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookDeliveryListLimit": {
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookDlqReplayInput": {
+              "additionalProperties": false,
+              "properties": {
+                "dry_run": {
+                  "type": "boolean"
+                },
+                "endpoint_id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "limit": {
+                  "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "dry_run": {
+              "type": "boolean"
+            },
+            "endpoint_id": {
+              "$ref": "#/components/schemas/Uuid"
+            },
+            "limit": {
+              "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "NonEmptyString": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookDlqReplayOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "delivery_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "type": "array"
+                },
+                "dry_run": {
+                  "type": "boolean"
+                },
+                "eligible": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "errors": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "error": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      }
+                    },
+                    "required": [
+                      "delivery_id",
+                      "error"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "failed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "replayed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "eligible",
+                "replayed",
+                "failed",
+                "dry_run",
+                "delivery_ids",
+                "errors"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "delivery_ids": {
+              "items": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "type": "array"
+            },
+            "dry_run": {
+              "type": "boolean"
+            },
+            "eligible": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "errors": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "delivery_id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "error": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "delivery_id",
+                  "error"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "failed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "replayed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "eligible",
+            "replayed",
+            "failed",
+            "dry_run",
+            "delivery_ids",
+            "errors"
+          ],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "retry": {
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "Replayed deliveries leave the dead-letter set, so inspect state after an ambiguous result.",
+        "reconcileWith": "webhooks.dlq.list"
+      },
+      "since": "0.8.0",
+      "stability": "experimental"
+    },
+    {
+      "id": "webhooks.circuit.reset",
+      "input": {
+        "components": {
+          "schemas": {
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookCircuitResetInput": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "Uuid": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookCircuitResetOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "circuit_state": {
+                  "const": "closed"
+                },
+                "consecutive_failures": {
+                  "const": 0
+                },
+                "endpoint_id": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "required": [
+                "endpoint_id",
+                "circuit_state",
+                "consecutive_failures"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "circuit_state": {
+              "const": "closed"
+            },
+            "consecutive_failures": {
+              "const": 0
+            },
+            "endpoint_id": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          "required": [
+            "endpoint_id",
+            "circuit_state",
+            "consecutive_failures"
+          ],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "Resetting an already closed circuit is an idempotent no-op."
+      },
+      "since": "0.8.0",
+      "stability": "experimental"
     }
   ],
-  "schemaVersion": "1.4.0"
+  "schemaVersion": "1.5.0"
 }

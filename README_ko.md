@@ -685,7 +685,9 @@ listmonk-cli webhooks create \
   --name operations \
   --url https://events.example.com/listmonk \
   --secret-ref LISTMONK_OPS_WEBHOOK_SECRET \
-  --event-filters 'operation.*,campaign.*,abtest.*'
+  --event-filters 'operation.*,campaign.*,abtest.*' \
+  --circuit-failure-threshold 5 \
+  --circuit-cooldown-ms 300000
 
 listmonk-cli webhooks test --id <endpoint-uuid> --confirm
 listmonk-cli webhooks tick --dispatch-limit 25 --confirm
@@ -695,6 +697,17 @@ listmonk-cli webhooks prune --older-than-days 30 --dry-run
 listmonk-cli webhooks prune --older-than-days 30 --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted
 listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
+listmonk-cli webhooks runtime status
+listmonk-cli webhooks runtime worker --interval-ms 5000 --confirm
+listmonk-cli webhooks dlq list
+listmonk-cli webhooks dlq replay --dry-run
+listmonk-cli webhooks dlq replay --no-dry-run --confirm
+listmonk-cli webhooks circuit reset --id <endpoint-uuid> --confirm
+listmonk-cli webhooks inbound ingest \
+  --provider ses \
+  --provider-event-id <안정적인-provider-event-id> \
+  --kind bounced \
+  --message-id <provider-message-id>
 ```
 
 필터는 정확한 event type, `campaign.*` 같은 family wildcard 또는 `*`를
@@ -723,11 +736,22 @@ checksum과 개수만 포함하고 이메일 주소는 포함하지 않습니다
 유지하면서 해당 시도를 `skipped`로 보고합니다. 최종 상태는 공유 delivery
 log에서 확인할 수 있습니다.
 
-JSON 저장소는 설정이 필요 없는 단일 호스트 기본값으로 유지됩니다. 여러
+`exhausted` record는 DLQ로 다룹니다. Replay는 기본 dry-run이며, circuit
+breaker는 연속 실패 후 cooldown이 끝나거나 운영자가 reset할 때까지 endpoint
+claim을 멈춥니다. `webhooks runtime status`는 schema, backlog, circuit, DLQ,
+running, stale, stopped, failed worker 상태를 보고합니다. 인증을 마친 provider adapter는 delivered,
+bounced, complained, unsubscribed, delayed, rejected event를 같은 envelope로
+수집할 수 있습니다. 안정적인 provider event ID로 중복 수집을 막고 민감한
+metadata key는 저장 전에 마스킹합니다. 구독 해지 event에는 subscriber UUID가
+필수이며 provider metadata는 16 KiB로 제한합니다.
+
+JSON 저장소는 설정이 필요 없는 단일 호스트 기본값으로 유지됩니다. 기존 v1
+파일은 호환되게 읽고 다음 mutation에서 v2로 저장합니다. 여러
 CLI/MCP/worker 프로세스가 함께 처리하려면 대신
 `LISTMONK_OPS_WEBHOOK_DATABASE_URL`을 설정하세요. PostgreSQL 구현은 정규화된
 endpoint/delivery 테이블, transaction enqueue 중복 제거, `FOR UPDATE SKIP
-LOCKED` claim, lease token fencing을 사용합니다. `webhooks tick`은 만료 lease를
+LOCKED` claim, lease token fencing을 사용합니다. Postgres schema는 advisory
+lock으로 보호되는 순차 migration으로 갱신합니다. `webhooks tick`은 만료 lease를
 먼저 복구한 뒤 제한된 batch를 dispatch합니다. `webhooks reconcile`은 기본적으로
 복구 내용을 preview하고 `--no-dry-run`으로 적용합니다. `webhooks prune`은 기본
 dry-run이며 오래된 terminal
@@ -736,8 +760,11 @@ history를 명시적으로 확인한 경우에만 삭제합니다.
 자격 증명, query string, fragment가 없는 public HTTPS endpoint만 허용합니다.
 Dispatch 시 DNS/IP가 전역 라우팅 가능한 주소인지 다시 확인하고, 검증된 주소를
 차례로 시도하면서 각 HTTPS 연결에 고정하며 redirect는 허용하지 않습니다.
-`webhooks tick`은 scheduler에서 실행하세요. Endpoint 등록만으로 background
-daemon이 시작되지는 않습니다.
+`webhooks tick`을 scheduler에서 실행하거나 heartbeat를 기록하는
+`webhooks runtime worker --confirm`을 service manager에서 실행하세요. Endpoint
+등록만으로 background daemon이 시작되지는 않습니다. Worker는 일시적인 tick
+실패를 제한된 exponential backoff로 재시도한 뒤 process supervisor가 재시작할
+수 있도록 실패합니다.
 
 ## OpenAPI 재생성 (Hey API)
 

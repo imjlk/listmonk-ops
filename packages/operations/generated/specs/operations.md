@@ -280,3 +280,58 @@ Reconcile expired leases, claim due outbox records, and send one bounded deliver
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
 - Stability: `experimental` since `0.8.0`
+
+## `webhooks.runtime.status`
+
+Inspect durable schema, endpoint circuit, dead-letter, delivery, and worker heartbeat health.
+
+- Resource / verb: `webhook.status`
+- MCP tool: `listmonk_webhooks_runtime_status`
+- Effects: `read:webhook`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.inbound.ingest`
+
+Normalize a verified provider delivery event into the shared versioned event envelope and durable outbox; unsubscribe events require a subscriber UUID and metadata is limited to 16 KiB.
+
+- Resource / verb: `webhook.ingest`
+- MCP tool: `listmonk_webhooks_inbound_ingest`
+- Effects: `write:webhook`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.dlq.list`
+
+List exhausted delivery records that require operator review.
+
+- Resource / verb: `webhook.list`
+- MCP tool: `listmonk_webhooks_dlq_list`
+- Effects: `read:webhook`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.dlq.replay`
+
+Preview or requeue a bounded set of reviewed dead-letter deliveries.
+
+- Resource / verb: `webhook.replay`
+- MCP tool: `listmonk_webhooks_dlq_replay`
+- Effects: `maintenance:replay:destructive`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.circuit.reset`
+
+Close one endpoint circuit after the operator has corrected its failure.
+
+- Resource / verb: `webhook.reset`
+- MCP tool: `listmonk_webhooks_circuit_reset`
+- Effects: `write:webhook`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`

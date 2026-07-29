@@ -302,6 +302,66 @@ Verify with: `webhooks.delivery.list`
 
 Retry guidance: Inspect delivery state after a timeout before running another tick.
 
+## Inspect outbound webhook runtime health (`webhooks.runtime.status`)
+
+Use when: Worker readiness, circuit state, or outbox backlog must be inspected.
+
+Avoid when: A specific delivery payload rather than aggregate health is needed.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same health read is safe.
+
+## Ingest normalized provider delivery event (`webhooks.inbound.ingest`)
+
+Use when: A verified provider event must enter the shared event stream.
+
+Avoid when: The raw provider payload has not been authenticated or normalized. An unsubscribe event cannot be resolved to a subscriber UUID.
+
+Prerequisites: none
+
+Verify with: `webhooks.delivery.list`
+
+Retry guidance: Retry with the same provider and provider_event_id; ingestion is idempotent.
+
+## List outbound webhook dead letters (`webhooks.dlq.list`)
+
+Use when: Exhausted deliveries must be reviewed before replay.
+
+Avoid when: Active retry or pending delivery state is needed.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same read is safe.
+
+## Replay outbound webhook dead letters (`webhooks.dlq.replay`)
+
+Use when: Reviewed dead letters should receive a fresh bounded attempt cycle.
+
+Avoid when: The endpoint remains unhealthy or its circuit remains open.
+
+Prerequisites: `webhooks.dlq.list`, `webhooks.runtime.status`
+
+Verify with: `webhooks.delivery.list`
+
+Retry guidance: Run dry_run first and list dead letters after an ambiguous replay.
+
+## Reset outbound webhook circuit breaker (`webhooks.circuit.reset`)
+
+Use when: An endpoint failure has been fixed and delivery may resume.
+
+Avoid when: The endpoint has not been tested or remains unhealthy.
+
+Prerequisites: `webhooks.runtime.status`, `webhooks.test`
+
+Verify with: `webhooks.runtime.status`
+
+Retry guidance: Retrying the same reset is safe.
+
 # Typed playbooks
 
 ## `campaign.safe-start` — Safely start a campaign

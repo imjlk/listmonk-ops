@@ -7,16 +7,22 @@ import {
 	invokeWebhookDeleteOperation,
 	invokeWebhookDeliveryListOperation,
 	invokeWebhookDispatchOperation,
+	invokeWebhookDlqListOperation,
+	invokeWebhookDlqReplayOperation,
+	invokeWebhookInboundIngestOperation,
 	invokeWebhookListOperation,
 	invokeWebhookOperationByMcpName,
 	invokeWebhookPruneOperation,
 	invokeWebhookReconcileOperation,
 	invokeWebhookTestOperation,
 	invokeWebhookTickOperation,
+	invokeWebhookRuntimeStatusOperation,
+	invokeWebhookCircuitResetOperation,
 	invokeWebhookUpdateOperation,
 	webhookOperationCatalog,
 	webhookOperations,
 } from "../src/webhook-operations";
+import { ingestInboundDeliveryEvent } from "../src/inbound-delivery-events";
 
 const directories: string[] = [];
 
@@ -55,6 +61,11 @@ describe("webhook shared operations", () => {
 			"webhooks.reconcile",
 			"webhooks.prune",
 			"webhooks.tick",
+			"webhooks.runtime.status",
+			"webhooks.inbound.ingest",
+			"webhooks.dlq.list",
+			"webhooks.dlq.replay",
+			"webhooks.circuit.reset",
 		]);
 		for (const operation of webhookOperations) {
 			expect(operation.spec?.id).toBe(operation.id);
@@ -68,6 +79,155 @@ describe("webhook shared operations", () => {
 			openWorldHint: true,
 			idempotentHint: false,
 		});
+	});
+
+	test("ingests provider events idempotently and exposes health, DLQ, and circuit controls", async () => {
+		const context = await createContext();
+		const endpoint = await invokeWebhookCreateOperation(context, {
+			name: "provider-events",
+			url: "https://8.8.8.8/hooks",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_PROVIDER",
+			event_filters: ["delivery.*"],
+			circuit_failure_threshold: 1,
+		});
+		const input = {
+			provider: "ses",
+			provider_event_id: "provider-event-1",
+			kind: "rejected" as const,
+			message_id: "message-1",
+			metadata: { recipient_email: "hidden@example.com", reason: "policy" },
+		};
+		const first = await invokeWebhookInboundIngestOperation(context, input);
+		const duplicate = await invokeWebhookInboundIngestOperation(context, input);
+		expect(first).toMatchObject({
+			event_type: "delivery.rejected",
+			queued_deliveries: 1,
+		});
+		expect(duplicate).toMatchObject({
+			event_id: first.event_id,
+			queued_deliveries: 0,
+			duplicate_deliveries: 1,
+		});
+
+		await invokeWebhookDispatchOperation(
+			{ ...context, fetcher: mock(async () => new Response(null, { status: 400 })) as typeof fetch },
+			{ limit: 10 },
+		);
+		expect(await invokeWebhookDlqListOperation(context, {})).toMatchObject({
+			deliveries: [{ status: "exhausted" }],
+		});
+		expect(
+			await invokeWebhookDlqReplayOperation(context, { dry_run: true }),
+		).toMatchObject({ eligible: 1, replayed: 0, dry_run: true });
+		expect(await invokeWebhookRuntimeStatusOperation(context, {})).toMatchObject({
+			store: "file",
+			schema_version: 2,
+			endpoints: { circuit_open: 1 },
+			deliveries: { dead_letter: 1 },
+		});
+		expect(
+			await invokeWebhookTestOperation(context, { id: endpoint.endpoint.id }),
+		).toMatchObject({
+			dispatch: { claimed: 1, succeeded: 1, exhausted: 0, retried: 0 },
+		});
+		expect(await invokeWebhookRuntimeStatusOperation(context, {})).toMatchObject({
+			endpoints: { circuit_open: 0 },
+		});
+		expect(
+			await invokeWebhookCircuitResetOperation(context, {
+				id: endpoint.endpoint.id,
+			}),
+		).toEqual({
+			endpoint_id: endpoint.endpoint.id,
+			circuit_state: "closed",
+			consecutive_failures: 0,
+		});
+		expect(
+			await invokeWebhookDlqReplayOperation(context, {
+				dry_run: false,
+				limit: 10,
+			}),
+		).toMatchObject({ eligible: 1, replayed: 1, failed: 0 });
+		expect(await invokeWebhookRuntimeStatusOperation(context, {})).toMatchObject({
+			endpoints: { circuit_open: 0 },
+			deliveries: { dead_letter: 0, pending: 1 },
+		});
+	});
+
+	test("rejects ambiguous unsubscribe events and oversized provider metadata", async () => {
+		const context = await createContext();
+		const subscriberUuid = "0e9a8b67-1e4a-4c2d-9102-6ee29048a50c";
+		expect(
+			await ingestInboundDeliveryEvent(
+				{
+					provider: "ses",
+					providerEventId: "delivery-with-subscriber",
+					kind: "delivered",
+					subscriberUuid,
+				},
+				context.store,
+			),
+		).toMatchObject({
+			event: {
+				data: { subscriber_uuid: subscriberUuid },
+			},
+		});
+		await expect(
+			invokeWebhookInboundIngestOperation(context, {
+				provider: "ses",
+				provider_event_id: "unsubscribe-without-subscriber",
+				kind: "unsubscribed",
+				message_id: "message-1",
+			}),
+		).rejects.toThrow("Missing required parameter: subscriber_uuid");
+		await expect(
+			invokeWebhookInboundIngestOperation(context, {
+				provider: "ses",
+				provider_event_id: "oversized-metadata",
+				kind: "bounced",
+				message_id: "message-2",
+				metadata: { payload: "x".repeat(16_385) },
+			}),
+		).rejects.toThrow("metadata must be JSON serializable");
+		await expect(
+			ingestInboundDeliveryEvent(
+				{
+					provider: "ses",
+					providerEventId: "invalid-subscriber-uuid",
+					kind: "unsubscribed",
+					subscriberUuid: "not-a-uuid",
+				},
+				context.store,
+			),
+		).rejects.toThrow("subscriberUuid must be a valid UUID");
+		await expect(
+			ingestInboundDeliveryEvent(
+				{
+					provider: "ses",
+					providerEventId: "invalid-optional-subscriber-uuid",
+					kind: "delivered",
+					subscriberUuid: "not-a-uuid",
+				},
+				context.store,
+			),
+		).rejects.toThrow("subscriberUuid must be a valid UUID");
+		await expect(
+			ingestInboundDeliveryEvent(
+				{
+					provider: "ses",
+					providerEventId: "x".repeat(201),
+					kind: "bounced",
+				},
+				context.store,
+			),
+		).rejects.toThrow("providerEventId must not exceed 200 characters");
+		await expect(
+			invokeWebhookInboundIngestOperation(context, {
+				provider: "ses",
+				provider_event_id: "x".repeat(201),
+				kind: "bounced",
+			}),
+		).rejects.toThrow("provider_event_id");
 	});
 
 	test("runs typed reconcile, prune preview, and worker tick operations", async () => {
