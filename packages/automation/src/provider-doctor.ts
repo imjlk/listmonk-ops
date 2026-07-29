@@ -21,6 +21,7 @@ const DEFAULT_DNS_TIMEOUT_MS = 5_000;
 const DEFAULT_DNS_INSPECTION_TIMEOUT_MS = 10_000;
 const MAX_DMARC_TREE_WALK_QUERIES = 8;
 const MAX_SPF_DNS_LOOKUPS = 10;
+const MAX_SPF_VOID_LOOKUPS = 2;
 const ED25519_FIELD_PRIME = (1n << 255n) - 19n;
 const ED25519_CURVE_D =
 	37095705934669439343138083508754565189542113879843219016388785533085940283555n;
@@ -430,10 +431,14 @@ function smtpHost(record: Readonly<Record<string, unknown>>): string | undefined
 		: undefined;
 }
 
+function awsDnsSuffix(region: string): "amazonaws.com" | "amazonaws.com.cn" {
+	return region.startsWith("cn-") ? "amazonaws.com.cn" : "amazonaws.com";
+}
+
 function expectedSmtpHosts(profile: ProviderProfile): string[] {
 	if (profile.smtp_hosts.length > 0) return [...profile.smtp_hosts];
 	if (profile.kind === "ses" && profile.region) {
-		return [`email-smtp.${profile.region}.amazonaws.com`];
+		return [`email-smtp.${profile.region}.${awsDnsSuffix(profile.region)}`];
 	}
 	return [];
 }
@@ -557,7 +562,7 @@ function settingsChecks(
 	let messengerMessage: string;
 	if (snapshot.messenger_binding_ambiguous) {
 		messengerStatus = "fail";
-		messengerMessage = `Listmonk messenger '${snapshot.messenger}' is shared by provider profiles with the same SMTP endpoint; use distinct messenger names.`;
+		messengerMessage = `Listmonk messenger '${snapshot.messenger}' is shared by multiple provider profiles. Campaigns select a messenger rather than a provider profile; use distinct messenger names.`;
 	} else if (
 		snapshot.messenger_configured &&
 		snapshot.messenger_enabled
@@ -1618,39 +1623,6 @@ function hasSingleDirectDkimKey(records: readonly string[]): boolean {
 	return records.length === 1 && hasDirectDkimKey(records[0]!);
 }
 
-function spfLookupCountThroughExpectedInclude(
-	record: string,
-	expectedDomain: string,
-): number | undefined {
-	const expected = normalizeDomain(expectedDomain);
-	const terms = parseValidSpfTerms(record);
-	if (terms === undefined) return undefined;
-	let lookups = 0;
-	for (const mechanism of terms) {
-		if (mechanism.includes("=")) continue;
-		const qualifier = /^[+?~-]/.exec(mechanism)?.[0];
-		const unqualified = mechanism.replace(/^[+?~-]/, "");
-		const name = unqualified.toLowerCase().split(/[:/]/, 1)[0];
-		if (name === "all") return undefined;
-		if (name === "include" || spfMechanismUsesDns(unqualified)) {
-			lookups += 1;
-			if (lookups > MAX_SPF_DNS_LOOKUPS) return undefined;
-		}
-		if (
-			name !== "include" ||
-			(qualifier !== undefined && qualifier !== "+")
-		) {
-			continue;
-		}
-		if (
-			normalizeDomain(unqualified.slice("include:".length)) === expected
-		) {
-			return lookups;
-		}
-	}
-	return undefined;
-}
-
 function isSpfVersionOneRecord(record: string): boolean {
 	return record.trim().split(/\s+/, 1)[0]?.toLowerCase() === "v=spf1";
 }
@@ -1664,12 +1636,21 @@ interface SpfAuthorizationInspection {
 
 interface SpfLookupBudget {
 	used: number;
+	void: number;
 }
 
 function consumeSpfDnsLookup(budget: SpfLookupBudget): boolean {
 	if (budget.used >= MAX_SPF_DNS_LOOKUPS) return false;
 	budget.used += 1;
 	return true;
+}
+
+function consumeSpfVoidLookups(
+	budget: SpfLookupBudget,
+	count = 1,
+): boolean {
+	budget.void += count;
+	return budget.void <= MAX_SPF_VOID_LOOKUPS;
 }
 
 function isValidSpfDomainSpec(value: string): boolean {
@@ -1790,6 +1771,7 @@ async function inspectSpfAddresses(
 	domain: string,
 	dns: ProviderDnsResolver,
 	ipv4Only = false,
+	lookupBudget?: SpfLookupBudget,
 ): Promise<SpfMechanismMatch> {
 	if (domain.includes("%")) {
 		return { matches: false, indeterminate: true, invalid: false };
@@ -1804,6 +1786,16 @@ async function inspectSpfAddresses(
 		(load): load is () => Promise<string[]> => load !== undefined,
 	);
 	const results = await Promise.allSettled(available.map((load) => load()));
+	const voidLookups = results.filter(
+		(result) => result.status === "fulfilled" && result.value.length === 0,
+	).length;
+	if (
+		lookupBudget !== undefined &&
+		voidLookups > 0 &&
+		!consumeSpfVoidLookups(lookupBudget, voidLookups)
+	) {
+		return { matches: false, indeterminate: false, invalid: true };
+	}
 	if (
 		results.some(
 			(result) => result.status === "fulfilled" && result.value.length > 0,
@@ -1833,6 +1825,7 @@ async function inspectDirectSpfMechanism(
 	mechanism: string,
 	currentDomain: string,
 	dns: ProviderDnsResolver,
+	lookupBudget?: SpfLookupBudget,
 ): Promise<SpfMechanismMatch> {
 	const name = mechanism.toLowerCase().split(/[:/]/, 1)[0];
 	if (name === "ip4" || name === "ip6" || name === "all") {
@@ -1842,6 +1835,8 @@ async function inspectDirectSpfMechanism(
 		return inspectSpfAddresses(
 			spfMechanismDomain(mechanism, currentDomain),
 			dns,
+			false,
+			lookupBudget,
 		);
 	}
 	if (name === "exists") {
@@ -1849,6 +1844,7 @@ async function inspectDirectSpfMechanism(
 			spfMechanismDomain(mechanism, currentDomain),
 			dns,
 			true,
+			lookupBudget,
 		);
 	}
 	if (name === "mx") {
@@ -1865,12 +1861,24 @@ async function inspectDirectSpfMechanism(
 		if (records.length > 10) {
 			return { matches: false, indeterminate: false, invalid: true };
 		}
+		if (
+			records.length === 0 &&
+			lookupBudget !== undefined &&
+			!consumeSpfVoidLookups(lookupBudget)
+		) {
+			return { matches: false, indeterminate: false, invalid: true };
+		}
 		const exchanges = records
 			.map(({ exchange }) => normalizeDomain(exchange))
 			.filter(Boolean);
 		const results = await Promise.all(
-			exchanges.map((exchange) => inspectSpfAddresses(exchange, dns)),
+			exchanges.map((exchange) =>
+				inspectSpfAddresses(exchange, dns, false, lookupBudget),
+			),
 		);
+		if (results.some(({ invalid }) => invalid)) {
+			return { matches: false, indeterminate: false, invalid: true };
+		}
 		if (results.some(({ matches }) => matches)) {
 			return { matches: true, indeterminate: false, invalid: false };
 		}
@@ -1883,11 +1891,127 @@ async function inspectDirectSpfMechanism(
 	return { matches: false, indeterminate: true, invalid: false };
 }
 
+interface SpfExpectedIncludeInspection {
+	found: boolean;
+	indeterminate: boolean;
+	invalid: boolean;
+	observations: DnsObservation[];
+	lookupBudget: SpfLookupBudget;
+}
+
+async function inspectSpfExpectedIncludePath(
+	record: string,
+	currentDomain: string,
+	expectedDomain: string,
+	dns: ProviderDnsResolver,
+): Promise<SpfExpectedIncludeInspection> {
+	const terms = parseValidSpfTerms(record);
+	const lookupBudget: SpfLookupBudget = { used: 0, void: 0 };
+	const observations: DnsObservation[] = [];
+	if (terms === undefined) {
+		return {
+			found: false,
+			indeterminate: false,
+			invalid: true,
+			observations,
+			lookupBudget,
+		};
+	}
+	const expected = normalizeDomain(expectedDomain);
+	const visited = new Set([normalizeDomain(currentDomain)]);
+	for (const term of terms) {
+		if (term.includes("=")) continue;
+		const qualifier = /^[+?~-]/.exec(term)?.[0];
+		const mechanism = term.replace(/^[+?~-]/, "");
+		const mechanismName = mechanism
+			.toLowerCase()
+			.split(/[:/]/, 1)[0];
+		if (mechanismName === "all") {
+			return {
+				found: false,
+				indeterminate: false,
+				invalid: false,
+				observations,
+				lookupBudget,
+			};
+		}
+		if (
+			(mechanismName === "include" ||
+				spfMechanismUsesDns(mechanism)) &&
+			!consumeSpfDnsLookup(lookupBudget)
+		) {
+			return {
+				found: false,
+				indeterminate: false,
+				invalid: true,
+				observations,
+				lookupBudget,
+			};
+		}
+		if (mechanismName === "include") {
+			const nestedDomain = mechanism.slice("include:".length);
+			if (
+				(qualifier === undefined || qualifier === "+") &&
+				normalizeDomain(nestedDomain) === expected
+			) {
+				return {
+					found: true,
+					indeterminate: false,
+					invalid: false,
+					observations,
+					lookupBudget,
+				};
+			}
+			const nested = await inspectSpfAuthorizationTarget(
+				nestedDomain,
+				dns,
+				visited,
+				lookupBudget,
+			);
+			observations.push(...nested.observations);
+			if (nested.indeterminate || nested.invalid) {
+				return {
+					found: false,
+					indeterminate: nested.indeterminate,
+					invalid: nested.invalid,
+					observations,
+					lookupBudget,
+				};
+			}
+			continue;
+		}
+		if (!spfMechanismUsesDns(mechanism)) continue;
+		const match = await inspectDirectSpfMechanism(
+			mechanism,
+			currentDomain,
+			dns,
+			lookupBudget,
+		);
+		if (match.indeterminate || match.invalid) {
+			return {
+				found: false,
+				indeterminate: match.indeterminate,
+				invalid: match.invalid,
+				observations,
+				lookupBudget,
+			};
+		}
+	}
+	return {
+		found: false,
+		indeterminate: false,
+		invalid: false,
+		observations,
+		lookupBudget,
+	};
+}
+
 async function inspectSpfAuthorizationTarget(
 	domain: string,
 	dns: ProviderDnsResolver,
 	visited: ReadonlySet<string> = new Set(),
-	lookupBudget: SpfLookupBudget = { used: 1 },
+	lookupBudget: SpfLookupBudget = { used: 1, void: 0 },
+	preloadedSpfRecord?: string,
 ): Promise<SpfAuthorizationInspection> {
 	const normalizedDomain = normalizeDomain(domain);
 	if (
@@ -1909,15 +2033,37 @@ async function inspectSpfAuthorizationTarget(
 			observations: [],
 		};
 	}
-	const lookup = await resolveDnsObservation(normalizedDomain, "TXT", () =>
-		dns.txt(normalizedDomain),
-	);
+	const lookup =
+		preloadedSpfRecord === undefined
+			? await resolveDnsObservation(normalizedDomain, "TXT", () =>
+					dns.txt(normalizedDomain),
+				)
+			: {
+					outcome: "found" as const,
+					values: [preloadedSpfRecord],
+					observation: {
+						name: normalizedDomain,
+						type: "TXT" as const,
+						values: [preloadedSpfRecord],
+					},
+				};
 	const observations = [lookup.observation];
 	if (lookup.outcome === "error") {
 		return {
 			ready: false,
 			indeterminate: true,
 			invalid: false,
+			observations,
+		};
+	}
+	if (
+		lookup.values.length === 0 &&
+		!consumeSpfVoidLookups(lookupBudget)
+	) {
+		return {
+			ready: false,
+			indeterminate: false,
+			invalid: true,
 			observations,
 		};
 	}
@@ -2036,6 +2182,7 @@ async function inspectSpfAuthorizationTarget(
 			mechanism,
 			normalizedDomain,
 			dns,
+			lookupBudget,
 		);
 		if (match.indeterminate) {
 			return {
@@ -2369,43 +2516,84 @@ async function inspectProviderDnsUnbounded(
 		const expectedInclude =
 			profile.expected_spf_include ??
 			(profile.kind === "ses" ? "amazonses.com" : undefined);
-		const rootSpfLookupCount =
+		const expectedIncludePath =
 			spfRecords.length === 1 && expectedInclude !== undefined
-				? spfLookupCountThroughExpectedInclude(spfRecords[0]!, expectedInclude)
+				? await inspectSpfExpectedIncludePath(
+						spfRecords[0]!,
+						mailFromDomain,
+						expectedInclude,
+						dns,
+					)
 				: undefined;
+		if (expectedIncludePath !== undefined) {
+			observations.push(...expectedIncludePath.observations);
+		}
 		const includeAuthorization =
-			expectedInclude === undefined || rootSpfLookupCount === undefined
+			expectedInclude === undefined || expectedIncludePath?.found !== true
 				? undefined
 				: await inspectSpfAuthorizationTarget(
 						expectedInclude,
 						dns,
 						new Set([mailFromDomain]),
-						{ used: rootSpfLookupCount },
+						expectedIncludePath.lookupBudget,
 					);
 		if (includeAuthorization !== undefined) {
 			observations.push(...includeAuthorization.observations);
 		}
+		const directAuthorization =
+			expectedInclude === undefined && spfRecords.length === 1
+				? await inspectSpfAuthorizationTarget(
+						mailFromDomain,
+						dns,
+						new Set(),
+						{ used: 0, void: 0 },
+						spfRecords[0]!,
+					)
+				: undefined;
+		if (directAuthorization !== undefined) {
+			observations.push(
+				...directAuthorization.observations.filter(
+					(observation) =>
+						observation.name !== normalizeDomain(mailFromDomain) ||
+						observation.type !== "TXT",
+				),
+			);
+		}
 		const spfReady =
 			spfRecords.length === 1 &&
-			expectedInclude !== undefined &&
-			rootSpfLookupCount !== undefined &&
-			includeAuthorization?.ready === true;
-		const spfStatus: DoctorCheckStatus =
+			(expectedInclude === undefined
+				? directAuthorization?.ready === true
+				: expectedIncludePath?.found === true &&
+					includeAuthorization?.ready === true);
+		// Invalid SPF syntax and exhausted lookup budgets are deterministic
+		// policy errors, so they fail readiness; only unavailable DNS evidence
+		// remains unknown.
+		let spfStatus: DoctorCheckStatus;
+		if (
 			txt.outcome === "error" ||
+			expectedIncludePath?.indeterminate === true ||
 			includeAuthorization?.indeterminate === true ||
-			expectedInclude === undefined
-				? "unknown"
-				: spfReady
-					? "pass"
-					: "fail";
-		const spfMessage =
-			txt.outcome === "error"
-				? "Custom MAIL FROM SPF could not be determined because the DNS lookup failed."
-				: expectedInclude === undefined
-					? "Generic SMTP SPF readiness requires expected_spf_include so authorization can be verified."
-					: spfReady
-						? "Custom MAIL FROM SPF and its expected include target are present."
-						: "Custom MAIL FROM SPF or its expected include target is missing, duplicated, or invalid.";
+			directAuthorization?.indeterminate === true
+		) {
+			spfStatus = "unknown";
+		} else if (spfReady) {
+			spfStatus = "pass";
+		} else {
+			spfStatus = "fail";
+		}
+		let spfMessage: string;
+		if (txt.outcome === "error") {
+			spfMessage =
+				"Custom MAIL FROM SPF could not be determined because the DNS lookup failed.";
+		} else if (expectedInclude === undefined) {
+			spfMessage = spfReady
+				? "Custom MAIL FROM SPF has a valid authorization path."
+				: "Custom MAIL FROM SPF is missing, duplicated, invalid, or has no valid authorization path.";
+		} else {
+			spfMessage = spfReady
+				? "Custom MAIL FROM SPF and its expected include target are present."
+				: "Custom MAIL FROM SPF or its expected include target is missing, duplicated, or invalid.";
+		}
 		checks.push({
 			id: "dns.spf",
 			status: spfStatus,

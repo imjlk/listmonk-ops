@@ -181,6 +181,23 @@ describe("provider and deliverability operations", () => {
 			smtp_configured: true,
 			smtp_enabled: true,
 		});
+		const china = providerProfileSchema.parse({
+			...profile,
+			region: "CN-NORTH-1",
+		});
+		expect(
+			inspectListmonkProviderSettings(china, {
+				smtp: [
+					{
+						host: "email-smtp.cn-north-1.amazonaws.com.cn",
+						enabled: true,
+					},
+				],
+			}),
+		).toMatchObject({
+			smtp_configured: true,
+			smtp_enabled: true,
+		});
 	});
 
 	test("exposes one shared typed operation family without credential values", async () => {
@@ -807,6 +824,9 @@ describe("provider and deliverability operations", () => {
 			expect.objectContaining({
 				id: "listmonk.messenger",
 				status: "fail",
+				message: expect.stringContaining(
+					"Campaigns select a messenger rather than a provider profile",
+				),
 			}),
 		);
 	});
@@ -829,6 +849,14 @@ describe("provider and deliverability operations", () => {
 			messenger_configured: false,
 			messenger_enabled: false,
 		});
+		expect(status.checks).toContainEqual(
+			expect.objectContaining({
+				id: "listmonk.messenger",
+				message: expect.stringContaining(
+					"Campaigns select a messenger rather than a provider profile",
+				),
+			}),
+		);
 	});
 
 	test("preserves punctuation when matching messenger identifiers", () => {
@@ -1352,6 +1380,27 @@ describe("provider and deliverability operations", () => {
 				expect.objectContaining({ id: "dns.dmarc", status: "fail" }),
 			);
 		}
+	});
+
+	test("accepts DMARC policy tags in any order after the version", async () => {
+		const reorderedDmarcDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name === "_dmarc.news.example.com") {
+					return [
+						"v=DMARC1; rua=mailto:dmarc@example.com; p=reject",
+					];
+				}
+				return dns.txt(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: reorderedDmarcDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dmarc", status: "pass" }),
+		);
 	});
 
 	test("accepts optional whitespace around the DMARC version separator", async () => {
@@ -2193,6 +2242,9 @@ describe("provider and deliverability operations", () => {
 					if (name === "_spf.provider.example") {
 						return ["v=spf1 ip4:192.0.2.0/24 -all"];
 					}
+					if (name.startsWith("_spf.root-no-")) {
+						return ["v=spf1 -all"];
+					}
 					return [];
 				},
 				async cname() {
@@ -2214,6 +2266,71 @@ describe("provider and deliverability operations", () => {
 			expect(output.checks).toContainEqual(
 				expect.objectContaining({ id: "dns.spf", status }),
 			);
+		}
+	});
+
+	test("enforces the SPF void-lookup budget in root and recursive policies", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "void-budget-spf-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_include: "_spf.provider.example",
+			smtp_hosts: ["smtp.example.com"],
+		});
+		for (const scope of ["root", "recursive"] as const) {
+			for (const [voidLookups, status] of [
+				[2, "pass"],
+				[3, "fail"],
+			] as const) {
+				const exists = Array.from(
+					{ length: voidLookups },
+					(_, index) => `exists:void-${scope}-${index}.example`,
+				).join(" ");
+				const voidDns: ProviderDnsResolver = {
+					async txt(name) {
+						if (name === "_dmarc.mail.example.com") {
+							return ["v=DMARC1; p=quarantine"];
+						}
+						if (name === "bounce.mail.example.com") {
+							return [
+								scope === "root"
+									? `v=spf1 ${exists} include:_spf.provider.example -all`
+									: "v=spf1 include:_spf.provider.example -all",
+							];
+						}
+						if (name === "_spf.provider.example") {
+							return [
+								scope === "recursive"
+									? `v=spf1 ${exists} ip4:192.0.2.0/24 -all`
+									: "v=spf1 ip4:192.0.2.0/24 -all",
+							];
+						}
+						return [];
+					},
+					async cname() {
+						return [];
+					},
+					async mx(name) {
+						return name === "bounce.mail.example.com"
+							? [{ priority: 10, exchange: "mx.example.com" }]
+							: [];
+					},
+					async a() {
+						return [];
+					},
+				};
+				const output = await inspectProviderDns(
+					smtpProfile,
+					context({
+						profiles: [smtpProfile],
+						dns: voidDns,
+					}),
+				);
+				expect(output.checks).toContainEqual(
+					expect.objectContaining({ id: "dns.spf", status }),
+				);
+			}
 		}
 	});
 
@@ -2376,7 +2493,49 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
-	test("keeps generic SMTP SPF unknown without an authorization expectation", async () => {
+	test("accepts a generic SMTP direct SPF authorization policy", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "direct-policy-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const directSpfDns: ProviderDnsResolver = {
+			async txt(name) {
+				if (name === "_dmarc.mail.example.com") {
+					return ["v=DMARC1; p=quarantine"];
+				}
+				if (name === "bounce.mail.example.com") {
+					return ["v=spf1 ip4:203.0.113.10 -all"];
+				}
+				return [];
+			},
+			async cname() {
+				return [];
+			},
+			async mx(name) {
+				return name === "bounce.mail.example.com"
+					? [{ priority: 10, exchange: "mx.example.com" }]
+					: [];
+			},
+			async a(name) {
+				return name === "mx.example.com" ? ["203.0.113.10"] : [];
+			},
+			async aaaa() {
+				return [];
+			},
+		};
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({ profiles: [smtpProfile], dns: directSpfDns }),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "pass" }),
+		);
+	});
+
+	test("rejects a generic SMTP SPF policy without an authorization path", async () => {
 		const smtpProfile = providerProfileSchema.parse({
 			id: "unverified-relay",
 			kind: "smtp",
@@ -2409,7 +2568,7 @@ describe("provider and deliverability operations", () => {
 		);
 		expect(output.healthy).toBe(false);
 		expect(output.checks).toContainEqual(
-			expect.objectContaining({ id: "dns.spf", status: "unknown" }),
+			expect.objectContaining({ id: "dns.spf", status: "fail" }),
 		);
 	});
 
