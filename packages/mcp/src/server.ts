@@ -29,6 +29,7 @@ import {
 	handleSubscribersTools,
 	handleTemplatesTools,
 	handleTransactionalTools,
+	createWebhookToolsHandler,
 	isListsToolName,
 	isTransactionalToolName,
 	toolNameSets,
@@ -165,6 +166,7 @@ export class ListmonkMCPServer {
 	private httpAuthToken: string | undefined;
 	private allowedHttpHosts: Set<string>;
 	private allowedHttpOrigins: Set<string>;
+	private webhookHandler: ReturnType<typeof createWebhookToolsHandler>;
 
 	constructor(config: {
 		baseUrl: string;
@@ -173,6 +175,7 @@ export class ListmonkMCPServer {
 		apiToken?: string;
 		auditStorePath?: string;
 		auditStoreLimit?: number;
+		webhookStorePath?: string;
 		httpAuthToken?: string;
 		allowedHttpHosts?: readonly string[];
 		allowedHttpOrigins?: readonly string[];
@@ -190,6 +193,9 @@ export class ListmonkMCPServer {
 			path: config.auditStorePath,
 			limit: config.auditStoreLimit,
 		};
+		this.webhookHandler = createWebhookToolsHandler({
+			store: { path: config.webhookStorePath },
+		});
 		this.httpAuthToken = config.httpAuthToken;
 		this.allowedHttpHosts = new Set(
 			(config.allowedHttpHosts ?? []).map(normalizeAllowedHost),
@@ -498,6 +504,8 @@ export class ListmonkMCPServer {
 				result = await handleOpsTools(operationRequest, this.client);
 			} else if (toolNameSets.abtest.has(name)) {
 				result = await handleAbTestTools(operationRequest, this.client);
+			} else if (toolNameSets.webhooks.has(name)) {
+				result = await this.webhookHandler(operationRequest, this.client);
 			} else {
 				result = createErrorResult(`No handler found for tool: ${name}`);
 			}
@@ -582,6 +590,7 @@ export function createListmonkMCPServer(config: {
 	apiToken?: string;
 	auditStorePath?: string;
 	auditStoreLimit?: number;
+	webhookStorePath?: string;
 	httpAuthToken?: string;
 	allowedHttpHosts?: readonly string[];
 	allowedHttpOrigins?: readonly string[];
@@ -593,6 +602,7 @@ export function createListmonkMCPServer(config: {
 		apiToken: config.apiToken,
 		auditStorePath: config.auditStorePath,
 		auditStoreLimit: config.auditStoreLimit,
+		webhookStorePath: config.webhookStorePath,
 		httpAuthToken: config.httpAuthToken,
 		allowedHttpHosts: config.allowedHttpHosts,
 		allowedHttpOrigins: config.allowedHttpOrigins,

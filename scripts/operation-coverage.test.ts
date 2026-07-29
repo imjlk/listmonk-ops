@@ -26,6 +26,7 @@ import {
 	assertSubscriberOperationsPublished,
 	assertTemplateOperationsPublished,
 	assertTransactionalOperationsPublished,
+	assertWebhookOperationsPublished,
 } from "./shared-operation-coverage";
 
 function firstListOperationFixture() {
@@ -66,8 +67,8 @@ const registeredServerTools = toolRegistrations.flatMap(
 
 describe("shared operation coverage", () => {
 	test("keeps CLI and MCP discovery catalogs in direct parity", () => {
-		expect(cliOperationCatalog.entries).toHaveLength(65);
-		expect(mcpOperationCatalog.entries).toHaveLength(65);
+		expect(cliOperationCatalog.entries).toHaveLength(73);
+		expect(mcpOperationCatalog.entries).toHaveLength(73);
 		expect(listCliOperationCatalogSummaries()).toEqual(
 			listMcpOperationCatalogSummaries(),
 		);
@@ -83,6 +84,7 @@ describe("shared operation coverage", () => {
 		assertOpsOperationsPublished();
 		assertAbTestOperationsPublished();
 		assertDiscoveryOperationsPublished();
+		assertWebhookOperationsPublished();
 	});
 
 	test("publishes media operations with matching shared metadata", () => {

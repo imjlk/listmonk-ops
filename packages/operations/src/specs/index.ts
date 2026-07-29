@@ -15,3 +15,4 @@ export * from "./registry";
 export * from "./resource";
 export * from "./retry";
 export * from "./schema";
+export * from "./webhooks";

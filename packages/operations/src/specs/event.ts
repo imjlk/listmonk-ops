@@ -9,7 +9,8 @@ export interface OperationEventSpec {
 		| "provider"
 		| "operation"
 		| "abtest"
-		| "sequence";
+		| "sequence"
+		| "webhook";
 	subject: OperationResourceKind;
 	schemaVersion: number;
 }

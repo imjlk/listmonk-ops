@@ -10,7 +10,10 @@ import {
 	transactionalOperationCatalog,
 } from "@listmonk-ops/operations";
 import { abTestOperationCatalog } from "@listmonk-ops/abtest";
-import { opsOperationCatalog } from "@listmonk-ops/automation";
+import {
+	opsOperationCatalog,
+	webhookOperationCatalog,
+} from "@listmonk-ops/automation";
 
 export const cliOperationCatalog = composeOperationCatalogs([
 	listOperationCatalog,
@@ -22,6 +25,7 @@ export const cliOperationCatalog = composeOperationCatalogs([
 	opsOperationCatalog,
 	abTestOperationCatalog,
 	discoveryOperationCatalog,
+	webhookOperationCatalog,
 ]);
 
 export function listCliOperationCatalogSummaries(

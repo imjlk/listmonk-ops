@@ -48,6 +48,8 @@ function renderEffects(operation: AnyOperationSpec): string {
 					return `suppression:${effect.scope}`;
 				case "delete":
 					return `delete:${effect.resource}`;
+				case "webhook":
+					return `webhook:${effect.audience}`;
 				default: {
 					const unhandled: never = effect;
 					throw new Error(

@@ -38,7 +38,10 @@ export type OperationSpecVerb =
 	| "search"
 	| "describe"
 	| "capabilities"
-	| "prime";
+	| "prime"
+	| "test"
+	| "dispatch"
+	| "retry";
 
 export type OperationSpecLifecycle =
 	| {

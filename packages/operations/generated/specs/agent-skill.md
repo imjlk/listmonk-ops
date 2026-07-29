@@ -170,6 +170,102 @@ Verify with: none
 
 Retry guidance: Retry transient health failures with normal backoff; do not infer authentication from reachability alone.
 
+## List outbound webhook endpoints (`webhooks.list`)
+
+Use when: Configured webhook endpoints or their filters must be inspected.
+
+Avoid when: Delivery attempts rather than endpoint configuration are needed.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same read is safe.
+
+## Create outbound webhook endpoint (`webhooks.create`)
+
+Use when: A new signed outbound event destination must be registered.
+
+Avoid when: The signing secret value would need to be stored in the request.
+
+Prerequisites: none
+
+Verify with: `webhooks.list`
+
+Retry guidance: List endpoints by name after an ambiguous result before creating again.
+
+## Update outbound webhook endpoint (`webhooks.update`)
+
+Use when: An existing endpoint configuration or enabled state must change.
+
+Avoid when: A delivery attempt rather than endpoint configuration must change.
+
+Prerequisites: `webhooks.list`
+
+Verify with: `webhooks.list`
+
+Retry guidance: Retrying the same field update is safe.
+
+## Delete outbound webhook endpoint (`webhooks.delete`)
+
+Use when: An endpoint must be permanently removed and pending work abandoned.
+
+Avoid when: Temporarily stopping deliveries is sufficient; disable the endpoint instead.
+
+Prerequisites: `webhooks.list`
+
+Verify with: `webhooks.list`, `webhooks.delivery.list`
+
+Retry guidance: List endpoints after an ambiguous result; do not blindly repeat deletion.
+
+## Send outbound webhook test (`webhooks.test`)
+
+Use when: A configured endpoint and signing secret must be verified end to end.
+
+Avoid when: The endpoint owner has not approved an external test request.
+
+Prerequisites: `webhooks.list`
+
+Verify with: `webhooks.delivery.list`
+
+Retry guidance: Inspect the delivery log and endpoint system before sending another test.
+
+## Dispatch outbound webhooks (`webhooks.dispatch`)
+
+Use when: Due outbox deliveries should be processed by a worker or scheduled tick.
+
+Avoid when: The operator has not approved external network delivery.
+
+Prerequisites: `webhooks.list`
+
+Verify with: `webhooks.delivery.list`
+
+Retry guidance: Inspect delivery statuses after a timeout and rely on stable event IDs for receiver deduplication.
+
+## List outbound webhook deliveries (`webhooks.delivery.list`)
+
+Use when: Delivery progress, retries, or exhausted events must be inspected.
+
+Avoid when: Endpoint configuration rather than delivery state is needed.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same read is safe.
+
+## Retry outbound webhook delivery (`webhooks.delivery.retry`)
+
+Use when: An operator has reviewed a failed delivery and wants another attempt cycle.
+
+Avoid when: The endpoint is disabled, missing, or the failure has not been investigated.
+
+Prerequisites: `webhooks.delivery.list`
+
+Verify with: `webhooks.delivery.list`
+
+Retry guidance: Inspect the delivery status after an ambiguous result before requeueing again.
+
 # Typed playbooks
 
 ## `campaign.safe-start` — Safely start a campaign

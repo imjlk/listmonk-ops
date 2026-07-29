@@ -24,9 +24,9 @@ describe("operation spec migration coverage", () => {
 		);
 		expect(report).toEqual({
 			total: sharedOperationCatalog.entries.length,
-			covered: 14,
-			exempted: sharedOperationCatalog.entries.length - 14,
-			coverageRatio: 14 / sharedOperationCatalog.entries.length,
+			covered: 22,
+			exempted: sharedOperationCatalog.entries.length - 22,
+			coverageRatio: 22 / sharedOperationCatalog.entries.length,
 		});
 	});
 

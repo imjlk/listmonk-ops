@@ -44,7 +44,13 @@ export type PolicyForEffects<
 			audit: "required";
 			dryRun: true;
 		}
-	: HasBulkDelivery<Effects> extends true
+	: HasEffect<Effects, "webhook"> extends true
+		? {
+				confirmation: "required";
+				audit: "required";
+				dryRun: false;
+			}
+		: HasBulkDelivery<Effects> extends true
 		? {
 				confirmation: "required";
 				audit: "required";
@@ -89,6 +95,13 @@ export function expectedPolicyForEffects(
 			confirmation: "required",
 			audit: "required",
 			dryRun: true,
+		};
+	}
+	if (hasEffectKind(effects, ["webhook"])) {
+		return {
+			confirmation: "required",
+			audit: "required",
+			dryRun: false,
 		};
 	}
 	if (

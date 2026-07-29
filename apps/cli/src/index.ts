@@ -19,6 +19,7 @@ import statusCommand from "./commands/status";
 import subscribersCommand from "./commands/subscribers";
 import templatesCommand from "./commands/templates";
 import txCommand from "./commands/tx";
+import webhooksCommand from "./commands/webhooks";
 import { prepareCliArgv } from "./lib/command";
 
 const entry = define({
@@ -43,6 +44,7 @@ const subCommands = {
 	operations: operationsCommand,
 	specs: specsCommand,
 	playbooks: playbooksCommand,
+	webhooks: webhooksCommand,
 };
 
 import { getRuntimeFlags } from "./lib/command";

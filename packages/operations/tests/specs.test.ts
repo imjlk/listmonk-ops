@@ -19,6 +19,8 @@ import {
 	subscriberBlocklistOperationSpec,
 	subscriberResource,
 	transactionalSendOperationSpec,
+	webhookDispatchOperationSpec,
+	webhookOperationSpecs,
 } from "../src/specs";
 
 describe("email operations specification", () => {
@@ -38,6 +40,14 @@ describe("email operations specification", () => {
 			"control.capabilities",
 			"control.prime",
 			"control.status",
+			"webhooks.list",
+			"webhooks.create",
+			"webhooks.update",
+			"webhooks.delete",
+			"webhooks.test",
+			"webhooks.dispatch",
+			"webhooks.delivery.list",
+			"webhooks.delivery.retry",
 		]);
 		expect(campaignGetOperationSpec.contract.input).toMatchObject({
 			dialect: "openapi-3.1",
@@ -86,6 +96,16 @@ describe("email operations specification", () => {
 			campaignPreflightOperationSpec.contract.output.components?.schemas
 				?.IsoDateTime,
 		).toMatchObject({ type: "string", format: "date-time" });
+		expect(webhookOperationSpecs).toHaveLength(8);
+		expect(webhookDispatchOperationSpec.effects).toEqual([
+			{ kind: "webhook", resource: "webhook", audience: "batch" },
+		]);
+		expect(emailOperationsSpec.events.map((event) => event.type)).toContain(
+			"operation.succeeded",
+		);
+		expect(emailOperationsSpec.events.map((event) => event.type)).toContain(
+			"abtest.winner-selected",
+		);
 	});
 
 	test("derives safety requirements from operation effects", () => {
@@ -183,6 +203,15 @@ describe("email operations specification", () => {
 			confirmation: "required",
 			audit: "required",
 			dryRun: true,
+		});
+		expect(
+			expectedPolicyForEffects([
+				{ kind: "webhook", resource: "webhook", audience: "single" },
+			]),
+		).toEqual({
+			confirmation: "required",
+			audit: "required",
+			dryRun: false,
 		});
 	});
 
