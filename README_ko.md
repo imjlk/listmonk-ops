@@ -59,11 +59,13 @@ docker compose up -d
 - Listmonk API: `http://localhost:9000/api`
 - Mailpit UI: `http://localhost:8025`
 - Mailpit SMTP: `localhost:1025`
-- PostgreSQL: Docker 내부 `db:5432`에서만 접근 가능
+- PostgreSQL: `localhost:15432` (Docker 내부 `db:5432`)
 
 로컬 스택은 고정된 부트스트랩 자격증명을 사용하므로 공개 포트는 기본적으로
 `127.0.0.1`에 바인딩됩니다. 현재 머신 밖으로 테스트 스택을 노출하려는 경우에만
-`LISTMONK_BIND_ADDRESS`를 명시적으로 설정하세요.
+`LISTMONK_BIND_ADDRESS`를 명시적으로 설정하세요. PostgreSQL은 별도
+`LISTMONK_DB_BIND_ADDRESS`를 사용하므로 이 변수를 직접 바꾸지 않는 한
+루프백에 계속 바인딩됩니다.
 
 `docker-compose.yml` 기본 관리자 계정:
 - Username: `admin`
@@ -89,6 +91,9 @@ export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
 # 선택: 서명형 outbound webhook endpoint/outbox 저장소 경로 재정의
 export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
+# 선택 대안: 다중 프로세스/worker용 PostgreSQL durable 저장소
+# LISTMONK_OPS_WEBHOOK_STORE와 동시에 설정하면 안 됩니다.
+# export LISTMONK_OPS_WEBHOOK_DATABASE_URL="postgres://user:password@host/database"
 ```
 
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
@@ -683,7 +688,11 @@ listmonk-cli webhooks create \
   --event-filters 'operation.*,campaign.*,abtest.*'
 
 listmonk-cli webhooks test --id <endpoint-uuid> --confirm
-listmonk-cli webhooks dispatch --limit 25 --confirm
+listmonk-cli webhooks tick --dispatch-limit 25 --confirm
+listmonk-cli webhooks reconcile
+listmonk-cli webhooks reconcile --no-dry-run
+listmonk-cli webhooks prune --older-than-days 30 --dry-run
+listmonk-cli webhooks prune --older-than-days 30 --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted
 listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
 ```
@@ -698,6 +707,10 @@ Event 투영은 durable audit 저장 이후 best-effort로 처리하므로 webho
 장애가 operation 결과를 대체하거나 위험한 재시도를 유발하지 않습니다. 대상이
 지정된 `webhooks test` 진단은 endpoint의 일반 event filter를 변경하지 않고
 우회하여 전송합니다.
+성공한 campaign schedule/start/pause/cancel, subscriber
+create/update/blocklist, A/B lifecycle operation도 같은 CLI/MCP 실행 경계에서
+typed domain event로 투영됩니다. Subscriber payload에는 resource ID 또는 batch
+checksum과 개수만 포함하고 이메일 주소는 포함하지 않습니다.
 
 요청에는 `X-Listmonk-Ops-Event-Id`, `X-Listmonk-Ops-Event-Type`,
 `X-Listmonk-Ops-Timestamp`,
@@ -710,10 +723,20 @@ Event 투영은 durable audit 저장 이후 best-effort로 처리하므로 webho
 유지하면서 해당 시도를 `skipped`로 보고합니다. 최종 상태는 공유 delivery
 log에서 확인할 수 있습니다.
 
+JSON 저장소는 설정이 필요 없는 단일 호스트 기본값으로 유지됩니다. 여러
+CLI/MCP/worker 프로세스가 함께 처리하려면 대신
+`LISTMONK_OPS_WEBHOOK_DATABASE_URL`을 설정하세요. PostgreSQL 구현은 정규화된
+endpoint/delivery 테이블, transaction enqueue 중복 제거, `FOR UPDATE SKIP
+LOCKED` claim, lease token fencing을 사용합니다. `webhooks tick`은 만료 lease를
+먼저 복구한 뒤 제한된 batch를 dispatch합니다. `webhooks reconcile`은 기본적으로
+복구 내용을 preview하고 `--no-dry-run`으로 적용합니다. `webhooks prune`은 기본
+dry-run이며 오래된 terminal
+history를 명시적으로 확인한 경우에만 삭제합니다.
+
 자격 증명, query string, fragment가 없는 public HTTPS endpoint만 허용합니다.
 Dispatch 시 DNS/IP가 전역 라우팅 가능한 주소인지 다시 확인하고, 검증된 주소를
 차례로 시도하면서 각 HTTPS 연결에 고정하며 redirect는 허용하지 않습니다.
-`webhooks dispatch`는 scheduler에서 실행하세요. Endpoint 등록만으로 background
+`webhooks tick`은 scheduler에서 실행하세요. Endpoint 등록만으로 background
 daemon이 시작되지는 않습니다.
 
 ## OpenAPI 재생성 (Hey API)

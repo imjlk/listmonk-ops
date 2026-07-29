@@ -5,6 +5,8 @@ import {
 	type OperationAuditStoreOptions,
 } from "@listmonk-ops/common";
 import {
+	enqueueSuccessfulOperationLifecycleEvents,
+	getOutboundWebhookStoreOptionsFromEnvironment,
 	recordOperationAuditWithLifecycle,
 	type OutboundWebhookStoreOptions,
 } from "@listmonk-ops/automation";
@@ -180,6 +182,7 @@ export class ListmonkMCPServer {
 		auditStorePath?: string;
 		auditStoreLimit?: number;
 		webhookStorePath?: string;
+		webhookDatabaseUrl?: string;
 		httpAuthToken?: string;
 		allowedHttpHosts?: readonly string[];
 		allowedHttpOrigins?: readonly string[];
@@ -197,7 +200,10 @@ export class ListmonkMCPServer {
 			path: config.auditStorePath,
 			limit: config.auditStoreLimit,
 		};
-		this.webhookStoreOptions = { path: config.webhookStorePath };
+		this.webhookStoreOptions = getOutboundWebhookStoreOptionsFromEnvironment({
+			path: config.webhookStorePath,
+			databaseUrl: config.webhookDatabaseUrl,
+		});
 		this.webhookHandler = createWebhookToolsHandler({
 			store: this.webhookStoreOptions,
 		});
@@ -432,6 +438,24 @@ export class ListmonkMCPServer {
 				`Unable to record MCP operation audit ${event} for ${execution.operation.id}: ${toErrorMessage(error)}`,
 			);
 		}
+		if (!result.isError) {
+			try {
+				await enqueueSuccessfulOperationLifecycleEvents(
+					{
+						executionId,
+						operationId: execution.operation.id,
+						operationInput:
+							execution.request.params.arguments ?? {},
+						operationOutput: result.structuredContent,
+					},
+					this.webhookStoreOptions,
+				);
+			} catch (error) {
+				console.error(
+					`Unable to enqueue MCP domain lifecycle event for ${execution.operation.id}: ${toErrorMessage(error)}`,
+				);
+			}
+		}
 
 		return result;
 	}
@@ -603,6 +627,7 @@ export function createListmonkMCPServer(config: {
 	auditStorePath?: string;
 	auditStoreLimit?: number;
 	webhookStorePath?: string;
+	webhookDatabaseUrl?: string;
 	httpAuthToken?: string;
 	allowedHttpHosts?: readonly string[];
 	allowedHttpOrigins?: readonly string[];
@@ -615,6 +640,7 @@ export function createListmonkMCPServer(config: {
 		auditStorePath: config.auditStorePath,
 		auditStoreLimit: config.auditStoreLimit,
 		webhookStorePath: config.webhookStorePath,
+		webhookDatabaseUrl: config.webhookDatabaseUrl,
 		httpAuthToken: config.httpAuthToken,
 		allowedHttpHosts: config.allowedHttpHosts,
 		allowedHttpOrigins: config.allowedHttpOrigins,

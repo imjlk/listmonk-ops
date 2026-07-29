@@ -45,6 +45,12 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	webhookDeliveryListOutputContract: NormalizedContractSchema;
 	webhookDeliveryRetryInputContract: NormalizedContractSchema;
 	webhookDeliveryRetryOutputContract: NormalizedContractSchema;
+	webhookReconcileInputContract: NormalizedContractSchema;
+	webhookReconcileOutputContract: NormalizedContractSchema;
+	webhookPruneInputContract: NormalizedContractSchema;
+	webhookPruneOutputContract: NormalizedContractSchema;
+	webhookTickInputContract: NormalizedContractSchema;
+	webhookTickOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
@@ -108,3 +114,11 @@ export const webhookDeliveryRetryInputContract =
 	contracts.webhookDeliveryRetryInputContract;
 export const webhookDeliveryRetryOutputContract =
 	contracts.webhookDeliveryRetryOutputContract;
+export const webhookReconcileInputContract =
+	contracts.webhookReconcileInputContract;
+export const webhookReconcileOutputContract =
+	contracts.webhookReconcileOutputContract;
+export const webhookPruneInputContract = contracts.webhookPruneInputContract;
+export const webhookPruneOutputContract = contracts.webhookPruneOutputContract;
+export const webhookTickInputContract = contracts.webhookTickInputContract;
+export const webhookTickOutputContract = contracts.webhookTickOutputContract;

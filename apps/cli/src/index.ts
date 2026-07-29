@@ -2,6 +2,7 @@
 
 import completion from "@gunshi/plugin-completion";
 import { cli, define } from "gunshi";
+import { closeOutboundWebhookRuntimeRepositories } from "@listmonk-ops/automation";
 import packageJson from "../package.json" with { type: "json" };
 
 import abtestCommand from "./commands/abtest";
@@ -58,11 +59,26 @@ if (flags.format && flags.format !== "human") {
 	process.env.LISTMONK_OPS_ABTEST_SILENT = "1";
 }
 
-await cli(argv, entry, {
-	name: "listmonk-cli",
-	version: packageJson.version,
-	description: "CLI for Listmonk operations",
-	strict: true,
-	subCommands,
-	plugins: [completion()],
-});
+let commandError: unknown;
+try {
+	await cli(argv, entry, {
+		name: "listmonk-cli",
+		version: packageJson.version,
+		description: "CLI for Listmonk operations",
+		strict: true,
+		subCommands,
+		plugins: [completion()],
+	});
+} catch (error) {
+	commandError = error;
+	throw error;
+} finally {
+	try {
+		await closeOutboundWebhookRuntimeRepositories();
+	} catch (error) {
+		if (commandError === undefined) {
+			throw error;
+		}
+		console.error("⚠️ Failed to close outbound webhook repositories:", error);
+	}
+}

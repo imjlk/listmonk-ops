@@ -4,6 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import packageJson from "../../package.json" with { type: "json" };
 import {
 	connectMCPTransport,
+	connectMCPTransportUntilClosed,
 	type MCPToolProvider,
 } from "../../src/protocol.js";
 import type { ListToolsRequest } from "../../src/types/mcp.js";
@@ -32,7 +33,7 @@ describe("standard MCP protocol adapter", () => {
 				version: packageJson.version,
 			});
 			const result = await client.listTools();
-			expect(result.tools).toHaveLength(93);
+			expect(result.tools).toHaveLength(96);
 			expect(result.tools.map((tool) => tool.name)).toContain(
 				"listmonk_ops_preflight",
 			);
@@ -89,5 +90,58 @@ describe("standard MCP protocol adapter", () => {
 			await client.close();
 			await protocolServer.close();
 		}
+	});
+
+	test("keeps an executable transport open until its peer closes", async () => {
+		const provider: MCPToolProvider = {
+			async listTools() {
+				return { tools: [] };
+			},
+			async callTool() {
+				return { content: [] };
+			},
+		};
+		const [clientTransport, serverTransport] =
+			InMemoryTransport.createLinkedPair();
+		let runtimeClosed = false;
+		const runtime = connectMCPTransportUntilClosed(
+			provider,
+			serverTransport,
+		).then((server) => {
+			runtimeClosed = true;
+			return server;
+		});
+		const client = new Client({ name: "listmonk-ops-test", version: "1.0.0" });
+
+		await client.connect(clientTransport);
+		await Promise.resolve();
+		expect(runtimeClosed).toBe(false);
+
+		await client.close();
+		const protocolServer = await runtime;
+		expect(runtimeClosed).toBe(true);
+		await protocolServer.close();
+	});
+
+	test("rejects immediately when a long-lived transport cannot start", async () => {
+		const provider: MCPToolProvider = {
+			async listTools() {
+				return { tools: [] };
+			},
+			async callTool() {
+				return { content: [] };
+			},
+		};
+		const transport = {
+			async start() {
+				throw new Error("transport start failed");
+			},
+			async send() {},
+			async close() {},
+		};
+
+		await expect(
+			connectMCPTransportUntilClosed(provider, transport),
+		).rejects.toThrow("transport start failed");
 	});
 });

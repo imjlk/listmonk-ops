@@ -9,7 +9,10 @@ import {
 	invokeWebhookDispatchOperation,
 	invokeWebhookListOperation,
 	invokeWebhookOperationByMcpName,
+	invokeWebhookPruneOperation,
+	invokeWebhookReconcileOperation,
 	invokeWebhookTestOperation,
+	invokeWebhookTickOperation,
 	invokeWebhookUpdateOperation,
 	webhookOperationCatalog,
 	webhookOperations,
@@ -49,6 +52,9 @@ describe("webhook shared operations", () => {
 			"webhooks.dispatch",
 			"webhooks.delivery.list",
 			"webhooks.delivery.retry",
+			"webhooks.reconcile",
+			"webhooks.prune",
+			"webhooks.tick",
 		]);
 		for (const operation of webhookOperations) {
 			expect(operation.spec?.id).toBe(operation.id);
@@ -61,6 +67,41 @@ describe("webhook shared operations", () => {
 			destructiveHint: true,
 			openWorldHint: true,
 			idempotentHint: false,
+		});
+	});
+
+	test("runs typed reconcile, prune preview, and worker tick operations", async () => {
+		const context = await createContext();
+		expect(
+			await invokeWebhookReconcileOperation(context, {
+				limit: 10,
+			}),
+		).toEqual({
+			scanned: 0,
+			recovered: 0,
+			exhausted: 0,
+			unchanged: 0,
+			dry_run: true,
+		});
+		expect(
+			await invokeWebhookPruneOperation(context, {
+				older_than_days: 30,
+				limit: 10,
+				dry_run: true,
+			}),
+		).toMatchObject({
+			eligible: 0,
+			deleted: 0,
+			dry_run: true,
+		});
+		expect(
+			await invokeWebhookTickOperation(context, {
+				dispatch_limit: 10,
+				reconcile_limit: 10,
+			}),
+		).toMatchObject({
+			reconcile: { scanned: 0, dry_run: false },
+			dispatch: { claimed: 0 },
 		});
 	});
 

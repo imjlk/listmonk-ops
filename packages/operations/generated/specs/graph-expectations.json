@@ -593,7 +593,88 @@
         "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookDeliveryRetryOperation:variable"
       },
       "operationId": "webhooks.delivery.retry"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/webhook-operations.ts#webhookReconcileOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/webhooks.ts#bindWebhookReconcileOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/webhooks.ts#bindWebhookReconcileOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/webhooks.ts#webhookReconcileOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/webhook-operations.ts#invokeWebhookReconcileOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/webhook-operations.ts#executeWebhookReconcileOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/webhooks.ts#bindWebhookReconcileOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/webhooks.ts#webhookReconcileOperationSpec:variable",
+        "executorNode": "packages/automation/src/webhook-operations.ts#executeWebhookReconcileOperation:function",
+        "invokerNode": "packages/automation/src/webhook-operations.ts#invokeWebhookReconcileOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookReconcileOperation:variable"
+      },
+      "operationId": "webhooks.reconcile"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/webhook-operations.ts#webhookPruneOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/webhooks.ts#bindWebhookPruneOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/webhooks.ts#bindWebhookPruneOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/webhooks.ts#webhookPruneOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/webhook-operations.ts#invokeWebhookPruneOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/webhook-operations.ts#executeWebhookPruneOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/webhooks.ts#bindWebhookPruneOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/webhooks.ts#webhookPruneOperationSpec:variable",
+        "executorNode": "packages/automation/src/webhook-operations.ts#executeWebhookPruneOperation:function",
+        "invokerNode": "packages/automation/src/webhook-operations.ts#invokeWebhookPruneOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookPruneOperation:variable"
+      },
+      "operationId": "webhooks.prune"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/webhook-operations.ts#webhookTickOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/webhooks.ts#bindWebhookTickOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/webhooks.ts#bindWebhookTickOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/webhooks.ts#webhookTickOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/webhook-operations.ts#invokeWebhookTickOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/webhook-operations.ts#executeWebhookTickOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/webhooks.ts#bindWebhookTickOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/webhooks.ts#webhookTickOperationSpec:variable",
+        "executorNode": "packages/automation/src/webhook-operations.ts#executeWebhookTickOperation:function",
+        "invokerNode": "packages/automation/src/webhook-operations.ts#invokeWebhookTickOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookTickOperation:variable"
+      },
+      "operationId": "webhooks.tick"
     }
   ],
-  "schemaVersion": "1.3.0"
+  "schemaVersion": "1.4.0"
 }

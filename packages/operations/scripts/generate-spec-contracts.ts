@@ -40,8 +40,14 @@ import type {
 	WebhookDispatchOutput,
 	WebhookListInput,
 	WebhookListOutput,
+	WebhookPruneInput,
+	WebhookPruneOutput,
+	WebhookReconcileInput,
+	WebhookReconcileOutput,
 	WebhookTestInput,
 	WebhookTestOutput,
+	WebhookTickInput,
+	WebhookTickOutput,
 	WebhookUpdateInput,
 	WebhookUpdateOutput,
 } from "./spec-contracts";
@@ -215,6 +221,24 @@ const contracts = {
 	),
 	webhookDeliveryRetryOutputContract: contractSchema(
 		typia.json.schema<WebhookDeliveryRetryOutput>(),
+	),
+	webhookReconcileInputContract: contractSchema(
+		typia.json.schema<WebhookReconcileInput>(),
+	),
+	webhookReconcileOutputContract: contractSchema(
+		typia.json.schema<WebhookReconcileOutput>(),
+	),
+	webhookPruneInputContract: contractSchema(
+		typia.json.schema<WebhookPruneInput>(),
+	),
+	webhookPruneOutputContract: contractSchema(
+		typia.json.schema<WebhookPruneOutput>(),
+	),
+	webhookTickInputContract: contractSchema(
+		typia.json.schema<WebhookTickInput>(),
+	),
+	webhookTickOutputContract: contractSchema(
+		typia.json.schema<WebhookTickOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

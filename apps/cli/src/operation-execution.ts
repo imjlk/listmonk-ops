@@ -5,6 +5,8 @@ import {
 	type RecordOperationAuditInput,
 } from "@listmonk-ops/common";
 import {
+	enqueueSuccessfulOperationLifecycleEvents,
+	getOutboundWebhookStoreOptionsFromEnvironment,
 	recordOperationAuditWithLifecycle,
 	type OutboundWebhookStoreOptions,
 } from "@listmonk-ops/automation";
@@ -23,6 +25,8 @@ const cliRuntimeInputKeys = new Set(["confirm", "interactive", "tui"]);
 export type CliOperationExecution = Readonly<{
 	operation: OperationCatalogItem;
 	policy: OperationExecutionPolicy;
+	/** Normalized input retained in memory for projection, never audit persistence. */
+	operationInput: Readonly<Record<string, unknown>>;
 	confirmed: boolean;
 	dryRun: boolean;
 }>;
@@ -95,7 +99,13 @@ export function getCliOperationExecution(
 		policy.dryRunSupported &&
 		(resolvedDryRun ?? (operationInput.dry_run === true));
 
-	return { operation, policy, confirmed, dryRun };
+	return {
+		operation,
+		policy,
+		operationInput,
+		confirmed,
+		dryRun,
+	};
 }
 
 async function recordCliOperationAudit(
@@ -196,7 +206,9 @@ export async function executeCliOperation<Result>(config: {
 		config.confirmed,
 	);
 	const auditStoreOptions = config.auditStoreOptions ?? {};
-	const webhookStoreOptions = config.webhookStoreOptions ?? {};
+	const webhookStoreOptions =
+		config.webhookStoreOptions ??
+		getOutboundWebhookStoreOptionsFromEnvironment();
 	const recordAudit = config.recordAudit;
 	const onAuditError = config.onAuditError ?? ((message: string) => console.error(
 		message,
@@ -255,6 +267,24 @@ export async function executeCliOperation<Result>(config: {
 			webhookStoreOptions,
 			onAuditError,
 		);
+		if (executionId) {
+			try {
+				await enqueueSuccessfulOperationLifecycleEvents(
+					{
+						executionId,
+						operationId: execution.operation.id,
+						operationInput: execution.operationInput,
+						operationOutput: result,
+					},
+					webhookStoreOptions,
+				);
+			} catch (error) {
+				reportCliOperationAuditError(
+					onAuditError,
+					`Unable to enqueue CLI domain lifecycle event for ${execution.operation.id}: ${toErrorMessage(error)}`,
+				);
+			}
+		}
 		return result;
 	} catch (error) {
 		await completeCliOperationExecution(

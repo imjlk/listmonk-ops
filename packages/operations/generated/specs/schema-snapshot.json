@@ -6053,7 +6053,503 @@
       },
       "since": "0.8.0",
       "stability": "experimental"
+    },
+    {
+      "id": "webhooks.reconcile",
+      "input": {
+        "components": {
+          "schemas": {
+            "WebhookDeliveryListLimit": {
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookReconcileInput": {
+              "additionalProperties": false,
+              "properties": {
+                "dry_run": {
+                  "type": "boolean"
+                },
+                "limit": {
+                  "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "dry_run": {
+              "type": "boolean"
+            },
+            "limit": {
+              "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "WebhookReconcileOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "dry_run": {
+                  "type": "boolean"
+                },
+                "exhausted": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "recovered": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "scanned": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "unchanged": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "scanned",
+                "recovered",
+                "exhausted",
+                "unchanged",
+                "dry_run"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "dry_run": {
+              "type": "boolean"
+            },
+            "exhausted": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "recovered": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "scanned": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "unchanged": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "scanned",
+            "recovered",
+            "exhausted",
+            "unchanged",
+            "dry_run"
+          ],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": true
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "Only expired leases are recovered and repeating reconciliation is an idempotent no-op."
+      },
+      "since": "0.8.0",
+      "stability": "experimental"
+    },
+    {
+      "id": "webhooks.prune",
+      "input": {
+        "components": {
+          "schemas": {
+            "WebhookDeliveryListLimit": {
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookPruneInput": {
+              "additionalProperties": false,
+              "properties": {
+                "dry_run": {
+                  "type": "boolean"
+                },
+                "limit": {
+                  "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                },
+                "older_than_days": {
+                  "$ref": "#/components/schemas/WebhookRetentionDays"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "WebhookRetentionDays": {
+              "maximum": 3650,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "dry_run": {
+              "type": "boolean"
+            },
+            "limit": {
+              "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+            },
+            "older_than_days": {
+              "$ref": "#/components/schemas/WebhookRetentionDays"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "IsoDateTime": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "WebhookPruneOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "before": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
+                "deleted": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "dry_run": {
+                  "type": "boolean"
+                },
+                "eligible": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "eligible",
+                "deleted",
+                "dry_run",
+                "before"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "before": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "deleted": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "dry_run": {
+              "type": "boolean"
+            },
+            "eligible": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "eligible",
+            "deleted",
+            "dry_run",
+            "before"
+          ],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "Deleting the same already-removed terminal records is an idempotent no-op."
+      },
+      "since": "0.8.0",
+      "stability": "experimental"
+    },
+    {
+      "id": "webhooks.tick",
+      "input": {
+        "components": {
+          "schemas": {
+            "WebhookDeliveryListLimit": {
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookDispatchLimit": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookTickInput": {
+              "additionalProperties": false,
+              "properties": {
+                "dispatch_limit": {
+                  "$ref": "#/components/schemas/WebhookDispatchLimit"
+                },
+                "reconcile_limit": {
+                  "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "dispatch_limit": {
+              "$ref": "#/components/schemas/WebhookDispatchLimit"
+            },
+            "reconcile_limit": {
+              "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "NonEmptyString": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookDispatchOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "claimed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "exhausted": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "results": {
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookDispatchResult"
+                  },
+                  "type": "array"
+                },
+                "retried": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "skipped": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "succeeded": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "claimed",
+                "succeeded",
+                "retried",
+                "exhausted",
+                "skipped",
+                "results"
+              ],
+              "type": "object"
+            },
+            "WebhookDispatchResult": {
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "delivery_id": {
+                      "$ref": "#/components/schemas/WebhookId"
+                    },
+                    "endpoint_id": {
+                      "$ref": "#/components/schemas/WebhookId"
+                    },
+                    "error": {
+                      "$ref": "#/components/schemas/NonEmptyString"
+                    },
+                    "status": {
+                      "oneOf": [
+                        {
+                          "const": "exhausted"
+                        },
+                        {
+                          "const": "retry"
+                        },
+                        {
+                          "const": "succeeded"
+                        }
+                      ]
+                    },
+                    "status_code": {
+                      "$ref": "#/components/schemas/PositiveInteger"
+                    }
+                  },
+                  "required": [
+                    "delivery_id",
+                    "endpoint_id",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "delivery_id": {
+                      "$ref": "#/components/schemas/WebhookId"
+                    },
+                    "endpoint_id": {
+                      "$ref": "#/components/schemas/WebhookId"
+                    },
+                    "error": {
+                      "$ref": "#/components/schemas/NonEmptyString"
+                    },
+                    "status": {
+                      "const": "skipped"
+                    }
+                  },
+                  "required": [
+                    "delivery_id",
+                    "endpoint_id",
+                    "status",
+                    "error"
+                  ],
+                  "type": "object"
+                }
+              ]
+            },
+            "WebhookId": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "WebhookReconcileOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "dry_run": {
+                  "type": "boolean"
+                },
+                "exhausted": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "recovered": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "scanned": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "unchanged": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "scanned",
+                "recovered",
+                "exhausted",
+                "unchanged",
+                "dry_run"
+              ],
+              "type": "object"
+            },
+            "WebhookTickOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "dispatch": {
+                  "$ref": "#/components/schemas/WebhookDispatchOutput"
+                },
+                "reconcile": {
+                  "$ref": "#/components/schemas/WebhookReconcileOutput"
+                }
+              },
+              "required": [
+                "reconcile",
+                "dispatch"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "dispatch": {
+              "$ref": "#/components/schemas/WebhookDispatchOutput"
+            },
+            "reconcile": {
+              "$ref": "#/components/schemas/WebhookReconcileOutput"
+            }
+          },
+          "required": [
+            "reconcile",
+            "dispatch"
+          ],
+          "type": "object"
+        },
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "retry": {
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "Delivery is at least once, so inspect lease and delivery state after an ambiguous worker result.",
+        "reconcileWith": "webhooks.delivery.list"
+      },
+      "since": "0.8.0",
+      "stability": "experimental"
     }
   ],
-  "schemaVersion": "1.3.0"
+  "schemaVersion": "1.4.0"
 }

@@ -220,6 +220,55 @@ describe("MCP operation execution safety", () => {
 		).toBe(true);
 	});
 
+	test("projects successful campaign lifecycle events from the shared MCP boundary", async () => {
+		const { auditStorePath, webhookStorePath, server } =
+			await createAuditedServer();
+		await createOutboundWebhookEndpoint(
+			{
+				name: "campaigns",
+				url: "https://8.8.8.8/hooks",
+				secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_CAMPAIGNS",
+				eventFilters: ["campaign.*"],
+			},
+			{ path: webhookStorePath },
+		);
+		replaceServerClient(
+			server,
+			{
+				campaign: {
+					getById: async () => ({
+						data: { id: 42, status: "draft" },
+					}),
+					updateStatus: async () => ({ data: true }),
+				},
+			} as unknown as ListmonkClient,
+		);
+
+		const result = await server.callTool(
+			request("listmonk_start_campaign", { id: 42, confirm: true }),
+		);
+		expect(result.isError).not.toBe(true);
+		expect(result.structuredContent).toEqual({ id: 42, status: "running" });
+
+		const audit = await listOperationAuditEntries({ path: auditStorePath });
+		const deliveries = await listOutboundWebhookDeliveries({
+			path: webhookStorePath,
+		});
+		expect(deliveries).toMatchObject([
+			{
+				event: {
+					type: "campaign.started",
+					correlationId: audit[0]?.executionId,
+					subject: { kind: "campaign", key: "42" },
+					data: {
+						operation_id: "campaigns.start",
+						status: "running",
+					},
+				},
+			},
+		]);
+	});
+
 	test("records a defaulted hygiene preview as a dry run", async () => {
 		const { auditStorePath, server } = await createAuditedServer();
 		replaceServerClient(

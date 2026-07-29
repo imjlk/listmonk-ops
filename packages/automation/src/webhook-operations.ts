@@ -12,10 +12,14 @@ import {
 	bindWebhookDeliveryRetryOperationSpec,
 	bindWebhookDispatchOperationSpec,
 	bindWebhookListOperationSpec,
+	bindWebhookPruneOperationSpec,
+	bindWebhookReconcileOperationSpec,
 	bindWebhookTestOperationSpec,
+	bindWebhookTickOperationSpec,
 	bindWebhookUpdateOperationSpec,
 } from "@listmonk-ops/operations/specs";
 import { z } from "zod";
+import { getOutboundWebhookStoreOptionsFromEnvironment } from "./outbound-webhook-runtime";
 import {
 	createOutboundWebhookEndpoint,
 	deleteOutboundWebhookEndpoint,
@@ -27,6 +31,8 @@ import {
 	normalizeOutboundWebhookEndpointUrl,
 	OUTBOUND_WEBHOOK_EVENT_TYPES,
 	OUTBOUND_WEBHOOK_SECRET_REF_PATTERN,
+	pruneOutboundWebhookDeliveries,
+	reconcileOutboundWebhookDeliveries,
 	retryOutboundWebhookDelivery,
 	type OutboundWebhookDelivery,
 	type OutboundWebhookEndpoint,
@@ -34,10 +40,18 @@ import {
 	updateOutboundWebhookEndpoint,
 } from "./outbound-webhooks";
 
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1_000;
+
 export interface WebhookOperationContext {
 	store?: OutboundWebhookStoreOptions;
 	fetcher?: typeof fetch;
 	resolveSecret?: (secretRef: string) => string | undefined;
+}
+
+function resolveWebhookOperationStore(
+	context: WebhookOperationContext,
+): OutboundWebhookStoreOptions {
+	return context.store ?? getOutboundWebhookStoreOptionsFromEnvironment();
 }
 
 const booleanInput = z.preprocess((value: unknown) => {
@@ -163,6 +177,24 @@ const webhookDeliveryListInputSchema = z.object({
 const webhookDeliveryRetryInputSchema = z.object({
 	id: z.uuid().describe("Outbound webhook delivery ID"),
 });
+const webhookReconcileInputSchema = z.object({
+	limit: webhookDeliveryListLimitInput.default(100),
+	dry_run: booleanInput.default(true),
+});
+const webhookPruneInputSchema = z.object({
+	older_than_days: positiveIntegerInput
+		.refine(
+			(value) => value <= 3_650,
+			"older_than_days must be between 1 and 3650",
+		)
+		.default(30),
+	limit: webhookDeliveryListLimitInput.default(100),
+	dry_run: booleanInput.default(true),
+});
+const webhookTickInputSchema = z.object({
+	dispatch_limit: webhookDispatchLimitInput.default(25),
+	reconcile_limit: webhookDeliveryListLimitInput.default(100),
+});
 
 const webhookEndpointOutputSchema = z.object({
 	id: z.uuid(),
@@ -279,6 +311,23 @@ const webhookDeliveryListOutputSchema = z.object({
 const webhookDeliveryRetryOutputSchema = z.object({
 	delivery: webhookDeliveryOutputSchema,
 });
+const webhookReconcileOutputSchema = z.object({
+	scanned: z.number().int().nonnegative(),
+	recovered: z.number().int().nonnegative(),
+	exhausted: z.number().int().nonnegative(),
+	unchanged: z.number().int().nonnegative(),
+	dry_run: z.boolean(),
+});
+const webhookPruneOutputSchema = z.object({
+	eligible: z.number().int().nonnegative(),
+	deleted: z.number().int().nonnegative(),
+	dry_run: z.boolean(),
+	before: z.iso.datetime({ offset: true }),
+});
+const webhookTickOutputSchema = z.object({
+	reconcile: webhookReconcileOutputSchema,
+	dispatch: webhookDispatchOutputSchema,
+});
 
 function toEndpointOutput(endpoint: OutboundWebhookEndpoint) {
 	return {
@@ -352,7 +401,9 @@ export async function executeWebhookListOperation(
 	context: WebhookOperationContext,
 	input: z.output<typeof webhookListInputSchema>,
 ) {
-	const endpoints = await listOutboundWebhookEndpoints(context.store);
+	const endpoints = await listOutboundWebhookEndpoints(
+		resolveWebhookOperationStore(context),
+	);
 	return {
 		endpoints: endpoints
 			.filter(
@@ -377,7 +428,7 @@ export async function executeWebhookCreateOperation(
 			timeoutMs: input.timeout_ms,
 			maxAttempts: input.max_attempts,
 		},
-		context.store,
+		resolveWebhookOperationStore(context),
 	);
 	return { endpoint: toEndpointOutput(endpoint) };
 }
@@ -397,7 +448,7 @@ export async function executeWebhookUpdateOperation(
 			timeoutMs: input.timeout_ms,
 			maxAttempts: input.max_attempts,
 		},
-		context.store,
+		resolveWebhookOperationStore(context),
 	);
 	return { endpoint: toEndpointOutput(endpoint) };
 }
@@ -406,7 +457,10 @@ export async function executeWebhookDeleteOperation(
 	context: WebhookOperationContext,
 	input: z.output<typeof webhookDeleteInputSchema>,
 ) {
-	const endpoint = await deleteOutboundWebhookEndpoint(input.id, context.store);
+	const endpoint = await deleteOutboundWebhookEndpoint(
+		input.id,
+		resolveWebhookOperationStore(context),
+	);
 	return { deleted: true as const, endpoint: toEndpointOutput(endpoint) };
 }
 
@@ -414,7 +468,8 @@ export async function executeWebhookTestOperation(
 	context: WebhookOperationContext,
 	input: z.output<typeof webhookTestInputSchema>,
 ) {
-	const endpoint = await getOutboundWebhookEndpoint(input.id, context.store);
+	const store = resolveWebhookOperationStore(context);
+	const endpoint = await getOutboundWebhookEndpoint(input.id, store);
 	const queued = await enqueueOutboundWebhookEvent(
 		{
 			type: "webhook.test",
@@ -424,14 +479,14 @@ export async function executeWebhookTestOperation(
 			data: { endpoint_id: endpoint.id, endpoint_name: endpoint.name },
 		},
 		{
-			...context.store,
+			...store,
 			endpointIds: [endpoint.id],
 			bypassEventFilters: true,
 		},
 	);
 	const deliveryId = queued.deliveryIds[0];
 	const dispatch = await dispatchOutboundWebhooks({
-		store: context.store,
+		store,
 		fetcher: context.fetcher,
 		resolveSecret: context.resolveSecret,
 		deliveryIds: deliveryId ? [deliveryId] : [],
@@ -450,7 +505,7 @@ export async function executeWebhookDispatchOperation(
 ) {
 	return toDispatchOutput(
 		await dispatchOutboundWebhooks({
-			store: context.store,
+			store: resolveWebhookOperationStore(context),
 			fetcher: context.fetcher,
 			resolveSecret: context.resolveSecret,
 			limit: input.limit,
@@ -463,7 +518,7 @@ export async function executeWebhookDeliveryListOperation(
 	input: z.output<typeof webhookDeliveryListInputSchema>,
 ) {
 	const deliveries = await listOutboundWebhookDeliveries({
-		...context.store,
+		...resolveWebhookOperationStore(context),
 		endpointId: input.endpoint_id,
 		status: input.status,
 		eventType: input.event_type,
@@ -476,8 +531,75 @@ export async function executeWebhookDeliveryRetryOperation(
 	context: WebhookOperationContext,
 	input: z.output<typeof webhookDeliveryRetryInputSchema>,
 ) {
-	const delivery = await retryOutboundWebhookDelivery(input.id, context.store);
+	const delivery = await retryOutboundWebhookDelivery(
+		input.id,
+		resolveWebhookOperationStore(context),
+	);
 	return { delivery: toDeliveryOutput(delivery) };
+}
+
+export async function executeWebhookReconcileOperation(
+	context: WebhookOperationContext,
+	input: z.output<typeof webhookReconcileInputSchema>,
+) {
+	const result = await reconcileOutboundWebhookDeliveries({
+		...resolveWebhookOperationStore(context),
+		limit: input.limit,
+		dryRun: input.dry_run,
+	});
+	return {
+		scanned: result.scanned,
+		recovered: result.recovered,
+		exhausted: result.exhausted,
+		unchanged: result.unchanged,
+		dry_run: result.dryRun,
+	};
+}
+
+export async function executeWebhookPruneOperation(
+	context: WebhookOperationContext,
+	input: z.output<typeof webhookPruneInputSchema>,
+) {
+	const result = await pruneOutboundWebhookDeliveries({
+		...resolveWebhookOperationStore(context),
+		before: new Date(Date.now() - input.older_than_days * MILLISECONDS_PER_DAY),
+		limit: input.limit,
+		dryRun: input.dry_run,
+	});
+	return {
+		eligible: result.eligible,
+		deleted: result.deleted,
+		dry_run: result.dryRun,
+		before: result.before,
+	};
+}
+
+export async function executeWebhookTickOperation(
+	context: WebhookOperationContext,
+	input: z.output<typeof webhookTickInputSchema>,
+) {
+	const store = resolveWebhookOperationStore(context);
+	const reconcile = await reconcileOutboundWebhookDeliveries({
+		...store,
+		limit: input.reconcile_limit,
+		dryRun: false,
+	});
+	const dispatch = await dispatchOutboundWebhooks({
+		store,
+		fetcher: context.fetcher,
+		resolveSecret: context.resolveSecret,
+		limit: input.dispatch_limit,
+	});
+	return {
+		reconcile: {
+			scanned: reconcile.scanned,
+			recovered: reconcile.recovered,
+			exhausted: reconcile.exhausted,
+			unchanged: reconcile.unchanged,
+			dry_run: reconcile.dryRun,
+		},
+		dispatch: toDispatchOutput(dispatch),
+	};
 }
 
 export const webhookListOperation = defineOperation({
@@ -624,6 +746,60 @@ export const webhookDeliveryRetryOperation = defineOperation({
 	execute: executeWebhookDeliveryRetryOperation,
 });
 
+export const webhookReconcileOperation = defineOperation({
+	id: "webhooks.reconcile",
+	title: "Reconcile outbound webhook leases",
+	description:
+		"Recover expired worker leases and exhaust deliveries whose endpoint is missing or disabled.",
+	inputSchema: webhookReconcileInputSchema,
+	outputSchema: webhookReconcileOutputSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
+	mcp: { name: "listmonk_webhooks_reconcile" },
+	spec: bindWebhookReconcileOperationSpec(),
+	execute: executeWebhookReconcileOperation,
+});
+
+export const webhookPruneOperation = defineOperation({
+	id: "webhooks.prune",
+	title: "Prune outbound webhook delivery history",
+	description:
+		"Preview or delete bounded terminal delivery records older than a retention cutoff.",
+	inputSchema: webhookPruneInputSchema,
+	outputSchema: webhookPruneOutputSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: true,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
+	mcp: { name: "listmonk_webhooks_prune" },
+	spec: bindWebhookPruneOperationSpec(),
+	execute: executeWebhookPruneOperation,
+});
+
+export const webhookTickOperation = defineOperation({
+	id: "webhooks.tick",
+	title: "Run one outbound webhook worker tick",
+	description:
+		"Reconcile expired leases, claim due outbox records, and send one bounded delivery batch.",
+	inputSchema: webhookTickInputSchema,
+	outputSchema: webhookTickOutputSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: true,
+		idempotentHint: false,
+		openWorldHint: true,
+	},
+	mcp: { name: "listmonk_webhooks_tick" },
+	spec: bindWebhookTickOperationSpec(),
+	execute: executeWebhookTickOperation,
+});
+
 export async function invokeWebhookListOperation(
 	context: WebhookOperationContext,
 	input: unknown,
@@ -767,6 +943,57 @@ export async function invokeWebhookDeliveryRetryOperation(
 	}
 }
 
+export async function invokeWebhookReconcileOperation(
+	context: WebhookOperationContext,
+	input: unknown,
+): Promise<z.output<typeof webhookReconcileOutputSchema>> {
+	const parsed = parseOperationInput(
+		webhookReconcileOperation.inputSchema,
+		input,
+	);
+	try {
+		return parseOperationOutput(
+			webhookReconcileOperation.id,
+			webhookReconcileOperation.outputSchema,
+			await executeWebhookReconcileOperation(context, parsed),
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(webhookReconcileOperation.id, error);
+	}
+}
+
+export async function invokeWebhookPruneOperation(
+	context: WebhookOperationContext,
+	input: unknown,
+): Promise<z.output<typeof webhookPruneOutputSchema>> {
+	const parsed = parseOperationInput(webhookPruneOperation.inputSchema, input);
+	try {
+		return parseOperationOutput(
+			webhookPruneOperation.id,
+			webhookPruneOperation.outputSchema,
+			await executeWebhookPruneOperation(context, parsed),
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(webhookPruneOperation.id, error);
+	}
+}
+
+export async function invokeWebhookTickOperation(
+	context: WebhookOperationContext,
+	input: unknown,
+): Promise<z.output<typeof webhookTickOutputSchema>> {
+	const parsed = parseOperationInput(webhookTickOperation.inputSchema, input);
+	try {
+		return parseOperationOutput(
+			webhookTickOperation.id,
+			webhookTickOperation.outputSchema,
+			await executeWebhookTickOperation(context, parsed),
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(webhookTickOperation.id, error);
+	}
+}
+
 const webhookOperationBindings = [
 	{
 		operation: webhookListOperation,
@@ -799,6 +1026,18 @@ const webhookOperationBindings = [
 	{
 		operation: webhookDeliveryRetryOperation,
 		invoke: invokeWebhookDeliveryRetryOperation,
+	},
+	{
+		operation: webhookReconcileOperation,
+		invoke: invokeWebhookReconcileOperation,
+	},
+	{
+		operation: webhookPruneOperation,
+		invoke: invokeWebhookPruneOperation,
+	},
+	{
+		operation: webhookTickOperation,
+		invoke: invokeWebhookTickOperation,
 	},
 ] as const;
 

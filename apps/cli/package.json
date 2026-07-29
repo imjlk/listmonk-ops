@@ -22,7 +22,7 @@
 	"scripts": {
 		"clean": "rm -rf ./dist",
 		"dev": "bun --watch src/index.ts",
-		"build:js": "bun build src/index.ts --target=bun --minify --external zod --outdir=dist/js",
+		"build:js": "bun build src/index.ts --target=bun --minify --external postgres --external zod --outdir=dist/js",
 		"build:bin": "bun ./scripts/build-binary.ts",
 		"build:bin:all": "bun ./scripts/build-binary.ts --all",
 		"build": "bun run typecheck && bun run clean && bun run build:js && bun run build:bin",
@@ -39,11 +39,12 @@
 		"@clack/prompts": "0.10.1",
 		"@gunshi/plugin-completion": "0.37.1",
 		"@listmonk-ops/abtest": "workspace:^0.4.3",
-		"@listmonk-ops/common": "^0.5.0",
 		"@listmonk-ops/automation": "workspace:^0.2.3",
+		"@listmonk-ops/common": "^0.5.0",
 		"@listmonk-ops/openapi": "^0.4.0",
 		"@listmonk-ops/operations": "workspace:^0.7.0",
 		"gunshi": "0.37.1",
+		"postgres": "3.4.9",
 		"zod": "4.3.6"
 	},
 	"devDependencies": {

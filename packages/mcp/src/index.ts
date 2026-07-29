@@ -1,6 +1,7 @@
 import { existsSync, realpathSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { closeOutboundWebhookRuntimeRepositories } from "@listmonk-ops/automation";
 import type { ListmonkMCPServer } from "./server.js";
 
 interface RuntimeArgs {
@@ -23,6 +24,56 @@ type MCPServerConfig = {
 	allowedHttpHosts?: string[];
 	allowedHttpOrigins?: string[];
 };
+
+type BunHttpServer = {
+	stop(closeActiveConnections?: boolean): void;
+};
+
+let activeHttpServer: BunHttpServer | undefined;
+let shutdownPromise: Promise<void> | undefined;
+
+async function shutdownRuntime(): Promise<void> {
+	shutdownPromise ??= (async () => {
+		let serverStopError: unknown;
+		try {
+			activeHttpServer?.stop(true);
+		} catch (error) {
+			serverStopError = error;
+		} finally {
+			activeHttpServer = undefined;
+		}
+		try {
+			await closeOutboundWebhookRuntimeRepositories();
+		} catch (repositoryError) {
+			if (serverStopError !== undefined) {
+				throw new AggregateError(
+					[serverStopError, repositoryError],
+					"Failed to stop the MCP runtime cleanly",
+				);
+			}
+			throw repositoryError;
+		}
+		if (serverStopError !== undefined) {
+			throw serverStopError;
+		}
+	})();
+	await shutdownPromise;
+}
+
+function reportShutdownError(error: unknown): void {
+	console.error("⚠️ Failed to close the MCP runtime cleanly:", error);
+}
+
+function handleShutdownSignal(): void {
+	console.error("\n🛑 Shutting down server...");
+	void shutdownRuntime().then(
+		() => process.exit(0),
+		(error) => {
+			reportShutdownError(error);
+			process.exit(1);
+		},
+	);
+}
 
 async function createMCPServer(
 	config: MCPServerConfig,
@@ -116,6 +167,9 @@ Environment fallback:
   MCP_HTTP_AUTH_TOKEN          Optional Bearer token for HTTP tool endpoints
   MCP_HTTP_ALLOWED_HOSTS       Comma-separated hostnames for non-loopback HTTP
   MCP_HTTP_ALLOWED_ORIGINS     Comma-separated browser origins for non-loopback HTTP
+  LISTMONK_OPS_WEBHOOK_STORE   File-backed webhook endpoint/outbox path
+  LISTMONK_OPS_WEBHOOK_DATABASE_URL
+                               Postgres webhook endpoint/outbox URL (exclusive with file store)
 `);
 }
 
@@ -271,32 +325,51 @@ export async function main() {
 	try {
 		const server = await createMCPServer(config);
 		if (transport === "stdio") {
-			const [{ StdioServerTransport }, { connectMCPTransport }] =
+			const [
+				{ StdioServerTransport },
+				{ connectMCPTransportUntilClosed },
+			] =
 				await Promise.all([
 					import("@modelcontextprotocol/sdk/server/stdio.js"),
 					import("./protocol.js"),
 				]);
-			await connectMCPTransport(server, new StdioServerTransport());
+			let transportError: unknown;
+			try {
+				await connectMCPTransportUntilClosed(
+					server,
+					new StdioServerTransport(),
+				);
+			} catch (error) {
+				transportError = error;
+				throw error;
+			} finally {
+				try {
+					await shutdownRuntime();
+				} catch (shutdownError) {
+					if (transportError === undefined) {
+						throw shutdownError;
+					}
+					reportShutdownError(shutdownError);
+				}
+			}
 			return;
 		}
 
-		await server.listen(port, host);
+		activeHttpServer = await server.listen(port, host);
 	} catch (error) {
+		try {
+			await shutdownRuntime();
+		} catch (shutdownError) {
+			reportShutdownError(shutdownError);
+		}
 		console.error("❌ Failed to start server:", error);
 		process.exit(1);
 	}
 }
 
 // Handle graceful shutdown
-process.on("SIGINT", () => {
-	console.error("\n🛑 Shutting down server...");
-	process.exit(0);
-});
-
-process.on("SIGTERM", () => {
-	console.error("\n🛑 Shutting down server...");
-	process.exit(0);
-});
+process.on("SIGINT", handleShutdownSignal);
+process.on("SIGTERM", handleShutdownSignal);
 
 const isMainModule = (() => {
 	// Bun runtime

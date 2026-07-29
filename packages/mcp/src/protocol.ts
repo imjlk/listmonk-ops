@@ -49,3 +49,29 @@ export async function connectMCPTransport(
 	await server.connect(transport);
 	return server;
 }
+
+/**
+ * Connect a long-lived transport and keep the runtime alive until the peer
+ * closes it. `Server.connect()` only starts the transport, so executable
+ * entrypoints must not use its resolution as a shutdown signal.
+ */
+export async function connectMCPTransportUntilClosed(
+	provider: MCPToolProvider,
+	transport: Transport,
+): Promise<Server> {
+	let resolveClosed: (() => void) | undefined;
+	const closed = new Promise<void>((resolve) => {
+		resolveClosed = resolve;
+	});
+	const previousOnClose = transport.onclose;
+	transport.onclose = () => {
+		try {
+			previousOnClose?.();
+		} finally {
+			resolveClosed?.();
+		}
+	};
+	const server = await connectMCPTransport(provider, transport);
+	await closed;
+	return server;
+}

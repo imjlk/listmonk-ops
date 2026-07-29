@@ -5,7 +5,10 @@ import {
 	invokeWebhookDeliveryRetryOperation,
 	invokeWebhookDispatchOperation,
 	invokeWebhookListOperation,
+	invokeWebhookPruneOperation,
+	invokeWebhookReconcileOperation,
 	invokeWebhookTestOperation,
+	invokeWebhookTickOperation,
 	invokeWebhookUpdateOperation,
 	OUTBOUND_WEBHOOK_EVENT_TYPES,
 	OUTBOUND_WEBHOOK_SECRET_REF_PATTERN,
@@ -196,6 +199,88 @@ const dispatchCommand = defineCommand({
 	},
 });
 
+const reconcileCommand = defineCommand({
+	name: "reconcile",
+	description: "Preview or recover expired outbound webhook worker leases",
+	operationId: "webhooks.reconcile",
+	options: {
+		limit: option(z.coerce.number().int().min(1).max(1_000).default(100), {
+			description: "Maximum delivering records to inspect",
+		}),
+		"dry-run": option(z.coerce.boolean().default(true), {
+			description: "Report lease repairs without changing delivery state",
+		}),
+	},
+	handler: async ({ flags }) => {
+		getOutput().json(
+			await invokeWebhookReconcileOperation(
+				{},
+				{
+					limit: flags.limit,
+					dry_run: flags["dry-run"],
+				},
+			),
+		);
+	},
+});
+
+const pruneCommand = defineCommand({
+	name: "prune",
+	description: "Preview or delete old terminal webhook delivery history",
+	operationId: "webhooks.prune",
+	options: {
+		"older-than-days": option(
+			z.coerce.number().int().min(1).max(3_650).default(30),
+			{ description: "Retention age in days" },
+		),
+		limit: option(z.coerce.number().int().min(1).max(1_000).default(100), {
+			description: "Maximum terminal records to inspect or delete",
+		}),
+		"dry-run": option(z.coerce.boolean().default(true), {
+			description: "Report eligible records without deleting them",
+		}),
+	},
+	handler: async ({ flags }) => {
+		getOutput().json(
+			await invokeWebhookPruneOperation(
+				{},
+				{
+					older_than_days: flags["older-than-days"],
+					limit: flags.limit,
+					dry_run: flags["dry-run"],
+				},
+			),
+		);
+	},
+});
+
+const tickCommand = defineCommand({
+	name: "tick",
+	description: "Recover expired leases and deliver one bounded outbox batch",
+	operationId: "webhooks.tick",
+	options: {
+		"dispatch-limit": option(
+			z.coerce.number().int().min(1).max(100).default(25),
+			{ description: "Maximum due deliveries to claim" },
+		),
+		"reconcile-limit": option(
+			z.coerce.number().int().min(1).max(1_000).default(100),
+			{ description: "Maximum delivering records to reconcile first" },
+		),
+	},
+	handler: async ({ flags }) => {
+		getOutput().json(
+			await invokeWebhookTickOperation(
+				{},
+				{
+					dispatch_limit: flags["dispatch-limit"],
+					reconcile_limit: flags["reconcile-limit"],
+				},
+			),
+		);
+	},
+});
+
 const deliveryListCommand = defineCommand({
 	name: "list",
 	description: "List redacted outbound webhook delivery records",
@@ -260,6 +345,9 @@ export default defineGroup({
 		deleteCommand,
 		testCommand,
 		dispatchCommand,
+		reconcileCommand,
+		pruneCommand,
+		tickCommand,
 		deliveriesGroup,
 	],
 });

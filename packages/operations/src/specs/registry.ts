@@ -32,7 +32,7 @@ export const operationSpecs = [
 
 export const emailOperationsSpec =
 	defineEmailOperationsSpec({
-		schemaVersion: "1.3.0",
+		schemaVersion: "1.4.0",
 		title: "listmonk-ops Email Operations Specification",
 		description:
 			"Typed, policy-aware, and verifiable email operations for humans and AI agents.",

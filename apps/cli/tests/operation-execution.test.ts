@@ -155,6 +155,53 @@ describe("CLI operation execution safety", () => {
 		).toBe(true);
 	});
 
+	test("projects successful campaign lifecycle events from the shared CLI boundary", async () => {
+		const directory = await mkdtemp(
+			join(tmpdir(), "listmonk-ops-cli-domain-lifecycle-"),
+		);
+		tempDirectories.push(directory);
+		const auditStorePath = join(directory, "operation-audit.json");
+		const webhookStorePath = join(directory, "outbound-webhooks.json");
+		await createOutboundWebhookEndpoint(
+			{
+				name: "campaigns",
+				url: "https://8.8.8.8/hooks",
+				secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_CAMPAIGNS",
+				eventFilters: ["campaign.*"],
+			},
+			{ path: webhookStorePath },
+		);
+
+		await expect(
+			executeCliOperation({
+				operationId: "campaigns.start",
+				input: { id: 42 },
+				confirmed: true,
+				invoke: async () => ({ id: 42, status: "running" }),
+				auditStoreOptions: { path: auditStorePath },
+				webhookStoreOptions: { path: webhookStorePath },
+			}),
+		).resolves.toEqual({ id: 42, status: "running" });
+
+		const audit = await listOperationAuditEntries({ path: auditStorePath });
+		const deliveries = await listOutboundWebhookDeliveries({
+			path: webhookStorePath,
+		});
+		expect(deliveries).toMatchObject([
+			{
+				event: {
+					type: "campaign.started",
+					correlationId: audit[0]?.executionId,
+					subject: { kind: "campaign", key: "42" },
+					data: {
+						operation_id: "campaigns.start",
+						status: "running",
+					},
+				},
+			},
+		]);
+	});
+
 	test("does not invoke a mutation when its started audit event cannot persist", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "listmonk-ops-cli-audit-"));
 		tempDirectories.push(directory);

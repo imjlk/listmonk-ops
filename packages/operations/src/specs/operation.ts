@@ -41,7 +41,9 @@ export type OperationSpecVerb =
 	| "prime"
 	| "test"
 	| "dispatch"
-	| "retry";
+	| "retry"
+	| "prune"
+	| "tick";
 
 export type OperationSpecLifecycle =
 	| {

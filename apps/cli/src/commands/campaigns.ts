@@ -147,37 +147,41 @@ export async function renderDeleteCampaign(
 export async function renderScheduleCampaign(
 	context: CampaignsCliContext,
 	input: { id: number; send_at: string },
-): Promise<void> {
+) {
 	const result = await invokeScheduleCampaignOperation(context, input);
 	context.output.success(`Campaign ${input.id} scheduled for ${input.send_at}`);
 	context.output.json(result);
+	return result;
 }
 
 export async function renderStartCampaign(
 	context: CampaignsCliContext,
 	input: { id: number },
-): Promise<void> {
+) {
 	const result = await invokeStartCampaignOperation(context, input);
 	context.output.success(`Campaign ${input.id} started`);
 	context.output.json(result);
+	return result;
 }
 
 export async function renderPauseCampaign(
 	context: CampaignsCliContext,
 	input: { id: number },
-): Promise<void> {
+) {
 	const result = await invokePauseCampaignOperation(context, input);
 	context.output.success(`Campaign ${input.id} paused`);
 	context.output.json(result);
+	return result;
 }
 
 export async function renderCancelCampaign(
 	context: CampaignsCliContext,
 	input: { id: number },
-): Promise<void> {
+) {
 	const result = await invokeCancelCampaignOperation(context, input);
 	context.output.success(`Campaign ${input.id} cancelled`);
 	context.output.json(result);
+	return result;
 }
 
 export async function renderCloneCampaign(
@@ -411,10 +415,10 @@ export async function handleDeleteCampaignCommand({
 export async function handleScheduleCampaignCommand({
 	flags,
 	...args
-}: HandlerArgs<{ id: number; "send-at": string }>): Promise<void> {
+}: HandlerArgs<{ id: number; "send-at": string }>) {
 	try {
 		const client = await getListmonkClient(args);
-		await renderScheduleCampaign(
+		return await renderScheduleCampaign(
 			{ client, output: getOutput() },
 			{ id: flags.id, send_at: flags["send-at"] },
 		);
@@ -426,10 +430,10 @@ export async function handleScheduleCampaignCommand({
 export async function handleStartCampaignCommand({
 	flags,
 	...args
-}: HandlerArgs<{ id: number }>): Promise<void> {
+}: HandlerArgs<{ id: number }>) {
 	try {
 		const client = await getListmonkClient(args);
-		await renderStartCampaign(
+		return await renderStartCampaign(
 			{ client, output: getOutput() },
 			{ id: flags.id },
 		);
@@ -441,10 +445,10 @@ export async function handleStartCampaignCommand({
 export async function handlePauseCampaignCommand({
 	flags,
 	...args
-}: HandlerArgs<{ id: number }>): Promise<void> {
+}: HandlerArgs<{ id: number }>) {
 	try {
 		const client = await getListmonkClient(args);
-		await renderPauseCampaign(
+		return await renderPauseCampaign(
 			{ client, output: getOutput() },
 			{ id: flags.id },
 		);
@@ -456,10 +460,10 @@ export async function handlePauseCampaignCommand({
 export async function handleCancelCampaignCommand({
 	flags,
 	...args
-}: HandlerArgs<{ id: number }>): Promise<void> {
+}: HandlerArgs<{ id: number }>) {
 	try {
 		const client = await getListmonkClient(args);
-		await renderCancelCampaign(
+		return await renderCancelCampaign(
 			{ client, output: getOutput() },
 			{ id: flags.id },
 		);

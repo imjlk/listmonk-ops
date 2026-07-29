@@ -24,7 +24,7 @@
 	],
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/common --external:@listmonk-ops/openapi --external:@listmonk-ops/operations --external:zod",
+		"build": "bun run clean && ttsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --minify --external:@listmonk-ops/common --external:@listmonk-ops/openapi --external:@listmonk-ops/operations --external:postgres --external:zod",
 		"typecheck": "ttsc --noEmit",
 		"format": "ttsc format",
 		"lint": "ttsc --noEmit",
@@ -36,6 +36,7 @@
 		"@listmonk-ops/common": "^0.5.0",
 		"@listmonk-ops/openapi": "^0.4.0",
 		"@listmonk-ops/operations": "workspace:^0.7.0",
+		"postgres": "3.4.9",
 		"zod": "4.3.6"
 	},
 	"devDependencies": {

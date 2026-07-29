@@ -21,6 +21,8 @@ import {
 	transactionalSendOperationSpec,
 	webhookDispatchOperationSpec,
 	webhookOperationSpecs,
+	webhookPruneOperationSpec,
+	webhookReconcileOperationSpec,
 } from "../src/specs";
 
 describe("email operations specification", () => {
@@ -48,6 +50,9 @@ describe("email operations specification", () => {
 			"webhooks.dispatch",
 			"webhooks.delivery.list",
 			"webhooks.delivery.retry",
+			"webhooks.reconcile",
+			"webhooks.prune",
+			"webhooks.tick",
 		]);
 		expect(campaignGetOperationSpec.contract.input).toMatchObject({
 			dialect: "openapi-3.1",
@@ -96,9 +101,25 @@ describe("email operations specification", () => {
 			campaignPreflightOperationSpec.contract.output.components?.schemas
 				?.IsoDateTime,
 		).toMatchObject({ type: "string", format: "date-time" });
-		expect(webhookOperationSpecs).toHaveLength(8);
+		expect(webhookOperationSpecs).toHaveLength(11);
 		expect(webhookDispatchOperationSpec.effects).toEqual([
 			{ kind: "webhook", resource: "webhook", audience: "bulk" },
+		]);
+		expect(webhookReconcileOperationSpec.effects).toEqual([
+			{
+				kind: "maintenance",
+				resource: "webhook",
+				action: "recover",
+				destructive: false,
+			},
+		]);
+		expect(webhookPruneOperationSpec.effects).toEqual([
+			{
+				kind: "maintenance",
+				resource: "webhook",
+				action: "prune",
+				destructive: true,
+			},
 		]);
 		expect(emailOperationsSpec.events.map((event) => event.type)).toContain(
 			"operation.succeeded",
@@ -212,6 +233,34 @@ describe("email operations specification", () => {
 			confirmation: "required",
 			audit: "required",
 			dryRun: false,
+		});
+		expect(
+			expectedPolicyForEffects([
+				{
+					kind: "maintenance",
+					resource: "webhook",
+					action: "recover",
+					destructive: false,
+				},
+			]),
+		).toEqual({
+			confirmation: "never",
+			audit: "required",
+			dryRun: true,
+		});
+		expect(
+			expectedPolicyForEffects([
+				{
+					kind: "maintenance",
+					resource: "webhook",
+					action: "prune",
+					destructive: true,
+				},
+			]),
+		).toEqual({
+			confirmation: "required",
+			audit: "required",
+			dryRun: true,
 		});
 	});
 

@@ -114,7 +114,7 @@ export function defineCommand<
 	description?: string;
 	options?: Options;
 	operationId?: string;
-	handler: (args: HandlerArgs<InferFlags<Options>>) => void | Promise<void>;
+	handler: (args: HandlerArgs<InferFlags<Options>>) => unknown | Promise<unknown>;
 }): CliCommand {
 	const args = Object.fromEntries(
 		Object.entries(config.options ?? {}).map(([name, definition]) => [

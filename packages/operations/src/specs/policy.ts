@@ -28,6 +28,12 @@ type HasBulkDelivery<Effects extends readonly OperationEffect[]> = [
 	? false
 	: true;
 
+type HasDestructiveMaintenance<Effects extends readonly OperationEffect[]> = [
+	Extract<Effects[number], { kind: "maintenance"; destructive: true }>,
+] extends [never]
+	? false
+	: true;
+
 /**
  * Safety precedence is intentionally conservative:
  * suppression requires a preview and confirmation; outbound webhook effects,
@@ -45,6 +51,18 @@ export type PolicyForEffects<
 			audit: "required";
 			dryRun: true;
 		}
+	: HasDestructiveMaintenance<Effects> extends true
+		? {
+				confirmation: "required";
+				audit: "required";
+				dryRun: true;
+			}
+		: HasEffect<Effects, "maintenance"> extends true
+			? {
+					confirmation: "never";
+					audit: "required";
+					dryRun: true;
+				}
 	: HasEffect<Effects, "webhook"> extends true
 		? {
 				confirmation: "required";
@@ -94,6 +112,25 @@ export function expectedPolicyForEffects(
 	if (hasEffectKind(effects, ["suppression"])) {
 		return {
 			confirmation: "required",
+			audit: "required",
+			dryRun: true,
+		};
+	}
+	if (
+		effects.some(
+			(effect) =>
+				effect.kind === "maintenance" && effect.destructive,
+		)
+	) {
+		return {
+			confirmation: "required",
+			audit: "required",
+			dryRun: true,
+		};
+	}
+	if (hasEffectKind(effects, ["maintenance"])) {
+		return {
+			confirmation: "never",
 			audit: "required",
 			dryRun: true,
 		};

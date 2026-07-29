@@ -18,6 +18,7 @@ export type OperationEffect =
 	| WriteEffect
 	| DeliveryEffect
 	| WebhookEffect
+	| MaintenanceEffect
 	| SuppressionEffect
 	| DeleteEffect;
 
@@ -52,6 +53,25 @@ export interface WebhookEffect {
 	resource: "webhook";
 	audience: "single" | "bulk";
 }
+
+/**
+ * Bounded control-plane maintenance. Destructive maintenance requires a
+ * preview and confirmation; recoverable maintenance still exposes dry-run so
+ * an agent can inspect the planned lease/status repair first.
+ */
+export type MaintenanceEffect =
+	| {
+			kind: "maintenance";
+			resource: OperationResourceKind;
+			action: "recover";
+			destructive: false;
+	  }
+	| {
+			kind: "maintenance";
+			resource: OperationResourceKind;
+			action: "prune";
+			destructive: true;
+	  };
 
 export interface SuppressionEffect {
 	kind: "suppression";

@@ -197,6 +197,12 @@ const recordOperationAuditWithLifecycle =
 	"packages/automation/src/outbound-webhooks.ts#recordOperationAuditWithLifecycle:function";
 const enqueueOperationLifecycleEvent =
 	"packages/automation/src/outbound-webhooks.ts#enqueueOperationLifecycleEvent:function";
+const enqueueSuccessfulOperationLifecycleEvents =
+	"packages/automation/src/outbound-webhook-domain-events.ts#enqueueSuccessfulOperationLifecycleEvents:function";
+const projectSuccessfulOperationLifecycleEvents =
+	"packages/automation/src/outbound-webhook-domain-events.ts#projectSuccessfulOperationLifecycleEvents:function";
+const domainLifecycleProjectionTest =
+	"packages/automation/tests/outbound-webhook-domain-events.test.ts#packages/automation/tests/outbound-webhook-domain-events.test.ts:module";
 const updateJsonFileStore =
 	"packages/common/src/json-file-store.ts#updateJsonFileStore:function";
 const mcpOperationExecutionTest =
@@ -1890,6 +1896,15 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 		],
 	},
 	{
+		label: "MCP completion projects successful domain lifecycle events",
+		path: [
+			mcpCallTool,
+			mcpOperationExecutionCompleter,
+			enqueueSuccessfulOperationLifecycleEvents,
+			projectSuccessfulOperationLifecycleEvents,
+		],
+	},
+	{
 		label: "MCP execution-safety tests exercise the central enforcement boundary",
 		path: [
 			mcpOperationExecutionTest,
@@ -1946,6 +1961,21 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			cliOperationAuditRecorder,
 			recordOperationAuditWithLifecycle,
 			enqueueOperationLifecycleEvent,
+		],
+	},
+	{
+		label: "CLI completion projects successful domain lifecycle events",
+		path: [
+			cliOperationExecutor,
+			enqueueSuccessfulOperationLifecycleEvents,
+			projectSuccessfulOperationLifecycleEvents,
+		],
+	},
+	{
+		label: "Domain lifecycle tests anchor the typed projection",
+		path: [
+			domainLifecycleProjectionTest,
+			projectSuccessfulOperationLifecycleEvents,
 		],
 	},
 	{

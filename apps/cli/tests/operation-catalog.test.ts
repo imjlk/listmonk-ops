@@ -7,8 +7,8 @@ import { getOperationCatalogOutput } from "../src/commands/operations";
 
 describe("CLI operation catalog", () => {
 	test("exposes every shared operation without requiring Listmonk credentials", () => {
-		expect(cliOperationCatalog.entries).toHaveLength(73);
-		expect(listCliOperationCatalogSummaries()).toHaveLength(73);
+		expect(cliOperationCatalog.entries).toHaveLength(76);
+		expect(listCliOperationCatalogSummaries()).toHaveLength(76);
 		expect(getOperationCatalogOutput("discovery").operations).toHaveLength(7);
 		expect(getOperationCatalogOutput("campaigns").operations).toHaveLength(11);
 		expect(getOperationCatalogOutput("media").operations).toHaveLength(4);

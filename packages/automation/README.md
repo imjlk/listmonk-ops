@@ -90,30 +90,41 @@ the CLI and MCP adapters.
 ```ts
 import {
 	createOutboundWebhookEndpoint,
-	dispatchOutboundWebhooks,
 	enqueueOutboundWebhookEvent,
+	dispatchOutboundWebhooks,
+	getOutboundWebhookStoreOptionsFromEnvironment,
 	verifyOutboundWebhookSignature,
 } from "@listmonk-ops/automation";
+
+const webhookStore = getOutboundWebhookStoreOptionsFromEnvironment();
 
 await createOutboundWebhookEndpoint({
 	name: "operations",
 	url: "https://events.example.com/listmonk",
 	secretRef: "LISTMONK_OPS_WEBHOOK_SECRET",
 	eventFilters: ["operation.*", "campaign.*"],
-});
+}, webhookStore);
 
 await enqueueOutboundWebhookEvent({
 	type: "campaign.started",
 	source: "listmonk",
 	subject: { kind: "campaign", key: "42" },
 	data: { campaign_id: 42 },
-});
+}, webhookStore);
 
-await dispatchOutboundWebhooks();
+await dispatchOutboundWebhooks({ store: webhookStore });
 ```
 
 The default store is `~/.listmonk-ops/outbound-webhooks.json`; override it with
-`LISTMONK_OPS_WEBHOOK_STORE`. Only the environment-variable name in
+`LISTMONK_OPS_WEBHOOK_STORE`. For concurrent processes or hosts, set
+`LISTMONK_OPS_WEBHOOK_DATABASE_URL` instead; configuring both is rejected to
+avoid split-brain outboxes. The Postgres repository uses normalized tables,
+transactional deduplication, `FOR UPDATE SKIP LOCKED`, expiring leases, and
+lease-token fencing. `reconcileOutboundWebhookDeliveries()` recovers expired
+leases, and terminal history can be removed with the bounded, previewable
+`pruneOutboundWebhookDeliveries()` API.
+
+Only the environment-variable name in
 `secretRef` is persisted. Dispatch resolves its value at runtime, sends no
 redirects, revalidates public HTTPS destination addresses, and pins the
 validated address into the TLS connection to prevent DNS rebinding between
@@ -122,6 +133,9 @@ If a hostname has multiple validated addresses, dispatch tries them in order
 within the endpoint timeout. Audited CLI and MCP executions are projected into
 `operation.*` events automatically after the durable metadata-only audit write;
 projection failure is reported without changing the operation result.
+Successful campaign, subscriber, and A/B lifecycle operations are also
+projected into their typed domain event families without subscriber email
+addresses.
 
 Receivers should verify `X-Listmonk-Ops-Signature` over
 `<X-Listmonk-Ops-Timestamp>.<exact-body>` and apply replay protection.
