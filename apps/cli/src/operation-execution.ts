@@ -25,6 +25,7 @@ const cliRuntimeInputKeys = new Set(["confirm", "interactive", "tui"]);
 export type CliOperationExecution = Readonly<{
 	operation: OperationCatalogItem;
 	policy: OperationExecutionPolicy;
+	/** Normalized input retained in memory for projection, never audit persistence. */
 	operationInput: Readonly<Record<string, unknown>>;
 	confirmed: boolean;
 	dryRun: boolean;

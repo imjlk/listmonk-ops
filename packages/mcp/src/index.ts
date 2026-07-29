@@ -66,9 +66,13 @@ function reportShutdownError(error: unknown): void {
 
 function handleShutdownSignal(): void {
 	console.error("\n🛑 Shutting down server...");
-	void shutdownRuntime()
-		.catch(reportShutdownError)
-		.finally(() => process.exit(0));
+	void shutdownRuntime().then(
+		() => process.exit(0),
+		(error) => {
+			reportShutdownError(error);
+			process.exit(1);
+		},
+	);
 }
 
 async function createMCPServer(
@@ -335,11 +339,11 @@ export async function main() {
 			} finally {
 				try {
 					await shutdownRuntime();
-				} catch (error) {
+				} catch (shutdownError) {
 					if (transportError === undefined) {
-						throw error;
+						throw shutdownError;
 					}
-					reportShutdownError(error);
+					reportShutdownError(shutdownError);
 				}
 			}
 			return;
