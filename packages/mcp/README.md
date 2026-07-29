@@ -18,7 +18,7 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_list_operations` - Read-only catalog of typed contracts shared by
   the CLI and MCP server. Pass an optional exact `family` filter (`lists`,
   `subscribers`, `campaigns`, `templates`, `media`, `transactional`, `ops`,
-  `abtest`, or `discovery`) to discover operation schemas, safety hints, and
+  `abtest`, `discovery`, or `webhooks`) to discover operation schemas, safety hints, and
   execution policy.
 - `listmonk_schema_search` - Search operation contracts and agent guidance by
   intent, family, resource, or verb.
@@ -128,6 +128,30 @@ existing behavior until they are migrated.
 - `listmonk_ops_template_registry_rollback` - Rollback template to previous version
 - `listmonk_ops_daily_digest` - Generate operational daily digest
 
+### Signed Outbound Webhooks
+
+- `listmonk_webhooks_list` - List endpoint metadata
+- `listmonk_webhooks_create` / `listmonk_webhooks_update` - Manage public
+  HTTPS endpoints using an environment-variable `secret_ref`
+- `listmonk_webhooks_delete` - Delete an endpoint and exhaust unfinished
+  deliveries (requires `confirm: true`)
+- `listmonk_webhooks_test` - Enqueue and deliver one signed `webhook.test`
+  event (requires `confirm: true`)
+- `listmonk_webhooks_dispatch` - Claim and deliver due outbox entries
+  (requires `confirm: true`)
+- `listmonk_webhook_deliveries_list` - Inspect redacted delivery history
+- `listmonk_webhook_delivery_retry` - Requeue one retryable or exhausted
+  delivery (requires `confirm: true`)
+
+Endpoint records persist only `secret_ref`, never the HMAC value. Delivery uses
+the same versioned JSON outbox as the CLI, stable event IDs, at-least-once
+semantics, exponential retry, terminal exhaustion, replay-protected signatures,
+public-HTTPS validation, and disabled redirects.
+Audited MCP operations automatically enqueue matching `operation.*` lifecycle
+events with the same execution ID. This projection is best-effort after the
+durable audit write and does not turn an observability failure into a remote
+operation retry.
+
 ### Operations & Observability
 
 - `listmonk_health_check` - Verify API health
@@ -174,6 +198,11 @@ LISTMONK_OPS_TEMPLATE_REGISTRY=/absolute/path/to/template-registry.json
 
 # Optional: override metadata-only operation audit persistence
 LISTMONK_OPS_AUDIT_STORE=/absolute/path/to/operation-audit.json
+
+# Optional: override signed outbound-webhook endpoint/outbox persistence
+LISTMONK_OPS_WEBHOOK_STORE=/absolute/path/to/outbound-webhooks.json
+# Example signing secret referenced by an endpoint's secret_ref
+LISTMONK_OPS_WEBHOOK_SECRET=<random-secret>
 
 # MCP Server Configuration
 MCP_SERVER_PORT=3000

@@ -9,12 +9,15 @@ export type OperationResourceKind =
 	| "sequence"
 	| "spec"
 	| "playbook"
-	| "control";
+	| "control"
+	| "operation"
+	| "webhook";
 
 export type OperationEffect =
 	| ReadEffect
 	| WriteEffect
 	| DeliveryEffect
+	| WebhookEffect
 	| SuppressionEffect
 	| DeleteEffect;
 
@@ -37,6 +40,17 @@ export interface DeliveryEffect {
 	>;
 	audience: "single" | "bulk";
 	timing: "immediate" | "scheduled";
+}
+
+/**
+ * An outbound HTTP notification. Webhook sends are always confirmation-gated
+ * because a retry can cross the local trust boundary even when the underlying
+ * event identifier is stable.
+ */
+export interface WebhookEffect {
+	kind: "webhook";
+	resource: "webhook";
+	audience: "single" | "bulk";
 }
 
 export interface SuppressionEffect {

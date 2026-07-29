@@ -1,3 +1,7 @@
+import {
+	createOutboundWebhookEndpoint,
+	listOutboundWebhookDeliveries,
+} from "@listmonk-ops/automation";
 import { listOperationAuditEntries } from "@listmonk-ops/common";
 import { OperationConfirmationRequiredError } from "@listmonk-ops/operations";
 import { afterEach, describe, expect, test } from "bun:test";
@@ -105,6 +109,50 @@ describe("CLI operation execution safety", () => {
 			"failed",
 		]);
 		expect(JSON.stringify(entries)).not.toContain("remote secret failure");
+	});
+
+	test("projects audited execution events into the outbound webhook outbox", async () => {
+		const directory = await mkdtemp(
+			join(tmpdir(), "listmonk-ops-cli-lifecycle-"),
+		);
+		tempDirectories.push(directory);
+		const auditStorePath = join(directory, "operation-audit.json");
+		const webhookStorePath = join(directory, "outbound-webhooks.json");
+		await createOutboundWebhookEndpoint(
+			{
+				name: "operations",
+				url: "https://8.8.8.8/hooks",
+				secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_OPERATIONS",
+				eventFilters: ["operation.*"],
+			},
+			{ path: webhookStorePath },
+		);
+
+		await expect(
+			executeCliOperation({
+				operationId: "lists.create",
+				input: { name: "CLI lifecycle test" },
+				invoke: async () => "created",
+				auditStoreOptions: { path: auditStorePath },
+				webhookStoreOptions: { path: webhookStorePath },
+			}),
+		).resolves.toBe("created");
+
+		const audit = await listOperationAuditEntries({ path: auditStorePath });
+		const deliveries = await listOutboundWebhookDeliveries({
+			path: webhookStorePath,
+		});
+		expect(deliveries.map((delivery) => delivery.event.type).sort()).toEqual([
+			"operation.started",
+			"operation.succeeded",
+		]);
+		expect(
+			deliveries.every(
+				(delivery) =>
+					delivery.event.correlationId === audit[0]?.executionId &&
+					delivery.event.data.surface === "cli",
+			),
+		).toBe(true);
 	});
 
 	test("does not invoke a mutation when its started audit event cannot persist", async () => {

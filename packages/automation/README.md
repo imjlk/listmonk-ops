@@ -10,6 +10,7 @@ This package is designed for automation and orchestration use-cases:
 - segment drift snapshot and comparison
 - subscriber hygiene targeting
 - daily digest generation
+- signed outbound event webhooks with a durable delivery outbox
 
 ## Installation
 
@@ -79,3 +80,52 @@ reason. Promotion and rollback hold the registry lock across the Listmonk
 update; if Listmonk succeeds but the local registry commit cannot be confirmed,
 `TemplateRegistryWriteTransactionError` names the store and requires remote/
 local reconciliation before retrying.
+
+## Outbound Webhook Foundation
+
+`@listmonk-ops/automation` owns the shared endpoint registry, event envelope,
+redaction, HMAC signing, retry, lease, and delivery-log implementation used by
+the CLI and MCP adapters.
+
+```ts
+import {
+	createOutboundWebhookEndpoint,
+	dispatchOutboundWebhooks,
+	enqueueOutboundWebhookEvent,
+	verifyOutboundWebhookSignature,
+} from "@listmonk-ops/automation";
+
+await createOutboundWebhookEndpoint({
+	name: "operations",
+	url: "https://events.example.com/listmonk",
+	secretRef: "LISTMONK_OPS_WEBHOOK_SECRET",
+	eventFilters: ["operation.*", "campaign.*"],
+});
+
+await enqueueOutboundWebhookEvent({
+	type: "campaign.started",
+	source: "listmonk",
+	subject: { kind: "campaign", key: "42" },
+	data: { campaign_id: 42 },
+});
+
+await dispatchOutboundWebhooks();
+```
+
+The default store is `~/.listmonk-ops/outbound-webhooks.json`; override it with
+`LISTMONK_OPS_WEBHOOK_STORE`. Only the environment-variable name in
+`secretRef` is persisted. Dispatch resolves its value at runtime, sends no
+redirects, revalidates public HTTPS destination addresses, and pins the
+validated address into the TLS connection to prevent DNS rebinding between
+validation and delivery.
+If a hostname has multiple validated addresses, dispatch tries them in order
+within the endpoint timeout. Audited CLI and MCP executions are projected into
+`operation.*` events automatically after the durable metadata-only audit write;
+projection failure is reported without changing the operation result.
+
+Receivers should verify `X-Listmonk-Ops-Signature` over
+`<X-Listmonk-Ops-Timestamp>.<exact-body>` and apply replay protection.
+`verifyOutboundWebhookSignature()` uses a five-minute tolerance by default.
+Delivery is at-least-once, so consumers must deduplicate the stable event ID.
+When another worker reclaims an expired lease, dispatch reports the stale
+worker's result as `skipped` without discarding completed sibling results.

@@ -193,6 +193,10 @@ const operationAuditTest =
 	"packages/common/tests/operation-audit.test.ts#packages/common/tests/operation-audit.test.ts:module";
 const recordOperationAudit =
 	"packages/common/src/operation-audit.ts#recordOperationAudit:function";
+const recordOperationAuditWithLifecycle =
+	"packages/automation/src/outbound-webhooks.ts#recordOperationAuditWithLifecycle:function";
+const enqueueOperationLifecycleEvent =
+	"packages/automation/src/outbound-webhooks.ts#enqueueOperationLifecycleEvent:function";
 const updateJsonFileStore =
 	"packages/common/src/json-file-store.ts#updateJsonFileStore:function";
 const mcpOperationExecutionTest =
@@ -1860,6 +1864,7 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 		path: [
 			mcpCallTool,
 			mcpOperationAuditRecorder,
+			recordOperationAuditWithLifecycle,
 			recordOperationAudit,
 			updateJsonFileStore,
 		],
@@ -1870,8 +1875,18 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 			mcpCallTool,
 			mcpOperationExecutionCompleter,
 			mcpOperationAuditRecorder,
+			recordOperationAuditWithLifecycle,
 			recordOperationAudit,
 			updateJsonFileStore,
+		],
+	},
+	{
+		label: "MCP audited operations project typed lifecycle events",
+		path: [
+			mcpCallTool,
+			mcpOperationAuditRecorder,
+			recordOperationAuditWithLifecycle,
+			enqueueOperationLifecycleEvent,
 		],
 	},
 	{
@@ -1919,8 +1934,18 @@ export const architectureCallPaths: readonly CallPathContract[] = [
 		path: [
 			cliOperationExecutor,
 			cliOperationAuditRecorder,
+			recordOperationAuditWithLifecycle,
 			recordOperationAudit,
 			updateJsonFileStore,
+		],
+	},
+	{
+		label: "CLI audited operations project typed lifecycle events",
+		path: [
+			cliOperationExecutor,
+			cliOperationAuditRecorder,
+			recordOperationAuditWithLifecycle,
+			enqueueOperationLifecycleEvent,
 		],
 	},
 	{

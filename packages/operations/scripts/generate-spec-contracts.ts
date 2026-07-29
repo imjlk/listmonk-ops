@@ -28,6 +28,22 @@ import type {
 	SubscriberBulkOutput,
 	TransactionalSendInput,
 	TransactionalSendOutput,
+	WebhookCreateInput,
+	WebhookCreateOutput,
+	WebhookDeleteInput,
+	WebhookDeleteOutput,
+	WebhookDeliveryListInput,
+	WebhookDeliveryListOutput,
+	WebhookDeliveryRetryInput,
+	WebhookDeliveryRetryOutput,
+	WebhookDispatchInput,
+	WebhookDispatchOutput,
+	WebhookListInput,
+	WebhookListOutput,
+	WebhookTestInput,
+	WebhookTestOutput,
+	WebhookUpdateInput,
+	WebhookUpdateOutput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 
@@ -151,6 +167,54 @@ const contracts = {
 	),
 	controlStatusOutputContract: contractSchema(
 		typia.json.schema<ControlStatusOutput>(),
+	),
+	webhookListInputContract: contractSchema(
+		typia.json.schema<WebhookListInput>(),
+	),
+	webhookListOutputContract: contractSchema(
+		typia.json.schema<WebhookListOutput>(),
+	),
+	webhookCreateInputContract: contractSchema(
+		typia.json.schema<WebhookCreateInput>(),
+	),
+	webhookCreateOutputContract: contractSchema(
+		typia.json.schema<WebhookCreateOutput>(),
+	),
+	webhookUpdateInputContract: contractSchema(
+		typia.json.schema<WebhookUpdateInput>(),
+	),
+	webhookUpdateOutputContract: contractSchema(
+		typia.json.schema<WebhookUpdateOutput>(),
+	),
+	webhookDeleteInputContract: contractSchema(
+		typia.json.schema<WebhookDeleteInput>(),
+	),
+	webhookDeleteOutputContract: contractSchema(
+		typia.json.schema<WebhookDeleteOutput>(),
+	),
+	webhookTestInputContract: contractSchema(
+		typia.json.schema<WebhookTestInput>(),
+	),
+	webhookTestOutputContract: contractSchema(
+		typia.json.schema<WebhookTestOutput>(),
+	),
+	webhookDispatchInputContract: contractSchema(
+		typia.json.schema<WebhookDispatchInput>(),
+	),
+	webhookDispatchOutputContract: contractSchema(
+		typia.json.schema<WebhookDispatchOutput>(),
+	),
+	webhookDeliveryListInputContract: contractSchema(
+		typia.json.schema<WebhookDeliveryListInput>(),
+	),
+	webhookDeliveryListOutputContract: contractSchema(
+		typia.json.schema<WebhookDeliveryListOutput>(),
+	),
+	webhookDeliveryRetryInputContract: contractSchema(
+		typia.json.schema<WebhookDeliveryRetryInput>(),
+	),
+	webhookDeliveryRetryOutputContract: contractSchema(
+		typia.json.schema<WebhookDeliveryRetryOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

@@ -87,6 +87,8 @@ export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry
 export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 # 선택: 트랜잭션 멱등성(idempotency) 저장소 경로 재정의
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
+# 선택: 서명형 outbound webhook endpoint/outbox 저장소 경로 재정의
+export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
 ```
 
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
@@ -663,6 +665,56 @@ CIDR, link-local, 클라우드 metadata IP)를 차단하며 redirect를 수동�
 팔로우하며 각 hop마다 재검증합니다. 템플릿 promote는 `--expected-remote-hash`로
 optimistic concurrency를 지원합니다. MCP/CLI operation 출력은 더 이상
 절대 파일시스템 경로를 노출하지 않습니다.
+
+## 서명형 Outbound Event Webhook
+
+CLI와 MCP는 버전이 지정된 event envelope, endpoint registry, durable
+outbox를 공유합니다. Endpoint에는 `secret_ref`만 저장하며 HMAC secret은 발송
+시점에 해당 환경 변수에서 읽습니다. Secret 값 자체는 저장소에 기록하지
+않습니다.
+
+```bash
+export LISTMONK_OPS_WEBHOOK_SECRET="<무작위-secret>"
+
+listmonk-cli webhooks create \
+  --name operations \
+  --url https://events.example.com/listmonk \
+  --secret-ref LISTMONK_OPS_WEBHOOK_SECRET \
+  --event-filters 'operation.*,campaign.*,abtest.*'
+
+listmonk-cli webhooks test --id <endpoint-uuid> --confirm
+listmonk-cli webhooks dispatch --limit 25 --confirm
+listmonk-cli webhooks deliveries list --status exhausted
+listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
+```
+
+필터는 정확한 event type, `campaign.*` 같은 family wildcard 또는 `*`를
+받습니다. 초기 계약은 operation, campaign, subscriber, delivery, A/B test,
+test event를 포함합니다. 자격 증명이나 개인정보 이름을 가진 payload 필드는
+저장 전에 재귀적으로 마스킹합니다.
+감사 대상 CLI/MCP operation은 같은 execution ID로 `operation.started`,
+`operation.blocked`, `operation.succeeded`, `operation.failed`를 자동 enqueue합니다.
+Event 투영은 durable audit 저장 이후 best-effort로 처리하므로 webhook 저장소
+장애가 operation 결과를 대체하거나 위험한 재시도를 유발하지 않습니다. 대상이
+지정된 `webhooks test` 진단은 endpoint의 일반 event filter를 변경하지 않고
+우회하여 전송합니다.
+
+요청에는 `X-Listmonk-Ops-Event-Id`, `X-Listmonk-Ops-Event-Type`,
+`X-Listmonk-Ops-Timestamp`,
+`X-Listmonk-Ops-Signature: v1=<hex>`가 포함됩니다. 수신 측에서는
+`<timestamp>.<정확한-body>`를 HMAC 검증하고 replay 허용 시간(제공되는 verifier
+기본값은 5분)을 벗어난 요청을 거부해야 합니다. 전달은 stable event ID를
+사용하는 at-least-once 방식이며 exponential backoff, delivery history,
+최종 `exhausted` 상태와 확인이 필요한 수동 재시도를 제공합니다.
+다른 worker가 만료된 lease를 다시 가져가면 기존 dispatch는 형제 작업 결과를
+유지하면서 해당 시도를 `skipped`로 보고합니다. 최종 상태는 공유 delivery
+log에서 확인할 수 있습니다.
+
+자격 증명, query string, fragment가 없는 public HTTPS endpoint만 허용합니다.
+Dispatch 시 DNS/IP가 전역 라우팅 가능한 주소인지 다시 확인하고, 검증된 주소를
+차례로 시도하면서 각 HTTPS 연결에 고정하며 redirect는 허용하지 않습니다.
+`webhooks dispatch`는 scheduler에서 실행하세요. Endpoint 등록만으로 background
+daemon이 시작되지는 않습니다.
 
 ## OpenAPI 재생성 (Hey API)
 

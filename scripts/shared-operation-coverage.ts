@@ -12,8 +12,10 @@ import { opsTools } from "../packages/mcp/src/handlers/ops";
 import { subscribersTools } from "../packages/mcp/src/handlers/subscribers";
 import { templatesTools } from "../packages/mcp/src/handlers/templates";
 import { transactionalTools } from "../packages/mcp/src/handlers/transactional";
+import { webhookTools } from "../packages/mcp/src/handlers/webhooks";
 import { withMcpOperationConfirmationInputSchema } from "../packages/mcp/src/operation-execution";
 import { opsOperations } from "../packages/automation/src/ops-operations";
+import { webhookOperations } from "../packages/automation/src/webhook-operations";
 import { campaignOperations } from "../packages/operations/src/campaigns";
 import { discoveryOperations } from "../packages/operations/src/discovery";
 import { listOperations } from "../packages/operations/src/lists";
@@ -32,7 +34,8 @@ export type SharedOperation =
 	| (typeof opsOperations)[number]
 	| (typeof subscriberOperations)[number]
 	| (typeof templateOperations)[number]
-	| (typeof transactionalOperations)[number];
+	| (typeof transactionalOperations)[number]
+	| (typeof webhookOperations)[number];
 
 const safetyKeys = [
 	"readOnlyHint",
@@ -201,5 +204,13 @@ export function assertDiscoveryOperationsPublished(): void {
 		"agent discovery and readiness",
 		discoveryOperations,
 		discoveryTools,
+	);
+}
+
+export function assertWebhookOperationsPublished(): void {
+	assertOperationFamilyPublished(
+		"outbound webhooks",
+		webhookOperations,
+		webhookTools,
 	);
 }

@@ -87,6 +87,8 @@ export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry
 export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 # Optional: override the transactional idempotency store
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
+# Optional: override the signed outbound-webhook endpoint/outbox store
+export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
 ```
 
 You can create/manage tokens in the Listmonk admin UI.
@@ -672,6 +674,57 @@ private CIDRs, link-local, cloud metadata IPs) and follows redirects
 manually with per-hop revalidation. Template promote supports
 optimistic concurrency via `--expected-remote-hash`. MCP/CLI operation outputs
 no longer expose absolute filesystem paths.
+
+## Signed Outbound Event Webhooks
+
+CLI and MCP share a versioned event envelope, endpoint registry, and durable
+outbox. Endpoint records contain only a `secret_ref`; the HMAC secret itself is
+resolved from that environment variable at delivery time and is never written
+to the store.
+
+```bash
+export LISTMONK_OPS_WEBHOOK_SECRET="<random-secret>"
+
+listmonk-cli webhooks create \
+  --name operations \
+  --url https://events.example.com/listmonk \
+  --secret-ref LISTMONK_OPS_WEBHOOK_SECRET \
+  --event-filters 'operation.*,campaign.*,abtest.*'
+
+listmonk-cli webhooks test --id <endpoint-uuid> --confirm
+listmonk-cli webhooks dispatch --limit 25 --confirm
+listmonk-cli webhooks deliveries list --status exhausted
+listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
+```
+
+Filters accept an exact event type, a family wildcard such as `campaign.*`, or
+`*`. Initial contracts cover operation, campaign, subscriber, delivery, A/B
+test, and test events. Payload fields with credential or personal-data names
+are recursively redacted before persistence.
+Audited CLI and MCP operations automatically enqueue `operation.started`,
+`operation.blocked`, `operation.succeeded`, and `operation.failed` with the
+same execution ID. Event projection is best-effort after the durable audit
+write, so an unavailable webhook store cannot replace an operation result or
+invite an unsafe retry. A targeted `webhooks test` diagnostic bypasses the
+endpoint's normal event filters without changing them.
+
+Each request includes `X-Listmonk-Ops-Event-Id`,
+`X-Listmonk-Ops-Event-Type`, `X-Listmonk-Ops-Timestamp`, and
+`X-Listmonk-Ops-Signature: v1=<hex>`. Verify the signature over
+`<timestamp>.<exact-body>` and reject timestamps outside the receiver's replay
+window (five minutes is the provided verifier default). Delivery is
+at-least-once with a stable event ID, exponential backoff, delivery history,
+terminal `exhausted` state, and confirmed manual retry.
+If another worker reclaims an expired lease, the original dispatch reports
+that attempt as `skipped` while preserving sibling results; inspect the shared
+delivery log for the final state.
+
+Only public HTTPS endpoints without credentials, query strings, or fragments
+are accepted. Destination DNS/IP safety is rechecked against globally routable
+address ranges when dispatching, each validated address is tried in order and
+pinned for its HTTPS connection, and redirects are disabled. Run
+`webhooks dispatch` from a scheduler; endpoint
+management does not start a background daemon.
 
 ## OpenAPI Regeneration (Hey API)
 

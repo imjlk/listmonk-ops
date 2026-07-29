@@ -30,11 +30,12 @@ type HasBulkDelivery<Effects extends readonly OperationEffect[]> = [
 
 /**
  * Safety precedence is intentionally conservative:
- * suppression requires a preview and confirmation; bulk delivery and deletion
- * require confirmation; irreversible writes also require confirmation. A
- * single-recipient delivery is audited but does not require a destructive
- * confirmation. Reversible writes are audited; pure reads need neither.
- * Higher tiers win when an operation declares more than one effect.
+ * suppression requires a preview and confirmation; outbound webhook effects,
+ * bulk delivery, and deletion require confirmation; irreversible writes also
+ * require confirmation. A single-recipient delivery is audited but does not
+ * require a destructive confirmation. Reversible writes are audited; pure
+ * reads need neither. Higher tiers win when an operation declares more than
+ * one effect.
  */
 export type PolicyForEffects<
 	Effects extends readonly OperationEffect[],
@@ -44,7 +45,13 @@ export type PolicyForEffects<
 			audit: "required";
 			dryRun: true;
 		}
-	: HasBulkDelivery<Effects> extends true
+	: HasEffect<Effects, "webhook"> extends true
+		? {
+				confirmation: "required";
+				audit: "required";
+				dryRun: false;
+			}
+		: HasBulkDelivery<Effects> extends true
 		? {
 				confirmation: "required";
 				audit: "required";
@@ -89,6 +96,13 @@ export function expectedPolicyForEffects(
 			confirmation: "required",
 			audit: "required",
 			dryRun: true,
+		};
+	}
+	if (hasEffectKind(effects, ["webhook"])) {
+		return {
+			confirmation: "required",
+			audit: "required",
+			dryRun: false,
 		};
 	}
 	if (

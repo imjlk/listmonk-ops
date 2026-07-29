@@ -33,6 +33,7 @@ listmonk-cli specs describe --operation campaigns.schedule
 listmonk-cli playbooks get --id campaign.safe-start
 listmonk-cli capabilities
 listmonk-cli prime --goal "schedule campaign"
+listmonk-cli webhooks list
 ```
 
 `listmonk-cli operations` lists the shared typed contracts available through
@@ -53,6 +54,25 @@ Media deletion follows the same policy:
 The CLI records metadata-only audit events for shared writes in
 `$HOME/.listmonk-ops/operation-audit.json` by default; set
 `LISTMONK_OPS_AUDIT_STORE` to use a different local path.
+
+The `webhooks` command group manages signed outbound event endpoints and the
+shared durable outbox:
+
+```bash
+listmonk-cli webhooks create \
+  --name operations \
+  --url https://events.example.com/listmonk \
+  --secret-ref LISTMONK_OPS_WEBHOOK_SECRET \
+  --event-filters 'operation.*,campaign.*'
+listmonk-cli webhooks test --id <endpoint-uuid> --confirm
+listmonk-cli webhooks dispatch --confirm
+listmonk-cli webhooks deliveries list --status exhausted
+listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
+```
+
+`secret-ref` names an environment variable; the secret value is never stored.
+Set `LISTMONK_OPS_WEBHOOK_STORE` to share a non-default endpoint/outbox path
+between CLI and MCP processes.
 
 ## Shell completion
 

@@ -159,3 +159,91 @@ Check catalog integrity, typed specification coverage, runtime identity, and liv
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.8.0`
+
+## `webhooks.list`
+
+List configured outbound webhook endpoints without exposing signing secret values.
+
+- Resource / verb: `webhook.list`
+- MCP tool: `listmonk_webhooks_list`
+- Effects: `read:webhook`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.create`
+
+Create an HTTPS endpoint using an environment-variable secret reference and typed event filters.
+
+- Resource / verb: `webhook.create`
+- MCP tool: `listmonk_webhooks_create`
+- Effects: `write:webhook`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.update`
+
+Update endpoint metadata, delivery policy, enabled state, or event filters without storing a secret value.
+
+- Resource / verb: `webhook.update`
+- MCP tool: `listmonk_webhooks_update`
+- Effects: `write:webhook`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.delete`
+
+Delete an endpoint and exhaust its unfinished delivery records.
+
+- Resource / verb: `webhook.delete`
+- MCP tool: `listmonk_webhooks_delete`
+- Effects: `delete:webhook`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.test`
+
+Queue and immediately send one signed webhook.test event to a selected endpoint.
+
+- Resource / verb: `webhook.test`
+- MCP tool: `listmonk_webhooks_test`
+- Effects: `webhook:single`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.dispatch`
+
+Claim due outbox deliveries and send signed HTTPS requests with bounded retries.
+
+- Resource / verb: `webhook.dispatch`
+- MCP tool: `listmonk_webhooks_dispatch`
+- Effects: `webhook:bulk`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.delivery.list`
+
+Inspect redacted outbox delivery state, attempts, status codes, and exhausted errors.
+
+- Resource / verb: `webhook.list`
+- MCP tool: `listmonk_webhook_deliveries_list`
+- Effects: `read:webhook`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.delivery.retry`
+
+Requeue one retryable or exhausted delivery for a fresh bounded attempt cycle.
+
+- Resource / verb: `webhook.retry`
+- MCP tool: `listmonk_webhook_delivery_retry`
+- Effects: `write:webhook`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.8.0`

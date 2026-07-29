@@ -1,10 +1,13 @@
 import {
 	createOperationAuditExecutionId,
 	normalizeListmonkApiUrl,
-	recordOperationAudit,
 	type OperationAuditEvent,
 	type OperationAuditStoreOptions,
 } from "@listmonk-ops/common";
+import {
+	recordOperationAuditWithLifecycle,
+	type OutboundWebhookStoreOptions,
+} from "@listmonk-ops/automation";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { createListmonkClient } from "@listmonk-ops/openapi";
 import { assertOperationConfirmation } from "@listmonk-ops/operations";
@@ -29,6 +32,7 @@ import {
 	handleSubscribersTools,
 	handleTemplatesTools,
 	handleTransactionalTools,
+	createWebhookToolsHandler,
 	isListsToolName,
 	isTransactionalToolName,
 	toolNameSets,
@@ -162,9 +166,11 @@ export class ListmonkMCPServer {
 	private baseUrl: string;
 	private username: string;
 	private auditStoreOptions: OperationAuditStoreOptions;
+	private webhookStoreOptions: OutboundWebhookStoreOptions;
 	private httpAuthToken: string | undefined;
 	private allowedHttpHosts: Set<string>;
 	private allowedHttpOrigins: Set<string>;
+	private webhookHandler: ReturnType<typeof createWebhookToolsHandler>;
 
 	constructor(config: {
 		baseUrl: string;
@@ -173,6 +179,7 @@ export class ListmonkMCPServer {
 		apiToken?: string;
 		auditStorePath?: string;
 		auditStoreLimit?: number;
+		webhookStorePath?: string;
 		httpAuthToken?: string;
 		allowedHttpHosts?: readonly string[];
 		allowedHttpOrigins?: readonly string[];
@@ -190,6 +197,10 @@ export class ListmonkMCPServer {
 			path: config.auditStorePath,
 			limit: config.auditStoreLimit,
 		};
+		this.webhookStoreOptions = { path: config.webhookStorePath };
+		this.webhookHandler = createWebhookToolsHandler({
+			store: this.webhookStoreOptions,
+		});
 		this.httpAuthToken = config.httpAuthToken;
 		this.allowedHttpHosts = new Set(
 			(config.allowedHttpHosts ?? []).map(normalizeAllowedHost),
@@ -380,7 +391,7 @@ export class ListmonkMCPServer {
 		executionId: string,
 		event: OperationAuditEvent,
 	): Promise<void> {
-		await recordOperationAudit(
+		await recordOperationAuditWithLifecycle(
 			{
 				executionId,
 				surface: "mcp",
@@ -390,7 +401,14 @@ export class ListmonkMCPServer {
 				confirmed: execution.confirmed,
 				dryRun: execution.dryRun,
 			},
-			this.auditStoreOptions,
+			{
+				audit: this.auditStoreOptions,
+				webhook: this.webhookStoreOptions,
+				onLifecycleError: (error) =>
+					console.error(
+						`Unable to enqueue MCP operation lifecycle event for ${execution.operation.id}: ${toErrorMessage(error)}`,
+					),
+			},
 		);
 	}
 
@@ -498,6 +516,8 @@ export class ListmonkMCPServer {
 				result = await handleOpsTools(operationRequest, this.client);
 			} else if (toolNameSets.abtest.has(name)) {
 				result = await handleAbTestTools(operationRequest, this.client);
+			} else if (toolNameSets.webhooks.has(name)) {
+				result = await this.webhookHandler(operationRequest, this.client);
 			} else {
 				result = createErrorResult(`No handler found for tool: ${name}`);
 			}
@@ -582,6 +602,7 @@ export function createListmonkMCPServer(config: {
 	apiToken?: string;
 	auditStorePath?: string;
 	auditStoreLimit?: number;
+	webhookStorePath?: string;
 	httpAuthToken?: string;
 	allowedHttpHosts?: readonly string[];
 	allowedHttpOrigins?: readonly string[];
@@ -593,6 +614,7 @@ export function createListmonkMCPServer(config: {
 		apiToken: config.apiToken,
 		auditStorePath: config.auditStorePath,
 		auditStoreLimit: config.auditStoreLimit,
+		webhookStorePath: config.webhookStorePath,
 		httpAuthToken: config.httpAuthToken,
 		allowedHttpHosts: config.allowedHttpHosts,
 		allowedHttpOrigins: config.allowedHttpOrigins,

@@ -29,6 +29,22 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	controlPrimeOutputContract: NormalizedContractSchema;
 	controlStatusInputContract: NormalizedContractSchema;
 	controlStatusOutputContract: NormalizedContractSchema;
+	webhookListInputContract: NormalizedContractSchema;
+	webhookListOutputContract: NormalizedContractSchema;
+	webhookCreateInputContract: NormalizedContractSchema;
+	webhookCreateOutputContract: NormalizedContractSchema;
+	webhookUpdateInputContract: NormalizedContractSchema;
+	webhookUpdateOutputContract: NormalizedContractSchema;
+	webhookDeleteInputContract: NormalizedContractSchema;
+	webhookDeleteOutputContract: NormalizedContractSchema;
+	webhookTestInputContract: NormalizedContractSchema;
+	webhookTestOutputContract: NormalizedContractSchema;
+	webhookDispatchInputContract: NormalizedContractSchema;
+	webhookDispatchOutputContract: NormalizedContractSchema;
+	webhookDeliveryListInputContract: NormalizedContractSchema;
+	webhookDeliveryListOutputContract: NormalizedContractSchema;
+	webhookDeliveryRetryInputContract: NormalizedContractSchema;
+	webhookDeliveryRetryOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
@@ -69,3 +85,26 @@ export const controlPrimeOutputContract = contracts.controlPrimeOutputContract;
 export const controlStatusInputContract = contracts.controlStatusInputContract;
 export const controlStatusOutputContract =
 	contracts.controlStatusOutputContract;
+export const webhookListInputContract = contracts.webhookListInputContract;
+export const webhookListOutputContract = contracts.webhookListOutputContract;
+export const webhookCreateInputContract = contracts.webhookCreateInputContract;
+export const webhookCreateOutputContract = contracts.webhookCreateOutputContract;
+export const webhookUpdateInputContract = contracts.webhookUpdateInputContract;
+export const webhookUpdateOutputContract =
+	contracts.webhookUpdateOutputContract;
+export const webhookDeleteInputContract = contracts.webhookDeleteInputContract;
+export const webhookDeleteOutputContract = contracts.webhookDeleteOutputContract;
+export const webhookTestInputContract = contracts.webhookTestInputContract;
+export const webhookTestOutputContract = contracts.webhookTestOutputContract;
+export const webhookDispatchInputContract =
+	contracts.webhookDispatchInputContract;
+export const webhookDispatchOutputContract =
+	contracts.webhookDispatchOutputContract;
+export const webhookDeliveryListInputContract =
+	contracts.webhookDeliveryListInputContract;
+export const webhookDeliveryListOutputContract =
+	contracts.webhookDeliveryListOutputContract;
+export const webhookDeliveryRetryInputContract =
+	contracts.webhookDeliveryRetryInputContract;
+export const webhookDeliveryRetryOutputContract =
+	contracts.webhookDeliveryRetryOutputContract;

@@ -22,6 +22,8 @@ export type IdempotencyKey = string &
 	tags.MinLength<1> &
 	tags.MaxLength<128> &
 	tags.Pattern<"^[A-Za-z0-9._:-]+$">;
+export type WebhookSecretRef = string &
+	tags.Pattern<"^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$">;
 
 export interface CampaignGetInput {
 	/** Listmonk campaign ID. */
@@ -383,4 +385,234 @@ export interface ControlStatusOutput {
 		specs: boolean;
 		listmonk: boolean;
 	};
+}
+
+export type WebhookId = string & tags.Format<"uuid">;
+/**
+ * Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,
+ * DNS resolution, and private-address checks remain in the domain executor.
+ *
+ * Typia currently cannot combine its URI format tag with a pattern tag, so the
+ * contract encodes the security-relevant HTTPS scheme while runtime validation
+ * enforces the complete absolute-URL policy.
+ */
+export type WebhookUrl = NonEmptyString & tags.Pattern<"^https://\\S+$">;
+export type WebhookName = NonEmptyString & tags.MaxLength<120>;
+export type WebhookTimeoutMs = number &
+	tags.Type<"int32"> &
+	tags.Minimum<100> &
+	tags.Maximum<30_000>;
+export type WebhookMaxAttempts = number &
+	tags.Type<"int32"> &
+	tags.Minimum<1> &
+	tags.Maximum<12>;
+export type WebhookDispatchLimit = number &
+	tags.Type<"int32"> &
+	tags.Minimum<1> &
+	tags.Maximum<100>;
+export type WebhookDeliveryListLimit = number &
+	tags.Type<"int32"> &
+	tags.Minimum<1> &
+	tags.Maximum<1000>;
+export type WebhookEventType =
+	| "operation.started"
+	| "operation.blocked"
+	| "operation.succeeded"
+	| "operation.failed"
+	| "campaign.scheduled"
+	| "campaign.started"
+	| "campaign.paused"
+	| "campaign.cancelled"
+	| "campaign.finished"
+	| "subscriber.created"
+	| "subscriber.updated"
+	| "subscriber.blocklisted"
+	| "subscriber.unsubscribed"
+	| "delivery.delivered"
+	| "delivery.bounced"
+	| "delivery.complained"
+	| "delivery.delayed"
+	| "abtest.started"
+	| "abtest.ready-for-analysis"
+	| "abtest.winner-selected"
+	| "abtest.inconclusive"
+	| "abtest.failed"
+	| "webhook.test";
+export type WebhookEventFamily =
+	| "operation"
+	| "campaign"
+	| "subscriber"
+	| "delivery"
+	| "abtest"
+	| "webhook";
+export type WebhookEventFilter =
+	| WebhookEventType
+	| `${WebhookEventFamily}.*`
+	| "*";
+export type WebhookDeliveryStatus =
+	| "pending"
+	| "delivering"
+	| "retry"
+	| "succeeded"
+	| "exhausted";
+
+export interface WebhookEndpoint {
+	id: WebhookId;
+	name: WebhookName;
+	url: WebhookUrl;
+	secret_ref: WebhookSecretRef;
+	event_filters: WebhookEventFilter[] & tags.MinItems<1>;
+	enabled: boolean;
+	timeout_ms: WebhookTimeoutMs;
+	max_attempts: WebhookMaxAttempts;
+	created_at: IsoDateTime;
+	updated_at: IsoDateTime;
+}
+
+export interface WebhookListInput {
+	enabled?: boolean | undefined;
+}
+
+export interface WebhookListOutput {
+	endpoints: WebhookEndpoint[];
+}
+
+export interface WebhookCreateInput {
+	name: WebhookName;
+	url: WebhookUrl;
+	/** Environment variable name; the signing secret value is never persisted. */
+	secret_ref: WebhookSecretRef;
+	event_filters: WebhookEventFilter[] & tags.MinItems<1>;
+	enabled?: boolean | undefined;
+	timeout_ms?: WebhookTimeoutMs | undefined;
+	max_attempts?: WebhookMaxAttempts | undefined;
+}
+
+export interface WebhookCreateOutput {
+	endpoint: WebhookEndpoint;
+}
+
+export interface WebhookUpdateInput {
+	id: WebhookId;
+	name?: WebhookName | undefined;
+	url?: WebhookUrl | undefined;
+	secret_ref?: WebhookSecretRef | undefined;
+	event_filters?: (WebhookEventFilter[] & tags.MinItems<1>) | undefined;
+	enabled?: boolean | undefined;
+	timeout_ms?: WebhookTimeoutMs | undefined;
+	max_attempts?: WebhookMaxAttempts | undefined;
+}
+
+export interface WebhookUpdateOutput {
+	endpoint: WebhookEndpoint;
+}
+
+export interface WebhookDeleteInput {
+	id: WebhookId;
+}
+
+export interface WebhookDeleteOutput {
+	deleted: true;
+	endpoint: WebhookEndpoint;
+}
+
+export interface WebhookTestInput {
+	id: WebhookId;
+	correlation_id?: NonEmptyString | undefined;
+}
+
+export interface WebhookDispatchInput {
+	limit?: WebhookDispatchLimit | undefined;
+}
+
+export type WebhookDispatchResult =
+	| {
+			delivery_id: WebhookId;
+			endpoint_id: WebhookId;
+			status: "succeeded" | "retry" | "exhausted";
+			status_code?: PositiveInteger | undefined;
+			error?: NonEmptyString | undefined;
+	  }
+	| {
+			delivery_id: WebhookId;
+			endpoint_id: WebhookId;
+			status: "skipped";
+			error: NonEmptyString;
+	  };
+
+export interface WebhookDispatchOutput {
+	claimed: NonNegativeInteger;
+	succeeded: NonNegativeInteger;
+	retried: NonNegativeInteger;
+	exhausted: NonNegativeInteger;
+	skipped: NonNegativeInteger;
+	results: WebhookDispatchResult[];
+}
+
+export interface WebhookTestOutput {
+	event_id: WebhookId;
+	delivery_id?: WebhookId | undefined;
+	dispatch: WebhookDispatchOutput;
+}
+
+export type WebhookEventSource =
+	| "listmonk"
+	| "provider"
+	| "operation"
+	| "abtest"
+	| "sequence"
+	| "webhook";
+export type WebhookSubjectKind =
+	| "operation"
+	| "campaign"
+	| "subscriber"
+	| "message"
+	| "experiment"
+	| "webhook";
+
+export interface WebhookDeliveryEventSummary {
+	id: WebhookId;
+	type: WebhookEventType;
+	schema_version: PositiveInteger;
+	occurred_at: IsoDateTime;
+	source: WebhookEventSource;
+	correlation_id?: NonEmptyString | undefined;
+	subject?: {
+		kind: WebhookSubjectKind;
+		key: NonEmptyString;
+	} | undefined;
+}
+
+export interface WebhookDelivery {
+	id: WebhookId;
+	event_id: WebhookId;
+	endpoint_id: WebhookId;
+	event: WebhookDeliveryEventSummary;
+	status: WebhookDeliveryStatus;
+	attempt_count: NonNegativeInteger;
+	manual_retry_count: NonNegativeInteger;
+	next_attempt_at: IsoDateTime;
+	last_attempt_at?: IsoDateTime | undefined;
+	completed_at?: IsoDateTime | undefined;
+	status_code?: PositiveInteger | undefined;
+	last_error?: NonEmptyString | undefined;
+}
+
+export interface WebhookDeliveryListInput {
+	endpoint_id?: WebhookId | undefined;
+	status?: WebhookDeliveryStatus | undefined;
+	event_type?: WebhookEventType | undefined;
+	limit?: WebhookDeliveryListLimit | undefined;
+}
+
+export interface WebhookDeliveryListOutput {
+	deliveries: WebhookDelivery[];
+}
+
+export interface WebhookDeliveryRetryInput {
+	id: WebhookId;
+}
+
+export interface WebhookDeliveryRetryOutput {
+	delivery: WebhookDelivery;
 }

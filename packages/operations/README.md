@@ -13,17 +13,19 @@ functions preserve the registry validation and error contract while keeping
 CLI/MCP-to-domain call paths visible to static tooling. Surface packages remain
 responsible for authentication and presentation.
 
-Fourteen operations attach an `@listmonk-ops/operations/specs` descriptor: the
+Twenty-two operations attach an `@listmonk-ops/operations/specs` descriptor: the
 campaign get/schedule/start/cancel lifecycle, subscriber blocklisting,
 transactional send, campaign preflight, and seven agent discovery/readiness
-operations. The operation
+operations, plus eight outbound-webhook endpoint and delivery operations. The operation
 definition validates that runtime identity, safety hints, and MCP metadata
 still match the declaration, while catalog summaries expose a detached
 descriptor for agent discovery. This does not replace Zod runtime validation
 or the named executor path.
 
 The same subpath exports the guarded `campaign.safe-start` typed playbook and
-the staged migration manifest. Every shared `defineOperation()` call must bind
+schema-versioned operation, campaign, subscriber, delivery, A/B-test, and
+webhook lifecycle event declarations, plus the staged migration manifest.
+Every shared `defineOperation()` call must bind
 exactly one descriptor or dated migration exemption. Each family catalog
 checks its exemption set, and the repository's post-build coverage gate checks
 all shared families together.

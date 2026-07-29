@@ -11,6 +11,10 @@ const AUDIT_STORE_DIRECTORY = mkdtempSync(
 	join(tmpdir(), "listmonk-ops-cli-contract-"),
 );
 const AUDIT_STORE_PATH = join(AUDIT_STORE_DIRECTORY, "operation-audit.json");
+const WEBHOOK_STORE_PATH = join(
+	AUDIT_STORE_DIRECTORY,
+	"outbound-webhooks.json",
+);
 
 afterAll(() => {
 	rmSync(AUDIT_STORE_DIRECTORY, { recursive: true, force: true });
@@ -33,6 +37,7 @@ function runCli(args: string[]): CliResult {
 			BUN_FORCE_COLOR: "0",
 			LISTMONK_API_TOKEN: "",
 			LISTMONK_OPS_AUDIT_STORE: AUDIT_STORE_PATH,
+			LISTMONK_OPS_WEBHOOK_STORE: WEBHOOK_STORE_PATH,
 		},
 		stdout: "pipe",
 		stderr: "pipe",
@@ -66,10 +71,64 @@ describe("CLI contract", () => {
 			"operations",
 			"specs",
 			"playbooks",
+			"webhooks",
 		]) {
 			expect(result.output).toContain(command);
 		}
 		expect(result.output).toMatch(/completions?|complete/);
+	});
+
+	test("manages typed webhook endpoints without persisting secret values in arguments", () => {
+		const create = runCli([
+			"webhooks",
+			"create",
+			"--name",
+			"contract-endpoint",
+			"--url",
+			"https://8.8.8.8/hooks",
+			"--secret-ref",
+			"LISTMONK_OPS_WEBHOOK_SECRET_CONTRACT",
+			"--event-filters",
+			"operation.*,campaign.finished",
+			"--format=json",
+		]);
+		expect(create.exitCode).toBe(0);
+		expect(create.output).toContain(
+			'"secret_ref": "LISTMONK_OPS_WEBHOOK_SECRET_CONTRACT"',
+		);
+		expect(create.output).not.toContain("secret-value");
+		const id = create.output.match(
+			/"id":\s*"([0-9a-f-]{36})"/i,
+		)?.[1];
+		expect(id).toBeDefined();
+
+		const list = runCli(["webhooks", "list", "--format=json"]);
+		expect(list.exitCode).toBe(0);
+		expect(list.output).toContain("contract-endpoint");
+
+		const deliveries = runCli([
+			"webhooks",
+			"deliveries",
+			"list",
+			"--format=json",
+		]);
+		expect(deliveries.exitCode).toBe(0);
+		expect(deliveries.output).toContain('"type": "operation.succeeded"');
+
+		const unconfirmed = runCli(["webhooks", "delete", "--id", id!]);
+		expect(unconfirmed.exitCode).not.toBe(0);
+		expect(unconfirmed.output).toContain("requires explicit confirmation");
+
+		const remove = runCli([
+			"--confirm",
+			"webhooks",
+			"delete",
+			"--id",
+			id!,
+			"--format=json",
+		]);
+		expect(remove.exitCode).toBe(0);
+		expect(remove.output).toContain('"deleted": true');
 	});
 
 	test("discovers specs, playbooks, and capabilities without credentials", () => {
@@ -108,7 +167,7 @@ describe("CLI contract", () => {
 		expect(search.output).toContain('"id": "campaigns.schedule"');
 		expect(describe.output).toContain('"confirmation": "required"');
 		expect(playbooks.output).toContain('"campaign.safe-start"');
-		expect(capabilities.output).toContain('"schema_version": "1.2.0"');
+		expect(capabilities.output).toContain('"schema_version": "1.3.0"');
 		expect(prime.output).toContain('"recommended_operations"');
 	});
 
