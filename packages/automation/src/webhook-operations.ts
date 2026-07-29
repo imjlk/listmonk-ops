@@ -237,7 +237,7 @@ const webhookRuntimeStatusInputSchema = z.object({
 const webhookInboundIngestInputSchema = z
 	.object({
 		provider: z.string().trim().min(1).max(100),
-		provider_event_id: z.string().trim().min(1).max(300),
+		provider_event_id: z.string().trim().min(1).max(200),
 		kind: z.enum(INBOUND_DELIVERY_EVENT_KINDS),
 		occurred_at: z.iso.datetime({ offset: true }).optional(),
 		message_id: z.string().trim().min(1).max(300).optional(),
@@ -636,6 +636,7 @@ export async function executeWebhookTestOperation(
 		fetcher: context.fetcher,
 		resolveSecret: context.resolveSecret,
 		deliveryIds: deliveryId ? [deliveryId] : [],
+		bypassCircuitBreaker: true,
 		limit: 1,
 	});
 	return {

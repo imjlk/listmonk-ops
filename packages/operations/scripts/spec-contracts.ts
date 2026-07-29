@@ -723,7 +723,7 @@ export type InboundDeliveryEventKind =
 
 export interface WebhookInboundIngestBaseInput {
 	provider: NonEmptyString & tags.MaxLength<100>;
-	provider_event_id: NonEmptyString & tags.MaxLength<300>;
+	provider_event_id: NonEmptyString & tags.MaxLength<200>;
 	occurred_at?: IsoDateTime | undefined;
 	message_id?: (NonEmptyString & tags.MaxLength<300>) | undefined;
 	campaign_id?: ResourceId | undefined;

@@ -63,6 +63,12 @@ export async function ingestInboundDeliveryEvent(
 	if (!provider || !providerEventId) {
 		throw new TypeError("provider and providerEventId must not be blank");
 	}
+	if (provider.length > 100) {
+		throw new RangeError("provider must not exceed 100 characters");
+	}
+	if (providerEventId.length > 200) {
+		throw new RangeError("providerEventId must not exceed 200 characters");
+	}
 	if (
 		input.occurredAt !== undefined &&
 		!z.iso.datetime({ offset: true }).safeParse(input.occurredAt).success
@@ -73,6 +79,9 @@ export async function ingestInboundDeliveryEvent(
 	}
 	const subscriberUuid = input.subscriberUuid?.trim();
 	const messageId = input.messageId?.trim();
+	if (messageId !== undefined && messageId.length > 300) {
+		throw new RangeError("messageId must not exceed 300 characters");
+	}
 	if (input.kind === "unsubscribed" && !subscriberUuid) {
 		throw new TypeError(
 			"subscriberUuid is required for unsubscribed delivery events",

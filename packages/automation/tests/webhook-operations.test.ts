@@ -126,6 +126,14 @@ describe("webhook shared operations", () => {
 			deliveries: { dead_letter: 1 },
 		});
 		expect(
+			await invokeWebhookTestOperation(context, { id: endpoint.endpoint.id }),
+		).toMatchObject({
+			dispatch: { claimed: 1, succeeded: 1, exhausted: 0, retried: 0 },
+		});
+		expect(await invokeWebhookRuntimeStatusOperation(context, {})).toMatchObject({
+			endpoints: { circuit_open: 0 },
+		});
+		expect(
 			await invokeWebhookCircuitResetOperation(context, {
 				id: endpoint.endpoint.id,
 			}),
@@ -176,6 +184,23 @@ describe("webhook shared operations", () => {
 				context.store,
 			),
 		).rejects.toThrow("subscriberUuid must be a valid UUID");
+		await expect(
+			ingestInboundDeliveryEvent(
+				{
+					provider: "ses",
+					providerEventId: "x".repeat(201),
+					kind: "bounced",
+				},
+				context.store,
+			),
+		).rejects.toThrow("providerEventId must not exceed 200 characters");
+		await expect(
+			invokeWebhookInboundIngestOperation(context, {
+				provider: "ses",
+				provider_event_id: "x".repeat(201),
+				kind: "bounced",
+			}),
+		).rejects.toThrow("provider_event_id");
 	});
 
 	test("runs typed reconcile, prune preview, and worker tick operations", async () => {

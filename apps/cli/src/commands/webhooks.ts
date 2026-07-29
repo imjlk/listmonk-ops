@@ -472,7 +472,7 @@ const inboundIngestCommand = defineCommand({
 		provider: option(z.string().trim().min(1), {
 			description: "Provider identifier such as ses or postmark",
 		}),
-		"provider-event-id": option(z.string().trim().min(1), {
+		"provider-event-id": option(z.string().trim().min(1).max(200), {
 			description: "Stable provider event identifier",
 		}),
 		kind: option(z.enum(INBOUND_DELIVERY_EVENT_KINDS), {

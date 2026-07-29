@@ -153,7 +153,6 @@ export async function runOutboundWebhookWorker(
 				const dispatch = await dispatchOutboundWebhooks({
 					store: options.store,
 					limit: dispatchLimit,
-					signal: options.signal,
 					fetcher: options.fetcher,
 					resolveSecret: options.resolveSecret,
 				});

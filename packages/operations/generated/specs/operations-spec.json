@@ -8379,7 +8379,7 @@
                     "type": "string"
                   },
                   "provider_event_id": {
-                    "maxLength": 300,
+                    "maxLength": 200,
                     "minLength": 1,
                     "type": "string"
                   },
@@ -8437,7 +8437,7 @@
                     "type": "string"
                   },
                   "provider_event_id": {
-                    "maxLength": 300,
+                    "maxLength": 200,
                     "minLength": 1,
                     "type": "string"
                   },

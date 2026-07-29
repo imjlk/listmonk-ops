@@ -6,6 +6,7 @@ import {
 	createFileOutboundWebhookRepository,
 	getOutboundWebhookRuntimeHealth,
 	listOutboundWebhookEndpoints,
+	upsertOutboundWebhookWorker,
 } from "../src/outbound-webhooks";
 import { runOutboundWebhookWorker } from "../src/outbound-webhook-worker";
 
@@ -105,6 +106,34 @@ describe("outbound webhook runtime stage 2", () => {
 				running: 0,
 				stale: 0,
 				stopped: 1,
+			},
+		});
+	});
+
+	test("expires abandoned running workers without making an idle runtime unhealthy", async () => {
+		const path = await createStorePath();
+		await upsertOutboundWebhookWorker(
+			{
+				id: "53818fe6-989f-4d42-914a-7090d58374fb",
+				status: "running",
+				startedAt: "2026-07-29T00:00:00.000Z",
+				heartbeatAt: "2026-07-29T00:00:00.000Z",
+			},
+			{ path },
+		);
+
+		expect(
+			await getOutboundWebhookRuntimeHealth({
+				path,
+				now: new Date("2026-07-29T00:00:02.000Z"),
+				workerStaleMs: 1_000,
+			}),
+		).toMatchObject({
+			healthy: true,
+			workers: {
+				running: 0,
+				stale: 1,
+				lastHeartbeatAt: undefined,
 			},
 		});
 	});

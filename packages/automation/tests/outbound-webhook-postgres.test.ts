@@ -158,6 +158,39 @@ describe("Postgres outbound webhook repository", () => {
 					),
 				).size,
 			).toBe(8);
+			const staleWorkerId = randomUUID();
+			await first.upsertWorker({
+				id: staleWorkerId,
+				status: "running",
+				startedAt: "2026-07-28T23:59:58.000Z",
+				heartbeatAt: "2026-07-28T23:59:58.000Z",
+			});
+			expect(
+				await first.getRuntimeHealth({
+					now: new Date("2026-07-29T00:00:02.000Z"),
+					workerStaleMs: 1_000,
+				}),
+			).toMatchObject({
+				healthy: false,
+				deliveries: { due: 8 },
+				workers: { running: 0, stale: 1 },
+			});
+			await first.upsertWorker({
+				id: randomUUID(),
+				status: "running",
+				startedAt: "2026-07-29T00:00:01.500Z",
+				heartbeatAt: "2026-07-29T00:00:01.500Z",
+			});
+			expect(
+				await first.getRuntimeHealth({
+					now: new Date("2026-07-29T00:00:02.000Z"),
+					workerStaleMs: 1_000,
+				}),
+			).toMatchObject({
+				healthy: true,
+				deliveries: { due: 8 },
+				workers: { running: 1, stale: 1 },
+			});
 
 			const stale = firstClaims[0]!;
 			const reclaimed = await second.claimDeliveries({

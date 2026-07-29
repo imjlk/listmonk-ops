@@ -233,13 +233,13 @@ export type DispatchOutboundWebhooksOptions = Readonly<{
 	store?: OutboundWebhookStoreOptions;
 	limit?: number;
 	now?: Date;
-	signal?: AbortSignal;
 	fetcher?: typeof fetch;
 	resolveSecret?: (secretRef: string) => string | undefined;
 	leaseMs?: number;
 	baseRetryDelayMs?: number;
 	concurrency?: number;
 	deliveryIds?: readonly string[];
+	bypassCircuitBreaker?: boolean;
 }>;
 
 export type OutboundWebhookDispatchResultEntry =
@@ -403,6 +403,7 @@ export interface OutboundWebhookRepository {
 		leaseMs: number;
 		deliveryIds?: readonly string[];
 		excludeDeliveryIds?: readonly string[];
+		bypassCircuitBreaker?: boolean;
 	}>): Promise<readonly ClaimedOutboundWebhookDelivery[]>;
 	completeDelivery(
 		claimed: OutboundWebhookDelivery,
@@ -1634,6 +1635,7 @@ async function claimOutboundWebhookDeliveries(
 		leaseMs: number;
 		deliveryIds?: readonly string[];
 		excludeDeliveryIds?: readonly string[];
+		bypassCircuitBreaker?: boolean;
 	},
 ): Promise<readonly ClaimedOutboundWebhookDelivery[]> {
 	if (options.repository) {
@@ -1670,6 +1672,7 @@ async function claimOutboundWebhookDeliveries(
 					delivery.endpointId,
 				);
 				if (
+					!options.bypassCircuitBreaker &&
 					circuitOpenUntil !== undefined &&
 					circuitOpenUntil > at
 				) {
@@ -1987,13 +1990,25 @@ export function summarizeOutboundWebhookRuntimeHealth(
 		statusCounts[delivery.status] += 1;
 	}
 	const due = deliveries.filter(
-		(delivery) =>
-			["pending", "retry"].includes(delivery.status) &&
-			Date.parse(delivery.nextAttemptAt) <= nowMs,
+		(delivery) => {
+			if (["pending", "retry"].includes(delivery.status)) {
+				return Date.parse(delivery.nextAttemptAt) <= nowMs;
+			}
+			return (
+				delivery.status === "delivering" &&
+				(delivery.leaseExpiresAt === undefined ||
+					Date.parse(delivery.leaseExpiresAt) <= nowMs)
+			);
+		},
 	);
-	const activeWorkers = workers.filter((worker) => worker.status === "running");
-	const staleWorkers = activeWorkers.filter(
+	const runningWorkers = workers.filter(
+		(worker) => worker.status === "running",
+	);
+	const staleWorkers = runningWorkers.filter(
 		(worker) => nowMs - Date.parse(worker.heartbeatAt) > workerStaleMs,
+	);
+	const activeWorkers = runningWorkers.filter(
+		(worker) => nowMs - Date.parse(worker.heartbeatAt) <= workerStaleMs,
 	);
 	const lastHeartbeatAt = activeWorkers
 		.map((worker) => worker.heartbeatAt)
@@ -2009,9 +2024,8 @@ export function summarizeOutboundWebhookRuntimeHealth(
 		store,
 		schemaVersion: OUTBOUND_WEBHOOK_STORE_VERSION,
 		healthy:
-			staleWorkers.length === 0 &&
 			circuitOpen === 0 &&
-			(due.length === 0 || activeWorkers.length > staleWorkers.length),
+			(due.length === 0 || activeWorkers.length > 0),
 		checkedAt: now.toISOString(),
 		endpoints: {
 			total: endpoints.length,
@@ -2023,7 +2037,13 @@ export function summarizeOutboundWebhookRuntimeHealth(
 			due: due.length,
 			deadLetter: statusCounts.exhausted,
 			oldestDueAt: due
-				.map((delivery) => delivery.nextAttemptAt)
+				.map((delivery) =>
+					delivery.status === "delivering"
+						? (delivery.leaseExpiresAt ??
+							delivery.lastAttemptAt ??
+							delivery.nextAttemptAt)
+						: delivery.nextAttemptAt,
+				)
 				.sort()
 				.at(0),
 		},
@@ -2155,7 +2175,6 @@ async function deliverClaimedWebhook(
 	options: Readonly<{
 		fetcher?: typeof fetch;
 		resolveSecret: (secretRef: string) => string | undefined;
-		signal?: AbortSignal;
 	}>,
 ): Promise<{
 	success: boolean;
@@ -2225,17 +2244,13 @@ async function deliverClaimedWebhook(
 		endpoint.timeoutMs - (Date.now() - startedAt),
 	);
 	const timeout = setTimeout(() => controller.abort(), remainingTimeoutMs);
-	const signal =
-		options.signal === undefined
-			? controller.signal
-			: AbortSignal.any([controller.signal, options.signal]);
 	try {
 		const result = options.fetcher
 			? await options
 					.fetcher(endpoint.url, {
 						method: "POST",
 						redirect: "error",
-						signal,
+						signal: controller.signal,
 						headers,
 						body,
 					})
@@ -2248,7 +2263,7 @@ async function deliverClaimedWebhook(
 					addresses: addressResolution.addresses,
 					headers,
 					body,
-					signal,
+					signal: controller.signal,
 				});
 		if (result.ok) {
 			return {
@@ -2303,6 +2318,14 @@ export async function dispatchOutboundWebhooks(
 		);
 	}
 	const store = options.store ?? {};
+	if (
+		options.bypassCircuitBreaker === true &&
+		(options.deliveryIds?.length ?? 0) === 0
+	) {
+		throw new TypeError(
+			"Circuit bypass requires one or more explicitly targeted delivery IDs",
+		);
+	}
 	const resolveSecret =
 		options.resolveSecret ?? ((secretRef: string) => process.env[secretRef]);
 	const results: DispatchOutboundWebhooksResult["results"][number][] = [];
@@ -2317,6 +2340,7 @@ export async function dispatchOutboundWebhooks(
 			leaseMs,
 			deliveryIds: options.deliveryIds,
 			excludeDeliveryIds: [...processedDeliveryIds],
+			bypassCircuitBreaker: options.bypassCircuitBreaker,
 		});
 		if (claimed.length === 0) {
 			break;
@@ -2330,7 +2354,6 @@ export async function dispatchOutboundWebhooks(
 				const attempt = await deliverClaimedWebhook(entry, {
 					fetcher: options.fetcher,
 					resolveSecret,
-					signal: options.signal,
 				});
 				let delivery: OutboundWebhookDelivery;
 				try {

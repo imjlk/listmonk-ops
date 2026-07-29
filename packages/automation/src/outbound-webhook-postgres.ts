@@ -697,6 +697,16 @@ export function createPostgresOutboundWebhookRepository(
 					(claimOptions.excludeDeliveryIds?.length ?? 0) === 0
 						? transaction``
 						: transaction`AND NOT (id = ANY(${transaction.array([...(claimOptions.excludeDeliveryIds ?? [])], POSTGRES_UUID_TYPE_OID)}))`;
+				const circuitFilter =
+					claimOptions.bypassCircuitBreaker === true
+						? transaction``
+						: transaction`
+							AND (
+								circuit_state = 'closed'
+								OR circuit_open_until IS NULL
+								OR circuit_open_until <= ${claimOptions.now}
+							)
+						`;
 				const rows = await transaction<DeliveryRow[]>`
 					SELECT
 						id, event_id, endpoint_id, event, status, attempt_count,
@@ -718,11 +728,7 @@ export function createPostgresOutboundWebhookRepository(
 						SELECT id
 						FROM listmonk_ops.webhook_endpoints
 						WHERE enabled = true
-							AND (
-								circuit_state = 'closed'
-								OR circuit_open_until IS NULL
-								OR circuit_open_until <= ${claimOptions.now}
-							)
+						${circuitFilter}
 					)
 					${selectedFilter}
 					${excludedFilter}
@@ -1039,12 +1045,36 @@ export function createPostgresOutboundWebhookRepository(
 						count(*) FILTER (WHERE status = 'succeeded')::integer AS succeeded,
 						count(*) FILTER (WHERE status = 'exhausted')::integer AS exhausted,
 						count(*) FILTER (
-							WHERE status IN ('pending', 'retry')
+							WHERE (
+								status IN ('pending', 'retry')
 								AND next_attempt_at <= ${healthOptions.now}
+							)
+							OR (
+								status = 'delivering'
+								AND (
+									lease_expires_at IS NULL
+									OR lease_expires_at <= ${healthOptions.now}
+								)
+							)
 						)::integer AS due,
-						min(next_attempt_at) FILTER (
-							WHERE status IN ('pending', 'retry')
+						min(
+							CASE
+								WHEN status = 'delivering'
+									THEN coalesce(lease_expires_at, last_attempt_at, next_attempt_at)
+								ELSE next_attempt_at
+							END
+						) FILTER (
+							WHERE (
+								status IN ('pending', 'retry')
 								AND next_attempt_at <= ${healthOptions.now}
+							)
+							OR (
+								status = 'delivering'
+								AND (
+									lease_expires_at IS NULL
+									OR lease_expires_at <= ${healthOptions.now}
+								)
+							)
 						) AS oldest_due_at
 					FROM listmonk_ops.webhook_deliveries
 				`,
@@ -1056,7 +1086,10 @@ export function createPostgresOutboundWebhookRepository(
 					last_heartbeat_at: Date | string | null;
 				}[]>`
 					SELECT
-						count(*) FILTER (WHERE status = 'running')::integer AS running,
+						count(*) FILTER (
+							WHERE status = 'running'
+								AND heartbeat_at >= ${staleBefore}
+						)::integer AS running,
 						count(*) FILTER (
 							WHERE status = 'running'
 								AND heartbeat_at < ${staleBefore}
@@ -1065,6 +1098,7 @@ export function createPostgresOutboundWebhookRepository(
 						count(*) FILTER (WHERE status = 'failed')::integer AS failed,
 						max(heartbeat_at) FILTER (
 							WHERE status = 'running'
+								AND heartbeat_at >= ${staleBefore}
 						) AS last_heartbeat_at
 					FROM listmonk_ops.webhook_workers
 				`,
@@ -1094,9 +1128,8 @@ export function createPostgresOutboundWebhookRepository(
 				store: "postgres",
 				schemaVersion: OUTBOUND_WEBHOOK_POSTGRES_SCHEMA_VERSION,
 				healthy:
-					workers.stale === 0 &&
 					endpoints.circuit_open === 0 &&
-					(deliveries.due === 0 || workers.running > workers.stale),
+					(deliveries.due === 0 || workers.running > 0),
 				checkedAt: healthOptions.now.toISOString(),
 				endpoints: {
 					total: endpoints.total,
