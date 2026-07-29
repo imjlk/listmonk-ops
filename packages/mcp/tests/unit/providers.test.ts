@@ -64,8 +64,8 @@ const dns: ProviderDnsResolver = {
 		}
 		return [];
 	},
-	async cname() {
-		return ["selector.dkim.amazonses.com"];
+	async cname(name) {
+		return [`${name.split(".")[0]}.dkim.amazonses.com`];
 	},
 	async mx() {
 		return [
