@@ -345,6 +345,74 @@ function settingBoolean(
 	return settings[key] === true;
 }
 
+const NATIVE_BOUNCE_SETTING_BY_SOURCE = {
+	azure: {
+		directKeys: ["bounce.azure.enabled"],
+		nestedKey: "bounce.azure",
+	},
+	forwardemail: {
+		directKeys: ["bounce.forwardemail_enabled"],
+		nestedKey: "bounce.forwardemail",
+	},
+	lettermint: {
+		directKeys: ["bounce.lettermint_enabled"],
+		nestedKey: "bounce.lettermint",
+	},
+	postmark: {
+		directKeys: ["bounce.postmark_enabled"],
+		nestedKey: "bounce.postmark",
+	},
+	sendgrid: {
+		directKeys: ["bounce.sendgrid_enabled"],
+	},
+	ses: {
+		directKeys: ["bounce.ses_enabled"],
+	},
+} as const;
+
+function providerBounceSetting(
+	profile: ProviderProfile,
+):
+	| {
+			source: keyof typeof NATIVE_BOUNCE_SETTING_BY_SOURCE;
+			directKeys: readonly string[];
+			nestedKey?: string | undefined;
+	  }
+	| undefined {
+	const source = (
+		profile.kind === "ses" ? "ses" : profileWebhookSource(profile)
+	).toLowerCase();
+	if (!Object.hasOwn(NATIVE_BOUNCE_SETTING_BY_SOURCE, source)) return undefined;
+	const nativeSource = source as keyof typeof NATIVE_BOUNCE_SETTING_BY_SOURCE;
+	return {
+		source: nativeSource,
+		...NATIVE_BOUNCE_SETTING_BY_SOURCE[nativeSource],
+	};
+}
+
+function providerBounceEnabled(
+	profile: ProviderProfile,
+	settings: Readonly<Record<string, unknown>>,
+): boolean | undefined {
+	const setting = providerBounceSetting(profile);
+	if (setting === undefined) return undefined;
+	const values = setting.directKeys
+		.map((key) => settings[key])
+		.filter((value): value is boolean => typeof value === "boolean");
+	if (setting.nestedKey !== undefined) {
+		const nested = settings[setting.nestedKey];
+		if (
+			typeof nested === "object" &&
+			nested !== null &&
+			"enabled" in nested &&
+			typeof nested.enabled === "boolean"
+		) {
+			values.push(nested.enabled);
+		}
+	}
+	return values.length > 0 && values.every((value) => value);
+}
+
 function smtpRecords(
 	settings: Readonly<Record<string, unknown>>,
 ): ReadonlyArray<Readonly<Record<string, unknown>>> {
@@ -413,6 +481,7 @@ export function inspectListmonkProviderSettings(
 			? settings["app.from_email"]
 			: undefined;
 	const configuredFromDomain = fromDomain(configuredFrom);
+	const nativeBounceEnabled = providerBounceEnabled(profile, settings);
 
 	return {
 		...(configuredFrom === undefined ? {} : { from_email: configuredFrom }),
@@ -443,14 +512,9 @@ export function inspectListmonkProviderSettings(
 			settings,
 			"bounce.webhooks_enabled",
 		),
-		...(profile.kind === "ses"
-			? {
-					provider_bounce_enabled: settingBoolean(
-						settings,
-						"bounce.ses_enabled",
-					),
-				}
-			: {}),
+		...(nativeBounceEnabled === undefined
+			? {}
+			: { provider_bounce_enabled: nativeBounceEnabled }),
 	};
 }
 
@@ -556,12 +620,13 @@ function settingsChecks(
 		},
 	];
 	if (snapshot.provider_bounce_enabled !== undefined) {
+		const bounceSource = providerBounceSetting(profile)?.source ?? profile.kind;
 		checks.push({
-			id: `listmonk.bounce-provider.${profile.kind}`,
+			id: `listmonk.bounce-provider.${bounceSource}`,
 			status: snapshot.provider_bounce_enabled ? "pass" : "fail",
 			message: snapshot.provider_bounce_enabled
-				? `${profile.kind.toUpperCase()} bounce handling is enabled.`
-				: `${profile.kind.toUpperCase()} bounce handling is disabled.`,
+				? `${bounceSource.toUpperCase()} bounce handling is enabled.`
+				: `${bounceSource.toUpperCase()} bounce handling is disabled.`,
 		});
 	}
 	return checks;
@@ -952,10 +1017,7 @@ export async function inspectProviderWebhook(
 	}
 	const bounceProcessing = settingBoolean(settings, "bounce.enabled");
 	const bounceWebhooks = settingBoolean(settings, "bounce.webhooks_enabled");
-	const providerEnabled =
-		profile.kind === "ses"
-			? settingBoolean(settings, "bounce.ses_enabled")
-			: undefined;
+	const providerEnabled = providerBounceEnabled(profile, settings);
 	const checks: DoctorCheck[] = [
 		{
 			id: "webhook.configuration",
@@ -1172,10 +1234,11 @@ function parseTagRecord(
 		}
 		const separator = item.indexOf("=");
 		if (separator < 1) return undefined;
-		const key = item.slice(0, separator).trim().toLowerCase();
+		const rawKey = item.slice(0, separator).trim();
+		if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(rawKey)) return undefined;
+		const key = rawKey.toLowerCase();
 		const rawValue = item.slice(separator + 1).trim();
 		const value = options.lowercaseValues ? rawValue.toLowerCase() : rawValue;
-		if (!key) return undefined;
 		if (tags.has(key)) return undefined;
 		tags.set(key, value);
 	}
@@ -2039,9 +2102,37 @@ async function inspectSpfAuthorizationTarget(
 	};
 }
 
-function hasUsableMxRecord(record: string): boolean {
+function mxExchange(record: string): string | undefined {
 	const match = /^\d+\s+(\S+)$/.exec(record.trim());
-	return match !== null && normalizeDomain(match[1]!) !== "";
+	if (match === null) return undefined;
+	const exchange = normalizeDomain(match[1]!);
+	return validatedDomain(exchange);
+}
+
+async function inspectGenericMailFromMx(
+	records: readonly string[],
+	dns: ProviderDnsResolver,
+): Promise<SpfMechanismMatch> {
+	const exchanges = records.map(mxExchange);
+	if (
+		exchanges.length === 0 ||
+		exchanges.some((exchange) => exchange === undefined)
+	) {
+		return { matches: false, indeterminate: false, invalid: true };
+	}
+	const validatedExchanges = exchanges.filter(
+		(exchange): exchange is string => exchange !== undefined,
+	);
+	const results = await Promise.all(
+		validatedExchanges.map((exchange) => inspectSpfAddresses(exchange, dns)),
+	);
+	if (results.some(({ matches }) => matches)) {
+		return { matches: true, indeterminate: false, invalid: false };
+	}
+	if (results.some(({ indeterminate }) => indeterminate)) {
+		return { matches: false, indeterminate: true, invalid: false };
+	}
+	return { matches: false, indeterminate: false, invalid: false };
 }
 
 async function inspectProviderDnsUnbounded(
@@ -2328,21 +2419,39 @@ async function inspectProviderDnsUnbounded(
 			profile.kind === "ses" && profile.region
 				? `feedback-smtp.${profile.region}.amazonses.com`
 				: undefined;
+		const genericMxInspection =
+			expectedMx === undefined && mx.outcome === "found"
+				? await inspectGenericMailFromMx(mx.values, dns)
+				: undefined;
 		const mxReady =
 			expectedMx === undefined
-				? mx.values.length > 0 && mx.values.every(hasUsableMxRecord)
+				? genericMxInspection?.matches === true
 				: mx.values.length === 1 &&
 					mx.values[0] === `10 ${expectedMx}`;
-		const mxStatus: DoctorCheckStatus =
-			mx.outcome === "error" ? "unknown" : mxReady ? "pass" : "fail";
-		const mxMessage =
-			mxStatus === "unknown"
-				? "Custom MAIL FROM MX could not be determined because the DNS lookup failed."
-				: mxReady
-					? "Custom MAIL FROM MX record is present."
-					: expectedMx === undefined
-						? "Custom MAIL FROM requires at least one MX record."
-						: "Custom MAIL FROM requires exactly one expected MX record.";
+		let mxStatus: DoctorCheckStatus;
+		if (
+			mx.outcome === "error" ||
+			genericMxInspection?.indeterminate === true
+		) {
+			mxStatus = "unknown";
+		} else {
+			mxStatus = mxReady ? "pass" : "fail";
+		}
+		let mxMessage: string;
+		if (mxStatus === "unknown") {
+			mxMessage =
+				"Custom MAIL FROM MX or exchange address readiness could not be determined because DNS evidence is unavailable.";
+		} else if (mxReady) {
+			mxMessage =
+				expectedMx === undefined
+					? "Custom MAIL FROM MX has a resolvable exchange."
+					: "Custom MAIL FROM MX record is present.";
+		} else {
+			mxMessage =
+				expectedMx === undefined
+					? "Custom MAIL FROM requires an MX exchange with a usable A or AAAA address."
+					: "Custom MAIL FROM requires exactly one expected MX record.";
+		}
 		checks.push({
 			id: "dns.mail-from-mx",
 			status: mxStatus,

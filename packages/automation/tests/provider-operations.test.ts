@@ -275,6 +275,110 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("checks native Listmonk bounce switches for generic SMTP profiles", async () => {
+		const nativeSettings = [
+			["azure", "bounce.azure.enabled", "bounce.azure"],
+			[
+				"forwardemail",
+				"bounce.forwardemail_enabled",
+				"bounce.forwardemail",
+			],
+			["lettermint", "bounce.lettermint_enabled", "bounce.lettermint"],
+			["postmark", "bounce.postmark_enabled", "bounce.postmark"],
+			["sendgrid", "bounce.sendgrid_enabled", undefined],
+		] as const;
+		for (const [source, directSetting, nestedSetting] of nativeSettings) {
+			const smtpProfile = providerProfileSchema.parse({
+				id: `${source}-relay`,
+				kind: "smtp",
+				sending_domain: "mail.example.com",
+				smtp_hosts: ["smtp.example.com"],
+				webhook_source: source,
+			});
+			const baseSettings = {
+				"bounce.enabled": true,
+				"bounce.webhooks_enabled": true,
+			};
+			expect(
+				inspectListmonkProviderSettings(smtpProfile, {
+					...baseSettings,
+					[directSetting]: false,
+				}),
+			).toMatchObject({ provider_bounce_enabled: false });
+			expect(
+				inspectListmonkProviderSettings(smtpProfile, {
+					...baseSettings,
+					[directSetting]: true,
+				}),
+			).toMatchObject({ provider_bounce_enabled: true });
+			if (nestedSetting !== undefined) {
+				expect(
+					inspectListmonkProviderSettings(smtpProfile, {
+						...baseSettings,
+						[nestedSetting]: { enabled: false },
+					}),
+				).toMatchObject({ provider_bounce_enabled: false });
+				expect(
+					inspectListmonkProviderSettings(smtpProfile, {
+						...baseSettings,
+						[nestedSetting]: { enabled: true },
+					}),
+				).toMatchObject({ provider_bounce_enabled: true });
+			}
+		}
+		const customProfile = providerProfileSchema.parse({
+			id: "custom-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			smtp_hosts: ["smtp.example.com"],
+			webhook_source: "constructor",
+		});
+		expect(
+			inspectListmonkProviderSettings(customProfile, {
+				"bounce.enabled": true,
+				"bounce.webhooks_enabled": true,
+			}),
+		).not.toHaveProperty("provider_bounce_enabled");
+
+		const sendgridProfile = providerProfileSchema.parse({
+			id: "sendgrid-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			smtp_hosts: ["smtp.example.com"],
+			webhook_source: "sendgrid",
+		});
+		const output = await invokeProviderWebhookStatusOperation(
+			context({
+				profiles: [sendgridProfile],
+				client: {
+					...context().client!,
+					settings: {
+						async get() {
+							return {
+								data: {
+									"bounce.enabled": true,
+									"bounce.webhooks_enabled": true,
+									"bounce.sendgrid_enabled": false,
+								},
+							} as never;
+						},
+					},
+				},
+			}),
+			{ provider_id: sendgridProfile.id },
+		);
+		expect(output).toMatchObject({
+			provider_bounce_enabled: false,
+			healthy: false,
+		});
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "webhook.configuration",
+				status: "fail",
+			}),
+		);
+	});
+
 	test("keeps webhook freshness unknown when the source is shared", async () => {
 		const secondary = providerProfileSchema.parse({
 			...profile,
@@ -907,33 +1011,37 @@ describe("provider and deliverability operations", () => {
 	});
 
 	test("rejects malformed DMARC and DKIM tag-list segments", async () => {
-		const malformedTagsDns: ProviderDnsResolver = {
-			...dns,
-			async txt(name) {
-				if (name === "_dmarc.news.example.com") {
-					return ["v=DMARC1; p=quarantine; broken"];
-				}
-				if (name.endsWith("._domainkey.news.example.com")) {
-					return [
-						`v=DKIM1; p=${validRsaDkimPublicKey}; broken`,
-					];
-				}
-				return dns.txt(name);
-			},
-			async cname() {
-				return [];
-			},
-		};
-		const output = await invokeDeliverabilityDnsCheckOperation(
-			context({ dns: malformedTagsDns }),
-			{ provider_id: profile.id },
-		);
-		expect(output.checks).toContainEqual(
-			expect.objectContaining({ id: "dns.dmarc", status: "fail" }),
-		);
-		expect(output.checks).toContainEqual(
-			expect.objectContaining({ id: "dns.dkim", status: "fail" }),
-		);
+		for (const malformedSegment of ["broken", "bad key=value"]) {
+			const malformedTagsDns: ProviderDnsResolver = {
+				...dns,
+				async txt(name) {
+					if (name === "_dmarc.news.example.com") {
+						return [
+							`v=DMARC1; p=quarantine; ${malformedSegment}`,
+						];
+					}
+					if (name.endsWith("._domainkey.news.example.com")) {
+						return [
+							`v=DKIM1; p=${validRsaDkimPublicKey}; ${malformedSegment}`,
+						];
+					}
+					return dns.txt(name);
+				},
+				async cname() {
+					return [];
+				},
+			};
+			const output = await invokeDeliverabilityDnsCheckOperation(
+				context({ dns: malformedTagsDns }),
+				{ provider_id: profile.id },
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.dmarc", status: "fail" }),
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.dkim", status: "fail" }),
+			);
+		}
 	});
 
 	test("requires a direct DKIM key to permit the email service", async () => {
@@ -1756,6 +1864,12 @@ describe("provider and deliverability operations", () => {
 						]
 					: [];
 			},
+			async a(name) {
+				return name === "mx1.example.com" ? ["192.0.2.10"] : [];
+			},
+			async aaaa() {
+				return [];
+			},
 		};
 		const output = await inspectProviderDns(
 			smtpProfile,
@@ -1773,6 +1887,78 @@ describe("provider and deliverability operations", () => {
 				status: "pass",
 			}),
 		);
+	});
+
+	test("requires address evidence for generic SMTP MX exchanges", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "generic-mx-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_include: "_spf.example.com",
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const baseDns: ProviderDnsResolver = {
+			async txt(name) {
+				if (name === "_dmarc.mail.example.com") {
+					return ["v=DMARC1; p=quarantine"];
+				}
+				if (name === "bounce.mail.example.com") {
+					return ["v=spf1 include:_spf.example.com ~all"];
+				}
+				if (name === "_spf.example.com") {
+					return ["v=spf1 ip4:192.0.2.0/24 -all"];
+				}
+				return [];
+			},
+			async cname() {
+				return [];
+			},
+			async mx(name) {
+				return name === "bounce.mail.example.com"
+					? [{ priority: 10, exchange: "missing.invalid" }]
+					: [];
+			},
+		};
+		for (const [addressResolvers, status] of [
+			[
+				{
+					async a() {
+						return [];
+					},
+					async aaaa() {
+						return [];
+					},
+				},
+				"fail",
+			],
+			[{}, "unknown"],
+			[
+				{
+					async a() {
+						throw new Error("transient resolver failure");
+					},
+					async aaaa() {
+						return [];
+					},
+				},
+				"unknown",
+			],
+		] as const) {
+			const output = await inspectProviderDns(
+				smtpProfile,
+				context({
+					profiles: [smtpProfile],
+					dns: { ...baseDns, ...addressResolvers },
+				}),
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({
+					id: "dns.mail-from-mx",
+					status,
+				}),
+			);
+		}
 	});
 
 	test("requires the expected SPF include target to publish one SPF record", async () => {
