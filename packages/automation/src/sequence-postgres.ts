@@ -236,10 +236,7 @@ function optionalTimestamp(value: string | Date | null): string | undefined {
 		return undefined;
 	}
 	const date = value instanceof Date ? value : new Date(value);
-	if (!Number.isFinite(date.getTime())) {
-		throw new Error(`Sequence runtime contains an invalid timestamp: ${value}`);
-	}
-	return date.toISOString();
+	return Number.isFinite(date.getTime()) ? date.toISOString() : undefined;
 }
 
 export function createPostgresSequenceRepository(
@@ -674,12 +671,13 @@ export function createPostgresSequenceRepository(
 		},
 		async getRuntimeHealth(options): Promise<SequenceRuntimeHealth> {
 			await ready();
+			const nowIso = options.now.toISOString();
 			const dueCondition = sql`
 				status IN ('pending', 'running', 'waiting')
-				AND next_run_at <= ${options.now.toISOString()}::timestamptz
+				AND next_run_at <= ${nowIso}::timestamptz
 				AND (
 					lease_expires_at IS NULL
-					OR lease_expires_at <= ${options.now.toISOString()}::timestamptz
+					OR lease_expires_at <= ${nowIso}::timestamptz
 				)
 			`;
 			const [definitionRows, enrollmentRows, workerRows] = await Promise.all([
@@ -702,7 +700,7 @@ export function createPostgresSequenceRepository(
 						count(*) FILTER (WHERE status = 'cancelled')::int AS cancelled,
 						count(*) FILTER (WHERE ${dueCondition})::int AS due,
 						count(*) FILTER (
-							WHERE lease_expires_at > ${options.now.toISOString()}::timestamptz
+							WHERE lease_expires_at > ${nowIso}::timestamptz
 						)::int AS leased,
 						min(next_run_at) FILTER (WHERE ${dueCondition}) AS oldest_due_at
 					FROM listmonk_ops.sequence_enrollments
@@ -713,7 +711,7 @@ export function createPostgresSequenceRepository(
 						count(*) FILTER (
 							WHERE status = 'running'
 								AND heartbeat_at <
-									${options.now.toISOString()}::timestamptz -
+									${nowIso}::timestamptz -
 									${options.workerStaleMs} * interval '1 millisecond'
 						)::int AS stale,
 						count(*) FILTER (WHERE status = 'stopped')::int AS stopped,
@@ -755,7 +753,7 @@ export function createPostgresSequenceRepository(
 				store: "postgres",
 				schemaVersion: SEQUENCE_POSTGRES_SCHEMA_VERSION,
 				healthy: workers.stale === 0,
-				checkedAt: options.now.toISOString(),
+				checkedAt: nowIso,
 				definitions,
 				enrollments: {
 					...enrollmentCounts,

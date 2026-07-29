@@ -13488,7 +13488,7 @@
           "sequences.tick",
           "sequences.pause"
         ],
-        "retryGuidance": "Dry-run first; repeated lease recovery is safe.",
+        "retryGuidance": "Inspect sequences.status before retrying; ambiguous-send resolution is not idempotent.",
         "useWhen": [
           "Expired leases or an operator-reviewed ambiguous send need recovery."
         ],

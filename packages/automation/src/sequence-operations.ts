@@ -77,47 +77,60 @@ const stepIdInput = z
 	.min(1)
 	.max(80)
 	.regex(/^[A-Za-z0-9._:-]+$/);
-const sequenceStepInputSchema = z.discriminatedUnion("type", [
-	z.object({
-		id: stepIdInput,
-		type: z.literal("send"),
-		template_id: positiveIntegerInput,
-		from_email: z.string().trim().min(1).optional(),
-		data: z.record(z.string(), z.unknown()).optional(),
-		content_type: z.enum(["html", "markdown", "plain"]).optional(),
-	}),
-	z.object({
-		id: stepIdInput,
-		type: z.literal("wait"),
-		duration_seconds: positiveIntegerInput.refine(
-			(value) => value <= 31_536_000,
-			"duration_seconds must be no greater than one year",
-		),
-	}),
-	z.object({
-		id: stepIdInput,
-		type: z.literal("wait_until"),
-		at: isoDateTimeInput,
-	}),
-	z.object({
-		id: stepIdInput,
-		type: z.literal("condition"),
-		path: z
-			.string()
-			.trim()
-			.min(1)
-			.max(200)
-			.regex(/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/),
-		operator: z.enum(["equals", "not_equals", "exists"]),
-		value: z.unknown().optional(),
-		on_true: stepIdInput,
-		on_false: stepIdInput,
-	}),
-	z.object({
-		id: stepIdInput,
-		type: z.literal("stop"),
-	}),
-]);
+const conditionPathSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(200)
+	.regex(/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/);
+const contentTypeSchema = z.enum(["html", "markdown", "plain"]);
+
+function buildSequenceStepSchema(
+	templateIdSchema: z.ZodType<number>,
+	durationSecondsSchema: z.ZodType<number>,
+) {
+	return z.discriminatedUnion("type", [
+		z.object({
+			id: stepIdInput,
+			type: z.literal("send"),
+			template_id: templateIdSchema,
+			from_email: z.string().trim().min(1).optional(),
+			data: z.record(z.string(), z.unknown()).optional(),
+			content_type: contentTypeSchema.optional(),
+		}),
+		z.object({
+			id: stepIdInput,
+			type: z.literal("wait"),
+			duration_seconds: durationSecondsSchema,
+		}),
+		z.object({
+			id: stepIdInput,
+			type: z.literal("wait_until"),
+			at: isoDateTimeInput,
+		}),
+		z.object({
+			id: stepIdInput,
+			type: z.literal("condition"),
+			path: conditionPathSchema,
+			operator: z.enum(["equals", "not_equals", "exists"]),
+			value: z.unknown().optional(),
+			on_true: stepIdInput,
+			on_false: stepIdInput,
+		}),
+		z.object({
+			id: stepIdInput,
+			type: z.literal("stop"),
+		}),
+	]);
+}
+
+const sequenceStepInputSchema = buildSequenceStepSchema(
+	positiveIntegerInput,
+	positiveIntegerInput.refine(
+		(value) => value <= 31_536_000,
+		"duration_seconds must be no greater than one year",
+	),
+);
 
 const sequenceValidateInputSchema = z.object({
 	steps: z.array(sequenceStepInputSchema).min(1),
@@ -195,45 +208,10 @@ const sequenceStatusInputSchema = z.object({
 		.default(90_000),
 });
 
-const strictPositiveInteger = z.number().int().positive();
-const sequenceStepOutputSchema = z.discriminatedUnion("type", [
-	z.object({
-		id: stepIdInput,
-		type: z.literal("send"),
-		template_id: strictPositiveInteger,
-		from_email: z.string().trim().min(1).optional(),
-		data: z.record(z.string(), z.unknown()).optional(),
-		content_type: z.enum(["html", "markdown", "plain"]).optional(),
-	}),
-	z.object({
-		id: stepIdInput,
-		type: z.literal("wait"),
-		duration_seconds: strictPositiveInteger.max(31_536_000),
-	}),
-	z.object({
-		id: stepIdInput,
-		type: z.literal("wait_until"),
-		at: isoDateTimeInput,
-	}),
-	z.object({
-		id: stepIdInput,
-		type: z.literal("condition"),
-		path: z
-			.string()
-			.trim()
-			.min(1)
-			.max(200)
-			.regex(/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/),
-		operator: z.enum(["equals", "not_equals", "exists"]),
-		value: z.unknown().optional(),
-		on_true: stepIdInput,
-		on_false: stepIdInput,
-	}),
-	z.object({
-		id: stepIdInput,
-		type: z.literal("stop"),
-	}),
-]);
+const sequenceStepOutputSchema = buildSequenceStepSchema(
+	z.number().int().positive(),
+	z.number().int().positive().max(31_536_000),
+);
 const sequenceRevisionOutputSchema = z.object({
 	revision: z.number().int().positive(),
 	steps: z.array(sequenceStepOutputSchema),

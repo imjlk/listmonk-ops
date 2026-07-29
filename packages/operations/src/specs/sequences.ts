@@ -435,7 +435,8 @@ export const sequenceReconcileOperationSpec = defineOperationSpec({
 		prerequisites: ["sequences.status"],
 		verifyWith: ["sequences.status"],
 		related: ["sequences.tick", "sequences.pause"],
-		retryGuidance: "Dry-run first; repeated lease recovery is safe.",
+		retryGuidance:
+			"Inspect sequences.status before retrying; ambiguous-send resolution is not idempotent.",
 	},
 	projection: {
 		mcpName: "listmonk_sequences_reconcile",

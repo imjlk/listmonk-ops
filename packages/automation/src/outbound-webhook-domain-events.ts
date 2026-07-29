@@ -34,6 +34,15 @@ type DomainEventProjection = Readonly<{
 	data: Readonly<Record<string, unknown>>;
 }>;
 
+function projectWhen(
+	resource: Readonly<Record<string, unknown>> | undefined,
+	createProjection: (
+		resource: Readonly<Record<string, unknown>>,
+	) => DomainEventProjection,
+): readonly DomainEventProjection[] {
+	return resource ? [createProjection(resource)] : [];
+}
+
 const CAMPAIGN_EVENT_TYPES = {
 	"campaigns.schedule": "campaign.scheduled",
 	"campaigns.start": "campaign.started",
@@ -349,85 +358,57 @@ function sequenceProjection(
 	};
 	switch (input.operationId) {
 		case "sequences.create":
-			return sequence
-				? [
-						{
-							...common,
-							type: "sequence.created",
-							data: { revision: sequence["current_revision"] },
-						},
-					]
-				: [];
+			return projectWhen(sequence, (resource) => ({
+				...common,
+				type: "sequence.created",
+				data: { revision: resource["current_revision"] },
+			}));
 		case "sequences.update":
-			return sequence
-				? [
-						{
-							...common,
-							type: "sequence.revised",
-							data: { revision: sequence["current_revision"] },
-						},
-					]
-				: [];
+			return projectWhen(sequence, (resource) => ({
+				...common,
+				type: "sequence.revised",
+				data: { revision: resource["current_revision"] },
+			}));
 		case "sequences.enroll":
-			return enrollment
-				? [
-						{
-							...common,
-							type: "sequence.enrolled",
-							data: {
-								enrollment_id: enrollment["id"],
-								revision: enrollment["revision"],
-								status: enrollment["status"],
-							},
-						},
-					]
-				: [];
+			return projectWhen(enrollment, (resource) => ({
+				...common,
+				type: "sequence.enrolled",
+				data: {
+					enrollment_id: resource["id"],
+					revision: resource["revision"],
+					status: resource["status"],
+				},
+			}));
 		case "sequences.pause":
-			return sequence
-				? [
-						{
-							...common,
-							type: "sequence.paused",
-							data: { status: sequence["status"] },
-						},
-					]
-				: [];
+			return projectWhen(sequence, (resource) => ({
+				...common,
+				type: "sequence.paused",
+				data: { status: resource["status"] },
+			}));
 		case "sequences.resume":
-			return sequence
-				? [
-						{
-							...common,
-							type: "sequence.resumed",
-							data: { status: sequence["status"] },
-						},
-					]
-				: [];
+			return projectWhen(sequence, (resource) => ({
+				...common,
+				type: "sequence.resumed",
+				data: { status: resource["status"] },
+			}));
 		case "sequences.delete":
-			return sequence
-				? [
-						{
-							...common,
-							type: "sequence.deleted",
-							data: {
-								status: sequence["status"],
-								current_revision: sequence["current_revision"],
-							},
-						},
-					]
-				: [];
+			return projectWhen(sequence, (resource) => ({
+				...common,
+				type: "sequence.deleted",
+				data: {
+					status: resource["status"],
+					current_revision: resource["current_revision"],
+				},
+			}));
 		case "sequences.reconcile":
-			return enrollment
-				? [
-						{
-							...common,
-							type: "sequence.reconciled",
-							data: {
-								enrollment_id: enrollment["id"],
-								status: enrollment["status"],
-							},
-						},
-					]
-				: [];
+			return projectWhen(enrollment, (resource) => ({
+				...common,
+				type: "sequence.reconciled",
+				data: {
+					enrollment_id: resource["id"],
+					status: resource["status"],
+				},
+			}));
 		default:
 			return [];
 	}

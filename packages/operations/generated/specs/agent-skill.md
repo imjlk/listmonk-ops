@@ -492,7 +492,7 @@ Prerequisites: `sequences.status`
 
 Verify with: `sequences.status`
 
-Retry guidance: Dry-run first; repeated lease recovery is safe.
+Retry guidance: Inspect sequences.status before retrying; ambiguous-send resolution is not idempotent.
 
 ## Inspect sequence runtime health (`sequences.status`)
 
