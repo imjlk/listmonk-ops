@@ -53,6 +53,11 @@ describe("email operations specification", () => {
 			"webhooks.reconcile",
 			"webhooks.prune",
 			"webhooks.tick",
+			"webhooks.runtime.status",
+			"webhooks.inbound.ingest",
+			"webhooks.dlq.list",
+			"webhooks.dlq.replay",
+			"webhooks.circuit.reset",
 		]);
 		expect(campaignGetOperationSpec.contract.input).toMatchObject({
 			dialect: "openapi-3.1",
@@ -101,7 +106,7 @@ describe("email operations specification", () => {
 			campaignPreflightOperationSpec.contract.output.components?.schemas
 				?.IsoDateTime,
 		).toMatchObject({ type: "string", format: "date-time" });
-		expect(webhookOperationSpecs).toHaveLength(11);
+		expect(webhookOperationSpecs).toHaveLength(16);
 		expect(webhookDispatchOperationSpec.effects).toEqual([
 			{ kind: "webhook", resource: "webhook", audience: "bulk" },
 		]);

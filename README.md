@@ -704,6 +704,17 @@ listmonk-cli webhooks prune --older-than-days 30 --dry-run
 listmonk-cli webhooks prune --older-than-days 30 --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted
 listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
+listmonk-cli webhooks runtime status
+listmonk-cli webhooks runtime worker --interval-ms 5000 --confirm
+listmonk-cli webhooks dlq list
+listmonk-cli webhooks dlq replay --dry-run
+listmonk-cli webhooks dlq replay --no-dry-run --confirm
+listmonk-cli webhooks circuit reset --id <endpoint-uuid> --confirm
+listmonk-cli webhooks inbound ingest \
+  --provider ses \
+  --provider-event-id <stable-provider-event-id> \
+  --kind bounced \
+  --message-id <provider-message-id>
 ```
 
 Filters accept an exact event type, a family wildcard such as `campaign.*`, or
@@ -732,11 +743,23 @@ If another worker reclaims an expired lease, the original dispatch reports
 that attempt as `skipped` while preserving sibling results; inspect the shared
 delivery log for the final state.
 
-The JSON store remains the zero-configuration single-host default. For
+`exhausted` records form the dead-letter queue. Replay defaults to a dry run,
+and circuit breakers pause endpoint claims after repeated failures until their
+cooldown expires or an operator resets them. `webhooks runtime status` reports
+schema, backlog, circuit, DLQ, and running, stale, stopped, or failed worker
+health. Verified provider
+adapters can ingest delivered, bounced, complained, unsubscribed, delayed, and
+rejected events into the same envelope; stable provider event IDs make
+ingestion idempotent and sensitive metadata keys are redacted. Unsubscribe
+events require a subscriber UUID, and provider metadata is capped at 16 KiB.
+
+The JSON store remains the zero-configuration single-host default. Existing v1
+files are read compatibly and persisted as v2 on the next mutation. For
 multiple CLI/MCP/worker processes, set `LISTMONK_OPS_WEBHOOK_DATABASE_URL`
 instead. The Postgres repository uses normalized endpoint and delivery tables,
 transactional enqueue deduplication, `FOR UPDATE SKIP LOCKED` claims, and
-lease-token fencing. `webhooks tick` first reconciles expired leases and then
+lease-token fencing. Ordered, advisory-lock-protected migrations upgrade the
+runtime schema. `webhooks tick` first reconciles expired leases and then
 dispatches a bounded batch. `webhooks reconcile` previews recovery by default
 and applies it with `--no-dry-run`, while
 `webhooks prune` defaults to a dry run and only deletes old terminal history
@@ -746,8 +769,11 @@ Only public HTTPS endpoints without credentials, query strings, or fragments
 are accepted. Destination DNS/IP safety is rechecked against globally routable
 address ranges when dispatching, each validated address is tried in order and
 pinned for its HTTPS connection, and redirects are disabled. Run
-`webhooks tick` from a scheduler; endpoint
-management does not start a background daemon.
+Use `webhooks tick` from a scheduler or run the heartbeat-tracked
+`webhooks runtime worker --confirm` process under a service manager. Endpoint
+management alone does not start a background daemon. The worker retries
+transient tick failures with bounded exponential backoff before failing for
+its process supervisor to restart.
 
 ## OpenAPI Regeneration (Hey API)
 

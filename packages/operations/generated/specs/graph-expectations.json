@@ -674,7 +674,142 @@
         "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookTickOperation:variable"
       },
       "operationId": "webhooks.tick"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/webhook-operations.ts#webhookRuntimeStatusOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/webhooks.ts#bindWebhookRuntimeStatusOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/webhooks.ts#bindWebhookRuntimeStatusOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/webhooks.ts#webhookRuntimeStatusOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/webhook-operations.ts#invokeWebhookRuntimeStatusOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/webhook-operations.ts#executeWebhookRuntimeStatusOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/webhooks.ts#bindWebhookRuntimeStatusOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/webhooks.ts#webhookRuntimeStatusOperationSpec:variable",
+        "executorNode": "packages/automation/src/webhook-operations.ts#executeWebhookRuntimeStatusOperation:function",
+        "invokerNode": "packages/automation/src/webhook-operations.ts#invokeWebhookRuntimeStatusOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookRuntimeStatusOperation:variable"
+      },
+      "operationId": "webhooks.runtime.status"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/webhook-operations.ts#webhookInboundIngestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/webhooks.ts#bindWebhookInboundIngestOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/webhooks.ts#bindWebhookInboundIngestOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/webhooks.ts#webhookInboundIngestOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/webhook-operations.ts#invokeWebhookInboundIngestOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/webhook-operations.ts#executeWebhookInboundIngestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/webhooks.ts#bindWebhookInboundIngestOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/webhooks.ts#webhookInboundIngestOperationSpec:variable",
+        "executorNode": "packages/automation/src/webhook-operations.ts#executeWebhookInboundIngestOperation:function",
+        "invokerNode": "packages/automation/src/webhook-operations.ts#invokeWebhookInboundIngestOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookInboundIngestOperation:variable"
+      },
+      "operationId": "webhooks.inbound.ingest"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/webhook-operations.ts#webhookDlqListOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/webhooks.ts#bindWebhookDlqListOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/webhooks.ts#bindWebhookDlqListOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/webhooks.ts#webhookDlqListOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/webhook-operations.ts#invokeWebhookDlqListOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/webhook-operations.ts#executeWebhookDlqListOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/webhooks.ts#bindWebhookDlqListOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/webhooks.ts#webhookDlqListOperationSpec:variable",
+        "executorNode": "packages/automation/src/webhook-operations.ts#executeWebhookDlqListOperation:function",
+        "invokerNode": "packages/automation/src/webhook-operations.ts#invokeWebhookDlqListOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookDlqListOperation:variable"
+      },
+      "operationId": "webhooks.dlq.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/webhook-operations.ts#webhookDlqReplayOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/webhooks.ts#bindWebhookDlqReplayOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/webhooks.ts#bindWebhookDlqReplayOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/webhooks.ts#webhookDlqReplayOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/webhook-operations.ts#invokeWebhookDlqReplayOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/webhook-operations.ts#executeWebhookDlqReplayOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/webhooks.ts#bindWebhookDlqReplayOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/webhooks.ts#webhookDlqReplayOperationSpec:variable",
+        "executorNode": "packages/automation/src/webhook-operations.ts#executeWebhookDlqReplayOperation:function",
+        "invokerNode": "packages/automation/src/webhook-operations.ts#invokeWebhookDlqReplayOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookDlqReplayOperation:variable"
+      },
+      "operationId": "webhooks.dlq.replay"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/webhook-operations.ts#webhookCircuitResetOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/webhooks.ts#bindWebhookCircuitResetOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/webhooks.ts#bindWebhookCircuitResetOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/webhooks.ts#webhookCircuitResetOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/webhook-operations.ts#invokeWebhookCircuitResetOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/webhook-operations.ts#executeWebhookCircuitResetOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/webhooks.ts#bindWebhookCircuitResetOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/webhooks.ts#webhookCircuitResetOperationSpec:variable",
+        "executorNode": "packages/automation/src/webhook-operations.ts#executeWebhookCircuitResetOperation:function",
+        "invokerNode": "packages/automation/src/webhook-operations.ts#invokeWebhookCircuitResetOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookCircuitResetOperation:variable"
+      },
+      "operationId": "webhooks.circuit.reset"
     }
   ],
-  "schemaVersion": "1.4.0"
+  "schemaVersion": "1.5.0"
 }

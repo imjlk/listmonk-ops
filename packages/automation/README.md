@@ -93,6 +93,9 @@ import {
 	enqueueOutboundWebhookEvent,
 	dispatchOutboundWebhooks,
 	getOutboundWebhookStoreOptionsFromEnvironment,
+	getOutboundWebhookRuntimeHealth,
+	ingestInboundDeliveryEvent,
+	runOutboundWebhookWorker,
 	verifyOutboundWebhookSignature,
 } from "@listmonk-ops/automation";
 
@@ -113,6 +116,15 @@ await enqueueOutboundWebhookEvent({
 }, webhookStore);
 
 await dispatchOutboundWebhooks({ store: webhookStore });
+
+await ingestInboundDeliveryEvent({
+	provider: "ses",
+	providerEventId: "stable-provider-event-id",
+	kind: "bounced",
+	messageId: "provider-message-id",
+}, webhookStore);
+
+const health = await getOutboundWebhookRuntimeHealth(webhookStore);
 ```
 
 The default store is `~/.listmonk-ops/outbound-webhooks.json`; override it with
@@ -123,6 +135,14 @@ transactional deduplication, `FOR UPDATE SKIP LOCKED`, expiring leases, and
 lease-token fencing. `reconcileOutboundWebhookDeliveries()` recovers expired
 leases, and terminal history can be removed with the bounded, previewable
 `pruneOutboundWebhookDeliveries()` API.
+The file schema reads v1 stores compatibly and writes v2 on mutation. Postgres
+uses ordered advisory-lock-protected migrations. Stage 2 adds durable worker
+heartbeats, graceful shutdown, endpoint circuit breakers, dead-letter replay,
+and normalized provider delivery-event ingestion. Use
+`runOutboundWebhookWorker()` under a process supervisor; it reconciles expired
+leases before every bounded dispatch batch and retries transient tick failures
+with bounded exponential backoff. Normalized unsubscribe events require a
+subscriber UUID, and provider metadata is limited to 16 KiB.
 
 Only the environment-variable name in
 `secretRef` is persisted. Dispatch resolves its value at runtime, sends no

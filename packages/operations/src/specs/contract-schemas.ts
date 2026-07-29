@@ -51,6 +51,16 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	webhookPruneOutputContract: NormalizedContractSchema;
 	webhookTickInputContract: NormalizedContractSchema;
 	webhookTickOutputContract: NormalizedContractSchema;
+	webhookRuntimeStatusInputContract: NormalizedContractSchema;
+	webhookRuntimeStatusOutputContract: NormalizedContractSchema;
+	webhookInboundIngestInputContract: NormalizedContractSchema;
+	webhookInboundIngestOutputContract: NormalizedContractSchema;
+	webhookDlqListInputContract: NormalizedContractSchema;
+	webhookDlqListOutputContract: NormalizedContractSchema;
+	webhookDlqReplayInputContract: NormalizedContractSchema;
+	webhookDlqReplayOutputContract: NormalizedContractSchema;
+	webhookCircuitResetInputContract: NormalizedContractSchema;
+	webhookCircuitResetOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
@@ -122,3 +132,23 @@ export const webhookPruneInputContract = contracts.webhookPruneInputContract;
 export const webhookPruneOutputContract = contracts.webhookPruneOutputContract;
 export const webhookTickInputContract = contracts.webhookTickInputContract;
 export const webhookTickOutputContract = contracts.webhookTickOutputContract;
+export const webhookRuntimeStatusInputContract =
+	contracts.webhookRuntimeStatusInputContract;
+export const webhookRuntimeStatusOutputContract =
+	contracts.webhookRuntimeStatusOutputContract;
+export const webhookInboundIngestInputContract =
+	contracts.webhookInboundIngestInputContract;
+export const webhookInboundIngestOutputContract =
+	contracts.webhookInboundIngestOutputContract;
+export const webhookDlqListInputContract =
+	contracts.webhookDlqListInputContract;
+export const webhookDlqListOutputContract =
+	contracts.webhookDlqListOutputContract;
+export const webhookDlqReplayInputContract =
+	contracts.webhookDlqReplayInputContract;
+export const webhookDlqReplayOutputContract =
+	contracts.webhookDlqReplayOutputContract;
+export const webhookCircuitResetInputContract =
+	contracts.webhookCircuitResetInputContract;
+export const webhookCircuitResetOutputContract =
+	contracts.webhookCircuitResetOutputContract;

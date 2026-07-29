@@ -3,15 +3,23 @@ import {
 	invokeWebhookDeleteOperation,
 	invokeWebhookDeliveryListOperation,
 	invokeWebhookDeliveryRetryOperation,
+	invokeWebhookDlqListOperation,
+	invokeWebhookDlqReplayOperation,
 	invokeWebhookDispatchOperation,
+	invokeWebhookInboundIngestOperation,
 	invokeWebhookListOperation,
 	invokeWebhookPruneOperation,
 	invokeWebhookReconcileOperation,
 	invokeWebhookTestOperation,
 	invokeWebhookTickOperation,
+	invokeWebhookRuntimeStatusOperation,
+	invokeWebhookCircuitResetOperation,
 	invokeWebhookUpdateOperation,
+	INBOUND_DELIVERY_EVENT_KINDS,
 	OUTBOUND_WEBHOOK_EVENT_TYPES,
 	OUTBOUND_WEBHOOK_SECRET_REF_PATTERN,
+	runOutboundWebhookWorker,
+	getOutboundWebhookStoreOptionsFromEnvironment,
 } from "@listmonk-ops/automation";
 import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
@@ -26,6 +34,26 @@ function parseEventFilters(value: string): string[] {
 		throw new Error("Expected one or more comma-separated event filters");
 	}
 	return filters;
+}
+
+function parseJsonObject(value: string | undefined): Record<string, unknown> {
+	if (value === undefined) {
+		return {};
+	}
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(value);
+	} catch {
+		throw new TypeError("--metadata must contain a valid JSON object");
+	}
+	if (
+		typeof parsed !== "object" ||
+		parsed === null ||
+		Array.isArray(parsed)
+	) {
+		throw new TypeError("--metadata must contain a JSON object");
+	}
+	return parsed as Record<string, unknown>;
 }
 
 const listCommand = defineCommand({
@@ -73,6 +101,14 @@ const createCommand = defineCommand({
 		"max-attempts": option(z.coerce.number().int().min(1).max(12).default(6), {
 			description: "Maximum automatic delivery attempts",
 		}),
+		"circuit-failure-threshold": option(
+			z.coerce.number().int().min(1).max(100).default(5),
+			{ description: "Consecutive failures before opening the circuit" },
+		),
+		"circuit-cooldown-ms": option(
+			z.coerce.number().int().min(1_000).max(86_400_000).default(300_000),
+			{ description: "Circuit cooldown in milliseconds" },
+		),
 	},
 	handler: async ({ flags }) => {
 		getOutput().json(
@@ -86,6 +122,8 @@ const createCommand = defineCommand({
 					enabled: flags.enabled,
 					timeout_ms: flags["timeout-ms"],
 					max_attempts: flags["max-attempts"],
+					circuit_failure_threshold: flags["circuit-failure-threshold"],
+					circuit_cooldown_ms: flags["circuit-cooldown-ms"],
 				},
 			),
 		);
@@ -128,6 +166,14 @@ const updateCommand = defineCommand({
 			z.coerce.number().int().min(1).max(12).optional(),
 			{ description: "New maximum attempt count" },
 		),
+		"circuit-failure-threshold": option(
+			z.coerce.number().int().min(1).max(100).optional(),
+			{ description: "New consecutive failure threshold" },
+		),
+		"circuit-cooldown-ms": option(
+			z.coerce.number().int().min(1_000).max(86_400_000).optional(),
+			{ description: "New circuit cooldown in milliseconds" },
+		),
 	},
 	handler: async ({ flags }) => {
 		getOutput().json(
@@ -144,6 +190,8 @@ const updateCommand = defineCommand({
 					enabled: flags.enabled,
 					timeout_ms: flags["timeout-ms"],
 					max_attempts: flags["max-attempts"],
+					circuit_failure_threshold: flags["circuit-failure-threshold"],
+					circuit_cooldown_ms: flags["circuit-cooldown-ms"],
 				},
 			),
 		);
@@ -329,6 +377,223 @@ const deliveryRetryCommand = defineCommand({
 	},
 });
 
+const runtimeStatusCommand = defineCommand({
+	name: "status",
+	description: "Inspect durable outbox, circuit, DLQ, and worker health",
+	operationId: "webhooks.runtime.status",
+	options: {
+		"worker-stale-ms": option(
+			z.coerce.number().int().min(1_000).max(86_400_000).default(90_000),
+			{ description: "Heartbeat age considered stale" },
+		),
+	},
+	handler: async ({ flags }) => {
+		getOutput().json(
+			await invokeWebhookRuntimeStatusOperation(
+				{},
+				{ worker_stale_ms: flags["worker-stale-ms"] },
+			),
+		);
+	},
+});
+
+const runtimeWorkerCommand = defineCommand({
+	name: "worker",
+	description: "Run the long-lived lease-safe outbound webhook worker",
+	options: {
+		"interval-ms": option(
+			z.coerce.number().int().min(250).max(90_000).default(5_000),
+			{ description: "Delay between worker ticks" },
+		),
+		"dispatch-limit": option(
+			z.coerce.number().int().min(1).max(100).default(25),
+			{ description: "Maximum deliveries per tick" },
+		),
+		"reconcile-limit": option(
+			z.coerce.number().int().min(1).max(1_000).default(100),
+			{ description: "Maximum expired leases per tick" },
+		),
+	},
+	handler: async ({ flags }) => {
+		if (flags.confirm !== true) {
+			throw new Error(
+				"The long-lived worker sends external webhooks; rerun with --confirm",
+			);
+		}
+		const controller = new AbortController();
+		const stop = () => controller.abort();
+		process.once("SIGINT", stop);
+		process.once("SIGTERM", stop);
+		try {
+			getOutput().info(
+				"Outbound webhook worker started; press Ctrl+C for graceful shutdown",
+			);
+			getOutput().json(
+				await runOutboundWebhookWorker({
+					store: getOutboundWebhookStoreOptionsFromEnvironment(),
+					signal: controller.signal,
+					intervalMs: flags["interval-ms"],
+					dispatchLimit: flags["dispatch-limit"],
+					reconcileLimit: flags["reconcile-limit"],
+					onTick: ({ dispatch, completedAt }) => {
+						getOutput().info(
+							`Webhook tick completed at ${completedAt}: ${dispatch.claimed} claimed, ${dispatch.succeeded} succeeded, ${dispatch.retried} retried, ${dispatch.exhausted} exhausted`,
+						);
+					},
+					onTickError: ({
+						error,
+						consecutiveFailures,
+						retryInMs,
+					}) => {
+						getOutput().warning(
+							`Webhook tick failed (${consecutiveFailures} consecutive); retrying in ${retryInMs}ms: ${error}`,
+						);
+					},
+				}),
+			);
+		} finally {
+			process.off("SIGINT", stop);
+			process.off("SIGTERM", stop);
+		}
+	},
+});
+
+const runtimeGroup = defineGroup({
+	name: "runtime",
+	description: "Inspect and run the durable webhook runtime",
+	commands: [runtimeStatusCommand, runtimeWorkerCommand],
+});
+
+const inboundIngestCommand = defineCommand({
+	name: "ingest",
+	description: "Normalize a verified provider event into the shared outbox",
+	operationId: "webhooks.inbound.ingest",
+	options: {
+		provider: option(z.string().trim().min(1), {
+			description: "Provider identifier such as ses or postmark",
+		}),
+		"provider-event-id": option(z.string().trim().min(1), {
+			description: "Stable provider event identifier",
+		}),
+		kind: option(z.enum(INBOUND_DELIVERY_EVENT_KINDS), {
+			description: "Normalized delivery event kind",
+		}),
+		"occurred-at": option(z.iso.datetime({ offset: true }).optional(), {
+			description: "Provider event timestamp",
+		}),
+		"message-id": option(z.string().trim().min(1).optional(), {
+			description: "Provider message identifier",
+		}),
+		"subscriber-uuid": option(z.uuid().optional(), {
+			description: "Listmonk subscriber UUID when known",
+		}),
+		"campaign-id": option(z.coerce.number().int().positive().optional(), {
+			description: "Listmonk campaign ID when known",
+		}),
+		metadata: option(z.string().optional(), {
+			description: "Additional JSON object; sensitive keys are redacted",
+		}),
+	},
+	handler: async ({ flags }) => {
+		getOutput().json(
+			await invokeWebhookInboundIngestOperation(
+				{},
+				{
+					provider: flags.provider,
+					provider_event_id: flags["provider-event-id"],
+					kind: flags.kind,
+					occurred_at: flags["occurred-at"],
+					message_id: flags["message-id"],
+					subscriber_uuid: flags["subscriber-uuid"],
+					campaign_id: flags["campaign-id"],
+					metadata: parseJsonObject(flags.metadata),
+				},
+			),
+		);
+	},
+});
+
+const inboundGroup = defineGroup({
+	name: "inbound",
+	description: "Ingest normalized provider delivery events",
+	commands: [inboundIngestCommand],
+});
+
+const dlqListCommand = defineCommand({
+	name: "list",
+	description: "List exhausted webhook deliveries",
+	operationId: "webhooks.dlq.list",
+	options: {
+		"endpoint-id": option(z.uuid().optional(), {
+			description: "Filter by endpoint ID",
+		}),
+		limit: option(z.coerce.number().int().min(1).max(1_000).default(100), {
+			description: "Maximum dead letters",
+		}),
+	},
+	handler: async ({ flags }) => {
+		getOutput().json(
+			await invokeWebhookDlqListOperation(
+				{},
+				{ endpoint_id: flags["endpoint-id"], limit: flags.limit },
+			),
+		);
+	},
+});
+
+const dlqReplayCommand = defineCommand({
+	name: "replay",
+	description: "Preview or requeue reviewed dead-letter deliveries",
+	operationId: "webhooks.dlq.replay",
+	options: {
+		"endpoint-id": option(z.uuid().optional(), {
+			description: "Filter by endpoint ID",
+		}),
+		limit: option(z.coerce.number().int().min(1).max(1_000).default(100), {
+			description: "Maximum dead letters",
+		}),
+		"dry-run": option(z.coerce.boolean().default(true), {
+			description: "Preview without requeueing",
+		}),
+	},
+	handler: async ({ flags }) => {
+		getOutput().json(
+			await invokeWebhookDlqReplayOperation(
+				{},
+				{
+					endpoint_id: flags["endpoint-id"],
+					limit: flags.limit,
+					dry_run: flags["dry-run"],
+				},
+			),
+		);
+	},
+});
+
+const dlqGroup = defineGroup({
+	name: "dlq",
+	description: "Inspect and replay dead-letter deliveries",
+	commands: [dlqListCommand, dlqReplayCommand],
+});
+
+const circuitResetCommand = defineCommand({
+	name: "reset",
+	description: "Close one endpoint circuit after correcting the failure",
+	operationId: "webhooks.circuit.reset",
+	options: {
+		id: option(z.uuid(), { description: "Endpoint ID" }),
+	},
+	handler: async ({ flags }) => {
+		getOutput().json(await invokeWebhookCircuitResetOperation({}, flags));
+	},
+});
+
+const circuitGroup = defineGroup({
+	name: "circuit",
+	description: "Manage endpoint circuit breakers",
+	commands: [circuitResetCommand],
+});
+
 const deliveriesGroup = defineGroup({
 	name: "deliveries",
 	description: "Inspect and manage outbound webhook delivery records",
@@ -348,6 +613,10 @@ export default defineGroup({
 		reconcileCommand,
 		pruneCommand,
 		tickCommand,
+		runtimeGroup,
+		inboundGroup,
+		dlqGroup,
+		circuitGroup,
 		deliveriesGroup,
 	],
 });

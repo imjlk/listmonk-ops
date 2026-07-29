@@ -10,15 +10,25 @@ import {
 	bindWebhookDeleteOperationSpec,
 	bindWebhookDeliveryListOperationSpec,
 	bindWebhookDeliveryRetryOperationSpec,
+	bindWebhookDlqListOperationSpec,
+	bindWebhookDlqReplayOperationSpec,
 	bindWebhookDispatchOperationSpec,
+	bindWebhookInboundIngestOperationSpec,
 	bindWebhookListOperationSpec,
 	bindWebhookPruneOperationSpec,
 	bindWebhookReconcileOperationSpec,
 	bindWebhookTestOperationSpec,
 	bindWebhookTickOperationSpec,
+	bindWebhookRuntimeStatusOperationSpec,
+	bindWebhookCircuitResetOperationSpec,
 	bindWebhookUpdateOperationSpec,
 } from "@listmonk-ops/operations/specs";
 import { z } from "zod";
+import {
+	ingestInboundDeliveryEvent,
+	INBOUND_DELIVERY_EVENT_KINDS,
+	MAX_INBOUND_DELIVERY_EVENT_METADATA_BYTES,
+} from "./inbound-delivery-events";
 import { getOutboundWebhookStoreOptionsFromEnvironment } from "./outbound-webhook-runtime";
 import {
 	createOutboundWebhookEndpoint,
@@ -26,14 +36,17 @@ import {
 	dispatchOutboundWebhooks,
 	enqueueOutboundWebhookEvent,
 	getOutboundWebhookEndpoint,
+	getOutboundWebhookRuntimeHealth,
 	listOutboundWebhookDeliveries,
 	listOutboundWebhookEndpoints,
 	normalizeOutboundWebhookEndpointUrl,
 	OUTBOUND_WEBHOOK_EVENT_TYPES,
 	OUTBOUND_WEBHOOK_SECRET_REF_PATTERN,
 	pruneOutboundWebhookDeliveries,
+	replayOutboundWebhookDeadLetters,
 	reconcileOutboundWebhookDeliveries,
 	retryOutboundWebhookDelivery,
+	resetOutboundWebhookEndpointCircuit,
 	type OutboundWebhookDelivery,
 	type OutboundWebhookEndpoint,
 	type OutboundWebhookStoreOptions,
@@ -136,6 +149,15 @@ const webhookCreateInputSchema = z.object({
 	enabled: booleanInput.default(true),
 	timeout_ms: webhookTimeoutInput.default(10_000),
 	max_attempts: webhookMaxAttemptsInput.default(6),
+	circuit_failure_threshold: positiveIntegerInput
+		.refine((value) => value <= 100, "Must be between 1 and 100")
+		.default(5),
+	circuit_cooldown_ms: positiveIntegerInput
+		.refine(
+			(value) => value >= 1_000 && value <= 86_400_000,
+			"Must be between 1000 and 86400000",
+		)
+		.default(300_000),
 });
 const webhookUpdateInputSchema = z
 	.object({
@@ -154,6 +176,15 @@ const webhookUpdateInputSchema = z
 		enabled: booleanInput.optional(),
 		timeout_ms: webhookTimeoutInput.optional(),
 		max_attempts: webhookMaxAttemptsInput.optional(),
+		circuit_failure_threshold: positiveIntegerInput
+			.refine((value) => value <= 100, "Must be between 1 and 100")
+			.optional(),
+		circuit_cooldown_ms: positiveIntegerInput
+			.refine(
+				(value) => value >= 1_000 && value <= 86_400_000,
+				"Must be between 1000 and 86400000",
+			)
+			.optional(),
 	})
 	.refine(
 		(input) =>
@@ -195,6 +226,58 @@ const webhookTickInputSchema = z.object({
 	dispatch_limit: webhookDispatchLimitInput.default(25),
 	reconcile_limit: webhookDeliveryListLimitInput.default(100),
 });
+const webhookRuntimeStatusInputSchema = z.object({
+	worker_stale_ms: positiveIntegerInput
+		.refine(
+			(value) => value >= 1_000 && value <= 86_400_000,
+			"worker_stale_ms must be between 1000 and 86400000",
+		)
+		.default(90_000),
+});
+const webhookInboundIngestInputSchema = z
+	.object({
+		provider: z.string().trim().min(1).max(100),
+		provider_event_id: z.string().trim().min(1).max(300),
+		kind: z.enum(INBOUND_DELIVERY_EVENT_KINDS),
+		occurred_at: z.iso.datetime({ offset: true }).optional(),
+		message_id: z.string().trim().min(1).max(300).optional(),
+		subscriber_uuid: z.uuid().optional(),
+		campaign_id: positiveIntegerInput.optional(),
+		metadata: z
+			.record(z.string(), z.unknown())
+			.refine((value) => {
+				try {
+					return (
+						new TextEncoder().encode(JSON.stringify(value)).byteLength <=
+						MAX_INBOUND_DELIVERY_EVENT_METADATA_BYTES
+					);
+				} catch {
+					return false;
+				}
+			}, `metadata must be JSON serializable and no larger than ${MAX_INBOUND_DELIVERY_EVENT_METADATA_BYTES} bytes`)
+			.default({}),
+	})
+	.superRefine((value, context) => {
+		if (value.kind === "unsubscribed" && value.subscriber_uuid === undefined) {
+			context.addIssue({
+				code: "custom",
+				path: ["subscriber_uuid"],
+				message: "subscriber_uuid is required for unsubscribed events",
+			});
+		}
+	});
+const webhookDlqListInputSchema = z.object({
+	endpoint_id: endpointIdInput.optional(),
+	limit: webhookDeliveryListLimitInput.default(100),
+});
+const webhookDlqReplayInputSchema = z.object({
+	endpoint_id: endpointIdInput.optional(),
+	limit: webhookDeliveryListLimitInput.default(100),
+	dry_run: booleanInput.default(true),
+});
+const webhookCircuitResetInputSchema = z.object({
+	id: endpointIdInput,
+});
 
 const webhookEndpointOutputSchema = z.object({
 	id: z.uuid(),
@@ -205,6 +288,8 @@ const webhookEndpointOutputSchema = z.object({
 	enabled: z.boolean(),
 	timeout_ms: z.number().int().positive(),
 	max_attempts: z.number().int().positive(),
+	circuit_failure_threshold: z.number().int().positive(),
+	circuit_cooldown_ms: z.number().int().positive(),
 	created_at: z.iso.datetime({ offset: true }),
 	updated_at: z.iso.datetime({ offset: true }),
 });
@@ -328,6 +413,61 @@ const webhookTickOutputSchema = z.object({
 	reconcile: webhookReconcileOutputSchema,
 	dispatch: webhookDispatchOutputSchema,
 });
+const webhookRuntimeStatusOutputSchema = z.object({
+	store: z.enum(["file", "postgres"]),
+	schema_version: z.number().int().positive(),
+	healthy: z.boolean(),
+	checked_at: z.iso.datetime({ offset: true }),
+	endpoints: z.object({
+		total: z.number().int().nonnegative(),
+		enabled: z.number().int().nonnegative(),
+		circuit_open: z.number().int().nonnegative(),
+	}),
+	deliveries: z.object({
+		pending: z.number().int().nonnegative(),
+		delivering: z.number().int().nonnegative(),
+		retry: z.number().int().nonnegative(),
+		succeeded: z.number().int().nonnegative(),
+		exhausted: z.number().int().nonnegative(),
+		due: z.number().int().nonnegative(),
+		dead_letter: z.number().int().nonnegative(),
+		oldest_due_at: z.iso.datetime({ offset: true }).optional(),
+	}),
+	workers: z.object({
+		running: z.number().int().nonnegative(),
+		stale: z.number().int().nonnegative(),
+		stopped: z.number().int().nonnegative(),
+		failed: z.number().int().nonnegative(),
+		last_heartbeat_at: z.iso.datetime({ offset: true }).optional(),
+	}),
+});
+const webhookInboundIngestOutputSchema = z.object({
+	event_id: z.uuid(),
+	event_type: eventTypeInput,
+	matched_endpoints: z.number().int().nonnegative(),
+	queued_deliveries: z.number().int().nonnegative(),
+	duplicate_deliveries: z.number().int().nonnegative(),
+	delivery_ids: z.array(z.uuid()),
+});
+const webhookDlqListOutputSchema = webhookDeliveryListOutputSchema;
+const webhookDlqReplayOutputSchema = z.object({
+	eligible: z.number().int().nonnegative(),
+	replayed: z.number().int().nonnegative(),
+	failed: z.number().int().nonnegative(),
+	dry_run: z.boolean(),
+	delivery_ids: z.array(z.uuid()),
+	errors: z.array(
+		z.object({
+			delivery_id: z.uuid(),
+			error: z.string(),
+		}),
+	),
+});
+const webhookCircuitResetOutputSchema = z.object({
+	endpoint_id: z.uuid(),
+	circuit_state: z.literal("closed"),
+	consecutive_failures: z.literal(0),
+});
 
 function toEndpointOutput(endpoint: OutboundWebhookEndpoint) {
 	return {
@@ -339,6 +479,8 @@ function toEndpointOutput(endpoint: OutboundWebhookEndpoint) {
 		enabled: endpoint.enabled,
 		timeout_ms: endpoint.timeoutMs,
 		max_attempts: endpoint.maxAttempts,
+		circuit_failure_threshold: endpoint.circuitFailureThreshold,
+		circuit_cooldown_ms: endpoint.circuitCooldownMs,
 		created_at: endpoint.createdAt,
 		updated_at: endpoint.updatedAt,
 	};
@@ -427,6 +569,8 @@ export async function executeWebhookCreateOperation(
 			enabled: input.enabled,
 			timeoutMs: input.timeout_ms,
 			maxAttempts: input.max_attempts,
+			circuitFailureThreshold: input.circuit_failure_threshold,
+			circuitCooldownMs: input.circuit_cooldown_ms,
 		},
 		resolveWebhookOperationStore(context),
 	);
@@ -447,6 +591,8 @@ export async function executeWebhookUpdateOperation(
 			enabled: input.enabled,
 			timeoutMs: input.timeout_ms,
 			maxAttempts: input.max_attempts,
+			circuitFailureThreshold: input.circuit_failure_threshold,
+			circuitCooldownMs: input.circuit_cooldown_ms,
 		},
 		resolveWebhookOperationStore(context),
 	);
@@ -600,6 +746,133 @@ export async function executeWebhookTickOperation(
 		},
 		dispatch: toDispatchOutput(dispatch),
 	};
+}
+
+export async function executeWebhookRuntimeStatusOperation(
+	context: WebhookOperationContext,
+	input: z.output<typeof webhookRuntimeStatusInputSchema>,
+) {
+	const health = await getOutboundWebhookRuntimeHealth({
+		...resolveWebhookOperationStore(context),
+		workerStaleMs: input.worker_stale_ms,
+	});
+	return {
+		store: health.store,
+		schema_version: health.schemaVersion,
+		healthy: health.healthy,
+		checked_at: health.checkedAt,
+		endpoints: {
+			total: health.endpoints.total,
+			enabled: health.endpoints.enabled,
+			circuit_open: health.endpoints.circuitOpen,
+		},
+		deliveries: {
+			pending: health.deliveries.pending,
+			delivering: health.deliveries.delivering,
+			retry: health.deliveries.retry,
+			succeeded: health.deliveries.succeeded,
+			exhausted: health.deliveries.exhausted,
+			due: health.deliveries.due,
+			dead_letter: health.deliveries.deadLetter,
+			oldest_due_at: health.deliveries.oldestDueAt,
+		},
+		workers: {
+			running: health.workers.running,
+			stale: health.workers.stale,
+			stopped: health.workers.stopped,
+			failed: health.workers.failed,
+			last_heartbeat_at: health.workers.lastHeartbeatAt,
+		},
+	};
+}
+
+export async function executeWebhookInboundIngestOperation(
+	context: WebhookOperationContext,
+	input: z.output<typeof webhookInboundIngestInputSchema>,
+) {
+	const result = await ingestInboundDeliveryEvent(
+		{
+			provider: input.provider,
+			providerEventId: input.provider_event_id,
+			kind: input.kind,
+			occurredAt: input.occurred_at,
+			messageId: input.message_id,
+			subscriberUuid: input.subscriber_uuid,
+			campaignId: input.campaign_id,
+			metadata: input.metadata,
+		},
+		resolveWebhookOperationStore(context),
+	);
+	return {
+		event_id: result.event.id,
+		event_type: result.event.type,
+		matched_endpoints: result.matchedEndpoints,
+		queued_deliveries: result.queuedDeliveries,
+		duplicate_deliveries: result.duplicateDeliveries,
+		delivery_ids: [...result.deliveryIds],
+	};
+}
+
+export async function executeWebhookDlqListOperation(
+	context: WebhookOperationContext,
+	input: z.output<typeof webhookDlqListInputSchema>,
+) {
+	const deliveries = await listOutboundWebhookDeliveries({
+		...resolveWebhookOperationStore(context),
+		endpointId: input.endpoint_id,
+		status: "exhausted",
+		limit: input.limit,
+	});
+	return { deliveries: deliveries.map(toDeliveryOutput) };
+}
+
+export async function executeWebhookDlqReplayOperation(
+	context: WebhookOperationContext,
+	input: z.output<typeof webhookDlqReplayInputSchema>,
+) {
+	const result = await replayOutboundWebhookDeadLetters({
+		...resolveWebhookOperationStore(context),
+		endpointId: input.endpoint_id,
+		limit: input.limit,
+		dryRun: input.dry_run,
+	});
+	return {
+		eligible: result.eligible,
+		replayed: result.replayed,
+		failed: result.failed,
+		dry_run: result.dryRun,
+		delivery_ids: [...result.deliveryIds],
+		errors: result.errors.map((entry) => ({
+			delivery_id: entry.deliveryId,
+			error: entry.error,
+		})),
+	};
+}
+
+export async function executeWebhookCircuitResetOperation(
+	context: WebhookOperationContext,
+	input: z.output<typeof webhookCircuitResetInputSchema>,
+) {
+	const runtime = await resetOutboundWebhookEndpointCircuit(
+		input.id,
+		resolveWebhookOperationStore(context),
+	);
+	if (runtime.circuitState !== "closed") {
+		throw new Error(
+			`Endpoint ${runtime.endpointId} circuit reset did not reach the expected closed state`,
+		);
+	}
+	const consecutiveFailures = runtime.consecutiveFailures;
+	if (consecutiveFailures !== 0) {
+		throw new Error(
+			`Endpoint ${runtime.endpointId} circuit reset did not clear its failure count`,
+		);
+	}
+	return webhookCircuitResetOutputSchema.parse({
+		endpoint_id: runtime.endpointId,
+		circuit_state: runtime.circuitState,
+		consecutive_failures: consecutiveFailures,
+	});
 }
 
 export const webhookListOperation = defineOperation({
@@ -800,6 +1073,95 @@ export const webhookTickOperation = defineOperation({
 	execute: executeWebhookTickOperation,
 });
 
+export const webhookRuntimeStatusOperation = defineOperation({
+	id: "webhooks.runtime.status",
+	title: "Inspect outbound webhook runtime health",
+	description:
+		"Inspect durable schema, endpoint circuit, dead-letter, delivery, and worker heartbeat health.",
+	inputSchema: webhookRuntimeStatusInputSchema,
+	outputSchema: webhookRuntimeStatusOutputSchema,
+	safety: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
+	mcp: { name: "listmonk_webhooks_runtime_status" },
+	spec: bindWebhookRuntimeStatusOperationSpec(),
+	execute: executeWebhookRuntimeStatusOperation,
+});
+
+export const webhookInboundIngestOperation = defineOperation({
+	id: "webhooks.inbound.ingest",
+	title: "Ingest normalized provider delivery event",
+	description:
+		"Normalize a verified provider delivery event into the shared versioned event envelope and durable outbox; unsubscribe events require a subscriber UUID and metadata is limited to 16 KiB.",
+	inputSchema: webhookInboundIngestInputSchema,
+	outputSchema: webhookInboundIngestOutputSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
+	mcp: { name: "listmonk_webhooks_inbound_ingest" },
+	spec: bindWebhookInboundIngestOperationSpec(),
+	execute: executeWebhookInboundIngestOperation,
+});
+
+export const webhookDlqListOperation = defineOperation({
+	id: "webhooks.dlq.list",
+	title: "List outbound webhook dead letters",
+	description: "List exhausted delivery records that require operator review.",
+	inputSchema: webhookDlqListInputSchema,
+	outputSchema: webhookDlqListOutputSchema,
+	safety: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
+	mcp: { name: "listmonk_webhooks_dlq_list" },
+	spec: bindWebhookDlqListOperationSpec(),
+	execute: executeWebhookDlqListOperation,
+});
+
+export const webhookDlqReplayOperation = defineOperation({
+	id: "webhooks.dlq.replay",
+	title: "Replay outbound webhook dead letters",
+	description:
+		"Preview or requeue a bounded set of reviewed dead-letter deliveries.",
+	inputSchema: webhookDlqReplayInputSchema,
+	outputSchema: webhookDlqReplayOutputSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: true,
+		idempotentHint: false,
+		openWorldHint: false,
+	},
+	mcp: { name: "listmonk_webhooks_dlq_replay" },
+	spec: bindWebhookDlqReplayOperationSpec(),
+	execute: executeWebhookDlqReplayOperation,
+});
+
+export const webhookCircuitResetOperation = defineOperation({
+	id: "webhooks.circuit.reset",
+	title: "Reset outbound webhook circuit breaker",
+	description:
+		"Close one endpoint circuit after the operator has corrected its failure.",
+	inputSchema: webhookCircuitResetInputSchema,
+	outputSchema: webhookCircuitResetOutputSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: true,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
+	mcp: { name: "listmonk_webhooks_circuit_reset" },
+	spec: bindWebhookCircuitResetOperationSpec(),
+	execute: executeWebhookCircuitResetOperation,
+});
+
 export async function invokeWebhookListOperation(
 	context: WebhookOperationContext,
 	input: unknown,
@@ -994,6 +1356,110 @@ export async function invokeWebhookTickOperation(
 	}
 }
 
+export async function invokeWebhookRuntimeStatusOperation(
+	context: WebhookOperationContext,
+	input: unknown,
+): Promise<z.output<typeof webhookRuntimeStatusOutputSchema>> {
+	const parsed = parseOperationInput(
+		webhookRuntimeStatusOperation.inputSchema,
+		input,
+	);
+	try {
+		return parseOperationOutput(
+			webhookRuntimeStatusOperation.id,
+			webhookRuntimeStatusOperation.outputSchema,
+			await executeWebhookRuntimeStatusOperation(context, parsed),
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			webhookRuntimeStatusOperation.id,
+			error,
+		);
+	}
+}
+
+export async function invokeWebhookInboundIngestOperation(
+	context: WebhookOperationContext,
+	input: unknown,
+): Promise<z.output<typeof webhookInboundIngestOutputSchema>> {
+	const parsed = parseOperationInput(
+		webhookInboundIngestOperation.inputSchema,
+		input,
+	);
+	try {
+		return parseOperationOutput(
+			webhookInboundIngestOperation.id,
+			webhookInboundIngestOperation.outputSchema,
+			await executeWebhookInboundIngestOperation(context, parsed),
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			webhookInboundIngestOperation.id,
+			error,
+		);
+	}
+}
+
+export async function invokeWebhookDlqListOperation(
+	context: WebhookOperationContext,
+	input: unknown,
+): Promise<z.output<typeof webhookDlqListOutputSchema>> {
+	const parsed = parseOperationInput(
+		webhookDlqListOperation.inputSchema,
+		input,
+	);
+	try {
+		return parseOperationOutput(
+			webhookDlqListOperation.id,
+			webhookDlqListOperation.outputSchema,
+			await executeWebhookDlqListOperation(context, parsed),
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(webhookDlqListOperation.id, error);
+	}
+}
+
+export async function invokeWebhookDlqReplayOperation(
+	context: WebhookOperationContext,
+	input: unknown,
+): Promise<z.output<typeof webhookDlqReplayOutputSchema>> {
+	const parsed = parseOperationInput(
+		webhookDlqReplayOperation.inputSchema,
+		input,
+	);
+	try {
+		return parseOperationOutput(
+			webhookDlqReplayOperation.id,
+			webhookDlqReplayOperation.outputSchema,
+			await executeWebhookDlqReplayOperation(context, parsed),
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(webhookDlqReplayOperation.id, error);
+	}
+}
+
+export async function invokeWebhookCircuitResetOperation(
+	context: WebhookOperationContext,
+	input: unknown,
+): Promise<z.output<typeof webhookCircuitResetOutputSchema>> {
+	const parsed = parseOperationInput(
+		webhookCircuitResetOperation.inputSchema,
+		input,
+	);
+	try {
+		return parseOperationOutput(
+			webhookCircuitResetOperation.id,
+			webhookCircuitResetOperation.outputSchema,
+			await executeWebhookCircuitResetOperation(context, parsed),
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			webhookCircuitResetOperation.id,
+			error,
+		);
+	}
+}
+
 const webhookOperationBindings = [
 	{
 		operation: webhookListOperation,
@@ -1038,6 +1504,26 @@ const webhookOperationBindings = [
 	{
 		operation: webhookTickOperation,
 		invoke: invokeWebhookTickOperation,
+	},
+	{
+		operation: webhookRuntimeStatusOperation,
+		invoke: invokeWebhookRuntimeStatusOperation,
+	},
+	{
+		operation: webhookInboundIngestOperation,
+		invoke: invokeWebhookInboundIngestOperation,
+	},
+	{
+		operation: webhookDlqListOperation,
+		invoke: invokeWebhookDlqListOperation,
+	},
+	{
+		operation: webhookDlqReplayOperation,
+		invoke: invokeWebhookDlqReplayOperation,
+	},
+	{
+		operation: webhookCircuitResetOperation,
+		invoke: invokeWebhookCircuitResetOperation,
 	},
 ] as const;
 

@@ -62,6 +62,12 @@ describe("MCP outbound webhook tools", () => {
 		const tick = tools.find(
 			(tool) => tool.name === "listmonk_webhooks_tick",
 		);
+		const status = tools.find(
+			(tool) => tool.name === "listmonk_webhooks_runtime_status",
+		);
+		const replay = tools.find(
+			(tool) => tool.name === "listmonk_webhooks_dlq_replay",
+		);
 
 		expect(create?.inputSchema.required).toEqual([
 			"name",
@@ -87,6 +93,44 @@ describe("MCP outbound webhook tools", () => {
 		});
 		expect(prune?.inputSchema.required).toContain("confirm");
 		expect(tick?.inputSchema.required).toContain("confirm");
+		expect(status?.annotations).toMatchObject({
+			readOnlyHint: true,
+			idempotentHint: true,
+		});
+		expect(replay?.inputSchema.required).toContain("confirm");
+	});
+
+	test("normalizes provider events and reports shared runtime health", async () => {
+		const server = await createServer();
+		await server.callTool(
+			request("listmonk_webhooks_create", {
+				name: "provider-events",
+				url: "https://8.8.8.8/hooks",
+				secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_PROVIDER",
+				event_filters: ["delivery.*"],
+			}),
+		);
+		const ingested = await server.callTool(
+			request("listmonk_webhooks_inbound_ingest", {
+				provider: "ses",
+				provider_event_id: "event-1",
+				kind: "bounced",
+				message_id: "message-1",
+			}),
+		);
+		expect(ingested.isError).not.toBe(true);
+		expect(ingested.structuredContent).toMatchObject({
+			event_type: "delivery.bounced",
+			queued_deliveries: 1,
+		});
+		const health = await server.callTool(
+			request("listmonk_webhooks_runtime_status"),
+		);
+		expect(health.structuredContent).toMatchObject({
+			store: "file",
+			schema_version: 2,
+			deliveries: { pending: 1 },
+		});
 	});
 
 	test("shares endpoint CRUD contracts and confirmation with CLI", async () => {

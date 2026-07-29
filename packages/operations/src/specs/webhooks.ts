@@ -3,14 +3,22 @@ import {
 	webhookCreateOutputContract,
 	webhookDeleteInputContract,
 	webhookDeleteOutputContract,
+	webhookCircuitResetInputContract,
+	webhookCircuitResetOutputContract,
 	webhookDeliveryListInputContract,
 	webhookDeliveryListOutputContract,
 	webhookDeliveryRetryInputContract,
 	webhookDeliveryRetryOutputContract,
+	webhookDlqListInputContract,
+	webhookDlqListOutputContract,
+	webhookDlqReplayInputContract,
+	webhookDlqReplayOutputContract,
 	webhookDispatchInputContract,
 	webhookDispatchOutputContract,
 	webhookListInputContract,
 	webhookListOutputContract,
+	webhookInboundIngestInputContract,
+	webhookInboundIngestOutputContract,
 	webhookPruneInputContract,
 	webhookPruneOutputContract,
 	webhookReconcileInputContract,
@@ -19,6 +27,8 @@ import {
 	webhookTestOutputContract,
 	webhookTickInputContract,
 	webhookTickOutputContract,
+	webhookRuntimeStatusInputContract,
+	webhookRuntimeStatusOutputContract,
 	webhookUpdateInputContract,
 	webhookUpdateOutputContract,
 } from "./contract-schemas";
@@ -209,6 +219,14 @@ export const outboundWebhookEventSpecs = [
 		type: "delivery.delayed",
 		title: "Message delayed",
 		description: "A provider reported delayed message delivery.",
+		source: "provider",
+		subject: "message",
+		schemaVersion: 1,
+	},
+	{
+		type: "delivery.rejected",
+		title: "Message rejected",
+		description: "A provider rejected a message before successful delivery.",
 		source: "provider",
 		subject: "message",
 		schemaVersion: 1,
@@ -799,6 +817,243 @@ export const webhookTickOperationSpec = defineOperationSpec({
 	since: "0.8.0",
 });
 
+export const webhookRuntimeStatusOperationSpec = defineOperationSpec({
+	id: "webhooks.runtime.status",
+	resource: "webhook",
+	verb: "status",
+	title: "Inspect outbound webhook runtime health",
+	description:
+		"Inspect durable schema, endpoint circuit, dead-letter, delivery, and worker heartbeat health.",
+	contract: {
+		input: webhookRuntimeStatusInputContract,
+		output: webhookRuntimeStatusOutputContract,
+	},
+	effects: [{ kind: "read", resource: "webhook" }],
+	policy: { confirmation: "never", audit: "optional", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason: "The operation only reads durable runtime state.",
+	},
+	agent: {
+		useWhen: ["Worker readiness, circuit state, or outbox backlog must be inspected."],
+		avoidWhen: ["A specific delivery payload rather than aggregate health is needed."],
+		prerequisites: [],
+		verifyWith: [],
+		related: ["webhooks.dlq.list", "webhooks.reconcile"],
+		retryGuidance: "Retrying the same health read is safe.",
+	},
+	projection: {
+		mcpName: "listmonk_webhooks_runtime_status",
+		openWorld: false,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/webhooks.ts#webhookRuntimeStatusOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/webhooks.ts#bindWebhookRuntimeStatusOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/automation/src/webhook-operations.ts#webhookRuntimeStatusOperation:variable",
+			invokerNode:
+				"packages/automation/src/webhook-operations.ts#invokeWebhookRuntimeStatusOperation:function",
+			executorNode:
+				"packages/automation/src/webhook-operations.ts#executeWebhookRuntimeStatusOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.8.0",
+});
+
+export const webhookInboundIngestOperationSpec = defineOperationSpec({
+	id: "webhooks.inbound.ingest",
+	resource: "webhook",
+	verb: "ingest",
+	title: "Ingest normalized provider delivery event",
+	description:
+		"Normalize a verified provider delivery event into the shared versioned event envelope and durable outbox; unsubscribe events require a subscriber UUID and metadata is limited to 16 KiB.",
+	contract: {
+		input: webhookInboundIngestInputContract,
+		output: webhookInboundIngestOutputContract,
+	},
+	effects: [{ kind: "write", resource: "webhook", reversible: true }],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason:
+			"Stable provider event IDs produce deterministic event IDs and duplicate outbox rows are ignored.",
+	},
+	agent: {
+		useWhen: ["A verified provider event must enter the shared event stream."],
+		avoidWhen: [
+			"The raw provider payload has not been authenticated or normalized.",
+			"An unsubscribe event cannot be resolved to a subscriber UUID.",
+		],
+		prerequisites: [],
+		verifyWith: ["webhooks.delivery.list"],
+		related: ["webhooks.runtime.status", "webhooks.dlq.list"],
+		retryGuidance:
+			"Retry with the same provider and provider_event_id; ingestion is idempotent.",
+	},
+	projection: {
+		mcpName: "listmonk_webhooks_inbound_ingest",
+		openWorld: false,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/webhooks.ts#webhookInboundIngestOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/webhooks.ts#bindWebhookInboundIngestOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/automation/src/webhook-operations.ts#webhookInboundIngestOperation:variable",
+			invokerNode:
+				"packages/automation/src/webhook-operations.ts#invokeWebhookInboundIngestOperation:function",
+			executorNode:
+				"packages/automation/src/webhook-operations.ts#executeWebhookInboundIngestOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.8.0",
+});
+
+export const webhookDlqListOperationSpec = defineOperationSpec({
+	id: "webhooks.dlq.list",
+	resource: "webhook",
+	verb: "list",
+	title: "List outbound webhook dead letters",
+	description: "List exhausted delivery records that require operator review.",
+	contract: {
+		input: webhookDlqListInputContract,
+		output: webhookDlqListOutputContract,
+	},
+	effects: [{ kind: "read", resource: "webhook" }],
+	policy: { confirmation: "never", audit: "optional", dryRun: false },
+	retry: { kind: "safe", reason: "The operation only reads exhausted deliveries." },
+	agent: {
+		useWhen: ["Exhausted deliveries must be reviewed before replay."],
+		avoidWhen: ["Active retry or pending delivery state is needed."],
+		prerequisites: [],
+		verifyWith: [],
+		related: ["webhooks.dlq.replay", "webhooks.runtime.status"],
+		retryGuidance: "Retrying the same read is safe.",
+	},
+	projection: {
+		mcpName: "listmonk_webhooks_dlq_list",
+		openWorld: false,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/webhooks.ts#webhookDlqListOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/webhooks.ts#bindWebhookDlqListOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/automation/src/webhook-operations.ts#webhookDlqListOperation:variable",
+			invokerNode:
+				"packages/automation/src/webhook-operations.ts#invokeWebhookDlqListOperation:function",
+			executorNode:
+				"packages/automation/src/webhook-operations.ts#executeWebhookDlqListOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.8.0",
+});
+
+export const webhookDlqReplayOperationSpec = defineOperationSpec({
+	id: "webhooks.dlq.replay",
+	resource: "webhook",
+	verb: "replay",
+	title: "Replay outbound webhook dead letters",
+	description:
+		"Preview or requeue a bounded set of reviewed dead-letter deliveries.",
+	contract: {
+		input: webhookDlqReplayInputContract,
+		output: webhookDlqReplayOutputContract,
+	},
+	effects: [
+		{
+			kind: "maintenance",
+			resource: "webhook",
+			action: "replay",
+			destructive: true,
+		},
+	],
+	policy: { confirmation: "required", audit: "required", dryRun: true },
+	retry: {
+		kind: "reconcile",
+		reconcileWith: "webhooks.dlq.list",
+		idempotent: false,
+		reason:
+			"Replayed deliveries leave the dead-letter set, so inspect state after an ambiguous result.",
+	},
+	agent: {
+		useWhen: ["Reviewed dead letters should receive a fresh bounded attempt cycle."],
+		avoidWhen: ["The endpoint remains unhealthy or its circuit remains open."],
+		prerequisites: ["webhooks.dlq.list", "webhooks.runtime.status"],
+		verifyWith: ["webhooks.delivery.list"],
+		related: ["webhooks.circuit.reset", "webhooks.dispatch"],
+		retryGuidance:
+			"Run dry_run first and list dead letters after an ambiguous replay.",
+	},
+	projection: {
+		mcpName: "listmonk_webhooks_dlq_replay",
+		openWorld: false,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/webhooks.ts#webhookDlqReplayOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/webhooks.ts#bindWebhookDlqReplayOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/automation/src/webhook-operations.ts#webhookDlqReplayOperation:variable",
+			invokerNode:
+				"packages/automation/src/webhook-operations.ts#invokeWebhookDlqReplayOperation:function",
+			executorNode:
+				"packages/automation/src/webhook-operations.ts#executeWebhookDlqReplayOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.8.0",
+});
+
+export const webhookCircuitResetOperationSpec = defineOperationSpec({
+	id: "webhooks.circuit.reset",
+	resource: "webhook",
+	verb: "reset",
+	title: "Reset outbound webhook circuit breaker",
+	description:
+		"Close one endpoint circuit after the operator has corrected its failure.",
+	contract: {
+		input: webhookCircuitResetInputContract,
+		output: webhookCircuitResetOutputContract,
+	},
+	effects: [{ kind: "write", resource: "webhook", reversible: false }],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason: "Resetting an already closed circuit is an idempotent no-op.",
+	},
+	agent: {
+		useWhen: ["An endpoint failure has been fixed and delivery may resume."],
+		avoidWhen: ["The endpoint has not been tested or remains unhealthy."],
+		prerequisites: ["webhooks.runtime.status", "webhooks.test"],
+		verifyWith: ["webhooks.runtime.status"],
+		related: ["webhooks.dlq.replay", "webhooks.dispatch"],
+		retryGuidance: "Retrying the same reset is safe.",
+	},
+	projection: {
+		mcpName: "listmonk_webhooks_circuit_reset",
+		openWorld: false,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/webhooks.ts#webhookCircuitResetOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/webhooks.ts#bindWebhookCircuitResetOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/automation/src/webhook-operations.ts#webhookCircuitResetOperation:variable",
+			invokerNode:
+				"packages/automation/src/webhook-operations.ts#invokeWebhookCircuitResetOperation:function",
+			executorNode:
+				"packages/automation/src/webhook-operations.ts#executeWebhookCircuitResetOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.8.0",
+});
+
 export const webhookOperationSpecs = [
 	webhookListOperationSpec,
 	webhookCreateOperationSpec,
@@ -811,6 +1066,11 @@ export const webhookOperationSpecs = [
 	webhookReconcileOperationSpec,
 	webhookPruneOperationSpec,
 	webhookTickOperationSpec,
+	webhookRuntimeStatusOperationSpec,
+	webhookInboundIngestOperationSpec,
+	webhookDlqListOperationSpec,
+	webhookDlqReplayOperationSpec,
+	webhookCircuitResetOperationSpec,
 ] as const;
 
 export function bindWebhookListOperationSpec(): typeof webhookListOperationSpec {
@@ -855,4 +1115,24 @@ export function bindWebhookPruneOperationSpec(): typeof webhookPruneOperationSpe
 
 export function bindWebhookTickOperationSpec(): typeof webhookTickOperationSpec {
 	return webhookTickOperationSpec;
+}
+
+export function bindWebhookRuntimeStatusOperationSpec(): typeof webhookRuntimeStatusOperationSpec {
+	return webhookRuntimeStatusOperationSpec;
+}
+
+export function bindWebhookInboundIngestOperationSpec(): typeof webhookInboundIngestOperationSpec {
+	return webhookInboundIngestOperationSpec;
+}
+
+export function bindWebhookDlqListOperationSpec(): typeof webhookDlqListOperationSpec {
+	return webhookDlqListOperationSpec;
+}
+
+export function bindWebhookDlqReplayOperationSpec(): typeof webhookDlqReplayOperationSpec {
+	return webhookDlqReplayOperationSpec;
+}
+
+export function bindWebhookCircuitResetOperationSpec(): typeof webhookCircuitResetOperationSpec {
+	return webhookCircuitResetOperationSpec;
 }

@@ -24,15 +24,18 @@ import {
 	type ResolvedWebhookAddress,
 } from "./webhook-transport";
 
-export const OUTBOUND_WEBHOOK_STORE_VERSION = 1;
+export const OUTBOUND_WEBHOOK_STORE_VERSION = 2;
 export const OUTBOUND_WEBHOOK_EVENT_SCHEMA_VERSION = 1;
 export const DEFAULT_OUTBOUND_WEBHOOK_TIMEOUT_MS = 10_000;
 export const DEFAULT_OUTBOUND_WEBHOOK_MAX_ATTEMPTS = 6;
 export const DEFAULT_OUTBOUND_WEBHOOK_RETRY_DELAY_MS = 30_000;
 export const MAX_OUTBOUND_WEBHOOK_RETRY_DELAY_MS = 3_600_000;
-export const DEFAULT_OUTBOUND_WEBHOOK_LEASE_MS = 60_000;
+export const DEFAULT_OUTBOUND_WEBHOOK_LEASE_MS = 90_000;
 export const DEFAULT_OUTBOUND_WEBHOOK_STORE_LIMIT = 5_000;
 export const DEFAULT_OUTBOUND_WEBHOOK_CONCURRENCY = 5;
+export const DEFAULT_OUTBOUND_WEBHOOK_CIRCUIT_FAILURE_THRESHOLD = 5;
+export const DEFAULT_OUTBOUND_WEBHOOK_CIRCUIT_COOLDOWN_MS = 300_000;
+export const DEFAULT_OUTBOUND_WEBHOOK_WORKER_HEARTBEAT_STALE_MS = 90_000;
 export const OUTBOUND_WEBHOOK_SECRET_REF_PATTERN =
 	/^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$/;
 
@@ -54,6 +57,7 @@ export const OUTBOUND_WEBHOOK_EVENT_TYPES = [
 	"delivery.bounced",
 	"delivery.complained",
 	"delivery.delayed",
+	"delivery.rejected",
 	"abtest.started",
 	"abtest.ready-for-analysis",
 	"abtest.winner-selected",
@@ -106,8 +110,38 @@ export type OutboundWebhookEndpoint = Readonly<{
 	enabled: boolean;
 	timeoutMs: number;
 	maxAttempts: number;
+	circuitFailureThreshold: number;
+	circuitCooldownMs: number;
 	createdAt: string;
 	updatedAt: string;
+}>;
+
+export type OutboundWebhookEndpointRuntime = Readonly<{
+	endpointId: string;
+	consecutiveFailures: number;
+	circuitState: "closed" | "open";
+	circuitOpenedAt?: string | undefined;
+	circuitOpenUntil?: string | undefined;
+	lastFailureAt?: string | undefined;
+	lastSuccessAt?: string | undefined;
+}>;
+
+export type OutboundWebhookWorkerStatus = "running" | "stopped" | "failed";
+
+export type OutboundWebhookWorker = Readonly<{
+	id: string;
+	status: OutboundWebhookWorkerStatus;
+	startedAt: string;
+	heartbeatAt: string;
+	stoppedAt?: string | undefined;
+	lastError?: string | undefined;
+	lastTick?: Readonly<{
+		claimed: number;
+		succeeded: number;
+		retried: number;
+		exhausted: number;
+		completedAt: string;
+	}> | undefined;
 }>;
 
 export type OutboundWebhookDelivery = Readonly<{
@@ -131,6 +165,8 @@ export type OutboundWebhookStore = Readonly<{
 	version: typeof OUTBOUND_WEBHOOK_STORE_VERSION;
 	endpoints: readonly OutboundWebhookEndpoint[];
 	deliveries: readonly OutboundWebhookDelivery[];
+	endpointRuntime: readonly OutboundWebhookEndpointRuntime[];
+	workers: readonly OutboundWebhookWorker[];
 }>;
 
 export type OutboundWebhookStoreOptions = Readonly<{
@@ -152,6 +188,8 @@ export type CreateOutboundWebhookEndpointInput = Readonly<{
 	enabled?: boolean;
 	timeoutMs?: number;
 	maxAttempts?: number;
+	circuitFailureThreshold?: number;
+	circuitCooldownMs?: number;
 }>;
 
 export type UpdateOutboundWebhookEndpointInput = Readonly<{
@@ -162,6 +200,8 @@ export type UpdateOutboundWebhookEndpointInput = Readonly<{
 	enabled?: boolean;
 	timeoutMs?: number;
 	maxAttempts?: number;
+	circuitFailureThreshold?: number;
+	circuitCooldownMs?: number;
 }>;
 
 export type CreateOutboundWebhookEventInput = Readonly<{
@@ -193,6 +233,7 @@ export type DispatchOutboundWebhooksOptions = Readonly<{
 	store?: OutboundWebhookStoreOptions;
 	limit?: number;
 	now?: Date;
+	signal?: AbortSignal;
 	fetcher?: typeof fetch;
 	resolveSecret?: (secretRef: string) => string | undefined;
 	leaseMs?: number;
@@ -267,6 +308,58 @@ export type PruneOutboundWebhooksResult = Readonly<{
 	before: string;
 }>;
 
+export type ReplayOutboundWebhookDeadLettersOptions = Readonly<{
+	endpointId?: string;
+	limit?: number;
+	dryRun?: boolean;
+	now?: Date;
+}>;
+
+export type ReplayOutboundWebhookDeadLettersResult = Readonly<{
+	eligible: number;
+	replayed: number;
+	failed: number;
+	dryRun: boolean;
+	deliveryIds: readonly string[];
+	errors: readonly Readonly<{ deliveryId: string; error: string }>[];
+}>;
+
+export type OutboundWebhookRuntimeHealth = Readonly<{
+	store: "file" | "postgres";
+	schemaVersion: number;
+	healthy: boolean;
+	checkedAt: string;
+	endpoints: Readonly<{
+		total: number;
+		enabled: number;
+		circuitOpen: number;
+	}>;
+	deliveries: Readonly<
+		Record<OutboundWebhookDeliveryStatus, number> & {
+			due: number;
+			deadLetter: number;
+			oldestDueAt?: string | undefined;
+		}
+	>;
+	workers: Readonly<{
+		running: number;
+		stale: number;
+		stopped: number;
+		failed: number;
+		lastHeartbeatAt?: string | undefined;
+	}>;
+}>;
+
+export type UpsertOutboundWebhookWorkerInput = Readonly<{
+	id: string;
+	status: OutboundWebhookWorkerStatus;
+	startedAt: string;
+	heartbeatAt: string;
+	stoppedAt?: string;
+	lastError?: string;
+	lastTick?: OutboundWebhookWorker["lastTick"];
+}>;
+
 /**
  * Durable persistence contract shared by the file-backed runtime and the
  * Postgres implementation. Implementations own atomicity and lease fencing;
@@ -326,6 +419,15 @@ export interface OutboundWebhookRepository {
 	prune(
 		options: Required<PruneOutboundWebhooksOptions>,
 	): Promise<PruneOutboundWebhooksResult>;
+	getRuntimeHealth(options: Readonly<{
+		now: Date;
+		workerStaleMs: number;
+	}>): Promise<OutboundWebhookRuntimeHealth>;
+	upsertWorker(worker: UpsertOutboundWebhookWorkerInput): Promise<void>;
+	resetEndpointCircuit(
+		endpointId: string,
+		now: Date,
+	): Promise<OutboundWebhookEndpointRuntime>;
 	close?(): Promise<void>;
 }
 
@@ -376,8 +478,36 @@ const endpointSchema = z.object({
 	enabled: z.boolean(),
 	timeoutMs: z.number().int().min(100).max(30_000),
 	maxAttempts: z.number().int().min(1).max(12),
+	circuitFailureThreshold: z.number().int().min(1).max(100),
+	circuitCooldownMs: z.number().int().min(1_000).max(86_400_000),
 	createdAt: isoDateTimeSchema,
 	updatedAt: isoDateTimeSchema,
+});
+const endpointRuntimeSchema = z.object({
+	endpointId: uuidSchema,
+	consecutiveFailures: z.number().int().nonnegative(),
+	circuitState: z.enum(["closed", "open"]),
+	circuitOpenedAt: isoDateTimeSchema.optional(),
+	circuitOpenUntil: isoDateTimeSchema.optional(),
+	lastFailureAt: isoDateTimeSchema.optional(),
+	lastSuccessAt: isoDateTimeSchema.optional(),
+});
+const workerSchema = z.object({
+	id: uuidSchema,
+	status: z.enum(["running", "stopped", "failed"]),
+	startedAt: isoDateTimeSchema,
+	heartbeatAt: isoDateTimeSchema,
+	stoppedAt: isoDateTimeSchema.optional(),
+	lastError: z.string().max(500).optional(),
+	lastTick: z
+		.object({
+			claimed: z.number().int().nonnegative(),
+			succeeded: z.number().int().nonnegative(),
+			retried: z.number().int().nonnegative(),
+			exhausted: z.number().int().nonnegative(),
+			completedAt: isoDateTimeSchema,
+		})
+		.optional(),
 });
 const eventSchema = z.object({
 	id: uuidSchema,
@@ -414,6 +544,8 @@ const storeSchema = z.object({
 	version: z.literal(OUTBOUND_WEBHOOK_STORE_VERSION),
 	endpoints: z.array(endpointSchema),
 	deliveries: z.array(deliverySchema),
+	endpointRuntime: z.array(endpointRuntimeSchema),
+	workers: z.array(workerSchema),
 });
 
 const SENSITIVE_KEY_PATTERN =
@@ -466,11 +598,40 @@ export function mergeOutboundWebhookEndpointUpdate(
 		...(input.maxAttempts === undefined
 			? {}
 			: { maxAttempts: input.maxAttempts }),
+		...(input.circuitFailureThreshold === undefined
+			? {}
+			: { circuitFailureThreshold: input.circuitFailureThreshold }),
+		...(input.circuitCooldownMs === undefined
+			? {}
+			: { circuitCooldownMs: input.circuitCooldownMs }),
 		updatedAt: nowIso(now),
 	});
 }
 
 function parseStore(value: unknown): OutboundWebhookStore {
+	if (
+		typeof value === "object" &&
+		value !== null &&
+		"version" in value &&
+		(value as { version?: unknown }).version === 1
+	) {
+		const legacy = value as {
+			endpoints?: unknown[];
+			deliveries?: unknown[];
+		};
+		value = {
+			version: OUTBOUND_WEBHOOK_STORE_VERSION,
+			endpoints: (legacy.endpoints ?? []).map((endpoint) => ({
+				...(endpoint as Record<string, unknown>),
+				circuitFailureThreshold:
+					DEFAULT_OUTBOUND_WEBHOOK_CIRCUIT_FAILURE_THRESHOLD,
+				circuitCooldownMs: DEFAULT_OUTBOUND_WEBHOOK_CIRCUIT_COOLDOWN_MS,
+			})),
+			deliveries: legacy.deliveries ?? [],
+			endpointRuntime: [],
+			workers: [],
+		};
+	}
 	const parsed = storeSchema.safeParse(value);
 	if (!parsed.success) {
 		throw new Error(`Invalid outbound webhook store: ${parsed.error.message}`);
@@ -522,6 +683,8 @@ export function createOutboundWebhookStore(
 			version: OUTBOUND_WEBHOOK_STORE_VERSION,
 			endpoints: [],
 			deliveries: [],
+			endpointRuntime: [],
+			workers: [],
 		}),
 		parse: parseStore,
 		lock: { timeoutMs: 5_000 },
@@ -610,6 +773,17 @@ export function createFileOutboundWebhookRepository(
 			pruneOutboundWebhookDeliveries({
 				...fileOptions,
 				...pruneOptions,
+			}),
+		getRuntimeHealth: (healthOptions) =>
+			getOutboundWebhookRuntimeHealth({
+				...fileOptions,
+				...healthOptions,
+			}),
+		upsertWorker: (worker) => upsertOutboundWebhookWorker(worker, fileOptions),
+		resetEndpointCircuit: (endpointId, now) =>
+			resetOutboundWebhookEndpointCircuit(endpointId, {
+				...fileOptions,
+				now,
 			}),
 	};
 }
@@ -784,6 +958,12 @@ export async function createOutboundWebhookEndpoint(
 		timeoutMs: input.timeoutMs ?? DEFAULT_OUTBOUND_WEBHOOK_TIMEOUT_MS,
 		maxAttempts:
 			input.maxAttempts ?? DEFAULT_OUTBOUND_WEBHOOK_MAX_ATTEMPTS,
+		circuitFailureThreshold:
+			input.circuitFailureThreshold ??
+			DEFAULT_OUTBOUND_WEBHOOK_CIRCUIT_FAILURE_THRESHOLD,
+		circuitCooldownMs:
+			input.circuitCooldownMs ??
+			DEFAULT_OUTBOUND_WEBHOOK_CIRCUIT_COOLDOWN_MS,
 		createdAt: at,
 		updatedAt: at,
 	});
@@ -850,6 +1030,9 @@ export async function deleteOutboundWebhookEndpoint(
 				...current,
 				endpoints: current.endpoints.filter(
 					(candidate) => candidate.id !== id,
+				),
+				endpointRuntime: current.endpointRuntime.filter(
+					(runtime) => runtime.endpointId !== id,
 				),
 				deliveries: current.deliveries.map((delivery) =>
 					delivery.endpointId === id &&
@@ -1135,6 +1318,150 @@ export async function retryOutboundWebhookDelivery(
 	});
 }
 
+export async function replayOutboundWebhookDeadLetters(
+	options: ReplayOutboundWebhookDeadLettersOptions &
+		OutboundWebhookStoreOptions = {},
+): Promise<ReplayOutboundWebhookDeadLettersResult> {
+	const limit = resolveMaintenanceLimit(options.limit);
+	const dryRun = options.dryRun ?? true;
+	if (!options.repository) {
+		const now = options.now ?? new Date();
+		const store = createOutboundWebhookStore(options.path);
+		return updateJsonFileStore(store, (current) => {
+			const deliveries = current.deliveries
+				.filter(
+					(delivery) =>
+						delivery.status === "exhausted" &&
+						(options.endpointId === undefined ||
+							delivery.endpointId === options.endpointId),
+				)
+				.sort((left, right) =>
+					right.nextAttemptAt.localeCompare(left.nextAttemptAt),
+				)
+				.slice(0, limit);
+			if (dryRun) {
+				return commitJsonFileStoreUpdate(current, {
+					eligible: deliveries.length,
+					replayed: 0,
+					failed: 0,
+					dryRun: true,
+					deliveryIds: deliveries.map((delivery) => delivery.id),
+					errors: [],
+				});
+			}
+			const enabledEndpointIds = new Set(
+				current.endpoints
+					.filter((endpoint) => endpoint.enabled)
+					.map((endpoint) => endpoint.id),
+			);
+			const replacements = new Map<string, OutboundWebhookDelivery>();
+			const errors: { deliveryId: string; error: string }[] = [];
+			for (const delivery of deliveries) {
+				if (!enabledEndpointIds.has(delivery.endpointId)) {
+					errors.push({
+						deliveryId: delivery.id,
+						error: `Delivery ${delivery.id} endpoint is missing or disabled`,
+					});
+					continue;
+				}
+				replacements.set(
+					delivery.id,
+					deliverySchema.parse({
+						...delivery,
+						status: "pending",
+						attemptCount: 0,
+						manualRetryCount: delivery.manualRetryCount + 1,
+						nextAttemptAt: nowIso(now),
+						lastAttemptAt: undefined,
+						completedAt: undefined,
+						statusCode: undefined,
+						lastError: undefined,
+						leaseToken: undefined,
+						leaseExpiresAt: undefined,
+					}),
+				);
+			}
+			const deliveryIds = [...replacements.keys()];
+			const result: ReplayOutboundWebhookDeadLettersResult = {
+				eligible: deliveries.length,
+				replayed: deliveryIds.length,
+				failed: errors.length,
+				dryRun: false,
+				deliveryIds,
+				errors,
+			};
+			return commitJsonFileStoreUpdate(
+				replacements.size === 0
+					? current
+					: {
+							...current,
+							deliveries: current.deliveries.map(
+								(delivery) =>
+									replacements.get(delivery.id) ?? delivery,
+							),
+						},
+				result,
+			);
+		});
+	}
+	const deliveries = await listOutboundWebhookDeliveries({
+		...options,
+		endpointId: options.endpointId,
+		status: "exhausted",
+		limit,
+	});
+	if (dryRun) {
+		return {
+			eligible: deliveries.length,
+			replayed: 0,
+			failed: 0,
+			dryRun: true,
+			deliveryIds: deliveries.map((delivery) => delivery.id),
+			errors: [],
+		};
+	}
+	const deliveryIds: string[] = [];
+	const errors: { deliveryId: string; error: string }[] = [];
+	const replayConcurrency = 10;
+	for (let offset = 0; offset < deliveries.length; offset += replayConcurrency) {
+		const batch = deliveries.slice(offset, offset + replayConcurrency);
+		const results = await Promise.all(
+			batch.map(async (delivery) => {
+				try {
+					await retryOutboundWebhookDelivery(delivery.id, {
+						...options,
+						now: options.now,
+					});
+					return { deliveryId: delivery.id, error: undefined };
+				} catch (error) {
+					return {
+						deliveryId: delivery.id,
+						error: truncateOutboundWebhookError(error),
+					};
+				}
+			}),
+		);
+		for (const result of results) {
+			if (result.error === undefined) {
+				deliveryIds.push(result.deliveryId);
+			} else {
+				errors.push({
+					deliveryId: result.deliveryId,
+					error: result.error,
+				});
+			}
+		}
+	}
+	return {
+		eligible: deliveries.length,
+		replayed: deliveryIds.length,
+		failed: errors.length,
+		dryRun: false,
+		deliveryIds,
+		errors,
+	};
+}
+
 function resolveMaintenanceLimit(limit: number | undefined): number {
 	const resolved = limit ?? 100;
 	if (!Number.isInteger(resolved) || resolved <= 0 || resolved > 1_000) {
@@ -1325,8 +1652,29 @@ async function claimOutboundWebhookDeliveries(
 			? new Set(options.deliveryIds)
 			: undefined;
 		const excluded = new Set(options.excludeDeliveryIds ?? []);
+		const circuitOpenUntilByEndpoint = new Map(
+			current.endpointRuntime
+				.filter(
+					(runtime) =>
+						runtime.circuitState === "open" &&
+						runtime.circuitOpenUntil !== undefined,
+				)
+				.map((runtime) => [
+					runtime.endpointId,
+					Date.parse(runtime.circuitOpenUntil!),
+				]),
+		);
 		const claimable = current.deliveries
 			.filter((delivery) => {
+				const circuitOpenUntil = circuitOpenUntilByEndpoint.get(
+					delivery.endpointId,
+				);
+				if (
+					circuitOpenUntil !== undefined &&
+					circuitOpenUntil > at
+				) {
+					return false;
+				}
 				if (excluded.has(delivery.id)) {
 					return false;
 				}
@@ -1475,11 +1823,218 @@ async function completeOutboundWebhookDelivery(
 		});
 		const deliveries = [...current.deliveries];
 		deliveries[index] = delivery;
+		const endpointRuntime = updateEndpointRuntimeAfterAttempt(
+			current.endpointRuntime,
+			endpoint,
+			result.success,
+			options.now,
+		);
 		return commitJsonFileStoreUpdate(
-			{ ...current, deliveries },
+			{ ...current, deliveries, endpointRuntime },
 			delivery,
 		);
 	});
+}
+
+function updateEndpointRuntimeAfterAttempt(
+	runtimes: readonly OutboundWebhookEndpointRuntime[],
+	endpoint: OutboundWebhookEndpoint | undefined,
+	success: boolean,
+	now: Date,
+): readonly OutboundWebhookEndpointRuntime[] {
+	if (!endpoint) {
+		return runtimes;
+	}
+	const index = runtimes.findIndex(
+		(runtime) => runtime.endpointId === endpoint.id,
+	);
+	const previous =
+		index >= 0
+			? runtimes[index]!
+			: endpointRuntimeSchema.parse({
+					endpointId: endpoint.id,
+					consecutiveFailures: 0,
+					circuitState: "closed",
+				});
+	const at = now.toISOString();
+	const consecutiveFailures = success ? 0 : previous.consecutiveFailures + 1;
+	const shouldOpen =
+		!success &&
+		consecutiveFailures >= endpoint.circuitFailureThreshold;
+	const next = endpointRuntimeSchema.parse({
+		...previous,
+		consecutiveFailures,
+		circuitState: shouldOpen ? "open" : "closed",
+		circuitOpenedAt: shouldOpen ? at : undefined,
+		circuitOpenUntil: shouldOpen
+			? new Date(now.getTime() + endpoint.circuitCooldownMs).toISOString()
+			: undefined,
+		lastFailureAt: success ? previous.lastFailureAt : at,
+		lastSuccessAt: success ? at : previous.lastSuccessAt,
+	});
+	if (index < 0) {
+		return [...runtimes, next];
+	}
+	const updated = [...runtimes];
+	updated[index] = next;
+	return updated;
+}
+
+export async function resetOutboundWebhookEndpointCircuit(
+	endpointId: string,
+	options: OutboundWebhookMutationOptions = {},
+): Promise<OutboundWebhookEndpointRuntime> {
+	const now = options.now ?? new Date();
+	if (options.repository) {
+		return options.repository.resetEndpointCircuit(endpointId, now);
+	}
+	const store = createOutboundWebhookStore(options.path);
+	return updateJsonFileStore(store, (current) => {
+		if (!current.endpoints.some((endpoint) => endpoint.id === endpointId)) {
+			throw new OutboundWebhookNotFoundError("endpoint", endpointId);
+		}
+		const runtime = endpointRuntimeSchema.parse({
+			endpointId,
+			consecutiveFailures: 0,
+			circuitState: "closed",
+		});
+		const endpointRuntime = [
+			...current.endpointRuntime.filter(
+				(candidate) => candidate.endpointId !== endpointId,
+			),
+			runtime,
+		];
+		return commitJsonFileStoreUpdate(
+			{ ...current, endpointRuntime },
+			runtime,
+		);
+	});
+}
+
+export async function upsertOutboundWebhookWorker(
+	input: UpsertOutboundWebhookWorkerInput,
+	options: OutboundWebhookStoreOptions = {},
+): Promise<void> {
+	if (options.repository) {
+		await options.repository.upsertWorker(input);
+		return;
+	}
+	const worker = workerSchema.parse(input);
+	const store = createOutboundWebhookStore(options.path);
+	await updateJsonFileStore(store, (current) => {
+		const workers = [
+			...current.workers.filter((candidate) => candidate.id !== worker.id),
+			worker,
+		];
+		return commitJsonFileStoreUpdate({ ...current, workers }, undefined);
+	});
+}
+
+export async function getOutboundWebhookRuntimeHealth(
+	options: OutboundWebhookStoreOptions & {
+		now?: Date;
+		workerStaleMs?: number;
+	} = {},
+): Promise<OutboundWebhookRuntimeHealth> {
+	const now = options.now ?? new Date();
+	const workerStaleMs =
+		options.workerStaleMs ??
+		DEFAULT_OUTBOUND_WEBHOOK_WORKER_HEARTBEAT_STALE_MS;
+	if (
+		!Number.isInteger(workerStaleMs) ||
+		workerStaleMs < 1_000 ||
+		workerStaleMs > 86_400_000
+	) {
+		throw new RangeError(
+			"Webhook worker stale threshold must be between 1000 and 86400000ms",
+		);
+	}
+	if (options.repository) {
+		return options.repository.getRuntimeHealth({ now, workerStaleMs });
+	}
+	const store = await readJsonFileStore(
+		createOutboundWebhookStore(options.path),
+	);
+	return summarizeOutboundWebhookRuntimeHealth(
+		"file",
+		store.endpoints,
+		store.deliveries,
+		store.endpointRuntime,
+		store.workers,
+		now,
+		workerStaleMs,
+	);
+}
+
+export function summarizeOutboundWebhookRuntimeHealth(
+	store: "file" | "postgres",
+	endpoints: readonly OutboundWebhookEndpoint[],
+	deliveries: readonly OutboundWebhookDelivery[],
+	endpointRuntime: readonly OutboundWebhookEndpointRuntime[],
+	workers: readonly OutboundWebhookWorker[],
+	now: Date,
+	workerStaleMs: number,
+): OutboundWebhookRuntimeHealth {
+	const nowMs = now.getTime();
+	const statusCounts: Record<OutboundWebhookDeliveryStatus, number> = {
+		pending: 0,
+		delivering: 0,
+		retry: 0,
+		succeeded: 0,
+		exhausted: 0,
+	};
+	for (const delivery of deliveries) {
+		statusCounts[delivery.status] += 1;
+	}
+	const due = deliveries.filter(
+		(delivery) =>
+			["pending", "retry"].includes(delivery.status) &&
+			Date.parse(delivery.nextAttemptAt) <= nowMs,
+	);
+	const activeWorkers = workers.filter((worker) => worker.status === "running");
+	const staleWorkers = activeWorkers.filter(
+		(worker) => nowMs - Date.parse(worker.heartbeatAt) > workerStaleMs,
+	);
+	const lastHeartbeatAt = activeWorkers
+		.map((worker) => worker.heartbeatAt)
+		.sort()
+		.at(-1);
+	const circuitOpen = endpointRuntime.filter(
+		(runtime) =>
+			runtime.circuitState === "open" &&
+			(runtime.circuitOpenUntil === undefined ||
+				Date.parse(runtime.circuitOpenUntil) > nowMs),
+	).length;
+	return {
+		store,
+		schemaVersion: OUTBOUND_WEBHOOK_STORE_VERSION,
+		healthy:
+			staleWorkers.length === 0 &&
+			circuitOpen === 0 &&
+			(due.length === 0 || activeWorkers.length > staleWorkers.length),
+		checkedAt: now.toISOString(),
+		endpoints: {
+			total: endpoints.length,
+			enabled: endpoints.filter((endpoint) => endpoint.enabled).length,
+			circuitOpen,
+		},
+		deliveries: {
+			...statusCounts,
+			due: due.length,
+			deadLetter: statusCounts.exhausted,
+			oldestDueAt: due
+				.map((delivery) => delivery.nextAttemptAt)
+				.sort()
+				.at(0),
+		},
+		workers: {
+			running: activeWorkers.length,
+			stale: staleWorkers.length,
+			stopped: workers.filter((worker) => worker.status === "stopped").length,
+			failed: workers.filter((worker) => worker.status === "failed").length,
+			lastHeartbeatAt,
+		},
+	};
 }
 
 export function signOutboundWebhookPayload(
@@ -1600,6 +2155,7 @@ async function deliverClaimedWebhook(
 	options: Readonly<{
 		fetcher?: typeof fetch;
 		resolveSecret: (secretRef: string) => string | undefined;
+		signal?: AbortSignal;
 	}>,
 ): Promise<{
 	success: boolean;
@@ -1669,13 +2225,17 @@ async function deliverClaimedWebhook(
 		endpoint.timeoutMs - (Date.now() - startedAt),
 	);
 	const timeout = setTimeout(() => controller.abort(), remainingTimeoutMs);
+	const signal =
+		options.signal === undefined
+			? controller.signal
+			: AbortSignal.any([controller.signal, options.signal]);
 	try {
 		const result = options.fetcher
 			? await options
 					.fetcher(endpoint.url, {
 						method: "POST",
 						redirect: "error",
-						signal: controller.signal,
+						signal,
 						headers,
 						body,
 					})
@@ -1688,7 +2248,7 @@ async function deliverClaimedWebhook(
 					addresses: addressResolution.addresses,
 					headers,
 					body,
-					signal: controller.signal,
+					signal,
 				});
 		if (result.ok) {
 			return {
@@ -1770,6 +2330,7 @@ export async function dispatchOutboundWebhooks(
 				const attempt = await deliverClaimedWebhook(entry, {
 					fetcher: options.fetcher,
 					resolveSecret,
+					signal: options.signal,
 				});
 				let delivery: OutboundWebhookDelivery;
 				try {

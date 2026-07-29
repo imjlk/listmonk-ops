@@ -387,7 +387,9 @@ export interface ControlStatusOutput {
 	};
 }
 
-export type WebhookId = string & tags.Format<"uuid">;
+export type Uuid = string & tags.Format<"uuid">;
+export type WebhookId = Uuid;
+export type SubscriberUuid = Uuid;
 /**
  * Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,
  * DNS resolution, and private-address checks remain in the domain executor.
@@ -406,6 +408,14 @@ export type WebhookMaxAttempts = number &
 	tags.Type<"int32"> &
 	tags.Minimum<1> &
 	tags.Maximum<12>;
+export type WebhookCircuitFailureThreshold = number &
+	tags.Type<"int32"> &
+	tags.Minimum<1> &
+	tags.Maximum<100>;
+export type WebhookCircuitCooldownMs = number &
+	tags.Type<"int32"> &
+	tags.Minimum<1000> &
+	tags.Maximum<86_400_000>;
 export type WebhookDispatchLimit = number &
 	tags.Type<"int32"> &
 	tags.Minimum<1> &
@@ -432,6 +442,7 @@ export type WebhookEventType =
 	| "delivery.bounced"
 	| "delivery.complained"
 	| "delivery.delayed"
+	| "delivery.rejected"
 	| "abtest.started"
 	| "abtest.ready-for-analysis"
 	| "abtest.winner-selected"
@@ -465,6 +476,8 @@ export interface WebhookEndpoint {
 	enabled: boolean;
 	timeout_ms: WebhookTimeoutMs;
 	max_attempts: WebhookMaxAttempts;
+	circuit_failure_threshold: WebhookCircuitFailureThreshold;
+	circuit_cooldown_ms: WebhookCircuitCooldownMs;
 	created_at: IsoDateTime;
 	updated_at: IsoDateTime;
 }
@@ -486,6 +499,8 @@ export interface WebhookCreateInput {
 	enabled?: boolean | undefined;
 	timeout_ms?: WebhookTimeoutMs | undefined;
 	max_attempts?: WebhookMaxAttempts | undefined;
+	circuit_failure_threshold?: WebhookCircuitFailureThreshold | undefined;
+	circuit_cooldown_ms?: WebhookCircuitCooldownMs | undefined;
 }
 
 export interface WebhookCreateOutput {
@@ -501,6 +516,8 @@ export interface WebhookUpdateInput {
 	enabled?: boolean | undefined;
 	timeout_ms?: WebhookTimeoutMs | undefined;
 	max_attempts?: WebhookMaxAttempts | undefined;
+	circuit_failure_threshold?: WebhookCircuitFailureThreshold | undefined;
+	circuit_cooldown_ms?: WebhookCircuitCooldownMs | undefined;
 }
 
 export interface WebhookUpdateOutput {
@@ -656,4 +673,113 @@ export interface WebhookTickInput {
 export interface WebhookTickOutput {
 	reconcile: WebhookReconcileOutput;
 	dispatch: WebhookDispatchOutput;
+}
+
+export interface WebhookRuntimeStatusInput {
+	worker_stale_ms?:
+		| (number &
+				tags.Type<"int64"> &
+				tags.Minimum<1_000> &
+				tags.Maximum<86_400_000>)
+		| undefined;
+}
+
+export interface WebhookRuntimeStatusOutput {
+	store: "file" | "postgres";
+	schema_version: PositiveInteger;
+	healthy: boolean;
+	checked_at: IsoDateTime;
+	endpoints: {
+		total: NonNegativeInteger;
+		enabled: NonNegativeInteger;
+		circuit_open: NonNegativeInteger;
+	};
+	deliveries: {
+		pending: NonNegativeInteger;
+		delivering: NonNegativeInteger;
+		retry: NonNegativeInteger;
+		succeeded: NonNegativeInteger;
+		exhausted: NonNegativeInteger;
+		due: NonNegativeInteger;
+		dead_letter: NonNegativeInteger;
+		oldest_due_at?: IsoDateTime | undefined;
+	};
+	workers: {
+		running: NonNegativeInteger;
+		stale: NonNegativeInteger;
+		stopped: NonNegativeInteger;
+		failed: NonNegativeInteger;
+		last_heartbeat_at?: IsoDateTime | undefined;
+	};
+}
+
+export type InboundDeliveryEventKind =
+	| "delivered"
+	| "bounced"
+	| "complained"
+	| "unsubscribed"
+	| "delayed"
+	| "rejected";
+
+export interface WebhookInboundIngestBaseInput {
+	provider: NonEmptyString & tags.MaxLength<100>;
+	provider_event_id: NonEmptyString & tags.MaxLength<300>;
+	occurred_at?: IsoDateTime | undefined;
+	message_id?: (NonEmptyString & tags.MaxLength<300>) | undefined;
+	campaign_id?: ResourceId | undefined;
+	metadata?: Record<string, unknown> | undefined;
+}
+
+export type WebhookInboundIngestInput =
+	| (WebhookInboundIngestBaseInput & {
+			kind: "unsubscribed";
+			subscriber_uuid: SubscriberUuid;
+	  })
+	| (WebhookInboundIngestBaseInput & {
+			kind: Exclude<InboundDeliveryEventKind, "unsubscribed">;
+			subscriber_uuid?: SubscriberUuid | undefined;
+	  });
+
+export interface WebhookInboundIngestOutput {
+	event_id: WebhookId;
+	event_type: WebhookEventType;
+	matched_endpoints: NonNegativeInteger;
+	queued_deliveries: NonNegativeInteger;
+	duplicate_deliveries: NonNegativeInteger;
+	delivery_ids: WebhookId[];
+}
+
+export interface WebhookDlqListInput {
+	endpoint_id?: WebhookId | undefined;
+	limit?: WebhookDeliveryListLimit | undefined;
+}
+
+export type WebhookDlqListOutput = WebhookDeliveryListOutput;
+
+export interface WebhookDlqReplayInput {
+	endpoint_id?: WebhookId | undefined;
+	limit?: WebhookDeliveryListLimit | undefined;
+	dry_run?: boolean | undefined;
+}
+
+export interface WebhookDlqReplayOutput {
+	eligible: NonNegativeInteger;
+	replayed: NonNegativeInteger;
+	failed: NonNegativeInteger;
+	dry_run: boolean;
+	delivery_ids: WebhookId[];
+	errors: {
+		delivery_id: WebhookId;
+		error: NonEmptyString;
+	}[];
+}
+
+export interface WebhookCircuitResetInput {
+	id: WebhookId;
+}
+
+export interface WebhookCircuitResetOutput {
+	endpoint_id: WebhookId;
+	circuit_state: "closed";
+	consecutive_failures: 0;
 }

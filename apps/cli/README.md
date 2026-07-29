@@ -72,6 +72,13 @@ listmonk-cli webhooks prune --older-than-days 30 --dry-run
 listmonk-cli webhooks prune --older-than-days 30 --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted
 listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
+listmonk-cli webhooks runtime status
+listmonk-cli webhooks runtime worker --confirm
+listmonk-cli webhooks dlq list
+listmonk-cli webhooks dlq replay --no-dry-run --confirm
+listmonk-cli webhooks circuit reset --id <endpoint-uuid> --confirm
+listmonk-cli webhooks inbound ingest --provider ses \
+  --provider-event-id <event-id> --kind bounced
 ```
 
 `secret-ref` names an environment variable; the secret value is never stored.
@@ -79,6 +86,12 @@ Set `LISTMONK_OPS_WEBHOOK_STORE` to share a non-default endpoint/outbox path
 between CLI and MCP processes. For concurrent workers, set
 `LISTMONK_OPS_WEBHOOK_DATABASE_URL` instead; the file and database settings are
 mutually exclusive.
+The long-running worker records heartbeats and handles SIGINT/SIGTERM
+gracefully, retries transient tick failures with bounded backoff, and reports
+progress. Runtime status includes Postgres/file schema version, backlog,
+circuits, dead letters, and running, stale, stopped, or failed workers. Provider ingestion is idempotent by
+stable provider event ID; unsubscribe events require a subscriber UUID and
+metadata is capped at 16 KiB.
 
 ## Shell completion
 

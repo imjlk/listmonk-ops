@@ -61,7 +61,8 @@ beforeAll(async () => {
 		await sql`
 			TRUNCATE TABLE
 				listmonk_ops.webhook_deliveries,
-				listmonk_ops.webhook_endpoints
+				listmonk_ops.webhook_endpoints,
+				listmonk_ops.webhook_workers
 		`;
 	} finally {
 		await sql.end({ timeout: 5 });
@@ -318,6 +319,77 @@ describe("Postgres outbound webhook repository", () => {
 			enqueueResult.deliveryIds.forEach((id) => deliveryIds.add(id));
 			expect(enqueueResult.queuedDeliveries).toBe(1);
 			expect(pruneResult.deleted).toBeGreaterThanOrEqual(1);
+		},
+	);
+
+	postgresTest(
+		"migrates an existing v1 schema to v2 under the initialization lock",
+		async () => {
+			if (!databaseUrl) {
+				throw new Error("Postgres integration database is unavailable");
+			}
+			const sql = postgres(databaseUrl, { max: 1, prepare: false });
+			try {
+				await sql`
+					TRUNCATE TABLE
+						listmonk_ops.webhook_deliveries,
+						listmonk_ops.webhook_endpoints,
+						listmonk_ops.webhook_workers
+				`;
+				await sql`DROP TABLE listmonk_ops.webhook_workers`;
+				await sql`
+					ALTER TABLE listmonk_ops.webhook_endpoints
+						DROP COLUMN circuit_failure_threshold,
+						DROP COLUMN circuit_cooldown_ms,
+						DROP COLUMN consecutive_failures,
+						DROP COLUMN circuit_state,
+						DROP COLUMN circuit_opened_at,
+						DROP COLUMN circuit_open_until,
+						DROP COLUMN last_failure_at,
+						DROP COLUMN last_success_at
+				`;
+				await sql`
+					UPDATE listmonk_ops.webhook_runtime_meta
+					SET value = '1'
+					WHERE key = 'schema_version'
+				`;
+			} finally {
+				await sql.end({ timeout: 5 });
+			}
+
+			const migrated = createPostgresOutboundWebhookRepository({
+				connectionString: databaseUrl,
+				maxConnections: 1,
+			});
+			repositories.push(migrated);
+			expect(
+				await migrated.getRuntimeHealth({
+					now: new Date(),
+					workerStaleMs: 90_000,
+				}),
+			).toMatchObject({
+				store: "postgres",
+				schemaVersion: 2,
+			});
+			const verify = postgres(databaseUrl, { max: 1, prepare: false });
+			try {
+				const versions = await verify<{ value: string }[]>`
+					SELECT value
+					FROM listmonk_ops.webhook_runtime_meta
+					WHERE key = 'schema_version'
+				`;
+				expect(versions[0]?.value).toBe("2");
+				const columns = await verify<{ column_name: string }[]>`
+					SELECT column_name
+					FROM information_schema.columns
+					WHERE table_schema = 'listmonk_ops'
+						AND table_name = 'webhook_endpoints'
+						AND column_name = 'circuit_state'
+				`;
+				expect(columns).toHaveLength(1);
+			} finally {
+				await verify.end({ timeout: 5 });
+			}
 		},
 	);
 });

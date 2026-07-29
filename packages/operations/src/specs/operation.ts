@@ -43,7 +43,10 @@ export type OperationSpecVerb =
 	| "dispatch"
 	| "retry"
 	| "prune"
-	| "tick";
+	| "tick"
+	| "ingest"
+	| "replay"
+	| "reset";
 
 export type OperationSpecLifecycle =
 	| {
