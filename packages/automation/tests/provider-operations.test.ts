@@ -1379,6 +1379,32 @@ describe("provider and deliverability operations", () => {
 		expect(output.healthy).toBe(false);
 	});
 
+	test("keeps SPF alignment unknown when nearer DMARC evidence fails", async () => {
+		const indeterminateDmarcDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name === "_dmarc.news.example.com") {
+					throw new Error("transient DNS failure");
+				}
+				if (name === "_dmarc.example.com") {
+					return ["v=DMARC1; p=reject; aspf=s"];
+				}
+				return dns.txt(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: indeterminateDmarcDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.spf-alignment",
+				status: "unknown",
+			}),
+		);
+		expect(output.healthy).toBe(false);
+	});
+
 	test("bounds the complete DNS inspection when a resolver hangs", async () => {
 		const hangingDns: ProviderDnsResolver = {
 			async txt() {

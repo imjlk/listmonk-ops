@@ -1617,7 +1617,7 @@ async function inspectProviderDnsUnbounded(
 			dmarc.policy?.tags.get("aspf") === "s" ? "strict" : "relaxed";
 		let alignmentStatus: DoctorCheckStatus;
 		let mailFromOrganizationalDomain: string | undefined;
-		if (dmarc.policy === undefined) {
+		if (dmarc.policy === undefined || dmarc.indeterminate) {
 			alignmentStatus = "unknown";
 		} else if (alignmentMode === "strict") {
 			const domainsMatch =
