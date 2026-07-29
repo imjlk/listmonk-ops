@@ -422,7 +422,13 @@ export const sequenceReconcileOperationSpec = defineOperationSpec({
 		},
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: true },
-	retry: { kind: "safe", reason: "Lease recovery is idempotent and bounded." },
+	retry: {
+		kind: "reconcile",
+		reconcileWith: "sequences.status",
+		idempotent: false,
+		reason:
+			"Lease recovery is idempotent, but ambiguous-send resolution changes delivery state and must be verified before retrying.",
+	},
 	agent: {
 		useWhen: ["Expired leases or an operator-reviewed ambiguous send need recovery."],
 		avoidWhen: ["The delivery outcome of an ambiguous send is still unknown."],

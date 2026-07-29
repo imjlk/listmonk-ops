@@ -614,6 +614,9 @@ export function createFileSequenceRepository(
 						definitions: current.definitions.filter(
 							(candidate) => candidate.id !== id,
 						),
+						enrollments: current.enrollments.filter(
+							(enrollment) => enrollment.sequenceId !== id,
+						),
 					},
 					definition,
 				);
@@ -684,7 +687,11 @@ export function createFileSequenceRepository(
 				const nowMs = options.now.getTime();
 				const claimed: ClaimedSequenceEnrollment[] = [];
 				let enrollments = [...current.enrollments];
-				for (const candidate of current.enrollments) {
+				const candidates = [...current.enrollments].sort(
+					(left, right) =>
+						Date.parse(left.nextRunAt) - Date.parse(right.nextRunAt),
+				);
+				for (const candidate of candidates) {
 					if (claimed.length >= options.limit) {
 						break;
 					}

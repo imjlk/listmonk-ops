@@ -221,6 +221,9 @@ describe("Postgres sequence repository", () => {
 			expect(await first.deleteDefinition(definition.id)).toMatchObject({
 				id: definition.id,
 			});
+			expect(
+				await first.listEnrollments({ sequenceId: definition.id }),
+			).toEqual([]);
 		},
 	);
 });

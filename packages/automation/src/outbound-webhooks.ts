@@ -71,6 +71,7 @@ export const OUTBOUND_WEBHOOK_EVENT_TYPES = [
 	"sequence.paused",
 	"sequence.resumed",
 	"sequence.reconciled",
+	"sequence.deleted",
 	"webhook.test",
 ] as const;
 

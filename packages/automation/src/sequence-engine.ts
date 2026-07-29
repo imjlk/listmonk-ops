@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	getSubscriber,
@@ -97,9 +98,7 @@ function evaluateCondition(
 	if (step.operator === "exists") {
 		return actual !== undefined;
 	}
-	const equal =
-		actual === step.value ||
-		JSON.stringify(actual) === JSON.stringify(step.value);
+	const equal = actual === step.value || isDeepStrictEqual(actual, step.value);
 	return step.operator === "equals" ? equal : !equal;
 }
 
@@ -409,8 +408,10 @@ export async function runSequenceTick(
 		ambiguous: 0,
 		cancelled: 0,
 	};
-	for (const entry of claimed) {
-		const result = await executeClaimedEnrollment(context, entry, now);
+	const results = await Promise.all(
+		claimed.map((entry) => executeClaimedEnrollment(context, entry, now)),
+	);
+	for (const result of results) {
 		countOutcome(counts, result.status);
 	}
 	return {
@@ -459,22 +460,7 @@ export async function reconcileAmbiguousSequenceEnrollment(
 			`Transactional idempotency record ${key} is missing or not unknown`,
 		);
 	}
-	if (resolution === "not_sent") {
-		await context.idempotencyStore.release({
-			key,
-			claimToken: record.claimToken,
-			now: () => now,
-		});
-	}
-
 	if (resolution === "sent") {
-		await context.idempotencyStore.commit({
-			key,
-			claimToken: record.claimToken,
-			status: "accepted",
-			sent: true,
-			now: () => now,
-		});
 		const following = nextStep(revision, step.id);
 		const next = withoutLease(
 			enrollment,
@@ -488,7 +474,19 @@ export async function reconcileAmbiguousSequenceEnrollment(
 				: { status: "completed", lastError: undefined },
 			now,
 		);
-		return forceCompleteAmbiguous(context.repository, enrollment, next);
+		const resolved = await forceCompleteAmbiguous(
+			context.repository,
+			enrollment,
+			next,
+		);
+		await context.idempotencyStore.commit({
+			key,
+			claimToken: record.claimToken,
+			status: "accepted",
+			sent: true,
+			now: () => now,
+		});
+		return resolved;
 	}
 	const next = withoutLease(
 		enrollment,
@@ -499,7 +497,17 @@ export async function reconcileAmbiguousSequenceEnrollment(
 		},
 		now,
 	);
-	return forceCompleteAmbiguous(context.repository, enrollment, next);
+	const resolved = await forceCompleteAmbiguous(
+		context.repository,
+		enrollment,
+		next,
+	);
+	await context.idempotencyStore.release({
+		key,
+		claimToken: record.claimToken,
+		now: () => now,
+	});
+	return resolved;
 }
 
 async function forceCompleteAmbiguous(
@@ -549,13 +557,21 @@ export async function runSequenceWorker(
 		options.heartbeatIntervalMs ?? 30_000,
 	);
 	let heartbeatFailure: Error | undefined;
+	let workerWriteQueue = Promise.resolve();
+	const persistWorker = (snapshot: SequenceWorker): Promise<void> => {
+		const write = workerWriteQueue.then(() =>
+			context.repository.upsertWorker(snapshot),
+		);
+		workerWriteQueue = write.catch(() => undefined);
+		return write;
+	};
 	let heartbeatWrite = Promise.resolve();
 	const heartbeatTimer = setInterval(() => {
-		heartbeatWrite = heartbeatWrite
-			.then(async () => {
-				const heartbeatAt = (context.now?.() ?? new Date()).toISOString();
-				worker = { ...worker, heartbeatAt };
-				await context.repository.upsertWorker(worker);
+		const heartbeatAt = (context.now?.() ?? new Date()).toISOString();
+		worker = { ...worker, heartbeatAt };
+		const snapshot = worker;
+		heartbeatWrite = persistWorker(snapshot)
+			.then(() => {
 				heartbeatFailure = undefined;
 			})
 			.catch((error: unknown) => {
@@ -579,7 +595,7 @@ export async function runSequenceWorker(
 				const heartbeatAt = (context.now?.() ?? new Date()).toISOString();
 				const { lastError: _lastError, ...healthyWorker } = worker;
 				worker = { ...healthyWorker, heartbeatAt, lastTick: tick };
-				await context.repository.upsertWorker(worker);
+				await persistWorker(worker);
 				heartbeatFailure = undefined;
 				await options.onTick?.(tick);
 			} catch (error) {
@@ -590,7 +606,7 @@ export async function runSequenceWorker(
 					heartbeatAt,
 					lastError: truncateError(error),
 				};
-				await context.repository.upsertWorker(worker);
+				await persistWorker(worker);
 				heartbeatFailure = undefined;
 			}
 			if (!options.signal?.aborted) {
@@ -600,7 +616,7 @@ export async function runSequenceWorker(
 		clearInterval(heartbeatTimer);
 		await heartbeatWrite;
 		const stoppedAt = (context.now?.() ?? new Date()).toISOString();
-		await context.repository.upsertWorker({
+		await persistWorker({
 			...worker,
 			status: "stopped",
 			heartbeatAt: stoppedAt,
@@ -610,7 +626,7 @@ export async function runSequenceWorker(
 		clearInterval(heartbeatTimer);
 		await heartbeatWrite;
 		const failedAt = (context.now?.() ?? new Date()).toISOString();
-		await context.repository.upsertWorker({
+		await persistWorker({
 			...worker,
 			status: "failed",
 			heartbeatAt: failedAt,

@@ -456,7 +456,7 @@ Preview or recover expired enrollment leases, or explicitly resolve one ambiguou
 - MCP tool: `listmonk_sequences_reconcile`
 - Effects: `maintenance:recover:recoverable, maintenance:resolve:destructive`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
-- Retry: `safe`
+- Retry: `reconcile`
 - Stability: `experimental` since `0.9.0`
 
 ## `sequences.status`

@@ -349,49 +349,72 @@ function sequenceProjection(
 	};
 	switch (input.operationId) {
 		case "sequences.create":
-			return [
-				{
-					...common,
-					type: "sequence.created",
-					data: { revision: sequence?.["current_revision"] },
-				},
-			];
+			return sequence
+				? [
+						{
+							...common,
+							type: "sequence.created",
+							data: { revision: sequence["current_revision"] },
+						},
+					]
+				: [];
 		case "sequences.update":
-			return [
-				{
-					...common,
-					type: "sequence.revised",
-					data: { revision: sequence?.["current_revision"] },
-				},
-			];
+			return sequence
+				? [
+						{
+							...common,
+							type: "sequence.revised",
+							data: { revision: sequence["current_revision"] },
+						},
+					]
+				: [];
 		case "sequences.enroll":
-			return [
-				{
-					...common,
-					type: "sequence.enrolled",
-					data: {
-						enrollment_id: enrollment?.["id"],
-						revision: enrollment?.["revision"],
-						status: enrollment?.["status"],
-					},
-				},
-			];
+			return enrollment
+				? [
+						{
+							...common,
+							type: "sequence.enrolled",
+							data: {
+								enrollment_id: enrollment["id"],
+								revision: enrollment["revision"],
+								status: enrollment["status"],
+							},
+						},
+					]
+				: [];
 		case "sequences.pause":
-			return [
-				{
-					...common,
-					type: "sequence.paused",
-					data: { status: sequence?.["status"] },
-				},
-			];
+			return sequence
+				? [
+						{
+							...common,
+							type: "sequence.paused",
+							data: { status: sequence["status"] },
+						},
+					]
+				: [];
 		case "sequences.resume":
-			return [
-				{
-					...common,
-					type: "sequence.resumed",
-					data: { status: sequence?.["status"] },
-				},
-			];
+			return sequence
+				? [
+						{
+							...common,
+							type: "sequence.resumed",
+							data: { status: sequence["status"] },
+						},
+					]
+				: [];
+		case "sequences.delete":
+			return sequence
+				? [
+						{
+							...common,
+							type: "sequence.deleted",
+							data: {
+								status: sequence["status"],
+								current_revision: sequence["current_revision"],
+							},
+						},
+					]
+				: [];
 		case "sequences.reconcile":
 			return enrollment
 				? [

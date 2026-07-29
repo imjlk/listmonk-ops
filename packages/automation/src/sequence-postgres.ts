@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import postgres, { type Sql } from "postgres";
 import {
 	DEFAULT_SEQUENCE_WORKER_RETENTION_MS,
-	buildSequenceRuntimeHealth,
 	parseSequenceDefinition,
 	parseSequenceEnrollment,
 	SequenceConflictError,
@@ -11,14 +10,10 @@ import {
 	type SequenceDefinition,
 	type SequenceEnrollment,
 	type SequenceEnrollmentListOptions,
-	type SequenceEnrollmentStatus,
 	type SequenceRepository,
-	type SequenceRevision,
 	type SequenceRuntimeHealth,
-	type SequenceWorker,
 	type UpdateSequenceDefinitionInput,
 	validateSequenceSteps,
-	SEQUENCE_STORE_VERSION,
 } from "./sequences";
 
 export const SEQUENCE_POSTGRES_SCHEMA_VERSION = 1;
@@ -41,8 +36,34 @@ type EnrollmentRow = {
 	lease_token?: string | null;
 };
 
-type WorkerRow = {
-	worker: unknown;
+type DefinitionHealthRow = {
+	total: number;
+	active: number;
+	paused: number;
+};
+
+type EnrollmentHealthRow = Record<
+	| "pending"
+	| "running"
+	| "waiting"
+	| "paused"
+	| "completed"
+	| "failed"
+	| "ambiguous"
+	| "cancelled"
+	| "due"
+	| "leased",
+	number
+> & {
+	oldest_due_at: string | Date | null;
+};
+
+type WorkerHealthRow = {
+	running: number;
+	stale: number;
+	stopped: number;
+	failed: number;
+	last_heartbeat_at: string | Date | null;
 };
 
 function assertConnectionString(value: string): string {
@@ -191,10 +212,6 @@ function toEnrollment(row: EnrollmentRow): SequenceEnrollment {
 	return parseSequenceEnrollment(row.enrollment);
 }
 
-function toWorker(row: WorkerRow): SequenceWorker {
-	return row.worker as SequenceWorker;
-}
-
 function isUniqueViolation(error: unknown): boolean {
 	return (
 		error instanceof Error &&
@@ -212,6 +229,17 @@ function withoutLease(
 		...rest
 	} = enrollment;
 	return rest;
+}
+
+function optionalTimestamp(value: string | Date | null): string | undefined {
+	if (value === null) {
+		return undefined;
+	}
+	const date = value instanceof Date ? value : new Date(value);
+	if (!Number.isFinite(date.getTime())) {
+		throw new Error(`Sequence runtime contains an invalid timestamp: ${value}`);
+	}
+	return date.toISOString();
 }
 
 export function createPostgresSequenceRepository(
@@ -308,8 +336,8 @@ export function createPostgresSequenceRepository(
 			return definition;
 		},
 		async updateDefinition(id, input, now) {
+			await ready();
 			return sql.begin(async (transaction) => {
-				await ready();
 				const rows = await transaction<DefinitionRow[]>`
 					SELECT id, definition
 					FROM listmonk_ops.sequence_definitions
@@ -359,8 +387,8 @@ export function createPostgresSequenceRepository(
 			});
 		},
 		async deleteDefinition(id) {
+			await ready();
 			return sql.begin(async (transaction) => {
-				await ready();
 				const definitionRows = await transaction<DefinitionRow[]>`
 					SELECT id, definition
 					FROM listmonk_ops.sequence_definitions
@@ -396,8 +424,8 @@ export function createPostgresSequenceRepository(
 			});
 		},
 		async setDefinitionStatus(id, status, now) {
+			await ready();
 			return sql.begin(async (transaction) => {
-				await ready();
 				const definitionRows = await transaction<DefinitionRow[]>`
 					SELECT id, definition
 					FROM listmonk_ops.sequence_definitions
@@ -646,27 +674,101 @@ export function createPostgresSequenceRepository(
 		},
 		async getRuntimeHealth(options): Promise<SequenceRuntimeHealth> {
 			await ready();
+			const dueCondition = sql`
+				status IN ('pending', 'running', 'waiting')
+				AND next_run_at <= ${options.now.toISOString()}::timestamptz
+				AND (
+					lease_expires_at IS NULL
+					OR lease_expires_at <= ${options.now.toISOString()}::timestamptz
+				)
+			`;
 			const [definitionRows, enrollmentRows, workerRows] = await Promise.all([
-				sql<DefinitionRow[]>`
-					SELECT id, definition
+				sql<DefinitionHealthRow[]>`
+					SELECT
+						count(*)::int AS total,
+						count(*) FILTER (WHERE status = 'active')::int AS active,
+						count(*) FILTER (WHERE status = 'paused')::int AS paused
 					FROM listmonk_ops.sequence_definitions
 				`,
-				sql<EnrollmentRow[]>`
-					SELECT id, enrollment, lease_token
+				sql<EnrollmentHealthRow[]>`
+					SELECT
+						count(*) FILTER (WHERE status = 'pending')::int AS pending,
+						count(*) FILTER (WHERE status = 'running')::int AS running,
+						count(*) FILTER (WHERE status = 'waiting')::int AS waiting,
+						count(*) FILTER (WHERE status = 'paused')::int AS paused,
+						count(*) FILTER (WHERE status = 'completed')::int AS completed,
+						count(*) FILTER (WHERE status = 'failed')::int AS failed,
+						count(*) FILTER (WHERE status = 'ambiguous')::int AS ambiguous,
+						count(*) FILTER (WHERE status = 'cancelled')::int AS cancelled,
+						count(*) FILTER (WHERE ${dueCondition})::int AS due,
+						count(*) FILTER (
+							WHERE lease_expires_at > ${options.now.toISOString()}::timestamptz
+						)::int AS leased,
+						min(next_run_at) FILTER (WHERE ${dueCondition}) AS oldest_due_at
 					FROM listmonk_ops.sequence_enrollments
 				`,
-				sql<WorkerRow[]>`
-					SELECT worker
+				sql<WorkerHealthRow[]>`
+					SELECT
+						count(*) FILTER (WHERE status = 'running')::int AS running,
+						count(*) FILTER (
+							WHERE status = 'running'
+								AND heartbeat_at <
+									${options.now.toISOString()}::timestamptz -
+									${options.workerStaleMs} * interval '1 millisecond'
+						)::int AS stale,
+						count(*) FILTER (WHERE status = 'stopped')::int AS stopped,
+						count(*) FILTER (WHERE status = 'failed')::int AS failed,
+						max(heartbeat_at) AS last_heartbeat_at
 					FROM listmonk_ops.sequence_workers
 				`,
 			]);
-			return buildSequenceRuntimeHealth(
-				"postgres",
-				definitionRows.map(toDefinition),
-				enrollmentRows.map(toEnrollment),
-				workerRows.map(toWorker),
-				options,
-			);
+			const definitions = definitionRows[0] ?? {
+				total: 0,
+				active: 0,
+				paused: 0,
+			};
+			const enrollments = enrollmentRows[0] ?? {
+				pending: 0,
+				running: 0,
+				waiting: 0,
+				paused: 0,
+				completed: 0,
+				failed: 0,
+				ambiguous: 0,
+				cancelled: 0,
+				due: 0,
+				leased: 0,
+				oldest_due_at: null,
+			};
+			const workers = workerRows[0] ?? {
+				running: 0,
+				stale: 0,
+				stopped: 0,
+				failed: 0,
+				last_heartbeat_at: null,
+			};
+			const {
+				oldest_due_at: oldestDueAt,
+				...enrollmentCounts
+			} = enrollments;
+			return {
+				store: "postgres",
+				schemaVersion: SEQUENCE_POSTGRES_SCHEMA_VERSION,
+				healthy: workers.stale === 0,
+				checkedAt: options.now.toISOString(),
+				definitions,
+				enrollments: {
+					...enrollmentCounts,
+					oldestDueAt: optionalTimestamp(oldestDueAt),
+				},
+				workers: {
+					running: workers.running,
+					stale: workers.stale,
+					stopped: workers.stopped,
+					failed: workers.failed,
+					lastHeartbeatAt: optionalTimestamp(workers.last_heartbeat_at),
+				},
+			};
 		},
 		async upsertWorker(worker) {
 			await ready();

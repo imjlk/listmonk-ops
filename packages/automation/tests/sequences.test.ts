@@ -178,6 +178,66 @@ describe("sequence definitions and file persistence", () => {
 			}),
 		).rejects.toThrow("must be followed by another step");
 	});
+
+	test("claims the oldest due enrollment and removes terminal history on delete", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "ordered cleanup",
+					steps: [{ id: "stop", type: "stop" }],
+				},
+				new Date("2026-08-01T08:00:00.000Z"),
+			),
+		);
+		const newer = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{
+					sequenceId: definition.id,
+					subscriberId: 41,
+					startAt: "2026-08-01T09:01:00.000Z",
+				},
+				new Date("2026-08-01T08:01:00.000Z"),
+			),
+		);
+		const older = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{
+					sequenceId: definition.id,
+					subscriberId: 42,
+					startAt: "2026-08-01T09:00:00.000Z",
+				},
+				new Date("2026-08-01T08:02:00.000Z"),
+			),
+		);
+		const claimed = await repository.claimDue({
+			limit: 1,
+			now: new Date("2026-08-01T10:00:00.000Z"),
+			leaseMs: 90_000,
+		});
+		expect(claimed[0]?.enrollment.id).toBe(older.id);
+		await repository.completeClaim(
+			claimed[0]!.enrollment,
+			{
+				...older,
+				status: "completed",
+				updatedAt: "2026-08-01T10:00:00.000Z",
+				lastTransitionAt: "2026-08-01T10:00:00.000Z",
+			},
+		);
+		await runSequenceTick(
+			executionContext(repository, idempotencyStore),
+			{ now: new Date("2026-08-01T10:00:00.000Z") },
+		);
+
+		await repository.deleteDefinition(definition.id);
+		expect(
+			await repository.listEnrollments({ sequenceId: definition.id }),
+		).toEqual([]);
+		expect(newer.id).not.toBe(older.id);
+	});
 });
 
 describe("sequence execution", () => {
@@ -248,6 +308,98 @@ describe("sequence execution", () => {
 				`sequence:${enrollment.id}:revision:1:step:send`
 			],
 		).toMatchObject({ status: "accepted", sent: true });
+	});
+
+	test("executes independent claimed sends concurrently", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		let sends = 0;
+		let releaseBoth: (() => void) | undefined;
+		const bothStarted = new Promise<void>((resolve) => {
+			releaseBoth = resolve;
+		});
+		const now = new Date();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "concurrent delivery",
+					steps: [{ id: "send", type: "send", templateId: 9 }],
+				},
+				now,
+			),
+		);
+		for (const subscriberId of [41, 42]) {
+			await repository.createEnrollment(
+				createSequenceEnrollment(
+					definition,
+					{ sequenceId: definition.id, subscriberId },
+					now,
+				),
+			);
+		}
+		const listmonk = client({
+			send: async () => {
+				sends += 1;
+				if (sends === 2) {
+					releaseBoth?.();
+				}
+				await bothStarted;
+				return { data: true };
+			},
+		});
+
+		expect(
+			await runSequenceTick(
+				executionContext(repository, idempotencyStore, listmonk),
+				{ now },
+			),
+		).toMatchObject({ claimed: 2, completed: 2 });
+		expect(sends).toBe(2);
+	});
+
+	test("compares structured condition values independent of object key order", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "structured condition",
+					steps: [
+						{
+							id: "condition",
+							type: "condition",
+							path: "profile",
+							operator: "equals",
+							value: { plan: "pro", region: "kr" },
+							onTrue: "matched",
+							onFalse: "not-matched",
+						},
+						{ id: "matched", type: "stop" },
+						{ id: "not-matched", type: "stop" },
+					],
+				},
+				now,
+			),
+		);
+		const enrollment = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{
+					sequenceId: definition.id,
+					subscriberId: 42,
+					context: { profile: { region: "kr", plan: "pro" } },
+				},
+				now,
+			),
+		);
+
+		await runSequenceTick(
+			executionContext(repository, idempotencyStore),
+			{ now },
+		);
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
+			status: "pending",
+			currentStepId: "matched",
+		});
 	});
 
 	test("cancels blocklisted subscribers before sending", async () => {
@@ -420,6 +572,62 @@ describe("sequence execution", () => {
 		});
 		expect(sends).toBe(1);
 	});
+
+	test("keeps the unknown send record when enrollment reconciliation fails", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "failed reconciliation",
+					steps: [{ id: "send", type: "send", templateId: 9 }],
+				},
+				now,
+			),
+		);
+		const enrollment = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{ sequenceId: definition.id, subscriberId: 42 },
+				now,
+			),
+		);
+		const context = executionContext(
+			repository,
+			idempotencyStore,
+			client({
+				send: async () => {
+					throw new TypeError("fetch failed after dispatch");
+				},
+			}),
+		);
+		expect(await runSequenceTick(context, { now })).toMatchObject({
+			ambiguous: 1,
+		});
+		const failingContext = {
+			...context,
+			repository: {
+				...repository,
+				async resolveAmbiguous() {
+					throw new Error("sequence store unavailable");
+				},
+			},
+		};
+
+		await expect(
+			reconcileAmbiguousSequenceEnrollment(
+				failingContext,
+				enrollment.id,
+				"sent",
+				now,
+			),
+		).rejects.toThrow("sequence store unavailable");
+		expect(
+			(await idempotencyStore.load()).records[
+				`sequence:${enrollment.id}:revision:1:step:send`
+			],
+		).toMatchObject({ status: "unknown" });
+	});
 });
 
 describe("sequence worker health", () => {
@@ -442,6 +650,8 @@ describe("sequence worker health", () => {
 		});
 
 		const writes: SequenceWorker[] = [];
+		let activeWorkerWrites = 0;
+		let maximumConcurrentWorkerWrites = 0;
 		const repository: SequenceRepository = {
 			...fileRepository,
 			async claimDue() {
@@ -449,8 +659,18 @@ describe("sequence worker health", () => {
 				return [];
 			},
 			async upsertWorker(worker) {
-				writes.push(worker);
-				await fileRepository.upsertWorker(worker);
+				activeWorkerWrites += 1;
+				maximumConcurrentWorkerWrites = Math.max(
+					maximumConcurrentWorkerWrites,
+					activeWorkerWrites,
+				);
+				try {
+					await new Promise((resolve) => setTimeout(resolve, 100));
+					writes.push(worker);
+					await fileRepository.upsertWorker(worker);
+				} finally {
+					activeWorkerWrites -= 1;
+				}
 			},
 		};
 		const controller = new AbortController();
@@ -468,6 +688,7 @@ describe("sequence worker health", () => {
 		expect(
 			writes.filter((worker) => worker.status === "running").length,
 		).toBeGreaterThanOrEqual(3);
+		expect(maximumConcurrentWorkerWrites).toBe(1);
 		const health = await fileRepository.getRuntimeHealth({
 			now: new Date(),
 			workerStaleMs: 90_000,

@@ -647,6 +647,7 @@ export type WebhookEventType =
 	| "sequence.paused"
 	| "sequence.resumed"
 	| "sequence.reconciled"
+	| "sequence.deleted"
 	| "webhook.test";
 export type WebhookEventFamily =
 	| "operation"

@@ -212,6 +212,19 @@ describe("successful operation lifecycle projection", () => {
 				},
 			},
 		});
+		const deleted = projectSuccessfulOperationLifecycleEvents({
+			executionId: "execution-sequence-delete",
+			operationId: "sequences.delete",
+			operationInput: { id: "0f1647c2-50c7-44d0-b5be-7eeef90a7c9a" },
+			operationOutput: {
+				deleted: true,
+				sequence: {
+					id: "0f1647c2-50c7-44d0-b5be-7eeef90a7c9a",
+					status: "paused",
+					current_revision: 2,
+				},
+			},
+		});
 
 		expect(revised).toMatchObject([
 			{
@@ -243,8 +256,25 @@ describe("successful operation lifecycle projection", () => {
 				},
 			},
 		]);
-		expect(JSON.stringify([...revised, ...enrolled, ...reconciled])).not.toContain(
-			"subscriber_id",
-		);
+		expect(deleted).toMatchObject([
+			{
+				type: "sequence.deleted",
+				data: { status: "paused", current_revision: 2 },
+			},
+		]);
+		expect(
+			projectSuccessfulOperationLifecycleEvents({
+				executionId: "execution-sequence-malformed-enroll",
+				operationId: "sequences.enroll",
+				operationInput: {
+					id: "0f1647c2-50c7-44d0-b5be-7eeef90a7c9a",
+					subscriber_id: 42,
+				},
+				operationOutput: {},
+			}),
+		).toEqual([]);
+		expect(
+			JSON.stringify([...revised, ...enrolled, ...reconciled, ...deleted]),
+		).not.toContain("subscriber_id");
 	});
 });

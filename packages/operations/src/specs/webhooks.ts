@@ -320,6 +320,15 @@ export const outboundWebhookEventSpecs = [
 		schemaVersion: 1,
 	},
 	{
+		type: "sequence.deleted",
+		title: "Sequence deleted",
+		description:
+			"A sequence and its terminal enrollment history were deleted.",
+		source: "sequence",
+		subject: "sequence",
+		schemaVersion: 1,
+	},
+	{
 		type: "webhook.test",
 		title: "Webhook test",
 		description: "A signed test event was sent to one configured endpoint.",

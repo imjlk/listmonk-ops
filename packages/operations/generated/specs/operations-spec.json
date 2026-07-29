@@ -234,6 +234,14 @@
       "type": "sequence.reconciled"
     },
     {
+      "description": "A sequence and its terminal enrollment history were deleted.",
+      "schemaVersion": 1,
+      "source": "sequence",
+      "subject": "sequence",
+      "title": "Sequence deleted",
+      "type": "sequence.deleted"
+    },
+    {
       "description": "A signed test event was sent to one configured endpoint.",
       "schemaVersion": 1,
       "source": "webhook",
@@ -4420,6 +4428,9 @@
                     "const": "sequence.created"
                   },
                   {
+                    "const": "sequence.deleted"
+                  },
+                  {
                     "const": "sequence.enrolled"
                   },
                   {
@@ -4709,6 +4720,9 @@
                     "const": "sequence.created"
                   },
                   {
+                    "const": "sequence.deleted"
+                  },
+                  {
                     "const": "sequence.enrolled"
                   },
                   {
@@ -4994,6 +5008,9 @@
                     "const": "sequence.created"
                   },
                   {
+                    "const": "sequence.deleted"
+                  },
+                  {
                     "const": "sequence.enrolled"
                   },
                   {
@@ -5228,6 +5245,9 @@
                   },
                   {
                     "const": "sequence.created"
+                  },
+                  {
+                    "const": "sequence.deleted"
                   },
                   {
                     "const": "sequence.enrolled"
@@ -5543,6 +5563,9 @@
                   },
                   {
                     "const": "sequence.created"
+                  },
+                  {
+                    "const": "sequence.deleted"
                   },
                   {
                     "const": "sequence.enrolled"
@@ -5905,6 +5928,9 @@
                   },
                   {
                     "const": "sequence.created"
+                  },
+                  {
+                    "const": "sequence.deleted"
                   },
                   {
                     "const": "sequence.enrolled"
@@ -6638,6 +6664,9 @@
                         "const": "sequence.created"
                       },
                       {
+                        "const": "sequence.deleted"
+                      },
+                      {
                         "const": "sequence.enrolled"
                       },
                       {
@@ -6770,6 +6799,9 @@
                   },
                   {
                     "const": "sequence.created"
+                  },
+                  {
+                    "const": "sequence.deleted"
                   },
                   {
                     "const": "sequence.enrolled"
@@ -7072,6 +7104,9 @@
                   },
                   {
                     "const": "sequence.created"
+                  },
+                  {
+                    "const": "sequence.deleted"
                   },
                   {
                     "const": "sequence.enrolled"
@@ -7480,6 +7515,9 @@
                   },
                   {
                     "const": "sequence.created"
+                  },
+                  {
+                    "const": "sequence.deleted"
                   },
                   {
                     "const": "sequence.enrolled"
@@ -8804,6 +8842,9 @@
                     "const": "sequence.created"
                   },
                   {
+                    "const": "sequence.deleted"
+                  },
+                  {
                     "const": "sequence.enrolled"
                   },
                   {
@@ -9247,6 +9288,9 @@
                   },
                   {
                     "const": "sequence.created"
+                  },
+                  {
+                    "const": "sequence.deleted"
                   },
                   {
                     "const": "sequence.enrolled"
@@ -13720,8 +13764,10 @@
       },
       "resource": "sequence",
       "retry": {
-        "kind": "safe",
-        "reason": "Lease recovery is idempotent and bounded."
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "Lease recovery is idempotent, but ambiguous-send resolution changes delivery state and must be verified before retrying.",
+        "reconcileWith": "sequences.status"
       },
       "since": "0.9.0",
       "stability": "experimental",

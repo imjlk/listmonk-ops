@@ -78,15 +78,24 @@ try {
 	commandError = error;
 	throw error;
 } finally {
-	try {
-		await Promise.all([
-			closeOutboundWebhookRuntimeRepositories(),
-			closeSequenceRuntimeRepositories(),
-		]);
-	} catch (error) {
+	const closeResults = await Promise.allSettled([
+		closeOutboundWebhookRuntimeRepositories(),
+		closeSequenceRuntimeRepositories(),
+	]);
+	const closeFailures = closeResults
+		.filter(
+			(result): result is PromiseRejectedResult =>
+				result.status === "rejected",
+		)
+		.map((result) => result.reason);
+	if (closeFailures.length > 0) {
+		const error = new AggregateError(
+			closeFailures,
+			"Failed to close one or more runtime repositories",
+		);
 		if (commandError === undefined) {
 			throw error;
 		}
-		console.error("⚠️ Failed to close outbound webhook repositories:", error);
+		console.error("⚠️ Failed to close runtime repositories:", error);
 	}
 }

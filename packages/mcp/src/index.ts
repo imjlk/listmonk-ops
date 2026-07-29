@@ -37,30 +37,28 @@ let shutdownPromise: Promise<void> | undefined;
 
 async function shutdownRuntime(): Promise<void> {
 	shutdownPromise ??= (async () => {
-		let serverStopError: unknown;
+		const failures: unknown[] = [];
 		try {
 			activeHttpServer?.stop(true);
 		} catch (error) {
-			serverStopError = error;
+			failures.push(error);
 		} finally {
 			activeHttpServer = undefined;
 		}
-		try {
-			await Promise.all([
-				closeOutboundWebhookRuntimeRepositories(),
-				closeSequenceRuntimeRepositories(),
-			]);
-		} catch (repositoryError) {
-			if (serverStopError !== undefined) {
-				throw new AggregateError(
-					[serverStopError, repositoryError],
-					"Failed to stop the MCP runtime cleanly",
-				);
+		const closeResults = await Promise.allSettled([
+			closeOutboundWebhookRuntimeRepositories(),
+			closeSequenceRuntimeRepositories(),
+		]);
+		for (const result of closeResults) {
+			if (result.status === "rejected") {
+				failures.push(result.reason);
 			}
-			throw repositoryError;
 		}
-		if (serverStopError !== undefined) {
-			throw serverStopError;
+		if (failures.length > 0) {
+			throw new AggregateError(
+				failures,
+				"Failed to stop the MCP runtime cleanly",
+			);
 		}
 	})();
 	await shutdownPromise;

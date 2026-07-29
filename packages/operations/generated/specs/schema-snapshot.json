@@ -3547,6 +3547,9 @@
                   "const": "sequence.created"
                 },
                 {
+                  "const": "sequence.deleted"
+                },
+                {
                   "const": "sequence.enrolled"
                 },
                 {
@@ -3794,6 +3797,9 @@
                 },
                 {
                   "const": "sequence.created"
+                },
+                {
+                  "const": "sequence.deleted"
                 },
                 {
                   "const": "sequence.enrolled"
@@ -4081,6 +4087,9 @@
                   "const": "sequence.created"
                 },
                 {
+                  "const": "sequence.deleted"
+                },
+                {
                   "const": "sequence.enrolled"
                 },
                 {
@@ -4272,6 +4281,9 @@
                 },
                 {
                   "const": "sequence.created"
+                },
+                {
+                  "const": "sequence.deleted"
                 },
                 {
                   "const": "sequence.enrolled"
@@ -4587,6 +4599,9 @@
                 },
                 {
                   "const": "sequence.created"
+                },
+                {
+                  "const": "sequence.deleted"
                 },
                 {
                   "const": "sequence.enrolled"
@@ -4906,6 +4921,9 @@
                 },
                 {
                   "const": "sequence.created"
+                },
+                {
+                  "const": "sequence.deleted"
                 },
                 {
                   "const": "sequence.enrolled"
@@ -5515,6 +5533,9 @@
                       "const": "sequence.created"
                     },
                     {
+                      "const": "sequence.deleted"
+                    },
+                    {
                       "const": "sequence.enrolled"
                     },
                     {
@@ -5647,6 +5668,9 @@
                 },
                 {
                   "const": "sequence.created"
+                },
+                {
+                  "const": "sequence.deleted"
                 },
                 {
                   "const": "sequence.enrolled"
@@ -5949,6 +5973,9 @@
                 },
                 {
                   "const": "sequence.created"
+                },
+                {
+                  "const": "sequence.deleted"
                 },
                 {
                   "const": "sequence.enrolled"
@@ -6315,6 +6342,9 @@
                 },
                 {
                   "const": "sequence.created"
+                },
+                {
+                  "const": "sequence.deleted"
                 },
                 {
                   "const": "sequence.enrolled"
@@ -7429,6 +7459,9 @@
                   "const": "sequence.created"
                 },
                 {
+                  "const": "sequence.deleted"
+                },
+                {
                   "const": "sequence.enrolled"
                 },
                 {
@@ -7833,6 +7866,9 @@
                 },
                 {
                   "const": "sequence.created"
+                },
+                {
+                  "const": "sequence.deleted"
                 },
                 {
                   "const": "sequence.enrolled"
@@ -11710,8 +11746,10 @@
         "dryRun": true
       },
       "retry": {
-        "kind": "safe",
-        "reason": "Lease recovery is idempotent and bounded."
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "Lease recovery is idempotent, but ambiguous-send resolution changes delivery state and must be verified before retrying.",
+        "reconcileWith": "sequences.status"
       },
       "since": "0.9.0",
       "stability": "experimental"

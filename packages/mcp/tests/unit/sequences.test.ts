@@ -61,7 +61,7 @@ describe("MCP sequence tools", () => {
 		expect(tick?.inputSchema.required).toContain("confirm");
 		expect(reconcile?.annotations).toMatchObject({
 			destructiveHint: true,
-			idempotentHint: true,
+			idempotentHint: false,
 		});
 		expect(reconcile?.inputSchema.required).toContain("confirm");
 	});

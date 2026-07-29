@@ -195,7 +195,45 @@ const sequenceStatusInputSchema = z.object({
 		.default(90_000),
 });
 
-const sequenceStepOutputSchema = sequenceStepInputSchema;
+const strictPositiveInteger = z.number().int().positive();
+const sequenceStepOutputSchema = z.discriminatedUnion("type", [
+	z.object({
+		id: stepIdInput,
+		type: z.literal("send"),
+		template_id: strictPositiveInteger,
+		from_email: z.string().trim().min(1).optional(),
+		data: z.record(z.string(), z.unknown()).optional(),
+		content_type: z.enum(["html", "markdown", "plain"]).optional(),
+	}),
+	z.object({
+		id: stepIdInput,
+		type: z.literal("wait"),
+		duration_seconds: strictPositiveInteger.max(31_536_000),
+	}),
+	z.object({
+		id: stepIdInput,
+		type: z.literal("wait_until"),
+		at: isoDateTimeInput,
+	}),
+	z.object({
+		id: stepIdInput,
+		type: z.literal("condition"),
+		path: z
+			.string()
+			.trim()
+			.min(1)
+			.max(200)
+			.regex(/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/),
+		operator: z.enum(["equals", "not_equals", "exists"]),
+		value: z.unknown().optional(),
+		on_true: stepIdInput,
+		on_false: stepIdInput,
+	}),
+	z.object({
+		id: stepIdInput,
+		type: z.literal("stop"),
+	}),
+]);
 const sequenceRevisionOutputSchema = z.object({
 	revision: z.number().int().positive(),
 	steps: z.array(sequenceStepOutputSchema),
@@ -804,7 +842,7 @@ export const sequenceReconcileOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: true,
+		idempotentHint: false,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_sequences_reconcile" },
