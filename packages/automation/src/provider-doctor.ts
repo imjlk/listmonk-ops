@@ -794,6 +794,9 @@ export async function inspectProviderWebhook(
 	const latestType =
 		typeof latest?.type === "string" ? latest.type : undefined;
 	const parsed = createdAt === undefined ? Number.NaN : Date.parse(createdAt);
+	const normalizedCreatedAt = Number.isFinite(parsed)
+		? new Date(parsed).toISOString()
+		: undefined;
 	const ageMs = Number.isFinite(parsed) ? now.getTime() - parsed : undefined;
 	const futureTimestamp = ageMs !== undefined && ageMs < 0;
 	const freshness =
@@ -857,7 +860,9 @@ export async function inspectProviderWebhook(
 		...(providerEnabled === undefined
 			? {}
 			: { provider_bounce_enabled: providerEnabled }),
-		...(createdAt === undefined ? {} : { last_event_at: createdAt }),
+		...(normalizedCreatedAt === undefined
+			? {}
+			: { last_event_at: normalizedCreatedAt }),
 		...(latestType === undefined ? {} : { last_event_type: latestType }),
 		freshness,
 		healthy: checks.every(({ status }) => status !== "fail"),
@@ -1000,7 +1005,7 @@ function dmarcTreeWalkDomains(domain: string): string[] {
 function parseTagRecord(
 	record: string,
 	options: { lowercaseValues?: boolean } = {},
-): ReadonlyMap<string, string> {
+): ReadonlyMap<string, string> | undefined {
 	const tags = new Map<string, string>();
 	for (const item of record.split(";")) {
 		const separator = item.indexOf("=");
@@ -1008,12 +1013,16 @@ function parseTagRecord(
 		const key = item.slice(0, separator).trim().toLowerCase();
 		const rawValue = item.slice(separator + 1).trim();
 		const value = options.lowercaseValues ? rawValue.toLowerCase() : rawValue;
-		if (key && !tags.has(key)) tags.set(key, value);
+		if (!key) continue;
+		if (tags.has(key)) return undefined;
+		tags.set(key, value);
 	}
 	return tags;
 }
 
-function parseDmarcTags(record: string): ReadonlyMap<string, string> {
+function parseDmarcTags(
+	record: string,
+): ReadonlyMap<string, string> | undefined {
 	return parseTagRecord(record, { lowercaseValues: true });
 }
 
@@ -1025,6 +1034,7 @@ function validDmarcPolicyRecord(
 	const firstTag = record.split(";", 1)[0]?.trim();
 	if (firstTag?.toLowerCase() !== "v=dmarc1") return undefined;
 	const tags = parseDmarcTags(record);
+	if (tags === undefined) return undefined;
 	if (tags.get("v") !== "dmarc1") return undefined;
 	const policy = tags.get("p");
 	if (policy === undefined || !DMARC_POLICIES.has(policy)) return undefined;
@@ -1128,6 +1138,7 @@ async function discoverDmarcPolicy(
 function hasDirectDkimKey(record: string): boolean {
 	const tags = parseTagRecord(record);
 	return (
+		tags !== undefined &&
 		tags.get("v")?.toLowerCase() === "dkim1" &&
 		(tags.get("p")?.length ?? 0) > 0
 	);
@@ -1135,17 +1146,19 @@ function hasDirectDkimKey(record: string): boolean {
 
 function hasExactSpfInclude(record: string, expectedDomain: string): boolean {
 	const expected = normalizeDomain(expectedDomain);
-	return record
-		.trim()
-		.split(/\s+/)
-		.slice(1)
-		.some((mechanism) => {
-			const qualifier = /^[+?~-]/.exec(mechanism)?.[0];
-			if (qualifier !== undefined && qualifier !== "+") return false;
-			const unqualified = mechanism.replace(/^[+?~-]/, "");
-			if (!unqualified.toLowerCase().startsWith("include:")) return false;
-			return normalizeDomain(unqualified.slice("include:".length)) === expected;
-		});
+	for (const mechanism of record.trim().split(/\s+/).slice(1)) {
+		const qualifier = /^[+?~-]/.exec(mechanism)?.[0];
+		const unqualified = mechanism.replace(/^[+?~-]/, "");
+		if (unqualified.toLowerCase() === "all") return false;
+		if (qualifier !== undefined && qualifier !== "+") continue;
+		if (!unqualified.toLowerCase().startsWith("include:")) continue;
+		if (
+			normalizeDomain(unqualified.slice("include:".length)) === expected
+		) {
+			return true;
+		}
+	}
+	return false;
 }
 
 export async function inspectProviderDns(
@@ -1316,8 +1329,10 @@ export async function inspectProviderDns(
 				? `feedback-smtp.${profile.region}.amazonses.com`
 				: undefined;
 		const mxReady =
-			mx.values.length === 1 &&
-			(expectedMx === undefined || mx.values[0]!.endsWith(` ${expectedMx}`));
+			expectedMx === undefined
+				? mx.values.length > 0
+				: mx.values.length === 1 &&
+					mx.values[0]!.endsWith(` ${expectedMx}`);
 		const mxStatus: DoctorCheckStatus =
 			mx.outcome === "error" ? "unknown" : mxReady ? "pass" : "fail";
 		const mxMessage =
@@ -1325,7 +1340,9 @@ export async function inspectProviderDns(
 				? "Custom MAIL FROM MX could not be determined because the DNS lookup failed."
 				: mxReady
 					? "Custom MAIL FROM MX record is present."
-					: "Custom MAIL FROM requires exactly one expected MX record.";
+					: expectedMx === undefined
+						? "Custom MAIL FROM requires at least one MX record."
+						: "Custom MAIL FROM requires exactly one expected MX record.";
 		checks.push({
 			id: "dns.mail-from-mx",
 			status: mxStatus,
@@ -1461,6 +1478,20 @@ export async function runProviderDoctor(
 							profile,
 							quotaResult.reason,
 						),
+					},
+				]
+			: []),
+		...(quotaResult.status === "fulfilled" &&
+		quota.supported &&
+		quota.max_24_hour_send !== undefined &&
+		quota.max_24_hour_send !== -1 &&
+		quota.remaining_24_hours === 0
+			? [
+					{
+						id: "provider.quota",
+						status: "fail" as const,
+						message:
+							"The provider daily sending quota is exhausted; wait for capacity to recover or request a quota increase.",
 					},
 				]
 			: []),

@@ -45,6 +45,20 @@ const hostnameSchema = z
 				/^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/,
 			),
 	);
+const spfDnsTargetSchema = z
+	.string()
+	.trim()
+	.toLowerCase()
+	.transform((value) => value.replace(/\.$/, ""))
+	.pipe(
+		z
+			.string()
+			.min(1)
+			.max(253)
+			.regex(
+				/^(?=.{1,253}$)(?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?\.)+[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?$/,
+			),
+	);
 const awsSecretReferenceSchema = z
 	.string()
 	.trim()
@@ -70,7 +84,7 @@ export const providerProfileSchema = z
 			.max(20)
 			.default([]),
 		mail_from_domain: domainSchema.optional(),
-		expected_spf_include: domainSchema.optional(),
+		expected_spf_include: spfDnsTargetSchema.optional(),
 		region: z.string().trim().min(1).max(64).optional(),
 		secret_ref: awsSecretReferenceSchema.optional(),
 		webhook_source: z.string().trim().min(1).max(100).optional(),

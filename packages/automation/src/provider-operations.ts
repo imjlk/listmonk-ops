@@ -110,7 +110,7 @@ const providerIdentitySchema = z.object({
 	mail_from_behavior: z.string().min(1).optional(),
 });
 const listmonkProviderSchema = z.object({
-	from_email: z.string().min(1).optional(),
+	from_email: z.string().optional(),
 	from_domain: z.string().min(1).optional(),
 	messenger: z.string().min(1),
 	messenger_configured: z.boolean(),
