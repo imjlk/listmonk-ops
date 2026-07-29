@@ -10,6 +10,7 @@ import {
 	invokeProviderStatusOperation,
 	invokeProviderTestOperation,
 	invokeProviderWebhookStatusOperation,
+	loadProviderProfiles,
 	providerOperationCatalog,
 	providerProfileSchema,
 	type ProviderDnsResolver,
@@ -278,6 +279,33 @@ describe("provider and deliverability operations", () => {
 		expect(JSON.stringify(output)).not.toContain("aws:profile");
 	});
 
+	test("preserves operation results when provider cleanup fails", async () => {
+		const cleanupFailureInspector = inspector();
+		cleanupFailureInspector.close = () => {
+			throw new Error("cleanup failed");
+		};
+		const output = await invokeProviderTestOperation(
+			context({ createInspector: () => cleanupFailureInspector }),
+			{ provider_id: profile.id },
+		);
+		expect(output.probe.authenticated).toBe(true);
+	});
+
+	test("reports unavailable SES identity evidence in standalone DNS checks", async () => {
+		const identityFailureInspector = inspector();
+		identityFailureInspector.inspectIdentity = async () => {
+			throw new Error("identity unavailable");
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ createInspector: () => identityFailureInspector }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks[0]).toMatchObject({
+			id: "provider.identity",
+			status: "unknown",
+		});
+	});
+
 	test("does not claim API support for generic SMTP", async () => {
 		const smtpProfile = providerProfileSchema.parse({
 			id: "relay",
@@ -306,6 +334,13 @@ describe("provider and deliverability operations", () => {
 				secret_ref: "raw-secret",
 			}),
 		).toThrow();
+		expect(() =>
+			providerProfileSchema.parse({
+				id: "missing-host",
+				kind: "smtp",
+				sending_domain: "mail.example.com",
+			}),
+		).toThrow("require an SMTP host");
 	});
 });
 
@@ -351,5 +386,15 @@ describe("provider profile loader", () => {
 				secret_ref: "AKIAABCDEFGHIJKLMNOP",
 			}),
 		).toThrow();
+	});
+
+	test("does not expose an inaccessible provider config path", async () => {
+		const missingPath = join(tmpdir(), "private-provider-config.json");
+		await expect(loadProviderProfiles({ path: missingPath })).rejects.toThrow(
+			"Provider config is not accessible",
+		);
+		await expect(loadProviderProfiles({ path: missingPath })).rejects.not.toThrow(
+			missingPath,
+		);
 	});
 });

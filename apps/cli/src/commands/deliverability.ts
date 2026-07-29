@@ -5,7 +5,10 @@ import {
 import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
 import { getOutput } from "../lib/output";
-import { resolveProviderOperationContext } from "../lib/provider";
+import {
+	resolveProviderOperationContext,
+	runProviderCliCommand,
+} from "../lib/provider";
 
 const providerIdOption = option(
 	z.string().trim().min(1).max(80).regex(/^[a-z][a-z0-9._-]*$/),
@@ -19,9 +22,11 @@ const dnsCheckCommand = defineCommand({
 	options: { "provider-id": providerIdOption },
 	handler: async ({ flags, ...args }) => {
 		getOutput().json(
-			await invokeDeliverabilityDnsCheckOperation(
-				await resolveProviderOperationContext(args, false),
-				{ provider_id: flags["provider-id"] },
+			await runProviderCliCommand("Deliverability DNS check", async () =>
+				invokeDeliverabilityDnsCheckOperation(
+					await resolveProviderOperationContext(args, false),
+					{ provider_id: flags["provider-id"] },
+				),
 			),
 		);
 	},
@@ -40,12 +45,14 @@ const doctorCommand = defineCommand({
 	},
 	handler: async ({ flags, ...args }) => {
 		getOutput().json(
-			await invokeDeliverabilityDoctorOperation(
-				await resolveProviderOperationContext(args, true),
-				{
-					provider_id: flags["provider-id"],
-					max_age_hours: flags["max-age-hours"],
-				},
+			await runProviderCliCommand("Deliverability doctor", async () =>
+				invokeDeliverabilityDoctorOperation(
+					await resolveProviderOperationContext(args, true),
+					{
+						provider_id: flags["provider-id"],
+						max_age_hours: flags["max-age-hours"],
+					},
+				),
 			),
 		);
 	},

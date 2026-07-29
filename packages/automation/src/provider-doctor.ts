@@ -781,18 +781,29 @@ async function observeDns(
 	type: DnsObservation["type"],
 	load: () => Promise<string[]>,
 ): Promise<string[]> {
+	const result = await resolveDnsObservation(name, type, load);
+	observations.push(result.observation);
+	return result.values;
+}
+
+async function resolveDnsObservation(
+	name: string,
+	type: DnsObservation["type"],
+	load: () => Promise<string[]>,
+): Promise<{ observation: DnsObservation; values: string[] }> {
 	try {
 		const values = await load();
-		observations.push({ name, type, values });
-		return values;
+		return { observation: { name, type, values }, values };
 	} catch (error) {
-		observations.push({
-			name,
-			type,
+		return {
+			observation: {
+				name,
+				type,
+				values: [],
+				error: errorMessage(error),
+			},
 			values: [],
-			error: errorMessage(error),
-		});
-		return [];
+		};
 	}
 }
 
@@ -826,10 +837,9 @@ export async function inspectProviderDns(
 		details: { name: dmarcName },
 	});
 
-	const selectors =
-		identity?.dkim_tokens.length && identity.dkim_tokens.length > 0
-			? identity.dkim_tokens
-			: profile.dkim_selectors;
+	const selectors = identity?.dkim_tokens.length
+		? identity.dkim_tokens
+		: profile.dkim_selectors;
 	if (selectors.length === 0) {
 		checks.push({
 			id: "dns.dkim",
@@ -838,24 +848,28 @@ export async function inspectProviderDns(
 				"No DKIM selectors are available in the provider profile or identity response.",
 		});
 	} else {
-		let ready = 0;
-		for (const selector of selectors) {
-			const name = `${selector}._domainkey.${profile.sending_domain}`;
-			const records = await observeDns(observations, name, "CNAME", () =>
-				dns.cname(name),
-			);
-			if (
-				records.some((record) =>
-					profile.kind === "ses"
-						? record.toLowerCase().replace(/\.$/, "").endsWith(
-								".dkim.amazonses.com",
-							)
-						: record.length > 0,
-				)
-			) {
-				ready += 1;
-			}
+		const results = await Promise.all(
+			selectors.map(async (selector) => {
+				const name = `${selector}._domainkey.${profile.sending_domain}`;
+				const result = await resolveDnsObservation(name, "CNAME", () =>
+					dns.cname(name),
+				);
+				return {
+					...result,
+					ready: result.values.some((record) =>
+						profile.kind === "ses"
+							? record.toLowerCase().replace(/\.$/, "").endsWith(
+									".dkim.amazonses.com",
+								)
+							: record.length > 0,
+					),
+				};
+			}),
+		);
+		for (const result of results) {
+			observations.push(result.observation);
 		}
+		const ready = results.filter((result) => result.ready).length;
 		checks.push({
 			id: "dns.dkim",
 			status: ready === selectors.length ? "pass" : "fail",
@@ -879,32 +893,16 @@ export async function inspectProviderDns(
 		const txt = await observeDns(observations, mailFromDomain, "TXT", () =>
 			dns.txt(mailFromDomain),
 		);
-		const mxRecords = await dns
-			.mx(mailFromDomain)
-			.then((records) =>
-				records.map(
+		const mxRecords = await observeDns(
+			observations,
+			mailFromDomain,
+			"MX",
+			async () =>
+				(await dns.mx(mailFromDomain)).map(
 					({ priority, exchange }) =>
 						`${priority} ${exchange.toLowerCase().replace(/\.$/, "")}`,
 				),
-			)
-			.catch((error) => {
-				observations.push({
-					name: mailFromDomain,
-					type: "MX",
-					values: [],
-					error: errorMessage(error),
-				});
-				return [];
-			});
-		if (!observations.some(
-			({ name, type }) => name === mailFromDomain && type === "MX",
-		)) {
-			observations.push({
-				name: mailFromDomain,
-				type: "MX",
-				values: mxRecords,
-			});
-		}
+		);
 		const spfRecords = txt.filter((record) =>
 			record.trim().toLowerCase().startsWith("v=spf1"),
 		);
@@ -976,10 +974,15 @@ export async function runProviderDoctor(
 	context: ProviderInspectionContext,
 	maxWebhookAgeHours = profile.webhook_max_age_hours,
 ): Promise<ProviderDoctorSnapshot> {
-	const status = await inspectProviderStatus(profile, context);
+	const now = context.now?.() ?? new Date();
+	const snapshotContext: ProviderInspectionContext = {
+		...context,
+		now: () => now,
+	};
+	const status = await inspectProviderStatus(profile, snapshotContext);
 	const [quotaResult, webhookResult] = await Promise.allSettled([
-		inspectProviderQuota(profile, context),
-		inspectProviderWebhook(profile, context, maxWebhookAgeHours),
+		inspectProviderQuota(profile, snapshotContext),
+		inspectProviderWebhook(profile, snapshotContext, maxWebhookAgeHours),
 	]);
 	const quota: ProviderQuotaSnapshot =
 		quotaResult.status === "fulfilled"
@@ -987,7 +990,7 @@ export async function runProviderDoctor(
 			: {
 					provider_id: profile.id,
 					supported: profile.kind === "ses",
-					checked_at: (context.now?.() ?? new Date()).toISOString(),
+					checked_at: now.toISOString(),
 				};
 	const webhook: ProviderWebhookSnapshot =
 		webhookResult.status === "fulfilled"
@@ -995,7 +998,7 @@ export async function runProviderDoctor(
 			: {
 					provider_id: profile.id,
 					source: profileWebhookSource(profile),
-					checked_at: (context.now?.() ?? new Date()).toISOString(),
+					checked_at: now.toISOString(),
 					max_age_hours: maxWebhookAgeHours,
 					bounce_processing_enabled: false,
 					bounce_webhooks_enabled: false,
@@ -1010,14 +1013,14 @@ export async function runProviderDoctor(
 					],
 				};
 	let identity = status.identity;
-	if (identity === undefined && context.inspector !== undefined) {
+	if (identity === undefined && snapshotContext.inspector !== undefined) {
 		try {
-			identity = await context.inspector.inspectIdentity();
+			identity = await snapshotContext.inspector.inspectIdentity();
 		} catch {
 			// The provider status check already reports the sanitized API failure.
 		}
 	}
-	const dns = await inspectProviderDns(profile, context, identity);
+	const dns = await inspectProviderDns(profile, snapshotContext, identity);
 	const checks = [
 		...status.checks,
 		...webhook.checks,
@@ -1043,7 +1046,7 @@ export async function runProviderDoctor(
 	};
 	return {
 		provider_id: profile.id,
-		checked_at: (context.now?.() ?? new Date()).toISOString(),
+		checked_at: now.toISOString(),
 		ready: summary.fail === 0,
 		summary,
 		status,

@@ -93,12 +93,21 @@ export const providerProfileSchema = z
 						"SES provider profiles require an aws:default or aws:profile:<name> secret reference",
 				});
 			}
-		} else if (profile.secret_ref !== undefined) {
-			context.addIssue({
-				code: "custom",
-				path: ["secret_ref"],
-				message: "Generic SMTP profiles do not accept AWS secret references",
-			});
+		} else {
+			if (profile.secret_ref !== undefined) {
+				context.addIssue({
+					code: "custom",
+					path: ["secret_ref"],
+					message: "Generic SMTP profiles do not accept AWS secret references",
+				});
+			}
+			if (profile.smtp_hosts.length === 0) {
+				context.addIssue({
+					code: "custom",
+					path: ["smtp_hosts"],
+					message: "Generic SMTP provider profiles require an SMTP host",
+				});
+			}
 		}
 	});
 
@@ -140,7 +149,14 @@ export async function loadProviderProfiles(
 	}
 
 	const absolutePath = resolve(configuredPath);
-	const metadata = await stat(absolutePath);
+	let metadata;
+	try {
+		metadata = await stat(absolutePath);
+	} catch {
+		throw new TypeError(
+			"Provider config is not accessible; check LISTMONK_OPS_PROVIDER_CONFIG",
+		);
+	}
 	if (!metadata.isFile()) {
 		throw new TypeError("Provider config must reference a regular JSON file");
 	}
@@ -252,46 +268,58 @@ export function createSesProviderInspector(
 
 	return {
 		inspectAccount() {
-			accountPromise ??= sendWithTimeout(timeoutMs, async (signal) => {
-				const account = await client.send(new GetAccountCommand({}), {
-					abortSignal: signal,
+			if (accountPromise === undefined) {
+				const pending = sendWithTimeout(timeoutMs, async (signal) => {
+					const account = await client.send(new GetAccountCommand({}), {
+						abortSignal: signal,
+					});
+					return {
+						production_access_enabled: account.ProductionAccessEnabled,
+						sending_enabled: account.SendingEnabled,
+						enforcement_status: account.EnforcementStatus,
+						max_24_hour_send: account.SendQuota?.Max24HourSend,
+						max_send_rate: account.SendQuota?.MaxSendRate,
+						sent_last_24_hours: account.SendQuota?.SentLast24Hours,
+						suppressed_reasons: [
+							...(account.SuppressionAttributes?.SuppressedReasons ?? []),
+						],
+					};
 				});
-				return {
-					production_access_enabled: account.ProductionAccessEnabled,
-					sending_enabled: account.SendingEnabled,
-					enforcement_status: account.EnforcementStatus,
-					max_24_hour_send: account.SendQuota?.Max24HourSend,
-					max_send_rate: account.SendQuota?.MaxSendRate,
-					sent_last_24_hours: account.SendQuota?.SentLast24Hours,
-					suppressed_reasons: [
-						...(account.SuppressionAttributes?.SuppressedReasons ?? []),
-					],
-				};
-			});
+				accountPromise = pending;
+				void pending.catch(() => {
+					if (accountPromise === pending) accountPromise = undefined;
+				});
+			}
 			return accountPromise;
 		},
 		inspectIdentity() {
-			identityPromise ??= sendWithTimeout(timeoutMs, async (signal) => {
-				const identity = await client.send(
-					new GetEmailIdentityCommand({
-						EmailIdentity: profile.sending_domain,
-					}),
-					{ abortSignal: signal },
-				);
-				return {
-					identity_type: identity.IdentityType,
-					verified_for_sending: identity.VerifiedForSendingStatus,
-					verification_status: identity.VerificationStatus,
-					feedback_forwarding_enabled: identity.FeedbackForwardingStatus,
-					dkim_signing_enabled: identity.DkimAttributes?.SigningEnabled,
-					dkim_status: identity.DkimAttributes?.Status,
-					dkim_tokens: [...(identity.DkimAttributes?.Tokens ?? [])],
-					mail_from_domain: identity.MailFromAttributes?.MailFromDomain,
-					mail_from_status: identity.MailFromAttributes?.MailFromDomainStatus,
-					mail_from_behavior:
-						identity.MailFromAttributes?.BehaviorOnMxFailure,
-				};
-			});
+			if (identityPromise === undefined) {
+				const pending = sendWithTimeout(timeoutMs, async (signal) => {
+					const identity = await client.send(
+						new GetEmailIdentityCommand({
+							EmailIdentity: profile.sending_domain,
+						}),
+						{ abortSignal: signal },
+					);
+					return {
+						identity_type: identity.IdentityType,
+						verified_for_sending: identity.VerifiedForSendingStatus,
+						verification_status: identity.VerificationStatus,
+						feedback_forwarding_enabled: identity.FeedbackForwardingStatus,
+						dkim_signing_enabled: identity.DkimAttributes?.SigningEnabled,
+						dkim_status: identity.DkimAttributes?.Status,
+						dkim_tokens: [...(identity.DkimAttributes?.Tokens ?? [])],
+						mail_from_domain: identity.MailFromAttributes?.MailFromDomain,
+						mail_from_status: identity.MailFromAttributes?.MailFromDomainStatus,
+						mail_from_behavior:
+							identity.MailFromAttributes?.BehaviorOnMxFailure,
+					};
+				});
+				identityPromise = pending;
+				void pending.catch(() => {
+					if (identityPromise === pending) identityPromise = undefined;
+				});
+			}
 			return identityPromise;
 		},
 		close() {

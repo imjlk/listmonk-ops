@@ -244,7 +244,11 @@ async function withProfile<T>(
 			inspector,
 		});
 	} finally {
-		inspector?.close();
+		try {
+			inspector?.close();
+		} catch {
+			// Cleanup must not replace the diagnostic result or primary failure.
+		}
 	}
 }
 
@@ -307,14 +311,28 @@ export async function executeDeliverabilityDnsCheckOperation(
 ) {
 	return withProfile(context, input.provider_id, async (profile, inspection) => {
 		let identity;
+		let identityUnavailable = false;
 		if (inspection.inspector) {
 			try {
 				identity = await inspection.inspector.inspectIdentity();
 			} catch {
-				// DNS checks remain useful when provider credentials are unavailable.
+				identityUnavailable = true;
 			}
 		}
-		return inspectProviderDns(profile, inspection, identity);
+		const result = await inspectProviderDns(profile, inspection, identity);
+		if (!identityUnavailable) return result;
+		return {
+			...result,
+			checks: [
+				{
+					id: "provider.identity",
+					status: "unknown" as const,
+					message:
+						"Provider identity inspection was unavailable; DNS checks used configured selectors.",
+				},
+				...result.checks,
+			],
+		};
 	});
 }
 
@@ -585,6 +603,9 @@ export const providerOperationCatalog = defineOperationCatalog({
 const byMcpName = new Map(
 	bindings.map((binding) => [binding.operation.mcp.name, binding] as const),
 );
+if (byMcpName.size !== bindings.length) {
+	throw new Error("Provider operations contain duplicate MCP tool names");
+}
 
 export function getProviderOperationByMcpName(name: string) {
 	return byMcpName.get(name)?.operation;
