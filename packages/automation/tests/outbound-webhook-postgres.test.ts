@@ -9,6 +9,7 @@ import {
 	pruneOutboundWebhookDeliveries,
 	reconcileOutboundWebhookDeliveries,
 	type OutboundWebhookRepository,
+	updateOutboundWebhookEndpoint,
 } from "../src/outbound-webhooks";
 
 const databaseUrl =
@@ -85,6 +86,29 @@ describe("Postgres outbound webhook repository", () => {
 				{ repository: first },
 			);
 			endpointIds.add(endpoint.id);
+			const concurrentName = `postgres-worker-updated-${randomUUID()}`;
+			await Promise.all([
+				updateOutboundWebhookEndpoint(
+					endpoint.id,
+					{ name: concurrentName },
+					{
+						repository: first,
+						now: new Date("2026-07-28T23:59:58.000Z"),
+					},
+				),
+				updateOutboundWebhookEndpoint(
+					endpoint.id,
+					{ timeoutMs: 12_345 },
+					{
+						repository: second,
+						now: new Date("2026-07-28T23:59:59.000Z"),
+					},
+				),
+			]);
+			expect(await first.getEndpoint(endpoint.id)).toMatchObject({
+				name: concurrentName,
+				timeoutMs: 12_345,
+			});
 			const initialAt = new Date("2026-07-29T00:00:00.000Z");
 			for (let index = 0; index < 8; index += 1) {
 				const enqueued = await enqueueOutboundWebhookEvent(

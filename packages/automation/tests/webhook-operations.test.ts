@@ -75,7 +75,6 @@ describe("webhook shared operations", () => {
 		expect(
 			await invokeWebhookReconcileOperation(context, {
 				limit: 10,
-				dry_run: true,
 			}),
 		).toEqual({
 			scanned: 0,

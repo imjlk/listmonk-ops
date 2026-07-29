@@ -40,6 +40,8 @@ import {
 	updateOutboundWebhookEndpoint,
 } from "./outbound-webhooks";
 
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1_000;
+
 export interface WebhookOperationContext {
 	store?: OutboundWebhookStoreOptions;
 	fetcher?: typeof fetch;
@@ -177,7 +179,7 @@ const webhookDeliveryRetryInputSchema = z.object({
 });
 const webhookReconcileInputSchema = z.object({
 	limit: webhookDeliveryListLimitInput.default(100),
-	dry_run: booleanInput.default(false),
+	dry_run: booleanInput.default(true),
 });
 const webhookPruneInputSchema = z.object({
 	older_than_days: positiveIntegerInput
@@ -560,7 +562,7 @@ export async function executeWebhookPruneOperation(
 ) {
 	const result = await pruneOutboundWebhookDeliveries({
 		...resolveWebhookOperationStore(context),
-		before: new Date(Date.now() - input.older_than_days * 24 * 60 * 60 * 1_000),
+		before: new Date(Date.now() - input.older_than_days * MILLISECONDS_PER_DAY),
 		limit: input.limit,
 		dryRun: input.dry_run,
 	});

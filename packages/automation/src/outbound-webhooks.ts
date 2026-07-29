@@ -139,6 +139,11 @@ export type OutboundWebhookStoreOptions = Readonly<{
 	repository?: OutboundWebhookRepository;
 }>;
 
+export type OutboundWebhookMutationOptions = OutboundWebhookStoreOptions &
+	Readonly<{
+		now?: Date;
+	}>;
+
 export type CreateOutboundWebhookEndpointInput = Readonly<{
 	name: string;
 	url: string;
@@ -276,7 +281,8 @@ export interface OutboundWebhookRepository {
 	): Promise<OutboundWebhookEndpoint>;
 	updateEndpoint(
 		id: string,
-		endpoint: OutboundWebhookEndpoint,
+		input: UpdateOutboundWebhookEndpointInput,
+		now: Date,
 	): Promise<OutboundWebhookEndpoint>;
 	deleteEndpoint(
 		id: string,
@@ -440,6 +446,30 @@ function nowIso(now = new Date()): string {
 	return now.toISOString();
 }
 
+export function mergeOutboundWebhookEndpointUpdate(
+	previous: OutboundWebhookEndpoint,
+	input: UpdateOutboundWebhookEndpointInput,
+	now: Date,
+): OutboundWebhookEndpoint {
+	return endpointSchema.parse({
+		...previous,
+		...(input.name === undefined ? {} : { name: input.name }),
+		...(input.url === undefined
+			? {}
+			: { url: normalizeOutboundWebhookEndpointUrl(input.url) }),
+		...(input.secretRef === undefined ? {} : { secretRef: input.secretRef }),
+		...(input.eventFilters === undefined
+			? {}
+			: { eventFilters: normalizeEventFilters(input.eventFilters) }),
+		...(input.enabled === undefined ? {} : { enabled: input.enabled }),
+		...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+		...(input.maxAttempts === undefined
+			? {}
+			: { maxAttempts: input.maxAttempts }),
+		updatedAt: nowIso(now),
+	});
+}
+
 function parseStore(value: unknown): OutboundWebhookStore {
 	const parsed = storeSchema.safeParse(value);
 	if (!parsed.success) {
@@ -528,7 +558,7 @@ export function createFileOutboundWebhookRepository(
 				);
 			});
 		},
-		async updateEndpoint(id, endpoint) {
+		async updateEndpoint(id, input, now) {
 			const store = createOutboundWebhookStore(fileOptions.path);
 			return updateJsonFileStore(store, (current) => {
 				const index = current.endpoints.findIndex(
@@ -537,6 +567,11 @@ export function createFileOutboundWebhookRepository(
 				if (index < 0) {
 					throw new OutboundWebhookNotFoundError("endpoint", id);
 				}
+				const endpoint = mergeOutboundWebhookEndpointUpdate(
+					current.endpoints[index]!,
+					input,
+					now,
+				);
 				if (
 					current.endpoints.some(
 						(candidate) =>
@@ -556,8 +591,8 @@ export function createFileOutboundWebhookRepository(
 				);
 			});
 		},
-		deleteEndpoint: (id, _now) =>
-			deleteOutboundWebhookEndpoint(id, fileOptions),
+		deleteEndpoint: (id, now) =>
+			deleteOutboundWebhookEndpoint(id, { ...fileOptions, now }),
 		enqueue: (event, enqueueOptions) =>
 			enqueueOutboundWebhookEvent(
 				{
@@ -579,8 +614,8 @@ export function createFileOutboundWebhookRepository(
 			),
 		listDeliveries: (listOptions) =>
 			listOutboundWebhookDeliveries({ ...fileOptions, ...listOptions }),
-		retryDelivery: (id, _now) =>
-			retryOutboundWebhookDelivery(id, fileOptions),
+		retryDelivery: (id, now) =>
+			retryOutboundWebhookDelivery(id, { ...fileOptions, now }),
 		claimDeliveries: (claimOptions) =>
 			claimOutboundWebhookDeliveries({
 				...fileOptions,
@@ -807,32 +842,11 @@ export async function createOutboundWebhookEndpoint(
 export async function updateOutboundWebhookEndpoint(
 	id: string,
 	input: UpdateOutboundWebhookEndpointInput,
-	options: OutboundWebhookStoreOptions = {},
+	options: OutboundWebhookMutationOptions = {},
 ): Promise<OutboundWebhookEndpoint> {
+	const now = options.now ?? new Date();
 	if (options.repository) {
-		const previous = await options.repository.getEndpoint(id);
-		const endpoint = endpointSchema.parse({
-			...previous,
-			...(input.name === undefined ? {} : { name: input.name }),
-			...(input.url === undefined
-				? {}
-				: { url: normalizeOutboundWebhookEndpointUrl(input.url) }),
-			...(input.secretRef === undefined
-				? {}
-				: { secretRef: input.secretRef }),
-			...(input.eventFilters === undefined
-				? {}
-				: { eventFilters: normalizeEventFilters(input.eventFilters) }),
-			...(input.enabled === undefined ? {} : { enabled: input.enabled }),
-			...(input.timeoutMs === undefined
-				? {}
-				: { timeoutMs: input.timeoutMs }),
-			...(input.maxAttempts === undefined
-				? {}
-				: { maxAttempts: input.maxAttempts }),
-			updatedAt: nowIso(),
-		});
-		return options.repository.updateEndpoint(id, endpoint);
+		return options.repository.updateEndpoint(id, input, now);
 	}
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
@@ -841,27 +855,7 @@ export async function updateOutboundWebhookEndpoint(
 			throw new OutboundWebhookNotFoundError("endpoint", id);
 		}
 		const previous = current.endpoints[index]!;
-		const endpoint = endpointSchema.parse({
-			...previous,
-			...(input.name === undefined ? {} : { name: input.name }),
-			...(input.url === undefined
-				? {}
-				: { url: normalizeOutboundWebhookEndpointUrl(input.url) }),
-			...(input.secretRef === undefined
-				? {}
-				: { secretRef: input.secretRef }),
-			...(input.eventFilters === undefined
-				? {}
-				: { eventFilters: normalizeEventFilters(input.eventFilters) }),
-			...(input.enabled === undefined ? {} : { enabled: input.enabled }),
-			...(input.timeoutMs === undefined
-				? {}
-				: { timeoutMs: input.timeoutMs }),
-			...(input.maxAttempts === undefined
-				? {}
-				: { maxAttempts: input.maxAttempts }),
-			updatedAt: nowIso(),
-		});
+		const endpoint = mergeOutboundWebhookEndpointUpdate(previous, input, now);
 		if (
 			current.endpoints.some(
 				(candidate) =>
@@ -884,10 +878,11 @@ export async function updateOutboundWebhookEndpoint(
 
 export async function deleteOutboundWebhookEndpoint(
 	id: string,
-	options: OutboundWebhookStoreOptions = {},
+	options: OutboundWebhookMutationOptions = {},
 ): Promise<OutboundWebhookEndpoint> {
+	const now = options.now ?? new Date();
 	if (options.repository) {
-		return options.repository.deleteEndpoint(id, new Date());
+		return options.repository.deleteEndpoint(id, now);
 	}
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
@@ -895,7 +890,7 @@ export async function deleteOutboundWebhookEndpoint(
 		if (!endpoint) {
 			throw new OutboundWebhookNotFoundError("endpoint", id);
 		}
-		const at = nowIso();
+		const at = nowIso(now);
 		return commitJsonFileStoreUpdate(
 			{
 				...current,
@@ -1135,10 +1130,11 @@ export async function listOutboundWebhookDeliveries(
 
 export async function retryOutboundWebhookDelivery(
 	id: string,
-	options: OutboundWebhookStoreOptions = {},
+	options: OutboundWebhookMutationOptions = {},
 ): Promise<OutboundWebhookDelivery> {
+	const now = options.now ?? new Date();
 	if (options.repository) {
-		return options.repository.retryDelivery(id, new Date());
+		return options.repository.retryDelivery(id, now);
 	}
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
@@ -1168,7 +1164,7 @@ export async function retryOutboundWebhookDelivery(
 			status: "pending",
 			attemptCount: 0,
 			manualRetryCount: previous.manualRetryCount + 1,
-			nextAttemptAt: nowIso(),
+			nextAttemptAt: nowIso(now),
 			lastAttemptAt: undefined,
 			completedAt: undefined,
 			statusCode: undefined,

@@ -696,7 +696,8 @@ listmonk-cli webhooks create \
 
 listmonk-cli webhooks test --id <endpoint-uuid> --confirm
 listmonk-cli webhooks tick --dispatch-limit 25 --confirm
-listmonk-cli webhooks reconcile --dry-run
+listmonk-cli webhooks reconcile
+listmonk-cli webhooks reconcile --no-dry-run
 listmonk-cli webhooks prune --older-than-days 30 --dry-run
 listmonk-cli webhooks prune --older-than-days 30 --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted
@@ -734,7 +735,8 @@ multiple CLI/MCP/worker processes, set `LISTMONK_OPS_WEBHOOK_DATABASE_URL`
 instead. The Postgres repository uses normalized endpoint and delivery tables,
 transactional enqueue deduplication, `FOR UPDATE SKIP LOCKED` claims, and
 lease-token fencing. `webhooks tick` first reconciles expired leases and then
-dispatches a bounded batch. `webhooks reconcile` can preview recovery, while
+dispatches a bounded batch. `webhooks reconcile` previews recovery by default
+and applies it with `--no-dry-run`, while
 `webhooks prune` defaults to a dry run and only deletes old terminal history
 after explicit confirmation.
 

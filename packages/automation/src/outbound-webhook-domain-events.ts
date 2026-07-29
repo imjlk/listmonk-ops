@@ -34,6 +34,19 @@ type DomainEventProjection = Readonly<{
 	data: Readonly<Record<string, unknown>>;
 }>;
 
+const CAMPAIGN_EVENT_TYPES = {
+	"campaigns.schedule": "campaign.scheduled",
+	"campaigns.start": "campaign.started",
+	"campaigns.pause": "campaign.paused",
+	"campaigns.cancel": "campaign.cancelled",
+} as const;
+
+const ABTEST_LIFECYCLE_EVENT_BY_STATUS = {
+	analyzing: "abtest.ready-for-analysis",
+	inconclusive: "abtest.inconclusive",
+	failed: "abtest.failed",
+} as const;
+
 function asRecord(value: unknown): Readonly<Record<string, unknown>> | undefined {
 	return typeof value === "object" && value !== null && !Array.isArray(value)
 		? (value as Readonly<Record<string, unknown>>)
@@ -51,13 +64,19 @@ function asNonBlankString(value: unknown): string | undefined {
 function asResourceKey(value: unknown): string | undefined {
 	if (
 		(typeof value === "number" && Number.isInteger(value) && value > 0) ||
-		typeof value === "bigint"
+		(typeof value === "bigint" && value > 0n)
 	) {
 		return String(value);
 	}
 	return asNonBlankString(value);
 }
 
+/**
+ * Produce a stable UUID-shaped identifier from SHA-256. This is deliberately
+ * not RFC 4122 UUIDv5 (which requires SHA-1 and a namespace); the version and
+ * variant bits only make the persisted identifier compatible with UUID
+ * columns while preserving deterministic event deduplication.
+ */
 function deterministicUuid(seed: string): string {
 	const bytes = createHash("sha256").update(seed, "utf8").digest().subarray(
 		0,
@@ -105,13 +124,10 @@ function outputResource(
 function campaignProjection(
 	input: SuccessfulOperationLifecycleInput,
 ): DomainEventProjection | undefined {
-	const eventTypes = {
-		"campaigns.schedule": "campaign.scheduled",
-		"campaigns.start": "campaign.started",
-		"campaigns.pause": "campaign.paused",
-		"campaigns.cancel": "campaign.cancelled",
-	} as const;
-	const type = eventTypes[input.operationId as keyof typeof eventTypes];
+	const type =
+		CAMPAIGN_EVENT_TYPES[
+			input.operationId as keyof typeof CAMPAIGN_EVENT_TYPES
+		];
 	if (!type) {
 		return undefined;
 	}
@@ -131,6 +147,19 @@ function campaignProjection(
 			send_at: input.operationInput["send_at"],
 		},
 	};
+}
+
+function subscriberIdsFromInput(value: unknown): readonly unknown[] {
+	if (Array.isArray(value)) {
+		return value;
+	}
+	if (typeof value === "string") {
+		return value
+			.split(",")
+			.map((entry) => entry.trim())
+			.filter(Boolean);
+	}
+	return [];
 }
 
 function subscriberProjection(
@@ -169,14 +198,9 @@ function subscriberProjection(
 	) {
 		return [];
 	}
-	const subscriberIds = Array.isArray(input.operationInput["subscriber_ids"])
-		? input.operationInput["subscriber_ids"]
-		: typeof input.operationInput["subscriber_ids"] === "string"
-			? input.operationInput["subscriber_ids"]
-					.split(",")
-					.map((value) => value.trim())
-					.filter(Boolean)
-			: [];
+	const subscriberIds = subscriberIdsFromInput(
+		input.operationInput["subscriber_ids"],
+	);
 	const normalizedIds = subscriberIds
 		.map(asResourceKey)
 		.filter((value): value is string => value !== undefined)
@@ -251,18 +275,13 @@ function abTestProjection(
 			];
 		}
 	}
-	const lifecycleEventByStatus = {
-		analyzing: "abtest.ready-for-analysis",
-		inconclusive: "abtest.inconclusive",
-		failed: "abtest.failed",
-	} as const;
 	if (input.operationId === "abtest.run" && testId) {
 		const status = asNonBlankString(test?.["status"]);
 		const type =
 			status === undefined
 				? undefined
-				: lifecycleEventByStatus[
-						status as keyof typeof lifecycleEventByStatus
+				: ABTEST_LIFECYCLE_EVENT_BY_STATUS[
+						status as keyof typeof ABTEST_LIFECYCLE_EVENT_BY_STATUS
 					];
 		return type
 			? [
@@ -284,8 +303,8 @@ function abTestProjection(
 			const type =
 				status === undefined
 					? undefined
-					: lifecycleEventByStatus[
-							status as keyof typeof lifecycleEventByStatus
+					: ABTEST_LIFECYCLE_EVENT_BY_STATUS[
+							status as keyof typeof ABTEST_LIFECYCLE_EVENT_BY_STATUS
 						];
 			if (!resultTestId || !type) {
 				return [];
@@ -350,6 +369,9 @@ export async function enqueueSuccessfulOperationLifecycleEvents(
 	}
 	const endpoints = await listOutboundWebhookEndpoints(store);
 	const results: EnqueueOutboundWebhookResult[] = [];
+	// Keep file-backed projection writes ordered. A single operation emits only a
+	// small bounded set of events, so sharing this path with Postgres is simpler
+	// and avoids introducing adapter-specific ordering semantics.
 	for (const eventInput of projected) {
 		const event = createOutboundWebhookEvent(eventInput);
 		const endpointIds = endpoints

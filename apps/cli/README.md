@@ -66,7 +66,8 @@ listmonk-cli webhooks create \
   --event-filters 'operation.*,campaign.*'
 listmonk-cli webhooks test --id <endpoint-uuid> --confirm
 listmonk-cli webhooks tick --confirm
-listmonk-cli webhooks reconcile --dry-run
+listmonk-cli webhooks reconcile
+listmonk-cli webhooks reconcile --no-dry-run
 listmonk-cli webhooks prune --older-than-days 30 --dry-run
 listmonk-cli webhooks prune --older-than-days 30 --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted

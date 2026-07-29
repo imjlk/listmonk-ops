@@ -59,6 +59,7 @@ if (flags.format && flags.format !== "human") {
 	process.env.LISTMONK_OPS_ABTEST_SILENT = "1";
 }
 
+let commandError: unknown;
 try {
 	await cli(argv, entry, {
 		name: "listmonk-cli",
@@ -68,6 +69,16 @@ try {
 		subCommands,
 		plugins: [completion()],
 	});
+} catch (error) {
+	commandError = error;
+	throw error;
 } finally {
-	await closeOutboundWebhookRuntimeRepositories();
+	try {
+		await closeOutboundWebhookRuntimeRepositories();
+	} catch (error) {
+		if (commandError === undefined) {
+			throw error;
+		}
+		console.error("⚠️ Failed to close outbound webhook repositories:", error);
+	}
 }

@@ -25,6 +25,7 @@ const cliRuntimeInputKeys = new Set(["confirm", "interactive", "tui"]);
 export type CliOperationExecution = Readonly<{
 	operation: OperationCatalogItem;
 	policy: OperationExecutionPolicy;
+	operationInput: Readonly<Record<string, unknown>>;
 	confirmed: boolean;
 	dryRun: boolean;
 }>;
@@ -97,7 +98,13 @@ export function getCliOperationExecution(
 		policy.dryRunSupported &&
 		(resolvedDryRun ?? (operationInput.dry_run === true));
 
-	return { operation, policy, confirmed, dryRun };
+	return {
+		operation,
+		policy,
+		operationInput,
+		confirmed,
+		dryRun,
+	};
 }
 
 async function recordCliOperationAudit(
@@ -265,7 +272,7 @@ export async function executeCliOperation<Result>(config: {
 					{
 						executionId,
 						operationId: execution.operation.id,
-						operationInput: normalizeCliOperationInput(config.input),
+						operationInput: execution.operationInput,
 						operationOutput: result,
 					},
 					webhookStoreOptions,

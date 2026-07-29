@@ -43,14 +43,22 @@ describe("outbound webhook runtime selection", () => {
 		);
 	});
 
-	test("caches one Postgres repository per connection string", () => {
+	test("caches Postgres repositories by connection and pool options", () => {
 		delete process.env.LISTMONK_OPS_WEBHOOK_STORE;
 		process.env[OUTBOUND_WEBHOOK_DATABASE_URL_ENV] =
 			"postgres://listmonk:listmonk@127.0.0.1:15432/listmonk";
 
 		const first = getOutboundWebhookStoreOptionsFromEnvironment();
 		const second = getOutboundWebhookStoreOptionsFromEnvironment();
+		const tuned = getOutboundWebhookStoreOptionsFromEnvironment({
+			postgres: { maxConnections: 2 },
+		});
+		const tunedAgain = getOutboundWebhookStoreOptionsFromEnvironment({
+			postgres: { maxConnections: 2 },
+		});
 		expect(first.repository?.kind).toBe("postgres");
 		expect(second.repository).toBe(first.repository);
+		expect(tuned.repository).not.toBe(first.repository);
+		expect(tunedAgain.repository).toBe(tuned.repository);
 	});
 });

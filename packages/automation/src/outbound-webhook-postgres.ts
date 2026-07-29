@@ -3,6 +3,7 @@ import postgres, { type Sql } from "postgres";
 import {
 	OutboundWebhookConflictError,
 	OutboundWebhookNotFoundError,
+	mergeOutboundWebhookEndpointUpdate,
 	matchesOutboundWebhookEvent,
 	outboundWebhookRetryDelayMs,
 	parseOutboundWebhookDelivery,
@@ -22,6 +23,7 @@ import {
 } from "./outbound-webhooks";
 
 const POSTGRES_SCHEMA_VERSION = 1;
+const POSTGRES_UUID_TYPE_OID = 2950;
 
 export interface PostgresOutboundWebhookRepositoryOptions {
 	connectionString: string;
@@ -333,35 +335,50 @@ export function createPostgresOutboundWebhookRepository(
 			}
 		},
 
-		async updateEndpoint(id, endpoint) {
+		async updateEndpoint(id, input, now) {
 			await ensureInitialized();
 			try {
-				const rows = await sql<EndpointRow[]>`
-					UPDATE listmonk_ops.webhook_endpoints
-					SET
-						name = ${endpoint.name},
-						name_key = ${endpoint.name.toLowerCase()},
-						url = ${endpoint.url},
-						secret_ref = ${endpoint.secretRef},
-						event_filters = ${sql.json([...endpoint.eventFilters])},
-						enabled = ${endpoint.enabled},
-						timeout_ms = ${endpoint.timeoutMs},
-						max_attempts = ${endpoint.maxAttempts},
-						updated_at = ${endpoint.updatedAt}
-					WHERE id = ${id}
-					RETURNING
-						id, name, url, secret_ref, event_filters, enabled,
-						timeout_ms, max_attempts, created_at, updated_at
-				`;
-				const row = rows[0];
-				if (!row) {
-					throw new OutboundWebhookNotFoundError("endpoint", id);
-				}
-				return toEndpoint(row);
+				return await sql.begin(async (transaction) => {
+					const currentRows = await transaction<EndpointRow[]>`
+						SELECT
+							id, name, url, secret_ref, event_filters, enabled,
+							timeout_ms, max_attempts, created_at, updated_at
+						FROM listmonk_ops.webhook_endpoints
+						WHERE id = ${id}
+						FOR UPDATE
+					`;
+					const currentRow = currentRows[0];
+					if (!currentRow) {
+						throw new OutboundWebhookNotFoundError("endpoint", id);
+					}
+					const endpoint = mergeOutboundWebhookEndpointUpdate(
+						toEndpoint(currentRow),
+						input,
+						now,
+					);
+					const rows = await transaction<EndpointRow[]>`
+						UPDATE listmonk_ops.webhook_endpoints
+						SET
+							name = ${endpoint.name},
+							name_key = ${endpoint.name.toLowerCase()},
+							url = ${endpoint.url},
+							secret_ref = ${endpoint.secretRef},
+							event_filters = ${transaction.json([...endpoint.eventFilters])},
+							enabled = ${endpoint.enabled},
+							timeout_ms = ${endpoint.timeoutMs},
+							max_attempts = ${endpoint.maxAttempts},
+							updated_at = ${endpoint.updatedAt}
+						WHERE id = ${id}
+						RETURNING
+							id, name, url, secret_ref, event_filters, enabled,
+							timeout_ms, max_attempts, created_at, updated_at
+					`;
+					return toEndpoint(rows[0]!);
+				});
 			} catch (error) {
 				if (isPostgresErrorWithCode(error, "23505")) {
 					throw new OutboundWebhookConflictError(
-						`Outbound webhook endpoint name already exists: ${endpoint.name}`,
+						`Outbound webhook endpoint name already exists: ${input.name ?? id}`,
 					);
 				}
 				throw error;
@@ -587,11 +604,11 @@ export function createPostgresOutboundWebhookRepository(
 				const selectedFilter =
 					claimOptions.deliveryIds === undefined
 						? transaction``
-						: transaction`AND id = ANY(${transaction.array([...claimOptions.deliveryIds], 2950)})`;
+						: transaction`AND id = ANY(${transaction.array([...claimOptions.deliveryIds], POSTGRES_UUID_TYPE_OID)})`;
 				const excludedFilter =
 					(claimOptions.excludeDeliveryIds?.length ?? 0) === 0
 						? transaction``
-						: transaction`AND NOT (id = ANY(${transaction.array([...(claimOptions.excludeDeliveryIds ?? [])], 2950)}))`;
+						: transaction`AND NOT (id = ANY(${transaction.array([...(claimOptions.excludeDeliveryIds ?? [])], POSTGRES_UUID_TYPE_OID)}))`;
 				const rows = await transaction<DeliveryRow[]>`
 					SELECT
 						id, event_id, endpoint_id, event, status, attempt_count,
@@ -646,7 +663,7 @@ export function createPostgresOutboundWebhookRepository(
 						id, name, url, secret_ref, event_filters, enabled,
 						timeout_ms, max_attempts, created_at, updated_at
 					FROM listmonk_ops.webhook_endpoints
-					WHERE id = ANY(${transaction.array(claimed.map((entry) => entry.endpointId), 2950)})
+					WHERE id = ANY(${transaction.array(claimed.map((entry) => entry.endpointId), POSTGRES_UUID_TYPE_OID)})
 				`;
 				const endpointById = new Map(
 					endpointRows.map((row) => [row.id, toEndpoint(row)] as const),
@@ -732,12 +749,23 @@ export function createPostgresOutboundWebhookRepository(
 					FOR UPDATE SKIP LOCKED
 					LIMIT ${reconcileOptions.limit}
 				`;
+				if (rows.length === 0) {
+					return {
+						scanned: 0,
+						recovered: 0,
+						exhausted: 0,
+						unchanged: 0,
+						dryRun: reconcileOptions.dryRun,
+					} satisfies ReconcileOutboundWebhooksResult;
+				}
+				const endpointIds = [...new Set(rows.map((row) => row.endpoint_id))];
 				const endpointRows = await transaction<{
 					id: string;
 					enabled: boolean;
 				}[]>`
 					SELECT id, enabled
 					FROM listmonk_ops.webhook_endpoints
+					WHERE id = ANY(${transaction.array(endpointIds, POSTGRES_UUID_TYPE_OID)})
 				`;
 				const enabledEndpointIds = new Set(
 					endpointRows
@@ -807,7 +835,7 @@ export function createPostgresOutboundWebhookRepository(
 				if (!pruneOptions.dryRun && rows.length > 0) {
 					await transaction`
 						DELETE FROM listmonk_ops.webhook_deliveries
-						WHERE id = ANY(${transaction.array(rows.map((row) => row.id), 2950)})
+						WHERE id = ANY(${transaction.array(rows.map((row) => row.id), POSTGRES_UUID_TYPE_OID)})
 					`;
 				}
 				return {
@@ -819,7 +847,9 @@ export function createPostgresOutboundWebhookRepository(
 			});
 		},
 
-		close: () => sql.end({ timeout: 5 }),
+		async close() {
+			await sql.end({ timeout: 5 });
+		},
 	};
 
 	return repository;

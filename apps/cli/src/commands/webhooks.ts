@@ -207,7 +207,7 @@ const reconcileCommand = defineCommand({
 		limit: option(z.coerce.number().int().min(1).max(1_000).default(100), {
 			description: "Maximum delivering records to inspect",
 		}),
-		"dry-run": option(z.coerce.boolean().default(false), {
+		"dry-run": option(z.coerce.boolean().default(true), {
 			description: "Report lease repairs without changing delivery state",
 		}),
 	},

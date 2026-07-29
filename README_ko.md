@@ -687,7 +687,8 @@ listmonk-cli webhooks create \
 
 listmonk-cli webhooks test --id <endpoint-uuid> --confirm
 listmonk-cli webhooks tick --dispatch-limit 25 --confirm
-listmonk-cli webhooks reconcile --dry-run
+listmonk-cli webhooks reconcile
+listmonk-cli webhooks reconcile --no-dry-run
 listmonk-cli webhooks prune --older-than-days 30 --dry-run
 listmonk-cli webhooks prune --older-than-days 30 --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted
@@ -725,8 +726,9 @@ CLI/MCP/worker 프로세스가 함께 처리하려면 대신
 `LISTMONK_OPS_WEBHOOK_DATABASE_URL`을 설정하세요. PostgreSQL 구현은 정규화된
 endpoint/delivery 테이블, transaction enqueue 중복 제거, `FOR UPDATE SKIP
 LOCKED` claim, lease token fencing을 사용합니다. `webhooks tick`은 만료 lease를
-먼저 복구한 뒤 제한된 batch를 dispatch합니다. `webhooks reconcile`은 복구
-preview를 지원하고, `webhooks prune`은 기본 dry-run이며 오래된 terminal
+먼저 복구한 뒤 제한된 batch를 dispatch합니다. `webhooks reconcile`은 기본적으로
+복구 내용을 preview하고 `--no-dry-run`으로 적용합니다. `webhooks prune`은 기본
+dry-run이며 오래된 terminal
 history를 명시적으로 확인한 경우에만 삭제합니다.
 
 자격 증명, query string, fragment가 없는 public HTTPS endpoint만 허용합니다.

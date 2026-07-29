@@ -34,11 +34,41 @@ let shutdownPromise: Promise<void> | undefined;
 
 async function shutdownRuntime(): Promise<void> {
 	shutdownPromise ??= (async () => {
-		activeHttpServer?.stop(true);
-		activeHttpServer = undefined;
-		await closeOutboundWebhookRuntimeRepositories();
+		let serverStopError: unknown;
+		try {
+			activeHttpServer?.stop(true);
+		} catch (error) {
+			serverStopError = error;
+		} finally {
+			activeHttpServer = undefined;
+		}
+		try {
+			await closeOutboundWebhookRuntimeRepositories();
+		} catch (repositoryError) {
+			if (serverStopError !== undefined) {
+				throw new AggregateError(
+					[serverStopError, repositoryError],
+					"Failed to stop the MCP runtime cleanly",
+				);
+			}
+			throw repositoryError;
+		}
+		if (serverStopError !== undefined) {
+			throw serverStopError;
+		}
 	})();
 	await shutdownPromise;
+}
+
+function reportShutdownError(error: unknown): void {
+	console.error("⚠️ Failed to close the MCP runtime cleanly:", error);
+}
+
+function handleShutdownSignal(): void {
+	console.error("\n🛑 Shutting down server...");
+	void shutdownRuntime()
+		.catch(reportShutdownError)
+		.finally(() => process.exit(0));
 }
 
 async function createMCPServer(
@@ -296,34 +326,40 @@ export async function main() {
 					import("@modelcontextprotocol/sdk/server/stdio.js"),
 					import("./protocol.js"),
 				]);
+			let transportError: unknown;
 			try {
 				await connectMCPTransport(server, new StdioServerTransport());
+			} catch (error) {
+				transportError = error;
+				throw error;
 			} finally {
-				await shutdownRuntime();
+				try {
+					await shutdownRuntime();
+				} catch (error) {
+					if (transportError === undefined) {
+						throw error;
+					}
+					reportShutdownError(error);
+				}
 			}
 			return;
 		}
 
 		activeHttpServer = await server.listen(port, host);
 	} catch (error) {
-		await shutdownRuntime();
+		try {
+			await shutdownRuntime();
+		} catch (shutdownError) {
+			reportShutdownError(shutdownError);
+		}
 		console.error("❌ Failed to start server:", error);
 		process.exit(1);
 	}
 }
 
 // Handle graceful shutdown
-process.on("SIGINT", async () => {
-	console.error("\n🛑 Shutting down server...");
-	await shutdownRuntime();
-	process.exit(0);
-});
-
-process.on("SIGTERM", async () => {
-	console.error("\n🛑 Shutting down server...");
-	await shutdownRuntime();
-	process.exit(0);
-});
+process.on("SIGINT", handleShutdownSignal);
+process.on("SIGTERM", handleShutdownSignal);
 
 const isMainModule = (() => {
 	// Bun runtime
