@@ -700,6 +700,9 @@ test event를 포함합니다. 자격 증명이나 개인정보 이름을 가진
 기본값은 5분)을 벗어난 요청을 거부해야 합니다. 전달은 stable event ID를
 사용하는 at-least-once 방식이며 exponential backoff, delivery history,
 최종 `exhausted` 상태와 확인이 필요한 수동 재시도를 제공합니다.
+다른 worker가 만료된 lease를 다시 가져가면 기존 dispatch는 형제 작업 결과를
+유지하면서 해당 시도를 `skipped`로 보고합니다. 최종 상태는 공유 delivery
+log에서 확인할 수 있습니다.
 
 자격 증명, query string, fragment가 없는 public HTTPS endpoint만 허용합니다.
 Dispatch 시 DNS/IP 안전성을 다시 확인하고 검증된 public 주소를 HTTPS 연결에

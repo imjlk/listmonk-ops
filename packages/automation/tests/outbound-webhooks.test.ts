@@ -139,6 +139,9 @@ describe("outbound webhook event outbox", () => {
 				email: "person@example.com",
 				nested: {
 					api_token: "secret",
+					subscriberEmail: "person@example.com",
+					recipientAddress: "person@example.com",
+					userCookie: "session",
 					safe: "visible",
 				},
 				circular,
@@ -147,6 +150,9 @@ describe("outbound webhook event outbox", () => {
 			email: "[REDACTED]",
 			nested: {
 				api_token: "[REDACTED]",
+				subscriberEmail: "[REDACTED]",
+				recipientAddress: "[REDACTED]",
+				userCookie: "[REDACTED]",
 				safe: "visible",
 			},
 			circular: { self: "[CIRCULAR]" },
@@ -375,6 +381,113 @@ describe("outbound webhook delivery", () => {
 		});
 		expect(maximumActive).toBe(2);
 		expect(fetcher).toHaveBeenCalledTimes(6);
+	});
+
+	test("preserves sibling results when another worker reclaims an expired lease", async () => {
+		const path = await createStorePath();
+		await createEndpoint(path);
+		const targetEventId = "47a0f9ed-3bc4-49c4-a0d7-b67145f7cdca";
+		const siblingEventId = "ddadf4c4-1527-4b5d-8c08-dcc5484816ad";
+		const target = await enqueueOutboundWebhookEvent(
+			{
+				id: targetEventId,
+				type: "operation.succeeded",
+				source: "operation",
+				data: {},
+			},
+			{ path },
+		);
+		await enqueueOutboundWebhookEvent(
+			{
+				id: siblingEventId,
+				type: "operation.succeeded",
+				source: "operation",
+				data: {},
+			},
+			{ path },
+		);
+		const targetDeliveryId = target.deliveryIds[0]!;
+		let markTargetStarted = () => undefined;
+		const targetStarted = new Promise<void>((resolve) => {
+			markTargetStarted = resolve;
+		});
+		let releaseTarget = () => undefined;
+		const targetGate = new Promise<void>((resolve) => {
+			releaseTarget = resolve;
+		});
+		const firstFetcher = mock(
+			async (_url: string | URL | Request, init?: RequestInit) => {
+				const eventId = new Headers(init?.headers).get(
+					"X-Listmonk-Ops-Event-Id",
+				);
+				if (eventId === targetEventId) {
+					markTargetStarted();
+					await targetGate;
+				}
+				return new Response(null, { status: 204 });
+			},
+		);
+		const firstAt = new Date("2099-07-29T00:00:00.000Z");
+		const firstDispatch = dispatchOutboundWebhooks({
+			store: { path },
+			now: firstAt,
+			leaseMs: 1_000,
+			concurrency: 2,
+			fetcher: firstFetcher as typeof fetch,
+			resolveSecret: () => "test-secret",
+		});
+		await targetStarted;
+		for (let attempt = 0; attempt < 100; attempt += 1) {
+			const deliveries = await listOutboundWebhookDeliveries({ path });
+			if (
+				deliveries.some(
+					(delivery) =>
+						delivery.eventId === siblingEventId &&
+						delivery.status === "succeeded",
+				)
+			) {
+				break;
+			}
+			await new Promise((resolve) => setTimeout(resolve, 1));
+		}
+		expect(await listOutboundWebhookDeliveries({ path })).toContainEqual(
+			expect.objectContaining({
+				eventId: siblingEventId,
+				status: "succeeded",
+			}),
+		);
+
+		expect(
+			await dispatchOutboundWebhooks({
+				store: { path },
+				now: new Date("2099-07-29T00:00:02.000Z"),
+				leaseMs: 1_000,
+				concurrency: 1,
+				deliveryIds: [targetDeliveryId],
+				fetcher: mock(
+					async () => new Response(null, { status: 204 }),
+				) as typeof fetch,
+				resolveSecret: () => "test-secret",
+			}),
+		).toMatchObject({ claimed: 1, succeeded: 1, skipped: 0 });
+
+		releaseTarget();
+		expect(await firstDispatch).toMatchObject({
+			claimed: 2,
+			succeeded: 1,
+			skipped: 1,
+			results: expect.arrayContaining([
+				expect.objectContaining({
+					deliveryId: targetDeliveryId,
+					status: "skipped",
+					error: expect.stringContaining("lease"),
+				}),
+			]),
+		});
+		expect(await listOutboundWebhookDeliveries({ path })).toMatchObject([
+			{ status: "succeeded" },
+			{ status: "succeeded" },
+		]);
 	});
 
 	test("retries transient failures, exhausts permanent failures, and supports manual retry", async () => {

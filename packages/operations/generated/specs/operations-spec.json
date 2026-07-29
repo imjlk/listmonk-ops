@@ -5813,6 +5813,9 @@
                   "retried": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
+                  "skipped": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
                   "succeeded": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   }
@@ -5822,45 +5825,74 @@
                   "succeeded",
                   "retried",
                   "exhausted",
+                  "skipped",
                   "results"
                 ],
                 "type": "object"
               },
               "WebhookDispatchResult": {
-                "additionalProperties": false,
-                "properties": {
-                  "delivery_id": {
-                    "$ref": "#/components/schemas/WebhookId"
-                  },
-                  "endpoint_id": {
-                    "$ref": "#/components/schemas/WebhookId"
-                  },
-                  "error": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "status": {
-                    "oneOf": [
-                      {
-                        "const": "exhausted"
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/WebhookId"
                       },
-                      {
-                        "const": "retry"
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/WebhookId"
                       },
-                      {
-                        "const": "succeeded"
+                      "error": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "status": {
+                        "oneOf": [
+                          {
+                            "const": "exhausted"
+                          },
+                          {
+                            "const": "retry"
+                          },
+                          {
+                            "const": "succeeded"
+                          }
+                        ]
+                      },
+                      "status_code": {
+                        "$ref": "#/components/schemas/PositiveInteger"
                       }
-                    ]
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status"
+                    ],
+                    "type": "object"
                   },
-                  "status_code": {
-                    "$ref": "#/components/schemas/PositiveInteger"
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/WebhookId"
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/WebhookId"
+                      },
+                      "error": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "status": {
+                        "const": "skipped"
+                      }
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status",
+                      "error"
+                    ],
+                    "type": "object"
                   }
-                },
-                "required": [
-                  "delivery_id",
-                  "endpoint_id",
-                  "status"
-                ],
-                "type": "object"
+                ]
               },
               "WebhookId": {
                 "format": "uuid",
@@ -6034,6 +6066,9 @@
                   "retried": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
+                  "skipped": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
                   "succeeded": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   }
@@ -6043,45 +6078,74 @@
                   "succeeded",
                   "retried",
                   "exhausted",
+                  "skipped",
                   "results"
                 ],
                 "type": "object"
               },
               "WebhookDispatchResult": {
-                "additionalProperties": false,
-                "properties": {
-                  "delivery_id": {
-                    "$ref": "#/components/schemas/WebhookId"
-                  },
-                  "endpoint_id": {
-                    "$ref": "#/components/schemas/WebhookId"
-                  },
-                  "error": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "status": {
-                    "oneOf": [
-                      {
-                        "const": "exhausted"
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/WebhookId"
                       },
-                      {
-                        "const": "retry"
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/WebhookId"
                       },
-                      {
-                        "const": "succeeded"
+                      "error": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "status": {
+                        "oneOf": [
+                          {
+                            "const": "exhausted"
+                          },
+                          {
+                            "const": "retry"
+                          },
+                          {
+                            "const": "succeeded"
+                          }
+                        ]
+                      },
+                      "status_code": {
+                        "$ref": "#/components/schemas/PositiveInteger"
                       }
-                    ]
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status"
+                    ],
+                    "type": "object"
                   },
-                  "status_code": {
-                    "$ref": "#/components/schemas/PositiveInteger"
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/WebhookId"
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/WebhookId"
+                      },
+                      "error": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "status": {
+                        "const": "skipped"
+                      }
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status",
+                      "error"
+                    ],
+                    "type": "object"
                   }
-                },
-                "required": [
-                  "delivery_id",
-                  "endpoint_id",
-                  "status"
-                ],
-                "type": "object"
+                ]
               },
               "WebhookId": {
                 "format": "uuid",
@@ -6108,6 +6172,9 @@
               "retried": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
               },
+              "skipped": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
               "succeeded": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
               }
@@ -6117,6 +6184,7 @@
               "succeeded",
               "retried",
               "exhausted",
+              "skipped",
               "results"
             ],
             "type": "object"

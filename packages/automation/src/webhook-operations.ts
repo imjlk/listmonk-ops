@@ -159,18 +159,41 @@ const webhookDeleteOutputSchema = z.object({
 	deleted: z.literal(true),
 	endpoint: webhookEndpointOutputSchema,
 });
-const dispatchResultSchema = z.object({
+const dispatchResultIdentitySchema = {
 	delivery_id: z.uuid(),
 	endpoint_id: z.uuid(),
-	status: z.enum(["succeeded", "retry", "exhausted"]),
-	status_code: z.number().int().min(100).max(599).optional(),
-	error: z.string().optional(),
-});
+};
+const dispatchResultSchema = z.discriminatedUnion("status", [
+	z.object({
+		...dispatchResultIdentitySchema,
+		status: z.literal("succeeded"),
+		status_code: z.number().int().min(100).max(599).optional(),
+		error: z.string().optional(),
+	}),
+	z.object({
+		...dispatchResultIdentitySchema,
+		status: z.literal("retry"),
+		status_code: z.number().int().min(100).max(599).optional(),
+		error: z.string().optional(),
+	}),
+	z.object({
+		...dispatchResultIdentitySchema,
+		status: z.literal("exhausted"),
+		status_code: z.number().int().min(100).max(599).optional(),
+		error: z.string().optional(),
+	}),
+	z.object({
+		...dispatchResultIdentitySchema,
+		status: z.literal("skipped"),
+		error: z.string().min(1),
+	}),
+]);
 const webhookDispatchOutputSchema = z.object({
 	claimed: z.number().int().nonnegative(),
 	succeeded: z.number().int().nonnegative(),
 	retried: z.number().int().nonnegative(),
 	exhausted: z.number().int().nonnegative(),
+	skipped: z.number().int().nonnegative(),
 	results: z.array(dispatchResultSchema),
 });
 const webhookTestOutputSchema = z.object({
@@ -275,13 +298,23 @@ function toDispatchOutput(
 		succeeded: result.succeeded,
 		retried: result.retried,
 		exhausted: result.exhausted,
-		results: result.results.map((entry) => ({
-			delivery_id: entry.deliveryId,
-			endpoint_id: entry.endpointId,
-			status: entry.status,
-			status_code: entry.statusCode,
-			error: entry.error,
-		})),
+		skipped: result.skipped,
+		results: result.results.map((entry) =>
+			entry.status === "skipped"
+				? {
+						delivery_id: entry.deliveryId,
+						endpoint_id: entry.endpointId,
+						status: entry.status,
+						error: entry.error,
+					}
+				: {
+						delivery_id: entry.deliveryId,
+						endpoint_id: entry.endpointId,
+						status: entry.status,
+						status_code: entry.statusCode,
+						error: entry.error,
+					},
+		),
 	};
 }
 

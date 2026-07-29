@@ -709,6 +709,9 @@ Each request includes `X-Listmonk-Ops-Event-Id`,
 window (five minutes is the provided verifier default). Delivery is
 at-least-once with a stable event ID, exponential backoff, delivery history,
 terminal `exhausted` state, and confirmed manual retry.
+If another worker reclaims an expired lease, the original dispatch reports
+that attempt as `skipped` while preserving sibling results; inspect the shared
+delivery log for the final state.
 
 Only public HTTPS endpoints without credentials, query strings, or fragments
 are accepted. Destination DNS/IP safety is rechecked when dispatching, the

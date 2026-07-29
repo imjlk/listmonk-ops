@@ -123,3 +123,5 @@ Receivers should verify `X-Listmonk-Ops-Signature` over
 `<X-Listmonk-Ops-Timestamp>.<exact-body>` and apply replay protection.
 `verifyOutboundWebhookSignature()` uses a five-minute tolerance by default.
 Delivery is at-least-once, so consumers must deduplicate the stable event ID.
+When another worker reclaims an expired lease, dispatch reports the stale
+worker's result as `skipped` without discarding completed sibling results.

@@ -189,21 +189,31 @@ export type DispatchOutboundWebhooksOptions = Readonly<{
 	deliveryIds?: readonly string[];
 }>;
 
+export type OutboundWebhookDispatchResultEntry =
+	| Readonly<{
+			deliveryId: string;
+			endpointId: string;
+			status: Extract<
+				OutboundWebhookDeliveryStatus,
+				"succeeded" | "retry" | "exhausted"
+			>;
+			statusCode?: number | undefined;
+			error?: string | undefined;
+	  }>
+	| Readonly<{
+		deliveryId: string;
+		endpointId: string;
+		status: "skipped";
+		error: string;
+	  }>;
+
 export type DispatchOutboundWebhooksResult = Readonly<{
 	claimed: number;
 	succeeded: number;
 	retried: number;
 	exhausted: number;
-	results: readonly Readonly<{
-		deliveryId: string;
-		endpointId: string;
-		status: Extract<
-			OutboundWebhookDeliveryStatus,
-			"succeeded" | "retry" | "exhausted"
-		>;
-		statusCode?: number | undefined;
-		error?: string | undefined;
-	}>[];
+	skipped: number;
+	results: readonly OutboundWebhookDispatchResultEntry[];
 }>;
 
 const eventTypeSchema = z.enum(OUTBOUND_WEBHOOK_EVENT_TYPES);
@@ -451,7 +461,7 @@ function redactValue(
 		seen.add(value);
 		const output: Record<string, unknown> = {};
 		for (const [key, nested] of Object.entries(value)) {
-			output[key] = SENSITIVE_KEY_PATTERN.test(key)
+			output[key] = isSensitiveKey(key)
 				? "[REDACTED]"
 				: redactValue(nested, depth + 1, seen);
 		}
@@ -459,6 +469,11 @@ function redactValue(
 		return output;
 	}
 	return String(value);
+}
+
+function isSensitiveKey(key: string): boolean {
+	const normalized = key.replaceAll(/([a-z0-9])([A-Z])/gu, "$1_$2");
+	return SENSITIVE_KEY_PATTERN.test(normalized);
 }
 
 export function redactOutboundWebhookData(
@@ -1330,16 +1345,29 @@ export async function dispatchOutboundWebhooks(
 					fetcher: options.fetcher,
 					resolveSecret,
 				});
-				const delivery = await completeOutboundWebhookDelivery(
-					entry.delivery,
-					attempt,
-					entry.endpoint,
-					{
-						...store,
-						now: options.now ?? new Date(),
-						baseRetryDelayMs,
-					},
-				);
+				let delivery: OutboundWebhookDelivery;
+				try {
+					delivery = await completeOutboundWebhookDelivery(
+						entry.delivery,
+						attempt,
+						entry.endpoint,
+						{
+							...store,
+							now: options.now ?? new Date(),
+							baseRetryDelayMs,
+						},
+					);
+				} catch (error) {
+					if (error instanceof OutboundWebhookConflictError) {
+						return {
+							deliveryId: entry.delivery.id,
+							endpointId: entry.delivery.endpointId,
+							status: "skipped" as const,
+							error: truncateError(error),
+						};
+					}
+					throw error;
+				}
 				return {
 					deliveryId: delivery.id,
 					endpointId: delivery.endpointId,
@@ -1356,6 +1384,7 @@ export async function dispatchOutboundWebhooks(
 		succeeded: results.filter((result) => result.status === "succeeded").length,
 		retried: results.filter((result) => result.status === "retry").length,
 		exhausted: results.filter((result) => result.status === "exhausted").length,
+		skipped: results.filter((result) => result.status === "skipped").length,
 		results,
 	};
 }

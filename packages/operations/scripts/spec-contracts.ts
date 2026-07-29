@@ -517,19 +517,27 @@ export interface WebhookDispatchInput {
 	limit?: PositiveInteger | undefined;
 }
 
-export interface WebhookDispatchResult {
-	delivery_id: WebhookId;
-	endpoint_id: WebhookId;
-	status: "succeeded" | "retry" | "exhausted";
-	status_code?: PositiveInteger | undefined;
-	error?: NonEmptyString | undefined;
-}
+export type WebhookDispatchResult =
+	| {
+			delivery_id: WebhookId;
+			endpoint_id: WebhookId;
+			status: "succeeded" | "retry" | "exhausted";
+			status_code?: PositiveInteger | undefined;
+			error?: NonEmptyString | undefined;
+	  }
+	| {
+			delivery_id: WebhookId;
+			endpoint_id: WebhookId;
+			status: "skipped";
+			error: NonEmptyString;
+	  };
 
 export interface WebhookDispatchOutput {
 	claimed: NonNegativeInteger;
 	succeeded: NonNegativeInteger;
 	retried: NonNegativeInteger;
 	exhausted: NonNegativeInteger;
+	skipped: NonNegativeInteger;
 	results: WebhookDispatchResult[];
 }
 
