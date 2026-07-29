@@ -11,6 +11,7 @@ This package is designed for automation and orchestration use-cases:
 - subscriber hygiene targeting
 - daily digest generation
 - signed outbound event webhooks with a durable delivery outbox
+- revisioned headless email sequences with durable enrollments and workers
 
 ## Installation
 
@@ -153,7 +154,7 @@ If a hostname has multiple validated addresses, dispatch tries them in order
 within the endpoint timeout. Audited CLI and MCP executions are projected into
 `operation.*` events automatically after the durable metadata-only audit write;
 projection failure is reported without changing the operation result.
-Successful campaign, subscriber, and A/B lifecycle operations are also
+Successful campaign, subscriber, A/B lifecycle, and sequence operations are also
 projected into their typed domain event families without subscriber email
 addresses.
 
@@ -163,3 +164,22 @@ Receivers should verify `X-Listmonk-Ops-Signature` over
 Delivery is at-least-once, so consumers must deduplicate the stable event ID.
 When another worker reclaims an expired lease, dispatch reports the stale
 worker's result as `skipped` without discarding completed sibling results.
+
+## Headless sequence engine
+
+The sequence runtime keeps immutable definition revisions and pins every
+enrollment to one revision. Typed steps cover `send`, `wait`, `wait_until`,
+`condition`, and `stop`. `runSequenceTick()` claims one bounded batch and
+executes one step per enrollment; `runSequenceWorker()` adds durable periodic
+heartbeats and graceful shutdown.
+
+Every send rechecks the Listmonk subscriber's blocklist/disabled/unsubscribe
+state and uses the existing transactional idempotency store with a stable
+sequence/enrollment/revision/step key. Ambiguous outcomes are durable and
+require `reconcileAmbiguousSequenceEnrollment()` with an operator-reviewed
+`sent` or `not_sent` decision.
+
+Use `createFileSequenceRepository()` for a single host. Set
+`LISTMONK_OPS_SEQUENCE_DATABASE_URL` (instead of
+`LISTMONK_OPS_SEQUENCE_STORE`) to select the Postgres repository for concurrent
+workers, `SKIP LOCKED` claims, and lease fencing.

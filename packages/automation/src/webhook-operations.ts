@@ -370,6 +370,7 @@ const webhookEventSummarySchema = z.object({
 				"subscriber",
 				"message",
 				"experiment",
+				"sequence",
 				"webhook",
 			]),
 			key: z.string(),

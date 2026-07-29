@@ -809,7 +809,331 @@
         "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookCircuitResetOperation:variable"
       },
       "operationId": "webhooks.circuit.reset"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceValidateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceValidateOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceValidateOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceValidateOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceValidateOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceValidateOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceValidateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceValidateOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceValidateOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceValidateOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceValidateOperation:variable"
+      },
+      "operationId": "sequences.validate"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceCreateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceCreateOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceCreateOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceCreateOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceCreateOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceCreateOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceCreateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceCreateOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceCreateOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceCreateOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceCreateOperation:variable"
+      },
+      "operationId": "sequences.create"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceUpdateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceUpdateOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceUpdateOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceUpdateOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceUpdateOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceUpdateOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceUpdateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceUpdateOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceUpdateOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceUpdateOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceUpdateOperation:variable"
+      },
+      "operationId": "sequences.update"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceListOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceListOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceListOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceListOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceListOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceListOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceListOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceListOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceListOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceListOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceListOperation:variable"
+      },
+      "operationId": "sequences.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceGetOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceGetOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceGetOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceGetOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceGetOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceGetOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceGetOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceGetOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceGetOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceGetOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceGetOperation:variable"
+      },
+      "operationId": "sequences.get"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceDeleteOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceDeleteOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceDeleteOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceDeleteOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceDeleteOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceDeleteOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceDeleteOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceDeleteOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceDeleteOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceDeleteOperation:variable"
+      },
+      "operationId": "sequences.delete"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceEnrollOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceEnrollOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceEnrollOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceEnrollOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceEnrollOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceEnrollOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceEnrollOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceEnrollOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceEnrollOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceEnrollOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceEnrollOperation:variable"
+      },
+      "operationId": "sequences.enroll"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequencePauseOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequencePauseOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequencePauseOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequencePauseOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequencePauseOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequencePauseOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequencePauseOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequencePauseOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequencePauseOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequencePauseOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequencePauseOperation:variable"
+      },
+      "operationId": "sequences.pause"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceResumeOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceResumeOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceResumeOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceResumeOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceResumeOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceResumeOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceResumeOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceResumeOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceResumeOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceResumeOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceResumeOperation:variable"
+      },
+      "operationId": "sequences.resume"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceTickOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceTickOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceTickOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceTickOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceTickOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceTickOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceTickOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceTickOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceTickOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceTickOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceTickOperation:variable"
+      },
+      "operationId": "sequences.tick"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceReconcileOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceReconcileOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceReconcileOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceReconcileOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceReconcileOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceReconcileOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceReconcileOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceReconcileOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceReconcileOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceReconcileOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceReconcileOperation:variable"
+      },
+      "operationId": "sequences.reconcile"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceStatusOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceStatusOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceStatusOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceStatusOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceStatusOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceStatusOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceStatusOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceStatusOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceStatusOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceStatusOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceStatusOperation:variable"
+      },
+      "operationId": "sequences.status"
     }
   ],
-  "schemaVersion": "1.5.0"
+  "schemaVersion": "1.6.0"
 }

@@ -181,6 +181,199 @@ export interface TransactionalSendOutput {
 	expires_at?: IsoDateTime | undefined;
 }
 
+export type SequenceStep =
+	| {
+			id: NonEmptyString;
+			type: "send";
+			template_id: ResourceId;
+			from_email?: NonEmptyString | undefined;
+			data?: Record<string, unknown> | undefined;
+			content_type?: "html" | "markdown" | "plain" | undefined;
+	  }
+	| {
+			id: NonEmptyString;
+			type: "wait";
+			duration_seconds: PositiveInteger;
+	  }
+	| {
+			id: NonEmptyString;
+			type: "wait_until";
+			at: IsoDateTime;
+	  }
+	| {
+			id: NonEmptyString;
+			type: "condition";
+			path: NonEmptyString;
+			operator: "equals" | "not_equals" | "exists";
+			value?: unknown;
+			on_true: NonEmptyString;
+			on_false: NonEmptyString;
+	  }
+	| {
+			id: NonEmptyString;
+			type: "stop";
+	  };
+
+export interface SequenceRevision {
+	revision: PositiveInteger;
+	steps: SequenceStep[];
+	created_at: IsoDateTime;
+}
+
+export interface SequenceDefinition {
+	id: string & tags.Format<"uuid">;
+	name: NonEmptyString;
+	description?: string | undefined;
+	status: "active" | "paused";
+	current_revision: PositiveInteger;
+	revisions: SequenceRevision[];
+	created_at: IsoDateTime;
+	updated_at: IsoDateTime;
+}
+
+export interface SequenceEnrollment {
+	id: string & tags.Format<"uuid">;
+	sequence_id: string & tags.Format<"uuid">;
+	revision: PositiveInteger;
+	subscriber_id: ResourceId;
+	status:
+		| "pending"
+		| "running"
+		| "waiting"
+		| "paused"
+		| "completed"
+		| "failed"
+		| "ambiguous"
+		| "cancelled";
+	current_step_id: NonEmptyString;
+	next_run_at: IsoDateTime;
+	last_error?: string | undefined;
+	created_at: IsoDateTime;
+	updated_at: IsoDateTime;
+}
+
+export interface SequenceValidateInput {
+	steps: SequenceStep[];
+}
+
+export interface SequenceValidateOutput {
+	valid: true;
+	step_count: PositiveInteger;
+	step_ids: NonEmptyString[];
+}
+
+export interface SequenceCreateInput {
+	name: NonEmptyString;
+	description?: string | undefined;
+	steps: SequenceStep[];
+}
+
+export interface SequenceDefinitionOutput {
+	sequence: SequenceDefinition;
+}
+
+export interface SequenceUpdateInput {
+	id: string & tags.Format<"uuid">;
+	name?: NonEmptyString | undefined;
+	description?: string | undefined;
+	steps: SequenceStep[];
+}
+
+export interface SequenceListInput {
+	status?: "active" | "paused" | undefined;
+}
+
+export interface SequenceListOutput {
+	sequences: SequenceDefinition[];
+}
+
+export interface SequenceIdInput {
+	id: string & tags.Format<"uuid">;
+}
+
+export interface SequenceDeleteOutput {
+	deleted: true;
+	sequence: SequenceDefinition;
+}
+
+export interface SequenceEnrollInput {
+	id: string & tags.Format<"uuid">;
+	subscriber_id: ResourceId;
+	context?: Record<string, unknown> | undefined;
+	start_at?: IsoDateTime | undefined;
+}
+
+export interface SequenceEnrollmentOutput {
+	enrollment: SequenceEnrollment;
+}
+
+export interface SequenceTickInput {
+	limit: PositiveInteger;
+	lease_ms: PositiveInteger;
+}
+
+export interface SequenceTickOutput {
+	claimed: NonNegativeInteger;
+	advanced: NonNegativeInteger;
+	waiting: NonNegativeInteger;
+	completed: NonNegativeInteger;
+	failed: NonNegativeInteger;
+	ambiguous: NonNegativeInteger;
+	cancelled: NonNegativeInteger;
+	completed_at: IsoDateTime;
+}
+
+export interface SequenceReconcileInput {
+	enrollment_id?: (string & tags.Format<"uuid">) | undefined;
+	resolution?: "sent" | "not_sent" | undefined;
+	limit: PositiveInteger;
+	dry_run: boolean;
+}
+
+export interface SequenceReconcileOutput {
+	scanned: NonNegativeInteger;
+	recovered: NonNegativeInteger;
+	unchanged: NonNegativeInteger;
+	dry_run: boolean;
+	enrollment?: SequenceEnrollment | undefined;
+}
+
+export interface SequenceStatusInput {
+	worker_stale_ms: PositiveInteger;
+}
+
+export interface SequenceStatusOutput {
+	store: "file" | "postgres";
+	schema_version: PositiveInteger;
+	healthy: boolean;
+	checked_at: IsoDateTime;
+	definitions: {
+		total: NonNegativeInteger;
+		active: NonNegativeInteger;
+		paused: NonNegativeInteger;
+	};
+	enrollments: {
+		pending: NonNegativeInteger;
+		running: NonNegativeInteger;
+		waiting: NonNegativeInteger;
+		paused: NonNegativeInteger;
+		completed: NonNegativeInteger;
+		failed: NonNegativeInteger;
+		ambiguous: NonNegativeInteger;
+		cancelled: NonNegativeInteger;
+		due: NonNegativeInteger;
+		leased: NonNegativeInteger;
+		oldest_due_at?: IsoDateTime | undefined;
+	};
+	workers: {
+		running: NonNegativeInteger;
+		stale: NonNegativeInteger;
+		stopped: NonNegativeInteger;
+		failed: NonNegativeInteger;
+		last_heartbeat_at?: IsoDateTime | undefined;
+	};
+}
+
 export type OperationSpecCoverage = "described" | "migration";
 
 export interface OperationDiscoverySafety {
@@ -448,6 +641,12 @@ export type WebhookEventType =
 	| "abtest.winner-selected"
 	| "abtest.inconclusive"
 	| "abtest.failed"
+	| "sequence.created"
+	| "sequence.revised"
+	| "sequence.enrolled"
+	| "sequence.paused"
+	| "sequence.resumed"
+	| "sequence.reconciled"
 	| "webhook.test";
 export type WebhookEventFamily =
 	| "operation"
@@ -455,6 +654,7 @@ export type WebhookEventFamily =
 	| "subscriber"
 	| "delivery"
 	| "abtest"
+	| "sequence"
 	| "webhook";
 export type WebhookEventFilter =
 	| WebhookEventType
@@ -585,6 +785,7 @@ export type WebhookSubjectKind =
 	| "subscriber"
 	| "message"
 	| "experiment"
+	| "sequence"
 	| "webhook";
 
 export interface WebhookDeliveryEventSummary {

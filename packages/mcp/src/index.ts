@@ -1,7 +1,10 @@
 import { existsSync, realpathSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { closeOutboundWebhookRuntimeRepositories } from "@listmonk-ops/automation";
+import {
+	closeOutboundWebhookRuntimeRepositories,
+	closeSequenceRuntimeRepositories,
+} from "@listmonk-ops/automation";
 import type { ListmonkMCPServer } from "./server.js";
 
 interface RuntimeArgs {
@@ -43,7 +46,10 @@ async function shutdownRuntime(): Promise<void> {
 			activeHttpServer = undefined;
 		}
 		try {
-			await closeOutboundWebhookRuntimeRepositories();
+			await Promise.all([
+				closeOutboundWebhookRuntimeRepositories(),
+				closeSequenceRuntimeRepositories(),
+			]);
 		} catch (repositoryError) {
 			if (serverStopError !== undefined) {
 				throw new AggregateError(
@@ -170,6 +176,9 @@ Environment fallback:
   LISTMONK_OPS_WEBHOOK_STORE   File-backed webhook endpoint/outbox path
   LISTMONK_OPS_WEBHOOK_DATABASE_URL
                                Postgres webhook endpoint/outbox URL (exclusive with file store)
+  LISTMONK_OPS_SEQUENCE_STORE  File-backed sequence definition/enrollment path
+  LISTMONK_OPS_SEQUENCE_DATABASE_URL
+                               Postgres sequence runtime URL (exclusive with file store)
 `);
 }
 

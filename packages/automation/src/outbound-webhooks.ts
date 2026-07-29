@@ -65,6 +65,12 @@ export const OUTBOUND_WEBHOOK_EVENT_TYPES = [
 	"abtest.winner-selected",
 	"abtest.inconclusive",
 	"abtest.failed",
+	"sequence.created",
+	"sequence.revised",
+	"sequence.enrolled",
+	"sequence.paused",
+	"sequence.resumed",
+	"sequence.reconciled",
 	"webhook.test",
 ] as const;
 
@@ -78,6 +84,7 @@ export type OutboundWebhookSubjectKind = Extract<
 	| "subscriber"
 	| "message"
 	| "experiment"
+	| "sequence"
 	| "webhook"
 >;
 export type OutboundWebhookDeliveryStatus =
@@ -449,6 +456,7 @@ const subjectKindSchema = z.enum([
 	"subscriber",
 	"message",
 	"experiment",
+	"sequence",
 	"webhook",
 ]);
 const deliveryStatusSchema = z.enum([

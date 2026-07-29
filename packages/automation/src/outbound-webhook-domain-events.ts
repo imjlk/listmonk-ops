@@ -331,6 +331,85 @@ function abTestProjection(
 	return [];
 }
 
+function sequenceProjection(
+	input: SuccessfulOperationLifecycleInput,
+): readonly DomainEventProjection[] {
+	const sequence = outputResource(input.operationOutput, "sequence");
+	const enrollment = outputResource(input.operationOutput, "enrollment");
+	const sequenceId =
+		asResourceKey(sequence?.["id"]) ??
+		asResourceKey(enrollment?.["sequence_id"]) ??
+		asResourceKey(input.operationInput["id"]);
+	if (!sequenceId) {
+		return [];
+	}
+	const common = {
+		source: "sequence" as const,
+		subject: { kind: "sequence" as const, key: sequenceId },
+	};
+	switch (input.operationId) {
+		case "sequences.create":
+			return [
+				{
+					...common,
+					type: "sequence.created",
+					data: { revision: sequence?.["current_revision"] },
+				},
+			];
+		case "sequences.update":
+			return [
+				{
+					...common,
+					type: "sequence.revised",
+					data: { revision: sequence?.["current_revision"] },
+				},
+			];
+		case "sequences.enroll":
+			return [
+				{
+					...common,
+					type: "sequence.enrolled",
+					data: {
+						enrollment_id: enrollment?.["id"],
+						revision: enrollment?.["revision"],
+						status: enrollment?.["status"],
+					},
+				},
+			];
+		case "sequences.pause":
+			return [
+				{
+					...common,
+					type: "sequence.paused",
+					data: { status: sequence?.["status"] },
+				},
+			];
+		case "sequences.resume":
+			return [
+				{
+					...common,
+					type: "sequence.resumed",
+					data: { status: sequence?.["status"] },
+				},
+			];
+		case "sequences.reconcile":
+			return enrollment
+				? [
+						{
+							...common,
+							type: "sequence.reconciled",
+							data: {
+								enrollment_id: enrollment["id"],
+								status: enrollment["status"],
+							},
+						},
+					]
+				: [];
+		default:
+			return [];
+	}
+}
+
 export function projectSuccessfulOperationLifecycleEvents(
 	input: SuccessfulOperationLifecycleInput,
 ): readonly CreateOutboundWebhookEventInput[] {
@@ -339,6 +418,7 @@ export function projectSuccessfulOperationLifecycleEvents(
 		...(campaign ? [campaign] : []),
 		...subscriberProjection(input),
 		...abTestProjection(input),
+		...sequenceProjection(input),
 	];
 	return projections.map((projection, index) => ({
 		id: eventId(input.executionId, projection, index),

@@ -1,0 +1,704 @@
+import { randomUUID } from "node:crypto";
+import postgres, { type Sql } from "postgres";
+import {
+	DEFAULT_SEQUENCE_WORKER_RETENTION_MS,
+	buildSequenceRuntimeHealth,
+	parseSequenceDefinition,
+	parseSequenceEnrollment,
+	SequenceConflictError,
+	SequenceNotFoundError,
+	type ClaimedSequenceEnrollment,
+	type SequenceDefinition,
+	type SequenceEnrollment,
+	type SequenceEnrollmentListOptions,
+	type SequenceEnrollmentStatus,
+	type SequenceRepository,
+	type SequenceRevision,
+	type SequenceRuntimeHealth,
+	type SequenceWorker,
+	type UpdateSequenceDefinitionInput,
+	validateSequenceSteps,
+	SEQUENCE_STORE_VERSION,
+} from "./sequences";
+
+export const SEQUENCE_POSTGRES_SCHEMA_VERSION = 1;
+
+export interface PostgresSequenceRepositoryOptions {
+	connectionString: string;
+	maxConnections?: number;
+	idleTimeoutSeconds?: number;
+	connectTimeoutSeconds?: number;
+}
+
+type DefinitionRow = {
+	id: string;
+	definition: unknown;
+};
+
+type EnrollmentRow = {
+	id: string;
+	enrollment: unknown;
+	lease_token?: string | null;
+};
+
+type WorkerRow = {
+	worker: unknown;
+};
+
+function assertConnectionString(value: string): string {
+	const trimmed = value.trim();
+	let parsed: URL;
+	try {
+		parsed = new URL(trimmed);
+	} catch {
+		throw new TypeError(
+			"Sequence Postgres connection string must be a valid URL",
+		);
+	}
+	if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
+		throw new TypeError(
+			"Sequence Postgres connection string must use postgres:// or postgresql://",
+		);
+	}
+	return trimmed;
+}
+
+function resolvePositiveInteger(
+	value: number | undefined,
+	fallback: number,
+	label: string,
+	maximum: number,
+): number {
+	const resolved = value ?? fallback;
+	if (!Number.isInteger(resolved) || resolved <= 0 || resolved > maximum) {
+		throw new RangeError(`${label} must be between 1 and ${maximum}`);
+	}
+	return resolved;
+}
+
+async function initializeSchema(sql: Sql): Promise<void> {
+	await sql.begin(async (transaction) => {
+		await transaction`
+			SELECT pg_advisory_xact_lock(
+				hashtext('listmonk_ops'),
+				hashtext('sequence_runtime_schema')
+			)
+		`;
+		await transaction`CREATE SCHEMA IF NOT EXISTS listmonk_ops`;
+		await transaction`
+			CREATE TABLE IF NOT EXISTS listmonk_ops.sequence_runtime_meta (
+				key text PRIMARY KEY,
+				value text NOT NULL,
+				updated_at timestamptz NOT NULL DEFAULT now()
+			)
+		`;
+		await transaction`
+			INSERT INTO listmonk_ops.sequence_runtime_meta (key, value)
+			VALUES ('schema_version', '0')
+			ON CONFLICT (key) DO NOTHING
+		`;
+		const versionRows = await transaction<{ value: string }[]>`
+			SELECT value
+			FROM listmonk_ops.sequence_runtime_meta
+			WHERE key = 'schema_version'
+		`;
+		const storedVersion = Number(versionRows[0]?.value ?? Number.NaN);
+		if (
+			!Number.isInteger(storedVersion) ||
+			storedVersion < 0 ||
+			storedVersion > SEQUENCE_POSTGRES_SCHEMA_VERSION
+		) {
+			throw new Error(
+				`Unsupported sequence Postgres schema version: ${versionRows[0]?.value ?? "missing"}`,
+			);
+		}
+		if (storedVersion < 1) {
+			await transaction`
+				CREATE TABLE IF NOT EXISTS listmonk_ops.sequence_definitions (
+					id uuid PRIMARY KEY,
+					name_key text NOT NULL UNIQUE,
+					status text NOT NULL CHECK (status IN ('active', 'paused')),
+					definition jsonb NOT NULL,
+					created_at timestamptz NOT NULL,
+					updated_at timestamptz NOT NULL
+				)
+			`;
+			await transaction`
+				CREATE TABLE IF NOT EXISTS listmonk_ops.sequence_enrollments (
+					id uuid PRIMARY KEY,
+					sequence_id uuid NOT NULL
+						REFERENCES listmonk_ops.sequence_definitions(id)
+						ON DELETE RESTRICT,
+					revision integer NOT NULL CHECK (revision > 0),
+					subscriber_id bigint NOT NULL CHECK (subscriber_id > 0),
+					status text NOT NULL CHECK (
+						status IN (
+							'pending', 'running', 'waiting', 'paused',
+							'completed', 'failed', 'ambiguous', 'cancelled'
+						)
+					),
+					next_run_at timestamptz NOT NULL,
+					lease_token uuid,
+					lease_expires_at timestamptz,
+					enrollment jsonb NOT NULL,
+					created_at timestamptz NOT NULL,
+					updated_at timestamptz NOT NULL
+				)
+			`;
+			await transaction`
+				CREATE UNIQUE INDEX IF NOT EXISTS sequence_enrollments_active_unique_idx
+				ON listmonk_ops.sequence_enrollments (
+					sequence_id,
+					revision,
+					subscriber_id
+				)
+				WHERE status NOT IN ('completed', 'failed', 'cancelled')
+			`;
+			await transaction`
+				CREATE INDEX IF NOT EXISTS sequence_enrollments_due_idx
+				ON listmonk_ops.sequence_enrollments (
+					status,
+					next_run_at,
+					lease_expires_at
+				)
+			`;
+			await transaction`
+				CREATE TABLE IF NOT EXISTS listmonk_ops.sequence_workers (
+					id uuid PRIMARY KEY,
+					status text NOT NULL CHECK (status IN ('running', 'stopped', 'failed')),
+					heartbeat_at timestamptz NOT NULL,
+					worker jsonb NOT NULL
+				)
+			`;
+			await transaction`
+				CREATE INDEX IF NOT EXISTS sequence_workers_heartbeat_idx
+				ON listmonk_ops.sequence_workers (heartbeat_at DESC)
+			`;
+			await transaction`
+				UPDATE listmonk_ops.sequence_runtime_meta
+				SET value = '1', updated_at = now()
+				WHERE key = 'schema_version'
+			`;
+		}
+	});
+}
+
+function toDefinition(row: DefinitionRow): SequenceDefinition {
+	return parseSequenceDefinition(row.definition);
+}
+
+function toEnrollment(row: EnrollmentRow): SequenceEnrollment {
+	return parseSequenceEnrollment(row.enrollment);
+}
+
+function toWorker(row: WorkerRow): SequenceWorker {
+	return row.worker as SequenceWorker;
+}
+
+function isUniqueViolation(error: unknown): boolean {
+	return (
+		error instanceof Error &&
+		"code" in error &&
+		(error as Error & { code?: unknown }).code === "23505"
+	);
+}
+
+function withoutLease(
+	enrollment: SequenceEnrollment,
+): Omit<SequenceEnrollment, "leaseToken" | "leaseExpiresAt"> {
+	const {
+		leaseToken: _leaseToken,
+		leaseExpiresAt: _leaseExpiresAt,
+		...rest
+	} = enrollment;
+	return rest;
+}
+
+export function createPostgresSequenceRepository(
+	options: PostgresSequenceRepositoryOptions,
+): SequenceRepository {
+	const connectionString = assertConnectionString(options.connectionString);
+	const sql = postgres(connectionString, {
+		max: resolvePositiveInteger(
+			options.maxConnections,
+			5,
+			"maxConnections",
+			50,
+		),
+		idle_timeout: resolvePositiveInteger(
+			options.idleTimeoutSeconds,
+			20,
+			"idleTimeoutSeconds",
+			600,
+		),
+		connect_timeout: resolvePositiveInteger(
+			options.connectTimeoutSeconds,
+			10,
+			"connectTimeoutSeconds",
+			120,
+		),
+	});
+	const initialized = initializeSchema(sql);
+	const ready = async (): Promise<void> => initialized;
+
+	const getDefinition = async (id: string): Promise<SequenceDefinition> => {
+		await ready();
+		const rows = await sql<DefinitionRow[]>`
+			SELECT id, definition
+			FROM listmonk_ops.sequence_definitions
+			WHERE id = ${id}::uuid
+		`;
+		const row = rows[0];
+		if (!row) {
+			throw new SequenceNotFoundError("definition", id);
+		}
+		return toDefinition(row);
+	};
+
+	const getEnrollment = async (id: string): Promise<SequenceEnrollment> => {
+		await ready();
+		const rows = await sql<EnrollmentRow[]>`
+			SELECT id, enrollment, lease_token
+			FROM listmonk_ops.sequence_enrollments
+			WHERE id = ${id}::uuid
+		`;
+		const row = rows[0];
+		if (!row) {
+			throw new SequenceNotFoundError("enrollment", id);
+		}
+		return toEnrollment(row);
+	};
+
+	return {
+		kind: "postgres",
+		async listDefinitions() {
+			await ready();
+			const rows = await sql<DefinitionRow[]>`
+				SELECT id, definition
+				FROM listmonk_ops.sequence_definitions
+				ORDER BY created_at ASC
+			`;
+			return rows.map(toDefinition);
+		},
+		getDefinition,
+		async createDefinition(definition) {
+			await ready();
+			try {
+				await sql`
+					INSERT INTO listmonk_ops.sequence_definitions (
+						id, name_key, status, definition, created_at, updated_at
+					)
+					VALUES (
+						${definition.id}::uuid,
+						${definition.name.toLowerCase()},
+						${definition.status},
+						${sql.json(definition as never)},
+						${definition.createdAt}::timestamptz,
+						${definition.updatedAt}::timestamptz
+					)
+				`;
+			} catch (error) {
+				if (isUniqueViolation(error)) {
+					throw new SequenceConflictError(
+						`Sequence ID or name already exists: ${definition.name}`,
+					);
+				}
+				throw error;
+			}
+			return definition;
+		},
+		async updateDefinition(id, input, now) {
+			return sql.begin(async (transaction) => {
+				await ready();
+				const rows = await transaction<DefinitionRow[]>`
+					SELECT id, definition
+					FROM listmonk_ops.sequence_definitions
+					WHERE id = ${id}::uuid
+					FOR UPDATE
+				`;
+				const row = rows[0];
+				if (!row) {
+					throw new SequenceNotFoundError("definition", id);
+				}
+				const previous = toDefinition(row);
+				const revision = previous.currentRevision + 1;
+				const updated = parseSequenceDefinition({
+					...previous,
+					name: input.name ?? previous.name,
+					description: input.description ?? previous.description,
+					currentRevision: revision,
+					revisions: [
+						...previous.revisions,
+						{
+							revision,
+							steps: validateSequenceSteps(input.steps),
+							createdAt: now.toISOString(),
+						},
+					],
+					updatedAt: now.toISOString(),
+				});
+				try {
+					await transaction`
+						UPDATE listmonk_ops.sequence_definitions
+						SET
+							name_key = ${updated.name.toLowerCase()},
+							status = ${updated.status},
+							definition = ${transaction.json(updated as never)},
+							updated_at = ${updated.updatedAt}::timestamptz
+						WHERE id = ${id}::uuid
+					`;
+				} catch (error) {
+					if (isUniqueViolation(error)) {
+						throw new SequenceConflictError(
+							`Sequence name already exists: ${updated.name}`,
+						);
+					}
+					throw error;
+				}
+				return updated;
+			});
+		},
+		async deleteDefinition(id) {
+			return sql.begin(async (transaction) => {
+				await ready();
+				const definitionRows = await transaction<DefinitionRow[]>`
+					SELECT id, definition
+					FROM listmonk_ops.sequence_definitions
+					WHERE id = ${id}::uuid
+					FOR UPDATE
+				`;
+				const definitionRow = definitionRows[0];
+				if (!definitionRow) {
+					throw new SequenceNotFoundError("definition", id);
+				}
+				const definition = toDefinition(definitionRow);
+				const activeRows = await transaction<{ id: string }[]>`
+					SELECT id
+					FROM listmonk_ops.sequence_enrollments
+					WHERE sequence_id = ${id}::uuid
+						AND status NOT IN ('completed', 'failed', 'cancelled')
+					LIMIT 1
+				`;
+				if (activeRows.length > 0) {
+					throw new SequenceConflictError(
+						`Sequence ${id} still has non-terminal enrollments`,
+					);
+				}
+				await transaction`
+					DELETE FROM listmonk_ops.sequence_enrollments
+					WHERE sequence_id = ${id}::uuid
+				`;
+				await transaction`
+					DELETE FROM listmonk_ops.sequence_definitions
+					WHERE id = ${id}::uuid
+				`;
+				return definition;
+			});
+		},
+		async setDefinitionStatus(id, status, now) {
+			return sql.begin(async (transaction) => {
+				await ready();
+				const definitionRows = await transaction<DefinitionRow[]>`
+					SELECT id, definition
+					FROM listmonk_ops.sequence_definitions
+					WHERE id = ${id}::uuid
+					FOR UPDATE
+				`;
+				const definitionRow = definitionRows[0];
+				if (!definitionRow) {
+					throw new SequenceNotFoundError("definition", id);
+				}
+				const previous = toDefinition(definitionRow);
+				const updated = parseSequenceDefinition({
+					...previous,
+					status,
+					updatedAt: now.toISOString(),
+				});
+				await transaction`
+					UPDATE listmonk_ops.sequence_definitions
+					SET
+						status = ${status},
+						definition = ${transaction.json(updated as never)},
+						updated_at = ${updated.updatedAt}::timestamptz
+					WHERE id = ${id}::uuid
+				`;
+				return updated;
+			});
+		},
+		async listEnrollments(options: SequenceEnrollmentListOptions = {}) {
+			await ready();
+			const limit = Math.min(1_000, Math.max(1, options.limit ?? 100));
+			const statuses = options.status
+				? [options.status]
+				: [
+						"pending",
+						"running",
+						"waiting",
+						"paused",
+						"completed",
+						"failed",
+						"ambiguous",
+						"cancelled",
+					];
+			const sequenceIds = options.sequenceId
+				? [options.sequenceId]
+				: undefined;
+			const subscriberIds = options.subscriberId
+				? [options.subscriberId]
+				: undefined;
+			const rows = await sql<EnrollmentRow[]>`
+				SELECT id, enrollment, lease_token
+				FROM listmonk_ops.sequence_enrollments
+				WHERE status IN ${sql(statuses)}
+					AND (
+						${sequenceIds === undefined}
+						OR sequence_id IN ${sql(sequenceIds ?? [randomUUID()])}
+					)
+					AND (
+						${subscriberIds === undefined}
+						OR subscriber_id IN ${sql(subscriberIds ?? [-1])}
+					)
+				ORDER BY created_at ASC
+				LIMIT ${limit}
+			`;
+			return rows.map(toEnrollment);
+		},
+		getEnrollment,
+		async createEnrollment(enrollment) {
+			await ready();
+			try {
+				await sql`
+					INSERT INTO listmonk_ops.sequence_enrollments (
+						id, sequence_id, revision, subscriber_id, status,
+						next_run_at, lease_token, lease_expires_at, enrollment,
+						created_at, updated_at
+					)
+					VALUES (
+						${enrollment.id}::uuid,
+						${enrollment.sequenceId}::uuid,
+						${enrollment.revision},
+						${enrollment.subscriberId},
+						${enrollment.status},
+						${enrollment.nextRunAt}::timestamptz,
+						NULL,
+						NULL,
+						${sql.json(enrollment as never)},
+						${enrollment.createdAt}::timestamptz,
+						${enrollment.updatedAt}::timestamptz
+					)
+				`;
+			} catch (error) {
+				if (isUniqueViolation(error)) {
+					throw new SequenceConflictError(
+						`Subscriber ${enrollment.subscriberId} already has an active enrollment for sequence ${enrollment.sequenceId} revision ${enrollment.revision}`,
+					);
+				}
+				throw error;
+			}
+			return enrollment;
+		},
+		async claimDue(options) {
+			await ready();
+			return sql.begin(async (transaction) => {
+				const rows = await transaction<
+					(EnrollmentRow & { definition: unknown })[]
+				>`
+					SELECT e.id, e.enrollment, e.lease_token, d.definition
+					FROM listmonk_ops.sequence_enrollments e
+					JOIN listmonk_ops.sequence_definitions d
+						ON d.id = e.sequence_id
+					WHERE e.status IN ('pending', 'running', 'waiting')
+						AND e.next_run_at <= ${options.now.toISOString()}::timestamptz
+						AND (
+							e.lease_expires_at IS NULL
+							OR e.lease_expires_at <= ${options.now.toISOString()}::timestamptz
+						)
+						AND d.status = 'active'
+					ORDER BY e.next_run_at ASC
+					FOR UPDATE OF e SKIP LOCKED
+					LIMIT ${options.limit}
+				`;
+				const claimed: ClaimedSequenceEnrollment[] = [];
+				for (const row of rows) {
+					const definition = parseSequenceDefinition(row.definition);
+					const enrollment = toEnrollment(row);
+					const revision = definition.revisions.find(
+						(candidate) => candidate.revision === enrollment.revision,
+					);
+					if (!revision) {
+						continue;
+					}
+					const leased = parseSequenceEnrollment({
+						...enrollment,
+						status: "running",
+						leaseToken: randomUUID(),
+						leaseExpiresAt: new Date(
+							options.now.getTime() + options.leaseMs,
+						).toISOString(),
+						updatedAt: options.now.toISOString(),
+					});
+					await transaction`
+						UPDATE listmonk_ops.sequence_enrollments
+						SET
+							status = ${leased.status},
+							lease_token = ${leased.leaseToken ?? null}::uuid,
+							lease_expires_at = ${leased.leaseExpiresAt ?? null}::timestamptz,
+							enrollment = ${transaction.json(leased as never)},
+							updated_at = ${leased.updatedAt}::timestamptz
+						WHERE id = ${leased.id}::uuid
+					`;
+					claimed.push({ enrollment: leased, definition, revision });
+				}
+				return claimed;
+			});
+		},
+		async completeClaim(enrollment, next) {
+			await ready();
+			const completed = parseSequenceEnrollment(next);
+			const rows = await sql<EnrollmentRow[]>`
+				UPDATE listmonk_ops.sequence_enrollments
+				SET
+					status = ${completed.status},
+					next_run_at = ${completed.nextRunAt}::timestamptz,
+					lease_token = NULL,
+					lease_expires_at = NULL,
+					enrollment = ${sql.json(completed as never)},
+					updated_at = ${completed.updatedAt}::timestamptz
+				WHERE id = ${completed.id}::uuid
+					AND lease_token = ${enrollment.leaseToken ?? null}::uuid
+				RETURNING id, enrollment, lease_token
+			`;
+			const row = rows[0];
+			if (!row) {
+				throw new SequenceConflictError(
+					`Sequence enrollment lease was lost: ${enrollment.id}`,
+				);
+			}
+			return toEnrollment(row);
+		},
+		async resolveAmbiguous(enrollment, next) {
+			await ready();
+			const resolved = parseSequenceEnrollment(next);
+			const rows = await sql<EnrollmentRow[]>`
+				UPDATE listmonk_ops.sequence_enrollments
+				SET
+					status = ${resolved.status},
+					next_run_at = ${resolved.nextRunAt}::timestamptz,
+					lease_token = NULL,
+					lease_expires_at = NULL,
+					enrollment = ${sql.json(resolved as never)},
+					updated_at = ${resolved.updatedAt}::timestamptz
+				WHERE id = ${resolved.id}::uuid
+					AND status = 'ambiguous'
+					AND updated_at = ${enrollment.updatedAt}::timestamptz
+				RETURNING id, enrollment, lease_token
+			`;
+			const row = rows[0];
+			if (!row) {
+				throw new SequenceConflictError(
+					`Sequence enrollment changed before reconciliation: ${enrollment.id}`,
+				);
+			}
+			return toEnrollment(row);
+		},
+		async reconcile(options) {
+			await ready();
+			return sql.begin(async (transaction) => {
+				const rows = await transaction<EnrollmentRow[]>`
+					SELECT id, enrollment, lease_token
+					FROM listmonk_ops.sequence_enrollments
+					WHERE lease_expires_at IS NOT NULL
+						AND lease_expires_at <= ${options.now.toISOString()}::timestamptz
+						AND status NOT IN ('completed', 'failed', 'cancelled')
+					ORDER BY lease_expires_at ASC
+					FOR UPDATE SKIP LOCKED
+					LIMIT ${options.limit}
+				`;
+				if (!options.dryRun) {
+					for (const row of rows) {
+						const enrollment = toEnrollment(row);
+						const recovered = parseSequenceEnrollment({
+							...withoutLease(enrollment),
+							status: "pending",
+							nextRunAt: options.now.toISOString(),
+							updatedAt: options.now.toISOString(),
+						});
+						await transaction`
+							UPDATE listmonk_ops.sequence_enrollments
+							SET
+								status = 'pending',
+								next_run_at = ${recovered.nextRunAt}::timestamptz,
+								lease_token = NULL,
+								lease_expires_at = NULL,
+								enrollment = ${transaction.json(recovered as never)},
+								updated_at = ${recovered.updatedAt}::timestamptz
+							WHERE id = ${recovered.id}::uuid
+						`;
+					}
+				}
+				return {
+					scanned: rows.length,
+					recovered: rows.length,
+					unchanged: 0,
+					dryRun: options.dryRun,
+				};
+			});
+		},
+		async getRuntimeHealth(options): Promise<SequenceRuntimeHealth> {
+			await ready();
+			const [definitionRows, enrollmentRows, workerRows] = await Promise.all([
+				sql<DefinitionRow[]>`
+					SELECT id, definition
+					FROM listmonk_ops.sequence_definitions
+				`,
+				sql<EnrollmentRow[]>`
+					SELECT id, enrollment, lease_token
+					FROM listmonk_ops.sequence_enrollments
+				`,
+				sql<WorkerRow[]>`
+					SELECT worker
+					FROM listmonk_ops.sequence_workers
+				`,
+			]);
+			return buildSequenceRuntimeHealth(
+				"postgres",
+				definitionRows.map(toDefinition),
+				enrollmentRows.map(toEnrollment),
+				workerRows.map(toWorker),
+				options,
+			);
+		},
+		async upsertWorker(worker) {
+			await ready();
+			await sql.begin(async (transaction) => {
+				await transaction`
+					INSERT INTO listmonk_ops.sequence_workers (
+						id, status, heartbeat_at, worker
+					)
+					VALUES (
+						${worker.id}::uuid,
+						${worker.status},
+						${worker.heartbeatAt}::timestamptz,
+						${transaction.json(worker as never)}
+					)
+					ON CONFLICT (id) DO UPDATE SET
+						status = EXCLUDED.status,
+						heartbeat_at = EXCLUDED.heartbeat_at,
+						worker = EXCLUDED.worker
+				`;
+				const cutoff = new Date(
+					Date.parse(worker.heartbeatAt) -
+						DEFAULT_SEQUENCE_WORKER_RETENTION_MS,
+				).toISOString();
+				await transaction`
+					DELETE FROM listmonk_ops.sequence_workers
+					WHERE id <> ${worker.id}::uuid
+						AND heartbeat_at < ${cutoff}::timestamptz
+				`;
+			});
+		},
+		async close() {
+			await sql.end({ timeout: 5 });
+		},
+	};
+}

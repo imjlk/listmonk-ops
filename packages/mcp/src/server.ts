@@ -7,6 +7,7 @@ import {
 import {
 	enqueueSuccessfulOperationLifecycleEvents,
 	getOutboundWebhookStoreOptionsFromEnvironment,
+	getSequenceRepositoryFromEnvironment,
 	recordOperationAuditWithLifecycle,
 	type OutboundWebhookStoreOptions,
 } from "@listmonk-ops/automation";
@@ -35,6 +36,7 @@ import {
 	handleTemplatesTools,
 	handleTransactionalTools,
 	createWebhookToolsHandler,
+	createSequenceToolsHandler,
 	isListsToolName,
 	isTransactionalToolName,
 	toolNameSets,
@@ -173,6 +175,7 @@ export class ListmonkMCPServer {
 	private allowedHttpHosts: Set<string>;
 	private allowedHttpOrigins: Set<string>;
 	private webhookHandler: ReturnType<typeof createWebhookToolsHandler>;
+	private sequenceHandler: ReturnType<typeof createSequenceToolsHandler>;
 
 	constructor(config: {
 		baseUrl: string;
@@ -183,6 +186,8 @@ export class ListmonkMCPServer {
 		auditStoreLimit?: number;
 		webhookStorePath?: string;
 		webhookDatabaseUrl?: string;
+		sequenceStorePath?: string;
+		sequenceDatabaseUrl?: string;
 		httpAuthToken?: string;
 		allowedHttpHosts?: readonly string[];
 		allowedHttpOrigins?: readonly string[];
@@ -206,6 +211,16 @@ export class ListmonkMCPServer {
 		});
 		this.webhookHandler = createWebhookToolsHandler({
 			store: this.webhookStoreOptions,
+		});
+		this.sequenceHandler = createSequenceToolsHandler({
+			repository: getSequenceRepositoryFromEnvironment({
+				path: config.sequenceStorePath,
+				databaseUrl: config.sequenceDatabaseUrl,
+			}),
+			target: {
+				baseUrl: this.baseUrl,
+				username: this.username,
+			},
 		});
 		this.httpAuthToken = config.httpAuthToken;
 		this.allowedHttpHosts = new Set(
@@ -542,6 +557,8 @@ export class ListmonkMCPServer {
 				result = await handleAbTestTools(operationRequest, this.client);
 			} else if (toolNameSets.webhooks.has(name)) {
 				result = await this.webhookHandler(operationRequest, this.client);
+			} else if (toolNameSets.sequences.has(name)) {
+				result = await this.sequenceHandler(operationRequest, this.client);
 			} else {
 				result = createErrorResult(`No handler found for tool: ${name}`);
 			}
@@ -628,6 +645,8 @@ export function createListmonkMCPServer(config: {
 	auditStoreLimit?: number;
 	webhookStorePath?: string;
 	webhookDatabaseUrl?: string;
+	sequenceStorePath?: string;
+	sequenceDatabaseUrl?: string;
 	httpAuthToken?: string;
 	allowedHttpHosts?: readonly string[];
 	allowedHttpOrigins?: readonly string[];
@@ -641,6 +660,8 @@ export function createListmonkMCPServer(config: {
 		auditStoreLimit: config.auditStoreLimit,
 		webhookStorePath: config.webhookStorePath,
 		webhookDatabaseUrl: config.webhookDatabaseUrl,
+		sequenceStorePath: config.sequenceStorePath,
+		sequenceDatabaseUrl: config.sequenceDatabaseUrl,
 		httpAuthToken: config.httpAuthToken,
 		allowedHttpHosts: config.allowedHttpHosts,
 		allowedHttpOrigins: config.allowedHttpOrigins,

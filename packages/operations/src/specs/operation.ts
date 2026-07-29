@@ -46,7 +46,10 @@ export type OperationSpecVerb =
 	| "tick"
 	| "ingest"
 	| "replay"
-	| "reset";
+	| "reset"
+	| "validate"
+	| "enroll"
+	| "resume";
 
 export type OperationSpecLifecycle =
 	| {

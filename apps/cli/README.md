@@ -34,12 +34,13 @@ listmonk-cli playbooks get --id campaign.safe-start
 listmonk-cli capabilities
 listmonk-cli prime --goal "schedule campaign"
 listmonk-cli webhooks list
+listmonk-cli sequences list
 ```
 
 `listmonk-cli operations` lists the shared typed contracts available through
 both the CLI and MCP server. Use `--family` to filter by `lists`,
 `subscribers`, `campaigns`, `templates`, `media`, `transactional`, `ops`, or
-`abtest`, or `discovery`.
+`abtest`, `discovery`, `webhooks`, or `sequences`.
 
 `specs search` and `specs describe` expose effect-derived safety, execution
 requirements, retry semantics, and agent guidance. `playbooks` returns typed
@@ -94,6 +95,23 @@ progress. Runtime status includes Postgres/file schema version, backlog,
 circuits, dead letters, and running, stale, stopped, or failed workers. Provider ingestion is idempotent by
 stable provider event ID; unsubscribe events require a subscriber UUID and
 metadata is capped at 16 KiB.
+
+The `sequences` group manages revisioned headless subscriber journeys:
+
+```bash
+listmonk-cli sequences create --name welcome \
+  --steps '[{"id":"send","type":"send","template_id":12},{"id":"stop","type":"stop"}]'
+listmonk-cli sequences enroll --id <sequence-uuid> --subscriber-id 42
+listmonk-cli sequences status
+listmonk-cli sequences tick --confirm
+listmonk-cli sequences reconcile --dry-run --confirm
+listmonk-cli sequences worker --confirm
+```
+
+Set `LISTMONK_OPS_SEQUENCE_STORE` for a custom single-host file or
+`LISTMONK_OPS_SEQUENCE_DATABASE_URL` for concurrent Postgres workers. These
+settings are mutually exclusive. Ambiguous sends require an operator-reviewed
+`sent` or `not_sent` reconciliation and are never retried automatically.
 
 ## Shell completion
 

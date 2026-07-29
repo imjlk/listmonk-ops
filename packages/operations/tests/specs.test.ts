@@ -16,6 +16,7 @@ import {
 	expectedPolicyForEffects,
 	messageResource,
 	projectOperationSpec,
+	sequenceOperationSpecs,
 	subscriberBlocklistOperationSpec,
 	subscriberResource,
 	transactionalSendOperationSpec,
@@ -58,6 +59,18 @@ describe("email operations specification", () => {
 			"webhooks.dlq.list",
 			"webhooks.dlq.replay",
 			"webhooks.circuit.reset",
+			"sequences.validate",
+			"sequences.create",
+			"sequences.update",
+			"sequences.list",
+			"sequences.get",
+			"sequences.delete",
+			"sequences.enroll",
+			"sequences.pause",
+			"sequences.resume",
+			"sequences.tick",
+			"sequences.reconcile",
+			"sequences.status",
 		]);
 		expect(campaignGetOperationSpec.contract.input).toMatchObject({
 			dialect: "openapi-3.1",
@@ -107,6 +120,7 @@ describe("email operations specification", () => {
 				?.IsoDateTime,
 		).toMatchObject({ type: "string", format: "date-time" });
 		expect(webhookOperationSpecs).toHaveLength(16);
+		expect(sequenceOperationSpecs).toHaveLength(12);
 		expect(webhookDispatchOperationSpec.effects).toEqual([
 			{ kind: "webhook", resource: "webhook", audience: "bulk" },
 		]);

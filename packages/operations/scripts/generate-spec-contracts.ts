@@ -24,6 +24,23 @@ import type {
 	SpecDescribeOutput,
 	SpecSearchInput,
 	SpecSearchOutput,
+	SequenceCreateInput,
+	SequenceDefinitionOutput,
+	SequenceDeleteOutput,
+	SequenceEnrollInput,
+	SequenceEnrollmentOutput,
+	SequenceIdInput,
+	SequenceListInput,
+	SequenceListOutput,
+	SequenceReconcileInput,
+	SequenceReconcileOutput,
+	SequenceStatusInput,
+	SequenceStatusOutput,
+	SequenceTickInput,
+	SequenceTickOutput,
+	SequenceUpdateInput,
+	SequenceValidateInput,
+	SequenceValidateOutput,
 	SubscriberBlocklistInput,
 	SubscriberBulkOutput,
 	TransactionalSendInput,
@@ -148,6 +165,55 @@ const contracts = {
 	),
 	transactionalSendOutputContract: contractSchema(
 		typia.json.schema<TransactionalSendOutput>(),
+	),
+	sequenceValidateInputContract: contractSchema(
+		typia.json.schema<SequenceValidateInput>(),
+	),
+	sequenceValidateOutputContract: contractSchema(
+		typia.json.schema<SequenceValidateOutput>(),
+	),
+	sequenceCreateInputContract: contractSchema(
+		typia.json.schema<SequenceCreateInput>(),
+	),
+	sequenceDefinitionOutputContract: contractSchema(
+		typia.json.schema<SequenceDefinitionOutput>(),
+	),
+	sequenceUpdateInputContract: contractSchema(
+		typia.json.schema<SequenceUpdateInput>(),
+	),
+	sequenceListInputContract: contractSchema(
+		typia.json.schema<SequenceListInput>(),
+	),
+	sequenceListOutputContract: contractSchema(
+		typia.json.schema<SequenceListOutput>(),
+	),
+	sequenceIdInputContract: contractSchema(typia.json.schema<SequenceIdInput>()),
+	sequenceDeleteOutputContract: contractSchema(
+		typia.json.schema<SequenceDeleteOutput>(),
+	),
+	sequenceEnrollInputContract: contractSchema(
+		typia.json.schema<SequenceEnrollInput>(),
+	),
+	sequenceEnrollmentOutputContract: contractSchema(
+		typia.json.schema<SequenceEnrollmentOutput>(),
+	),
+	sequenceTickInputContract: contractSchema(
+		typia.json.schema<SequenceTickInput>(),
+	),
+	sequenceTickOutputContract: contractSchema(
+		typia.json.schema<SequenceTickOutput>(),
+	),
+	sequenceReconcileInputContract: contractSchema(
+		typia.json.schema<SequenceReconcileInput>(),
+	),
+	sequenceReconcileOutputContract: contractSchema(
+		typia.json.schema<SequenceReconcileOutput>(),
+	),
+	sequenceStatusInputContract: contractSchema(
+		typia.json.schema<SequenceStatusInput>(),
+	),
+	sequenceStatusOutputContract: contractSchema(
+		typia.json.schema<SequenceStatusOutput>(),
 	),
 	specSearchInputContract: contractSchema(typia.json.schema<SpecSearchInput>()),
 	specSearchOutputContract: contractSchema(

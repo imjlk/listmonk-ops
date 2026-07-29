@@ -9,12 +9,14 @@ import {
 import { listsTools } from "../packages/mcp/src/handlers/lists";
 import { mediaTools } from "../packages/mcp/src/handlers/media";
 import { opsTools } from "../packages/mcp/src/handlers/ops";
+import { sequenceTools } from "../packages/mcp/src/handlers/sequences";
 import { subscribersTools } from "../packages/mcp/src/handlers/subscribers";
 import { templatesTools } from "../packages/mcp/src/handlers/templates";
 import { transactionalTools } from "../packages/mcp/src/handlers/transactional";
 import { webhookTools } from "../packages/mcp/src/handlers/webhooks";
 import { withMcpOperationConfirmationInputSchema } from "../packages/mcp/src/operation-execution";
 import { opsOperations } from "../packages/automation/src/ops-operations";
+import { sequenceOperations } from "../packages/automation/src/sequence-operations";
 import { webhookOperations } from "../packages/automation/src/webhook-operations";
 import { campaignOperations } from "../packages/operations/src/campaigns";
 import { discoveryOperations } from "../packages/operations/src/discovery";
@@ -32,6 +34,7 @@ export type SharedOperation =
 	| (typeof listOperations)[number]
 	| (typeof mediaOperations)[number]
 	| (typeof opsOperations)[number]
+	| (typeof sequenceOperations)[number]
 	| (typeof subscriberOperations)[number]
 	| (typeof templateOperations)[number]
 	| (typeof transactionalOperations)[number]
@@ -212,5 +215,13 @@ export function assertWebhookOperationsPublished(): void {
 		"outbound webhooks",
 		webhookOperations,
 		webhookTools,
+	);
+}
+
+export function assertSequenceOperationsPublished(): void {
+	assertOperationFamilyPublished(
+		"sequences",
+		sequenceOperations,
+		sequenceTools,
 	);
 }

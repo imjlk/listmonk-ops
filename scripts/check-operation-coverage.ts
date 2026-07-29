@@ -126,6 +126,17 @@ export const operationCoverageContracts: readonly OperationCoverageContract[] = 
 		dispatcher:
 			"packages/automation/src/webhook-operations.ts#invokeWebhookOperationByMcpName:function",
 	},
+	{
+		family: "sequences",
+		registry:
+			"packages/automation/src/sequence-operations.ts#sequenceOperations:variable",
+		testAnchor:
+			"scripts/shared-operation-coverage.ts#assertSequenceOperationsPublished:function",
+		mcpHandler:
+			"packages/mcp/src/handlers/sequences.ts#executeSequenceTools:function",
+		dispatcher:
+			"packages/automation/src/sequence-operations.ts#invokeSequenceOperationByMcpName:function",
+	},
 ];
 
 export const operationCoverageEdges: readonly GraphEdgeContract[] =
