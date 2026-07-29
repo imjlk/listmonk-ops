@@ -996,6 +996,34 @@ describe("provider and deliverability operations", () => {
 		}
 	});
 
+	test("requires a present DKIM version tag to be first", async () => {
+		for (const [record, status] of [
+			[`p=${validRsaDkimPublicKey}; v=DKIM1`, "fail"],
+			[`v=DKIM1; p=${validRsaDkimPublicKey}`, "pass"],
+			[`p=${validRsaDkimPublicKey}`, "pass"],
+		] as const) {
+			const versionDns: ProviderDnsResolver = {
+				...dns,
+				async txt(name) {
+					if (name.endsWith("._domainkey.news.example.com")) {
+						return [record];
+					}
+					return dns.txt(name);
+				},
+				async cname() {
+					return [];
+				},
+			};
+			const output = await invokeDeliverabilityDnsCheckOperation(
+				context({ dns: versionDns }),
+				{ provider_id: profile.id },
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.dkim", status }),
+			);
+		}
+	});
+
 	test("validates the encoded Ed25519 DKIM curve point", async () => {
 		for (const [publicKey, status] of [
 			[validEd25519DkimPublicKey, "pass"],
@@ -1854,6 +1882,66 @@ describe("provider and deliverability operations", () => {
 				context({
 					profiles: [smtpProfile],
 					dns: authorizationDns,
+				}),
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.spf", status }),
+			);
+		}
+	});
+
+	test("enforces the SPF DNS lookup budget across sibling includes", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "budgeted-spf-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_include: "_spf.provider.example",
+			smtp_hosts: ["smtp.example.com"],
+		});
+		for (const [nonMatchingIncludes, status] of [
+			[8, "pass"],
+			[9, "fail"],
+		] as const) {
+			const includes = Array.from(
+				{ length: nonMatchingIncludes },
+				(_, index) => `include:_spf.no-${index}.example`,
+			);
+			const budgetDns: ProviderDnsResolver = {
+				async txt(name) {
+					if (name === "_dmarc.mail.example.com") {
+						return ["v=DMARC1; p=quarantine"];
+					}
+					if (name === "bounce.mail.example.com") {
+						return [
+							"v=spf1 include:_spf.provider.example ~all",
+						];
+					}
+					if (name === "_spf.provider.example") {
+						return [
+							`v=spf1 ${includes.join(" ")} include:_spf.authorizer.example -all`,
+						];
+					}
+					if (name.startsWith("_spf.no-")) return ["v=spf1 -all"];
+					if (name === "_spf.authorizer.example") {
+						return ["v=spf1 ip4:192.0.2.0/24 -all"];
+					}
+					return [];
+				},
+				async cname() {
+					return [];
+				},
+				async mx(name) {
+					return name === "bounce.mail.example.com"
+						? [{ priority: 10, exchange: "mx.example.com" }]
+						: [];
+				},
+			};
+			const output = await inspectProviderDns(
+				smtpProfile,
+				context({
+					profiles: [smtpProfile],
+					dns: budgetDns,
 				}),
 			);
 			expect(output.checks).toContainEqual(

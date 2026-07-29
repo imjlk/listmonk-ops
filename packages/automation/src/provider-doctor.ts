@@ -14,7 +14,7 @@ import { z } from "zod";
 const DEFAULT_DNS_TIMEOUT_MS = 5_000;
 const DEFAULT_DNS_INSPECTION_TIMEOUT_MS = 10_000;
 const MAX_DMARC_TREE_WALK_QUERIES = 8;
-const MAX_SPF_INCLUDE_DEPTH = 10;
+const MAX_SPF_DNS_LOOKUPS = 10;
 const ED25519_FIELD_PRIME = (1n << 255n) - 19n;
 const ED25519_CURVE_D =
 	37095705934669439343138083508754565189542113879843219016388785533085940283555n;
@@ -1459,6 +1459,15 @@ function allowsSha256DkimHash(tags: ReadonlyMap<string, string>): boolean {
 	);
 }
 
+function startsWithTag(record: string, expectedTag: string): boolean {
+	const first = record.split(";", 1)[0]!;
+	const separator = first.indexOf("=");
+	return (
+		separator > 0 &&
+		first.slice(0, separator).trim().toLowerCase() === expectedTag
+	);
+}
+
 function isValidRsaDkimPublicKey(publicKey: Buffer): boolean {
 	for (const type of ["spki", "pkcs1"] as const) {
 		try {
@@ -1487,6 +1496,7 @@ function hasDirectDkimKey(record: string): boolean {
 	if (
 		tags === undefined ||
 		(version !== undefined && version !== "dkim1") ||
+		(version !== undefined && !startsWithTag(record, "v")) ||
 		!allowsEmailDkimService(tags) ||
 		!allowsSha256DkimHash(tags)
 	) {
@@ -1548,6 +1558,16 @@ interface SpfAuthorizationInspection {
 	indeterminate: boolean;
 	invalid: boolean;
 	observations: DnsObservation[];
+}
+
+interface SpfLookupBudget {
+	used: number;
+}
+
+function consumeSpfDnsLookup(budget: SpfLookupBudget): boolean {
+	if (budget.used >= MAX_SPF_DNS_LOOKUPS) return false;
+	budget.used += 1;
+	return true;
 }
 
 function isValidSpfDomainSpec(value: string): boolean {
@@ -1624,6 +1644,16 @@ function isDirectSpfAuthorizer(mechanism: string): boolean {
 	return name !== "include" && isValidSpfMechanism(mechanism);
 }
 
+function spfMechanismUsesDns(mechanism: string): boolean {
+	const name = mechanism.toLowerCase().split(/[:/]/, 1)[0];
+	return (
+		name === "a" ||
+		name === "mx" ||
+		name === "ptr" ||
+		name === "exists"
+	);
+}
+
 function parseValidSpfTerms(record: string): string[] | undefined {
 	if (!isSpfVersionOneRecord(record)) return undefined;
 	const terms = record.trim().split(/\s+/).slice(1);
@@ -1652,10 +1682,13 @@ async function inspectSpfAuthorizationTarget(
 	domain: string,
 	dns: ProviderDnsResolver,
 	visited: ReadonlySet<string> = new Set(),
-	depth = 0,
+	lookupBudget: SpfLookupBudget = { used: 1 },
 ): Promise<SpfAuthorizationInspection> {
 	const normalizedDomain = normalizeDomain(domain);
-	if (depth >= MAX_SPF_INCLUDE_DEPTH || visited.has(normalizedDomain)) {
+	if (
+		lookupBudget.used > MAX_SPF_DNS_LOOKUPS ||
+		visited.has(normalizedDomain)
+	) {
 		return {
 			ready: false,
 			indeterminate: false,
@@ -1728,15 +1761,22 @@ async function inspectSpfAuthorizationTarget(
 				observations,
 			};
 		}
-		if (qualifier !== undefined && qualifier !== "+") continue;
 		if (mechanismName === "include") {
 			const nestedDomain = mechanism.slice("include:".length);
 			if (!nestedDomain) continue;
+			if (!consumeSpfDnsLookup(lookupBudget)) {
+				return {
+					ready: false,
+					indeterminate: false,
+					invalid: true,
+					observations,
+				};
+			}
 			const nested = await inspectSpfAuthorizationTarget(
 				nestedDomain,
 				dns,
 				nextVisited,
-				depth + 1,
+				lookupBudget,
 			);
 			observations.push(...nested.observations);
 			if (nested.indeterminate) {
@@ -1755,7 +1795,10 @@ async function inspectSpfAuthorizationTarget(
 					observations,
 				};
 			}
-			if (nested.ready) {
+			if (
+				nested.ready &&
+				(qualifier === undefined || qualifier === "+")
+			) {
 				return {
 					ready: true,
 					indeterminate: false,
@@ -1765,6 +1808,18 @@ async function inspectSpfAuthorizationTarget(
 			}
 			continue;
 		}
+		if (
+			spfMechanismUsesDns(mechanism) &&
+			!consumeSpfDnsLookup(lookupBudget)
+		) {
+			return {
+				ready: false,
+				indeterminate: false,
+				invalid: true,
+				observations,
+			};
+		}
+		if (qualifier !== undefined && qualifier !== "+") continue;
 		if (isDirectSpfAuthorizer(mechanism)) {
 			return {
 				ready: true,
@@ -1775,11 +1830,19 @@ async function inspectSpfAuthorizationTarget(
 		}
 	}
 	if (redirectTarget !== undefined) {
+		if (!consumeSpfDnsLookup(lookupBudget)) {
+			return {
+				ready: false,
+				indeterminate: false,
+				invalid: true,
+				observations,
+			};
+		}
 		const redirected = await inspectSpfAuthorizationTarget(
 			redirectTarget,
 			dns,
 			nextVisited,
-			depth + 1,
+			lookupBudget,
 		);
 		observations.push(...redirected.observations);
 		return {
