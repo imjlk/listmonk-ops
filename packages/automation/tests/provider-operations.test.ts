@@ -1027,6 +1027,7 @@ describe("provider and deliverability operations", () => {
 	test("validates the encoded Ed25519 DKIM curve point", async () => {
 		for (const [publicKey, status] of [
 			[validEd25519DkimPublicKey, "pass"],
+			[validEd25519DkimPublicKey.replace(/=+$/, ""), "pass"],
 			[nonCanonicalEd25519DkimPublicKey, "fail"],
 			[smallOrderEd25519DkimPublicKey, "fail"],
 		] as const) {
@@ -1837,6 +1838,11 @@ describe("provider and deliverability operations", () => {
 				"fail",
 			],
 			[
+				"v=spf1 -include:_spf.nested.example +all",
+				"v=spf1 +all",
+				"fail",
+			],
+			[
 				"v=spf1 redirect=_spf.nested.example redirect=_spf.other.example",
 				"v=spf1 ip4:192.0.2.0/24 -all",
 				"fail",
@@ -1942,6 +1948,118 @@ describe("provider and deliverability operations", () => {
 				context({
 					profiles: [smtpProfile],
 					dns: budgetDns,
+				}),
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.spf", status }),
+			);
+		}
+	});
+
+	test("counts root SPF terms before the expected include", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "root-budget-spf-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_include: "_spf.provider.example",
+			smtp_hosts: ["smtp.example.com"],
+		});
+		for (const [precedingIncludes, status] of [
+			[9, "pass"],
+			[10, "fail"],
+		] as const) {
+			const includes = Array.from(
+				{ length: precedingIncludes },
+				(_, index) => `include:_spf.root-no-${index}.example`,
+			);
+			const budgetDns: ProviderDnsResolver = {
+				async txt(name) {
+					if (name === "_dmarc.mail.example.com") {
+						return ["v=DMARC1; p=quarantine"];
+					}
+					if (name === "bounce.mail.example.com") {
+						return [
+							`v=spf1 ${includes.join(" ")} include:_spf.provider.example -all`,
+						];
+					}
+					if (name === "_spf.provider.example") {
+						return ["v=spf1 ip4:192.0.2.0/24 -all"];
+					}
+					return [];
+				},
+				async cname() {
+					return [];
+				},
+				async mx(name) {
+					return name === "bounce.mail.example.com"
+						? [{ priority: 10, exchange: "mx.example.com" }]
+						: [];
+				},
+			};
+			const output = await inspectProviderDns(
+				smtpProfile,
+				context({
+					profiles: [smtpProfile],
+					dns: budgetDns,
+				}),
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.spf", status }),
+			);
+		}
+	});
+
+	test("requires DNS evidence for SPF a, mx, and exists mechanisms", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "dns-evidence-spf-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_include: "_spf.provider.example",
+			smtp_hosts: ["smtp.example.com"],
+		});
+		for (const [mechanism, status] of [
+			["a:missing.example", "fail"],
+			["mx:missing.example", "fail"],
+			["exists:missing.example", "fail"],
+			["exists:found.example", "pass"],
+		] as const) {
+			const evidenceDns: ProviderDnsResolver = {
+				async txt(name) {
+					if (name === "_dmarc.mail.example.com") {
+						return ["v=DMARC1; p=quarantine"];
+					}
+					if (name === "bounce.mail.example.com") {
+						return [
+							"v=spf1 include:_spf.provider.example -all",
+						];
+					}
+					if (name === "_spf.provider.example") {
+						return [`v=spf1 ${mechanism} -all`];
+					}
+					return [];
+				},
+				async cname() {
+					return [];
+				},
+				async mx(name) {
+					return name === "bounce.mail.example.com"
+						? [{ priority: 10, exchange: "mx.example.com" }]
+						: [];
+				},
+				async a(name) {
+					return name === "found.example" ? ["192.0.2.10"] : [];
+				},
+				async aaaa() {
+					return [];
+				},
+			};
+			const output = await inspectProviderDns(
+				smtpProfile,
+				context({
+					profiles: [smtpProfile],
+					dns: evidenceDns,
 				}),
 			);
 			expect(output.checks).toContainEqual(
@@ -2225,6 +2343,20 @@ describe("provider profile loader", () => {
 				password: "must-not-be-accepted",
 			}),
 		).toThrow("Unrecognized key");
+	});
+
+	test("accepts dotted DKIM selector subdomains", () => {
+		const parsed = providerProfileSchema.parse({
+			...profile,
+			dkim_selectors: ["mail.eu"],
+		});
+		expect(parsed.dkim_selectors).toEqual(["mail.eu"]);
+		expect(() =>
+			providerProfileSchema.parse({
+				...profile,
+				dkim_selectors: ["mail..eu"],
+			}),
+		).toThrow();
 	});
 
 	test("does not expose an inaccessible provider config path", async () => {

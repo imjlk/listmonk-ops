@@ -78,8 +78,10 @@ export const providerProfileSchema = z
 					.string()
 					.trim()
 					.min(1)
-					.max(80)
-					.regex(/^[A-Za-z0-9_-]+$/),
+					.max(253)
+					.regex(
+						/^(?:[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(?:\.(?:[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?))*$/,
+					),
 			)
 			.max(20)
 			.default([]),

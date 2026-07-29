@@ -1,7 +1,13 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { Buffer } from "node:buffer";
 import { createPublicKey } from "node:crypto";
-import { resolveCname, resolveMx, resolveTxt } from "node:dns/promises";
+import {
+	resolve4,
+	resolve6,
+	resolveCname,
+	resolveMx,
+	resolveTxt,
+} from "node:dns/promises";
 import { isIP } from "node:net";
 import type {
 	ProviderInspector,
@@ -166,6 +172,8 @@ export interface ProviderDnsResolver {
 	txt(name: string): Promise<string[]>;
 	cname(name: string): Promise<string[]>;
 	mx(name: string): Promise<Array<{ exchange: string; priority: number }>>;
+	a?(name: string): Promise<string[]>;
+	aaaa?(name: string): Promise<string[]>;
 }
 
 export interface ProviderInspectionContext {
@@ -1070,6 +1078,22 @@ export function createNodeDnsResolver(
 				throw error;
 			}
 		},
+		async a(name) {
+			try {
+				return await withDnsTimeout(name, timeoutMs, resolve4(name));
+			} catch (error) {
+				if (isMissingDnsError(error)) return [];
+				throw error;
+			}
+		},
+		async aaaa(name) {
+			try {
+				return await withDnsTimeout(name, timeoutMs, resolve6(name));
+			} catch (error) {
+				if (isMissingDnsError(error)) return [];
+				throw error;
+			}
+		},
 	};
 }
 
@@ -1503,19 +1527,21 @@ function hasDirectDkimKey(record: string): boolean {
 		return false;
 	}
 	const encoded = tags.get("p")?.replace(/\s+/g, "");
+	if (!encoded) return false;
+	const unpadded = encoded.replace(/=+$/, "");
 	if (
-		!encoded ||
-		encoded.length % 4 !== 0 ||
-		!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
-			encoded,
-		)
+		!/^[A-Za-z0-9+/]+$/.test(unpadded) ||
+		unpadded.length % 4 === 1
 	) {
 		return false;
 	}
-	const publicKey = Buffer.from(encoded, "base64");
+	const normalized =
+		unpadded + "=".repeat((4 - (unpadded.length % 4)) % 4);
+	if (encoded !== unpadded && encoded !== normalized) return false;
+	const publicKey = Buffer.from(normalized, "base64");
 	if (
 		publicKey.length === 0 ||
-		publicKey.toString("base64") !== encoded
+		publicKey.toString("base64").replace(/=+$/, "") !== unpadded
 	) {
 		return false;
 	}
@@ -1529,24 +1555,37 @@ function hasSingleDirectDkimKey(records: readonly string[]): boolean {
 	return records.length === 1 && hasDirectDkimKey(records[0]!);
 }
 
-function hasExactSpfInclude(record: string, expectedDomain: string): boolean {
+function spfLookupCountThroughExpectedInclude(
+	record: string,
+	expectedDomain: string,
+): number | undefined {
 	const expected = normalizeDomain(expectedDomain);
 	const terms = parseValidSpfTerms(record);
-	if (terms === undefined) return false;
+	if (terms === undefined) return undefined;
+	let lookups = 0;
 	for (const mechanism of terms) {
 		if (mechanism.includes("=")) continue;
 		const qualifier = /^[+?~-]/.exec(mechanism)?.[0];
 		const unqualified = mechanism.replace(/^[+?~-]/, "");
-		if (unqualified.toLowerCase() === "all") return false;
-		if (qualifier !== undefined && qualifier !== "+") continue;
-		if (!unqualified.toLowerCase().startsWith("include:")) continue;
+		const name = unqualified.toLowerCase().split(/[:/]/, 1)[0];
+		if (name === "all") return undefined;
+		if (name === "include" || spfMechanismUsesDns(unqualified)) {
+			lookups += 1;
+			if (lookups > MAX_SPF_DNS_LOOKUPS) return undefined;
+		}
+		if (
+			name !== "include" ||
+			(qualifier !== undefined && qualifier !== "+")
+		) {
+			continue;
+		}
 		if (
 			normalizeDomain(unqualified.slice("include:".length)) === expected
 		) {
-			return true;
+			return lookups;
 		}
 	}
-	return false;
+	return undefined;
 }
 
 function isSpfVersionOneRecord(record: string): boolean {
@@ -1678,6 +1717,109 @@ function parseValidSpfTerms(record: string): string[] | undefined {
 	return terms;
 }
 
+interface SpfMechanismMatch {
+	matches: boolean;
+	indeterminate: boolean;
+	invalid: boolean;
+}
+
+async function inspectSpfAddresses(
+	domain: string,
+	dns: ProviderDnsResolver,
+	ipv4Only = false,
+): Promise<SpfMechanismMatch> {
+	if (domain.includes("%")) {
+		return { matches: false, indeterminate: true, invalid: false };
+	}
+	const loaders: Array<(() => Promise<string[]>) | undefined> = [
+		dns.a === undefined ? undefined : () => dns.a!(domain),
+		...(ipv4Only
+			? []
+			: [dns.aaaa === undefined ? undefined : () => dns.aaaa!(domain)]),
+	];
+	const available = loaders.filter(
+		(load): load is () => Promise<string[]> => load !== undefined,
+	);
+	const results = await Promise.allSettled(available.map((load) => load()));
+	if (
+		results.some(
+			(result) => result.status === "fulfilled" && result.value.length > 0,
+		)
+	) {
+		return { matches: true, indeterminate: false, invalid: false };
+	}
+	if (
+		available.length !== loaders.length ||
+		results.some((result) => result.status === "rejected")
+	) {
+		return { matches: false, indeterminate: true, invalid: false };
+	}
+	return { matches: false, indeterminate: false, invalid: false };
+}
+
+function spfMechanismDomain(
+	mechanism: string,
+	currentDomain: string,
+): string {
+	const separator = mechanism.indexOf(":");
+	if (separator === -1) return currentDomain;
+	return normalizeDomain(mechanism.slice(separator + 1).split("/", 1)[0]!);
+}
+
+async function inspectDirectSpfMechanism(
+	mechanism: string,
+	currentDomain: string,
+	dns: ProviderDnsResolver,
+): Promise<SpfMechanismMatch> {
+	const name = mechanism.toLowerCase().split(/[:/]/, 1)[0];
+	if (name === "ip4" || name === "ip6" || name === "all") {
+		return { matches: true, indeterminate: false, invalid: false };
+	}
+	if (name === "a") {
+		return inspectSpfAddresses(
+			spfMechanismDomain(mechanism, currentDomain),
+			dns,
+		);
+	}
+	if (name === "exists") {
+		return inspectSpfAddresses(
+			spfMechanismDomain(mechanism, currentDomain),
+			dns,
+			true,
+		);
+	}
+	if (name === "mx") {
+		const domain = spfMechanismDomain(mechanism, currentDomain);
+		if (domain.includes("%")) {
+			return { matches: false, indeterminate: true, invalid: false };
+		}
+		let records: Array<{ exchange: string; priority: number }>;
+		try {
+			records = await dns.mx(domain);
+		} catch {
+			return { matches: false, indeterminate: true, invalid: false };
+		}
+		if (records.length > 10) {
+			return { matches: false, indeterminate: false, invalid: true };
+		}
+		const exchanges = records
+			.map(({ exchange }) => normalizeDomain(exchange))
+			.filter(Boolean);
+		const results = await Promise.all(
+			exchanges.map((exchange) => inspectSpfAddresses(exchange, dns)),
+		);
+		if (results.some(({ matches }) => matches)) {
+			return { matches: true, indeterminate: false, invalid: false };
+		}
+		if (results.some(({ indeterminate }) => indeterminate)) {
+			return { matches: false, indeterminate: true, invalid: false };
+		}
+		return { matches: false, indeterminate: false, invalid: false };
+	}
+	// PTR depends on the sender address and forward-confirmed reverse DNS.
+	return { matches: false, indeterminate: true, invalid: false };
+}
+
 async function inspectSpfAuthorizationTarget(
 	domain: string,
 	dns: ProviderDnsResolver,
@@ -1806,6 +1948,14 @@ async function inspectSpfAuthorizationTarget(
 					observations,
 				};
 			}
+			if (nested.ready) {
+				return {
+					ready: false,
+					indeterminate: false,
+					invalid: false,
+					observations,
+				};
+			}
 			continue;
 		}
 		if (
@@ -1819,7 +1969,36 @@ async function inspectSpfAuthorizationTarget(
 				observations,
 			};
 		}
-		if (qualifier !== undefined && qualifier !== "+") continue;
+		const match = await inspectDirectSpfMechanism(
+			mechanism,
+			normalizedDomain,
+			dns,
+		);
+		if (match.indeterminate) {
+			return {
+				ready: false,
+				indeterminate: true,
+				invalid: false,
+				observations,
+			};
+		}
+		if (match.invalid) {
+			return {
+				ready: false,
+				indeterminate: false,
+				invalid: true,
+				observations,
+			};
+		}
+		if (!match.matches) continue;
+		if (qualifier !== undefined && qualifier !== "+") {
+			return {
+				ready: false,
+				indeterminate: false,
+				invalid: false,
+				observations,
+			};
+		}
 		if (isDirectSpfAuthorizer(mechanism)) {
 			return {
 				ready: true,
@@ -2099,17 +2278,26 @@ async function inspectProviderDnsUnbounded(
 		const expectedInclude =
 			profile.expected_spf_include ??
 			(profile.kind === "ses" ? "amazonses.com" : undefined);
+		const rootSpfLookupCount =
+			spfRecords.length === 1 && expectedInclude !== undefined
+				? spfLookupCountThroughExpectedInclude(spfRecords[0]!, expectedInclude)
+				: undefined;
 		const includeAuthorization =
-			expectedInclude === undefined
+			expectedInclude === undefined || rootSpfLookupCount === undefined
 				? undefined
-				: await inspectSpfAuthorizationTarget(expectedInclude, dns);
+				: await inspectSpfAuthorizationTarget(
+						expectedInclude,
+						dns,
+						new Set([mailFromDomain]),
+						{ used: rootSpfLookupCount },
+					);
 		if (includeAuthorization !== undefined) {
 			observations.push(...includeAuthorization.observations);
 		}
 		const spfReady =
 			spfRecords.length === 1 &&
 			expectedInclude !== undefined &&
-			hasExactSpfInclude(spfRecords[0]!, expectedInclude) &&
+			rootSpfLookupCount !== undefined &&
 			includeAuthorization?.ready === true;
 		const spfStatus: DoctorCheckStatus =
 			txt.outcome === "error" ||
