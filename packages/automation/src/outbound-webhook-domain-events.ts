@@ -1,0 +1,388 @@
+import { createHash } from "node:crypto";
+import {
+	createOutboundWebhookEvent,
+	enqueueOutboundWebhookEvent,
+	listOutboundWebhookEndpoints,
+	matchesOutboundWebhookEvent,
+	type CreateOutboundWebhookEventInput,
+	type EnqueueOutboundWebhookResult,
+	type OutboundWebhookEventType,
+	type OutboundWebhookStoreOptions,
+	type OutboundWebhookSubject,
+} from "./outbound-webhooks";
+
+export interface SuccessfulOperationLifecycleInput {
+	executionId: string;
+	operationId: string;
+	operationInput: Readonly<Record<string, unknown>>;
+	operationOutput?: unknown;
+	occurredAt?: string;
+}
+
+export interface EnqueueSuccessfulOperationLifecycleResult {
+	projected: number;
+	matchedEndpoints: number;
+	queuedDeliveries: number;
+	duplicateDeliveries: number;
+	eventIds: readonly string[];
+}
+
+type DomainEventProjection = Readonly<{
+	type: OutboundWebhookEventType;
+	source: CreateOutboundWebhookEventInput["source"];
+	subject: OutboundWebhookSubject;
+	data: Readonly<Record<string, unknown>>;
+}>;
+
+function asRecord(value: unknown): Readonly<Record<string, unknown>> | undefined {
+	return typeof value === "object" && value !== null && !Array.isArray(value)
+		? (value as Readonly<Record<string, unknown>>)
+		: undefined;
+}
+
+function asNonBlankString(value: unknown): string | undefined {
+	if (typeof value !== "string") {
+		return undefined;
+	}
+	const trimmed = value.trim();
+	return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function asResourceKey(value: unknown): string | undefined {
+	if (
+		(typeof value === "number" && Number.isInteger(value) && value > 0) ||
+		typeof value === "bigint"
+	) {
+		return String(value);
+	}
+	return asNonBlankString(value);
+}
+
+function deterministicUuid(seed: string): string {
+	const bytes = createHash("sha256").update(seed, "utf8").digest().subarray(
+		0,
+		16,
+	);
+	bytes[6] = (bytes[6]! & 0x0f) | 0x50;
+	bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+	const hex = bytes.toString("hex");
+	return [
+		hex.slice(0, 8),
+		hex.slice(8, 12),
+		hex.slice(12, 16),
+		hex.slice(16, 20),
+		hex.slice(20),
+	].join("-");
+}
+
+function eventId(
+	executionId: string,
+	projection: DomainEventProjection,
+	index: number,
+): string {
+	return deterministicUuid(
+		[
+			"listmonk-ops",
+			"domain-lifecycle",
+			"v1",
+			executionId,
+			projection.type,
+			projection.subject.kind,
+			projection.subject.key,
+			String(index),
+		].join(":"),
+	);
+}
+
+function outputResource(
+	output: unknown,
+	property: string,
+): Readonly<Record<string, unknown>> | undefined {
+	const record = asRecord(output);
+	return asRecord(record?.[property]);
+}
+
+function campaignProjection(
+	input: SuccessfulOperationLifecycleInput,
+): DomainEventProjection | undefined {
+	const eventTypes = {
+		"campaigns.schedule": "campaign.scheduled",
+		"campaigns.start": "campaign.started",
+		"campaigns.pause": "campaign.paused",
+		"campaigns.cancel": "campaign.cancelled",
+	} as const;
+	const type = eventTypes[input.operationId as keyof typeof eventTypes];
+	if (!type) {
+		return undefined;
+	}
+	const output = asRecord(input.operationOutput);
+	const campaignId =
+		asResourceKey(output?.["id"]) ??
+		asResourceKey(input.operationInput["id"]);
+	if (!campaignId) {
+		return undefined;
+	}
+	return {
+		type,
+		source: "listmonk",
+		subject: { kind: "campaign", key: campaignId },
+		data: {
+			status: output?.["status"],
+			send_at: input.operationInput["send_at"],
+		},
+	};
+}
+
+function subscriberProjection(
+	input: SuccessfulOperationLifecycleInput,
+): readonly DomainEventProjection[] {
+	const output = asRecord(input.operationOutput);
+	if (
+		input.operationId === "subscribers.create" ||
+		input.operationId === "subscribers.update"
+	) {
+		const subscriberId =
+			asResourceKey(output?.["id"]) ??
+			(input.operationId === "subscribers.update"
+				? asResourceKey(input.operationInput["id"])
+				: undefined);
+		if (!subscriberId) {
+			return [];
+		}
+		return [
+			{
+				type:
+					input.operationId === "subscribers.create"
+						? "subscriber.created"
+						: "subscriber.updated",
+				source: "listmonk",
+				subject: { kind: "subscriber", key: subscriberId },
+				data: {
+					status: output?.["status"],
+				},
+			},
+		];
+	}
+	if (
+		input.operationId !== "subscribers.blocklist" ||
+		input.operationInput["dry_run"] === true
+	) {
+		return [];
+	}
+	const subscriberIds = Array.isArray(input.operationInput["subscriber_ids"])
+		? input.operationInput["subscriber_ids"]
+		: typeof input.operationInput["subscriber_ids"] === "string"
+			? input.operationInput["subscriber_ids"]
+					.split(",")
+					.map((value) => value.trim())
+					.filter(Boolean)
+			: [];
+	const normalizedIds = subscriberIds
+		.map(asResourceKey)
+		.filter((value): value is string => value !== undefined)
+		.sort();
+	if (normalizedIds.length === 0) {
+		return [];
+	}
+	const batchKey = createHash("sha256")
+		.update(normalizedIds.join(","), "utf8")
+		.digest("hex")
+		.slice(0, 24);
+	return [
+		{
+			type: "subscriber.blocklisted",
+			source: "listmonk",
+			subject: { kind: "subscriber", key: `batch:${batchKey}` },
+			data: {
+				requested_count: normalizedIds.length,
+				processed: output?.["processed"],
+				succeeded: output?.["succeeded"],
+				failed: output?.["failed"],
+			},
+		},
+	];
+}
+
+function abTestProjection(
+	input: SuccessfulOperationLifecycleInput,
+): readonly DomainEventProjection[] {
+	const output = asRecord(input.operationOutput);
+	const test = outputResource(input.operationOutput, "test");
+	const testId =
+		asResourceKey(test?.["id"]) ??
+		asResourceKey(input.operationInput["test_id"]);
+	if (input.operationId === "abtest.launch" && testId) {
+		return [
+			{
+				type: "abtest.started",
+				source: "abtest",
+				subject: { kind: "experiment", key: testId },
+				data: { status: test?.["status"] ?? "running" },
+			},
+		];
+	}
+	if (
+		input.operationId === "abtest.deploy-winner" &&
+		testId &&
+		output?.["deployed"] === true
+	) {
+		return [
+			{
+				type: "abtest.winner-selected",
+				source: "abtest",
+				subject: { kind: "experiment", key: testId },
+				data: { deployed: true },
+			},
+		];
+	}
+	if (input.operationId === "abtest.analyze") {
+		const analysis = outputResource(input.operationOutput, "analysis");
+		const analysisTestId =
+			asResourceKey(analysis?.["testId"]) ?? testId;
+		const winner = asRecord(analysis?.["winner"]);
+		if (analysisTestId && winner) {
+			return [
+				{
+					type: "abtest.winner-selected",
+					source: "abtest",
+					subject: { kind: "experiment", key: analysisTestId },
+					data: { winner_variant_id: winner["id"] },
+				},
+			];
+		}
+	}
+	const lifecycleEventByStatus = {
+		analyzing: "abtest.ready-for-analysis",
+		inconclusive: "abtest.inconclusive",
+		failed: "abtest.failed",
+	} as const;
+	if (input.operationId === "abtest.run" && testId) {
+		const status = asNonBlankString(test?.["status"]);
+		const type =
+			status === undefined
+				? undefined
+				: lifecycleEventByStatus[
+						status as keyof typeof lifecycleEventByStatus
+					];
+		return type
+			? [
+					{
+						type,
+						source: "abtest",
+						subject: { kind: "experiment", key: testId },
+						data: { status },
+					},
+				]
+			: [];
+	}
+	if (input.operationId === "abtest.tick") {
+		const results = Array.isArray(output?.["results"]) ? output["results"] : [];
+		return results.flatMap((value): DomainEventProjection[] => {
+			const result = asRecord(value);
+			const resultTestId = asResourceKey(result?.["test_id"]);
+			const status = asNonBlankString(result?.["status"]);
+			const type =
+				status === undefined
+					? undefined
+					: lifecycleEventByStatus[
+							status as keyof typeof lifecycleEventByStatus
+						];
+			if (!resultTestId || !type) {
+				return [];
+			}
+			return [
+				{
+					type,
+					source: "abtest",
+					subject: { kind: "experiment", key: resultTestId },
+					data: {
+						status,
+						action: result?.["action"],
+					},
+				},
+			];
+		});
+	}
+	return [];
+}
+
+export function projectSuccessfulOperationLifecycleEvents(
+	input: SuccessfulOperationLifecycleInput,
+): readonly CreateOutboundWebhookEventInput[] {
+	const campaign = campaignProjection(input);
+	const projections = [
+		...(campaign ? [campaign] : []),
+		...subscriberProjection(input),
+		...abTestProjection(input),
+	];
+	return projections.map((projection, index) => ({
+		id: eventId(input.executionId, projection, index),
+		type: projection.type,
+		occurredAt: input.occurredAt,
+		source: projection.source,
+		correlationId: input.executionId,
+		subject: projection.subject,
+		data: {
+			operation_id: input.operationId,
+			...projection.data,
+		},
+	}));
+}
+
+/**
+ * Best-effort callers can safely retry this projection: event identifiers are
+ * deterministic within one audited execution and each endpoint has a unique
+ * event/destination constraint in both persistence implementations.
+ */
+export async function enqueueSuccessfulOperationLifecycleEvents(
+	input: SuccessfulOperationLifecycleInput,
+	store: OutboundWebhookStoreOptions = {},
+): Promise<EnqueueSuccessfulOperationLifecycleResult> {
+	const projected = projectSuccessfulOperationLifecycleEvents(input);
+	if (projected.length === 0) {
+		return {
+			projected: 0,
+			matchedEndpoints: 0,
+			queuedDeliveries: 0,
+			duplicateDeliveries: 0,
+			eventIds: [],
+		};
+	}
+	const endpoints = await listOutboundWebhookEndpoints(store);
+	const results: EnqueueOutboundWebhookResult[] = [];
+	for (const eventInput of projected) {
+		const event = createOutboundWebhookEvent(eventInput);
+		const endpointIds = endpoints
+			.filter(
+				(endpoint) =>
+					endpoint.enabled &&
+					matchesOutboundWebhookEvent(endpoint.eventFilters, event.type),
+			)
+			.map((endpoint) => endpoint.id);
+		if (endpointIds.length === 0) {
+			continue;
+		}
+		results.push(
+			await enqueueOutboundWebhookEvent(event, {
+				...store,
+				endpointIds,
+			}),
+		);
+	}
+	return {
+		projected: projected.length,
+		matchedEndpoints: results.reduce(
+			(total, result) => total + result.matchedEndpoints,
+			0,
+		),
+		queuedDeliveries: results.reduce(
+			(total, result) => total + result.queuedDeliveries,
+			0,
+		),
+		duplicateDeliveries: results.reduce(
+			(total, result) => total + result.duplicateDeliveries,
+			0,
+		),
+		eventIds: results.map((result) => result.event.id),
+	};
+}

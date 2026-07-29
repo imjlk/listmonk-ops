@@ -616,3 +616,44 @@ export interface WebhookDeliveryRetryInput {
 export interface WebhookDeliveryRetryOutput {
 	delivery: WebhookDelivery;
 }
+
+export interface WebhookReconcileInput {
+	limit?: WebhookDeliveryListLimit | undefined;
+	dry_run?: boolean | undefined;
+}
+
+export interface WebhookReconcileOutput {
+	scanned: NonNegativeInteger;
+	recovered: NonNegativeInteger;
+	exhausted: NonNegativeInteger;
+	unchanged: NonNegativeInteger;
+	dry_run: boolean;
+}
+
+export type WebhookRetentionDays = number &
+	tags.Type<"int32"> &
+	tags.Minimum<1> &
+	tags.Maximum<3650>;
+
+export interface WebhookPruneInput {
+	older_than_days?: WebhookRetentionDays | undefined;
+	limit?: WebhookDeliveryListLimit | undefined;
+	dry_run?: boolean | undefined;
+}
+
+export interface WebhookPruneOutput {
+	eligible: NonNegativeInteger;
+	deleted: NonNegativeInteger;
+	dry_run: boolean;
+	before: IsoDateTime;
+}
+
+export interface WebhookTickInput {
+	dispatch_limit?: WebhookDispatchLimit | undefined;
+	reconcile_limit?: WebhookDeliveryListLimit | undefined;
+}
+
+export interface WebhookTickOutput {
+	reconcile: WebhookReconcileOutput;
+	dispatch: WebhookDispatchOutput;
+}

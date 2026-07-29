@@ -11,8 +11,14 @@ import {
 	webhookDispatchOutputContract,
 	webhookListInputContract,
 	webhookListOutputContract,
+	webhookPruneInputContract,
+	webhookPruneOutputContract,
+	webhookReconcileInputContract,
+	webhookReconcileOutputContract,
 	webhookTestInputContract,
 	webhookTestOutputContract,
+	webhookTickInputContract,
+	webhookTickOutputContract,
 	webhookUpdateInputContract,
 	webhookUpdateOutputContract,
 } from "./contract-schemas";
@@ -635,6 +641,164 @@ export const webhookDeliveryRetryOperationSpec = defineOperationSpec({
 	since: "0.8.0",
 });
 
+export const webhookReconcileOperationSpec = defineOperationSpec({
+	id: "webhooks.reconcile",
+	resource: "webhook",
+	verb: "reconcile",
+	title: "Reconcile outbound webhook leases",
+	description:
+		"Recover expired worker leases and exhaust deliveries whose endpoint is missing or disabled.",
+	contract: {
+		input: webhookReconcileInputContract,
+		output: webhookReconcileOutputContract,
+	},
+	effects: [
+		{
+			kind: "maintenance",
+			resource: "webhook",
+			action: "recover",
+			destructive: false,
+		},
+	],
+	policy: { confirmation: "never", audit: "required", dryRun: true },
+	retry: {
+		kind: "safe",
+		reason:
+			"Only expired leases are recovered and repeating reconciliation is an idempotent no-op.",
+	},
+	agent: {
+		useWhen: [
+			"A worker may have crashed with deliveries left in the delivering state.",
+		],
+		avoidWhen: ["Healthy non-expired workers are still processing the selected leases."],
+		prerequisites: ["webhooks.delivery.list"],
+		verifyWith: ["webhooks.delivery.list"],
+		related: ["webhooks.tick", "webhooks.dispatch"],
+		retryGuidance: "Repeating reconciliation is safe after an ambiguous result.",
+	},
+	projection: {
+		mcpName: "listmonk_webhooks_reconcile",
+		openWorld: false,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/webhooks.ts#webhookReconcileOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/webhooks.ts#bindWebhookReconcileOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/automation/src/webhook-operations.ts#webhookReconcileOperation:variable",
+			invokerNode:
+				"packages/automation/src/webhook-operations.ts#invokeWebhookReconcileOperation:function",
+			executorNode:
+				"packages/automation/src/webhook-operations.ts#executeWebhookReconcileOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.8.0",
+});
+
+export const webhookPruneOperationSpec = defineOperationSpec({
+	id: "webhooks.prune",
+	resource: "webhook",
+	verb: "prune",
+	title: "Prune outbound webhook delivery history",
+	description:
+		"Preview or delete bounded terminal delivery records older than a retention cutoff.",
+	contract: {
+		input: webhookPruneInputContract,
+		output: webhookPruneOutputContract,
+	},
+	effects: [
+		{
+			kind: "maintenance",
+			resource: "webhook",
+			action: "prune",
+			destructive: true,
+		},
+	],
+	policy: { confirmation: "required", audit: "required", dryRun: true },
+	retry: {
+		kind: "safe",
+		reason:
+			"Deleting the same already-removed terminal records is an idempotent no-op.",
+	},
+	agent: {
+		useWhen: ["Terminal delivery history has exceeded the retention policy."],
+		avoidWhen: ["Delivery records are still pending, retrying, or delivering."],
+		prerequisites: ["webhooks.delivery.list"],
+		verifyWith: ["webhooks.delivery.list"],
+		related: ["webhooks.reconcile"],
+		retryGuidance:
+			"Run dry_run first; repeating the confirmed cutoff is safe.",
+	},
+	projection: {
+		mcpName: "listmonk_webhooks_prune",
+		openWorld: false,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/webhooks.ts#webhookPruneOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/webhooks.ts#bindWebhookPruneOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/automation/src/webhook-operations.ts#webhookPruneOperation:variable",
+			invokerNode:
+				"packages/automation/src/webhook-operations.ts#invokeWebhookPruneOperation:function",
+			executorNode:
+				"packages/automation/src/webhook-operations.ts#executeWebhookPruneOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.8.0",
+});
+
+export const webhookTickOperationSpec = defineOperationSpec({
+	id: "webhooks.tick",
+	resource: "webhook",
+	verb: "tick",
+	title: "Run one outbound webhook worker tick",
+	description:
+		"Reconcile expired leases, claim due outbox records, and send one bounded delivery batch.",
+	contract: {
+		input: webhookTickInputContract,
+		output: webhookTickOutputContract,
+	},
+	effects: [{ kind: "webhook", resource: "webhook", audience: "bulk" }],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
+	retry: {
+		kind: "reconcile",
+		reconcileWith: "webhooks.delivery.list",
+		idempotent: false,
+		reason:
+			"Delivery is at least once, so inspect lease and delivery state after an ambiguous worker result.",
+	},
+	agent: {
+		useWhen: ["A scheduler or operator should process one durable outbox batch."],
+		avoidWhen: ["External webhook delivery has not been approved."],
+		prerequisites: ["webhooks.list"],
+		verifyWith: ["webhooks.delivery.list"],
+		related: ["webhooks.reconcile", "webhooks.prune"],
+		retryGuidance:
+			"Inspect delivery state after a timeout before running another tick.",
+	},
+	projection: {
+		mcpName: "listmonk_webhooks_tick",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/webhooks.ts#webhookTickOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/webhooks.ts#bindWebhookTickOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/automation/src/webhook-operations.ts#webhookTickOperation:variable",
+			invokerNode:
+				"packages/automation/src/webhook-operations.ts#invokeWebhookTickOperation:function",
+			executorNode:
+				"packages/automation/src/webhook-operations.ts#executeWebhookTickOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.8.0",
+});
+
 export const webhookOperationSpecs = [
 	webhookListOperationSpec,
 	webhookCreateOperationSpec,
@@ -644,6 +808,9 @@ export const webhookOperationSpecs = [
 	webhookDispatchOperationSpec,
 	webhookDeliveryListOperationSpec,
 	webhookDeliveryRetryOperationSpec,
+	webhookReconcileOperationSpec,
+	webhookPruneOperationSpec,
+	webhookTickOperationSpec,
 ] as const;
 
 export function bindWebhookListOperationSpec(): typeof webhookListOperationSpec {
@@ -676,4 +843,16 @@ export function bindWebhookDeliveryListOperationSpec(): typeof webhookDeliveryLi
 
 export function bindWebhookDeliveryRetryOperationSpec(): typeof webhookDeliveryRetryOperationSpec {
 	return webhookDeliveryRetryOperationSpec;
+}
+
+export function bindWebhookReconcileOperationSpec(): typeof webhookReconcileOperationSpec {
+	return webhookReconcileOperationSpec;
+}
+
+export function bindWebhookPruneOperationSpec(): typeof webhookPruneOperationSpec {
+	return webhookPruneOperationSpec;
+}
+
+export function bindWebhookTickOperationSpec(): typeof webhookTickOperationSpec {
+	return webhookTickOperationSpec;
 }

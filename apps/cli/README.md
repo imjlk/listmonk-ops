@@ -65,14 +65,19 @@ listmonk-cli webhooks create \
   --secret-ref LISTMONK_OPS_WEBHOOK_SECRET \
   --event-filters 'operation.*,campaign.*'
 listmonk-cli webhooks test --id <endpoint-uuid> --confirm
-listmonk-cli webhooks dispatch --confirm
+listmonk-cli webhooks tick --confirm
+listmonk-cli webhooks reconcile --dry-run
+listmonk-cli webhooks prune --older-than-days 30 --dry-run
+listmonk-cli webhooks prune --older-than-days 30 --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted
 listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
 ```
 
 `secret-ref` names an environment variable; the secret value is never stored.
 Set `LISTMONK_OPS_WEBHOOK_STORE` to share a non-default endpoint/outbox path
-between CLI and MCP processes.
+between CLI and MCP processes. For concurrent workers, set
+`LISTMONK_OPS_WEBHOOK_DATABASE_URL` instead; the file and database settings are
+mutually exclusive.
 
 ## Shell completion
 

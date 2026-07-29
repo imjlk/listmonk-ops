@@ -247,3 +247,36 @@ Requeue one retryable or exhausted delivery for a fresh bounded attempt cycle.
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
 - Stability: `experimental` since `0.8.0`
+
+## `webhooks.reconcile`
+
+Recover expired worker leases and exhaust deliveries whose endpoint is missing or disabled.
+
+- Resource / verb: `webhook.reconcile`
+- MCP tool: `listmonk_webhooks_reconcile`
+- Effects: `maintenance:recover:recoverable`
+- Policy: confirmation `never`, audit `required`, dry-run `true`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.prune`
+
+Preview or delete bounded terminal delivery records older than a retention cutoff.
+
+- Resource / verb: `webhook.prune`
+- MCP tool: `listmonk_webhooks_prune`
+- Effects: `maintenance:prune:destructive`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
+- Retry: `safe`
+- Stability: `experimental` since `0.8.0`
+
+## `webhooks.tick`
+
+Reconcile expired leases, claim due outbox records, and send one bounded delivery batch.
+
+- Resource / verb: `webhook.tick`
+- MCP tool: `listmonk_webhooks_tick`
+- Effects: `webhook:bulk`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.8.0`

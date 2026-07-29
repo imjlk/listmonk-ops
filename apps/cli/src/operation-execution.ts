@@ -5,6 +5,8 @@ import {
 	type RecordOperationAuditInput,
 } from "@listmonk-ops/common";
 import {
+	enqueueSuccessfulOperationLifecycleEvents,
+	getOutboundWebhookStoreOptionsFromEnvironment,
 	recordOperationAuditWithLifecycle,
 	type OutboundWebhookStoreOptions,
 } from "@listmonk-ops/automation";
@@ -196,7 +198,9 @@ export async function executeCliOperation<Result>(config: {
 		config.confirmed,
 	);
 	const auditStoreOptions = config.auditStoreOptions ?? {};
-	const webhookStoreOptions = config.webhookStoreOptions ?? {};
+	const webhookStoreOptions =
+		config.webhookStoreOptions ??
+		getOutboundWebhookStoreOptionsFromEnvironment();
 	const recordAudit = config.recordAudit;
 	const onAuditError = config.onAuditError ?? ((message: string) => console.error(
 		message,
@@ -255,6 +259,24 @@ export async function executeCliOperation<Result>(config: {
 			webhookStoreOptions,
 			onAuditError,
 		);
+		if (executionId) {
+			try {
+				await enqueueSuccessfulOperationLifecycleEvents(
+					{
+						executionId,
+						operationId: execution.operation.id,
+						operationInput: normalizeCliOperationInput(config.input),
+						operationOutput: result,
+					},
+					webhookStoreOptions,
+				);
+			} catch (error) {
+				reportCliOperationAuditError(
+					onAuditError,
+					`Unable to enqueue CLI domain lifecycle event for ${execution.operation.id}: ${toErrorMessage(error)}`,
+				);
+			}
+		}
 		return result;
 	} catch (error) {
 		await completeCliOperationExecution(

@@ -1,6 +1,7 @@
 import { existsSync, realpathSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { closeOutboundWebhookRuntimeRepositories } from "@listmonk-ops/automation";
 import type { ListmonkMCPServer } from "./server.js";
 
 interface RuntimeArgs {
@@ -23,6 +24,22 @@ type MCPServerConfig = {
 	allowedHttpHosts?: string[];
 	allowedHttpOrigins?: string[];
 };
+
+type BunHttpServer = {
+	stop(closeActiveConnections?: boolean): void;
+};
+
+let activeHttpServer: BunHttpServer | undefined;
+let shutdownPromise: Promise<void> | undefined;
+
+async function shutdownRuntime(): Promise<void> {
+	shutdownPromise ??= (async () => {
+		activeHttpServer?.stop(true);
+		activeHttpServer = undefined;
+		await closeOutboundWebhookRuntimeRepositories();
+	})();
+	await shutdownPromise;
+}
 
 async function createMCPServer(
 	config: MCPServerConfig,
@@ -116,6 +133,9 @@ Environment fallback:
   MCP_HTTP_AUTH_TOKEN          Optional Bearer token for HTTP tool endpoints
   MCP_HTTP_ALLOWED_HOSTS       Comma-separated hostnames for non-loopback HTTP
   MCP_HTTP_ALLOWED_ORIGINS     Comma-separated browser origins for non-loopback HTTP
+  LISTMONK_OPS_WEBHOOK_STORE   File-backed webhook endpoint/outbox path
+  LISTMONK_OPS_WEBHOOK_DATABASE_URL
+                               Postgres webhook endpoint/outbox URL (exclusive with file store)
 `);
 }
 
@@ -276,25 +296,32 @@ export async function main() {
 					import("@modelcontextprotocol/sdk/server/stdio.js"),
 					import("./protocol.js"),
 				]);
-			await connectMCPTransport(server, new StdioServerTransport());
+			try {
+				await connectMCPTransport(server, new StdioServerTransport());
+			} finally {
+				await shutdownRuntime();
+			}
 			return;
 		}
 
-		await server.listen(port, host);
+		activeHttpServer = await server.listen(port, host);
 	} catch (error) {
+		await shutdownRuntime();
 		console.error("❌ Failed to start server:", error);
 		process.exit(1);
 	}
 }
 
 // Handle graceful shutdown
-process.on("SIGINT", () => {
+process.on("SIGINT", async () => {
 	console.error("\n🛑 Shutting down server...");
+	await shutdownRuntime();
 	process.exit(0);
 });
 
-process.on("SIGTERM", () => {
+process.on("SIGTERM", async () => {
 	console.error("\n🛑 Shutting down server...");
+	await shutdownRuntime();
 	process.exit(0);
 });
 

@@ -53,6 +53,15 @@ describe("MCP outbound webhook tools", () => {
 		const dispatch = tools.find(
 			(tool) => tool.name === "listmonk_webhooks_dispatch",
 		);
+		const reconcile = tools.find(
+			(tool) => tool.name === "listmonk_webhooks_reconcile",
+		);
+		const prune = tools.find(
+			(tool) => tool.name === "listmonk_webhooks_prune",
+		);
+		const tick = tools.find(
+			(tool) => tool.name === "listmonk_webhooks_tick",
+		);
 
 		expect(create?.inputSchema.required).toEqual([
 			"name",
@@ -67,6 +76,17 @@ describe("MCP outbound webhook tools", () => {
 			idempotentHint: false,
 		});
 		expect(dispatch?.inputSchema.required).toContain("confirm");
+		expect(reconcile?.annotations).toMatchObject({
+			destructiveHint: false,
+			idempotentHint: true,
+		});
+		expect(reconcile?.inputSchema.required ?? []).not.toContain("confirm");
+		expect(prune?.annotations).toMatchObject({
+			destructiveHint: true,
+			idempotentHint: true,
+		});
+		expect(prune?.inputSchema.required).toContain("confirm");
+		expect(tick?.inputSchema.required).toContain("confirm");
 	});
 
 	test("shares endpoint CRUD contracts and confirmation with CLI", async () => {

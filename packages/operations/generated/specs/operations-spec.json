@@ -7186,6 +7186,632 @@
       "stability": "experimental",
       "title": "Retry outbound webhook delivery",
       "verb": "retry"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Healthy non-expired workers are still processing the selected leases."
+        ],
+        "prerequisites": [
+          "webhooks.delivery.list"
+        ],
+        "related": [
+          "webhooks.tick",
+          "webhooks.dispatch"
+        ],
+        "retryGuidance": "Repeating reconciliation is safe after an ambiguous result.",
+        "useWhen": [
+          "A worker may have crashed with deliveries left in the delivering state."
+        ],
+        "verifyWith": [
+          "webhooks.delivery.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "WebhookDeliveryListLimit": {
+                "maximum": 1000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookReconcileInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "limit": {
+                    "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "type": "boolean"
+              },
+              "limit": {
+                "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "WebhookReconcileOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "recovered": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "scanned": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "unchanged": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "scanned",
+                  "recovered",
+                  "exhausted",
+                  "unchanged",
+                  "dry_run"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "type": "boolean"
+              },
+              "exhausted": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "recovered": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "scanned": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "unchanged": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "scanned",
+              "recovered",
+              "exhausted",
+              "unchanged",
+              "dry_run"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Recover expired worker leases and exhaust deliveries whose endpoint is missing or disabled.",
+      "effects": [
+        {
+          "action": "recover",
+          "destructive": false,
+          "kind": "maintenance",
+          "resource": "webhook"
+        }
+      ],
+      "id": "webhooks.reconcile",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": true
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/webhooks.ts#bindWebhookReconcileOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/webhooks.ts#webhookReconcileOperationSpec:variable",
+          "executorNode": "packages/automation/src/webhook-operations.ts#executeWebhookReconcileOperation:function",
+          "invokerNode": "packages/automation/src/webhook-operations.ts#invokeWebhookReconcileOperation:function",
+          "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookReconcileOperation:variable"
+        },
+        "mcpName": "listmonk_webhooks_reconcile",
+        "openWorld": false
+      },
+      "resource": "webhook",
+      "retry": {
+        "kind": "safe",
+        "reason": "Only expired leases are recovered and repeating reconciliation is an idempotent no-op."
+      },
+      "since": "0.8.0",
+      "stability": "experimental",
+      "title": "Reconcile outbound webhook leases",
+      "verb": "reconcile"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "Delivery records are still pending, retrying, or delivering."
+        ],
+        "prerequisites": [
+          "webhooks.delivery.list"
+        ],
+        "related": [
+          "webhooks.reconcile"
+        ],
+        "retryGuidance": "Run dry_run first; repeating the confirmed cutoff is safe.",
+        "useWhen": [
+          "Terminal delivery history has exceeded the retention policy."
+        ],
+        "verifyWith": [
+          "webhooks.delivery.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "WebhookDeliveryListLimit": {
+                "maximum": 1000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookPruneInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "limit": {
+                    "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                  },
+                  "older_than_days": {
+                    "$ref": "#/components/schemas/WebhookRetentionDays"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "WebhookRetentionDays": {
+                "maximum": 3650,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "type": "boolean"
+              },
+              "limit": {
+                "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+              },
+              "older_than_days": {
+                "$ref": "#/components/schemas/WebhookRetentionDays"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "WebhookPruneOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "before": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "deleted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "eligible": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "eligible",
+                  "deleted",
+                  "dry_run",
+                  "before"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "before": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "deleted": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "dry_run": {
+                "type": "boolean"
+              },
+              "eligible": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "eligible",
+              "deleted",
+              "dry_run",
+              "before"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Preview or delete bounded terminal delivery records older than a retention cutoff.",
+      "effects": [
+        {
+          "action": "prune",
+          "destructive": true,
+          "kind": "maintenance",
+          "resource": "webhook"
+        }
+      ],
+      "id": "webhooks.prune",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/webhooks.ts#bindWebhookPruneOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/webhooks.ts#webhookPruneOperationSpec:variable",
+          "executorNode": "packages/automation/src/webhook-operations.ts#executeWebhookPruneOperation:function",
+          "invokerNode": "packages/automation/src/webhook-operations.ts#invokeWebhookPruneOperation:function",
+          "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookPruneOperation:variable"
+        },
+        "mcpName": "listmonk_webhooks_prune",
+        "openWorld": false
+      },
+      "resource": "webhook",
+      "retry": {
+        "kind": "safe",
+        "reason": "Deleting the same already-removed terminal records is an idempotent no-op."
+      },
+      "since": "0.8.0",
+      "stability": "experimental",
+      "title": "Prune outbound webhook delivery history",
+      "verb": "prune"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "External webhook delivery has not been approved."
+        ],
+        "prerequisites": [
+          "webhooks.list"
+        ],
+        "related": [
+          "webhooks.reconcile",
+          "webhooks.prune"
+        ],
+        "retryGuidance": "Inspect delivery state after a timeout before running another tick.",
+        "useWhen": [
+          "A scheduler or operator should process one durable outbox batch."
+        ],
+        "verifyWith": [
+          "webhooks.delivery.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "WebhookDeliveryListLimit": {
+                "maximum": 1000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookDispatchLimit": {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookTickInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dispatch_limit": {
+                    "$ref": "#/components/schemas/WebhookDispatchLimit"
+                  },
+                  "reconcile_limit": {
+                    "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dispatch_limit": {
+                "$ref": "#/components/schemas/WebhookDispatchLimit"
+              },
+              "reconcile_limit": {
+                "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookDispatchOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "claimed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookDispatchResult"
+                    },
+                    "type": "array"
+                  },
+                  "retried": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "skipped": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "claimed",
+                  "succeeded",
+                  "retried",
+                  "exhausted",
+                  "skipped",
+                  "results"
+                ],
+                "type": "object"
+              },
+              "WebhookDispatchResult": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/WebhookId"
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/WebhookId"
+                      },
+                      "error": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "status": {
+                        "oneOf": [
+                          {
+                            "const": "exhausted"
+                          },
+                          {
+                            "const": "retry"
+                          },
+                          {
+                            "const": "succeeded"
+                          }
+                        ]
+                      },
+                      "status_code": {
+                        "$ref": "#/components/schemas/PositiveInteger"
+                      }
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/WebhookId"
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/WebhookId"
+                      },
+                      "error": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "status": {
+                        "const": "skipped"
+                      }
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status",
+                      "error"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "WebhookId": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "WebhookReconcileOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "recovered": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "scanned": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "unchanged": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "scanned",
+                  "recovered",
+                  "exhausted",
+                  "unchanged",
+                  "dry_run"
+                ],
+                "type": "object"
+              },
+              "WebhookTickOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dispatch": {
+                    "$ref": "#/components/schemas/WebhookDispatchOutput"
+                  },
+                  "reconcile": {
+                    "$ref": "#/components/schemas/WebhookReconcileOutput"
+                  }
+                },
+                "required": [
+                  "reconcile",
+                  "dispatch"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dispatch": {
+                "$ref": "#/components/schemas/WebhookDispatchOutput"
+              },
+              "reconcile": {
+                "$ref": "#/components/schemas/WebhookReconcileOutput"
+              }
+            },
+            "required": [
+              "reconcile",
+              "dispatch"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Reconcile expired leases, claim due outbox records, and send one bounded delivery batch.",
+      "effects": [
+        {
+          "audience": "bulk",
+          "kind": "webhook",
+          "resource": "webhook"
+        }
+      ],
+      "id": "webhooks.tick",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/webhooks.ts#bindWebhookTickOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/webhooks.ts#webhookTickOperationSpec:variable",
+          "executorNode": "packages/automation/src/webhook-operations.ts#executeWebhookTickOperation:function",
+          "invokerNode": "packages/automation/src/webhook-operations.ts#invokeWebhookTickOperation:function",
+          "runtimeDefinitionNode": "packages/automation/src/webhook-operations.ts#webhookTickOperation:variable"
+        },
+        "mcpName": "listmonk_webhooks_tick",
+        "openWorld": true
+      },
+      "resource": "webhook",
+      "retry": {
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "Delivery is at least once, so inspect lease and delivery state after an ambiguous worker result.",
+        "reconcileWith": "webhooks.delivery.list"
+      },
+      "since": "0.8.0",
+      "stability": "experimental",
+      "title": "Run one outbound webhook worker tick",
+      "verb": "tick"
     }
   ],
   "playbooks": [
@@ -7517,6 +8143,6 @@
       }
     }
   ],
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
   "title": "listmonk-ops Email Operations Specification"
 }

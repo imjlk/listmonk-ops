@@ -89,6 +89,9 @@ export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
 # Optional: override the signed outbound-webhook endpoint/outbox store
 export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
+# Optional alternative for multi-process/multi-worker webhook durability.
+# Configure this OR LISTMONK_OPS_WEBHOOK_STORE, never both.
+# export LISTMONK_OPS_WEBHOOK_DATABASE_URL="postgres://user:password@host/database"
 ```
 
 You can create/manage tokens in the Listmonk admin UI.
@@ -692,7 +695,10 @@ listmonk-cli webhooks create \
   --event-filters 'operation.*,campaign.*,abtest.*'
 
 listmonk-cli webhooks test --id <endpoint-uuid> --confirm
-listmonk-cli webhooks dispatch --limit 25 --confirm
+listmonk-cli webhooks tick --dispatch-limit 25 --confirm
+listmonk-cli webhooks reconcile --dry-run
+listmonk-cli webhooks prune --older-than-days 30 --dry-run
+listmonk-cli webhooks prune --older-than-days 30 --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted
 listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
 ```
@@ -707,6 +713,10 @@ same execution ID. Event projection is best-effort after the durable audit
 write, so an unavailable webhook store cannot replace an operation result or
 invite an unsafe retry. A targeted `webhooks test` diagnostic bypasses the
 endpoint's normal event filters without changing them.
+Successful campaign schedule/start/pause/cancel operations, subscriber
+create/update/blocklist operations, and A/B lifecycle operations also project
+typed domain events from the same CLI/MCP execution boundary. Subscriber
+payloads contain resource IDs or a batch checksum and counts, never addresses.
 
 Each request includes `X-Listmonk-Ops-Event-Id`,
 `X-Listmonk-Ops-Event-Type`, `X-Listmonk-Ops-Timestamp`, and
@@ -719,11 +729,20 @@ If another worker reclaims an expired lease, the original dispatch reports
 that attempt as `skipped` while preserving sibling results; inspect the shared
 delivery log for the final state.
 
+The JSON store remains the zero-configuration single-host default. For
+multiple CLI/MCP/worker processes, set `LISTMONK_OPS_WEBHOOK_DATABASE_URL`
+instead. The Postgres repository uses normalized endpoint and delivery tables,
+transactional enqueue deduplication, `FOR UPDATE SKIP LOCKED` claims, and
+lease-token fencing. `webhooks tick` first reconciles expired leases and then
+dispatches a bounded batch. `webhooks reconcile` can preview recovery, while
+`webhooks prune` defaults to a dry run and only deletes old terminal history
+after explicit confirmation.
+
 Only public HTTPS endpoints without credentials, query strings, or fragments
 are accepted. Destination DNS/IP safety is rechecked against globally routable
 address ranges when dispatching, each validated address is tried in order and
 pinned for its HTTPS connection, and redirects are disabled. Run
-`webhooks dispatch` from a scheduler; endpoint
+`webhooks tick` from a scheduler; endpoint
 management does not start a background daemon.
 
 ## OpenAPI Regeneration (Hey API)

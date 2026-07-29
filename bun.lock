@@ -15,19 +15,20 @@
     },
     "apps/cli": {
       "name": "@listmonk-ops/cli",
-      "version": "0.7.0",
+      "version": "0.8.1",
       "bin": {
         "listmonk-cli": "dist/js/index.js",
       },
       "dependencies": {
         "@clack/prompts": "0.10.1",
         "@gunshi/plugin-completion": "0.37.1",
-        "@listmonk-ops/abtest": "^0.1.3",
-        "@listmonk-ops/automation": "^0.1.3",
-        "@listmonk-ops/common": "^0.1.3",
-        "@listmonk-ops/openapi": "^0.1.5",
-        "@listmonk-ops/operations": "^0.1.3",
+        "@listmonk-ops/abtest": "workspace:^0.4.3",
+        "@listmonk-ops/automation": "workspace:^0.2.3",
+        "@listmonk-ops/common": "^0.5.0",
+        "@listmonk-ops/openapi": "^0.4.0",
+        "@listmonk-ops/operations": "workspace:^0.7.0",
         "gunshi": "0.37.1",
+        "postgres": "3.4.9",
         "zod": "4.3.6",
       },
       "devDependencies": {
@@ -37,11 +38,11 @@
     },
     "packages/abtest": {
       "name": "@listmonk-ops/abtest",
-      "version": "0.4.1",
+      "version": "0.4.3",
       "dependencies": {
-        "@listmonk-ops/common": "^0.2.0",
-        "@listmonk-ops/openapi": "^0.2.0",
-        "@listmonk-ops/operations": "workspace:^",
+        "@listmonk-ops/common": "^0.5.0",
+        "@listmonk-ops/openapi": "^0.4.0",
+        "@listmonk-ops/operations": "workspace:^0.7.0",
         "zod": "4.3.6",
       },
       "devDependencies": {
@@ -52,11 +53,12 @@
     },
     "packages/automation": {
       "name": "@listmonk-ops/automation",
-      "version": "0.2.1",
+      "version": "0.2.3",
       "dependencies": {
-        "@listmonk-ops/common": "^0.2.0",
-        "@listmonk-ops/openapi": "^0.2.0",
-        "@listmonk-ops/operations": "workspace:^",
+        "@listmonk-ops/common": "^0.5.0",
+        "@listmonk-ops/openapi": "^0.4.0",
+        "@listmonk-ops/operations": "workspace:^0.7.0",
+        "postgres": "3.4.9",
         "zod": "4.3.6",
       },
       "devDependencies": {
@@ -76,7 +78,7 @@
     },
     "packages/mcp": {
       "name": "@listmonk-ops/mcp",
-      "version": "0.6.0",
+      "version": "0.7.1",
       "bin": {
         "listmonk-mcp": "bin/listmonk-mcp.js",
       },
@@ -109,7 +111,7 @@
     },
     "packages/operations": {
       "name": "@listmonk-ops/operations",
-      "version": "0.5.0",
+      "version": "0.7.0",
       "dependencies": {
         "@listmonk-ops/openapi": "^0.4.0",
         "zod": "4.3.6",
@@ -555,6 +557,8 @@
     "pkce-challenge": ["pkce-challenge@5.0.0", "", {}, "sha512-ueGLflrrnvwB3xuo/uGob5pd5FN7l0MsLf0Z87o/UQmRtwjvfylfc9MurIxRAWywCYTgrvpXBcqjV4OfCYGCIQ=="],
 
     "pkg-types": ["pkg-types@2.3.0", "", { "dependencies": { "confbox": "^0.2.2", "exsolve": "^1.0.7", "pathe": "^2.0.3" } }, "sha512-SIqCzDRg0s9npO5XQ3tNZioRY1uK06lA41ynBC1YmFTmnY6FjUjVt6s4LoADmwoig1qqD0oK8h1p/8mlMx8Oig=="],
+
+    "postgres": ["postgres@3.4.9", "", {}, "sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw=="],
 
     "powershell-utils": ["powershell-utils@0.1.0", "", {}, "sha512-dM0jVuXJPsDN6DvRpea484tCUaMiXWjuCn++HGTqUWzGDjv5tZkEZldAJ/UMlqRYGFrD/etByo4/xOuC/snX2A=="],
 

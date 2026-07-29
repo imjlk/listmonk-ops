@@ -50,6 +50,8 @@ function renderEffects(operation: AnyOperationSpec): string {
 					return `delete:${effect.resource}`;
 				case "webhook":
 					return `webhook:${effect.audience}`;
+				case "maintenance":
+					return `maintenance:${effect.action}:${effect.destructive ? "destructive" : "recoverable"}`;
 				default: {
 					const unhandled: never = effect;
 					throw new Error(

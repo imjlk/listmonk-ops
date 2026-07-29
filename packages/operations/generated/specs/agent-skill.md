@@ -266,6 +266,42 @@ Verify with: `webhooks.delivery.list`
 
 Retry guidance: Inspect the delivery status after an ambiguous result before requeueing again.
 
+## Reconcile outbound webhook leases (`webhooks.reconcile`)
+
+Use when: A worker may have crashed with deliveries left in the delivering state.
+
+Avoid when: Healthy non-expired workers are still processing the selected leases.
+
+Prerequisites: `webhooks.delivery.list`
+
+Verify with: `webhooks.delivery.list`
+
+Retry guidance: Repeating reconciliation is safe after an ambiguous result.
+
+## Prune outbound webhook delivery history (`webhooks.prune`)
+
+Use when: Terminal delivery history has exceeded the retention policy.
+
+Avoid when: Delivery records are still pending, retrying, or delivering.
+
+Prerequisites: `webhooks.delivery.list`
+
+Verify with: `webhooks.delivery.list`
+
+Retry guidance: Run dry_run first; repeating the confirmed cutoff is safe.
+
+## Run one outbound webhook worker tick (`webhooks.tick`)
+
+Use when: A scheduler or operator should process one durable outbox batch.
+
+Avoid when: External webhook delivery has not been approved.
+
+Prerequisites: `webhooks.list`
+
+Verify with: `webhooks.delivery.list`
+
+Retry guidance: Inspect delivery state after a timeout before running another tick.
+
 # Typed playbooks
 
 ## `campaign.safe-start` — Safely start a campaign

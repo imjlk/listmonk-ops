@@ -136,6 +136,7 @@ export type OutboundWebhookStore = Readonly<{
 export type OutboundWebhookStoreOptions = Readonly<{
 	path?: string;
 	limit?: number;
+	repository?: OutboundWebhookRepository;
 }>;
 
 export type CreateOutboundWebhookEndpointInput = Readonly<{
@@ -221,6 +222,106 @@ export type DispatchOutboundWebhooksResult = Readonly<{
 	skipped: number;
 	results: readonly OutboundWebhookDispatchResultEntry[];
 }>;
+
+export type ClaimedOutboundWebhookDelivery = Readonly<{
+	delivery: OutboundWebhookDelivery;
+	endpoint?: OutboundWebhookEndpoint | undefined;
+}>;
+
+export type CompleteOutboundWebhookDeliveryResult = Readonly<{
+	success: boolean;
+	retryable: boolean;
+	statusCode?: number | undefined;
+	error?: unknown;
+}>;
+
+export type ReconcileOutboundWebhooksOptions = Readonly<{
+	now?: Date;
+	limit?: number;
+	dryRun?: boolean;
+}>;
+
+export type ReconcileOutboundWebhooksResult = Readonly<{
+	scanned: number;
+	recovered: number;
+	exhausted: number;
+	unchanged: number;
+	dryRun: boolean;
+}>;
+
+export type PruneOutboundWebhooksOptions = Readonly<{
+	before: Date;
+	limit?: number;
+	dryRun?: boolean;
+}>;
+
+export type PruneOutboundWebhooksResult = Readonly<{
+	eligible: number;
+	deleted: number;
+	dryRun: boolean;
+	before: string;
+}>;
+
+/**
+ * Durable persistence contract shared by the file-backed runtime and the
+ * Postgres implementation. Implementations own atomicity and lease fencing;
+ * the transport, retry, signature, and redaction policy stays in this module.
+ */
+export interface OutboundWebhookRepository {
+	readonly kind: "file" | "postgres";
+	listEndpoints(): Promise<readonly OutboundWebhookEndpoint[]>;
+	getEndpoint(id: string): Promise<OutboundWebhookEndpoint>;
+	createEndpoint(
+		endpoint: OutboundWebhookEndpoint,
+	): Promise<OutboundWebhookEndpoint>;
+	updateEndpoint(
+		id: string,
+		endpoint: OutboundWebhookEndpoint,
+	): Promise<OutboundWebhookEndpoint>;
+	deleteEndpoint(
+		id: string,
+		now: Date,
+	): Promise<OutboundWebhookEndpoint>;
+	enqueue(
+		event: OutboundWebhookEvent,
+		options: Readonly<{
+			endpointIds?: readonly string[];
+			bypassEventFilters?: boolean;
+			limit: number;
+			now: Date;
+		}>,
+	): Promise<EnqueueOutboundWebhookResult>;
+	listDeliveries(
+		options: OutboundWebhookDeliveryListOptions,
+	): Promise<readonly OutboundWebhookDelivery[]>;
+	retryDelivery(
+		id: string,
+		now: Date,
+	): Promise<OutboundWebhookDelivery>;
+	claimDeliveries(options: Readonly<{
+		limit: number;
+		now: Date;
+		leaseMs: number;
+		deliveryIds?: readonly string[];
+		excludeDeliveryIds?: readonly string[];
+	}>): Promise<readonly ClaimedOutboundWebhookDelivery[]>;
+	completeDelivery(
+		claimed: OutboundWebhookDelivery,
+		result: CompleteOutboundWebhookDeliveryResult,
+		endpoint: OutboundWebhookEndpoint | undefined,
+		options: Readonly<{
+			now: Date;
+			baseRetryDelayMs: number;
+		}>,
+	): Promise<OutboundWebhookDelivery>;
+	reconcile(
+		options: Required<ReconcileOutboundWebhooksOptions>,
+	): Promise<ReconcileOutboundWebhooksResult>;
+	prune(
+		options: Required<PruneOutboundWebhooksOptions>,
+	): Promise<PruneOutboundWebhooksResult>;
+	close?(): Promise<void>;
+}
 
 const eventTypeSchema = z.enum(OUTBOUND_WEBHOOK_EVENT_TYPES);
 const eventSourceSchema = z.enum([
@@ -347,6 +448,24 @@ function parseStore(value: unknown): OutboundWebhookStore {
 	return parsed.data;
 }
 
+export function parseOutboundWebhookEndpoint(
+	value: unknown,
+): OutboundWebhookEndpoint {
+	return endpointSchema.parse(value);
+}
+
+export function parseOutboundWebhookEvent(
+	value: unknown,
+): OutboundWebhookEvent {
+	return eventSchema.parse(value);
+}
+
+export function parseOutboundWebhookDelivery(
+	value: unknown,
+): OutboundWebhookDelivery {
+	return deliverySchema.parse(value);
+}
+
 function resolveStoreLimit(limit: number | undefined): number {
 	const resolved = limit ?? DEFAULT_OUTBOUND_WEBHOOK_STORE_LIMIT;
 	if (!Number.isInteger(resolved) || resolved < 100) {
@@ -376,6 +495,114 @@ export function createOutboundWebhookStore(
 		}),
 		parse: parseStore,
 		lock: { timeoutMs: 5_000 },
+	};
+}
+
+export function createFileOutboundWebhookRepository(
+	options: Omit<OutboundWebhookStoreOptions, "repository"> = {},
+): OutboundWebhookRepository {
+	const fileOptions = { path: options.path, limit: options.limit };
+	return {
+		kind: "file",
+		listEndpoints: () => listOutboundWebhookEndpoints(fileOptions),
+		getEndpoint: (id) => getOutboundWebhookEndpoint(id, fileOptions),
+		async createEndpoint(endpoint) {
+			const store = createOutboundWebhookStore(fileOptions.path);
+			return updateJsonFileStore(store, (current) => {
+				if (
+					current.endpoints.some(
+						(candidate) =>
+							candidate.name.toLowerCase() === endpoint.name.toLowerCase(),
+					)
+				) {
+					throw new OutboundWebhookConflictError(
+						`Outbound webhook endpoint name already exists: ${endpoint.name}`,
+					);
+				}
+				return commitJsonFileStoreUpdate(
+					{
+						...current,
+						endpoints: [...current.endpoints, endpoint],
+					},
+					endpoint,
+				);
+			});
+		},
+		async updateEndpoint(id, endpoint) {
+			const store = createOutboundWebhookStore(fileOptions.path);
+			return updateJsonFileStore(store, (current) => {
+				const index = current.endpoints.findIndex(
+					(candidate) => candidate.id === id,
+				);
+				if (index < 0) {
+					throw new OutboundWebhookNotFoundError("endpoint", id);
+				}
+				if (
+					current.endpoints.some(
+						(candidate) =>
+							candidate.id !== id &&
+							candidate.name.toLowerCase() === endpoint.name.toLowerCase(),
+					)
+				) {
+					throw new OutboundWebhookConflictError(
+						`Outbound webhook endpoint name already exists: ${endpoint.name}`,
+					);
+				}
+				const endpoints = [...current.endpoints];
+				endpoints[index] = endpoint;
+				return commitJsonFileStoreUpdate(
+					{ ...current, endpoints },
+					endpoint,
+				);
+			});
+		},
+		deleteEndpoint: (id, _now) =>
+			deleteOutboundWebhookEndpoint(id, fileOptions),
+		enqueue: (event, enqueueOptions) =>
+			enqueueOutboundWebhookEvent(
+				{
+					id: event.id,
+					type: event.type,
+					occurredAt: event.occurredAt,
+					source: event.source,
+					correlationId: event.correlationId,
+					subject: event.subject,
+					data: event.data,
+				},
+				{
+					...fileOptions,
+					endpointIds: enqueueOptions.endpointIds,
+					bypassEventFilters: enqueueOptions.bypassEventFilters,
+					limit: enqueueOptions.limit,
+					now: enqueueOptions.now,
+				},
+			),
+		listDeliveries: (listOptions) =>
+			listOutboundWebhookDeliveries({ ...fileOptions, ...listOptions }),
+		retryDelivery: (id, _now) =>
+			retryOutboundWebhookDelivery(id, fileOptions),
+		claimDeliveries: (claimOptions) =>
+			claimOutboundWebhookDeliveries({
+				...fileOptions,
+				...claimOptions,
+			}),
+		completeDelivery: (claimed, result, endpoint, completeOptions) =>
+			completeOutboundWebhookDelivery(
+				claimed,
+				result,
+				endpoint,
+				{ ...fileOptions, ...completeOptions },
+			),
+		reconcile: (reconcileOptions) =>
+			reconcileOutboundWebhookDeliveries({
+				...fileOptions,
+				...reconcileOptions,
+			}),
+		prune: (pruneOptions) =>
+			pruneOutboundWebhookDeliveries({
+				...fileOptions,
+				...pruneOptions,
+			}),
 	};
 }
 
@@ -508,6 +735,9 @@ export function createOutboundWebhookEvent(
 export async function listOutboundWebhookEndpoints(
 	options: OutboundWebhookStoreOptions = {},
 ): Promise<readonly OutboundWebhookEndpoint[]> {
+	if (options.repository) {
+		return options.repository.listEndpoints();
+	}
 	const store = await readJsonFileStore(
 		createOutboundWebhookStore(options.path),
 	);
@@ -520,6 +750,9 @@ export async function getOutboundWebhookEndpoint(
 	id: string,
 	options: OutboundWebhookStoreOptions = {},
 ): Promise<OutboundWebhookEndpoint> {
+	if (options.repository) {
+		return options.repository.getEndpoint(id);
+	}
 	const endpoints = await listOutboundWebhookEndpoints(options);
 	const endpoint = endpoints.find((candidate) => candidate.id === id);
 	if (!endpoint) {
@@ -546,6 +779,9 @@ export async function createOutboundWebhookEndpoint(
 		createdAt: at,
 		updatedAt: at,
 	});
+	if (options.repository) {
+		return options.repository.createEndpoint(endpoint);
+	}
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
 		if (
@@ -573,6 +809,31 @@ export async function updateOutboundWebhookEndpoint(
 	input: UpdateOutboundWebhookEndpointInput,
 	options: OutboundWebhookStoreOptions = {},
 ): Promise<OutboundWebhookEndpoint> {
+	if (options.repository) {
+		const previous = await options.repository.getEndpoint(id);
+		const endpoint = endpointSchema.parse({
+			...previous,
+			...(input.name === undefined ? {} : { name: input.name }),
+			...(input.url === undefined
+				? {}
+				: { url: normalizeOutboundWebhookEndpointUrl(input.url) }),
+			...(input.secretRef === undefined
+				? {}
+				: { secretRef: input.secretRef }),
+			...(input.eventFilters === undefined
+				? {}
+				: { eventFilters: normalizeEventFilters(input.eventFilters) }),
+			...(input.enabled === undefined ? {} : { enabled: input.enabled }),
+			...(input.timeoutMs === undefined
+				? {}
+				: { timeoutMs: input.timeoutMs }),
+			...(input.maxAttempts === undefined
+				? {}
+				: { maxAttempts: input.maxAttempts }),
+			updatedAt: nowIso(),
+		});
+		return options.repository.updateEndpoint(id, endpoint);
+	}
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
 		const index = current.endpoints.findIndex((endpoint) => endpoint.id === id);
@@ -625,6 +886,9 @@ export async function deleteOutboundWebhookEndpoint(
 	id: string,
 	options: OutboundWebhookStoreOptions = {},
 ): Promise<OutboundWebhookEndpoint> {
+	if (options.repository) {
+		return options.repository.deleteEndpoint(id, new Date());
+	}
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
 		const endpoint = current.endpoints.find((candidate) => candidate.id === id);
@@ -692,6 +956,7 @@ export async function enqueueOutboundWebhookEvent(
 	options: OutboundWebhookStoreOptions & {
 		endpointIds?: readonly string[];
 		bypassEventFilters?: boolean;
+		now?: Date;
 	} = {},
 ): Promise<EnqueueOutboundWebhookResult> {
 	const event = createOutboundWebhookEvent(input);
@@ -699,6 +964,14 @@ export async function enqueueOutboundWebhookEvent(
 		? new Set(options.endpointIds)
 		: undefined;
 	const limit = resolveStoreLimit(options.limit);
+	if (options.repository) {
+		return options.repository.enqueue(event, {
+			endpointIds: options.endpointIds,
+			bypassEventFilters: options.bypassEventFilters,
+			limit,
+			now: options.now ?? new Date(),
+		});
+	}
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
 		const endpoints = current.endpoints.filter(
@@ -729,7 +1002,7 @@ export async function enqueueOutboundWebhookEvent(
 					status: "pending",
 					attemptCount: 0,
 					manualRetryCount: 0,
-					nextAttemptAt: nowIso(),
+					nextAttemptAt: nowIso(options.now),
 				}),
 			];
 		});
@@ -831,13 +1104,21 @@ export async function listOutboundWebhookDeliveries(
 	options: OutboundWebhookDeliveryListOptions &
 		OutboundWebhookStoreOptions = {},
 ): Promise<readonly OutboundWebhookDelivery[]> {
-	const store = await readJsonFileStore(
-		createOutboundWebhookStore(options.path),
-	);
 	const limit = options.limit ?? 100;
 	if (!Number.isInteger(limit) || limit <= 0 || limit > 1_000) {
 		throw new RangeError("Delivery list limit must be between 1 and 1000");
 	}
+	if (options.repository) {
+		return options.repository.listDeliveries({
+			endpointId: options.endpointId,
+			status: options.status,
+			eventType: options.eventType,
+			limit,
+		});
+	}
+	const store = await readJsonFileStore(
+		createOutboundWebhookStore(options.path),
+	);
 	return store.deliveries
 		.filter(
 			(delivery) =>
@@ -856,6 +1137,9 @@ export async function retryOutboundWebhookDelivery(
 	id: string,
 	options: OutboundWebhookStoreOptions = {},
 ): Promise<OutboundWebhookDelivery> {
+	if (options.repository) {
+		return options.repository.retryDelivery(id, new Date());
+	}
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
 		const index = current.deliveries.findIndex(
@@ -901,10 +1185,167 @@ export async function retryOutboundWebhookDelivery(
 	});
 }
 
-type ClaimedDelivery = Readonly<{
-	delivery: OutboundWebhookDelivery;
-	endpoint?: OutboundWebhookEndpoint | undefined;
-}>;
+function resolveMaintenanceLimit(limit: number | undefined): number {
+	const resolved = limit ?? 100;
+	if (!Number.isInteger(resolved) || resolved <= 0 || resolved > 1_000) {
+		throw new RangeError(
+			"Webhook maintenance limit must be between 1 and 1000",
+		);
+	}
+	return resolved;
+}
+
+/**
+ * Recover deliveries left in `delivering` after a worker crash. Active
+ * endpoints are returned to retry; missing or disabled endpoints are exhausted.
+ * Lease ownership is always cleared so an old worker cannot commit afterward.
+ */
+export async function reconcileOutboundWebhookDeliveries(
+	options: ReconcileOutboundWebhooksOptions &
+		OutboundWebhookStoreOptions = {},
+): Promise<ReconcileOutboundWebhooksResult> {
+	const resolved = {
+		now: options.now ?? new Date(),
+		limit: resolveMaintenanceLimit(options.limit),
+		dryRun: options.dryRun ?? false,
+	};
+	if (options.repository) {
+		return options.repository.reconcile(resolved);
+	}
+
+	const store = createOutboundWebhookStore(options.path);
+	return updateJsonFileStore(store, (current) => {
+		const nowMs = resolved.now.getTime();
+		const candidates = current.deliveries
+			.filter((delivery) => delivery.status === "delivering")
+			.sort((left, right) =>
+				(left.leaseExpiresAt ?? left.lastAttemptAt ?? left.nextAttemptAt)
+					.localeCompare(
+						right.leaseExpiresAt ??
+							right.lastAttemptAt ??
+							right.nextAttemptAt,
+					),
+			)
+			.slice(0, resolved.limit);
+		const enabledEndpointIds = new Set(
+			current.endpoints
+				.filter((endpoint) => endpoint.enabled)
+				.map((endpoint) => endpoint.id),
+		);
+		let recovered = 0;
+		let exhausted = 0;
+		let unchanged = 0;
+		const replacements = new Map<string, OutboundWebhookDelivery>();
+
+		for (const delivery of candidates) {
+			const leaseExpired =
+				delivery.leaseExpiresAt === undefined ||
+				Date.parse(delivery.leaseExpiresAt) <= nowMs;
+			if (!leaseExpired) {
+				unchanged += 1;
+				continue;
+			}
+			const endpointAvailable = enabledEndpointIds.has(delivery.endpointId);
+			if (endpointAvailable) {
+				recovered += 1;
+			} else {
+				exhausted += 1;
+			}
+			replacements.set(
+				delivery.id,
+				deliverySchema.parse({
+					...delivery,
+					status: endpointAvailable ? "retry" : "exhausted",
+					nextAttemptAt: resolved.now.toISOString(),
+					completedAt: endpointAvailable
+						? undefined
+						: resolved.now.toISOString(),
+					lastError: endpointAvailable
+						? "Recovered expired worker lease"
+						: "Endpoint missing or disabled during lease reconciliation",
+					leaseToken: undefined,
+					leaseExpiresAt: undefined,
+				}),
+			);
+		}
+
+		const result: ReconcileOutboundWebhooksResult = {
+			scanned: candidates.length,
+			recovered,
+			exhausted,
+			unchanged,
+			dryRun: resolved.dryRun,
+		};
+		if (resolved.dryRun || replacements.size === 0) {
+			return commitJsonFileStoreUpdate(current, result);
+		}
+		return commitJsonFileStoreUpdate(
+			{
+				...current,
+				deliveries: current.deliveries.map(
+					(delivery) => replacements.get(delivery.id) ?? delivery,
+				),
+			},
+			result,
+		);
+	});
+}
+
+/**
+ * Remove bounded terminal delivery history older than `before`. Active and
+ * retryable records are never eligible, even when their timestamps are old.
+ */
+export async function pruneOutboundWebhookDeliveries(
+	options: PruneOutboundWebhooksOptions &
+		OutboundWebhookStoreOptions,
+): Promise<PruneOutboundWebhooksResult> {
+	if (!Number.isFinite(options.before.getTime())) {
+		throw new TypeError("Webhook prune cutoff must be a valid date");
+	}
+	const resolved = {
+		before: options.before,
+		limit: resolveMaintenanceLimit(options.limit),
+		dryRun: options.dryRun ?? false,
+	};
+	if (options.repository) {
+		return options.repository.prune(resolved);
+	}
+
+	const store = createOutboundWebhookStore(options.path);
+	return updateJsonFileStore(store, (current) => {
+		const eligibleIds = current.deliveries
+			.filter(
+				(delivery) =>
+					["succeeded", "exhausted"].includes(delivery.status) &&
+					delivery.completedAt !== undefined &&
+					Date.parse(delivery.completedAt) < resolved.before.getTime(),
+			)
+			.sort((left, right) =>
+				(left.completedAt ?? "").localeCompare(right.completedAt ?? ""),
+			)
+			.slice(0, resolved.limit)
+			.map((delivery) => delivery.id);
+		const eligible = new Set(eligibleIds);
+		const result: PruneOutboundWebhooksResult = {
+			eligible: eligible.size,
+			deleted: resolved.dryRun ? 0 : eligible.size,
+			dryRun: resolved.dryRun,
+			before: resolved.before.toISOString(),
+		};
+		if (resolved.dryRun || eligible.size === 0) {
+			return commitJsonFileStoreUpdate(current, result);
+		}
+		return commitJsonFileStoreUpdate(
+			{
+				...current,
+				deliveries: current.deliveries.filter(
+					(delivery) => !eligible.has(delivery.id),
+				),
+			},
+			result,
+		);
+	});
+}
 
 async function claimOutboundWebhookDeliveries(
 	options: OutboundWebhookStoreOptions & {
@@ -914,7 +1355,16 @@ async function claimOutboundWebhookDeliveries(
 		deliveryIds?: readonly string[];
 		excludeDeliveryIds?: readonly string[];
 	},
-): Promise<readonly ClaimedDelivery[]> {
+): Promise<readonly ClaimedOutboundWebhookDelivery[]> {
+	if (options.repository) {
+		return options.repository.claimDeliveries({
+			limit: options.limit,
+			now: options.now,
+			leaseMs: options.leaseMs,
+			deliveryIds: options.deliveryIds,
+			excludeDeliveryIds: options.excludeDeliveryIds,
+		});
+	}
 	const store = createOutboundWebhookStore(options.path);
 	const at = options.now.getTime();
 	return updateJsonFileStore(store, (current) => {
@@ -975,12 +1425,12 @@ async function claimOutboundWebhookDeliveries(
 	});
 }
 
-function truncateError(error: unknown): string {
+export function truncateOutboundWebhookError(error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error);
 	return message.replaceAll(/[\r\n\t]+/gu, " ").slice(0, MAX_ERROR_LENGTH);
 }
 
-function retryDelayMs(
+export function outboundWebhookRetryDelayMs(
 	attemptCount: number,
 	baseDelayMs: number,
 ): number {
@@ -992,18 +1442,19 @@ function retryDelayMs(
 
 async function completeOutboundWebhookDelivery(
 	claimed: OutboundWebhookDelivery,
-	result: {
-		success: boolean;
-		retryable: boolean;
-		statusCode?: number;
-		error?: unknown;
-	},
+	result: CompleteOutboundWebhookDeliveryResult,
 	endpoint: OutboundWebhookEndpoint | undefined,
 	options: OutboundWebhookStoreOptions & {
 		now: Date;
 		baseRetryDelayMs: number;
 	},
 ): Promise<OutboundWebhookDelivery> {
+	if (options.repository) {
+		return options.repository.completeDelivery(claimed, result, endpoint, {
+			now: options.now,
+			baseRetryDelayMs: options.baseRetryDelayMs,
+		});
+	}
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
 		const index = current.deliveries.findIndex(
@@ -1038,7 +1489,7 @@ async function completeOutboundWebhookDelivery(
 				status === "retry"
 					? new Date(
 							options.now.getTime() +
-								retryDelayMs(
+								outboundWebhookRetryDelayMs(
 									latest.attemptCount,
 									options.baseRetryDelayMs,
 								),
@@ -1052,7 +1503,7 @@ async function completeOutboundWebhookDelivery(
 			lastError:
 				result.error === undefined
 					? undefined
-					: truncateError(result.error),
+					: truncateOutboundWebhookError(result.error),
 			leaseToken: undefined,
 			leaseExpiresAt: undefined,
 		});
@@ -1179,7 +1630,7 @@ async function resolvePublicWebhookAddresses(
 }
 
 async function deliverClaimedWebhook(
-	claimed: ClaimedDelivery,
+	claimed: ClaimedOutboundWebhookDelivery,
 	options: Readonly<{
 		fetcher?: typeof fetch;
 		resolveSecret: (secretRef: string) => string | undefined;
@@ -1372,7 +1823,7 @@ export async function dispatchOutboundWebhooks(
 							deliveryId: entry.delivery.id,
 							endpointId: entry.delivery.endpointId,
 							status: "skipped" as const,
-							error: truncateError(error),
+							error: truncateOutboundWebhookError(error),
 						};
 					}
 					throw error;

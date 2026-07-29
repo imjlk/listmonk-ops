@@ -2,6 +2,7 @@
 
 import completion from "@gunshi/plugin-completion";
 import { cli, define } from "gunshi";
+import { closeOutboundWebhookRuntimeRepositories } from "@listmonk-ops/automation";
 import packageJson from "../package.json" with { type: "json" };
 
 import abtestCommand from "./commands/abtest";
@@ -58,11 +59,15 @@ if (flags.format && flags.format !== "human") {
 	process.env.LISTMONK_OPS_ABTEST_SILENT = "1";
 }
 
-await cli(argv, entry, {
-	name: "listmonk-cli",
-	version: packageJson.version,
-	description: "CLI for Listmonk operations",
-	strict: true,
-	subCommands,
-	plugins: [completion()],
-});
+try {
+	await cli(argv, entry, {
+		name: "listmonk-cli",
+		version: packageJson.version,
+		description: "CLI for Listmonk operations",
+		strict: true,
+		subCommands,
+		plugins: [completion()],
+	});
+} finally {
+	await closeOutboundWebhookRuntimeRepositories();
+}

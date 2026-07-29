@@ -139,6 +139,11 @@ existing behavior until they are migrated.
   event (requires `confirm: true`)
 - `listmonk_webhooks_dispatch` - Claim and deliver due outbox entries
   (requires `confirm: true`)
+- `listmonk_webhooks_reconcile` - Preview or recover expired worker leases
+- `listmonk_webhooks_prune` - Preview or delete old terminal delivery history
+  (deletion requires `confirm: true`)
+- `listmonk_webhooks_tick` - Reconcile leases and deliver one bounded batch
+  (requires `confirm: true`)
 - `listmonk_webhook_deliveries_list` - Inspect redacted delivery history
 - `listmonk_webhook_delivery_retry` - Requeue one retryable or exhausted
   delivery (requires `confirm: true`)
@@ -151,6 +156,9 @@ Audited MCP operations automatically enqueue matching `operation.*` lifecycle
 events with the same execution ID. This projection is best-effort after the
 durable audit write and does not turn an observability failure into a remote
 operation retry.
+Successful campaign, subscriber, and A/B lifecycle operations also enqueue
+their typed domain events. Set `LISTMONK_OPS_WEBHOOK_DATABASE_URL` instead of
+the JSON store path when multiple worker processes share the outbox.
 
 ### Operations & Observability
 
@@ -201,6 +209,8 @@ LISTMONK_OPS_AUDIT_STORE=/absolute/path/to/operation-audit.json
 
 # Optional: override signed outbound-webhook endpoint/outbox persistence
 LISTMONK_OPS_WEBHOOK_STORE=/absolute/path/to/outbound-webhooks.json
+# Alternative for concurrent CLI/MCP/worker processes; do not set both
+# LISTMONK_OPS_WEBHOOK_DATABASE_URL=postgres://user:password@host/database
 # Example signing secret referenced by an endpoint's secret_ref
 LISTMONK_OPS_WEBHOOK_SECRET=<random-secret>
 
