@@ -50,7 +50,7 @@ export interface DeliveryEffect {
 export interface WebhookEffect {
 	kind: "webhook";
 	resource: "webhook";
-	audience: "single" | "batch";
+	audience: "single" | "bulk";
 }
 
 export interface SuppressionEffect {

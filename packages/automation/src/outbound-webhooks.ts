@@ -11,6 +11,10 @@ import {
 	type RecordOperationAuditInput,
 	updateJsonFileStore,
 } from "@listmonk-ops/common";
+import type {
+	OperationEventSource,
+	OperationResourceKind,
+} from "@listmonk-ops/operations/specs";
 import { z } from "zod";
 import { isPrivateHost, isSafeFetchUrl } from "./campaign";
 
@@ -54,20 +58,16 @@ export const OUTBOUND_WEBHOOK_EVENT_TYPES = [
 
 export type OutboundWebhookEventType =
 	(typeof OUTBOUND_WEBHOOK_EVENT_TYPES)[number];
-export type OutboundWebhookEventSource =
-	| "listmonk"
-	| "provider"
-	| "operation"
-	| "abtest"
-	| "sequence"
-	| "webhook";
-export type OutboundWebhookSubjectKind =
+export type OutboundWebhookEventSource = OperationEventSource;
+export type OutboundWebhookSubjectKind = Extract<
+	OperationResourceKind,
 	| "operation"
 	| "campaign"
 	| "subscriber"
 	| "message"
 	| "experiment"
-	| "webhook";
+	| "webhook"
+>;
 export type OutboundWebhookDeliveryStatus =
 	| "pending"
 	| "delivering"

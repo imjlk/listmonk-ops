@@ -98,7 +98,7 @@ describe("email operations specification", () => {
 		).toMatchObject({ type: "string", format: "date-time" });
 		expect(webhookOperationSpecs).toHaveLength(8);
 		expect(webhookDispatchOperationSpec.effects).toEqual([
-			{ kind: "webhook", resource: "webhook", audience: "batch" },
+			{ kind: "webhook", resource: "webhook", audience: "bulk" },
 		]);
 		expect(emailOperationsSpec.events.map((event) => event.type)).toContain(
 			"operation.succeeded",

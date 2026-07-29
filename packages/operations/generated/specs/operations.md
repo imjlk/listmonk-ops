@@ -221,7 +221,7 @@ Claim due outbox deliveries and send signed HTTPS requests with bounded retries.
 
 - Resource / verb: `webhook.dispatch`
 - MCP tool: `listmonk_webhooks_dispatch`
-- Effects: `webhook:batch`
+- Effects: `webhook:bulk`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
 - Stability: `experimental` since `0.8.0`

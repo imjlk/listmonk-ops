@@ -3392,15 +3392,6 @@
               "format": "date-time",
               "type": "string"
             },
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "PositiveInteger": {
-              "maximum": 9007199254740991,
-              "minimum": 1,
-              "type": "integer"
-            },
             "WebhookEndpoint": {
               "additionalProperties": false,
               "properties": {
@@ -3412,7 +3403,7 @@
                 },
                 "event_filters": {
                   "items": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "$ref": "#/components/schemas/WebhookEventFilter"
                   },
                   "minItems": 1,
                   "type": "array"
@@ -3421,22 +3412,22 @@
                   "$ref": "#/components/schemas/WebhookId"
                 },
                 "max_attempts": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookMaxAttempts"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookName"
                 },
                 "secret_ref": {
                   "$ref": "#/components/schemas/WebhookSecretRef"
                 },
                 "timeout_ms": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookTimeoutMs"
                 },
                 "updated_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
                 "url": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookUrl"
                 }
               },
               "required": [
@@ -3452,6 +3443,100 @@
                 "updated_at"
               ],
               "type": "object"
+            },
+            "WebhookEventFilter": {
+              "oneOf": [
+                {
+                  "const": "*"
+                },
+                {
+                  "const": "abtest.*"
+                },
+                {
+                  "const": "abtest.failed"
+                },
+                {
+                  "const": "abtest.inconclusive"
+                },
+                {
+                  "const": "abtest.ready-for-analysis"
+                },
+                {
+                  "const": "abtest.started"
+                },
+                {
+                  "const": "abtest.winner-selected"
+                },
+                {
+                  "const": "campaign.*"
+                },
+                {
+                  "const": "campaign.cancelled"
+                },
+                {
+                  "const": "campaign.finished"
+                },
+                {
+                  "const": "campaign.paused"
+                },
+                {
+                  "const": "campaign.scheduled"
+                },
+                {
+                  "const": "campaign.started"
+                },
+                {
+                  "const": "delivery.*"
+                },
+                {
+                  "const": "delivery.bounced"
+                },
+                {
+                  "const": "delivery.complained"
+                },
+                {
+                  "const": "delivery.delayed"
+                },
+                {
+                  "const": "delivery.delivered"
+                },
+                {
+                  "const": "operation.*"
+                },
+                {
+                  "const": "operation.blocked"
+                },
+                {
+                  "const": "operation.failed"
+                },
+                {
+                  "const": "operation.started"
+                },
+                {
+                  "const": "operation.succeeded"
+                },
+                {
+                  "const": "subscriber.*"
+                },
+                {
+                  "const": "subscriber.blocklisted"
+                },
+                {
+                  "const": "subscriber.created"
+                },
+                {
+                  "const": "subscriber.unsubscribed"
+                },
+                {
+                  "const": "subscriber.updated"
+                },
+                {
+                  "const": "webhook.*"
+                },
+                {
+                  "const": "webhook.test"
+                }
+              ]
             },
             "WebhookId": {
               "format": "uuid",
@@ -3472,8 +3557,29 @@
               ],
               "type": "object"
             },
+            "WebhookMaxAttempts": {
+              "maximum": 12,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "WebhookSecretRef": {
               "pattern": "^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$",
+              "type": "string"
+            },
+            "WebhookTimeoutMs": {
+              "maximum": 30000,
+              "minimum": 100,
+              "type": "integer"
+            },
+            "WebhookUrl": {
+              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
+              "minLength": 1,
+              "pattern": "^https://\\S+$",
               "type": "string"
             }
           }
@@ -3513,15 +3619,6 @@
       "input": {
         "components": {
           "schemas": {
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "PositiveInteger": {
-              "maximum": 9007199254740991,
-              "minimum": 1,
-              "type": "integer"
-            },
             "WebhookCreateInput": {
               "additionalProperties": false,
               "properties": {
@@ -3530,26 +3627,26 @@
                 },
                 "event_filters": {
                   "items": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "$ref": "#/components/schemas/WebhookEventFilter"
                   },
                   "minItems": 1,
                   "type": "array"
                 },
                 "max_attempts": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookMaxAttempts"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookName"
                 },
                 "secret_ref": {
                   "$ref": "#/components/schemas/WebhookSecretRef",
                   "description": "Environment variable name; the signing secret value is never persisted."
                 },
                 "timeout_ms": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookTimeoutMs"
                 },
                 "url": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookUrl"
                 }
               },
               "required": [
@@ -3560,8 +3657,123 @@
               ],
               "type": "object"
             },
+            "WebhookEventFilter": {
+              "oneOf": [
+                {
+                  "const": "*"
+                },
+                {
+                  "const": "abtest.*"
+                },
+                {
+                  "const": "abtest.failed"
+                },
+                {
+                  "const": "abtest.inconclusive"
+                },
+                {
+                  "const": "abtest.ready-for-analysis"
+                },
+                {
+                  "const": "abtest.started"
+                },
+                {
+                  "const": "abtest.winner-selected"
+                },
+                {
+                  "const": "campaign.*"
+                },
+                {
+                  "const": "campaign.cancelled"
+                },
+                {
+                  "const": "campaign.finished"
+                },
+                {
+                  "const": "campaign.paused"
+                },
+                {
+                  "const": "campaign.scheduled"
+                },
+                {
+                  "const": "campaign.started"
+                },
+                {
+                  "const": "delivery.*"
+                },
+                {
+                  "const": "delivery.bounced"
+                },
+                {
+                  "const": "delivery.complained"
+                },
+                {
+                  "const": "delivery.delayed"
+                },
+                {
+                  "const": "delivery.delivered"
+                },
+                {
+                  "const": "operation.*"
+                },
+                {
+                  "const": "operation.blocked"
+                },
+                {
+                  "const": "operation.failed"
+                },
+                {
+                  "const": "operation.started"
+                },
+                {
+                  "const": "operation.succeeded"
+                },
+                {
+                  "const": "subscriber.*"
+                },
+                {
+                  "const": "subscriber.blocklisted"
+                },
+                {
+                  "const": "subscriber.created"
+                },
+                {
+                  "const": "subscriber.unsubscribed"
+                },
+                {
+                  "const": "subscriber.updated"
+                },
+                {
+                  "const": "webhook.*"
+                },
+                {
+                  "const": "webhook.test"
+                }
+              ]
+            },
+            "WebhookMaxAttempts": {
+              "maximum": 12,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "WebhookSecretRef": {
               "pattern": "^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$",
+              "type": "string"
+            },
+            "WebhookTimeoutMs": {
+              "maximum": 30000,
+              "minimum": 100,
+              "type": "integer"
+            },
+            "WebhookUrl": {
+              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
+              "minLength": 1,
+              "pattern": "^https://\\S+$",
               "type": "string"
             }
           }
@@ -3575,26 +3787,26 @@
             },
             "event_filters": {
               "items": {
-                "$ref": "#/components/schemas/NonEmptyString"
+                "$ref": "#/components/schemas/WebhookEventFilter"
               },
               "minItems": 1,
               "type": "array"
             },
             "max_attempts": {
-              "$ref": "#/components/schemas/PositiveInteger"
+              "$ref": "#/components/schemas/WebhookMaxAttempts"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/WebhookName"
             },
             "secret_ref": {
               "$ref": "#/components/schemas/WebhookSecretRef",
               "description": "Environment variable name; the signing secret value is never persisted."
             },
             "timeout_ms": {
-              "$ref": "#/components/schemas/PositiveInteger"
+              "$ref": "#/components/schemas/WebhookTimeoutMs"
             },
             "url": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/WebhookUrl"
             }
           },
           "required": [
@@ -3613,15 +3825,6 @@
             "IsoDateTime": {
               "format": "date-time",
               "type": "string"
-            },
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "PositiveInteger": {
-              "maximum": 9007199254740991,
-              "minimum": 1,
-              "type": "integer"
             },
             "WebhookCreateOutput": {
               "additionalProperties": false,
@@ -3646,7 +3849,7 @@
                 },
                 "event_filters": {
                   "items": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "$ref": "#/components/schemas/WebhookEventFilter"
                   },
                   "minItems": 1,
                   "type": "array"
@@ -3655,22 +3858,22 @@
                   "$ref": "#/components/schemas/WebhookId"
                 },
                 "max_attempts": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookMaxAttempts"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookName"
                 },
                 "secret_ref": {
                   "$ref": "#/components/schemas/WebhookSecretRef"
                 },
                 "timeout_ms": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookTimeoutMs"
                 },
                 "updated_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
                 "url": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookUrl"
                 }
               },
               "required": [
@@ -3687,12 +3890,127 @@
               ],
               "type": "object"
             },
+            "WebhookEventFilter": {
+              "oneOf": [
+                {
+                  "const": "*"
+                },
+                {
+                  "const": "abtest.*"
+                },
+                {
+                  "const": "abtest.failed"
+                },
+                {
+                  "const": "abtest.inconclusive"
+                },
+                {
+                  "const": "abtest.ready-for-analysis"
+                },
+                {
+                  "const": "abtest.started"
+                },
+                {
+                  "const": "abtest.winner-selected"
+                },
+                {
+                  "const": "campaign.*"
+                },
+                {
+                  "const": "campaign.cancelled"
+                },
+                {
+                  "const": "campaign.finished"
+                },
+                {
+                  "const": "campaign.paused"
+                },
+                {
+                  "const": "campaign.scheduled"
+                },
+                {
+                  "const": "campaign.started"
+                },
+                {
+                  "const": "delivery.*"
+                },
+                {
+                  "const": "delivery.bounced"
+                },
+                {
+                  "const": "delivery.complained"
+                },
+                {
+                  "const": "delivery.delayed"
+                },
+                {
+                  "const": "delivery.delivered"
+                },
+                {
+                  "const": "operation.*"
+                },
+                {
+                  "const": "operation.blocked"
+                },
+                {
+                  "const": "operation.failed"
+                },
+                {
+                  "const": "operation.started"
+                },
+                {
+                  "const": "operation.succeeded"
+                },
+                {
+                  "const": "subscriber.*"
+                },
+                {
+                  "const": "subscriber.blocklisted"
+                },
+                {
+                  "const": "subscriber.created"
+                },
+                {
+                  "const": "subscriber.unsubscribed"
+                },
+                {
+                  "const": "subscriber.updated"
+                },
+                {
+                  "const": "webhook.*"
+                },
+                {
+                  "const": "webhook.test"
+                }
+              ]
+            },
             "WebhookId": {
               "format": "uuid",
               "type": "string"
             },
+            "WebhookMaxAttempts": {
+              "maximum": 12,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "WebhookSecretRef": {
               "pattern": "^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$",
+              "type": "string"
+            },
+            "WebhookTimeoutMs": {
+              "maximum": 30000,
+              "minimum": 100,
+              "type": "integer"
+            },
+            "WebhookUrl": {
+              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
+              "minLength": 1,
+              "pattern": "^https://\\S+$",
               "type": "string"
             }
           }
@@ -3731,22 +4049,122 @@
       "input": {
         "components": {
           "schemas": {
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "PositiveInteger": {
-              "maximum": 9007199254740991,
-              "minimum": 1,
-              "type": "integer"
+            "WebhookEventFilter": {
+              "oneOf": [
+                {
+                  "const": "*"
+                },
+                {
+                  "const": "abtest.*"
+                },
+                {
+                  "const": "abtest.failed"
+                },
+                {
+                  "const": "abtest.inconclusive"
+                },
+                {
+                  "const": "abtest.ready-for-analysis"
+                },
+                {
+                  "const": "abtest.started"
+                },
+                {
+                  "const": "abtest.winner-selected"
+                },
+                {
+                  "const": "campaign.*"
+                },
+                {
+                  "const": "campaign.cancelled"
+                },
+                {
+                  "const": "campaign.finished"
+                },
+                {
+                  "const": "campaign.paused"
+                },
+                {
+                  "const": "campaign.scheduled"
+                },
+                {
+                  "const": "campaign.started"
+                },
+                {
+                  "const": "delivery.*"
+                },
+                {
+                  "const": "delivery.bounced"
+                },
+                {
+                  "const": "delivery.complained"
+                },
+                {
+                  "const": "delivery.delayed"
+                },
+                {
+                  "const": "delivery.delivered"
+                },
+                {
+                  "const": "operation.*"
+                },
+                {
+                  "const": "operation.blocked"
+                },
+                {
+                  "const": "operation.failed"
+                },
+                {
+                  "const": "operation.started"
+                },
+                {
+                  "const": "operation.succeeded"
+                },
+                {
+                  "const": "subscriber.*"
+                },
+                {
+                  "const": "subscriber.blocklisted"
+                },
+                {
+                  "const": "subscriber.created"
+                },
+                {
+                  "const": "subscriber.unsubscribed"
+                },
+                {
+                  "const": "subscriber.updated"
+                },
+                {
+                  "const": "webhook.*"
+                },
+                {
+                  "const": "webhook.test"
+                }
+              ]
             },
             "WebhookId": {
               "format": "uuid",
               "type": "string"
             },
+            "WebhookMaxAttempts": {
+              "maximum": 12,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "WebhookSecretRef": {
               "pattern": "^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$",
               "type": "string"
+            },
+            "WebhookTimeoutMs": {
+              "maximum": 30000,
+              "minimum": 100,
+              "type": "integer"
             },
             "WebhookUpdateInput": {
               "additionalProperties": false,
@@ -3756,7 +4174,7 @@
                 },
                 "event_filters": {
                   "items": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "$ref": "#/components/schemas/WebhookEventFilter"
                   },
                   "minItems": 1,
                   "type": "array"
@@ -3765,25 +4183,31 @@
                   "$ref": "#/components/schemas/WebhookId"
                 },
                 "max_attempts": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookMaxAttempts"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookName"
                 },
                 "secret_ref": {
                   "$ref": "#/components/schemas/WebhookSecretRef"
                 },
                 "timeout_ms": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookTimeoutMs"
                 },
                 "url": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookUrl"
                 }
               },
               "required": [
                 "id"
               ],
               "type": "object"
+            },
+            "WebhookUrl": {
+              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
+              "minLength": 1,
+              "pattern": "^https://\\S+$",
+              "type": "string"
             }
           }
         },
@@ -3796,7 +4220,7 @@
             },
             "event_filters": {
               "items": {
-                "$ref": "#/components/schemas/NonEmptyString"
+                "$ref": "#/components/schemas/WebhookEventFilter"
               },
               "minItems": 1,
               "type": "array"
@@ -3805,19 +4229,19 @@
               "$ref": "#/components/schemas/WebhookId"
             },
             "max_attempts": {
-              "$ref": "#/components/schemas/PositiveInteger"
+              "$ref": "#/components/schemas/WebhookMaxAttempts"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/WebhookName"
             },
             "secret_ref": {
               "$ref": "#/components/schemas/WebhookSecretRef"
             },
             "timeout_ms": {
-              "$ref": "#/components/schemas/PositiveInteger"
+              "$ref": "#/components/schemas/WebhookTimeoutMs"
             },
             "url": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/WebhookUrl"
             }
           },
           "required": [
@@ -3834,15 +4258,6 @@
               "format": "date-time",
               "type": "string"
             },
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "PositiveInteger": {
-              "maximum": 9007199254740991,
-              "minimum": 1,
-              "type": "integer"
-            },
             "WebhookEndpoint": {
               "additionalProperties": false,
               "properties": {
@@ -3854,7 +4269,7 @@
                 },
                 "event_filters": {
                   "items": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "$ref": "#/components/schemas/WebhookEventFilter"
                   },
                   "minItems": 1,
                   "type": "array"
@@ -3863,22 +4278,22 @@
                   "$ref": "#/components/schemas/WebhookId"
                 },
                 "max_attempts": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookMaxAttempts"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookName"
                 },
                 "secret_ref": {
                   "$ref": "#/components/schemas/WebhookSecretRef"
                 },
                 "timeout_ms": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookTimeoutMs"
                 },
                 "updated_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
                 "url": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookUrl"
                 }
               },
               "required": [
@@ -3895,13 +4310,122 @@
               ],
               "type": "object"
             },
+            "WebhookEventFilter": {
+              "oneOf": [
+                {
+                  "const": "*"
+                },
+                {
+                  "const": "abtest.*"
+                },
+                {
+                  "const": "abtest.failed"
+                },
+                {
+                  "const": "abtest.inconclusive"
+                },
+                {
+                  "const": "abtest.ready-for-analysis"
+                },
+                {
+                  "const": "abtest.started"
+                },
+                {
+                  "const": "abtest.winner-selected"
+                },
+                {
+                  "const": "campaign.*"
+                },
+                {
+                  "const": "campaign.cancelled"
+                },
+                {
+                  "const": "campaign.finished"
+                },
+                {
+                  "const": "campaign.paused"
+                },
+                {
+                  "const": "campaign.scheduled"
+                },
+                {
+                  "const": "campaign.started"
+                },
+                {
+                  "const": "delivery.*"
+                },
+                {
+                  "const": "delivery.bounced"
+                },
+                {
+                  "const": "delivery.complained"
+                },
+                {
+                  "const": "delivery.delayed"
+                },
+                {
+                  "const": "delivery.delivered"
+                },
+                {
+                  "const": "operation.*"
+                },
+                {
+                  "const": "operation.blocked"
+                },
+                {
+                  "const": "operation.failed"
+                },
+                {
+                  "const": "operation.started"
+                },
+                {
+                  "const": "operation.succeeded"
+                },
+                {
+                  "const": "subscriber.*"
+                },
+                {
+                  "const": "subscriber.blocklisted"
+                },
+                {
+                  "const": "subscriber.created"
+                },
+                {
+                  "const": "subscriber.unsubscribed"
+                },
+                {
+                  "const": "subscriber.updated"
+                },
+                {
+                  "const": "webhook.*"
+                },
+                {
+                  "const": "webhook.test"
+                }
+              ]
+            },
             "WebhookId": {
               "format": "uuid",
+              "type": "string"
+            },
+            "WebhookMaxAttempts": {
+              "maximum": 12,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookName": {
+              "maxLength": 120,
+              "minLength": 1,
               "type": "string"
             },
             "WebhookSecretRef": {
               "pattern": "^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$",
               "type": "string"
+            },
+            "WebhookTimeoutMs": {
+              "maximum": 30000,
+              "minimum": 100,
+              "type": "integer"
             },
             "WebhookUpdateOutput": {
               "additionalProperties": false,
@@ -3914,6 +4438,12 @@
                 "endpoint"
               ],
               "type": "object"
+            },
+            "WebhookUrl": {
+              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
+              "minLength": 1,
+              "pattern": "^https://\\S+$",
+              "type": "string"
             }
           }
         },
@@ -3989,15 +4519,6 @@
               "format": "date-time",
               "type": "string"
             },
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "PositiveInteger": {
-              "maximum": 9007199254740991,
-              "minimum": 1,
-              "type": "integer"
-            },
             "WebhookDeleteOutput": {
               "additionalProperties": false,
               "properties": {
@@ -4025,7 +4546,7 @@
                 },
                 "event_filters": {
                   "items": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "$ref": "#/components/schemas/WebhookEventFilter"
                   },
                   "minItems": 1,
                   "type": "array"
@@ -4034,22 +4555,22 @@
                   "$ref": "#/components/schemas/WebhookId"
                 },
                 "max_attempts": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookMaxAttempts"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookName"
                 },
                 "secret_ref": {
                   "$ref": "#/components/schemas/WebhookSecretRef"
                 },
                 "timeout_ms": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/WebhookTimeoutMs"
                 },
                 "updated_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
                 "url": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookUrl"
                 }
               },
               "required": [
@@ -4066,12 +4587,127 @@
               ],
               "type": "object"
             },
+            "WebhookEventFilter": {
+              "oneOf": [
+                {
+                  "const": "*"
+                },
+                {
+                  "const": "abtest.*"
+                },
+                {
+                  "const": "abtest.failed"
+                },
+                {
+                  "const": "abtest.inconclusive"
+                },
+                {
+                  "const": "abtest.ready-for-analysis"
+                },
+                {
+                  "const": "abtest.started"
+                },
+                {
+                  "const": "abtest.winner-selected"
+                },
+                {
+                  "const": "campaign.*"
+                },
+                {
+                  "const": "campaign.cancelled"
+                },
+                {
+                  "const": "campaign.finished"
+                },
+                {
+                  "const": "campaign.paused"
+                },
+                {
+                  "const": "campaign.scheduled"
+                },
+                {
+                  "const": "campaign.started"
+                },
+                {
+                  "const": "delivery.*"
+                },
+                {
+                  "const": "delivery.bounced"
+                },
+                {
+                  "const": "delivery.complained"
+                },
+                {
+                  "const": "delivery.delayed"
+                },
+                {
+                  "const": "delivery.delivered"
+                },
+                {
+                  "const": "operation.*"
+                },
+                {
+                  "const": "operation.blocked"
+                },
+                {
+                  "const": "operation.failed"
+                },
+                {
+                  "const": "operation.started"
+                },
+                {
+                  "const": "operation.succeeded"
+                },
+                {
+                  "const": "subscriber.*"
+                },
+                {
+                  "const": "subscriber.blocklisted"
+                },
+                {
+                  "const": "subscriber.created"
+                },
+                {
+                  "const": "subscriber.unsubscribed"
+                },
+                {
+                  "const": "subscriber.updated"
+                },
+                {
+                  "const": "webhook.*"
+                },
+                {
+                  "const": "webhook.test"
+                }
+              ]
+            },
             "WebhookId": {
               "format": "uuid",
               "type": "string"
             },
+            "WebhookMaxAttempts": {
+              "maximum": 12,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "WebhookName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "WebhookSecretRef": {
               "pattern": "^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$",
+              "type": "string"
+            },
+            "WebhookTimeoutMs": {
+              "maximum": 30000,
+              "minimum": 100,
+              "type": "integer"
+            },
+            "WebhookUrl": {
+              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
+              "minLength": 1,
+              "pattern": "^https://\\S+$",
               "type": "string"
             }
           }
@@ -4791,26 +5427,7 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "source": {
-                  "oneOf": [
-                    {
-                      "const": "abtest"
-                    },
-                    {
-                      "const": "listmonk"
-                    },
-                    {
-                      "const": "operation"
-                    },
-                    {
-                      "const": "provider"
-                    },
-                    {
-                      "const": "sequence"
-                    },
-                    {
-                      "const": "webhook"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/WebhookEventSource"
                 },
                 "subject": {
                   "additionalProperties": false,
@@ -4819,26 +5436,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "kind": {
-                      "oneOf": [
-                        {
-                          "const": "campaign"
-                        },
-                        {
-                          "const": "experiment"
-                        },
-                        {
-                          "const": "message"
-                        },
-                        {
-                          "const": "operation"
-                        },
-                        {
-                          "const": "subscriber"
-                        },
-                        {
-                          "const": "webhook"
-                        }
-                      ]
+                      "$ref": "#/components/schemas/WebhookSubjectKind"
                     }
                   },
                   "required": [
@@ -4891,6 +5489,28 @@
                 },
                 {
                   "const": "succeeded"
+                }
+              ]
+            },
+            "WebhookEventSource": {
+              "oneOf": [
+                {
+                  "const": "abtest"
+                },
+                {
+                  "const": "listmonk"
+                },
+                {
+                  "const": "operation"
+                },
+                {
+                  "const": "provider"
+                },
+                {
+                  "const": "sequence"
+                },
+                {
+                  "const": "webhook"
                 }
               ]
             },
@@ -4970,6 +5590,28 @@
             "WebhookId": {
               "format": "uuid",
               "type": "string"
+            },
+            "WebhookSubjectKind": {
+              "oneOf": [
+                {
+                  "const": "campaign"
+                },
+                {
+                  "const": "experiment"
+                },
+                {
+                  "const": "message"
+                },
+                {
+                  "const": "operation"
+                },
+                {
+                  "const": "subscriber"
+                },
+                {
+                  "const": "webhook"
+                }
+              ]
             }
           }
         },
@@ -5130,26 +5772,7 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "source": {
-                  "oneOf": [
-                    {
-                      "const": "abtest"
-                    },
-                    {
-                      "const": "listmonk"
-                    },
-                    {
-                      "const": "operation"
-                    },
-                    {
-                      "const": "provider"
-                    },
-                    {
-                      "const": "sequence"
-                    },
-                    {
-                      "const": "webhook"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/WebhookEventSource"
                 },
                 "subject": {
                   "additionalProperties": false,
@@ -5158,26 +5781,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "kind": {
-                      "oneOf": [
-                        {
-                          "const": "campaign"
-                        },
-                        {
-                          "const": "experiment"
-                        },
-                        {
-                          "const": "message"
-                        },
-                        {
-                          "const": "operation"
-                        },
-                        {
-                          "const": "subscriber"
-                        },
-                        {
-                          "const": "webhook"
-                        }
-                      ]
+                      "$ref": "#/components/schemas/WebhookSubjectKind"
                     }
                   },
                   "required": [
@@ -5227,6 +5831,28 @@
                 },
                 {
                   "const": "succeeded"
+                }
+              ]
+            },
+            "WebhookEventSource": {
+              "oneOf": [
+                {
+                  "const": "abtest"
+                },
+                {
+                  "const": "listmonk"
+                },
+                {
+                  "const": "operation"
+                },
+                {
+                  "const": "provider"
+                },
+                {
+                  "const": "sequence"
+                },
+                {
+                  "const": "webhook"
                 }
               ]
             },
@@ -5306,6 +5932,28 @@
             "WebhookId": {
               "format": "uuid",
               "type": "string"
+            },
+            "WebhookSubjectKind": {
+              "oneOf": [
+                {
+                  "const": "campaign"
+                },
+                {
+                  "const": "experiment"
+                },
+                {
+                  "const": "message"
+                },
+                {
+                  "const": "operation"
+                },
+                {
+                  "const": "subscriber"
+                },
+                {
+                  "const": "webhook"
+                }
+              ]
             }
           }
         },

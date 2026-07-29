@@ -503,7 +503,7 @@ export const webhookDispatchOperationSpec = defineOperationSpec({
 		input: webhookDispatchInputContract,
 		output: webhookDispatchOutputContract,
 	},
-	effects: [{ kind: "webhook", resource: "webhook", audience: "batch" }],
+	effects: [{ kind: "webhook", resource: "webhook", audience: "bulk" }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
 		kind: "reconcile",

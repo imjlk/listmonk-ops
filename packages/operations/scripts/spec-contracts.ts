@@ -388,6 +388,24 @@ export interface ControlStatusOutput {
 }
 
 export type WebhookId = string & tags.Format<"uuid">;
+/**
+ * Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,
+ * DNS resolution, and private-address checks remain in the domain executor.
+ *
+ * Typia currently cannot combine its URI format tag with a pattern tag, so the
+ * contract encodes the security-relevant HTTPS scheme while runtime validation
+ * enforces the complete absolute-URL policy.
+ */
+export type WebhookUrl = NonEmptyString & tags.Pattern<"^https://\\S+$">;
+export type WebhookName = NonEmptyString & tags.MaxLength<120>;
+export type WebhookTimeoutMs = number &
+	tags.Type<"int32"> &
+	tags.Minimum<100> &
+	tags.Maximum<30_000>;
+export type WebhookMaxAttempts = number &
+	tags.Type<"int32"> &
+	tags.Minimum<1> &
+	tags.Maximum<12>;
 export type WebhookEventType =
 	| "operation.started"
 	| "operation.blocked"
@@ -412,6 +430,17 @@ export type WebhookEventType =
 	| "abtest.inconclusive"
 	| "abtest.failed"
 	| "webhook.test";
+export type WebhookEventFamily =
+	| "operation"
+	| "campaign"
+	| "subscriber"
+	| "delivery"
+	| "abtest"
+	| "webhook";
+export type WebhookEventFilter =
+	| WebhookEventType
+	| `${WebhookEventFamily}.*`
+	| "*";
 export type WebhookDeliveryStatus =
 	| "pending"
 	| "delivering"
@@ -421,13 +450,13 @@ export type WebhookDeliveryStatus =
 
 export interface WebhookEndpoint {
 	id: WebhookId;
-	name: NonEmptyString;
-	url: NonEmptyString;
+	name: WebhookName;
+	url: WebhookUrl;
 	secret_ref: WebhookSecretRef;
-	event_filters: NonEmptyString[] & tags.MinItems<1>;
+	event_filters: WebhookEventFilter[] & tags.MinItems<1>;
 	enabled: boolean;
-	timeout_ms: PositiveInteger;
-	max_attempts: PositiveInteger;
+	timeout_ms: WebhookTimeoutMs;
+	max_attempts: WebhookMaxAttempts;
 	created_at: IsoDateTime;
 	updated_at: IsoDateTime;
 }
@@ -441,14 +470,14 @@ export interface WebhookListOutput {
 }
 
 export interface WebhookCreateInput {
-	name: NonEmptyString;
-	url: NonEmptyString;
+	name: WebhookName;
+	url: WebhookUrl;
 	/** Environment variable name; the signing secret value is never persisted. */
 	secret_ref: WebhookSecretRef;
-	event_filters: NonEmptyString[] & tags.MinItems<1>;
+	event_filters: WebhookEventFilter[] & tags.MinItems<1>;
 	enabled?: boolean | undefined;
-	timeout_ms?: PositiveInteger | undefined;
-	max_attempts?: PositiveInteger | undefined;
+	timeout_ms?: WebhookTimeoutMs | undefined;
+	max_attempts?: WebhookMaxAttempts | undefined;
 }
 
 export interface WebhookCreateOutput {
@@ -457,13 +486,13 @@ export interface WebhookCreateOutput {
 
 export interface WebhookUpdateInput {
 	id: WebhookId;
-	name?: NonEmptyString | undefined;
-	url?: NonEmptyString | undefined;
+	name?: WebhookName | undefined;
+	url?: WebhookUrl | undefined;
 	secret_ref?: WebhookSecretRef | undefined;
-	event_filters?: (NonEmptyString[] & tags.MinItems<1>) | undefined;
+	event_filters?: (WebhookEventFilter[] & tags.MinItems<1>) | undefined;
 	enabled?: boolean | undefined;
-	timeout_ms?: PositiveInteger | undefined;
-	max_attempts?: PositiveInteger | undefined;
+	timeout_ms?: WebhookTimeoutMs | undefined;
+	max_attempts?: WebhookMaxAttempts | undefined;
 }
 
 export interface WebhookUpdateOutput {
@@ -510,27 +539,30 @@ export interface WebhookTestOutput {
 	dispatch: WebhookDispatchOutput;
 }
 
+export type WebhookEventSource =
+	| "listmonk"
+	| "provider"
+	| "operation"
+	| "abtest"
+	| "sequence"
+	| "webhook";
+export type WebhookSubjectKind =
+	| "operation"
+	| "campaign"
+	| "subscriber"
+	| "message"
+	| "experiment"
+	| "webhook";
+
 export interface WebhookDeliveryEventSummary {
 	id: WebhookId;
 	type: WebhookEventType;
 	schema_version: PositiveInteger;
 	occurred_at: IsoDateTime;
-	source:
-		| "listmonk"
-		| "provider"
-		| "operation"
-		| "abtest"
-		| "sequence"
-		| "webhook";
+	source: WebhookEventSource;
 	correlation_id?: NonEmptyString | undefined;
 	subject?: {
-		kind:
-			| "operation"
-			| "campaign"
-			| "subscriber"
-			| "message"
-			| "experiment"
-			| "webhook";
+		kind: WebhookSubjectKind;
 		key: NonEmptyString;
 	} | undefined;
 }
