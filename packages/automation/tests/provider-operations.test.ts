@@ -353,6 +353,40 @@ describe("provider and deliverability operations", () => {
 		expect(JSON.stringify(output)).not.toContain("aws:profile");
 	});
 
+	test("distinguishes SES error responses from network unreachability", async () => {
+		const serviceError = Object.assign(new Error("access denied"), {
+			name: "AccessDeniedException",
+			$metadata: { httpStatusCode: 403 },
+		});
+		const deniedInspector = inspector();
+		deniedInspector.inspectAccount = async () => {
+			throw serviceError;
+		};
+		deniedInspector.inspectIdentity = async () => {
+			throw serviceError;
+		};
+		const operationContext = context({
+			createInspector: () => deniedInspector,
+		});
+		const status = await invokeProviderStatusOperation(operationContext, {
+			provider_id: profile.id,
+		});
+		expect(status.api).toMatchObject({
+			supported: true,
+			reachable: true,
+			authenticated: false,
+			error_code: "AccessDeniedException",
+		});
+		const probe = await invokeProviderTestOperation(operationContext, {
+			provider_id: profile.id,
+		});
+		expect(probe.probe).toMatchObject({
+			supported: true,
+			reachable: true,
+			authenticated: false,
+		});
+	});
+
 	test("preserves successful SES account evidence when identity inspection fails", async () => {
 		const partialInspector = inspector();
 		partialInspector.inspectIdentity = async () => {
@@ -707,6 +741,78 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("accepts a direct DKIM key with the default omitted version", async () => {
+		const defaultVersionDkimDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name.endsWith("._domainkey.news.example.com")) {
+					return ["k=rsa; p=public-key"];
+				}
+				return dns.txt(name);
+			},
+			async cname() {
+				return [];
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: defaultVersionDkimDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "pass" }),
+		);
+	});
+
+	test("requires an exact SES DKIM delegation target", async () => {
+		const wrongSesDkimDns: ProviderDnsResolver = {
+			...dns,
+			async cname(name) {
+				return name.endsWith("._domainkey.news.example.com")
+					? ["wrong-token.dkim.amazonses.com"]
+					: [];
+			},
+			async txt(name) {
+				if (name.endsWith("._domainkey.news.example.com")) return [];
+				return dns.txt(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: wrongSesDkimDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "fail" }),
+		);
+	});
+
+	test("keeps an exact DMARC policy authoritative across ancestor failures", async () => {
+		const exactDmarcDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name === "_dmarc.news.example.com") {
+					return ["v=DMARC1; p=quarantine"];
+				}
+				if (name.startsWith("_dmarc.")) {
+					throw new Error("ancestor resolver timeout");
+				}
+				return dns.txt(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: exactDmarcDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dmarc", status: "pass" }),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.spf-alignment",
+				status: "unknown",
+			}),
+		);
+	});
+
 	test("uses the observed Listmonk From domain for aggregate DNS readiness", async () => {
 		const broadProfile = providerProfileSchema.parse({
 			...profile,
@@ -922,6 +1028,36 @@ describe("provider and deliverability operations", () => {
 				expect.objectContaining({ id, status: "unknown" }),
 			);
 		}
+		expect(output.healthy).toBe(false);
+	});
+
+	test("bounds the complete DNS inspection when a resolver hangs", async () => {
+		const hangingDns: ProviderDnsResolver = {
+			async txt() {
+				return await new Promise<string[]>(() => {});
+			},
+			async cname() {
+				return await new Promise<string[]>(() => {});
+			},
+			async mx() {
+				return await new Promise<
+					Array<{ exchange: string; priority: number }>
+				>(() => {});
+			},
+		};
+		const startedAt = Date.now();
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({
+				dns: hangingDns,
+				dnsInspectionTimeoutMs: 20,
+			}),
+			{ provider_id: profile.id },
+		);
+		expect(Date.now() - startedAt).toBeLessThan(1_000);
+		expect(output.healthy).toBe(false);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dmarc", status: "unknown" }),
+		);
 	});
 
 	test("requires a positively qualified exact SPF include mechanism", async () => {
@@ -959,6 +1095,7 @@ describe("provider and deliverability operations", () => {
 			mail_from_domain: "bounce.mail.example.com",
 			expected_spf_include: "_spf.google.com",
 			smtp_hosts: ["smtp.example.com"],
+			dkim_selectors: ["mail"],
 		});
 		expect(smtpProfile.expected_spf_include).toBe("_spf.google.com");
 		const genericDns: ProviderDnsResolver = {
@@ -969,10 +1106,15 @@ describe("provider and deliverability operations", () => {
 				if (name === "bounce.mail.example.com") {
 					return ["v=spf1 include:_spf.google.com ~all"];
 				}
+				if (name === "provider-dkim.example.net") {
+					return ["k=rsa; p=public-key"];
+				}
 				return [];
 			},
-			async cname() {
-				return [];
+			async cname(name) {
+				return name === "mail._domainkey.mail.example.com"
+					? ["provider-dkim.example.net"]
+					: [];
 			},
 			async mx(name) {
 				return name === "bounce.mail.example.com"
@@ -991,10 +1133,83 @@ describe("provider and deliverability operations", () => {
 			expect.objectContaining({ id: "dns.spf", status: "pass" }),
 		);
 		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "pass" }),
+		);
+		expect(output.checks).toContainEqual(
 			expect.objectContaining({
 				id: "dns.mail-from-mx",
 				status: "pass",
 			}),
+		);
+	});
+
+	test("rejects a dangling generic DKIM delegation", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "dangling-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			dkim_selectors: ["mail"],
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const danglingDns: ProviderDnsResolver = {
+			async txt(name) {
+				if (name === "_dmarc.mail.example.com") {
+					return ["v=DMARC1; p=quarantine"];
+				}
+				return [];
+			},
+			async cname(name) {
+				return name === "mail._domainkey.mail.example.com"
+					? ["missing-key.example.net"]
+					: [];
+			},
+			async mx() {
+				return [];
+			},
+		};
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({ profiles: [smtpProfile], dns: danglingDns }),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "fail" }),
+		);
+	});
+
+	test("keeps generic SMTP SPF unknown without an authorization expectation", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "unverified-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const unverifiedSpfDns: ProviderDnsResolver = {
+			async txt(name) {
+				if (name === "_dmarc.mail.example.com") {
+					return ["v=DMARC1; p=quarantine"];
+				}
+				if (name === "bounce.mail.example.com") {
+					return ["v=spf1 -all"];
+				}
+				return [];
+			},
+			async cname() {
+				return [];
+			},
+			async mx(name) {
+				return name === "bounce.mail.example.com"
+					? [{ priority: 10, exchange: "mx.example.com" }]
+					: [];
+			},
+		};
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({ profiles: [smtpProfile], dns: unverifiedSpfDns }),
+		);
+		expect(output.healthy).toBe(false);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "unknown" }),
 		);
 	});
 

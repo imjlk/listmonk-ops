@@ -248,6 +248,7 @@ async function withProfile<T>(
 		return await execute(profile, {
 			client: context.client,
 			dns: context.dns,
+			dnsInspectionTimeoutMs: context.dnsInspectionTimeoutMs,
 			now: context.now,
 			inspector,
 		});

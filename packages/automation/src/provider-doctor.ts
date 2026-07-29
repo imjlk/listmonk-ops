@@ -9,6 +9,7 @@ import type {
 import { z } from "zod";
 
 const DEFAULT_DNS_TIMEOUT_MS = 5_000;
+const DEFAULT_DNS_INSPECTION_TIMEOUT_MS = 10_000;
 const MAX_DMARC_TREE_WALK_QUERIES = 8;
 const REQUIRED_READINESS_CHECK_IDS = new Set([
 	"listmonk.from-alignment",
@@ -18,6 +19,14 @@ const REQUIRED_READINESS_CHECK_IDS = new Set([
 	"dns.mail-from-mx",
 	"dns.spf-alignment",
 ]);
+
+function hasReadinessBlocker(checks: readonly DoctorCheck[]): boolean {
+	return checks.some(
+		({ id, status }) =>
+			status === "fail" ||
+			(status === "unknown" && REQUIRED_READINESS_CHECK_IDS.has(id)),
+	);
+}
 
 export type DoctorCheckStatus = "pass" | "warn" | "fail" | "unknown";
 
@@ -150,6 +159,7 @@ export interface ProviderInspectionContext {
 	client?: Pick<ListmonkClient, "settings" | "bounce"> | undefined;
 	inspector?: ProviderInspector | undefined;
 	dns?: ProviderDnsResolver | undefined;
+	dnsInspectionTimeoutMs?: number | undefined;
 	now?: (() => Date) | undefined;
 }
 
@@ -171,6 +181,19 @@ function errorCode(error: unknown): string {
 		return error.name.slice(0, 120);
 	}
 	return "ProviderInspectionError";
+}
+
+function hasProviderResponse(error: unknown): boolean {
+	if (typeof error !== "object" || error === null) return false;
+	if ("$response" in error && error.$response !== undefined) return true;
+	if (!("$metadata" in error)) return false;
+	const metadata = error.$metadata;
+	return (
+		typeof metadata === "object" &&
+		metadata !== null &&
+		"httpStatusCode" in metadata &&
+		typeof metadata.httpStatusCode === "number"
+	);
 }
 
 function providerApiFailureMessage(
@@ -584,9 +607,12 @@ export async function inspectProviderStatus(
 			account !== undefined || identity !== undefined;
 		const hasAnyError =
 			accountError !== undefined || identityError !== undefined;
+		const hasProviderErrorResponse = [accountError, identityError].some(
+			hasProviderResponse,
+		);
 		api = {
 			supported: true,
-			reachable: hasSuccessfulRequest,
+			reachable: hasSuccessfulRequest || hasProviderErrorResponse,
 			authenticated: hasSuccessfulRequest && !hasAnyError,
 			latency_ms: Math.max(0, Date.now() - startedAt),
 			...(firstError === undefined
@@ -686,7 +712,7 @@ export async function testProviderApi(
 	} catch (error) {
 		return {
 			supported: true,
-			reachable: false,
+			reachable: hasProviderResponse(error),
 			authenticated: false,
 			latency_ms: Math.max(0, Date.now() - startedAt),
 			error_code: errorCode(error),
@@ -878,6 +904,10 @@ function isMissingDnsError(error: unknown): boolean {
 	return code === "ENODATA" || code === "ENOTFOUND" || code === "NXDOMAIN";
 }
 
+class DnsTimeoutError extends Error {
+	override readonly name = "DnsTimeoutError";
+}
+
 async function withDnsTimeout<T>(
 	label: string,
 	timeoutMs: number,
@@ -887,7 +917,11 @@ async function withDnsTimeout<T>(
 	const timeout = new Promise<never>((_, reject) => {
 		timer = setTimeout(
 			() =>
-				reject(new Error(`${label} DNS lookup timed out after ${timeoutMs}ms`)),
+				reject(
+					new DnsTimeoutError(
+						`${label} DNS lookup timed out after ${timeoutMs}ms`,
+					),
+				),
 			timeoutMs,
 		);
 	});
@@ -983,6 +1017,7 @@ interface DmarcDiscovery {
 	policy?: DmarcPolicyRecord | undefined;
 	observations: DnsObservation[];
 	indeterminate: boolean;
+	organizationalDomainIndeterminate: boolean;
 	duplicateDomains: string[];
 }
 
@@ -1067,16 +1102,20 @@ async function discoverDmarcPolicy(
 	const startingDomain = normalizeDomain(domain);
 	const records: DmarcPolicyRecord[] = [];
 	const observations: DnsObservation[] = [];
-	const duplicateDomains: string[] = [];
-	let indeterminate = false;
-
-	for (const candidate of dmarcTreeWalkDomains(startingDomain)) {
+	const allDuplicateDomains: string[] = [];
+	const candidates = dmarcTreeWalkDomains(startingDomain);
+	const results = await Promise.all(
+		candidates.map(async (candidate) => {
 		const name = `_dmarc.${candidate}`;
 		const result = await resolveDnsObservation(name, "TXT", () =>
 			dns.txt(name),
 		);
+			return { candidate, name, result };
+		}),
+	);
+
+	for (const { candidate, name, result } of results) {
 		observations.push(result.observation);
-		if (result.outcome === "error") indeterminate = true;
 		const policyRecords = result.values
 			.map(validDmarcPolicyRecord)
 			.filter(
@@ -1088,7 +1127,7 @@ async function discoverDmarcPolicy(
 				} => record !== undefined,
 			);
 		if (policyRecords.length > 1) {
-			duplicateDomains.push(candidate);
+			allDuplicateDomains.push(candidate);
 			continue;
 		}
 		const policyRecord = policyRecords[0];
@@ -1103,9 +1142,11 @@ async function discoverDmarcPolicy(
 	}
 
 	let organizationalDomain: string | undefined;
+	let organizationalEvidenceIndex: number | undefined;
 	for (const record of records) {
 		if (record.tags.get("psd") === "n") {
 			organizationalDomain = record.domain;
+			organizationalEvidenceIndex = candidates.indexOf(record.domain);
 			break;
 		}
 		if (
@@ -1113,6 +1154,7 @@ async function discoverDmarcPolicy(
 			record.tags.get("psd") === "y"
 		) {
 			organizationalDomain = childDomainBelow(startingDomain, record.domain);
+			organizationalEvidenceIndex = candidates.indexOf(record.domain);
 			break;
 		}
 	}
@@ -1126,20 +1168,43 @@ async function discoverDmarcPolicy(
 			({ domain: recordDomain }) => recordDomain === organizationalDomain,
 		) ??
 		records.at(-1);
+	const policyIndex =
+		policy === undefined
+			? candidates.length
+			: candidates.indexOf(policy.domain);
+	const relevantCandidates = new Set(
+		candidates.slice(0, Math.max(0, policyIndex) + 1),
+	);
+	const duplicateDomains = allDuplicateDomains.filter((candidate) =>
+		relevantCandidates.has(candidate),
+	);
+	const indeterminate = results
+		.slice(0, policy === undefined ? results.length : Math.max(0, policyIndex))
+		.some(({ result }) => result.outcome === "error");
+	const organizationalDomainIndeterminate = results
+		.slice(
+			0,
+			organizationalEvidenceIndex === undefined
+				? results.length
+				: Math.max(0, organizationalEvidenceIndex),
+		)
+		.some(({ result }) => result.outcome === "error");
 	return {
 		organizationalDomain,
 		...(policy === undefined ? {} : { policy }),
 		observations,
 		indeterminate,
+		organizationalDomainIndeterminate,
 		duplicateDomains,
 	};
 }
 
 function hasDirectDkimKey(record: string): boolean {
 	const tags = parseTagRecord(record);
+	const version = tags?.get("v")?.toLowerCase();
 	return (
 		tags !== undefined &&
-		tags.get("v")?.toLowerCase() === "dkim1" &&
+		(version === undefined || version === "dkim1") &&
 		(tags.get("p")?.length ?? 0) > 0
 	);
 }
@@ -1161,7 +1226,7 @@ function hasExactSpfInclude(record: string, expectedDomain: string): boolean {
 	return false;
 }
 
-export async function inspectProviderDns(
+async function inspectProviderDnsUnbounded(
 	profile: ProviderProfile,
 	context: ProviderInspectionContext,
 	identity?: SesIdentitySnapshot,
@@ -1225,26 +1290,55 @@ export async function inspectProviderDns(
 				const cname = await resolveDnsObservation(name, "CNAME", () =>
 					dns.cname(name),
 				);
-				const cnameReady = cname.values.some((record) =>
-					profile.kind === "ses"
-						? normalizeDomain(record).endsWith(".dkim.amazonses.com")
-						: record.length > 0,
-				);
-				const txt = cnameReady
+				let delegatedObservations: DnsObservation[] = [];
+				let delegatedReady = false;
+				let delegatedIndeterminate = false;
+				if (profile.kind === "ses") {
+					const expectedTarget = normalizeDomain(
+						`${selector}.dkim.amazonses.com`,
+					);
+					delegatedReady = cname.values.some(
+						(record) => normalizeDomain(record) === expectedTarget,
+					);
+				} else if (cname.values.length > 0) {
+					const delegatedResults = await Promise.all(
+						cname.values.map(async (target) => {
+							const normalizedTarget = normalizeDomain(target);
+							return resolveDnsObservation(
+								normalizedTarget,
+								"TXT",
+								() => dns.txt(normalizedTarget),
+							);
+						}),
+					);
+					delegatedObservations = delegatedResults.map(
+						({ observation }) => observation,
+					);
+					delegatedReady = delegatedResults.some(({ values }) =>
+						values.some((record) => hasDirectDkimKey(record)),
+					);
+					delegatedIndeterminate = delegatedResults.some(
+						({ outcome }) => outcome === "error",
+					);
+				}
+				const direct = delegatedReady
 					? undefined
 					: await resolveDnsObservation(name, "TXT", () => dns.txt(name));
 				const directReady =
-					txt?.values.some((record) => hasDirectDkimKey(record)) ?? false;
+					direct?.values.some((record) => hasDirectDkimKey(record)) ?? false;
 				return {
 					observations: [
 						cname.observation,
-						...(txt === undefined ? [] : [txt.observation]),
+						...delegatedObservations,
+						...(direct === undefined ? [] : [direct.observation]),
 					],
-					ready: cnameReady || directReady,
+					ready: delegatedReady || directReady,
 					indeterminate:
-						!cnameReady &&
+						!delegatedReady &&
 						!directReady &&
-						(cname.outcome === "error" || txt?.outcome === "error"),
+						(cname.outcome === "error" ||
+							delegatedIndeterminate ||
+							direct?.outcome === "error"),
 				};
 			}),
 		);
@@ -1305,16 +1399,22 @@ export async function inspectProviderDns(
 			(profile.kind === "ses" ? "amazonses.com" : undefined);
 		const spfReady =
 			spfRecords.length === 1 &&
-			(expectedInclude === undefined ||
-				hasExactSpfInclude(spfRecords[0]!, expectedInclude));
+			expectedInclude !== undefined &&
+			hasExactSpfInclude(spfRecords[0]!, expectedInclude);
 		const spfStatus: DoctorCheckStatus =
-			txt.outcome === "error" ? "unknown" : spfReady ? "pass" : "fail";
-		const spfMessage =
-			spfStatus === "unknown"
-				? "Custom MAIL FROM SPF could not be determined because the DNS lookup failed."
+			txt.outcome === "error" || expectedInclude === undefined
+				? "unknown"
 				: spfReady
-					? "Custom MAIL FROM SPF record is present."
-					: "Custom MAIL FROM SPF record is missing, duplicated, or lacks the expected include.";
+					? "pass"
+					: "fail";
+		const spfMessage =
+			txt.outcome === "error"
+				? "Custom MAIL FROM SPF could not be determined because the DNS lookup failed."
+				: expectedInclude === undefined
+					? "Generic SMTP SPF readiness requires expected_spf_include so authorization can be verified."
+					: spfReady
+						? "Custom MAIL FROM SPF record is present."
+						: "Custom MAIL FROM SPF record is missing, duplicated, or lacks the expected include.";
 		checks.push({
 			id: "dns.spf",
 			status: spfStatus,
@@ -1368,7 +1468,8 @@ export async function inspectProviderDns(
 				normalizeDomain(dmarc.organizationalDomain) ===
 				normalizeDomain(mailFromDmarc.organizationalDomain);
 			alignmentStatus =
-				dmarc.indeterminate || mailFromDmarc.indeterminate
+				dmarc.organizationalDomainIndeterminate ||
+				mailFromDmarc.organizationalDomainIndeterminate
 					? "unknown"
 					: domainsMatch
 						? "pass"
@@ -1404,8 +1505,69 @@ export async function inspectProviderDns(
 		checked_at: now.toISOString(),
 		observations,
 		checks,
-		healthy: checks.every(({ status }) => status !== "fail"),
+		healthy: !hasReadinessBlocker(checks),
 	};
+}
+
+export async function inspectProviderDns(
+	profile: ProviderProfile,
+	context: ProviderInspectionContext,
+	identity?: SesIdentitySnapshot,
+	fromDomainOverride?: string,
+): Promise<ProviderDnsSnapshot> {
+	const timeoutMs =
+		context.dnsInspectionTimeoutMs ?? DEFAULT_DNS_INSPECTION_TIMEOUT_MS;
+	if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60_000) {
+		throw new RangeError(
+			"DNS inspection timeout must be between 1 and 60000ms",
+		);
+	}
+	try {
+		return await withDnsTimeout(
+			"Provider DNS inspection",
+			timeoutMs,
+			inspectProviderDnsUnbounded(
+				profile,
+				context,
+				identity,
+				fromDomainOverride,
+			),
+		);
+	} catch (error) {
+		if (!(error instanceof DnsTimeoutError)) throw error;
+		const now = context.now?.() ?? new Date();
+		const effectiveFromDomain =
+			validatedDomain(fromDomainOverride) ??
+			fromDomain(profile.from_email) ??
+			profile.sending_domain;
+		const mailFromDomain =
+			identity?.mail_from_domain ?? profile.mail_from_domain;
+		const requiredCheckIds = [
+			"dns.dmarc",
+			"dns.dkim",
+			...(mailFromDomain === undefined
+				? []
+				: ["dns.spf", "dns.mail-from-mx", "dns.spf-alignment"]),
+		];
+		const checks: DoctorCheck[] = requiredCheckIds.map((id) => ({
+			id,
+			status: "unknown",
+			message:
+				"Provider DNS inspection exceeded its total deadline; retry after verifying resolver availability.",
+		}));
+		return {
+			provider_id: profile.id,
+			sending_domain: profile.sending_domain,
+			from_domain: effectiveFromDomain,
+			...(mailFromDomain === undefined
+				? {}
+				: { mail_from_domain: mailFromDomain }),
+			checked_at: now.toISOString(),
+			observations: [],
+			checks,
+			healthy: false,
+		};
+	}
 }
 
 export async function runProviderDoctor(
@@ -1502,15 +1664,10 @@ export async function runProviderDoctor(
 		fail: checks.filter(({ status }) => status === "fail").length,
 		unknown: checks.filter(({ status }) => status === "unknown").length,
 	};
-	const hasReadinessBlocker = checks.some(
-		({ id, status }) =>
-			status === "fail" ||
-			(status === "unknown" && REQUIRED_READINESS_CHECK_IDS.has(id)),
-	);
 	return {
 		provider_id: profile.id,
 		checked_at: now.toISOString(),
-		ready: !hasReadinessBlocker,
+		ready: !hasReadinessBlocker(checks),
 		summary,
 		status,
 		quota,

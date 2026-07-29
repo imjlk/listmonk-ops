@@ -15044,7 +15044,7 @@
                     "$ref": "#/components/schemas/NonEmptyString"
                   },
                   "from_email": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "type": "string"
                   },
                   "matching_smtp_hosts": {
                     "items": {
@@ -16673,7 +16673,7 @@
                     "$ref": "#/components/schemas/NonEmptyString"
                   },
                   "from_email": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "type": "string"
                   },
                   "matching_smtp_hosts": {
                     "items": {

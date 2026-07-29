@@ -674,7 +674,7 @@ export interface SesIdentitySnapshot {
 }
 
 export interface ProviderListmonkSnapshot {
-	from_email?: NonEmptyString | undefined;
+	from_email?: string | undefined;
 	from_domain?: NonEmptyString | undefined;
 	messenger: NonEmptyString;
 	messenger_configured: boolean;
