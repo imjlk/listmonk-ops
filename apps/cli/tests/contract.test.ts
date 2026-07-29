@@ -15,6 +15,7 @@ const WEBHOOK_STORE_PATH = join(
 	AUDIT_STORE_DIRECTORY,
 	"outbound-webhooks.json",
 );
+const SEQUENCE_STORE_PATH = join(AUDIT_STORE_DIRECTORY, "sequences.json");
 
 afterAll(() => {
 	rmSync(AUDIT_STORE_DIRECTORY, { recursive: true, force: true });
@@ -38,6 +39,7 @@ function runCli(args: string[]): CliResult {
 			LISTMONK_API_TOKEN: "",
 			LISTMONK_OPS_AUDIT_STORE: AUDIT_STORE_PATH,
 			LISTMONK_OPS_WEBHOOK_STORE: WEBHOOK_STORE_PATH,
+			LISTMONK_OPS_SEQUENCE_STORE: SEQUENCE_STORE_PATH,
 		},
 		stdout: "pipe",
 		stderr: "pipe",
@@ -72,10 +74,60 @@ describe("CLI contract", () => {
 			"specs",
 			"playbooks",
 			"webhooks",
+			"sequences",
 		]) {
 			expect(result.output).toContain(command);
 		}
 		expect(result.output).toMatch(/completions?|complete/);
+	});
+
+	test("manages typed sequence revisions through the shared file store", () => {
+		const create = runCli([
+			"sequences",
+			"create",
+			"--name",
+			"contract-sequence",
+			"--steps",
+			'[{"id":"wait","type":"wait","duration_seconds":60},{"id":"stop","type":"stop"}]',
+			"--format=json",
+		]);
+		expect(create.exitCode).toBe(0);
+		expect(create.output).toContain('"current_revision": 1');
+		const id = create.output.match(
+			/"id":\s*"([0-9a-f-]{36})"/i,
+		)?.[1];
+		expect(id).toBeDefined();
+
+		const update = runCli([
+			"sequences",
+			"update",
+			"--id",
+			id!,
+			"--steps",
+			'[{"id":"stop-v2","type":"stop"}]',
+			"--format=json",
+		]);
+		expect(update.exitCode).toBe(0);
+		expect(update.output).toContain('"current_revision": 2');
+
+		const list = runCli(["sequences", "list", "--format=json"]);
+		expect(list.exitCode).toBe(0);
+		expect(list.output).toContain("contract-sequence");
+
+		const blocked = runCli(["sequences", "delete", "--id", id!]);
+		expect(blocked.exitCode).not.toBe(0);
+		expect(blocked.output).toContain("requires explicit confirmation");
+
+		const remove = runCli([
+			"--confirm",
+			"sequences",
+			"delete",
+			"--id",
+			id!,
+			"--format=json",
+		]);
+		expect(remove.exitCode).toBe(0);
+		expect(remove.output).toContain('"deleted": true');
 	});
 
 	test("manages typed webhook endpoints without persisting secret values in arguments", () => {
@@ -167,7 +219,7 @@ describe("CLI contract", () => {
 		expect(search.output).toContain('"id": "campaigns.schedule"');
 		expect(describe.output).toContain('"confirmation": "required"');
 		expect(playbooks.output).toContain('"campaign.safe-start"');
-		expect(capabilities.output).toContain('"schema_version": "1.5.0"');
+		expect(capabilities.output).toContain('"schema_version": "1.6.0"');
 		expect(prime.output).toContain('"recommended_operations"');
 	});
 

@@ -866,7 +866,7 @@ export function createPostgresOutboundWebhookRepository(
 								last_success_at = ${completeOptions.now}
 							WHERE id = ${endpoint.id}
 						`;
-					} else {
+					} else if (endpoint.enabled) {
 						await transaction`
 							UPDATE listmonk_ops.webhook_endpoints
 							SET
@@ -1206,10 +1206,20 @@ export function createPostgresOutboundWebhookRepository(
 				await transaction`
 					DELETE FROM listmonk_ops.webhook_workers
 					WHERE id <> ${worker.id}
-						AND status IN ('stopped', 'failed')
-						AND coalesce(stopped_at, heartbeat_at) <
-							${worker.heartbeatAt}::timestamptz -
-							${DEFAULT_OUTBOUND_WEBHOOK_WORKER_RETENTION_MS} * interval '1 millisecond'
+						AND (
+							(
+								status = 'running'
+								AND heartbeat_at <
+									${worker.heartbeatAt}::timestamptz -
+									${DEFAULT_OUTBOUND_WEBHOOK_WORKER_RETENTION_MS} * interval '1 millisecond'
+							)
+							OR (
+								status IN ('stopped', 'failed')
+								AND coalesce(stopped_at, heartbeat_at) <
+									${worker.heartbeatAt}::timestamptz -
+									${DEFAULT_OUTBOUND_WEBHOOK_WORKER_RETENTION_MS} * interval '1 millisecond'
+							)
+						)
 				`;
 			});
 		},

@@ -4,9 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	createFileOutboundWebhookRepository,
+	createOutboundWebhookEndpoint,
+	dispatchOutboundWebhooks,
+	enqueueOutboundWebhookEvent,
 	getOutboundWebhookRuntimeHealth,
 	listOutboundWebhookEndpoints,
 	upsertOutboundWebhookWorker,
+	updateOutboundWebhookEndpoint,
 } from "../src/outbound-webhooks";
 import { runOutboundWebhookWorker } from "../src/outbound-webhook-worker";
 
@@ -152,6 +156,15 @@ describe("outbound webhook runtime stage 2", () => {
 		);
 		await upsertOutboundWebhookWorker(
 			{
+				id: "83a0e779-e838-4bcf-b231-8726604c3767",
+				status: "running",
+				startedAt: "2026-06-01T00:00:00.000Z",
+				heartbeatAt: "2026-06-01T00:00:01.000Z",
+			},
+			{ path },
+		);
+		await upsertOutboundWebhookWorker(
+			{
 				id: "7f6a4b5d-a0e5-4eae-9e9e-64d522c40b83",
 				status: "running",
 				startedAt: "2026-07-29T00:00:00.000Z",
@@ -167,6 +180,43 @@ describe("outbound webhook runtime stage 2", () => {
 			}),
 		).toMatchObject({
 			workers: { running: 1, stopped: 0, failed: 0 },
+		});
+	});
+
+	test("does not open a circuit while exhausting disabled endpoint backlog", async () => {
+		const path = await createStorePath();
+		const endpoint = await createOutboundWebhookEndpoint(
+			{
+				name: "disabled-backlog",
+				url: "https://8.8.8.8/hooks",
+				secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_DISABLED_BACKLOG",
+				eventFilters: ["operation.*"],
+				circuitFailureThreshold: 1,
+			},
+			{ path },
+		);
+		const queued = await enqueueOutboundWebhookEvent(
+			{
+				type: "operation.succeeded",
+				source: "operation",
+				data: {},
+			},
+			{ path, endpointIds: [endpoint.id] },
+		);
+		await updateOutboundWebhookEndpoint(
+			endpoint.id,
+			{ enabled: false },
+			{ path },
+		);
+		expect(
+			await dispatchOutboundWebhooks({
+				store: { path },
+				deliveryIds: queued.deliveryIds,
+				resolveSecret: () => "secret",
+			}),
+		).toMatchObject({ claimed: 1, exhausted: 1 });
+		expect(await getOutboundWebhookRuntimeHealth({ path })).toMatchObject({
+			endpoints: { circuitOpen: 0 },
 		});
 	});
 
@@ -241,6 +291,44 @@ describe("outbound webhook runtime stage 2", () => {
 		expect(tickErrors).toEqual(["temporary store outage"]);
 		expect(reconcileAttempts).toBe(2);
 		expect(result.ticks).toBe(1);
+	});
+
+	test("clears a transient periodic heartbeat failure after persistence recovers", async () => {
+		const path = await createStorePath();
+		const repository = createFileOutboundWebhookRepository({ path });
+		let upsertAttempts = 0;
+		let reconcileAttempts = 0;
+		const controller = new AbortController();
+		const result = await runOutboundWebhookWorker({
+			store: {
+				repository: {
+					...repository,
+					async upsertWorker(worker) {
+						upsertAttempts += 1;
+						if (upsertAttempts === 2) {
+							throw new Error("temporary heartbeat outage");
+						}
+						return repository.upsertWorker(worker);
+					},
+					async reconcile(options) {
+						reconcileAttempts += 1;
+						if (reconcileAttempts === 1) {
+							await new Promise((resolve) => setTimeout(resolve, 350));
+						}
+						return repository.reconcile(options);
+					},
+				},
+			},
+			heartbeatIntervalMs: 250,
+			failureBackoffMs: 250,
+			intervalMs: 250,
+			signal: controller.signal,
+			onTick: () => controller.abort(),
+		});
+
+		expect(reconcileAttempts).toBe(2);
+		expect(result.ticks).toBe(1);
+		expect(upsertAttempts).toBeGreaterThanOrEqual(4);
 	});
 
 	test("persists and reports a worker after its failure limit is reached", async () => {

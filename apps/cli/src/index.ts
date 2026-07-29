@@ -2,7 +2,10 @@
 
 import completion from "@gunshi/plugin-completion";
 import { cli, define } from "gunshi";
-import { closeOutboundWebhookRuntimeRepositories } from "@listmonk-ops/automation";
+import {
+	closeOutboundWebhookRuntimeRepositories,
+	closeSequenceRuntimeRepositories,
+} from "@listmonk-ops/automation";
 import packageJson from "../package.json" with { type: "json" };
 
 import abtestCommand from "./commands/abtest";
@@ -17,6 +20,7 @@ import playbooksCommand from "./commands/playbooks";
 import primeCommand from "./commands/prime";
 import specsCommand from "./commands/specs";
 import statusCommand from "./commands/status";
+import sequencesCommand from "./commands/sequences";
 import subscribersCommand from "./commands/subscribers";
 import templatesCommand from "./commands/templates";
 import txCommand from "./commands/tx";
@@ -31,6 +35,7 @@ const entry = define({
 
 const subCommands = {
 	status: statusCommand,
+	sequences: sequencesCommand,
 	capabilities: capabilitiesCommand,
 	prime: primeCommand,
 	examples: examplesCommand,
@@ -73,12 +78,24 @@ try {
 	commandError = error;
 	throw error;
 } finally {
-	try {
-		await closeOutboundWebhookRuntimeRepositories();
-	} catch (error) {
+	const closeResults = await Promise.allSettled([
+		closeOutboundWebhookRuntimeRepositories(),
+		closeSequenceRuntimeRepositories(),
+	]);
+	const closeFailures = closeResults
+		.filter(
+			(result): result is PromiseRejectedResult =>
+				result.status === "rejected",
+		)
+		.map((result) => result.reason);
+	if (closeFailures.length > 0) {
+		const error = new AggregateError(
+			closeFailures,
+			"Failed to close one or more runtime repositories",
+		);
 		if (commandError === undefined) {
 			throw error;
 		}
-		console.error("⚠️ Failed to close outbound webhook repositories:", error);
+		console.error("⚠️ Failed to close runtime repositories:", error);
 	}
 }

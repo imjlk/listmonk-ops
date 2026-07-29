@@ -175,6 +175,7 @@ export async function runOutboundWebhookWorker(
 					},
 					options.store,
 				);
+				heartbeatFailure = undefined;
 			})
 			.catch((error: unknown) => {
 				heartbeatFailure =
@@ -228,6 +229,7 @@ export async function runOutboundWebhookWorker(
 					},
 					options.store,
 				);
+				heartbeatFailure = undefined;
 				options.onTick?.(tick);
 				await waitForWorkerInterval(intervalMs, options.signal);
 			} catch (error) {
@@ -256,6 +258,7 @@ export async function runOutboundWebhookWorker(
 						},
 						options.store,
 					);
+					heartbeatFailure = undefined;
 				} catch (persistenceError) {
 					throw new AggregateError(
 						[error, persistenceError],

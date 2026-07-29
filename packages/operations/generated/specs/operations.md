@@ -335,3 +335,159 @@ Close one endpoint circuit after the operator has corrected its failure.
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.8.0`
+
+## `sequences.validate`
+
+Validate typed send, wait, wait-until, condition, and stop steps without persisting a sequence.
+
+- Resource / verb: `sequence.validate`
+- MCP tool: `listmonk_sequences_validate`
+- Effects: `read:sequence`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.create`
+
+Create an active sequence with an immutable first revision.
+
+- Resource / verb: `sequence.create`
+- MCP tool: `listmonk_sequences_create`
+- Effects: `write:sequence`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.update`
+
+Append an immutable revision while existing enrollments stay pinned to their original revision.
+
+- Resource / verb: `sequence.update`
+- MCP tool: `listmonk_sequences_update`
+- Effects: `write:sequence`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.list`
+
+List sequence definitions and their current revisions.
+
+- Resource / verb: `sequence.list`
+- MCP tool: `listmonk_sequences_list`
+- Effects: `read:sequence`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.get`
+
+Get one sequence definition including immutable revisions.
+
+- Resource / verb: `sequence.get`
+- MCP tool: `listmonk_sequences_get`
+- Effects: `read:sequence`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.delete`
+
+Delete a sequence only after all of its enrollments have reached terminal states.
+
+- Resource / verb: `sequence.delete`
+- MCP tool: `listmonk_sequences_delete`
+- Effects: `delete:sequence`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.enroll`
+
+Pin one subscriber to the current immutable sequence revision and schedule its first step.
+
+- Resource / verb: `sequence.enroll`
+- MCP tool: `listmonk_sequences_enroll`
+- Effects: `delivery:single:scheduled`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.enrollments.list`
+
+List sequence enrollments with filters so operators can discover pending, failed, or ambiguous work.
+
+- Resource / verb: `sequence.list`
+- MCP tool: `listmonk_sequences_enrollments_list`
+- Effects: `read:sequence`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.enrollments.get`
+
+Get one sequence enrollment including its current step, status, and last error.
+
+- Resource / verb: `sequence.get`
+- MCP tool: `listmonk_sequences_enrollments_get`
+- Effects: `read:sequence`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.pause`
+
+Pause new enrollment execution while preserving durable enrollment state.
+
+- Resource / verb: `sequence.pause`
+- MCP tool: `listmonk_sequences_pause`
+- Effects: `write:sequence`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+- State: `active -> paused` (target-state no-op allowed)
+
+## `sequences.resume`
+
+Resume claiming due enrollments for a paused sequence.
+
+- Resource / verb: `sequence.resume`
+- MCP tool: `listmonk_sequences_resume`
+- Effects: `write:sequence`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+- State: `paused -> active` (target-state no-op allowed)
+
+## `sequences.tick`
+
+Claim a bounded due-enrollment batch and execute one typed step per enrollment.
+
+- Resource / verb: `sequence.tick`
+- MCP tool: `listmonk_sequences_tick`
+- Effects: `delivery:bulk:immediate`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.reconcile`
+
+Preview or recover expired enrollment leases, or explicitly resolve one ambiguous send.
+
+- Resource / verb: `sequence.reconcile`
+- MCP tool: `listmonk_sequences_reconcile`
+- Effects: `maintenance:recover:recoverable, maintenance:resolve:destructive`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.status`
+
+Inspect durable schema, definitions, enrollment states, due work, leases, and worker heartbeats.
+
+- Resource / verb: `sequence.status`
+- MCP tool: `listmonk_sequences_status`
+- Effects: `read:sequence`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`

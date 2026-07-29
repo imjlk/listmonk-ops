@@ -16,6 +16,26 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	subscriberBulkOutputContract: NormalizedContractSchema;
 	transactionalSendInputContract: NormalizedContractSchema;
 	transactionalSendOutputContract: NormalizedContractSchema;
+	sequenceValidateInputContract: NormalizedContractSchema;
+	sequenceValidateOutputContract: NormalizedContractSchema;
+	sequenceCreateInputContract: NormalizedContractSchema;
+	sequenceDefinitionOutputContract: NormalizedContractSchema;
+	sequenceUpdateInputContract: NormalizedContractSchema;
+	sequenceListInputContract: NormalizedContractSchema;
+	sequenceListOutputContract: NormalizedContractSchema;
+	sequenceIdInputContract: NormalizedContractSchema;
+	sequenceDeleteOutputContract: NormalizedContractSchema;
+	sequenceEnrollInputContract: NormalizedContractSchema;
+	sequenceEnrollmentOutputContract: NormalizedContractSchema;
+	sequenceEnrollmentListInputContract: NormalizedContractSchema;
+	sequenceEnrollmentListOutputContract: NormalizedContractSchema;
+	sequenceEnrollmentGetInputContract: NormalizedContractSchema;
+	sequenceTickInputContract: NormalizedContractSchema;
+	sequenceTickOutputContract: NormalizedContractSchema;
+	sequenceReconcileInputContract: NormalizedContractSchema;
+	sequenceReconcileOutputContract: NormalizedContractSchema;
+	sequenceStatusInputContract: NormalizedContractSchema;
+	sequenceStatusOutputContract: NormalizedContractSchema;
 	specSearchInputContract: NormalizedContractSchema;
 	specSearchOutputContract: NormalizedContractSchema;
 	specDescribeInputContract: NormalizedContractSchema;
@@ -85,6 +105,41 @@ export const transactionalSendInputContract =
 	contracts.transactionalSendInputContract;
 export const transactionalSendOutputContract =
 	contracts.transactionalSendOutputContract;
+export const sequenceValidateInputContract =
+	contracts.sequenceValidateInputContract;
+export const sequenceValidateOutputContract =
+	contracts.sequenceValidateOutputContract;
+export const sequenceCreateInputContract =
+	contracts.sequenceCreateInputContract;
+export const sequenceDefinitionOutputContract =
+	contracts.sequenceDefinitionOutputContract;
+export const sequenceUpdateInputContract =
+	contracts.sequenceUpdateInputContract;
+export const sequenceListInputContract = contracts.sequenceListInputContract;
+export const sequenceListOutputContract = contracts.sequenceListOutputContract;
+export const sequenceIdInputContract = contracts.sequenceIdInputContract;
+export const sequenceDeleteOutputContract =
+	contracts.sequenceDeleteOutputContract;
+export const sequenceEnrollInputContract =
+	contracts.sequenceEnrollInputContract;
+export const sequenceEnrollmentOutputContract =
+	contracts.sequenceEnrollmentOutputContract;
+export const sequenceEnrollmentListInputContract =
+	contracts.sequenceEnrollmentListInputContract;
+export const sequenceEnrollmentListOutputContract =
+	contracts.sequenceEnrollmentListOutputContract;
+export const sequenceEnrollmentGetInputContract =
+	contracts.sequenceEnrollmentGetInputContract;
+export const sequenceTickInputContract = contracts.sequenceTickInputContract;
+export const sequenceTickOutputContract = contracts.sequenceTickOutputContract;
+export const sequenceReconcileInputContract =
+	contracts.sequenceReconcileInputContract;
+export const sequenceReconcileOutputContract =
+	contracts.sequenceReconcileOutputContract;
+export const sequenceStatusInputContract =
+	contracts.sequenceStatusInputContract;
+export const sequenceStatusOutputContract =
+	contracts.sequenceStatusOutputContract;
 export const specSearchInputContract = contracts.specSearchInputContract;
 export const specSearchOutputContract = contracts.specSearchOutputContract;
 export const specDescribeInputContract = contracts.specDescribeInputContract;

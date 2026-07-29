@@ -94,6 +94,11 @@ export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
 # Optional alternative for multi-process/multi-worker webhook durability.
 # Configure this OR LISTMONK_OPS_WEBHOOK_STORE, never both.
 # export LISTMONK_OPS_WEBHOOK_DATABASE_URL="postgres://user:password@host/database"
+# Optional: override the headless sequence definition/enrollment store
+export LISTMONK_OPS_SEQUENCE_STORE="$HOME/.listmonk-ops/sequences.json"
+# Optional alternative for multi-process/multi-worker sequence durability.
+# Configure LISTMONK_OPS_SEQUENCE_DATABASE_URL OR LISTMONK_OPS_SEQUENCE_STORE, never both.
+# export LISTMONK_OPS_SEQUENCE_DATABASE_URL="postgres://user:password@host/database"
 ```
 
 You can create/manage tokens in the Listmonk admin UI.
@@ -721,7 +726,7 @@ listmonk-cli webhooks inbound ingest \
 
 Filters accept an exact event type, a family wildcard such as `campaign.*`, or
 `*`. Initial contracts cover operation, campaign, subscriber, delivery, A/B
-test, and test events. Payload fields with credential or personal-data names
+test, sequence, and test events. Payload fields with credential or personal-data names
 are recursively redacted before persistence.
 Audited CLI and MCP operations automatically enqueue `operation.started`,
 `operation.blocked`, `operation.succeeded`, and `operation.failed` with the
@@ -730,8 +735,9 @@ write, so an unavailable webhook store cannot replace an operation result or
 invite an unsafe retry. A targeted `webhooks test` diagnostic bypasses the
 endpoint's normal event filters without changing them.
 Successful campaign schedule/start/pause/cancel operations, subscriber
-create/update/blocklist operations, and A/B lifecycle operations also project
-typed domain events from the same CLI/MCP execution boundary. Subscriber
+create/update/blocklist operations, A/B lifecycle operations, and sequence
+definition/enrollment controls also project typed domain events from the same
+CLI/MCP execution boundary. Subscriber
 payloads contain resource IDs or a batch checksum and counts, never addresses.
 
 Each request includes `X-Listmonk-Ops-Event-Id`,
@@ -776,6 +782,57 @@ Use `webhooks tick` from a scheduler or run the heartbeat-tracked
 management alone does not start a background daemon. The worker retries
 transient tick failures with bounded exponential backoff before failing for
 its process supervisor to restart.
+
+## Headless Email Sequences
+
+Sequences are typed, revisioned workflows shared by the CLI and MCP server.
+Each enrollment is pinned to the revision that existed when it was created, so
+later edits do not mutate running subscriber journeys. The MVP supports
+`send`, `wait`, absolute `wait_until`, `condition`, and `stop` steps.
+
+```bash
+listmonk-cli sequences validate \
+  --steps '[{"id":"welcome","type":"send","template_id":12},{"id":"delay","type":"wait","duration_seconds":86400},{"id":"stop","type":"stop"}]'
+
+listmonk-cli sequences create \
+  --name welcome \
+  --steps '[{"id":"welcome","type":"send","template_id":12},{"id":"delay","type":"wait","duration_seconds":86400},{"id":"stop","type":"stop"}]'
+
+listmonk-cli sequences enroll \
+  --id <sequence-uuid> \
+  --subscriber-id 42 \
+  --context '{"plan":"pro"}'
+
+listmonk-cli sequences enrollments list --status ambiguous
+listmonk-cli sequences enrollments get --id <enrollment-uuid>
+listmonk-cli sequences status
+listmonk-cli sequences tick --limit 25 --confirm
+listmonk-cli sequences reconcile --dry-run --confirm
+listmonk-cli sequences reconcile --no-dry-run --confirm
+listmonk-cli sequences worker --interval-ms 5000 --confirm
+```
+
+Before every `send`, the worker reloads the subscriber and cancels delivery
+when the subscriber is blocklisted, disabled, or unsubscribed from every
+returned list. Transactional sends use a deterministic enrollment/revision/step
+idempotency key. Definitive pre-dispatch failures retry with jittered, bounded
+exponential backoff for at most 24 attempts, exposed as `retry_count` on
+enrollment list/get output.
+A response-lost send becomes `ambiguous` and is never retried automatically;
+after checking Listmonk/Mailpit/provider evidence, resolve it explicitly with
+`sequences reconcile --enrollment-id ... --resolution sent` or `not_sent`,
+plus `--no-dry-run --confirm`. A still-`pending` send claim cannot be manually
+reconciled because delivery may remain in flight.
+
+The default file store is `~/.listmonk-ops/sequences.json`. Set
+`LISTMONK_OPS_SEQUENCE_DATABASE_URL` for concurrent workers; Postgres uses
+`FOR UPDATE SKIP LOCKED`, lease-token fencing, and advisory-lock-protected
+schema initialization. It also stores transactional idempotency claims in the
+same database so every worker observes one shared send decision.
+`sequences status` reports due work, ambiguity, leases,
+and running/stale/stopped/failed worker health. Old worker records are pruned
+after the retention window. Sequence create/revise/enroll/pause/resume and
+operator reconciliation also project typed `sequence.*` outbound events.
 
 ## OpenAPI Regeneration (Hey API)
 

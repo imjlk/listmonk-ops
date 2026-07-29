@@ -18,7 +18,7 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_list_operations` - Read-only catalog of typed contracts shared by
   the CLI and MCP server. Pass an optional exact `family` filter (`lists`,
   `subscribers`, `campaigns`, `templates`, `media`, `transactional`, `ops`,
-  `abtest`, `discovery`, or `webhooks`) to discover operation schemas, safety hints, and
+  `abtest`, `discovery`, `webhooks`, or `sequences`) to discover operation schemas, safety hints, and
   execution policy.
 - `listmonk_schema_search` - Search operation contracts and agent guidance by
   intent, family, resource, or verb.
@@ -165,12 +165,37 @@ Audited MCP operations automatically enqueue matching `operation.*` lifecycle
 events with the same execution ID. This projection is best-effort after the
 durable audit write and does not turn an observability failure into a remote
 operation retry.
-Successful campaign, subscriber, and A/B lifecycle operations also enqueue
+Successful campaign, subscriber, A/B lifecycle, and sequence operations also enqueue
 their typed domain events. Set `LISTMONK_OPS_WEBHOOK_DATABASE_URL` instead of
 the JSON store path when multiple worker processes share the outbox.
 The long-running worker is intentionally a CLI process; MCP exposes typed
 health, ingestion, DLQ, and circuit control operations without owning a daemon
 inside an MCP request.
+
+### Headless Email Sequences
+
+- `listmonk_sequences_validate` - Validate typed steps without writing state
+- `listmonk_sequences_create` / `listmonk_sequences_update` - Create a
+  sequence or append an immutable revision
+- `listmonk_sequences_list` / `listmonk_sequences_get` - Inspect definitions
+  and revision history
+- `listmonk_sequences_delete` - Delete a sequence with no non-terminal
+  enrollments (requires `confirm: true`)
+- `listmonk_sequences_enroll` - Pin one subscriber to the current revision
+- `listmonk_sequences_enrollments_list` /
+  `listmonk_sequences_enrollments_get` - Discover and inspect individual
+  enrollment IDs, states, steps, and errors
+- `listmonk_sequences_pause` / `listmonk_sequences_resume` - Control due-work
+  claiming
+- `listmonk_sequences_tick` - Execute one step for a bounded due batch
+  (requires `confirm: true`)
+- `listmonk_sequences_reconcile` - Preview expired leases or resolve one
+  operator-reviewed ambiguous send (requires `confirm: true`)
+- `listmonk_sequences_status` - Inspect durable state, leases, ambiguity, and
+  worker health
+
+The long-running sequence worker remains a confirmed CLI process. MCP and CLI
+share the same file/Postgres repository and transactional idempotency records.
 
 ### Operations & Observability
 
@@ -225,6 +250,11 @@ LISTMONK_OPS_WEBHOOK_STORE=/absolute/path/to/outbound-webhooks.json
 # LISTMONK_OPS_WEBHOOK_DATABASE_URL=postgres://user:password@host/database
 # Example signing secret referenced by an endpoint's secret_ref
 LISTMONK_OPS_WEBHOOK_SECRET=<random-secret>
+
+# Optional headless sequence persistence
+LISTMONK_OPS_SEQUENCE_STORE=/absolute/path/to/sequences.json
+# Alternative for concurrent workers; do not set both
+# LISTMONK_OPS_SEQUENCE_DATABASE_URL=postgres://user:password@host/database
 
 # MCP Server Configuration
 MCP_SERVER_PORT=3000

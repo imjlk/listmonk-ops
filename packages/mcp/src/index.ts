@@ -1,7 +1,10 @@
 import { existsSync, realpathSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { closeOutboundWebhookRuntimeRepositories } from "@listmonk-ops/automation";
+import {
+	closeOutboundWebhookRuntimeRepositories,
+	closeSequenceRuntimeRepositories,
+} from "@listmonk-ops/automation";
 import type { ListmonkMCPServer } from "./server.js";
 
 interface RuntimeArgs {
@@ -34,27 +37,28 @@ let shutdownPromise: Promise<void> | undefined;
 
 async function shutdownRuntime(): Promise<void> {
 	shutdownPromise ??= (async () => {
-		let serverStopError: unknown;
+		const failures: unknown[] = [];
 		try {
 			activeHttpServer?.stop(true);
 		} catch (error) {
-			serverStopError = error;
+			failures.push(error);
 		} finally {
 			activeHttpServer = undefined;
 		}
-		try {
-			await closeOutboundWebhookRuntimeRepositories();
-		} catch (repositoryError) {
-			if (serverStopError !== undefined) {
-				throw new AggregateError(
-					[serverStopError, repositoryError],
-					"Failed to stop the MCP runtime cleanly",
-				);
+		const closeResults = await Promise.allSettled([
+			closeOutboundWebhookRuntimeRepositories(),
+			closeSequenceRuntimeRepositories(),
+		]);
+		for (const result of closeResults) {
+			if (result.status === "rejected") {
+				failures.push(result.reason);
 			}
-			throw repositoryError;
 		}
-		if (serverStopError !== undefined) {
-			throw serverStopError;
+		if (failures.length > 0) {
+			throw new AggregateError(
+				failures,
+				"Failed to stop the MCP runtime cleanly",
+			);
 		}
 	})();
 	await shutdownPromise;
@@ -170,6 +174,9 @@ Environment fallback:
   LISTMONK_OPS_WEBHOOK_STORE   File-backed webhook endpoint/outbox path
   LISTMONK_OPS_WEBHOOK_DATABASE_URL
                                Postgres webhook endpoint/outbox URL (exclusive with file store)
+  LISTMONK_OPS_SEQUENCE_STORE  File-backed sequence definition/enrollment path
+  LISTMONK_OPS_SEQUENCE_DATABASE_URL
+                               Postgres sequence runtime URL (exclusive with file store)
 `);
 }
 

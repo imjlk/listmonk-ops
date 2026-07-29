@@ -22,7 +22,7 @@
 	"scripts": {
 		"clean": "rm -rf ./dist",
 		"dev": "bun --watch src/index.ts",
-		"build:js": "bun build src/index.ts --target=bun --minify --external postgres --external zod --outdir=dist/js",
+		"build:js": "bun build src/index.ts --target=bun --minify --external postgres --external zod --external @listmonk-ops/automation --outdir=dist/js",
 		"build:bin": "bun ./scripts/build-binary.ts",
 		"build:bin:all": "bun ./scripts/build-binary.ts --all",
 		"build": "bun run typecheck && bun run clean && bun run build:js && bun run build:bin",

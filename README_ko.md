@@ -94,6 +94,11 @@ export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
 # 선택 대안: 다중 프로세스/worker용 PostgreSQL durable 저장소
 # LISTMONK_OPS_WEBHOOK_STORE와 동시에 설정하면 안 됩니다.
 # export LISTMONK_OPS_WEBHOOK_DATABASE_URL="postgres://user:password@host/database"
+# 선택: headless sequence definition/enrollment 저장소 경로 재정의
+export LISTMONK_OPS_SEQUENCE_STORE="$HOME/.listmonk-ops/sequences.json"
+# 선택 대안: 다중 프로세스/worker용 PostgreSQL sequence 저장소
+# LISTMONK_OPS_SEQUENCE_STORE와 동시에 설정하면 안 됩니다.
+# export LISTMONK_OPS_SEQUENCE_DATABASE_URL="postgres://user:password@host/database"
 ```
 
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
@@ -712,7 +717,7 @@ listmonk-cli webhooks inbound ingest \
 
 필터는 정확한 event type, `campaign.*` 같은 family wildcard 또는 `*`를
 받습니다. 초기 계약은 operation, campaign, subscriber, delivery, A/B test,
-test event를 포함합니다. 자격 증명이나 개인정보 이름을 가진 payload 필드는
+sequence, test event를 포함합니다. 자격 증명이나 개인정보 이름을 가진 payload 필드는
 저장 전에 재귀적으로 마스킹합니다.
 감사 대상 CLI/MCP operation은 같은 execution ID로 `operation.started`,
 `operation.blocked`, `operation.succeeded`, `operation.failed`를 자동 enqueue합니다.
@@ -721,8 +726,9 @@ Event 투영은 durable audit 저장 이후 best-effort로 처리하므로 webho
 지정된 `webhooks test` 진단은 endpoint의 일반 event filter를 변경하지 않고
 우회하여 전송합니다.
 성공한 campaign schedule/start/pause/cancel, subscriber
-create/update/blocklist, A/B lifecycle operation도 같은 CLI/MCP 실행 경계에서
-typed domain event로 투영됩니다. Subscriber payload에는 resource ID 또는 batch
+create/update/blocklist, A/B lifecycle operation, sequence definition/enrollment
+control도 같은 CLI/MCP 실행 경계에서 typed domain event로 투영됩니다.
+Subscriber payload에는 resource ID 또는 batch
 checksum과 개수만 포함하고 이메일 주소는 포함하지 않습니다.
 
 요청에는 `X-Listmonk-Ops-Event-Id`, `X-Listmonk-Ops-Event-Type`,
@@ -765,6 +771,58 @@ Dispatch 시 DNS/IP가 전역 라우팅 가능한 주소인지 다시 확인하�
 등록만으로 background daemon이 시작되지는 않습니다. Worker는 일시적인 tick
 실패를 제한된 exponential backoff로 재시도한 뒤 process supervisor가 재시작할
 수 있도록 실패합니다.
+
+## Headless 이메일 시퀀스
+
+시퀀스는 CLI와 MCP가 공유하는 typed·revision 기반 workflow입니다. Enrollment는
+생성 시점의 revision에 고정되므로 이후 sequence 수정이 실행 중인 subscriber
+journey를 바꾸지 않습니다. MVP step은 `send`, `wait`, 절대 시각
+`wait_until`, `condition`, `stop`입니다.
+
+```bash
+listmonk-cli sequences validate \
+  --steps '[{"id":"welcome","type":"send","template_id":12},{"id":"delay","type":"wait","duration_seconds":86400},{"id":"stop","type":"stop"}]'
+
+listmonk-cli sequences create \
+  --name welcome \
+  --steps '[{"id":"welcome","type":"send","template_id":12},{"id":"delay","type":"wait","duration_seconds":86400},{"id":"stop","type":"stop"}]'
+
+listmonk-cli sequences enroll \
+  --id <sequence-uuid> \
+  --subscriber-id 42 \
+  --context '{"plan":"pro"}'
+
+listmonk-cli sequences enrollments list --status ambiguous
+listmonk-cli sequences enrollments get --id <enrollment-uuid>
+listmonk-cli sequences status
+listmonk-cli sequences tick --limit 25 --confirm
+listmonk-cli sequences reconcile --dry-run --confirm
+listmonk-cli sequences reconcile --no-dry-run --confirm
+listmonk-cli sequences worker --interval-ms 5000 --confirm
+```
+
+Worker는 매 `send` 직전에 subscriber를 다시 조회하고 blocklisted, disabled,
+또는 반환된 모든 list에서 unsubscribed 상태이면 발송을 취소합니다.
+Transactional 발송은 enrollment/revision/step으로 결정되는 idempotency key를
+사용합니다. 발송 전 단계에서 확실히 실패한 요청은 jitter를 적용한 제한된
+exponential backoff로 최대 24회 재시도하며, enrollment list/get 결과의
+`retry_count`로 횟수를 확인할 수 있습니다. 응답이 유실된 발송은
+`ambiguous`가 되며 자동
+재시도하지 않습니다. Listmonk, Mailpit 또는 provider 근거를 확인한 후
+`sequences reconcile --enrollment-id ... --resolution sent` 또는 `not_sent`와
+`--no-dry-run --confirm`으로 명시적으로 복구합니다. 발송이 여전히 진행 중일
+수 있는 `pending` 멱등성 claim은 운영자가 수동 reconcile할 수 없습니다.
+
+기본 파일 저장소는 `~/.listmonk-ops/sequences.json`입니다. 여러 worker가
+동시에 처리할 때는 `LISTMONK_OPS_SEQUENCE_DATABASE_URL`을 설정하세요.
+Postgres 구현은 `FOR UPDATE SKIP LOCKED`, lease-token fencing,
+advisory-lock 기반 schema 초기화를 사용합니다. Transactional idempotency
+claim도 같은 데이터베이스에 저장하므로 모든 worker가 하나의 발송 판단을
+공유합니다. `sequences status`는 due work,
+ambiguous 상태, lease, running/stale/stopped/failed worker health를 보고하며
+오래된 worker 기록은 retention 기간 뒤 정리합니다. Sequence
+create/revise/enroll/pause/resume 및 운영자 reconcile은 typed `sequence.*`
+outbound event로도 투영됩니다.
 
 ## OpenAPI 재생성 (Hey API)
 

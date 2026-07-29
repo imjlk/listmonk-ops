@@ -30,6 +30,8 @@ import {
 	executeSubscriberBulk,
 } from "./subscriber-bulk";
 
+export { isResourceMissingError } from "./resource-helpers";
+
 export interface SubscriberOperationContext {
 	client: Pick<ListmonkClient, "subscriber">;
 }

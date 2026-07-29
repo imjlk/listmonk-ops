@@ -171,4 +171,110 @@ describe("successful operation lifecycle projection", () => {
 			}),
 		).toEqual([]);
 	});
+
+	test("projects sequence revision, enrollment, and reconciliation events", () => {
+		const revised = projectSuccessfulOperationLifecycleEvents({
+			executionId: "execution-sequence-revision",
+			operationId: "sequences.update",
+			operationInput: { id: "0f1647c2-50c7-44d0-b5be-7eeef90a7c9a" },
+			operationOutput: {
+				sequence: {
+					id: "0f1647c2-50c7-44d0-b5be-7eeef90a7c9a",
+					current_revision: 2,
+				},
+			},
+		});
+		const enrolled = projectSuccessfulOperationLifecycleEvents({
+			executionId: "execution-sequence-enrollment",
+			operationId: "sequences.enroll",
+			operationInput: { subscriber_id: 42 },
+			operationOutput: {
+				enrollment: {
+					id: "7dc86669-ed74-44d7-9a44-e6ef5f56509c",
+					sequence_id: "0f1647c2-50c7-44d0-b5be-7eeef90a7c9a",
+					revision: 2,
+					status: "pending",
+				},
+			},
+		});
+		const reconciled = projectSuccessfulOperationLifecycleEvents({
+			executionId: "execution-sequence-reconcile",
+			operationId: "sequences.reconcile",
+			operationInput: {
+				enrollment_id: "7dc86669-ed74-44d7-9a44-e6ef5f56509c",
+				resolution: "sent",
+			},
+			operationOutput: {
+				enrollment: {
+					id: "7dc86669-ed74-44d7-9a44-e6ef5f56509c",
+					sequence_id: "0f1647c2-50c7-44d0-b5be-7eeef90a7c9a",
+					status: "completed",
+				},
+			},
+		});
+		const deleted = projectSuccessfulOperationLifecycleEvents({
+			executionId: "execution-sequence-delete",
+			operationId: "sequences.delete",
+			operationInput: { id: "0f1647c2-50c7-44d0-b5be-7eeef90a7c9a" },
+			operationOutput: {
+				deleted: true,
+				sequence: {
+					id: "0f1647c2-50c7-44d0-b5be-7eeef90a7c9a",
+					status: "paused",
+					current_revision: 2,
+				},
+			},
+		});
+
+		expect(revised).toMatchObject([
+			{
+				type: "sequence.revised",
+				source: "sequence",
+				subject: {
+					kind: "sequence",
+					key: "0f1647c2-50c7-44d0-b5be-7eeef90a7c9a",
+				},
+				data: { revision: 2 },
+			},
+		]);
+		expect(enrolled).toMatchObject([
+			{
+				type: "sequence.enrolled",
+				data: {
+					enrollment_id: "7dc86669-ed74-44d7-9a44-e6ef5f56509c",
+					revision: 2,
+					status: "pending",
+				},
+			},
+		]);
+		expect(reconciled).toMatchObject([
+			{
+				type: "sequence.reconciled",
+				data: {
+					enrollment_id: "7dc86669-ed74-44d7-9a44-e6ef5f56509c",
+					status: "completed",
+				},
+			},
+		]);
+		expect(deleted).toMatchObject([
+			{
+				type: "sequence.deleted",
+				data: { status: "paused", current_revision: 2 },
+			},
+		]);
+		expect(
+			projectSuccessfulOperationLifecycleEvents({
+				executionId: "execution-sequence-malformed-enroll",
+				operationId: "sequences.enroll",
+				operationInput: {
+					id: "0f1647c2-50c7-44d0-b5be-7eeef90a7c9a",
+					subscriber_id: 42,
+				},
+				operationOutput: {},
+			}),
+		).toEqual([]);
+		expect(
+			JSON.stringify([...revised, ...enrolled, ...reconciled, ...deleted]),
+		).not.toContain("subscriber_id");
+	});
 });

@@ -12,6 +12,7 @@ import { handleListsTools, listsTools } from "./lists.js";
 import { handleMediaTools, mediaTools } from "./media.js";
 import { handleOpsTools, opsTools } from "./ops.js";
 import { handleSettingsTools, settingsTools } from "./settings.js";
+import { handleSequenceTools, sequenceTools } from "./sequences.js";
 import { handleSubscribersTools, subscribersTools } from "./subscribers.js";
 import { handleTemplatesTools, templatesTools } from "./templates.js";
 import {
@@ -29,6 +30,7 @@ export * from "./lists.js";
 export * from "./media.js";
 export * from "./ops.js";
 export * from "./settings.js";
+export * from "./sequences.js";
 export * from "./subscribers.js";
 export * from "./templates.js";
 export * from "./transactional.js";
@@ -45,6 +47,7 @@ export const allTools: readonly MCPTool[] = [
 	...opsTools,
 	...bouncesTools,
 	...settingsTools,
+	...sequenceTools,
 	...transactionalTools,
 	...abtestTools,
 	...webhookTools,
@@ -64,6 +67,7 @@ export const toolNameSets = {
 	media: createToolNameSet(mediaTools),
 	ops: createToolNameSet(opsTools),
 	settings: createToolNameSet(settingsTools),
+	sequences: createToolNameSet(sequenceTools),
 	subscribers: createToolNameSet(subscribersTools),
 	templates: createToolNameSet(templatesTools),
 	transactional: createToolNameSet(transactionalTools),
@@ -86,6 +90,7 @@ export const toolRegistrations: readonly ToolRegistration[] = [
 	{ tools: opsTools, handler: handleOpsTools },
 	{ tools: bouncesTools, handler: handleBouncesTools },
 	{ tools: settingsTools, handler: handleSettingsTools },
+	{ tools: sequenceTools, handler: handleSequenceTools },
 	{ tools: transactionalTools, handler: handleTransactionalTools },
 	{ tools: abtestTools, handler: handleAbTestTools },
 	{ tools: webhookTools, handler: handleWebhookTools },

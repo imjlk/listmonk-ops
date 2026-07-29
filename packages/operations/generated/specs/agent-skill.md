@@ -362,6 +362,174 @@ Verify with: `webhooks.runtime.status`
 
 Retry guidance: Retrying the same reset is safe.
 
+## Validate sequence definition (`sequences.validate`)
+
+Use when: A sequence definition must be checked before it is created or updated.
+
+Avoid when: The sequence has already been validated and persistence is required.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying validation is safe.
+
+## Create sequence (`sequences.create`)
+
+Use when: A validated sequence definition must be persisted.
+
+Avoid when: An existing sequence should receive a new revision.
+
+Prerequisites: `sequences.validate`
+
+Verify with: `sequences.get`
+
+Retry guidance: Inspect sequences.list before retrying an ambiguous create.
+
+## Create sequence revision (`sequences.update`)
+
+Use when: Future enrollments need a revised sequence definition.
+
+Avoid when: Running enrollments should be mutated in place.
+
+Prerequisites: `sequences.get`, `sequences.validate`
+
+Verify with: `sequences.get`
+
+Retry guidance: Read the current revision before retrying an ambiguous update.
+
+## List sequences (`sequences.list`)
+
+Use when: Available sequences or their paused state must be discovered.
+
+Avoid when: One known sequence requires full revision detail.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same read is safe.
+
+## Get sequence (`sequences.get`)
+
+Use when: A known sequence and its revision history must be inspected.
+
+Avoid when: The sequence ID is unknown.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same read is safe.
+
+## Delete sequence (`sequences.delete`)
+
+Use when: A retired sequence with no active enrollments must be removed.
+
+Avoid when: Any enrollment is pending, running, waiting, or paused.
+
+Prerequisites: `sequences.get`, `sequences.status`
+
+Verify with: `sequences.list`
+
+Retry guidance: List sequences before retrying a response-lost delete.
+
+## Enroll subscriber in sequence (`sequences.enroll`)
+
+Use when: A known subscriber should enter a reviewed active sequence.
+
+Avoid when: The sequence is paused or subscriber consent is uncertain.
+
+Prerequisites: `sequences.get`
+
+Verify with: `sequences.status`
+
+Retry guidance: Inspect sequence state before retrying enrollment.
+
+## List sequence enrollments (`sequences.enrollments.list`)
+
+Use when: Enrollment IDs or runtime outcomes must be discovered.
+
+Avoid when: Only aggregate runtime health is required.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same enrollment query is safe.
+
+## Get sequence enrollment (`sequences.enrollments.get`)
+
+Use when: A known enrollment needs detailed inspection or reconciliation.
+
+Avoid when: The enrollment ID is unknown.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same enrollment read is safe.
+
+## Pause sequence (`sequences.pause`)
+
+Use when: Sequence execution must stop claiming new due enrollments.
+
+Avoid when: An individual ambiguous send needs reconciliation.
+
+Prerequisites: `sequences.get`
+
+Verify with: `sequences.get`
+
+Retry guidance: Retrying the same pause is safe.
+
+## Resume sequence (`sequences.resume`)
+
+Use when: A reviewed paused sequence may continue processing.
+
+Avoid when: The cause of the pause remains unresolved.
+
+Prerequisites: `sequences.get`, `sequences.status`
+
+Verify with: `sequences.get`
+
+Retry guidance: Retrying the same resume is safe.
+
+## Run sequence worker tick (`sequences.tick`)
+
+Use when: Due sequence enrollments should execute in a bounded batch.
+
+Avoid when: Runtime health is degraded or ambiguous sends are unresolved.
+
+Prerequisites: `sequences.status`
+
+Verify with: `sequences.status`
+
+Retry guidance: Run reconcile and inspect status before retrying a failed tick.
+
+## Reconcile sequence runtime (`sequences.reconcile`)
+
+Use when: Expired leases or an operator-reviewed ambiguous send need recovery.
+
+Avoid when: The delivery outcome of an ambiguous send is still unknown.
+
+Prerequisites: `sequences.status`
+
+Verify with: `sequences.status`
+
+Retry guidance: Inspect sequences.status before retrying; ambiguous-send resolution is not idempotent.
+
+## Inspect sequence runtime health (`sequences.status`)
+
+Use when: Sequence worker readiness or stalled work must be inspected.
+
+Avoid when: A sequence definition rather than runtime health is needed.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same status read is safe.
+
 # Typed playbooks
 
 ## `campaign.safe-start` — Safely start a campaign

@@ -34,6 +34,15 @@ type DomainEventProjection = Readonly<{
 	data: Readonly<Record<string, unknown>>;
 }>;
 
+function projectWhen(
+	resource: Readonly<Record<string, unknown>> | undefined,
+	createProjection: (
+		resource: Readonly<Record<string, unknown>>,
+	) => DomainEventProjection,
+): readonly DomainEventProjection[] {
+	return resource ? [createProjection(resource)] : [];
+}
+
 const CAMPAIGN_EVENT_TYPES = {
 	"campaigns.schedule": "campaign.scheduled",
 	"campaigns.start": "campaign.started",
@@ -331,6 +340,80 @@ function abTestProjection(
 	return [];
 }
 
+function sequenceProjection(
+	input: SuccessfulOperationLifecycleInput,
+): readonly DomainEventProjection[] {
+	const sequence = outputResource(input.operationOutput, "sequence");
+	const enrollment = outputResource(input.operationOutput, "enrollment");
+	const sequenceId =
+		asResourceKey(sequence?.["id"]) ??
+		asResourceKey(enrollment?.["sequence_id"]) ??
+		asResourceKey(input.operationInput["id"]);
+	if (!sequenceId) {
+		return [];
+	}
+	const common = {
+		source: "sequence" as const,
+		subject: { kind: "sequence" as const, key: sequenceId },
+	};
+	switch (input.operationId) {
+		case "sequences.create":
+			return projectWhen(sequence, (resource) => ({
+				...common,
+				type: "sequence.created",
+				data: { revision: resource["current_revision"] },
+			}));
+		case "sequences.update":
+			return projectWhen(sequence, (resource) => ({
+				...common,
+				type: "sequence.revised",
+				data: { revision: resource["current_revision"] },
+			}));
+		case "sequences.enroll":
+			return projectWhen(enrollment, (resource) => ({
+				...common,
+				type: "sequence.enrolled",
+				data: {
+					enrollment_id: resource["id"],
+					revision: resource["revision"],
+					status: resource["status"],
+				},
+			}));
+		case "sequences.pause":
+			return projectWhen(sequence, (resource) => ({
+				...common,
+				type: "sequence.paused",
+				data: { status: resource["status"] },
+			}));
+		case "sequences.resume":
+			return projectWhen(sequence, (resource) => ({
+				...common,
+				type: "sequence.resumed",
+				data: { status: resource["status"] },
+			}));
+		case "sequences.delete":
+			return projectWhen(sequence, (resource) => ({
+				...common,
+				type: "sequence.deleted",
+				data: {
+					status: resource["status"],
+					current_revision: resource["current_revision"],
+				},
+			}));
+		case "sequences.reconcile":
+			return projectWhen(enrollment, (resource) => ({
+				...common,
+				type: "sequence.reconciled",
+				data: {
+					enrollment_id: resource["id"],
+					status: resource["status"],
+				},
+			}));
+		default:
+			return [];
+	}
+}
+
 export function projectSuccessfulOperationLifecycleEvents(
 	input: SuccessfulOperationLifecycleInput,
 ): readonly CreateOutboundWebhookEventInput[] {
@@ -339,6 +422,7 @@ export function projectSuccessfulOperationLifecycleEvents(
 		...(campaign ? [campaign] : []),
 		...subscriberProjection(input),
 		...abTestProjection(input),
+		...sequenceProjection(input),
 	];
 	return projections.map((projection, index) => ({
 		id: eventId(input.executionId, projection, index),
