@@ -1832,7 +1832,7 @@ async function completeOutboundWebhookDelivery(
 		const endpointRuntime = updateEndpointRuntimeAfterAttempt(
 			current.endpointRuntime,
 			endpoint,
-			result.success,
+			result,
 			options.now,
 		);
 		return commitJsonFileStoreUpdate(
@@ -1845,10 +1845,15 @@ async function completeOutboundWebhookDelivery(
 function updateEndpointRuntimeAfterAttempt(
 	runtimes: readonly OutboundWebhookEndpointRuntime[],
 	endpoint: OutboundWebhookEndpoint | undefined,
-	success: boolean,
+	result: CompleteOutboundWebhookDeliveryResult,
 	now: Date,
 ): readonly OutboundWebhookEndpointRuntime[] {
 	if (!endpoint) {
+		return runtimes;
+	}
+	// Disabling an endpoint is an administrative action, not a transport
+	// failure. Backlog terminalization must not advance or open its circuit.
+	if (!endpoint.enabled && !result.success) {
 		return runtimes;
 	}
 	const index = runtimes.findIndex(
@@ -1863,9 +1868,11 @@ function updateEndpointRuntimeAfterAttempt(
 					circuitState: "closed",
 				});
 	const at = now.toISOString();
-	const consecutiveFailures = success ? 0 : previous.consecutiveFailures + 1;
+	const consecutiveFailures = result.success
+		? 0
+		: previous.consecutiveFailures + 1;
 	const shouldOpen =
-		!success &&
+		!result.success &&
 		consecutiveFailures >= endpoint.circuitFailureThreshold;
 	const next = endpointRuntimeSchema.parse({
 		...previous,
@@ -1875,8 +1882,8 @@ function updateEndpointRuntimeAfterAttempt(
 		circuitOpenUntil: shouldOpen
 			? new Date(now.getTime() + endpoint.circuitCooldownMs).toISOString()
 			: undefined,
-		lastFailureAt: success ? previous.lastFailureAt : at,
-		lastSuccessAt: success ? at : previous.lastSuccessAt,
+		lastFailureAt: result.success ? previous.lastFailureAt : at,
+		lastSuccessAt: result.success ? at : previous.lastSuccessAt,
 	});
 	if (index < 0) {
 		return [...runtimes, next];
@@ -1933,11 +1940,16 @@ export async function upsertOutboundWebhookWorker(
 			DEFAULT_OUTBOUND_WEBHOOK_WORKER_RETENTION_MS;
 		const workers = [
 			...current.workers.filter(
-				(candidate) =>
-					candidate.id !== worker.id &&
-					(candidate.status === "running" ||
-						Date.parse(candidate.stoppedAt ?? candidate.heartbeatAt) >=
-							retentionCutoff),
+				(candidate) => {
+					if (candidate.id === worker.id) {
+						return false;
+					}
+					const retainedAt =
+						candidate.status === "running"
+							? candidate.heartbeatAt
+							: (candidate.stoppedAt ?? candidate.heartbeatAt);
+					return Date.parse(retainedAt) >= retentionCutoff;
+				},
 			),
 			worker,
 		];

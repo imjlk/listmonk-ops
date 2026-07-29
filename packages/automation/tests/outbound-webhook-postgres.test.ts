@@ -166,6 +166,12 @@ describe("Postgres outbound webhook repository", () => {
 				heartbeatAt: "2026-06-01T00:00:01.000Z",
 				stoppedAt: "2026-06-01T00:00:01.000Z",
 			});
+			await first.upsertWorker({
+				id: randomUUID(),
+				status: "running",
+				startedAt: "2026-06-01T00:00:00.000Z",
+				heartbeatAt: "2026-06-01T00:00:01.000Z",
+			});
 			const staleWorkerId = randomUUID();
 			await first.upsertWorker({
 				id: staleWorkerId,
@@ -442,6 +448,7 @@ describe("Postgres outbound webhook repository", () => {
 					url: "https://8.8.8.8/hooks",
 					secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_POSTGRES_DISABLED",
 					eventFilters: ["operation.*"],
+					circuitFailureThreshold: 1,
 				},
 				{ repository: first },
 			);
@@ -473,6 +480,12 @@ describe("Postgres outbound webhook repository", () => {
 					resolveSecret: () => "secret",
 				}),
 			).toMatchObject({ claimed: 1, exhausted: 1 });
+			expect(
+				await first.getRuntimeHealth({
+					now: initialAt,
+					workerStaleMs: 1_000,
+				}),
+			).toMatchObject({ endpoints: { circuitOpen: 0 } });
 		},
 	);
 
