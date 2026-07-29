@@ -1,5 +1,13 @@
 import { randomUUID } from "node:crypto";
-import postgres, { type Sql } from "postgres";
+import {
+	DEFAULT_TRANSACTIONAL_TTL_MS,
+	TRANSACTIONAL_STORE_MAX_RECORDS,
+	type StoredTransactionalDocument,
+	type TransactionalClaimResult,
+	type TransactionalIdempotencyStore,
+	type TransactionalSendRecord,
+} from "@listmonk-ops/operations";
+import postgres, { type Sql, type TransactionSql } from "postgres";
 import {
 	DEFAULT_SEQUENCE_WORKER_RETENTION_MS,
 	parseSequenceDefinition,
@@ -16,7 +24,7 @@ import {
 	validateSequenceSteps,
 } from "./sequences";
 
-export const SEQUENCE_POSTGRES_SCHEMA_VERSION = 1;
+export const SEQUENCE_POSTGRES_SCHEMA_VERSION = 2;
 
 export interface PostgresSequenceRepositoryOptions {
 	connectionString: string;
@@ -64,6 +72,19 @@ type WorkerHealthRow = {
 	stopped: number;
 	failed: number;
 	last_heartbeat_at: string | Date | null;
+};
+
+type IdempotencyRow = {
+	key: string;
+	payload_hash: string;
+	target_hash: string;
+	status: TransactionalSendRecord["status"];
+	sent: boolean | null;
+	error_message: string | null;
+	claim_token: string;
+	created_at: string | Date;
+	updated_at: string | Date;
+	expires_at: string | Date;
 };
 
 function assertConnectionString(value: string): string {
@@ -201,6 +222,48 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				WHERE key = 'schema_version'
 			`;
 		}
+		if (storedVersion < 2) {
+			await transaction`
+				DROP INDEX IF EXISTS
+					listmonk_ops.sequence_enrollments_active_unique_idx
+			`;
+			await transaction`
+				CREATE UNIQUE INDEX sequence_enrollments_active_unique_idx
+				ON listmonk_ops.sequence_enrollments (
+					sequence_id,
+					subscriber_id
+				)
+				WHERE status NOT IN ('completed', 'failed', 'cancelled')
+			`;
+			await transaction`
+				CREATE TABLE IF NOT EXISTS
+					listmonk_ops.sequence_idempotency_records (
+						key text PRIMARY KEY,
+						payload_hash text NOT NULL,
+						target_hash text NOT NULL,
+						status text NOT NULL CHECK (
+							status IN ('pending', 'accepted', 'failed', 'unknown')
+						),
+						sent boolean,
+						error_message text,
+						claim_token uuid NOT NULL,
+						created_at timestamptz NOT NULL,
+						updated_at timestamptz NOT NULL,
+						expires_at timestamptz NOT NULL,
+						CHECK (status <> 'accepted' OR sent IS TRUE),
+						CHECK (status <> 'failed' OR sent IS DISTINCT FROM TRUE)
+					)
+			`;
+			await transaction`
+				CREATE INDEX IF NOT EXISTS sequence_idempotency_expiry_idx
+				ON listmonk_ops.sequence_idempotency_records (expires_at)
+			`;
+			await transaction`
+				UPDATE listmonk_ops.sequence_runtime_meta
+				SET value = '2', updated_at = now()
+				WHERE key = 'schema_version'
+			`;
+		}
 	});
 }
 
@@ -239,6 +302,183 @@ function optionalTimestamp(value: string | Date | null): string | undefined {
 	return Number.isFinite(date.getTime()) ? date.toISOString() : undefined;
 }
 
+function requiredTimestamp(value: string | Date): string {
+	const date = value instanceof Date ? value : new Date(value);
+	if (!Number.isFinite(date.getTime())) {
+		throw new Error(`Invalid timestamp returned by Postgres: ${String(value)}`);
+	}
+	return date.toISOString();
+}
+
+function toIdempotencyRecord(row: IdempotencyRow): TransactionalSendRecord {
+	return {
+		key: row.key,
+		payloadHash: row.payload_hash,
+		targetHash: row.target_hash,
+		status: row.status,
+		sent: row.sent ?? undefined,
+		errorMessage: row.error_message ?? undefined,
+		claimToken: row.claim_token,
+		createdAt: requiredTimestamp(row.created_at),
+		updatedAt: requiredTimestamp(row.updated_at),
+		expiresAt: requiredTimestamp(row.expires_at),
+	};
+}
+
+async function lockIdempotencyStore(
+	transaction: TransactionSql,
+): Promise<void> {
+	await transaction`
+		SELECT pg_advisory_xact_lock(
+			hashtext('listmonk_ops'),
+			hashtext('sequence_idempotency')
+		)
+	`;
+}
+
+async function sweepExpiredIdempotencyRecords(
+	transaction: TransactionSql,
+	now: Date,
+): Promise<void> {
+	await transaction`
+		DELETE FROM listmonk_ops.sequence_idempotency_records
+		WHERE expires_at < ${now}
+	`;
+}
+
+function createPostgresTransactionalIdempotencyStore(
+	sql: Sql,
+	ready: () => Promise<void>,
+): TransactionalIdempotencyStore {
+	return {
+		async claim(options): Promise<TransactionalClaimResult> {
+			await ready();
+			const ttlMs = options.ttlMs ?? DEFAULT_TRANSACTIONAL_TTL_MS;
+			if (!Number.isFinite(ttlMs) || ttlMs <= 0) {
+				throw new RangeError("Transactional idempotency TTL must be positive");
+			}
+			const now = (options.now ?? (() => new Date()))();
+			return sql.begin(async (transaction) => {
+				await lockIdempotencyStore(transaction);
+				await sweepExpiredIdempotencyRecords(transaction, now);
+				const existingRows = await transaction<IdempotencyRow[]>`
+					SELECT *
+					FROM listmonk_ops.sequence_idempotency_records
+					WHERE key = ${options.key}
+				`;
+				const existingRow = existingRows[0];
+				if (existingRow) {
+					const existing = toIdempotencyRecord(existingRow);
+					return existing.payloadHash === options.payloadHash &&
+						existing.targetHash === options.targetHash
+						? { kind: "replay", record: existing }
+						: { kind: "conflict", existing };
+				}
+				const countRows = await transaction<{ count: number }[]>`
+					SELECT count(*)::integer AS count
+					FROM listmonk_ops.sequence_idempotency_records
+				`;
+				if ((countRows[0]?.count ?? 0) >= TRANSACTIONAL_STORE_MAX_RECORDS) {
+					throw new Error(
+						`Transactional idempotency store reached its ${TRANSACTIONAL_STORE_MAX_RECORDS}-record capacity`,
+					);
+				}
+				const createdAt = now.toISOString();
+				const record: TransactionalSendRecord = {
+					key: options.key,
+					payloadHash: options.payloadHash,
+					targetHash: options.targetHash,
+					status: "pending",
+					claimToken: randomUUID(),
+					createdAt,
+					updatedAt: createdAt,
+					expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
+				};
+				await transaction`
+					INSERT INTO listmonk_ops.sequence_idempotency_records (
+						key, payload_hash, target_hash, status, sent,
+						error_message, claim_token, created_at, updated_at, expires_at
+					)
+					VALUES (
+						${record.key},
+						${record.payloadHash},
+						${record.targetHash},
+						${record.status},
+						NULL,
+						NULL,
+						${record.claimToken},
+						${record.createdAt},
+						${record.updatedAt},
+						${record.expiresAt}
+					)
+				`;
+				return { kind: "new", record };
+			});
+		},
+		async commit(options): Promise<void> {
+			await ready();
+			const now = (options.now ?? (() => new Date()))();
+			await sql.begin(async (transaction) => {
+				await lockIdempotencyStore(transaction);
+				await sweepExpiredIdempotencyRecords(transaction, now);
+				const rows = await transaction<IdempotencyRow[]>`
+					SELECT *
+					FROM listmonk_ops.sequence_idempotency_records
+					WHERE key = ${options.key}
+				`;
+				const existing = rows[0];
+				if (!existing || existing.claim_token !== options.claimToken) {
+					return;
+				}
+				const sent =
+					options.status === "accepted"
+						? true
+						: options.status === "failed"
+							? options.sent === true
+								? false
+								: options.sent
+							: options.sent;
+				await transaction`
+					UPDATE listmonk_ops.sequence_idempotency_records
+					SET
+						status = ${options.status},
+						sent = ${sent ?? null},
+						error_message = ${options.errorMessage ?? null},
+						updated_at = ${now}
+					WHERE key = ${options.key}
+						AND claim_token = ${options.claimToken}
+				`;
+			});
+		},
+		async release(options): Promise<void> {
+			await ready();
+			const now = (options.now ?? (() => new Date()))();
+			await sql.begin(async (transaction) => {
+				await lockIdempotencyStore(transaction);
+				await sweepExpiredIdempotencyRecords(transaction, now);
+				await transaction`
+					DELETE FROM listmonk_ops.sequence_idempotency_records
+					WHERE key = ${options.key}
+						AND claim_token = ${options.claimToken}
+				`;
+			});
+		},
+		async load(): Promise<StoredTransactionalDocument> {
+			await ready();
+			const rows = await sql<IdempotencyRow[]>`
+				SELECT *
+				FROM listmonk_ops.sequence_idempotency_records
+			`;
+			const records: Record<string, TransactionalSendRecord> = {};
+			for (const row of rows) {
+				const record = toIdempotencyRecord(row);
+				records[record.key] = record;
+			}
+			return { version: 1, records };
+		},
+	};
+}
+
 export function createPostgresSequenceRepository(
 	options: PostgresSequenceRepositoryOptions,
 ): SequenceRepository {
@@ -263,8 +503,14 @@ export function createPostgresSequenceRepository(
 			120,
 		),
 	});
-	const initialized = initializeSchema(sql);
-	const ready = async (): Promise<void> => initialized;
+	let initialization: Promise<void> | undefined;
+	const ready = (): Promise<void> => {
+		initialization ??= initializeSchema(sql).catch((error) => {
+			initialization = undefined;
+			throw error;
+		});
+		return initialization;
+	};
 
 	const getDefinition = async (id: string): Promise<SequenceDefinition> => {
 		await ready();
@@ -296,6 +542,7 @@ export function createPostgresSequenceRepository(
 
 	return {
 		kind: "postgres",
+		idempotencyStore: createPostgresTransactionalIdempotencyStore(sql, ready),
 		async listDefinitions() {
 			await ready();
 			const rows = await sql<DefinitionRow[]>`
@@ -515,7 +762,7 @@ export function createPostgresSequenceRepository(
 			} catch (error) {
 				if (isUniqueViolation(error)) {
 					throw new SequenceConflictError(
-						`Subscriber ${enrollment.subscriberId} already has an active enrollment for sequence ${enrollment.sequenceId} revision ${enrollment.revision}`,
+						`Subscriber ${enrollment.subscriberId} already has an active enrollment for sequence ${enrollment.sequenceId}`,
 					);
 				}
 				throw error;
@@ -752,7 +999,10 @@ export function createPostgresSequenceRepository(
 			return {
 				store: "postgres",
 				schemaVersion: SEQUENCE_POSTGRES_SCHEMA_VERSION,
-				healthy: workers.stale === 0,
+				healthy:
+					workers.stale === 0 &&
+					(enrollments.due === 0 ||
+						workers.running > workers.stale),
 				checkedAt: nowIso,
 				definitions,
 				enrollments: {

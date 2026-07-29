@@ -46,7 +46,29 @@ export const listPageOutputSchema = z.object({
 export type ResponseWithData<T> = {
 	data?: T;
 	error?: unknown;
+	response?: {
+		status?: number;
+	};
 };
+
+export class ResourceResponseError extends Error {
+	public readonly status: number | undefined;
+	public readonly empty: boolean;
+
+	public constructor(
+		message: string,
+		options: { status?: number; empty?: boolean; cause?: unknown } = {},
+	) {
+		super(message, { cause: options.cause });
+		this.name = "ResourceResponseError";
+		this.status = options.status;
+		this.empty = options.empty ?? false;
+	}
+}
+
+export function isResourceMissingError(error: unknown): boolean {
+	return error instanceof ResourceResponseError && error.status === 404;
+}
 
 export function toResourceErrorMessage(error: unknown): string {
 	if (error instanceof Error) {
@@ -73,10 +95,19 @@ export function unwrapResourceResponse<T>(
 	context: string,
 ): T {
 	if (response.error !== undefined) {
-		throw new Error(`${context}: ${toResourceErrorMessage(response.error)}`);
+		throw new ResourceResponseError(
+			`${context}: ${toResourceErrorMessage(response.error)}`,
+			{
+				status: response.response?.status,
+				cause: response.error,
+			},
+		);
 	}
 	if (response.data === undefined) {
-		throw new Error(`${context}: received empty data`);
+		throw new ResourceResponseError(`${context}: received empty data`, {
+			status: response.response?.status,
+			empty: true,
+		});
 	}
 	return response.data;
 }

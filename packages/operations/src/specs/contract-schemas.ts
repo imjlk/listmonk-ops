@@ -27,6 +27,9 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	sequenceDeleteOutputContract: NormalizedContractSchema;
 	sequenceEnrollInputContract: NormalizedContractSchema;
 	sequenceEnrollmentOutputContract: NormalizedContractSchema;
+	sequenceEnrollmentListInputContract: NormalizedContractSchema;
+	sequenceEnrollmentListOutputContract: NormalizedContractSchema;
+	sequenceEnrollmentGetInputContract: NormalizedContractSchema;
 	sequenceTickInputContract: NormalizedContractSchema;
 	sequenceTickOutputContract: NormalizedContractSchema;
 	sequenceReconcileInputContract: NormalizedContractSchema;
@@ -121,6 +124,12 @@ export const sequenceEnrollInputContract =
 	contracts.sequenceEnrollInputContract;
 export const sequenceEnrollmentOutputContract =
 	contracts.sequenceEnrollmentOutputContract;
+export const sequenceEnrollmentListInputContract =
+	contracts.sequenceEnrollmentListInputContract;
+export const sequenceEnrollmentListOutputContract =
+	contracts.sequenceEnrollmentListOutputContract;
+export const sequenceEnrollmentGetInputContract =
+	contracts.sequenceEnrollmentGetInputContract;
 export const sequenceTickInputContract = contracts.sequenceTickInputContract;
 export const sequenceTickOutputContract = contracts.sequenceTickOutputContract;
 export const sequenceReconcileInputContract =

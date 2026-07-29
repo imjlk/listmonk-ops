@@ -182,4 +182,6 @@ require `reconcileAmbiguousSequenceEnrollment()` with an operator-reviewed
 Use `createFileSequenceRepository()` for a single host. Set
 `LISTMONK_OPS_SEQUENCE_DATABASE_URL` (instead of
 `LISTMONK_OPS_SEQUENCE_STORE`) to select the Postgres repository for concurrent
-workers, `SKIP LOCKED` claims, and lease fencing.
+workers, `SKIP LOCKED` claims, lease fencing, and shared transactional
+idempotency claims. Use the enrollment list/get operations to discover
+individual ambiguous or failed enrollment IDs before reconciliation.

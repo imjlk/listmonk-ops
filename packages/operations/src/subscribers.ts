@@ -18,6 +18,7 @@ import {
 	unwrapResourceResponse,
 	updateResourceSafety,
 } from "./resource-helpers";
+export { isResourceMissingError } from "./resource-helpers";
 import { defineOperationCatalog } from "./catalog";
 import {
 	defineOperation,

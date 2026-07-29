@@ -7,6 +7,7 @@ import {
 	type JsonFileStore,
 	updateJsonFileStore,
 } from "@listmonk-ops/common";
+import type { TransactionalIdempotencyStore } from "@listmonk-ops/operations";
 import { z } from "zod";
 
 export const SEQUENCE_STORE_VERSION = 1;
@@ -201,6 +202,12 @@ export type ClaimedSequenceEnrollment = Readonly<{
 
 export interface SequenceRepository {
 	readonly kind: "file" | "postgres";
+	/**
+	 * Shared transactional idempotency store when the repository can provide
+	 * one. Postgres repositories expose a database-backed implementation so
+	 * every worker observes the same send claims.
+	 */
+	readonly idempotencyStore?: TransactionalIdempotencyStore;
 	listDefinitions(): Promise<readonly SequenceDefinition[]>;
 	getDefinition(id: string): Promise<SequenceDefinition>;
 	createDefinition(
@@ -664,13 +671,12 @@ export function createFileSequenceRepository(
 						(candidate) =>
 							candidate.id === enrollment.id ||
 							(candidate.sequenceId === enrollment.sequenceId &&
-								candidate.revision === enrollment.revision &&
 								candidate.subscriberId === enrollment.subscriberId &&
 								!enrollmentIsTerminal(candidate.status)),
 					)
 				) {
 					throw new SequenceConflictError(
-						`Subscriber ${enrollment.subscriberId} already has an active enrollment for sequence ${enrollment.sequenceId} revision ${enrollment.revision}`,
+						`Subscriber ${enrollment.subscriberId} already has an active enrollment for sequence ${enrollment.sequenceId}`,
 					);
 				}
 				return commitJsonFileStoreUpdate(
@@ -895,7 +901,10 @@ export function buildSequenceRuntimeHealth(
 				(entry) =>
 					!entry.leaseExpiresAt ||
 					Number.isFinite(new Date(entry.leaseExpiresAt).getTime()),
-			) && staleWorkers.length === 0,
+			) &&
+			staleWorkers.length === 0 &&
+			(dueEnrollments.length === 0 ||
+				activeWorkers.length > staleWorkers.length),
 		checkedAt: options.now.toISOString(),
 		definitions: {
 			total: definitions.length,

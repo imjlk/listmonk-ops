@@ -413,6 +413,28 @@ Pin one subscriber to the current immutable sequence revision and schedule its f
 - Retry: `reconcile`
 - Stability: `experimental` since `0.9.0`
 
+## `sequences.enrollments.list`
+
+List sequence enrollments with filters so operators can discover pending, failed, or ambiguous work.
+
+- Resource / verb: `sequence.list`
+- MCP tool: `listmonk_sequences_enrollments_list`
+- Effects: `read:sequence`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
+## `sequences.enrollments.get`
+
+Get one sequence enrollment including its current step, status, and last error.
+
+- Resource / verb: `sequence.get`
+- MCP tool: `listmonk_sequences_enrollments_get`
+- Effects: `read:sequence`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
 ## `sequences.pause`
 
 Pause new enrollment execution while preserving durable enrollment state.

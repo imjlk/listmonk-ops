@@ -446,6 +446,30 @@ Verify with: `sequences.status`
 
 Retry guidance: Inspect sequence state before retrying enrollment.
 
+## List sequence enrollments (`sequences.enrollments.list`)
+
+Use when: Enrollment IDs or runtime outcomes must be discovered.
+
+Avoid when: Only aggregate runtime health is required.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same enrollment query is safe.
+
+## Get sequence enrollment (`sequences.enrollments.get`)
+
+Use when: A known enrollment needs detailed inspection or reconciliation.
+
+Avoid when: The enrollment ID is unknown.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retrying the same enrollment read is safe.
+
 ## Pause sequence (`sequences.pause`)
 
 Use when: Sequence execution must stop claiming new due enrollments.

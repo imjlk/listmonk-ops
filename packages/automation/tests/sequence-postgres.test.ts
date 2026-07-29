@@ -40,6 +40,7 @@ beforeAll(async () => {
 	}
 	const sql = postgres(databaseUrl, { max: 1, prepare: false });
 	try {
+		await sql`DROP TABLE IF EXISTS listmonk_ops.sequence_idempotency_records`;
 		await sql`DROP TABLE IF EXISTS listmonk_ops.sequence_enrollments`;
 		await sql`DROP TABLE IF EXISTS listmonk_ops.sequence_definitions`;
 		await sql`DROP TABLE IF EXISTS listmonk_ops.sequence_workers`;
@@ -105,6 +106,46 @@ describe("Postgres sequence repository", () => {
 					initialAt,
 				),
 			);
+			expect(
+				await first.getRuntimeHealth({
+					now: initialAt,
+					workerStaleMs: 1_000,
+				}),
+			).toMatchObject({ healthy: false, enrollments: { due: 2 } });
+
+			const firstIdempotency = first.idempotencyStore;
+			const secondIdempotency = second.idempotencyStore;
+			expect(firstIdempotency).toBeDefined();
+			expect(secondIdempotency).toBeDefined();
+			const idempotencyKey = `sequence-test-${randomUUID()}`;
+			const claims = await Promise.all([
+				firstIdempotency!.claim({
+					key: idempotencyKey,
+					payloadHash: "payload",
+					targetHash: "target",
+				}),
+				secondIdempotency!.claim({
+					key: idempotencyKey,
+					payloadHash: "payload",
+					targetHash: "target",
+				}),
+			]);
+			expect(claims.map((claim) => claim.kind).sort()).toEqual([
+				"new",
+				"replay",
+			]);
+			const claimedRecord =
+				claims.find((claim) => claim.kind === "new")?.record ??
+				claims[0]!.record;
+			await firstIdempotency!.commit({
+				key: idempotencyKey,
+				claimToken: claimedRecord.claimToken,
+				status: "accepted",
+				sent: true,
+			});
+			expect(
+				(await secondIdempotency!.load()).records[idempotencyKey],
+			).toMatchObject({ status: "accepted", sent: true });
 
 			const [firstClaims, secondClaims] = await Promise.all([
 				first.claimDue({ limit: 1, now: initialAt, leaseMs: 1_000 }),
@@ -135,6 +176,24 @@ describe("Postgres sequence repository", () => {
 							subscriberId: ambiguous.subscriberId,
 						},
 						initialAt,
+					),
+				),
+			).rejects.toBeInstanceOf(SequenceConflictError);
+			const nextRevision = await first.updateDefinition(
+				definition.id,
+				{ steps: [{ id: "stop-v2", type: "stop" }] },
+				new Date("2026-07-29T00:00:00.150Z"),
+			);
+			await expect(
+				first.createEnrollment(
+					createSequenceEnrollment(
+						nextRevision,
+						{
+							id: randomUUID(),
+							sequenceId: definition.id,
+							subscriberId: ambiguous.subscriberId,
+						},
+						new Date("2026-07-29T00:00:00.160Z"),
 					),
 				),
 			).rejects.toBeInstanceOf(SequenceConflictError);

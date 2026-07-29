@@ -97,7 +97,7 @@ export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
 # Optional: override the headless sequence definition/enrollment store
 export LISTMONK_OPS_SEQUENCE_STORE="$HOME/.listmonk-ops/sequences.json"
 # Optional alternative for multi-process/multi-worker sequence durability.
-# Configure this OR LISTMONK_OPS_SEQUENCE_STORE, never both.
+# Configure LISTMONK_OPS_SEQUENCE_DATABASE_URL OR LISTMONK_OPS_SEQUENCE_STORE, never both.
 # export LISTMONK_OPS_SEQUENCE_DATABASE_URL="postgres://user:password@host/database"
 ```
 
@@ -803,6 +803,8 @@ listmonk-cli sequences enroll \
   --subscriber-id 42 \
   --context '{"plan":"pro"}'
 
+listmonk-cli sequences enrollments list --status ambiguous
+listmonk-cli sequences enrollments get --id <enrollment-uuid>
 listmonk-cli sequences status
 listmonk-cli sequences tick --limit 25 --confirm
 listmonk-cli sequences reconcile --dry-run --confirm
@@ -821,7 +823,9 @@ explicitly with `sequences reconcile --enrollment-id ... --resolution sent` or
 The default file store is `~/.listmonk-ops/sequences.json`. Set
 `LISTMONK_OPS_SEQUENCE_DATABASE_URL` for concurrent workers; Postgres uses
 `FOR UPDATE SKIP LOCKED`, lease-token fencing, and advisory-lock-protected
-schema initialization. `sequences status` reports due work, ambiguity, leases,
+schema initialization. It also stores transactional idempotency claims in the
+same database so every worker observes one shared send decision.
+`sequences status` reports due work, ambiguity, leases,
 and running/stale/stopped/failed worker health. Old worker records are pruned
 after the retention window. Sequence create/revise/enroll/pause/resume and
 operator reconciliation also project typed `sequence.*` outbound events.

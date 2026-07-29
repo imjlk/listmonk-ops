@@ -7,6 +7,8 @@ import {
 	invokeSequenceCreateOperation,
 	invokeSequenceDeleteOperation,
 	invokeSequenceEnrollOperation,
+	invokeSequenceEnrollmentGetOperation,
+	invokeSequenceEnrollmentListOperation,
 	invokeSequenceGetOperation,
 	invokeSequenceListOperation,
 	invokeSequencePauseOperation,
@@ -66,10 +68,13 @@ async function executionContext(
 	if (!session.client) {
 		throw new Error("Listmonk client is not available");
 	}
+	const repository = getSequenceRepositoryFromEnvironment();
 	return {
-		repository: getSequenceRepositoryFromEnvironment(),
+		repository,
 		client: session.client,
-		idempotencyStore: createFileBackedTransactionalIdempotencyStore(),
+		idempotencyStore:
+			repository.idempotencyStore ??
+			createFileBackedTransactionalIdempotencyStore(),
 		hashPayload: hashTransactionalPayload,
 		target: { baseUrl: session.baseUrl, username: session.username },
 	};
@@ -215,6 +220,69 @@ const enrollCommand = defineCommand({
 			),
 		);
 	},
+});
+
+const enrollmentListCommand = defineCommand({
+	name: "list",
+	operationId: "sequences.enrollments.list",
+	description: "List sequence enrollments and runtime outcomes",
+	options: {
+		"sequence-id": option(z.uuid().optional(), {
+			description: "Filter by sequence ID",
+		}),
+		"subscriber-id": option(z.coerce.number().int().positive().optional(), {
+			description: "Filter by Listmonk subscriber ID",
+		}),
+		status: option(
+			z
+				.enum([
+					"pending",
+					"running",
+					"waiting",
+					"paused",
+					"completed",
+					"failed",
+					"ambiguous",
+					"cancelled",
+				])
+				.optional(),
+			{ description: "Filter by enrollment status" },
+		),
+		limit: option(z.coerce.number().int().min(1).max(1_000).default(100), {
+			description: "Maximum enrollments to return",
+		}),
+	},
+	handler: async ({ flags }) => {
+		getOutput().json(
+			await invokeSequenceEnrollmentListOperation(
+				{},
+				{
+					sequence_id: flags["sequence-id"],
+					subscriber_id: flags["subscriber-id"],
+					status: flags.status,
+					limit: flags.limit,
+				},
+			),
+		);
+	},
+});
+
+const enrollmentGetCommand = defineCommand({
+	name: "get",
+	operationId: "sequences.enrollments.get",
+	description: "Get one sequence enrollment and its runtime state",
+	options: { id: option(z.uuid(), { description: "Enrollment ID" }) },
+	handler: async ({ flags }) => {
+		getOutput().json(
+			await invokeSequenceEnrollmentGetOperation({}, { id: flags.id }),
+		);
+	},
+});
+
+const enrollmentsGroup = defineGroup({
+	name: "enrollments",
+	description: "Inspect durable sequence enrollments",
+	commands: [enrollmentListCommand, enrollmentGetCommand],
 });
 
 const pauseCommand = defineCommand({
@@ -394,6 +462,7 @@ export default defineGroup({
 		getCommand,
 		deleteCommand,
 		enrollCommand,
+		enrollmentsGroup,
 		pauseCommand,
 		resumeCommand,
 		tickCommand,

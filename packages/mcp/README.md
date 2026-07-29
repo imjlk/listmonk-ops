@@ -182,6 +182,9 @@ inside an MCP request.
 - `listmonk_sequences_delete` - Delete a sequence with no non-terminal
   enrollments (requires `confirm: true`)
 - `listmonk_sequences_enroll` - Pin one subscriber to the current revision
+- `listmonk_sequences_enrollments_list` /
+  `listmonk_sequences_enrollments_get` - Discover and inspect individual
+  enrollment IDs, states, steps, and errors
 - `listmonk_sequences_pause` / `listmonk_sequences_resume` - Control due-work
   claiming
 - `listmonk_sequences_tick` - Execute one step for a bounded due batch

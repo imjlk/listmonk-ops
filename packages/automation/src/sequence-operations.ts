@@ -11,6 +11,8 @@ import {
 	bindSequenceCreateOperationSpec,
 	bindSequenceDeleteOperationSpec,
 	bindSequenceEnrollOperationSpec,
+	bindSequenceEnrollmentGetOperationSpec,
+	bindSequenceEnrollmentListOperationSpec,
 	bindSequenceGetOperationSpec,
 	bindSequenceListOperationSpec,
 	bindSequencePauseOperationSpec,
@@ -157,6 +159,25 @@ const sequenceEnrollInputSchema = z.object({
 	context: z.record(z.string(), z.unknown()).default({}),
 	start_at: isoDateTimeInput.optional(),
 });
+const sequenceEnrollmentStatusInput = z.enum([
+	"pending",
+	"running",
+	"waiting",
+	"paused",
+	"completed",
+	"failed",
+	"ambiguous",
+	"cancelled",
+]);
+const sequenceEnrollmentListInputSchema = z.object({
+	sequence_id: sequenceIdInput.optional(),
+	subscriber_id: positiveIntegerInput.optional(),
+	status: sequenceEnrollmentStatusInput.optional(),
+	limit: positiveIntegerInput
+		.refine((value) => value <= 1_000, "limit must be at most 1000")
+		.default(100),
+});
+const sequenceEnrollmentGetInputSchema = z.object({ id: sequenceIdInput });
 const sequencePauseInputSchema = sequenceGetInputSchema;
 const sequenceResumeInputSchema = sequenceGetInputSchema;
 const sequenceTickInputSchema = z.object({
@@ -232,16 +253,7 @@ const sequenceEnrollmentOutputSchema = z.object({
 	sequence_id: sequenceIdInput,
 	revision: z.number().int().positive(),
 	subscriber_id: z.number().int().positive(),
-	status: z.enum([
-		"pending",
-		"running",
-		"waiting",
-		"paused",
-		"completed",
-		"failed",
-		"ambiguous",
-		"cancelled",
-	]),
+	status: sequenceEnrollmentStatusInput,
 	current_step_id: z.string(),
 	next_run_at: isoDateTimeInput,
 	last_error: z.string().optional(),
@@ -265,6 +277,9 @@ const sequenceDeleteOutputSchema = z.object({
 });
 const sequenceEnrollmentEnvelopeSchema = z.object({
 	enrollment: sequenceEnrollmentOutputSchema,
+});
+const sequenceEnrollmentListOutputSchema = z.object({
+	enrollments: z.array(sequenceEnrollmentOutputSchema),
 });
 const sequenceTickOutputSchema = z.object({
 	claimed: z.number().int().nonnegative(),
@@ -433,15 +448,18 @@ function executionContext(
 	if (!context.client) {
 		throw new Error("Sequence execution requires a Listmonk client");
 	}
-	if (!context.idempotencyStore || !context.hashPayload) {
+	const resolvedRepository = repository(context);
+	const idempotencyStore =
+		context.idempotencyStore ?? resolvedRepository.idempotencyStore;
+	if (!idempotencyStore || !context.hashPayload) {
 		throw new Error(
 			"Sequence execution requires the transactional idempotency store and payload hasher",
 		);
 	}
 	return {
-		repository: repository(context),
+		repository: resolvedRepository,
 		client: context.client,
-		idempotencyStore: context.idempotencyStore,
+		idempotencyStore,
 		hashPayload: context.hashPayload,
 		target: context.target,
 		now: context.now,
@@ -542,6 +560,27 @@ export async function executeSequenceEnrollOperation(
 	);
 	const created = await store.createEnrollment(enrollment);
 	return { enrollment: toEnrollmentOutput(created) };
+}
+
+export async function executeSequenceEnrollmentListOperation(
+	context: SequenceOperationContext,
+	input: z.output<typeof sequenceEnrollmentListInputSchema>,
+) {
+	const enrollments = await repository(context).listEnrollments({
+		sequenceId: input.sequence_id,
+		subscriberId: input.subscriber_id,
+		status: input.status,
+		limit: input.limit,
+	});
+	return { enrollments: enrollments.map(toEnrollmentOutput) };
+}
+
+export async function executeSequenceEnrollmentGetOperation(
+	context: SequenceOperationContext,
+	input: z.output<typeof sequenceEnrollmentGetInputSchema>,
+) {
+	const enrollment = await repository(context).getEnrollment(input.id);
+	return { enrollment: toEnrollmentOutput(enrollment) };
 }
 
 export async function executeSequencePauseOperation(
@@ -760,6 +799,40 @@ export const sequenceEnrollOperation = defineOperation({
 	spec: bindSequenceEnrollOperationSpec(),
 	execute: executeSequenceEnrollOperation,
 });
+export const sequenceEnrollmentListOperation = defineOperation({
+	id: "sequences.enrollments.list",
+	title: "List sequence enrollments",
+	description:
+		"List sequence enrollments with filters so operators can discover pending, failed, or ambiguous work.",
+	inputSchema: sequenceEnrollmentListInputSchema,
+	outputSchema: sequenceEnrollmentListOutputSchema,
+	safety: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
+	mcp: { name: "listmonk_sequences_enrollments_list" },
+	spec: bindSequenceEnrollmentListOperationSpec(),
+	execute: executeSequenceEnrollmentListOperation,
+});
+export const sequenceEnrollmentGetOperation = defineOperation({
+	id: "sequences.enrollments.get",
+	title: "Get sequence enrollment",
+	description:
+		"Get one sequence enrollment including its current step, status, and last error.",
+	inputSchema: sequenceEnrollmentGetInputSchema,
+	outputSchema: sequenceEnrollmentEnvelopeSchema,
+	safety: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
+	mcp: { name: "listmonk_sequences_enrollments_get" },
+	spec: bindSequenceEnrollmentGetOperationSpec(),
+	execute: executeSequenceEnrollmentGetOperation,
+});
 export const sequencePauseOperation = defineOperation({
 	id: "sequences.pause",
 	title: "Pause sequence",
@@ -972,6 +1045,50 @@ export async function invokeSequenceEnrollOperation(
 	}
 }
 
+export async function invokeSequenceEnrollmentListOperation(
+	context: SequenceOperationContext,
+	input: unknown,
+) {
+	const parsed = parseOperationInput(
+		sequenceEnrollmentListOperation.inputSchema,
+		input,
+	);
+	try {
+		return parseOperationOutput(
+			sequenceEnrollmentListOperation.id,
+			sequenceEnrollmentListOperation.outputSchema,
+			await executeSequenceEnrollmentListOperation(context, parsed),
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			sequenceEnrollmentListOperation.id,
+			error,
+		);
+	}
+}
+
+export async function invokeSequenceEnrollmentGetOperation(
+	context: SequenceOperationContext,
+	input: unknown,
+) {
+	const parsed = parseOperationInput(
+		sequenceEnrollmentGetOperation.inputSchema,
+		input,
+	);
+	try {
+		return parseOperationOutput(
+			sequenceEnrollmentGetOperation.id,
+			sequenceEnrollmentGetOperation.outputSchema,
+			await executeSequenceEnrollmentGetOperation(context, parsed),
+		);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			sequenceEnrollmentGetOperation.id,
+			error,
+		);
+	}
+}
+
 export async function invokeSequencePauseOperation(
 	context: SequenceOperationContext,
 	input: unknown,
@@ -1075,6 +1192,14 @@ const bindings = [
 	{ operation: sequenceGetOperation, invoke: invokeSequenceGetOperation },
 	{ operation: sequenceDeleteOperation, invoke: invokeSequenceDeleteOperation },
 	{ operation: sequenceEnrollOperation, invoke: invokeSequenceEnrollOperation },
+	{
+		operation: sequenceEnrollmentListOperation,
+		invoke: invokeSequenceEnrollmentListOperation,
+	},
+	{
+		operation: sequenceEnrollmentGetOperation,
+		invoke: invokeSequenceEnrollmentGetOperation,
+	},
 	{ operation: sequencePauseOperation, invoke: invokeSequencePauseOperation },
 	{ operation: sequenceResumeOperation, invoke: invokeSequenceResumeOperation },
 	{ operation: sequenceTickOperation, invoke: invokeSequenceTickOperation },

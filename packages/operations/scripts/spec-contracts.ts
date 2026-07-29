@@ -307,6 +307,21 @@ export interface SequenceEnrollmentOutput {
 	enrollment: SequenceEnrollment;
 }
 
+export interface SequenceEnrollmentListInput {
+	sequence_id?: (string & tags.Format<"uuid">) | undefined;
+	subscriber_id?: ResourceId | undefined;
+	status?: SequenceEnrollment["status"] | undefined;
+	limit: PositiveInteger;
+}
+
+export interface SequenceEnrollmentListOutput {
+	enrollments: SequenceEnrollment[];
+}
+
+export interface SequenceEnrollmentGetInput {
+	id: string & tags.Format<"uuid">;
+}
+
 export interface SequenceTickInput {
 	limit: PositiveInteger;
 	lease_ms: PositiveInteger;

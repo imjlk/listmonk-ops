@@ -43,22 +43,26 @@ async function createStores() {
 function client(options: {
 	status?: string;
 	subscriptionStatus?: string;
+	subscriberGet?: (id: number) => Promise<unknown>;
 	send?: () => Promise<unknown>;
 } = {}): SequenceExecutionContext["client"] {
 	return {
 		subscriber: {
-			getById: async ({ path }: { path: { id: number } }) => ({
-				data: {
-					id: path.id,
-					status: options.status ?? "enabled",
-					lists: [
-						{
-							subscription_status:
-								options.subscriptionStatus ?? "subscribed",
+			getById: async ({ path }: { path: { id: number } }) =>
+				options.subscriberGet
+					? options.subscriberGet(path.id)
+					: {
+							data: {
+								id: path.id,
+								status: options.status ?? "enabled",
+								lists: [
+									{
+										subscription_status:
+											options.subscriptionStatus ?? "subscribed",
+									},
+								],
+							},
 						},
-					],
-				},
-			}),
 		},
 		transactional: {
 			send: options.send ?? (async () => ({ data: true })),
@@ -127,11 +131,20 @@ describe("sequence definitions and file persistence", () => {
 		expect(updated.revisions).toHaveLength(2);
 		expect(first).toMatchObject({ revision: 1, currentStepId: "stop-v1" });
 		expect(second).toMatchObject({ revision: 2, currentStepId: "stop-v2" });
+		await expect(
+			repository.createEnrollment(
+				createSequenceEnrollment(
+					updated,
+					{ sequenceId: updated.id, subscriberId: 41 },
+					new Date("2026-08-01T10:02:00.000Z"),
+				),
+			),
+		).rejects.toBeInstanceOf(SequenceConflictError);
 	});
 
 	test("validates condition targets through the shared operation", async () => {
 		expect(sequenceOperationCatalog.operations.map((operation) => operation.id))
-			.toHaveLength(12);
+			.toHaveLength(14);
 		expect(sequenceReconcileOperation.safety.destructiveHint).toBe(true);
 		await expect(
 			invokeSequenceValidateOperation({}, {
@@ -402,6 +415,46 @@ describe("sequence execution", () => {
 		});
 	});
 
+	test("does not traverse inherited properties in condition paths", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "own property condition",
+					steps: [
+						{
+							id: "condition",
+							type: "condition",
+							path: "constructor",
+							operator: "exists",
+							onTrue: "inherited",
+							onFalse: "missing",
+						},
+						{ id: "inherited", type: "stop" },
+						{ id: "missing", type: "stop" },
+					],
+				},
+				now,
+			),
+		);
+		const enrollment = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{ sequenceId: definition.id, subscriberId: 42, context: {} },
+				now,
+			),
+		);
+
+		await runSequenceTick(
+			executionContext(repository, idempotencyStore),
+			{ now },
+		);
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
+			currentStepId: "missing",
+		});
+	});
+
 	test("cancels blocklisted subscribers before sending", async () => {
 		const { repository, idempotencyStore } = await createStores();
 		let sends = 0;
@@ -443,6 +496,159 @@ describe("sequence execution", () => {
 			status: "cancelled",
 			lastError: expect.stringContaining("blocklisted"),
 		});
+	});
+
+	test("cancels an enrollment when its subscriber was deleted", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "deleted subscriber",
+					steps: [{ id: "send", type: "send", templateId: 9 }],
+				},
+				now,
+			),
+		);
+		const enrollment = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{ sequenceId: definition.id, subscriberId: 42 },
+				now,
+			),
+		);
+
+		expect(
+			await runSequenceTick(
+				executionContext(
+					repository,
+					idempotencyStore,
+					client({
+						subscriberGet: async () => ({
+							error: new Error("subscriber not found"),
+							response: { status: 404 },
+						}),
+					}),
+				),
+				{ now },
+			),
+		).toMatchObject({ cancelled: 1 });
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
+			status: "cancelled",
+			lastError: expect.stringContaining("no longer exists"),
+		});
+	});
+
+	test("retries a definitive pre-dispatch failure instead of terminalizing", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		let attempts = 0;
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "retry outage",
+					steps: [{ id: "send", type: "send", templateId: 9 }],
+				},
+				now,
+			),
+		);
+		const enrollment = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{ sequenceId: definition.id, subscriberId: 42 },
+				now,
+			),
+		);
+		const context = executionContext(
+			repository,
+			idempotencyStore,
+			client({
+				send: async () => {
+					attempts += 1;
+					if (attempts === 1) {
+						throw Object.assign(new Error("connect ECONNREFUSED"), {
+							code: "ECONNREFUSED",
+						});
+					}
+					return { data: true };
+				},
+			}),
+		);
+
+		await runSequenceTick(context, { now });
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
+			status: "pending",
+			lastError: expect.stringContaining("ECONNREFUSED"),
+		});
+		expect(
+			await runSequenceTick(context, {
+				now: new Date(now.getTime() + 5_000),
+			}),
+		).toMatchObject({ completed: 1 });
+		expect(attempts).toBe(2);
+	});
+
+	test("recovers a pending replay after the original worker commits", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const firstNow = new Date("2026-08-01T09:00:00.000Z");
+		let releaseSend: (() => void) | undefined;
+		let signalStarted: (() => void) | undefined;
+		const sendStarted = new Promise<void>((resolve) => {
+			signalStarted = resolve;
+		});
+		const sendReleased = new Promise<void>((resolve) => {
+			releaseSend = resolve;
+		});
+		let sends = 0;
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "pending replay",
+					steps: [{ id: "send", type: "send", templateId: 9 }],
+				},
+				firstNow,
+			),
+		);
+		const enrollment = await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{ sequenceId: definition.id, subscriberId: 42 },
+				firstNow,
+			),
+		);
+		const context = executionContext(
+			repository,
+			idempotencyStore,
+			client({
+				send: async () => {
+					sends += 1;
+					signalStarted?.();
+					await sendReleased;
+					return { data: true };
+				},
+			}),
+		);
+
+		const firstTick = runSequenceTick(context, {
+			now: firstNow,
+			leaseMs: 1_000,
+		});
+		await sendStarted;
+		const replayNow = new Date(firstNow.getTime() + 1_500);
+		expect(
+			await runSequenceTick(context, { now: replayNow, leaseMs: 1_000 }),
+		).toMatchObject({ claimed: 1, advanced: 1, ambiguous: 0 });
+		releaseSend?.();
+		await expect(firstTick).rejects.toBeInstanceOf(AggregateError);
+		expect(
+			await runSequenceTick(context, {
+				now: new Date(replayNow.getTime() + 5_000),
+			}),
+		).toMatchObject({ completed: 1, ambiguous: 0 });
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
+			status: "completed",
+		});
+		expect(sends).toBe(1);
 	});
 
 	test("keeps ambiguous sends active until an operator resolves them", async () => {

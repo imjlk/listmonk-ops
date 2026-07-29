@@ -104,6 +104,26 @@ describe("MCP sequence tools", () => {
 				status: "pending",
 			},
 		});
+		const enrollmentId = (
+			enrollment.structuredContent?.enrollment as { id: string }
+		).id;
+		const enrollmentList = await server.callTool(
+			request("listmonk_sequences_enrollments_list", {
+				sequence_id: id,
+				status: "pending",
+			}),
+		);
+		expect(enrollmentList.structuredContent).toMatchObject({
+			enrollments: [{ id: enrollmentId, sequence_id: id, subscriber_id: 42 }],
+		});
+		const enrollmentGet = await server.callTool(
+			request("listmonk_sequences_enrollments_get", {
+				id: enrollmentId,
+			}),
+		);
+		expect(enrollmentGet.structuredContent).toMatchObject({
+			enrollment: { id: enrollmentId, status: "pending" },
+		});
 
 		const paused = await server.callTool(
 			request("listmonk_sequences_pause", { id }),

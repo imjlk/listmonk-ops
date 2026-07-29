@@ -3,6 +3,8 @@ import { isDeepStrictEqual } from "node:util";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	getSubscriber,
+	isDefinitivePreDispatchError,
+	isResourceMissingError,
 	sendTransactionalMessage,
 	TransactionalReconcileError,
 	type TransactionalIdempotencyStore,
@@ -81,7 +83,7 @@ function resolvePath(
 			typeof current !== "object" ||
 			current === null ||
 			Array.isArray(current) ||
-			!(segment in current)
+			!Object.hasOwn(current, segment)
 		) {
 			return undefined;
 		}
@@ -176,34 +178,49 @@ function deterministicSendKey(enrollment: SequenceEnrollment): string {
 	return `sequence:${enrollment.id}:revision:${enrollment.revision}:step:${enrollment.currentStepId}`;
 }
 
+function retryEnrollment(
+	enrollment: SequenceEnrollment,
+	now: Date,
+	error: unknown,
+): Omit<SequenceEnrollment, "leaseToken" | "leaseExpiresAt"> {
+	return withoutLease(
+		enrollment,
+		{
+			status: "pending",
+			nextRunAt: new Date(now.getTime() + 5_000).toISOString(),
+			lastError: truncateError(error),
+		},
+		now,
+	);
+}
+
 async function executeSendStep(
 	context: SequenceExecutionContext,
 	claimed: ClaimedSequenceEnrollment,
 	step: Extract<SequenceStep, { type: "send" }>,
 	now: Date,
 ): Promise<Omit<SequenceEnrollment, "leaseToken" | "leaseExpiresAt">> {
-	const subscriber = await getSubscriber(
-		{ client: context.client },
-		{ id: claimed.enrollment.subscriberId },
-	);
-	const cannotReceive = subscriberCannotReceive(
-		subscriber as {
-			status?: string;
-			lists?: Array<Record<string, unknown>>;
-		},
-	);
-	if (cannotReceive) {
-		return withoutLease(
-			claimed.enrollment,
-			{
-				status: "cancelled",
-				lastError: `Sequence delivery cancelled because ${cannotReceive}`,
-			},
-			now,
-		);
-	}
-
 	try {
+		const subscriber = await getSubscriber(
+			{ client: context.client },
+			{ id: claimed.enrollment.subscriberId },
+		);
+		const cannotReceive = subscriberCannotReceive(
+			subscriber as {
+				status?: string;
+				lists?: Array<Record<string, unknown>>;
+			},
+		);
+		if (cannotReceive) {
+			return withoutLease(
+				claimed.enrollment,
+				{
+					status: "cancelled",
+					lastError: `Sequence delivery cancelled because ${cannotReceive}`,
+				},
+				now,
+			);
+		}
 		const result = await sendTransactionalMessage(
 			{
 				client: context.client,
@@ -240,6 +257,9 @@ async function executeSendStep(
 		return transitionToNext(claimed, now);
 	} catch (error) {
 		if (error instanceof TransactionalReconcileError) {
+			if (error.status === "pending") {
+				return retryEnrollment(claimed.enrollment, now, error);
+			}
 			return withoutLease(
 				claimed.enrollment,
 				{
@@ -248,6 +268,20 @@ async function executeSendStep(
 				},
 				now,
 			);
+		}
+		if (isResourceMissingError(error)) {
+			return withoutLease(
+				claimed.enrollment,
+				{
+					status: "cancelled",
+					lastError:
+						"Sequence delivery cancelled because the subscriber no longer exists",
+				},
+				now,
+			);
+		}
+		if (isDefinitivePreDispatchError(error)) {
+			return retryEnrollment(claimed.enrollment, now, error);
 		}
 		return withoutLease(
 			claimed.enrollment,
@@ -408,11 +442,25 @@ export async function runSequenceTick(
 		ambiguous: 0,
 		cancelled: 0,
 	};
-	const results = await Promise.all(
+	const results = await Promise.allSettled(
 		claimed.map((entry) => executeClaimedEnrollment(context, entry, now)),
 	);
 	for (const result of results) {
-		countOutcome(counts, result.status);
+		if (result.status === "fulfilled") {
+			countOutcome(counts, result.value.status);
+		}
+	}
+	const failures = results
+		.filter(
+			(result): result is PromiseRejectedResult =>
+				result.status === "rejected",
+		)
+		.map((result) => result.reason);
+	if (failures.length > 0) {
+		throw new AggregateError(
+			failures,
+			`Failed to complete ${failures.length} claimed sequence enrollment(s)`,
+		);
 	}
 	return {
 		claimed: claimed.length,
@@ -455,9 +503,17 @@ export async function reconcileAmbiguousSequenceEnrollment(
 	const key = deterministicSendKey(enrollment);
 	const document = await context.idempotencyStore.load();
 	const record = document.records[key];
-	if (!record || record.status !== "unknown") {
+	if (!record) {
+		throw new Error(`Transactional idempotency record ${key} is missing`);
+	}
+	if (record.status === "accepted" && resolution !== "sent") {
 		throw new Error(
-			`Transactional idempotency record ${key} is missing or not unknown`,
+			`Transactional idempotency record ${key} was already accepted and must be reconciled as sent`,
+		);
+	}
+	if (record.status === "failed" && resolution !== "not_sent") {
+		throw new Error(
+			`Transactional idempotency record ${key} was rejected and cannot be reconciled as sent`,
 		);
 	}
 	if (resolution === "sent") {
@@ -479,13 +535,15 @@ export async function reconcileAmbiguousSequenceEnrollment(
 			enrollment,
 			next,
 		);
-		await context.idempotencyStore.commit({
-			key,
-			claimToken: record.claimToken,
-			status: "accepted",
-			sent: true,
-			now: () => now,
-		});
+		if (record.status !== "accepted") {
+			await context.idempotencyStore.commit({
+				key,
+				claimToken: record.claimToken,
+				status: "accepted",
+				sent: true,
+				now: () => now,
+			});
+		}
 		return resolved;
 	}
 	const next = withoutLease(
@@ -526,15 +584,15 @@ function sleepUntilNextTick(
 		return Promise.resolve();
 	}
 	return new Promise((resolve) => {
-		const timeout = setTimeout(resolve, intervalMs);
-		signal?.addEventListener(
-			"abort",
-			() => {
-				clearTimeout(timeout);
-				resolve();
-			},
-			{ once: true },
-		);
+		const onAbort = (): void => {
+			clearTimeout(timeout);
+			resolve();
+		};
+		const timeout = setTimeout(() => {
+			signal?.removeEventListener("abort", onAbort);
+			resolve();
+		}, intervalMs);
+		signal?.addEventListener("abort", onAbort, { once: true });
 	});
 }
 

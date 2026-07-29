@@ -792,6 +792,8 @@ listmonk-cli sequences enroll \
   --subscriber-id 42 \
   --context '{"plan":"pro"}'
 
+listmonk-cli sequences enrollments list --status ambiguous
+listmonk-cli sequences enrollments get --id <enrollment-uuid>
 listmonk-cli sequences status
 listmonk-cli sequences tick --limit 25 --confirm
 listmonk-cli sequences reconcile --dry-run --confirm
@@ -810,7 +812,9 @@ Listmonk, Mailpit 또는 provider 근거를 확인한 후
 기본 파일 저장소는 `~/.listmonk-ops/sequences.json`입니다. 여러 worker가
 동시에 처리할 때는 `LISTMONK_OPS_SEQUENCE_DATABASE_URL`을 설정하세요.
 Postgres 구현은 `FOR UPDATE SKIP LOCKED`, lease-token fencing,
-advisory-lock 기반 schema 초기화를 사용합니다. `sequences status`는 due work,
+advisory-lock 기반 schema 초기화를 사용합니다. Transactional idempotency
+claim도 같은 데이터베이스에 저장하므로 모든 worker가 하나의 발송 판단을
+공유합니다. `sequences status`는 due work,
 ambiguous 상태, lease, running/stale/stopped/failed worker health를 보고하며
 오래된 worker 기록은 retention 기간 뒤 정리합니다. Sequence
 create/revise/enroll/pause/resume 및 운영자 reconcile은 typed `sequence.*`

@@ -12540,6 +12540,512 @@
     {
       "agent": {
         "avoidWhen": [
+          "Only aggregate runtime health is required."
+        ],
+        "prerequisites": [],
+        "related": [
+          "sequences.enrollments.get",
+          "sequences.reconcile",
+          "sequences.status"
+        ],
+        "retryGuidance": "Retrying the same enrollment query is safe.",
+        "useWhen": [
+          "Enrollment IDs or runtime outcomes must be discovered."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceEnrollmentListInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "limit": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "sequence_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "ambiguous"
+                      },
+                      {
+                        "const": "cancelled"
+                      },
+                      {
+                        "const": "completed"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "paused"
+                      },
+                      {
+                        "const": "pending"
+                      },
+                      {
+                        "const": "running"
+                      },
+                      {
+                        "const": "waiting"
+                      }
+                    ]
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "limit"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "limit": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              },
+              "sequence_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "status": {
+                "oneOf": [
+                  {
+                    "const": "ambiguous"
+                  },
+                  {
+                    "const": "cancelled"
+                  },
+                  {
+                    "const": "completed"
+                  },
+                  {
+                    "const": "failed"
+                  },
+                  {
+                    "const": "paused"
+                  },
+                  {
+                    "const": "pending"
+                  },
+                  {
+                    "const": "running"
+                  },
+                  {
+                    "const": "waiting"
+                  }
+                ]
+              },
+              "subscriber_id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "limit"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceEnrollment": {
+                "additionalProperties": false,
+                "properties": {
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "current_step_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "last_error": {
+                    "type": "string"
+                  },
+                  "next_run_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "sequence_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "ambiguous"
+                      },
+                      {
+                        "const": "cancelled"
+                      },
+                      {
+                        "const": "completed"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "paused"
+                      },
+                      {
+                        "const": "pending"
+                      },
+                      {
+                        "const": "running"
+                      },
+                      {
+                        "const": "waiting"
+                      }
+                    ]
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  }
+                },
+                "required": [
+                  "id",
+                  "sequence_id",
+                  "revision",
+                  "subscriber_id",
+                  "status",
+                  "current_step_id",
+                  "next_run_at",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "object"
+              },
+              "SequenceEnrollmentListOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "enrollments": {
+                    "items": {
+                      "$ref": "#/components/schemas/SequenceEnrollment"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "enrollments"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "enrollments": {
+                "items": {
+                  "$ref": "#/components/schemas/SequenceEnrollment"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "enrollments"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "List sequence enrollments with filters so operators can discover pending, failed, or ambiguous work.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "sequence"
+        }
+      ],
+      "id": "sequences.enrollments.list",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceEnrollmentListOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceEnrollmentListOperationSpec:variable",
+          "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceEnrollmentListOperation:function",
+          "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceEnrollmentListOperation:function",
+          "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceEnrollmentListOperation:variable"
+        },
+        "mcpName": "listmonk_sequences_enrollments_list",
+        "openWorld": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads enrollment state."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "List sequence enrollments",
+      "verb": "list"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The enrollment ID is unknown."
+        ],
+        "prerequisites": [],
+        "related": [
+          "sequences.enrollments.list",
+          "sequences.reconcile",
+          "sequences.status"
+        ],
+        "retryGuidance": "Retrying the same enrollment read is safe.",
+        "useWhen": [
+          "A known enrollment needs detailed inspection or reconciliation."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "SequenceEnrollmentGetInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceEnrollment": {
+                "additionalProperties": false,
+                "properties": {
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "current_step_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "last_error": {
+                    "type": "string"
+                  },
+                  "next_run_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "sequence_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "ambiguous"
+                      },
+                      {
+                        "const": "cancelled"
+                      },
+                      {
+                        "const": "completed"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "paused"
+                      },
+                      {
+                        "const": "pending"
+                      },
+                      {
+                        "const": "running"
+                      },
+                      {
+                        "const": "waiting"
+                      }
+                    ]
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  }
+                },
+                "required": [
+                  "id",
+                  "sequence_id",
+                  "revision",
+                  "subscriber_id",
+                  "status",
+                  "current_step_id",
+                  "next_run_at",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "object"
+              },
+              "SequenceEnrollmentOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "enrollment": {
+                    "$ref": "#/components/schemas/SequenceEnrollment"
+                  }
+                },
+                "required": [
+                  "enrollment"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "enrollment": {
+                "$ref": "#/components/schemas/SequenceEnrollment"
+              }
+            },
+            "required": [
+              "enrollment"
+            ],
+            "type": "object"
+          },
+          "stage": "normalized"
+        }
+      },
+      "description": "Get one sequence enrollment including its current step, status, and last error.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "sequence"
+        }
+      ],
+      "id": "sequences.enrollments.get",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceEnrollmentGetOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceEnrollmentGetOperationSpec:variable",
+          "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceEnrollmentGetOperation:function",
+          "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceEnrollmentGetOperation:function",
+          "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceEnrollmentGetOperation:variable"
+        },
+        "mcpName": "listmonk_sequences_enrollments_get",
+        "openWorld": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads enrollment state."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Get sequence enrollment",
+      "verb": "get"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "An individual ambiguous send needs reconciliation."
         ],
         "prerequisites": [

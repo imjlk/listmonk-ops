@@ -28,6 +28,9 @@ import type {
 	SequenceDefinitionOutput,
 	SequenceDeleteOutput,
 	SequenceEnrollInput,
+	SequenceEnrollmentGetInput,
+	SequenceEnrollmentListInput,
+	SequenceEnrollmentListOutput,
 	SequenceEnrollmentOutput,
 	SequenceIdInput,
 	SequenceListInput,
@@ -196,6 +199,15 @@ const contracts = {
 	),
 	sequenceEnrollmentOutputContract: contractSchema(
 		typia.json.schema<SequenceEnrollmentOutput>(),
+	),
+	sequenceEnrollmentListInputContract: contractSchema(
+		typia.json.schema<SequenceEnrollmentListInput>(),
+	),
+	sequenceEnrollmentListOutputContract: contractSchema(
+		typia.json.schema<SequenceEnrollmentListOutput>(),
+	),
+	sequenceEnrollmentGetInputContract: contractSchema(
+		typia.json.schema<SequenceEnrollmentGetInput>(),
 	),
 	sequenceTickInputContract: contractSchema(
 		typia.json.schema<SequenceTickInput>(),

@@ -5,6 +5,7 @@ import {
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	getSequenceOperationByMcpName,
+	getSequenceRepositoryFromEnvironment,
 	invokeSequenceOperationByMcpName,
 	sequenceOperations,
 	type SequenceOperationContext,
@@ -26,12 +27,16 @@ export async function executeSequenceTools(
 	client: ListmonkClient,
 	context: SequenceOperationContext = {},
 ): Promise<CallToolResult> {
+	const repository =
+		context.repository ?? getSequenceRepositoryFromEnvironment();
 	const invocation = await invokeSequenceOperationByMcpName(
 		{
 			...context,
+			repository,
 			client,
 			idempotencyStore:
 				context.idempotencyStore ??
+				repository.idempotencyStore ??
 				createFileBackedTransactionalIdempotencyStore(),
 			hashPayload: context.hashPayload ?? hashTransactionalPayload,
 		},

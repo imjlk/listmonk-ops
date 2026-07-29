@@ -184,6 +184,33 @@ describe("Sequence CLI and MCP parity", () => {
 			subscriber_id: subscriber.id,
 		});
 		expect(enrolled.isError).toBeFalsy();
+		const enrollmentId = (
+			enrolled.structuredContent?.enrollment as { id: string }
+		).id;
+		const listed = parseCliResult<{
+			enrollments: Array<{ id: string; sequence_id: string }>;
+		}>(
+			runSequenceCli([
+				"sequences",
+				"enrollments",
+				"list",
+				"--sequence-id",
+				created.sequence.id,
+			]),
+		);
+		expect(listed.enrollments).toContainEqual(
+			expect.objectContaining({
+				id: enrollmentId,
+				sequence_id: created.sequence.id,
+			}),
+		);
+		const enrollment = await request(
+			"listmonk_sequences_enrollments_get",
+			{ id: enrollmentId },
+		);
+		expect(enrollment.structuredContent).toMatchObject({
+			enrollment: { id: enrollmentId, status: "pending" },
+		});
 
 		const tick = parseCliResult<{
 			claimed: number;

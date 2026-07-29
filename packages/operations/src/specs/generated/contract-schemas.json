@@ -3027,6 +3027,282 @@
     },
     "stage": "normalized"
   },
+  "sequenceEnrollmentGetInputContract": {
+    "components": {
+      "schemas": {
+        "SequenceEnrollmentGetInput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "sequenceEnrollmentListInputContract": {
+    "components": {
+      "schemas": {
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SequenceEnrollmentListInput": {
+          "additionalProperties": false,
+          "properties": {
+            "limit": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "sequence_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "ambiguous"
+                },
+                {
+                  "const": "cancelled"
+                },
+                {
+                  "const": "completed"
+                },
+                {
+                  "const": "failed"
+                },
+                {
+                  "const": "paused"
+                },
+                {
+                  "const": "pending"
+                },
+                {
+                  "const": "running"
+                },
+                {
+                  "const": "waiting"
+                }
+              ]
+            },
+            "subscriber_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "limit"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "$ref": "#/components/schemas/PositiveInteger"
+        },
+        "sequence_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "status": {
+          "oneOf": [
+            {
+              "const": "ambiguous"
+            },
+            {
+              "const": "cancelled"
+            },
+            {
+              "const": "completed"
+            },
+            {
+              "const": "failed"
+            },
+            {
+              "const": "paused"
+            },
+            {
+              "const": "pending"
+            },
+            {
+              "const": "running"
+            },
+            {
+              "const": "waiting"
+            }
+          ]
+        },
+        "subscriber_id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [
+        "limit"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "sequenceEnrollmentListOutputContract": {
+    "components": {
+      "schemas": {
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SequenceEnrollment": {
+          "additionalProperties": false,
+          "properties": {
+            "created_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "current_step_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "last_error": {
+              "type": "string"
+            },
+            "next_run_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "revision": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "sequence_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "ambiguous"
+                },
+                {
+                  "const": "cancelled"
+                },
+                {
+                  "const": "completed"
+                },
+                {
+                  "const": "failed"
+                },
+                {
+                  "const": "paused"
+                },
+                {
+                  "const": "pending"
+                },
+                {
+                  "const": "running"
+                },
+                {
+                  "const": "waiting"
+                }
+              ]
+            },
+            "subscriber_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "updated_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            }
+          },
+          "required": [
+            "id",
+            "sequence_id",
+            "revision",
+            "subscriber_id",
+            "status",
+            "current_step_id",
+            "next_run_at",
+            "created_at",
+            "updated_at"
+          ],
+          "type": "object"
+        },
+        "SequenceEnrollmentListOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "enrollments": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceEnrollment"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "enrollments"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "enrollments": {
+          "items": {
+            "$ref": "#/components/schemas/SequenceEnrollment"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "enrollments"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
   "sequenceEnrollmentOutputContract": {
     "components": {
       "schemas": {

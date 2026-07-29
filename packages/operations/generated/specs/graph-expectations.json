@@ -1002,6 +1002,60 @@
     {
       "edges": [
         {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceEnrollmentListOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceEnrollmentListOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceEnrollmentListOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceEnrollmentListOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceEnrollmentListOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceEnrollmentListOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceEnrollmentListOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceEnrollmentListOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceEnrollmentListOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceEnrollmentListOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceEnrollmentListOperation:variable"
+      },
+      "operationId": "sequences.enrollments.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/sequence-operations.ts#sequenceEnrollmentGetOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/sequences.ts#bindSequenceEnrollmentGetOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/sequences.ts#bindSequenceEnrollmentGetOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/sequences.ts#sequenceEnrollmentGetOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/sequence-operations.ts#invokeSequenceEnrollmentGetOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/sequence-operations.ts#executeSequenceEnrollmentGetOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/sequences.ts#bindSequenceEnrollmentGetOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/sequences.ts#sequenceEnrollmentGetOperationSpec:variable",
+        "executorNode": "packages/automation/src/sequence-operations.ts#executeSequenceEnrollmentGetOperation:function",
+        "invokerNode": "packages/automation/src/sequence-operations.ts#invokeSequenceEnrollmentGetOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceEnrollmentGetOperation:variable"
+      },
+      "operationId": "sequences.enrollments.get"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/automation/src/sequence-operations.ts#sequencePauseOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/sequences.ts#bindSequencePauseOperationSpec:function"

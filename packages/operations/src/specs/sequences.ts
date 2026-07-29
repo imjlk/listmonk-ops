@@ -3,6 +3,9 @@ import {
 	sequenceDefinitionOutputContract,
 	sequenceDeleteOutputContract,
 	sequenceEnrollInputContract,
+	sequenceEnrollmentGetInputContract,
+	sequenceEnrollmentListInputContract,
+	sequenceEnrollmentListOutputContract,
 	sequenceEnrollmentOutputContract,
 	sequenceIdInputContract,
 	sequenceListInputContract,
@@ -279,6 +282,68 @@ export const sequenceEnrollOperationSpec = defineOperationSpec({
 	since: "0.9.0",
 });
 
+export const sequenceEnrollmentListOperationSpec = defineOperationSpec({
+	id: "sequences.enrollments.list",
+	resource: "sequence",
+	verb: "list",
+	title: "List sequence enrollments",
+	description:
+		"List sequence enrollments with filters so operators can discover pending, failed, or ambiguous work.",
+	contract: {
+		input: sequenceEnrollmentListInputContract,
+		output: sequenceEnrollmentListOutputContract,
+	},
+	effects: [{ kind: "read", resource: "sequence" }],
+	policy: { confirmation: "never", audit: "optional", dryRun: false },
+	retry: { kind: "safe", reason: "The operation only reads enrollment state." },
+	agent: {
+		useWhen: ["Enrollment IDs or runtime outcomes must be discovered."],
+		avoidWhen: ["Only aggregate runtime health is required."],
+		prerequisites: [],
+		verifyWith: [],
+		related: ["sequences.enrollments.get", "sequences.reconcile", "sequences.status"],
+		retryGuidance: "Retrying the same enrollment query is safe.",
+	},
+	projection: {
+		mcpName: "listmonk_sequences_enrollments_list",
+		openWorld: false,
+		graph: graphNodes("enrollmentList"),
+	},
+	stability: "experimental",
+	since: "0.9.0",
+});
+
+export const sequenceEnrollmentGetOperationSpec = defineOperationSpec({
+	id: "sequences.enrollments.get",
+	resource: "sequence",
+	verb: "get",
+	title: "Get sequence enrollment",
+	description:
+		"Get one sequence enrollment including its current step, status, and last error.",
+	contract: {
+		input: sequenceEnrollmentGetInputContract,
+		output: sequenceEnrollmentOutputContract,
+	},
+	effects: [{ kind: "read", resource: "sequence" }],
+	policy: { confirmation: "never", audit: "optional", dryRun: false },
+	retry: { kind: "safe", reason: "The operation only reads enrollment state." },
+	agent: {
+		useWhen: ["A known enrollment needs detailed inspection or reconciliation."],
+		avoidWhen: ["The enrollment ID is unknown."],
+		prerequisites: [],
+		verifyWith: [],
+		related: ["sequences.enrollments.list", "sequences.reconcile", "sequences.status"],
+		retryGuidance: "Retrying the same enrollment read is safe.",
+	},
+	projection: {
+		mcpName: "listmonk_sequences_enrollments_get",
+		openWorld: false,
+		graph: graphNodes("enrollmentGet"),
+	},
+	stability: "experimental",
+	since: "0.9.0",
+});
+
 export const sequencePauseOperationSpec = defineOperationSpec({
 	id: "sequences.pause",
 	resource: "sequence",
@@ -486,6 +551,8 @@ export const sequenceOperationSpecs = [
 	sequenceGetOperationSpec,
 	sequenceDeleteOperationSpec,
 	sequenceEnrollOperationSpec,
+	sequenceEnrollmentListOperationSpec,
+	sequenceEnrollmentGetOperationSpec,
 	sequencePauseOperationSpec,
 	sequenceResumeOperationSpec,
 	sequenceTickOperationSpec,
@@ -513,6 +580,12 @@ export function bindSequenceDeleteOperationSpec(): typeof sequenceDeleteOperatio
 }
 export function bindSequenceEnrollOperationSpec(): typeof sequenceEnrollOperationSpec {
 	return sequenceEnrollOperationSpec;
+}
+export function bindSequenceEnrollmentListOperationSpec(): typeof sequenceEnrollmentListOperationSpec {
+	return sequenceEnrollmentListOperationSpec;
+}
+export function bindSequenceEnrollmentGetOperationSpec(): typeof sequenceEnrollmentGetOperationSpec {
+	return sequenceEnrollmentGetOperationSpec;
 }
 export function bindSequencePauseOperationSpec(): typeof sequencePauseOperationSpec {
 	return sequencePauseOperationSpec;

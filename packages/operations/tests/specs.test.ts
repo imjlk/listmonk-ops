@@ -66,6 +66,8 @@ describe("email operations specification", () => {
 			"sequences.get",
 			"sequences.delete",
 			"sequences.enroll",
+			"sequences.enrollments.list",
+			"sequences.enrollments.get",
 			"sequences.pause",
 			"sequences.resume",
 			"sequences.tick",
@@ -120,7 +122,7 @@ describe("email operations specification", () => {
 				?.IsoDateTime,
 		).toMatchObject({ type: "string", format: "date-time" });
 		expect(webhookOperationSpecs).toHaveLength(16);
-		expect(sequenceOperationSpecs).toHaveLength(12);
+		expect(sequenceOperationSpecs).toHaveLength(14);
 		expect(webhookDispatchOperationSpec.effects).toEqual([
 			{ kind: "webhook", resource: "webhook", audience: "bulk" },
 		]);
