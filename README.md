@@ -59,11 +59,13 @@ Local endpoints:
 - Listmonk API: `http://localhost:9000/api`
 - Mailpit UI: `http://localhost:8025`
 - Mailpit SMTP: `localhost:1025`
-- PostgreSQL: Docker-internal `db:5432` only
+- PostgreSQL: `localhost:15432` (Docker-internal `db:5432`)
 
 Published ports bind to `127.0.0.1` by default because the local stack uses
 fixed bootstrap credentials. Set `LISTMONK_BIND_ADDRESS` explicitly only when
-you intend to expose the test stack beyond the current machine.
+you intend to expose Listmonk and Mailpit beyond the current machine. PostgreSQL
+uses the separate `LISTMONK_DB_BIND_ADDRESS` and remains loopback-bound unless
+that variable is explicitly changed.
 
 Default admin credentials from `docker-compose.yml`:
 - Username: `admin`

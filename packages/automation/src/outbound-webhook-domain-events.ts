@@ -230,6 +230,12 @@ function subscriberProjection(
 function abTestProjection(
 	input: SuccessfulOperationLifecycleInput,
 ): readonly DomainEventProjection[] {
+	if (
+		input.operationId === "abtest.tick" &&
+		input.operationInput["dry_run"] === true
+	) {
+		return [];
+	}
 	const output = asRecord(input.operationOutput);
 	const test = outputResource(input.operationOutput, "test");
 	const testId =

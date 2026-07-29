@@ -1,3 +1,7 @@
+import {
+	createOutboundWebhookEndpoint,
+	listOutboundWebhookDeliveries,
+} from "@listmonk-ops/automation";
 import { listOperationAuditEntries } from "@listmonk-ops/common";
 import { afterEach, describe, expect, test } from "bun:test";
 import { cli } from "gunshi";
@@ -122,6 +126,63 @@ describe("CLI command adapter", () => {
 				delete process.env.LISTMONK_OPS_AUDIT_STORE;
 			} else {
 				process.env.LISTMONK_OPS_AUDIT_STORE = previousAuditStorePath;
+			}
+		}
+	});
+
+	test("preserves a command handler result for domain event projection", async () => {
+		const directory = await mkdtemp(
+			join(tmpdir(), "listmonk-ops-cli-command-result-"),
+		);
+		tempDirectories.push(directory);
+		const auditStorePath = join(directory, "operation-audit.json");
+		const webhookStorePath = join(directory, "outbound-webhooks.json");
+		await createOutboundWebhookEndpoint(
+			{
+				name: "campaigns",
+				url: "https://8.8.8.8/hooks",
+				secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_CAMPAIGNS",
+				eventFilters: ["campaign.*"],
+			},
+			{ path: webhookStorePath },
+		);
+		const previousAuditStorePath = process.env.LISTMONK_OPS_AUDIT_STORE;
+		const previousWebhookStorePath = process.env.LISTMONK_OPS_WEBHOOK_STORE;
+		const command = defineCommand({
+			name: "start",
+			operationId: "campaigns.start",
+			handler: async () => ({ id: 42, status: "running" }),
+		});
+
+		process.env.LISTMONK_OPS_AUDIT_STORE = auditStorePath;
+		process.env.LISTMONK_OPS_WEBHOOK_STORE = webhookStorePath;
+		try {
+			await cli(prepareCliArgv(["--confirm"]), command, {
+				name: "start",
+				usageSilent: true,
+			});
+
+			expect(
+				await listOutboundWebhookDeliveries({ path: webhookStorePath }),
+			).toMatchObject([
+				{
+					event: {
+						type: "campaign.started",
+						subject: { kind: "campaign", key: "42" },
+						data: { status: "running" },
+					},
+				},
+			]);
+		} finally {
+			if (previousAuditStorePath === undefined) {
+				delete process.env.LISTMONK_OPS_AUDIT_STORE;
+			} else {
+				process.env.LISTMONK_OPS_AUDIT_STORE = previousAuditStorePath;
+			}
+			if (previousWebhookStorePath === undefined) {
+				delete process.env.LISTMONK_OPS_WEBHOOK_STORE;
+			} else {
+				process.env.LISTMONK_OPS_WEBHOOK_STORE = previousWebhookStorePath;
 			}
 		}
 	});

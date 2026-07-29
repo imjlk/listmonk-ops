@@ -528,6 +528,32 @@ export function createOutboundWebhookStore(
 	};
 }
 
+async function persistFileOutboundWebhookEndpoint(
+	endpoint: OutboundWebhookEndpoint,
+	options: Pick<OutboundWebhookStoreOptions, "path">,
+): Promise<OutboundWebhookEndpoint> {
+	const store = createOutboundWebhookStore(options.path);
+	return updateJsonFileStore(store, (current) => {
+		if (
+			current.endpoints.some(
+				(candidate) =>
+					candidate.name.toLowerCase() === endpoint.name.toLowerCase(),
+			)
+		) {
+			throw new OutboundWebhookConflictError(
+				`Outbound webhook endpoint name already exists: ${endpoint.name}`,
+			);
+		}
+		return commitJsonFileStoreUpdate(
+			{
+				...current,
+				endpoints: [...current.endpoints, endpoint],
+			},
+			endpoint,
+		);
+	});
+}
+
 export function createFileOutboundWebhookRepository(
 	options: Omit<OutboundWebhookStoreOptions, "repository"> = {},
 ): OutboundWebhookRepository {
@@ -536,61 +562,10 @@ export function createFileOutboundWebhookRepository(
 		kind: "file",
 		listEndpoints: () => listOutboundWebhookEndpoints(fileOptions),
 		getEndpoint: (id) => getOutboundWebhookEndpoint(id, fileOptions),
-		async createEndpoint(endpoint) {
-			const store = createOutboundWebhookStore(fileOptions.path);
-			return updateJsonFileStore(store, (current) => {
-				if (
-					current.endpoints.some(
-						(candidate) =>
-							candidate.name.toLowerCase() === endpoint.name.toLowerCase(),
-					)
-				) {
-					throw new OutboundWebhookConflictError(
-						`Outbound webhook endpoint name already exists: ${endpoint.name}`,
-					);
-				}
-				return commitJsonFileStoreUpdate(
-					{
-						...current,
-						endpoints: [...current.endpoints, endpoint],
-					},
-					endpoint,
-				);
-			});
-		},
-		async updateEndpoint(id, input, now) {
-			const store = createOutboundWebhookStore(fileOptions.path);
-			return updateJsonFileStore(store, (current) => {
-				const index = current.endpoints.findIndex(
-					(candidate) => candidate.id === id,
-				);
-				if (index < 0) {
-					throw new OutboundWebhookNotFoundError("endpoint", id);
-				}
-				const endpoint = mergeOutboundWebhookEndpointUpdate(
-					current.endpoints[index]!,
-					input,
-					now,
-				);
-				if (
-					current.endpoints.some(
-						(candidate) =>
-							candidate.id !== id &&
-							candidate.name.toLowerCase() === endpoint.name.toLowerCase(),
-					)
-				) {
-					throw new OutboundWebhookConflictError(
-						`Outbound webhook endpoint name already exists: ${endpoint.name}`,
-					);
-				}
-				const endpoints = [...current.endpoints];
-				endpoints[index] = endpoint;
-				return commitJsonFileStoreUpdate(
-					{ ...current, endpoints },
-					endpoint,
-				);
-			});
-		},
+		createEndpoint: (endpoint) =>
+			persistFileOutboundWebhookEndpoint(endpoint, fileOptions),
+		updateEndpoint: (id, input, now) =>
+			updateOutboundWebhookEndpoint(id, input, { ...fileOptions, now }),
 		deleteEndpoint: (id, now) =>
 			deleteOutboundWebhookEndpoint(id, { ...fileOptions, now }),
 		enqueue: (event, enqueueOptions) =>
@@ -622,12 +597,10 @@ export function createFileOutboundWebhookRepository(
 				...claimOptions,
 			}),
 		completeDelivery: (claimed, result, endpoint, completeOptions) =>
-			completeOutboundWebhookDelivery(
-				claimed,
-				result,
-				endpoint,
-				{ ...fileOptions, ...completeOptions },
-			),
+			completeOutboundWebhookDelivery(claimed, result, endpoint, {
+				...fileOptions,
+				...completeOptions,
+			}),
 		reconcile: (reconcileOptions) =>
 			reconcileOutboundWebhookDeliveries({
 				...fileOptions,
@@ -817,26 +790,7 @@ export async function createOutboundWebhookEndpoint(
 	if (options.repository) {
 		return options.repository.createEndpoint(endpoint);
 	}
-	const store = createOutboundWebhookStore(options.path);
-	return updateJsonFileStore(store, (current) => {
-		if (
-			current.endpoints.some(
-				(candidate) =>
-					candidate.name.toLowerCase() === endpoint.name.toLowerCase(),
-			)
-		) {
-			throw new OutboundWebhookConflictError(
-				`Outbound webhook endpoint name already exists: ${endpoint.name}`,
-			);
-		}
-		return commitJsonFileStoreUpdate(
-			{
-				...current,
-				endpoints: [...current.endpoints, endpoint],
-			},
-			endpoint,
-		);
-	});
+	return persistFileOutboundWebhookEndpoint(endpoint, options);
 }
 
 export async function updateOutboundWebhookEndpoint(
@@ -1223,10 +1177,8 @@ export async function reconcileOutboundWebhookDeliveries(
 					),
 			)
 			.slice(0, resolved.limit);
-		const enabledEndpointIds = new Set(
-			current.endpoints
-				.filter((endpoint) => endpoint.enabled)
-				.map((endpoint) => endpoint.id),
+		const endpointsById = new Map(
+			current.endpoints.map((endpoint) => [endpoint.id, endpoint]),
 		);
 		let recovered = 0;
 		let exhausted = 0;
@@ -1241,8 +1193,15 @@ export async function reconcileOutboundWebhookDeliveries(
 				unchanged += 1;
 				continue;
 			}
-			const endpointAvailable = enabledEndpointIds.has(delivery.endpointId);
-			if (endpointAvailable) {
+			const endpoint = endpointsById.get(delivery.endpointId);
+			const canRetry =
+				endpoint?.enabled === true &&
+				delivery.attemptCount < endpoint.maxAttempts;
+			const lastError = outboundWebhookLeaseReconciliationError(
+				canRetry,
+				endpoint?.enabled === true,
+			);
+			if (canRetry) {
 				recovered += 1;
 			} else {
 				exhausted += 1;
@@ -1251,14 +1210,12 @@ export async function reconcileOutboundWebhookDeliveries(
 				delivery.id,
 				deliverySchema.parse({
 					...delivery,
-					status: endpointAvailable ? "retry" : "exhausted",
+					status: canRetry ? "retry" : "exhausted",
 					nextAttemptAt: resolved.now.toISOString(),
-					completedAt: endpointAvailable
+					completedAt: canRetry
 						? undefined
 						: resolved.now.toISOString(),
-					lastError: endpointAvailable
-						? "Recovered expired worker lease"
-						: "Endpoint missing or disabled during lease reconciliation",
+					lastError,
 					leaseToken: undefined,
 					leaseExpiresAt: undefined,
 				}),
@@ -1424,6 +1381,19 @@ async function claimOutboundWebhookDeliveries(
 export function truncateOutboundWebhookError(error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error);
 	return message.replaceAll(/[\r\n\t]+/gu, " ").slice(0, MAX_ERROR_LENGTH);
+}
+
+export function outboundWebhookLeaseReconciliationError(
+	canRetry: boolean,
+	endpointEnabled: boolean,
+): string {
+	if (canRetry) {
+		return "Recovered expired worker lease";
+	}
+	if (endpointEnabled) {
+		return "Maximum delivery attempts reached during lease reconciliation";
+	}
+	return "Endpoint missing or disabled during lease reconciliation";
 }
 
 export function outboundWebhookRetryDelayMs(

@@ -90,19 +90,21 @@ export async function renderSubscriber(
 export async function renderCreateSubscriber(
 	context: SubscribersCliContext,
 	input: CreateSubscriberInput,
-): Promise<void> {
+) {
 	const subscriber = await invokeCreateSubscriberOperation(context, input);
 	context.output.success(`Subscriber created: ${subscriber.id ?? input.email}`);
 	context.output.json(subscriber);
+	return subscriber;
 }
 
 export async function renderUpdateSubscriber(
 	context: SubscribersCliContext,
 	input: UpdateSubscriberInput,
-): Promise<void> {
+) {
 	const subscriber = await invokeUpdateSubscriberOperation(context, input);
 	context.output.success(`Subscriber updated: ${input.id}`);
 	context.output.json(subscriber);
+	return subscriber;
 }
 
 export async function renderDeleteSubscriber(
@@ -205,9 +207,10 @@ export async function renderRemoveSubscribersFromLists(
 export async function renderBlocklistSubscribers(
 	context: SubscribersCliContext,
 	input: SubscriberBulkBlocklistInput,
-): Promise<void> {
+) {
 	const result = await invokeBlocklistSubscribersOperation(context, input);
 	reportBulkResult(context, input, result, "blocklisted", "subscribers");
+	return result;
 }
 
 export async function renderUnblocklistSubscribers(
@@ -278,10 +281,10 @@ type CreateCommandFlags = {
 export async function handleCreateSubscriberCommand({
 	flags,
 	...args
-}: HandlerArgs<CreateCommandFlags>): Promise<void> {
+}: HandlerArgs<CreateCommandFlags>) {
 	try {
 		const client = await getListmonkClient(args);
-		await renderCreateSubscriber(
+		return await renderCreateSubscriber(
 			{ client, output: getOutput() },
 			{
 				email: flags.email,
@@ -319,10 +322,10 @@ type UpdateCommandFlags = {
 export async function handleUpdateSubscriberCommand({
 	flags,
 	...args
-}: HandlerArgs<UpdateCommandFlags>): Promise<void> {
+}: HandlerArgs<UpdateCommandFlags>) {
 	try {
 		const client = await getListmonkClient(args);
-		await renderUpdateSubscriber(
+		return await renderUpdateSubscriber(
 			{ client, output: getOutput() },
 			{
 				id: flags.id,
@@ -434,10 +437,10 @@ async function handleRemoveSubscribersFromListsCommand({
 async function handleBlocklistSubscribersCommand({
 	flags,
 	...args
-}: HandlerArgs<SubscriberBulkBlocklistFlags>): Promise<void> {
+}: HandlerArgs<SubscriberBulkBlocklistFlags>) {
 	try {
 		const client = await getListmonkClient(args);
-		await renderBlocklistSubscribers(
+		return await renderBlocklistSubscribers(
 			{ client, output: getOutput() },
 			{
 				subscriber_ids: parseCsvNumbersStrict(

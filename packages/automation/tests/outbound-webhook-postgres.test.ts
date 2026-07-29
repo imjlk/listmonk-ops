@@ -56,6 +56,16 @@ beforeAll(async () => {
 	});
 	repositories.push(repository);
 	await repository.listEndpoints();
+	const sql = postgres(databaseUrl, { max: 1, prepare: false });
+	try {
+		await sql`
+			TRUNCATE TABLE
+				listmonk_ops.webhook_deliveries,
+				listmonk_ops.webhook_endpoints
+		`;
+	} finally {
+		await sql.end({ timeout: 5 });
+	}
 });
 
 afterAll(async () => {
@@ -203,6 +213,111 @@ describe("Postgres outbound webhook repository", () => {
 					limit: 20,
 				}),
 			).toMatchObject({ eligible: 1, deleted: 1 });
+
+			const attemptLimitedEndpoint =
+				await createOutboundWebhookEndpoint(
+					{
+						name: `postgres-attempt-limit-${randomUUID()}`,
+						url: "https://8.8.8.8/hooks",
+						secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_POSTGRES_LIMIT",
+						eventFilters: ["operation.*"],
+						maxAttempts: 1,
+					},
+					{ repository: first },
+				);
+			endpointIds.add(attemptLimitedEndpoint.id);
+			const limitedEnqueue = await enqueueOutboundWebhookEvent(
+				{
+					id: randomUUID(),
+					type: "operation.succeeded",
+					source: "operation",
+					data: {},
+				},
+				{
+					repository: first,
+					endpointIds: [attemptLimitedEndpoint.id],
+					now: initialAt,
+				},
+			);
+			limitedEnqueue.deliveryIds.forEach((id) => deliveryIds.add(id));
+			await first.claimDeliveries({
+				limit: 1,
+				deliveryIds: limitedEnqueue.deliveryIds,
+				now: initialAt,
+				leaseMs: 1_000,
+			});
+			expect(
+				await reconcileOutboundWebhookDeliveries({
+					repository: second,
+					now: new Date("2026-07-29T00:00:02.000Z"),
+					limit: 20,
+				}),
+			).toMatchObject({ recovered: 0, exhausted: 1 });
+			expect(
+				await listOutboundWebhookDeliveries({
+					repository: first,
+					endpointId: attemptLimitedEndpoint.id,
+					limit: 20,
+				}),
+			).toMatchObject([
+				{
+					status: "exhausted",
+					attemptCount: 1,
+					lastError: expect.stringContaining("Maximum delivery attempts"),
+				},
+			]);
+
+			const concurrencyEvent = await enqueueOutboundWebhookEvent(
+				{
+					id: randomUUID(),
+					type: "operation.succeeded",
+					source: "operation",
+					data: {},
+				},
+				{
+					repository: first,
+					endpointIds: [endpoint.id],
+					now: initialAt,
+				},
+			);
+			concurrencyEvent.deliveryIds.forEach((id) => deliveryIds.add(id));
+			const [concurrencyClaim] = await first.claimDeliveries({
+				limit: 1,
+				deliveryIds: concurrencyEvent.deliveryIds,
+				now: initialAt,
+				leaseMs: 1_000,
+			});
+			await first.completeDelivery(
+				concurrencyClaim!.delivery,
+				{ success: true, retryable: false, statusCode: 204 },
+				concurrencyClaim!.endpoint,
+				{ now: initialAt, baseRetryDelayMs: 1_000 },
+			);
+			const concurrentEnqueue = enqueueOutboundWebhookEvent(
+				{
+					id: randomUUID(),
+					type: "operation.succeeded",
+					source: "operation",
+					data: {},
+				},
+				{
+					repository: first,
+					endpointIds: [endpoint.id],
+					now: initialAt,
+				},
+			);
+			const concurrentPrune = pruneOutboundWebhookDeliveries({
+				repository: second,
+				before: new Date("2026-07-30T00:00:00.000Z"),
+				limit: 20,
+			});
+			const [enqueueResult, pruneResult] = await Promise.all([
+				concurrentEnqueue,
+				concurrentPrune,
+			]);
+			enqueueResult.deliveryIds.forEach((id) => deliveryIds.add(id));
+			expect(enqueueResult.queuedDeliveries).toBe(1);
+			expect(pruneResult.deleted).toBeGreaterThanOrEqual(1);
 		},
 	);
 });

@@ -325,14 +325,20 @@ export async function main() {
 	try {
 		const server = await createMCPServer(config);
 		if (transport === "stdio") {
-			const [{ StdioServerTransport }, { connectMCPTransport }] =
+			const [
+				{ StdioServerTransport },
+				{ connectMCPTransportUntilClosed },
+			] =
 				await Promise.all([
 					import("@modelcontextprotocol/sdk/server/stdio.js"),
 					import("./protocol.js"),
 				]);
 			let transportError: unknown;
 			try {
-				await connectMCPTransport(server, new StdioServerTransport());
+				await connectMCPTransportUntilClosed(
+					server,
+					new StdioServerTransport(),
+				);
 			} catch (error) {
 				transportError = error;
 				throw error;

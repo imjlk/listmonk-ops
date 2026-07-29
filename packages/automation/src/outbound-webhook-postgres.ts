@@ -5,6 +5,7 @@ import {
 	OutboundWebhookNotFoundError,
 	mergeOutboundWebhookEndpointUpdate,
 	matchesOutboundWebhookEvent,
+	outboundWebhookLeaseReconciliationError,
 	outboundWebhookRetryDelayMs,
 	parseOutboundWebhookDelivery,
 	parseOutboundWebhookEndpoint,
@@ -149,84 +150,92 @@ function resolvePositiveInteger(
 }
 
 async function initializeSchema(sql: Sql): Promise<void> {
-	await sql`
-		CREATE SCHEMA IF NOT EXISTS listmonk_ops
-	`;
-	await sql`
-		CREATE TABLE IF NOT EXISTS listmonk_ops.webhook_runtime_meta (
-			key text PRIMARY KEY,
-			value text NOT NULL,
-			updated_at timestamptz NOT NULL DEFAULT now()
-		)
-	`;
-	await sql`
-		INSERT INTO listmonk_ops.webhook_runtime_meta (key, value)
-		VALUES ('schema_version', ${String(POSTGRES_SCHEMA_VERSION)})
-		ON CONFLICT (key) DO NOTHING
-	`;
-	const versionRows = await sql<{ value: string }[]>`
-		SELECT value
-		FROM listmonk_ops.webhook_runtime_meta
-		WHERE key = 'schema_version'
-	`;
-	if (versionRows[0]?.value !== String(POSTGRES_SCHEMA_VERSION)) {
-		throw new Error(
-			`Unsupported webhook Postgres schema version: ${versionRows[0]?.value ?? "missing"}`,
-		);
-	}
-	await sql`
-		CREATE TABLE IF NOT EXISTS listmonk_ops.webhook_endpoints (
-			id uuid PRIMARY KEY,
-			name text NOT NULL,
-			name_key text NOT NULL UNIQUE,
-			url text NOT NULL,
-			secret_ref text NOT NULL,
-			event_filters jsonb NOT NULL,
-			enabled boolean NOT NULL,
-			timeout_ms integer NOT NULL,
-			max_attempts integer NOT NULL,
-			created_at timestamptz NOT NULL,
-			updated_at timestamptz NOT NULL
-		)
-	`;
-	await sql`
-		CREATE TABLE IF NOT EXISTS listmonk_ops.webhook_deliveries (
-			id uuid PRIMARY KEY,
-			event_id uuid NOT NULL,
-			endpoint_id uuid NOT NULL,
-			event jsonb NOT NULL,
-			status text NOT NULL CHECK (
-				status IN ('pending', 'delivering', 'retry', 'succeeded', 'exhausted')
-			),
-			attempt_count integer NOT NULL CHECK (attempt_count >= 0),
-			manual_retry_count integer NOT NULL CHECK (manual_retry_count >= 0),
-			next_attempt_at timestamptz NOT NULL,
-			last_attempt_at timestamptz,
-			completed_at timestamptz,
-			status_code integer,
-			last_error text,
-			lease_token uuid,
-			lease_expires_at timestamptz,
-			UNIQUE (event_id, endpoint_id)
-		)
-	`;
-	await sql`
-		CREATE INDEX IF NOT EXISTS webhook_deliveries_due_idx
-		ON listmonk_ops.webhook_deliveries (
-			status,
-			next_attempt_at,
-			lease_expires_at
-		)
-	`;
-	await sql`
-		CREATE INDEX IF NOT EXISTS webhook_deliveries_endpoint_idx
-		ON listmonk_ops.webhook_deliveries (endpoint_id, status)
-	`;
-	await sql`
-		CREATE INDEX IF NOT EXISTS webhook_deliveries_completed_idx
-		ON listmonk_ops.webhook_deliveries (completed_at)
-		WHERE status IN ('succeeded', 'exhausted')
-	`;
+	await sql.begin(async (transaction) => {
+		await transaction`
+			SELECT pg_advisory_xact_lock(
+				hashtext('listmonk_ops'),
+				hashtext('webhook_runtime_schema')
+			)
+		`;
+		await transaction`
+			CREATE SCHEMA IF NOT EXISTS listmonk_ops
+		`;
+		await transaction`
+			CREATE TABLE IF NOT EXISTS listmonk_ops.webhook_runtime_meta (
+				key text PRIMARY KEY,
+				value text NOT NULL,
+				updated_at timestamptz NOT NULL DEFAULT now()
+			)
+		`;
+		await transaction`
+			INSERT INTO listmonk_ops.webhook_runtime_meta (key, value)
+			VALUES ('schema_version', ${String(POSTGRES_SCHEMA_VERSION)})
+			ON CONFLICT (key) DO NOTHING
+		`;
+		const versionRows = await transaction<{ value: string }[]>`
+			SELECT value
+			FROM listmonk_ops.webhook_runtime_meta
+			WHERE key = 'schema_version'
+		`;
+		if (versionRows[0]?.value !== String(POSTGRES_SCHEMA_VERSION)) {
+			throw new Error(
+				`Unsupported webhook Postgres schema version: ${versionRows[0]?.value ?? "missing"}`,
+			);
+		}
+		await transaction`
+			CREATE TABLE IF NOT EXISTS listmonk_ops.webhook_endpoints (
+				id uuid PRIMARY KEY,
+				name text NOT NULL,
+				name_key text NOT NULL UNIQUE,
+				url text NOT NULL,
+				secret_ref text NOT NULL,
+				event_filters jsonb NOT NULL,
+				enabled boolean NOT NULL,
+				timeout_ms integer NOT NULL,
+				max_attempts integer NOT NULL,
+				created_at timestamptz NOT NULL,
+				updated_at timestamptz NOT NULL
+			)
+		`;
+		await transaction`
+			CREATE TABLE IF NOT EXISTS listmonk_ops.webhook_deliveries (
+				id uuid PRIMARY KEY,
+				event_id uuid NOT NULL,
+				endpoint_id uuid NOT NULL,
+				event jsonb NOT NULL,
+				status text NOT NULL CHECK (
+					status IN ('pending', 'delivering', 'retry', 'succeeded', 'exhausted')
+				),
+				attempt_count integer NOT NULL CHECK (attempt_count >= 0),
+				manual_retry_count integer NOT NULL CHECK (manual_retry_count >= 0),
+				next_attempt_at timestamptz NOT NULL,
+				last_attempt_at timestamptz,
+				completed_at timestamptz,
+				status_code integer,
+				last_error text,
+				lease_token uuid,
+				lease_expires_at timestamptz,
+				UNIQUE (event_id, endpoint_id)
+			)
+		`;
+		await transaction`
+			CREATE INDEX IF NOT EXISTS webhook_deliveries_due_idx
+			ON listmonk_ops.webhook_deliveries (
+				status,
+				next_attempt_at,
+				lease_expires_at
+			)
+		`;
+		await transaction`
+			CREATE INDEX IF NOT EXISTS webhook_deliveries_endpoint_idx
+			ON listmonk_ops.webhook_deliveries (endpoint_id, status)
+		`;
+		await transaction`
+			CREATE INDEX IF NOT EXISTS webhook_deliveries_completed_idx
+			ON listmonk_ops.webhook_deliveries (completed_at)
+			WHERE status IN ('succeeded', 'exhausted')
+		`;
+	});
 }
 
 /**
@@ -423,8 +432,10 @@ export function createPostgresOutboundWebhookRepository(
 			await ensureInitialized();
 			return sql.begin(async (transaction) => {
 				await transaction`
-					LOCK TABLE listmonk_ops.webhook_deliveries
-					IN SHARE ROW EXCLUSIVE MODE
+					SELECT pg_advisory_xact_lock(
+						hashtext('listmonk_ops'),
+						hashtext('webhook_delivery_capacity')
+					)
 				`;
 				const endpointRows = await transaction<EndpointRow[]>`
 					SELECT
@@ -480,7 +491,7 @@ export function createPostgresOutboundWebhookRepository(
 				`;
 				const excess = Number(countRows[0]?.count ?? 0) - enqueueOptions.limit;
 				if (excess > 0) {
-					await transaction`
+					const deleted = await transaction<{ id: string }[]>`
 						DELETE FROM listmonk_ops.webhook_deliveries
 						WHERE id IN (
 							SELECT id
@@ -489,16 +500,13 @@ export function createPostgresOutboundWebhookRepository(
 							ORDER BY completed_at ASC NULLS FIRST
 							LIMIT ${excess}
 						)
+						RETURNING id
 					`;
-				}
-				const remainingRows = await transaction<{ count: string }[]>`
-					SELECT count(*)::text AS count
-					FROM listmonk_ops.webhook_deliveries
-				`;
-				if (Number(remainingRows[0]?.count ?? 0) > enqueueOptions.limit) {
-					throw new OutboundWebhookConflictError(
-						"Outbound webhook store is full of active deliveries",
-					);
+					if (deleted.length < excess) {
+						throw new OutboundWebhookConflictError(
+							"Outbound webhook store is full of active deliveries",
+						);
+					}
 				}
 				return {
 					event,
@@ -762,15 +770,17 @@ export function createPostgresOutboundWebhookRepository(
 				const endpointRows = await transaction<{
 					id: string;
 					enabled: boolean;
+					max_attempts: number;
 				}[]>`
-					SELECT id, enabled
+					SELECT id, enabled, max_attempts
 					FROM listmonk_ops.webhook_endpoints
 					WHERE id = ANY(${transaction.array(endpointIds, POSTGRES_UUID_TYPE_OID)})
 				`;
-				const enabledEndpointIds = new Set(
-					endpointRows
-						.filter((row) => row.enabled)
-						.map((row) => row.id),
+				const endpointsById = new Map(
+					endpointRows.map((row) => [
+						row.id,
+						{ enabled: row.enabled, maxAttempts: row.max_attempts },
+					]),
 				);
 				let recovered = 0;
 				let exhausted = 0;
@@ -784,8 +794,15 @@ export function createPostgresOutboundWebhookRepository(
 						unchanged += 1;
 						continue;
 					}
-					const endpointAvailable = enabledEndpointIds.has(row.endpoint_id);
-					if (endpointAvailable) {
+					const endpoint = endpointsById.get(row.endpoint_id);
+					const canRetry =
+						endpoint?.enabled === true &&
+						row.attempt_count < endpoint.maxAttempts;
+					const lastError = outboundWebhookLeaseReconciliationError(
+						canRetry,
+						endpoint?.enabled === true,
+					);
+					if (canRetry) {
 						recovered += 1;
 					} else {
 						exhausted += 1;
@@ -794,16 +811,12 @@ export function createPostgresOutboundWebhookRepository(
 						await transaction`
 							UPDATE listmonk_ops.webhook_deliveries
 							SET
-								status = ${endpointAvailable ? "retry" : "exhausted"},
+								status = ${canRetry ? "retry" : "exhausted"},
 								next_attempt_at = ${reconcileOptions.now},
 								completed_at = ${
-									endpointAvailable ? null : reconcileOptions.now
+									canRetry ? null : reconcileOptions.now
 								},
-								last_error = ${
-									endpointAvailable
-										? "Recovered expired worker lease"
-										: "Endpoint missing or disabled during lease reconciliation"
-								},
+								last_error = ${lastError},
 								lease_token = NULL,
 								lease_expires_at = NULL
 							WHERE id = ${row.id}
@@ -823,6 +836,12 @@ export function createPostgresOutboundWebhookRepository(
 		async prune(pruneOptions) {
 			await ensureInitialized();
 			return sql.begin(async (transaction) => {
+				await transaction`
+					SELECT pg_advisory_xact_lock(
+						hashtext('listmonk_ops'),
+						hashtext('webhook_delivery_capacity')
+					)
+				`;
 				const rows = await transaction<{ id: string }[]>`
 					SELECT id
 					FROM listmonk_ops.webhook_deliveries

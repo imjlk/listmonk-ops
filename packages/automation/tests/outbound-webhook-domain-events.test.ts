@@ -152,4 +152,23 @@ describe("successful operation lifecycle projection", () => {
 			}),
 		).toEqual([]);
 	});
+
+	test("does not emit A/B lifecycle events from a dry-run tick preview", () => {
+		expect(
+			projectSuccessfulOperationLifecycleEvents({
+				executionId: "execution-abtest-preview",
+				operationId: "abtest.tick",
+				operationInput: { dry_run: true },
+				operationOutput: {
+					results: [
+						{
+							test_id: "test-preview",
+							status: "analyzing",
+							action: "analyze",
+						},
+					],
+				},
+			}),
+		).toEqual([]);
+	});
 });

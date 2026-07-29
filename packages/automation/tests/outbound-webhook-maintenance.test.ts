@@ -157,4 +157,46 @@ describe("outbound webhook repository maintenance", () => {
 			},
 		]);
 	});
+
+	test("exhausts an expired lease after the endpoint attempt limit", async () => {
+		const repository = await createRepository();
+		await createOutboundWebhookEndpoint(
+			{
+				name: "attempt-limited-worker",
+				url: "https://8.8.8.8/hooks",
+				secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_ATTEMPT_LIMIT",
+				eventFilters: ["operation.*"],
+				maxAttempts: 1,
+			},
+			{ repository },
+		);
+		const at = new Date("2026-07-29T00:00:00.000Z");
+		await enqueueOutboundWebhookEvent(
+			{
+				type: "operation.succeeded",
+				source: "operation",
+				data: {},
+			},
+			{ repository, now: at },
+		);
+		await repository.claimDeliveries({
+			limit: 1,
+			now: at,
+			leaseMs: 1_000,
+		});
+
+		expect(
+			await reconcileOutboundWebhookDeliveries({
+				repository,
+				now: new Date("2026-07-29T00:00:02.000Z"),
+			}),
+		).toMatchObject({ recovered: 0, exhausted: 1 });
+		expect(await listOutboundWebhookDeliveries({ repository })).toMatchObject([
+			{
+				status: "exhausted",
+				attemptCount: 1,
+				lastError: expect.stringContaining("Maximum delivery attempts"),
+			},
+		]);
+	});
 });

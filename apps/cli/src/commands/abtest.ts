@@ -793,6 +793,7 @@ export default defineGroup({
 						winner: analysis.winner,
 						recommendations: analysis.recommendations,
 					});
+					return { analysis };
 				} catch (error) {
 					throw new Error(
 						`Failed to analyze A/B test: ${toErrorMessage(error)}`,
@@ -875,6 +876,7 @@ export default defineGroup({
 					);
 					getOutput().success(`A/B test launched: ${flags["test-id"]}`);
 					getOutput().json(launched);
+					return { test: launched };
 				} catch (error) {
 					throw new Error(
 						`Failed to launch A/B test: ${toErrorMessage(error)}`,
@@ -924,6 +926,7 @@ export default defineGroup({
 						`A/B test winner deployed: ${flags["test-id"]}`,
 					);
 					getOutput().json(result);
+					return result;
 				} catch (error) {
 					throw new Error(
 						`Failed to deploy A/B test winner: ${toErrorMessage(error)}`,
@@ -948,6 +951,7 @@ export default defineGroup({
 					);
 					getOutput().success(`A/B test advanced: ${flags["test-id"]}`);
 					getOutput().json(run);
+					return { test: run };
 				} catch (error) {
 					throw new Error(
 						`Failed to run A/B test: ${toErrorMessage(error)}`,
@@ -976,6 +980,7 @@ export default defineGroup({
 							: `Ticked ${result.processed} A/B test(s)`,
 					);
 					getOutput().json(result);
+					return result;
 				} catch (error) {
 					throw new Error(
 						`Failed to tick A/B tests: ${toErrorMessage(error)}`,
