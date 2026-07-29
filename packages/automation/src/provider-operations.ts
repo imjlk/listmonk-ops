@@ -40,15 +40,21 @@ const readOnlyOpenWorldSafety = {
 	openWorldHint: true,
 } as const;
 
-const providerIdInput = z
+export const providerIdInput = z
 	.string()
 	.trim()
 	.min(1)
 	.max(80)
 	.regex(/^[a-z][a-z0-9._-]*$/);
-const providerIdInputSchema = z.object({ provider_id: providerIdInput });
+export const providerIdInputSchema = z.object({ provider_id: providerIdInput });
+export const providerWebhookMaxAgeHoursInput = z.coerce
+	.number()
+	.int()
+	.min(1)
+	.max(8_760)
+	.optional();
 const webhookStatusInputSchema = providerIdInputSchema.extend({
-	max_age_hours: z.coerce.number().int().min(1).max(8_760).optional(),
+	max_age_hours: providerWebhookMaxAgeHoursInput,
 });
 const doctorInputSchema = webhookStatusInputSchema;
 const emptyInputSchema = z.object({});

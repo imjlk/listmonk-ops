@@ -1,8 +1,9 @@
 import {
 	invokeDeliverabilityDnsCheckOperation,
 	invokeDeliverabilityDoctorOperation,
+	providerIdInput,
+	providerWebhookMaxAgeHoursInput,
 } from "@listmonk-ops/automation";
-import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
 import { getOutput } from "../lib/output";
 import {
@@ -10,10 +11,9 @@ import {
 	runProviderCliCommand,
 } from "../lib/provider";
 
-const providerIdOption = option(
-	z.string().trim().min(1).max(80).regex(/^[a-z][a-z0-9._-]*$/),
-	{ description: "Provider profile ID" },
-);
+const providerIdOption = option(providerIdInput, {
+	description: "Provider profile ID",
+});
 
 const dnsCheckCommand = defineCommand({
 	name: "dns-check",
@@ -38,10 +38,9 @@ const doctorCommand = defineCommand({
 	description: "Run the complete provider deliverability readiness doctor",
 	options: {
 		"provider-id": providerIdOption,
-		"max-age-hours": option(
-			z.coerce.number().int().min(1).max(8_760).optional(),
-			{ description: "Provider webhook freshness threshold in hours" },
-		),
+		"max-age-hours": option(providerWebhookMaxAgeHoursInput, {
+			description: "Provider webhook freshness threshold in hours",
+		}),
 	},
 	handler: async ({ flags, ...args }) => {
 		getOutput().json(

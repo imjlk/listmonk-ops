@@ -13,6 +13,7 @@ import {
 	inspectListmonkProviderSettings,
 	loadProviderProfiles,
 	providerOperationCatalog,
+	providerConfigSchema,
 	providerProfileSchema,
 	type ProviderDnsResolver,
 	type ProviderInspector,
@@ -721,6 +722,12 @@ describe("provider profile loader", () => {
 	});
 
 	test("rejects duplicate IDs and raw credential material", () => {
+		expect(() =>
+			providerConfigSchema.parse({
+				schema_version: 1,
+				profiles: [profile, profile],
+			}),
+		).toThrow("Duplicate provider profile id");
 		expect(() =>
 			providerProfileSchema.parse({
 				id: "marketing",

@@ -114,7 +114,7 @@ export const providerProfileSchema = z
 
 export type ProviderProfile = z.output<typeof providerProfileSchema>;
 
-const providerConfigSchema = z
+export const providerConfigSchema = z
 	.object({
 		schema_version: z.literal(1),
 		profiles: z.array(providerProfileSchema).max(100),
