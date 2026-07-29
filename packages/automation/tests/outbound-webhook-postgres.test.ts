@@ -4,6 +4,7 @@ import postgres from "postgres";
 import { createPostgresOutboundWebhookRepository } from "../src/outbound-webhook-postgres";
 import {
 	createOutboundWebhookEndpoint,
+	dispatchOutboundWebhooks,
 	enqueueOutboundWebhookEvent,
 	listOutboundWebhookDeliveries,
 	pruneOutboundWebhookDeliveries,
@@ -158,6 +159,13 @@ describe("Postgres outbound webhook repository", () => {
 					),
 				).size,
 			).toBe(8);
+			await first.upsertWorker({
+				id: randomUUID(),
+				status: "stopped",
+				startedAt: "2026-06-01T00:00:00.000Z",
+				heartbeatAt: "2026-06-01T00:00:01.000Z",
+				stoppedAt: "2026-06-01T00:00:01.000Z",
+			});
 			const staleWorkerId = randomUUID();
 			await first.upsertWorker({
 				id: staleWorkerId,
@@ -189,7 +197,7 @@ describe("Postgres outbound webhook repository", () => {
 			).toMatchObject({
 				healthy: true,
 				deliveries: { due: 8 },
-				workers: { running: 1, stale: 1 },
+				workers: { running: 1, stale: 1, stopped: 0 },
 			});
 
 			const stale = firstClaims[0]!;
@@ -352,6 +360,119 @@ describe("Postgres outbound webhook repository", () => {
 			enqueueResult.deliveryIds.forEach((id) => deliveryIds.add(id));
 			expect(enqueueResult.queuedDeliveries).toBe(1);
 			expect(pruneResult.deleted).toBeGreaterThanOrEqual(1);
+
+			const circuitEndpoint = await createOutboundWebhookEndpoint(
+				{
+					name: `postgres-circuit-${randomUUID()}`,
+					url: "https://8.8.8.8/hooks",
+					secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_POSTGRES_CIRCUIT",
+					eventFilters: ["operation.*"],
+					circuitFailureThreshold: 1,
+				},
+				{ repository: first },
+			);
+			endpointIds.add(circuitEndpoint.id);
+			const failedCircuitEvent = await enqueueOutboundWebhookEvent(
+				{
+					id: randomUUID(),
+					type: "operation.succeeded",
+					source: "operation",
+					data: {},
+				},
+				{
+					repository: first,
+					endpointIds: [circuitEndpoint.id],
+					now: initialAt,
+				},
+			);
+			failedCircuitEvent.deliveryIds.forEach((id) => deliveryIds.add(id));
+			expect(
+				await dispatchOutboundWebhooks({
+					store: { repository: first },
+					deliveryIds: failedCircuitEvent.deliveryIds,
+					now: initialAt,
+					fetcher: async () => new Response(null, { status: 500 }),
+					resolveSecret: () => "secret",
+				}),
+			).toMatchObject({ exhausted: 0, retried: 1 });
+			const probeEvent = await enqueueOutboundWebhookEvent(
+				{
+					id: randomUUID(),
+					type: "operation.succeeded",
+					source: "operation",
+					data: {},
+				},
+				{
+					repository: first,
+					endpointIds: [circuitEndpoint.id],
+					now: initialAt,
+				},
+			);
+			probeEvent.deliveryIds.forEach((id) => deliveryIds.add(id));
+			expect(
+				await dispatchOutboundWebhooks({
+					store: { repository: first },
+					deliveryIds: probeEvent.deliveryIds,
+					now: initialAt,
+					fetcher: async () => new Response(null, { status: 204 }),
+					resolveSecret: () => "secret",
+				}),
+			).toMatchObject({ claimed: 0 });
+			expect(
+				await dispatchOutboundWebhooks({
+					store: { repository: first },
+					deliveryIds: probeEvent.deliveryIds,
+					bypassCircuitBreaker: true,
+					now: initialAt,
+					fetcher: async () => new Response(null, { status: 204 }),
+					resolveSecret: () => "secret",
+				}),
+			).toMatchObject({ claimed: 1, succeeded: 1 });
+			await first.resetEndpointCircuit(
+				circuitEndpoint.id,
+				new Date("2026-07-30T00:00:00.000Z"),
+			);
+			expect(await first.getEndpoint(circuitEndpoint.id)).toMatchObject({
+				updatedAt: circuitEndpoint.updatedAt,
+			});
+
+			const disabledEndpoint = await createOutboundWebhookEndpoint(
+				{
+					name: `postgres-disabled-${randomUUID()}`,
+					url: "https://8.8.8.8/hooks",
+					secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_POSTGRES_DISABLED",
+					eventFilters: ["operation.*"],
+				},
+				{ repository: first },
+			);
+			endpointIds.add(disabledEndpoint.id);
+			const disabledEvent = await enqueueOutboundWebhookEvent(
+				{
+					id: randomUUID(),
+					type: "operation.succeeded",
+					source: "operation",
+					data: {},
+				},
+				{
+					repository: first,
+					endpointIds: [disabledEndpoint.id],
+					now: initialAt,
+				},
+			);
+			disabledEvent.deliveryIds.forEach((id) => deliveryIds.add(id));
+			await updateOutboundWebhookEndpoint(
+				disabledEndpoint.id,
+				{ enabled: false },
+				{ repository: first, now: initialAt },
+			);
+			expect(
+				await dispatchOutboundWebhooks({
+					store: { repository: first },
+					deliveryIds: disabledEvent.deliveryIds,
+					now: initialAt,
+					resolveSecret: () => "secret",
+				}),
+			).toMatchObject({ claimed: 1, exhausted: 1 });
 		},
 	);
 
@@ -369,17 +490,17 @@ describe("Postgres outbound webhook repository", () => {
 						listmonk_ops.webhook_endpoints,
 						listmonk_ops.webhook_workers
 				`;
-				await sql`DROP TABLE listmonk_ops.webhook_workers`;
+				await sql`DROP TABLE IF EXISTS listmonk_ops.webhook_workers`;
 				await sql`
 					ALTER TABLE listmonk_ops.webhook_endpoints
-						DROP COLUMN circuit_failure_threshold,
-						DROP COLUMN circuit_cooldown_ms,
-						DROP COLUMN consecutive_failures,
-						DROP COLUMN circuit_state,
-						DROP COLUMN circuit_opened_at,
-						DROP COLUMN circuit_open_until,
-						DROP COLUMN last_failure_at,
-						DROP COLUMN last_success_at
+						DROP COLUMN IF EXISTS circuit_failure_threshold,
+						DROP COLUMN IF EXISTS circuit_cooldown_ms,
+						DROP COLUMN IF EXISTS consecutive_failures,
+						DROP COLUMN IF EXISTS circuit_state,
+						DROP COLUMN IF EXISTS circuit_opened_at,
+						DROP COLUMN IF EXISTS circuit_open_until,
+						DROP COLUMN IF EXISTS last_failure_at,
+						DROP COLUMN IF EXISTS last_success_at
 				`;
 				await sql`
 					UPDATE listmonk_ops.webhook_runtime_meta

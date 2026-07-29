@@ -17,6 +17,9 @@ export const DEFAULT_OUTBOUND_WEBHOOK_WORKER_FAILURE_LIMIT = 5;
 export const DEFAULT_OUTBOUND_WEBHOOK_WORKER_FAILURE_BACKOFF_MS = 1_000;
 export const MIN_OUTBOUND_WEBHOOK_WORKER_FAILURE_BACKOFF_MS = 250;
 export const MAX_OUTBOUND_WEBHOOK_WORKER_FAILURE_BACKOFF_MS = 30_000;
+export const DEFAULT_OUTBOUND_WEBHOOK_WORKER_HEARTBEAT_INTERVAL_MS = 30_000;
+export const MIN_OUTBOUND_WEBHOOK_WORKER_HEARTBEAT_INTERVAL_MS = 250;
+export const MAX_OUTBOUND_WEBHOOK_WORKER_HEARTBEAT_INTERVAL_MS = 60_000;
 
 export interface RunOutboundWebhookWorkerOptions {
 	store: OutboundWebhookStoreOptions;
@@ -31,6 +34,7 @@ export interface RunOutboundWebhookWorkerOptions {
 	onTickError?: (result: OutboundWebhookWorkerTickError) => void;
 	failureLimit?: number;
 	failureBackoffMs?: number;
+	heartbeatIntervalMs?: number;
 }
 
 export interface OutboundWebhookWorkerTickResult {
@@ -123,6 +127,18 @@ export async function runOutboundWebhookWorker(
 	}
 	const dispatchLimit = options.dispatchLimit ?? 25;
 	const reconcileLimit = options.reconcileLimit ?? 100;
+	const heartbeatIntervalMs =
+		options.heartbeatIntervalMs ??
+		DEFAULT_OUTBOUND_WEBHOOK_WORKER_HEARTBEAT_INTERVAL_MS;
+	if (
+		!Number.isInteger(heartbeatIntervalMs) ||
+		heartbeatIntervalMs < MIN_OUTBOUND_WEBHOOK_WORKER_HEARTBEAT_INTERVAL_MS ||
+		heartbeatIntervalMs > MAX_OUTBOUND_WEBHOOK_WORKER_HEARTBEAT_INTERVAL_MS
+	) {
+		throw new RangeError(
+			`Webhook worker heartbeat interval must be between ${MIN_OUTBOUND_WEBHOOK_WORKER_HEARTBEAT_INTERVAL_MS} and ${MAX_OUTBOUND_WEBHOOK_WORKER_HEARTBEAT_INTERVAL_MS}ms`,
+		);
+	}
 	const startedAt = new Date().toISOString();
 	let ticks = 0;
 	let claimed = 0;
@@ -131,6 +147,7 @@ export async function runOutboundWebhookWorker(
 	let exhausted = 0;
 	let consecutiveFailures = 0;
 	let lastTick: OutboundWebhookWorker["lastTick"];
+	let lastError: string | undefined;
 
 	await upsertOutboundWebhookWorker(
 		{
@@ -141,10 +158,36 @@ export async function runOutboundWebhookWorker(
 		},
 		options.store,
 	);
+	let heartbeatFailure: Error | undefined;
+	let heartbeatWrite = Promise.resolve();
+	const heartbeatTimer = setInterval(() => {
+		heartbeatWrite = heartbeatWrite
+			.then(async () => {
+				const heartbeatAt = new Date().toISOString();
+				await upsertOutboundWebhookWorker(
+					{
+						id: workerId,
+						status: "running",
+						startedAt,
+						heartbeatAt,
+						...(lastError === undefined ? {} : { lastError }),
+						...(lastTick === undefined ? {} : { lastTick }),
+					},
+					options.store,
+				);
+			})
+			.catch((error: unknown) => {
+				heartbeatFailure =
+					error instanceof Error ? error : new Error(String(error));
+			});
+	}, heartbeatIntervalMs);
 
 	try {
 		while (!options.signal?.aborted) {
 			try {
+				if (heartbeatFailure) {
+					throw heartbeatFailure;
+				}
 				const reconcile = await reconcileOutboundWebhookDeliveries({
 					...options.store,
 					limit: reconcileLimit,
@@ -156,6 +199,9 @@ export async function runOutboundWebhookWorker(
 					fetcher: options.fetcher,
 					resolveSecret: options.resolveSecret,
 				});
+				if (heartbeatFailure) {
+					throw heartbeatFailure;
+				}
 				const completedAt = new Date().toISOString();
 				const tick = { reconcile, dispatch, completedAt };
 				ticks += 1;
@@ -164,6 +210,7 @@ export async function runOutboundWebhookWorker(
 				retried += dispatch.retried;
 				exhausted += dispatch.exhausted;
 				consecutiveFailures = 0;
+				lastError = undefined;
 				lastTick = {
 					claimed: dispatch.claimed,
 					succeeded: dispatch.succeeded,
@@ -188,6 +235,7 @@ export async function runOutboundWebhookWorker(
 					break;
 				}
 				consecutiveFailures += 1;
+				lastError = truncateOutboundWebhookError(error);
 				if (consecutiveFailures >= failureLimit) {
 					throw error;
 				}
@@ -203,7 +251,7 @@ export async function runOutboundWebhookWorker(
 							status: "running",
 							startedAt,
 							heartbeatAt: failedAt,
-							lastError: truncateOutboundWebhookError(error),
+							lastError,
 							...(lastTick === undefined ? {} : { lastTick }),
 						},
 						options.store,
@@ -215,7 +263,7 @@ export async function runOutboundWebhookWorker(
 					);
 				}
 				options.onTickError?.({
-					error: truncateOutboundWebhookError(error),
+					error: lastError,
 					consecutiveFailures,
 					retryInMs,
 					failedAt,
@@ -224,6 +272,8 @@ export async function runOutboundWebhookWorker(
 			}
 		}
 	} catch (error) {
+		clearInterval(heartbeatTimer);
+		await heartbeatWrite;
 		const failedAt = new Date().toISOString();
 		try {
 			await upsertOutboundWebhookWorker(
@@ -247,6 +297,8 @@ export async function runOutboundWebhookWorker(
 		throw error;
 	}
 
+	clearInterval(heartbeatTimer);
+	await heartbeatWrite;
 	const stoppedAt = new Date().toISOString();
 	await upsertOutboundWebhookWorker(
 		{

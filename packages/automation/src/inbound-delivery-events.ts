@@ -88,17 +88,16 @@ export async function ingestInboundDeliveryEvent(
 		);
 	}
 	if (
-		input.kind === "unsubscribed" &&
+		subscriberUuid !== undefined &&
 		!z.uuid().safeParse(subscriberUuid).success
 	) {
-		throw new TypeError(
-			"subscriberUuid must be a valid UUID for unsubscribed delivery events",
-		);
+		throw new TypeError("subscriberUuid must be a valid UUID when provided");
 	}
 	const metadata = { ...(input.metadata ?? {}) };
 	delete metadata.provider;
 	delete metadata.provider_event_id;
 	delete metadata.campaign_id;
+	delete metadata.subscriber_uuid;
 	let metadataJson: string;
 	try {
 		metadataJson = JSON.stringify(metadata);
@@ -137,6 +136,9 @@ export async function ingestInboundDeliveryEvent(
 				...(input.campaignId === undefined
 					? {}
 					: { campaign_id: input.campaignId }),
+				...(subscriberUuid === undefined
+					? {}
+					: { subscriber_uuid: subscriberUuid }),
 			},
 		},
 		options,

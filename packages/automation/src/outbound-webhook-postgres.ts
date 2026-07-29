@@ -22,6 +22,7 @@ import {
 	type OutboundWebhookRepository,
 	type PruneOutboundWebhooksResult,
 	type ReconcileOutboundWebhooksResult,
+	DEFAULT_OUTBOUND_WEBHOOK_WORKER_RETENTION_MS,
 } from "./outbound-webhooks";
 
 export const OUTBOUND_WEBHOOK_POSTGRES_SCHEMA_VERSION = 2;
@@ -303,6 +304,22 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				WHERE key = 'schema_version'
 			`;
 		}
+		await transaction`
+			DO $$
+			BEGIN
+				IF NOT EXISTS (
+					SELECT 1
+					FROM pg_constraint
+					WHERE conname = 'webhook_endpoints_circuit_state_check'
+						AND conrelid = 'listmonk_ops.webhook_endpoints'::regclass
+				) THEN
+					ALTER TABLE listmonk_ops.webhook_endpoints
+					ADD CONSTRAINT webhook_endpoints_circuit_state_check
+					CHECK (circuit_state IN ('closed', 'open'));
+				END IF;
+			END
+			$$
+		`;
 	});
 }
 
@@ -727,8 +744,8 @@ export function createPostgresOutboundWebhookRepository(
 					AND endpoint_id IN (
 						SELECT id
 						FROM listmonk_ops.webhook_endpoints
-						WHERE enabled = true
-						${circuitFilter}
+						WHERE true
+							${circuitFilter}
 					)
 					${selectedFilter}
 					${excludedFilter}
@@ -1158,32 +1175,46 @@ export function createPostgresOutboundWebhookRepository(
 
 		async upsertWorker(worker) {
 			await ensureInitialized();
-			await sql`
-				INSERT INTO listmonk_ops.webhook_workers (
-					id, status, started_at, heartbeat_at, stopped_at,
-					last_error, last_tick
-				)
-				VALUES (
-					${worker.id},
-					${worker.status},
-					${worker.startedAt},
-					${worker.heartbeatAt},
-					${worker.stoppedAt ?? null},
-					${worker.lastError ?? null},
-					${worker.lastTick === undefined ? null : sql.json(worker.lastTick)}
-				)
-				ON CONFLICT (id) DO UPDATE
-				SET
-					status = EXCLUDED.status,
-					started_at = EXCLUDED.started_at,
-					heartbeat_at = EXCLUDED.heartbeat_at,
-					stopped_at = EXCLUDED.stopped_at,
-					last_error = EXCLUDED.last_error,
-					last_tick = EXCLUDED.last_tick
-			`;
+			await sql.begin(async (transaction) => {
+				await transaction`
+					INSERT INTO listmonk_ops.webhook_workers (
+						id, status, started_at, heartbeat_at, stopped_at,
+						last_error, last_tick
+					)
+					VALUES (
+						${worker.id},
+						${worker.status},
+						${worker.startedAt},
+						${worker.heartbeatAt},
+						${worker.stoppedAt ?? null},
+						${worker.lastError ?? null},
+						${
+							worker.lastTick === undefined
+								? null
+								: transaction.json(worker.lastTick)
+						}
+					)
+					ON CONFLICT (id) DO UPDATE
+					SET
+						status = EXCLUDED.status,
+						started_at = EXCLUDED.started_at,
+						heartbeat_at = EXCLUDED.heartbeat_at,
+						stopped_at = EXCLUDED.stopped_at,
+						last_error = EXCLUDED.last_error,
+						last_tick = EXCLUDED.last_tick
+				`;
+				await transaction`
+					DELETE FROM listmonk_ops.webhook_workers
+					WHERE id <> ${worker.id}
+						AND status IN ('stopped', 'failed')
+						AND coalesce(stopped_at, heartbeat_at) <
+							${worker.heartbeatAt}::timestamptz -
+							${DEFAULT_OUTBOUND_WEBHOOK_WORKER_RETENTION_MS} * interval '1 millisecond'
+				`;
+			});
 		},
 
-		async resetEndpointCircuit(endpointId, now) {
+		async resetEndpointCircuit(endpointId, _now) {
 			await ensureInitialized();
 			const rows = await sql<EndpointRow[]>`
 				UPDATE listmonk_ops.webhook_endpoints
@@ -1191,8 +1222,7 @@ export function createPostgresOutboundWebhookRepository(
 					consecutive_failures = 0,
 					circuit_state = 'closed',
 					circuit_opened_at = NULL,
-					circuit_open_until = NULL,
-					updated_at = ${now}
+					circuit_open_until = NULL
 				WHERE id = ${endpointId}
 				RETURNING
 					id, name, url, secret_ref, event_filters, enabled,

@@ -685,7 +685,9 @@ listmonk-cli webhooks create \
   --name operations \
   --url https://events.example.com/listmonk \
   --secret-ref LISTMONK_OPS_WEBHOOK_SECRET \
-  --event-filters 'operation.*,campaign.*,abtest.*'
+  --event-filters 'operation.*,campaign.*,abtest.*' \
+  --circuit-failure-threshold 5 \
+  --circuit-cooldown-ms 300000
 
 listmonk-cli webhooks test --id <endpoint-uuid> --confirm
 listmonk-cli webhooks tick --dispatch-limit 25 --confirm

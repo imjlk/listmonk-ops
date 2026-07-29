@@ -138,6 +138,80 @@ describe("outbound webhook runtime stage 2", () => {
 		});
 	});
 
+	test("prunes terminal worker history after the retention window", async () => {
+		const path = await createStorePath();
+		await upsertOutboundWebhookWorker(
+			{
+				id: "e71c465a-b980-44a2-a7c8-c671d4d5374c",
+				status: "stopped",
+				startedAt: "2026-06-01T00:00:00.000Z",
+				heartbeatAt: "2026-06-01T00:00:01.000Z",
+				stoppedAt: "2026-06-01T00:00:01.000Z",
+			},
+			{ path },
+		);
+		await upsertOutboundWebhookWorker(
+			{
+				id: "7f6a4b5d-a0e5-4eae-9e9e-64d522c40b83",
+				status: "running",
+				startedAt: "2026-07-29T00:00:00.000Z",
+				heartbeatAt: "2026-07-29T00:00:00.000Z",
+			},
+			{ path },
+		);
+
+		expect(
+			await getOutboundWebhookRuntimeHealth({
+				path,
+				now: new Date("2026-07-29T00:00:00.000Z"),
+			}),
+		).toMatchObject({
+			workers: { running: 1, stopped: 0, failed: 0 },
+		});
+	});
+
+	test("refreshes its heartbeat while a delivery tick is still running", async () => {
+		const path = await createStorePath();
+		const repository = createFileOutboundWebhookRepository({ path });
+		let releaseReconcile!: () => void;
+		let markReconcileStarted!: () => void;
+		const reconcileStarted = new Promise<void>((resolve) => {
+			markReconcileStarted = resolve;
+		});
+		const reconcileGate = new Promise<void>((resolve) => {
+			releaseReconcile = resolve;
+		});
+		const controller = new AbortController();
+		const running = runOutboundWebhookWorker({
+			store: {
+				repository: {
+					...repository,
+					async reconcile(options) {
+						markReconcileStarted();
+						await reconcileGate;
+						return repository.reconcile(options);
+					},
+				},
+			},
+			heartbeatIntervalMs: 250,
+			signal: controller.signal,
+			onTick: () => controller.abort(),
+		});
+		await reconcileStarted;
+		const initial = JSON.parse(await readFile(path, "utf8")) as {
+			workers: { heartbeatAt: string }[];
+		};
+		await new Promise((resolve) => setTimeout(resolve, 350));
+		const refreshed = JSON.parse(await readFile(path, "utf8")) as {
+			workers: { heartbeatAt: string }[];
+		};
+		expect(Date.parse(refreshed.workers[0]!.heartbeatAt)).toBeGreaterThan(
+			Date.parse(initial.workers[0]!.heartbeatAt),
+		);
+		releaseReconcile();
+		await running;
+	});
+
 	test("backs off and recovers from a transient tick failure", async () => {
 		const path = await createStorePath();
 		const repository = createFileOutboundWebhookRepository({ path });

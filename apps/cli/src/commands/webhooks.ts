@@ -584,7 +584,9 @@ const circuitResetCommand = defineCommand({
 		id: option(z.uuid(), { description: "Endpoint ID" }),
 	},
 	handler: async ({ flags }) => {
-		getOutput().json(await invokeWebhookCircuitResetOperation({}, flags));
+		getOutput().json(
+			await invokeWebhookCircuitResetOperation({}, { id: flags.id }),
+		);
 	},
 });
 

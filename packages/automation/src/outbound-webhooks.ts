@@ -36,6 +36,8 @@ export const DEFAULT_OUTBOUND_WEBHOOK_CONCURRENCY = 5;
 export const DEFAULT_OUTBOUND_WEBHOOK_CIRCUIT_FAILURE_THRESHOLD = 5;
 export const DEFAULT_OUTBOUND_WEBHOOK_CIRCUIT_COOLDOWN_MS = 300_000;
 export const DEFAULT_OUTBOUND_WEBHOOK_WORKER_HEARTBEAT_STALE_MS = 90_000;
+export const DEFAULT_OUTBOUND_WEBHOOK_WORKER_RETENTION_MS =
+	30 * 24 * 60 * 60 * 1_000;
 export const OUTBOUND_WEBHOOK_SECRET_REF_PATTERN =
 	/^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$/;
 
@@ -1645,6 +1647,7 @@ async function claimOutboundWebhookDeliveries(
 			leaseMs: options.leaseMs,
 			deliveryIds: options.deliveryIds,
 			excludeDeliveryIds: options.excludeDeliveryIds,
+			bypassCircuitBreaker: options.bypassCircuitBreaker,
 		});
 	}
 	const store = createOutboundWebhookStore(options.path);
@@ -1925,8 +1928,17 @@ export async function upsertOutboundWebhookWorker(
 	const worker = workerSchema.parse(input);
 	const store = createOutboundWebhookStore(options.path);
 	await updateJsonFileStore(store, (current) => {
+		const retentionCutoff =
+			Date.parse(worker.heartbeatAt) -
+			DEFAULT_OUTBOUND_WEBHOOK_WORKER_RETENTION_MS;
 		const workers = [
-			...current.workers.filter((candidate) => candidate.id !== worker.id),
+			...current.workers.filter(
+				(candidate) =>
+					candidate.id !== worker.id &&
+					(candidate.status === "running" ||
+						Date.parse(candidate.stoppedAt ?? candidate.heartbeatAt) >=
+							retentionCutoff),
+			),
 			worker,
 		];
 		return commitJsonFileStoreUpdate({ ...current, workers }, undefined);
@@ -2012,7 +2024,7 @@ export function summarizeOutboundWebhookRuntimeHealth(
 	);
 	const lastHeartbeatAt = activeWorkers
 		.map((worker) => worker.heartbeatAt)
-		.sort()
+		.sort((left, right) => Date.parse(left) - Date.parse(right))
 		.at(-1);
 	const circuitOpen = endpointRuntime.filter(
 		(runtime) =>
@@ -2044,7 +2056,7 @@ export function summarizeOutboundWebhookRuntimeHealth(
 							delivery.nextAttemptAt)
 						: delivery.nextAttemptAt,
 				)
-				.sort()
+				.sort((left, right) => Date.parse(left) - Date.parse(right))
 				.at(0),
 		},
 		workers: {

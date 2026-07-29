@@ -156,6 +156,22 @@ describe("webhook shared operations", () => {
 
 	test("rejects ambiguous unsubscribe events and oversized provider metadata", async () => {
 		const context = await createContext();
+		const subscriberUuid = "0e9a8b67-1e4a-4c2d-9102-6ee29048a50c";
+		expect(
+			await ingestInboundDeliveryEvent(
+				{
+					provider: "ses",
+					providerEventId: "delivery-with-subscriber",
+					kind: "delivered",
+					subscriberUuid,
+				},
+				context.store,
+			),
+		).toMatchObject({
+			event: {
+				data: { subscriber_uuid: subscriberUuid },
+			},
+		});
 		await expect(
 			invokeWebhookInboundIngestOperation(context, {
 				provider: "ses",
@@ -179,6 +195,17 @@ describe("webhook shared operations", () => {
 					provider: "ses",
 					providerEventId: "invalid-subscriber-uuid",
 					kind: "unsubscribed",
+					subscriberUuid: "not-a-uuid",
+				},
+				context.store,
+			),
+		).rejects.toThrow("subscriberUuid must be a valid UUID");
+		await expect(
+			ingestInboundDeliveryEvent(
+				{
+					provider: "ses",
+					providerEventId: "invalid-optional-subscriber-uuid",
+					kind: "delivered",
 					subscriberUuid: "not-a-uuid",
 				},
 				context.store,
