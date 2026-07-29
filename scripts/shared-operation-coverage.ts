@@ -9,6 +9,7 @@ import {
 import { listsTools } from "../packages/mcp/src/handlers/lists";
 import { mediaTools } from "../packages/mcp/src/handlers/media";
 import { opsTools } from "../packages/mcp/src/handlers/ops";
+import { providerTools } from "../packages/mcp/src/handlers/providers";
 import { sequenceTools } from "../packages/mcp/src/handlers/sequences";
 import { subscribersTools } from "../packages/mcp/src/handlers/subscribers";
 import { templatesTools } from "../packages/mcp/src/handlers/templates";
@@ -16,6 +17,7 @@ import { transactionalTools } from "../packages/mcp/src/handlers/transactional";
 import { webhookTools } from "../packages/mcp/src/handlers/webhooks";
 import { withMcpOperationConfirmationInputSchema } from "../packages/mcp/src/operation-execution";
 import { opsOperations } from "../packages/automation/src/ops-operations";
+import { providerOperations } from "../packages/automation/src/provider-operations";
 import { sequenceOperations } from "../packages/automation/src/sequence-operations";
 import { webhookOperations } from "../packages/automation/src/webhook-operations";
 import { campaignOperations } from "../packages/operations/src/campaigns";
@@ -34,6 +36,7 @@ export type SharedOperation =
 	| (typeof listOperations)[number]
 	| (typeof mediaOperations)[number]
 	| (typeof opsOperations)[number]
+	| (typeof providerOperations)[number]
 	| (typeof sequenceOperations)[number]
 	| (typeof subscriberOperations)[number]
 	| (typeof templateOperations)[number]
@@ -223,5 +226,13 @@ export function assertSequenceOperationsPublished(): void {
 		"sequences",
 		sequenceOperations,
 		sequenceTools,
+	);
+}
+
+export function assertProviderOperationsPublished(): void {
+	assertOperationFamilyPublished(
+		"provider and deliverability diagnostics",
+		providerOperations,
+		providerTools,
 	);
 }

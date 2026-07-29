@@ -13,10 +13,10 @@ functions preserve the registry validation and error contract while keeping
 CLI/MCP-to-domain call paths visible to static tooling. Surface packages remain
 responsible for authentication and presentation.
 
-Twenty-two operations attach an `@listmonk-ops/operations/specs` descriptor: the
-campaign get/schedule/start/cancel lifecycle, subscriber blocklisting,
-transactional send, campaign preflight, and seven agent discovery/readiness
-operations, plus eight outbound-webhook endpoint and delivery operations. The operation
+Fifty-one operations attach an `@listmonk-ops/operations/specs` descriptor,
+including campaign lifecycle, subscriber blocklisting, transactional send,
+campaign preflight, agent discovery/readiness, outbound webhooks, headless
+sequences, and seven provider/deliverability diagnostics. The operation
 definition validates that runtime identity, safety hints, and MCP metadata
 still match the declaration, while catalog summaries expose a detached
 descriptor for agent discovery. This does not replace Zod runtime validation

@@ -16,10 +16,20 @@ import type {
 	ControlPrimeOutput,
 	ControlStatusInput,
 	ControlStatusOutput,
+	DeliverabilityDnsCheckOutput,
+	DeliverabilityDoctorOutput,
 	EmptyInput,
 	PlaybookGetInput,
 	PlaybookGetOutput,
 	PlaybookListOutput,
+	ProviderIdInput,
+	ProviderListInput,
+	ProviderListOutput,
+	ProviderQuotaOutput,
+	ProviderStatusOutput,
+	ProviderTestOutput,
+	ProviderWebhookStatusInput,
+	ProviderWebhookStatusOutput,
 	SpecDescribeInput,
 	SpecDescribeOutput,
 	SpecSearchInput,
@@ -261,6 +271,34 @@ const contracts = {
 	),
 	controlStatusOutputContract: contractSchema(
 		typia.json.schema<ControlStatusOutput>(),
+	),
+	providerListInputContract: contractSchema(
+		typia.json.schema<ProviderListInput>(),
+	),
+	providerListOutputContract: contractSchema(
+		typia.json.schema<ProviderListOutput>(),
+	),
+	providerIdInputContract: contractSchema(typia.json.schema<ProviderIdInput>()),
+	providerStatusOutputContract: contractSchema(
+		typia.json.schema<ProviderStatusOutput>(),
+	),
+	providerTestOutputContract: contractSchema(
+		typia.json.schema<ProviderTestOutput>(),
+	),
+	providerQuotaOutputContract: contractSchema(
+		typia.json.schema<ProviderQuotaOutput>(),
+	),
+	providerWebhookStatusInputContract: contractSchema(
+		typia.json.schema<ProviderWebhookStatusInput>(),
+	),
+	providerWebhookStatusOutputContract: contractSchema(
+		typia.json.schema<ProviderWebhookStatusOutput>(),
+	),
+	deliverabilityDnsCheckOutputContract: contractSchema(
+		typia.json.schema<DeliverabilityDnsCheckOutput>(),
+	),
+	deliverabilityDoctorOutputContract: contractSchema(
+		typia.json.schema<DeliverabilityDoctorOutput>(),
 	),
 	webhookListInputContract: contractSchema(
 		typia.json.schema<WebhookListInput>(),

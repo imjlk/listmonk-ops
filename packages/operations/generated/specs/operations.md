@@ -491,3 +491,80 @@ Inspect durable schema, definitions, enrollment states, due work, leases, and wo
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
+
+## `providers.list`
+
+List configured provider profiles without exposing credential references.
+
+- Resource / verb: `provider.list`
+- MCP tool: `listmonk_providers_list`
+- Effects: `read:provider`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`
+
+## `providers.status`
+
+Inspect provider account, identity, and Listmonk delivery configuration.
+
+- Resource / verb: `provider.status`
+- MCP tool: `listmonk_providers_status`
+- Effects: `read:provider`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`
+
+## `providers.test`
+
+Run a bounded read-only provider API authentication and connectivity probe without sending mail.
+
+- Resource / verb: `provider.test`
+- MCP tool: `listmonk_providers_test`
+- Effects: `read:provider`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`
+
+## `providers.quota`
+
+Read provider daily quota, rate limit, usage, sandbox, and enforcement status.
+
+- Resource / verb: `provider.quota`
+- MCP tool: `listmonk_providers_quota`
+- Effects: `read:provider`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`
+
+## `providers.webhook-status`
+
+Inspect Listmonk bounce webhook configuration and the latest provider event freshness.
+
+- Resource / verb: `provider.webhook-status`
+- MCP tool: `listmonk_providers_webhook_status`
+- Effects: `read:provider`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`
+
+## `deliverability.dns-check`
+
+Resolve DMARC, DKIM, custom MAIL FROM SPF/MX, and alignment records for a provider profile.
+
+- Resource / verb: `provider.dns-check`
+- MCP tool: `listmonk_deliverability_dns_check`
+- Effects: `read:provider`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`
+
+## `deliverability.doctor`
+
+Compose provider, Listmonk, quota, webhook, and DNS diagnostics into one readiness report.
+
+- Resource / verb: `provider.doctor`
+- MCP tool: `listmonk_deliverability_doctor`
+- Effects: `read:provider`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`

@@ -99,6 +99,8 @@ export LISTMONK_OPS_SEQUENCE_STORE="$HOME/.listmonk-ops/sequences.json"
 # 선택 대안: 다중 프로세스/worker용 PostgreSQL sequence 저장소
 # LISTMONK_OPS_SEQUENCE_STORE와 동시에 설정하면 안 됩니다.
 # export LISTMONK_OPS_SEQUENCE_DATABASE_URL="postgres://user:password@host/database"
+# 선택: 읽기 전용 진단에 사용할 versioned provider profile JSON
+export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 ```
 
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
@@ -823,6 +825,55 @@ ambiguous 상태, lease, running/stale/stopped/failed worker health를 보고하
 오래된 worker 기록은 retention 기간 뒤 정리합니다. Sequence
 create/revise/enroll/pause/resume 및 운영자 reconcile은 typed `sequence.*`
 outbound event로도 투영됩니다.
+
+## Provider 및 Deliverability Doctor
+
+Provider profile은 raw 자격 증명을 저장하지 않고 기대하는 발송 구성을
+기술합니다. SES 연동은 표준 AWS credential chain 또는 이름이 지정된 로컬 AWS
+profile을 사용하며, 계정·identity를 읽기 전용으로 조회하고 메일을 보내지
+않습니다.
+
+```json
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "marketing-primary",
+      "kind": "ses",
+      "messenger": "email",
+      "sending_domain": "news.example.com",
+      "from_email": "newsletter@news.example.com",
+      "smtp_hosts": ["email-smtp.ap-northeast-2.amazonaws.com"],
+      "mail_from_domain": "bounce.news.example.com",
+      "region": "ap-northeast-2",
+      "secret_ref": "aws:default",
+      "webhook_source": "ses",
+      "webhook_max_age_hours": 168
+    }
+  ]
+}
+```
+
+SES의 `secret_ref`는 `aws:default` 또는 `aws:profile:<name>`만 허용합니다.
+Profile 목록, 감사 이벤트, CLI 출력, MCP 결과에는 reference와 실제 자격
+증명을 모두 노출하지 않습니다.
+
+```bash
+listmonk-cli providers list
+listmonk-cli providers status --provider-id marketing-primary
+listmonk-cli providers test --provider-id marketing-primary
+listmonk-cli providers quota --provider-id marketing-primary
+listmonk-cli providers webhook-status --provider-id marketing-primary
+listmonk-cli deliverability dns-check --provider-id marketing-primary
+listmonk-cli deliverability doctor --provider-id marketing-primary
+```
+
+Doctor는 Listmonk messenger·bounce 설정, SES 계정 quota·identity 상태,
+DMARC/DKIM/custom MAIL FROM DNS, From-domain 정렬, Listmonk의 최신 일치
+bounce event를 하나의 보고서로 합칩니다. Provider event가 아직 한 번도 없다면
+webhook freshness를 실패로 추측하지 않고 `unknown`으로 보고합니다. Generic
+SMTP profile은 Listmonk, DNS, webhook 진단을 지원하고 provider API·quota
+probe는 `unsupported`로 보고합니다.
 
 ## OpenAPI 재생성 (Hey API)
 

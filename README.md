@@ -99,6 +99,8 @@ export LISTMONK_OPS_SEQUENCE_STORE="$HOME/.listmonk-ops/sequences.json"
 # Optional alternative for multi-process/multi-worker sequence durability.
 # Configure LISTMONK_OPS_SEQUENCE_DATABASE_URL OR LISTMONK_OPS_SEQUENCE_STORE, never both.
 # export LISTMONK_OPS_SEQUENCE_DATABASE_URL="postgres://user:password@host/database"
+# Optional: versioned provider profile JSON for read-only diagnostics
+export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 ```
 
 You can create/manage tokens in the Listmonk admin UI.
@@ -833,6 +835,55 @@ same database so every worker observes one shared send decision.
 and running/stale/stopped/failed worker health. Old worker records are pruned
 after the retention window. Sequence create/revise/enroll/pause/resume and
 operator reconciliation also project typed `sequence.*` outbound events.
+
+## Provider and Deliverability Doctor
+
+Provider profiles describe the expected delivery setup without storing raw
+credentials. The SES integration uses the standard AWS credential chain or a
+named local AWS profile, performs read-only account and identity calls, and
+never sends a message.
+
+```json
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "marketing-primary",
+      "kind": "ses",
+      "messenger": "email",
+      "sending_domain": "news.example.com",
+      "from_email": "newsletter@news.example.com",
+      "smtp_hosts": ["email-smtp.ap-northeast-2.amazonaws.com"],
+      "mail_from_domain": "bounce.news.example.com",
+      "region": "ap-northeast-2",
+      "secret_ref": "aws:default",
+      "webhook_source": "ses",
+      "webhook_max_age_hours": 168
+    }
+  ]
+}
+```
+
+`secret_ref` accepts only `aws:default` or `aws:profile:<name>` for SES. The
+profile list, audit events, CLI output, and MCP results never include the
+reference or resolved credentials.
+
+```bash
+listmonk-cli providers list
+listmonk-cli providers status --provider-id marketing-primary
+listmonk-cli providers test --provider-id marketing-primary
+listmonk-cli providers quota --provider-id marketing-primary
+listmonk-cli providers webhook-status --provider-id marketing-primary
+listmonk-cli deliverability dns-check --provider-id marketing-primary
+listmonk-cli deliverability doctor --provider-id marketing-primary
+```
+
+The doctor composes Listmonk messenger and bounce settings, SES account quota
+and identity state, DMARC/DKIM/custom MAIL FROM DNS, From-domain alignment, and
+the latest matching Listmonk bounce event. If no provider event exists yet,
+webhook freshness is reported as `unknown` rather than inventing a failure.
+Generic SMTP profiles support Listmonk, DNS, and webhook diagnostics; provider
+API and quota probes report `unsupported`.
 
 ## OpenAPI Regeneration (Hey API)
 

@@ -11,6 +11,7 @@ export * from "./pilot";
 export * from "./playbook";
 export * from "./policy";
 export * from "./projection";
+export * from "./providers";
 export * from "./registry";
 export * from "./resource";
 export * from "./retry";

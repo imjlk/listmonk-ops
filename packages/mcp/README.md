@@ -18,7 +18,7 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_list_operations` - Read-only catalog of typed contracts shared by
   the CLI and MCP server. Pass an optional exact `family` filter (`lists`,
   `subscribers`, `campaigns`, `templates`, `media`, `transactional`, `ops`,
-  `abtest`, `discovery`, `webhooks`, or `sequences`) to discover operation schemas, safety hints, and
+  `abtest`, `discovery`, `webhooks`, `sequences`, or `providers`) to discover operation schemas, safety hints, and
   execution policy.
 - `listmonk_schema_search` - Search operation contracts and agent guidance by
   intent, family, resource, or verb.
@@ -197,6 +197,28 @@ inside an MCP request.
 The long-running sequence worker remains a confirmed CLI process. MCP and CLI
 share the same file/Postgres repository and transactional idempotency records.
 
+### Provider and Deliverability Diagnostics
+
+- `listmonk_providers_list` - List redacted provider profile summaries
+- `listmonk_providers_status` - Inspect provider identity and matching
+  Listmonk delivery settings
+- `listmonk_providers_test` - Run a bounded read-only provider API probe
+- `listmonk_providers_quota` - Inspect provider quota, usage, sandbox, and
+  enforcement state
+- `listmonk_providers_webhook_status` - Inspect Listmonk bounce configuration
+  and latest matching provider-event freshness
+- `listmonk_deliverability_dns_check` - Resolve DMARC, DKIM, custom MAIL FROM
+  SPF/MX, and domain alignment
+- `listmonk_deliverability_doctor` - Compose all provider, Listmonk, DNS,
+  quota, and webhook checks
+
+Set `LISTMONK_OPS_PROVIDER_CONFIG` to a versioned JSON profile file. SES
+profiles accept only `aws:default` or `aws:profile:<name>` references and use
+read-only SES account/identity APIs; they never send mail. Raw credentials,
+secret references, subscriber emails, and bounce addresses are not exposed in
+tool results. Generic SMTP profiles return `unsupported` for provider API and
+quota probes while retaining Listmonk, DNS, and webhook diagnostics.
+
 ### Operations & Observability
 
 - `listmonk_health_check` - Verify API health
@@ -255,6 +277,9 @@ LISTMONK_OPS_WEBHOOK_SECRET=<random-secret>
 LISTMONK_OPS_SEQUENCE_STORE=/absolute/path/to/sequences.json
 # Alternative for concurrent workers; do not set both
 # LISTMONK_OPS_SEQUENCE_DATABASE_URL=postgres://user:password@host/database
+
+# Optional versioned provider profile JSON for read-only diagnostics
+LISTMONK_OPS_PROVIDER_CONFIG=/absolute/path/to/providers.json
 
 # MCP Server Configuration
 MCP_SERVER_PORT=3000

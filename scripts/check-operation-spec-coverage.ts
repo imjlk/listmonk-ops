@@ -1,5 +1,6 @@
 import { abTestOperationCatalog } from "../packages/abtest/src/operations";
 import { opsOperationCatalog } from "../packages/automation/src/ops-operations";
+import { providerOperationCatalog } from "../packages/automation/src/provider-operations";
 import { sequenceOperationCatalog } from "../packages/automation/src/sequence-operations";
 import { webhookOperationCatalog } from "../packages/automation/src/webhook-operations";
 import {
@@ -31,6 +32,7 @@ export const sharedOperationCatalog = composeOperationCatalogs([
 	discoveryOperationCatalog,
 	webhookOperationCatalog,
 	sequenceOperationCatalog,
+	providerOperationCatalog,
 ]);
 
 export function checkOperationSpecCoverage(

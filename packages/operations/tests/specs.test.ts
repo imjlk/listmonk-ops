@@ -16,6 +16,7 @@ import {
 	expectedPolicyForEffects,
 	messageResource,
 	projectOperationSpec,
+	providerOperationSpecs,
 	sequenceOperationSpecs,
 	subscriberBlocklistOperationSpec,
 	subscriberResource,
@@ -73,6 +74,13 @@ describe("email operations specification", () => {
 			"sequences.tick",
 			"sequences.reconcile",
 			"sequences.status",
+			"providers.list",
+			"providers.status",
+			"providers.test",
+			"providers.quota",
+			"providers.webhook-status",
+			"deliverability.dns-check",
+			"deliverability.doctor",
 		]);
 		expect(campaignGetOperationSpec.contract.input).toMatchObject({
 			dialect: "openapi-3.1",
@@ -123,6 +131,7 @@ describe("email operations specification", () => {
 		).toMatchObject({ type: "string", format: "date-time" });
 		expect(webhookOperationSpecs).toHaveLength(16);
 		expect(sequenceOperationSpecs).toHaveLength(14);
+		expect(providerOperationSpecs).toHaveLength(7);
 		expect(webhookDispatchOperationSpec.effects).toEqual([
 			{ kind: "webhook", resource: "webhook", audience: "bulk" },
 		]);

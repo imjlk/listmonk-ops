@@ -596,6 +596,174 @@ export interface ControlStatusOutput {
 	};
 }
 
+export type ProviderProfileId = NonEmptyString &
+	tags.MaxLength<80> &
+	tags.Pattern<"^[a-z][a-z0-9._-]*$">;
+export type ProviderKind = "ses" | "smtp";
+export type DoctorCheckStatus = "pass" | "warn" | "fail" | "unknown";
+
+export interface ProviderListInput {}
+
+export interface ProviderProfileSummary {
+	id: ProviderProfileId;
+	kind: ProviderKind;
+	messenger: NonEmptyString;
+	sending_domain: NonEmptyString;
+	from_email?: EmailAddress | undefined;
+	region?: NonEmptyString | undefined;
+	smtp_hosts: string[];
+	webhook_source: NonEmptyString;
+	credential_reference_configured: boolean;
+}
+
+export interface ProviderListOutput {
+	configured: boolean;
+	profiles: ProviderProfileSummary[];
+}
+
+export interface ProviderIdInput {
+	provider_id: ProviderProfileId;
+}
+
+export interface ProviderWebhookStatusInput {
+	provider_id: ProviderProfileId;
+	max_age_hours?: PositiveInteger | undefined;
+}
+
+export interface DoctorCheck {
+	id: NonEmptyString;
+	status: DoctorCheckStatus;
+	message: NonEmptyString;
+	details?: Record<string, unknown> | undefined;
+}
+
+export interface ProviderApiProbe {
+	supported: boolean;
+	reachable: boolean;
+	authenticated: boolean;
+	latency_ms?: NonNegativeInteger | undefined;
+	error_code?: NonEmptyString | undefined;
+	error_message?: NonEmptyString | undefined;
+}
+
+export interface SesAccountSnapshot {
+	production_access_enabled?: boolean | undefined;
+	sending_enabled?: boolean | undefined;
+	enforcement_status?: NonEmptyString | undefined;
+	max_24_hour_send?: number | undefined;
+	max_send_rate?: number | undefined;
+	sent_last_24_hours?: number | undefined;
+	suppressed_reasons: string[];
+}
+
+export interface SesIdentitySnapshot {
+	identity_type?: NonEmptyString | undefined;
+	verified_for_sending?: boolean | undefined;
+	verification_status?: NonEmptyString | undefined;
+	feedback_forwarding_enabled?: boolean | undefined;
+	dkim_signing_enabled?: boolean | undefined;
+	dkim_status?: NonEmptyString | undefined;
+	dkim_tokens: string[];
+	mail_from_domain?: NonEmptyString | undefined;
+	mail_from_status?: NonEmptyString | undefined;
+	mail_from_behavior?: NonEmptyString | undefined;
+}
+
+export interface ProviderListmonkSnapshot {
+	from_email?: NonEmptyString | undefined;
+	from_domain?: NonEmptyString | undefined;
+	messenger: NonEmptyString;
+	smtp_hosts: string[];
+	matching_smtp_hosts: string[];
+	smtp_configured: boolean;
+	smtp_enabled: boolean;
+	unsubscribe_header_enabled: boolean;
+	bounce_processing_enabled: boolean;
+	bounce_webhooks_enabled: boolean;
+	provider_bounce_enabled?: boolean | undefined;
+}
+
+export interface ProviderStatusOutput {
+	provider: ProviderProfileSummary;
+	health: "healthy" | "degraded" | "unavailable";
+	checked_at: IsoDateTime;
+	api: ProviderApiProbe;
+	account?: SesAccountSnapshot | undefined;
+	identity?: SesIdentitySnapshot | undefined;
+	listmonk?: ProviderListmonkSnapshot | undefined;
+	checks: DoctorCheck[];
+}
+
+export interface ProviderTestOutput {
+	provider_id: ProviderProfileId;
+	checked_at: IsoDateTime;
+	probe: ProviderApiProbe;
+}
+
+export interface ProviderQuotaOutput {
+	provider_id: ProviderProfileId;
+	supported: boolean;
+	checked_at: IsoDateTime;
+	max_24_hour_send?: number | undefined;
+	max_send_rate?: number | undefined;
+	sent_last_24_hours?: number | undefined;
+	remaining_24_hours?: number | undefined;
+	utilization_percent?: number | undefined;
+	production_access_enabled?: boolean | undefined;
+	sending_enabled?: boolean | undefined;
+	enforcement_status?: NonEmptyString | undefined;
+}
+
+export interface ProviderWebhookStatusOutput {
+	provider_id: ProviderProfileId;
+	source: NonEmptyString;
+	checked_at: IsoDateTime;
+	max_age_hours: PositiveInteger;
+	bounce_processing_enabled: boolean;
+	bounce_webhooks_enabled: boolean;
+	provider_bounce_enabled?: boolean | undefined;
+	last_event_at?: IsoDateTime | undefined;
+	last_event_type?: NonEmptyString | undefined;
+	freshness: "fresh" | "stale" | "unknown";
+	healthy: boolean;
+	checks: DoctorCheck[];
+}
+
+export interface DnsObservation {
+	name: NonEmptyString;
+	type: "TXT" | "CNAME" | "MX";
+	values: string[];
+	error?: NonEmptyString | undefined;
+}
+
+export interface DeliverabilityDnsCheckOutput {
+	provider_id: ProviderProfileId;
+	sending_domain: NonEmptyString;
+	from_domain: NonEmptyString;
+	mail_from_domain?: NonEmptyString | undefined;
+	checked_at: IsoDateTime;
+	observations: DnsObservation[];
+	checks: DoctorCheck[];
+	healthy: boolean;
+}
+
+export interface DeliverabilityDoctorOutput {
+	provider_id: ProviderProfileId;
+	checked_at: IsoDateTime;
+	ready: boolean;
+	summary: {
+		pass: NonNegativeInteger;
+		warn: NonNegativeInteger;
+		fail: NonNegativeInteger;
+		unknown: NonNegativeInteger;
+	};
+	status: ProviderStatusOutput;
+	quota: ProviderQuotaOutput;
+	webhook: ProviderWebhookStatusOutput;
+	dns: DeliverabilityDnsCheckOutput;
+	checks: DoctorCheck[];
+}
+
 export type Uuid = string & tags.Format<"uuid">;
 export type WebhookId = Uuid;
 export type SubscriberUuid = Uuid;

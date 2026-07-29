@@ -177,6 +177,7 @@ Environment fallback:
   LISTMONK_OPS_SEQUENCE_STORE  File-backed sequence definition/enrollment path
   LISTMONK_OPS_SEQUENCE_DATABASE_URL
                                Postgres sequence runtime URL (exclusive with file store)
+  LISTMONK_OPS_PROVIDER_CONFIG Versioned provider profile JSON for read-only diagnostics
 `);
 }
 

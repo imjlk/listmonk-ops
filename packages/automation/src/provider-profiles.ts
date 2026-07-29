@@ -1,0 +1,312 @@
+import {
+	GetAccountCommand,
+	GetEmailIdentityCommand,
+	SESv2Client,
+} from "@aws-sdk/client-sesv2";
+import { fromIni } from "@aws-sdk/credential-providers";
+import { readFile, stat } from "node:fs/promises";
+import { resolve } from "node:path";
+import { z } from "zod";
+
+const MAX_PROVIDER_CONFIG_BYTES = 1_048_576;
+const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
+
+const providerIdSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(80)
+	.regex(/^[a-z][a-z0-9._-]*$/);
+const domainSchema = z
+	.string()
+	.trim()
+	.toLowerCase()
+	.transform((value) => value.replace(/\.$/, ""))
+	.pipe(
+		z
+			.string()
+			.min(1)
+			.max(253)
+			.regex(
+				/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/,
+			),
+	);
+const hostnameSchema = z
+	.string()
+	.trim()
+	.toLowerCase()
+	.transform((value) => value.replace(/\.$/, ""))
+	.pipe(
+		z
+			.string()
+			.min(1)
+			.max(253)
+			.regex(
+				/^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/,
+			),
+	);
+const awsSecretReferenceSchema = z
+	.string()
+	.trim()
+	.regex(/^aws:(?:default|profile:[A-Za-z0-9+=,.@_-]{1,128})$/);
+
+export const providerProfileSchema = z
+	.object({
+		id: providerIdSchema,
+		kind: z.enum(["ses", "smtp"]),
+		messenger: z.string().trim().min(1).max(80).default("email"),
+		sending_domain: domainSchema,
+		from_email: z.email().optional(),
+		smtp_hosts: z.array(hostnameSchema).max(20).default([]),
+		dkim_selectors: z
+			.array(
+				z
+					.string()
+					.trim()
+					.min(1)
+					.max(80)
+					.regex(/^[A-Za-z0-9_-]+$/),
+			)
+			.max(20)
+			.default([]),
+		mail_from_domain: domainSchema.optional(),
+		expected_spf_include: domainSchema.optional(),
+		region: z.string().trim().min(1).max(64).optional(),
+		secret_ref: awsSecretReferenceSchema.optional(),
+		webhook_source: z.string().trim().min(1).max(100).optional(),
+		webhook_max_age_hours: z.number().int().min(1).max(8_760).default(168),
+	})
+	.superRefine((profile, context) => {
+		if (profile.kind === "ses") {
+			if (profile.region === undefined) {
+				context.addIssue({
+					code: "custom",
+					path: ["region"],
+					message: "SES provider profiles require region",
+				});
+			}
+			if (profile.secret_ref === undefined) {
+				context.addIssue({
+					code: "custom",
+					path: ["secret_ref"],
+					message:
+						"SES provider profiles require an aws:default or aws:profile:<name> secret reference",
+				});
+			}
+		} else if (profile.secret_ref !== undefined) {
+			context.addIssue({
+				code: "custom",
+				path: ["secret_ref"],
+				message: "Generic SMTP profiles do not accept AWS secret references",
+			});
+		}
+	});
+
+export type ProviderProfile = z.output<typeof providerProfileSchema>;
+
+const providerConfigSchema = z
+	.object({
+		schema_version: z.literal(1),
+		profiles: z.array(providerProfileSchema).max(100),
+	})
+	.superRefine((config, context) => {
+		const seen = new Set<string>();
+		for (const [index, profile] of config.profiles.entries()) {
+			if (seen.has(profile.id)) {
+				context.addIssue({
+					code: "custom",
+					path: ["profiles", index, "id"],
+					message: `Duplicate provider profile id: ${profile.id}`,
+				});
+			}
+			seen.add(profile.id);
+		}
+	});
+
+export interface ProviderProfileLoaderOptions {
+	path?: string | undefined;
+	env?: Readonly<Record<string, string | undefined>> | undefined;
+}
+
+export async function loadProviderProfiles(
+	options: ProviderProfileLoaderOptions = {},
+): Promise<readonly ProviderProfile[]> {
+	const configuredPath =
+		options.path ??
+		options.env?.LISTMONK_OPS_PROVIDER_CONFIG ??
+		process.env.LISTMONK_OPS_PROVIDER_CONFIG;
+	if (!configuredPath) {
+		return [];
+	}
+
+	const absolutePath = resolve(configuredPath);
+	const metadata = await stat(absolutePath);
+	if (!metadata.isFile()) {
+		throw new TypeError("Provider config must reference a regular JSON file");
+	}
+	if (metadata.size > MAX_PROVIDER_CONFIG_BYTES) {
+		throw new RangeError(
+			`Provider config exceeds ${MAX_PROVIDER_CONFIG_BYTES} bytes`,
+		);
+	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(await readFile(absolutePath, "utf8"));
+	} catch (error) {
+		const detail = error instanceof Error ? error.message : String(error);
+		throw new TypeError(`Failed to parse provider config JSON: ${detail}`);
+	}
+
+	return providerConfigSchema.parse(parsed).profiles;
+}
+
+export interface SesAccountSnapshot {
+	production_access_enabled?: boolean | undefined;
+	sending_enabled?: boolean | undefined;
+	enforcement_status?: string | undefined;
+	max_24_hour_send?: number | undefined;
+	max_send_rate?: number | undefined;
+	sent_last_24_hours?: number | undefined;
+	suppressed_reasons: string[];
+}
+
+export interface SesIdentitySnapshot {
+	identity_type?: string | undefined;
+	verified_for_sending?: boolean | undefined;
+	verification_status?: string | undefined;
+	feedback_forwarding_enabled?: boolean | undefined;
+	dkim_signing_enabled?: boolean | undefined;
+	dkim_status?: string | undefined;
+	dkim_tokens: string[];
+	mail_from_domain?: string | undefined;
+	mail_from_status?: string | undefined;
+	mail_from_behavior?: string | undefined;
+}
+
+export interface ProviderInspector {
+	inspectAccount(): Promise<SesAccountSnapshot>;
+	inspectIdentity(): Promise<SesIdentitySnapshot>;
+	close(): void;
+}
+
+function credentialsForReference(secretReference: string) {
+	if (secretReference === "aws:default") {
+		return undefined;
+	}
+	const profile = secretReference.slice("aws:profile:".length);
+	return fromIni({ profile });
+}
+
+function commandSignal(timeoutMs: number): {
+	signal: AbortSignal;
+	clear: () => void;
+} {
+	const controller = new AbortController();
+	const timer = setTimeout(() => {
+		controller.abort(
+			new Error(`SES provider inspection timed out after ${timeoutMs}ms`),
+		);
+	}, timeoutMs);
+	return {
+		signal: controller.signal,
+		clear: () => clearTimeout(timer),
+	};
+}
+
+async function sendWithTimeout<T>(
+	timeoutMs: number,
+	send: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+	const timeout = commandSignal(timeoutMs);
+	try {
+		return await send(timeout.signal);
+	} finally {
+		timeout.clear();
+	}
+}
+
+export function createSesProviderInspector(
+	profile: ProviderProfile,
+	timeoutMs = DEFAULT_PROVIDER_TIMEOUT_MS,
+): ProviderInspector {
+	if (profile.kind !== "ses" || !profile.region || !profile.secret_ref) {
+		throw new TypeError("A complete SES provider profile is required");
+	}
+	if (
+		!Number.isInteger(timeoutMs) ||
+		timeoutMs < 1_000 ||
+		timeoutMs > 120_000
+	) {
+		throw new RangeError("Provider timeout must be between 1000 and 120000ms");
+	}
+
+	const credentials = credentialsForReference(profile.secret_ref);
+	const client = new SESv2Client({
+		region: profile.region,
+		maxAttempts: 2,
+		...(credentials === undefined ? {} : { credentials }),
+	});
+	let accountPromise: Promise<SesAccountSnapshot> | undefined;
+	let identityPromise: Promise<SesIdentitySnapshot> | undefined;
+
+	return {
+		inspectAccount() {
+			accountPromise ??= sendWithTimeout(timeoutMs, async (signal) => {
+				const account = await client.send(new GetAccountCommand({}), {
+					abortSignal: signal,
+				});
+				return {
+					production_access_enabled: account.ProductionAccessEnabled,
+					sending_enabled: account.SendingEnabled,
+					enforcement_status: account.EnforcementStatus,
+					max_24_hour_send: account.SendQuota?.Max24HourSend,
+					max_send_rate: account.SendQuota?.MaxSendRate,
+					sent_last_24_hours: account.SendQuota?.SentLast24Hours,
+					suppressed_reasons: [
+						...(account.SuppressionAttributes?.SuppressedReasons ?? []),
+					],
+				};
+			});
+			return accountPromise;
+		},
+		inspectIdentity() {
+			identityPromise ??= sendWithTimeout(timeoutMs, async (signal) => {
+				const identity = await client.send(
+					new GetEmailIdentityCommand({
+						EmailIdentity: profile.sending_domain,
+					}),
+					{ abortSignal: signal },
+				);
+				return {
+					identity_type: identity.IdentityType,
+					verified_for_sending: identity.VerifiedForSendingStatus,
+					verification_status: identity.VerificationStatus,
+					feedback_forwarding_enabled: identity.FeedbackForwardingStatus,
+					dkim_signing_enabled: identity.DkimAttributes?.SigningEnabled,
+					dkim_status: identity.DkimAttributes?.Status,
+					dkim_tokens: [...(identity.DkimAttributes?.Tokens ?? [])],
+					mail_from_domain: identity.MailFromAttributes?.MailFromDomain,
+					mail_from_status: identity.MailFromAttributes?.MailFromDomainStatus,
+					mail_from_behavior:
+						identity.MailFromAttributes?.BehaviorOnMxFailure,
+				};
+			});
+			return identityPromise;
+		},
+		close() {
+			client.destroy();
+		},
+	};
+}
+
+export function getProviderProfile(
+	profiles: readonly ProviderProfile[],
+	providerId: string,
+): ProviderProfile {
+	const profile = profiles.find(({ id }) => id === providerId);
+	if (!profile) {
+		throw new RangeError(`Unknown provider profile: ${providerId}`);
+	}
+	return profile;
+}

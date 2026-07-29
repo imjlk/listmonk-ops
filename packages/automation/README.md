@@ -12,6 +12,7 @@ This package is designed for automation and orchestration use-cases:
 - daily digest generation
 - signed outbound event webhooks with a durable delivery outbox
 - revisioned headless email sequences with durable enrollments and workers
+- SES-first provider and deliverability readiness diagnostics
 
 ## Installation
 
@@ -58,6 +59,26 @@ const digest = await generateDailyDigest(client);
 
 console.log(preflight.summary, guard.allowLaunch, digest.generatedAt);
 ```
+
+## Provider and deliverability diagnostics
+
+Set `LISTMONK_OPS_PROVIDER_CONFIG` to a versioned JSON document containing
+`ses` or generic `smtp` profiles. The shared operations expose profile list,
+status, API test, quota, webhook freshness, DNS check, and aggregate doctor
+contracts through both CLI and MCP adapters.
+
+SES profiles use only `aws:default` or `aws:profile:<name>` references. The
+AWS SDK resolves credentials at execution time, and summaries never return the
+reference or resolved secret. Diagnostics call read-only SES account and
+identity APIs and do not send mail. Generic SMTP profiles keep the Listmonk,
+DNS, and webhook checks while returning `unsupported` for API and quota
+probes.
+
+`runProviderDoctor()` combines SES production/sending/enforcement and quota
+state, identity verification and DKIM, Listmonk SMTP/from/unsubscribe/bounce
+settings, DMARC/DKIM/custom MAIL FROM DNS, domain alignment, and the latest
+matching Listmonk bounce source. Missing webhook evidence remains `unknown`
+until a real event exists.
 
 ## Persistent Store Paths
 

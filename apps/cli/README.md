@@ -35,12 +35,14 @@ listmonk-cli capabilities
 listmonk-cli prime --goal "schedule campaign"
 listmonk-cli webhooks list
 listmonk-cli sequences list
+listmonk-cli providers list
+listmonk-cli deliverability doctor --provider-id marketing-primary
 ```
 
 `listmonk-cli operations` lists the shared typed contracts available through
 both the CLI and MCP server. Use `--family` to filter by `lists`,
 `subscribers`, `campaigns`, `templates`, `media`, `transactional`, `ops`,
-`abtest`, `discovery`, `webhooks`, or `sequences`.
+`abtest`, `discovery`, `webhooks`, `sequences`, or `providers`.
 
 `specs search` and `specs describe` expose effect-derived safety, execution
 requirements, retry semantics, and agent guidance. `playbooks` returns typed
@@ -116,6 +118,23 @@ settings are mutually exclusive. Ambiguous sends require an operator-reviewed
 `sent` or `not_sent` reconciliation and are never retried automatically.
 Postgres mode stores sequence state and transactional idempotency claims
 together so concurrent workers share the same send decision.
+
+The `providers` and `deliverability` groups expose read-only provider health:
+
+```bash
+listmonk-cli providers status --provider-id marketing-primary
+listmonk-cli providers test --provider-id marketing-primary
+listmonk-cli providers quota --provider-id marketing-primary
+listmonk-cli providers webhook-status --provider-id marketing-primary
+listmonk-cli deliverability dns-check --provider-id marketing-primary
+listmonk-cli deliverability doctor --provider-id marketing-primary
+```
+
+Set `LISTMONK_OPS_PROVIDER_CONFIG` to a versioned JSON profile file. SES
+profiles use `aws:default` or `aws:profile:<name>` credential references; raw
+access keys are rejected and neither references nor credentials are returned.
+The probes read SES account/identity state, Listmonk configuration and bounce
+evidence, and DNS records. They never send mail.
 
 ## Shell completion
 

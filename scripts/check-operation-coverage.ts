@@ -137,6 +137,17 @@ export const operationCoverageContracts: readonly OperationCoverageContract[] = 
 		dispatcher:
 			"packages/automation/src/sequence-operations.ts#invokeSequenceOperationByMcpName:function",
 	},
+	{
+		family: "provider and deliverability diagnostics",
+		registry:
+			"packages/automation/src/provider-operations.ts#providerOperations:variable",
+		testAnchor:
+			"scripts/shared-operation-coverage.ts#assertProviderOperationsPublished:function",
+		mcpHandler:
+			"packages/mcp/src/handlers/providers.ts#executeProviderTools:function",
+		dispatcher:
+			"packages/automation/src/provider-operations.ts#invokeProviderOperationByMcpName:function",
+	},
 ];
 
 export const operationCoverageEdges: readonly GraphEdgeContract[] =

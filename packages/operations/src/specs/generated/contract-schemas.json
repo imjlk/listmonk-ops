@@ -1626,6 +1626,867 @@
     },
     "stage": "normalized"
   },
+  "deliverabilityDnsCheckOutputContract": {
+    "components": {
+      "schemas": {
+        "DeliverabilityDnsCheckOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "checked_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/components/schemas/DoctorCheck"
+              },
+              "type": "array"
+            },
+            "from_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "healthy": {
+              "type": "boolean"
+            },
+            "mail_from_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "observations": {
+              "items": {
+                "$ref": "#/components/schemas/DnsObservation"
+              },
+              "type": "array"
+            },
+            "provider_id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            },
+            "sending_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "provider_id",
+            "sending_domain",
+            "from_domain",
+            "checked_at",
+            "observations",
+            "checks",
+            "healthy"
+          ],
+          "type": "object"
+        },
+        "DnsObservation": {
+          "additionalProperties": false,
+          "properties": {
+            "error": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "name": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "CNAME"
+                },
+                {
+                  "const": "MX"
+                },
+                {
+                  "const": "TXT"
+                }
+              ]
+            },
+            "values": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "values"
+          ],
+          "type": "object"
+        },
+        "DoctorCheck": {
+          "additionalProperties": false,
+          "properties": {
+            "details": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "message": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "status": {
+              "$ref": "#/components/schemas/DoctorCheckStatus"
+            }
+          },
+          "required": [
+            "id",
+            "status",
+            "message"
+          ],
+          "type": "object"
+        },
+        "DoctorCheckStatus": {
+          "oneOf": [
+            {
+              "const": "fail"
+            },
+            {
+              "const": "pass"
+            },
+            {
+              "const": "unknown"
+            },
+            {
+              "const": "warn"
+            }
+          ]
+        },
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "ProviderProfileId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "type": "string"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "checked_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/components/schemas/DoctorCheck"
+          },
+          "type": "array"
+        },
+        "from_domain": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "healthy": {
+          "type": "boolean"
+        },
+        "mail_from_domain": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/components/schemas/DnsObservation"
+          },
+          "type": "array"
+        },
+        "provider_id": {
+          "$ref": "#/components/schemas/ProviderProfileId"
+        },
+        "sending_domain": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        }
+      },
+      "required": [
+        "provider_id",
+        "sending_domain",
+        "from_domain",
+        "checked_at",
+        "observations",
+        "checks",
+        "healthy"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "deliverabilityDoctorOutputContract": {
+    "components": {
+      "schemas": {
+        "DeliverabilityDnsCheckOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "checked_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/components/schemas/DoctorCheck"
+              },
+              "type": "array"
+            },
+            "from_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "healthy": {
+              "type": "boolean"
+            },
+            "mail_from_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "observations": {
+              "items": {
+                "$ref": "#/components/schemas/DnsObservation"
+              },
+              "type": "array"
+            },
+            "provider_id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            },
+            "sending_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "provider_id",
+            "sending_domain",
+            "from_domain",
+            "checked_at",
+            "observations",
+            "checks",
+            "healthy"
+          ],
+          "type": "object"
+        },
+        "DeliverabilityDoctorOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "checked_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/components/schemas/DoctorCheck"
+              },
+              "type": "array"
+            },
+            "dns": {
+              "$ref": "#/components/schemas/DeliverabilityDnsCheckOutput"
+            },
+            "provider_id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            },
+            "quota": {
+              "$ref": "#/components/schemas/ProviderQuotaOutput"
+            },
+            "ready": {
+              "type": "boolean"
+            },
+            "status": {
+              "$ref": "#/components/schemas/ProviderStatusOutput"
+            },
+            "summary": {
+              "additionalProperties": false,
+              "properties": {
+                "fail": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "pass": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "unknown": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "warn": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "pass",
+                "warn",
+                "fail",
+                "unknown"
+              ],
+              "type": "object"
+            },
+            "webhook": {
+              "$ref": "#/components/schemas/ProviderWebhookStatusOutput"
+            }
+          },
+          "required": [
+            "provider_id",
+            "checked_at",
+            "ready",
+            "summary",
+            "status",
+            "quota",
+            "webhook",
+            "dns",
+            "checks"
+          ],
+          "type": "object"
+        },
+        "DnsObservation": {
+          "additionalProperties": false,
+          "properties": {
+            "error": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "name": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "CNAME"
+                },
+                {
+                  "const": "MX"
+                },
+                {
+                  "const": "TXT"
+                }
+              ]
+            },
+            "values": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "values"
+          ],
+          "type": "object"
+        },
+        "DoctorCheck": {
+          "additionalProperties": false,
+          "properties": {
+            "details": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "message": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "status": {
+              "$ref": "#/components/schemas/DoctorCheckStatus"
+            }
+          },
+          "required": [
+            "id",
+            "status",
+            "message"
+          ],
+          "type": "object"
+        },
+        "DoctorCheckStatus": {
+          "oneOf": [
+            {
+              "const": "fail"
+            },
+            {
+              "const": "pass"
+            },
+            {
+              "const": "unknown"
+            },
+            {
+              "const": "warn"
+            }
+          ]
+        },
+        "EmailAddress": {
+          "format": "email",
+          "type": "string"
+        },
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ProviderApiProbe": {
+          "additionalProperties": false,
+          "properties": {
+            "authenticated": {
+              "type": "boolean"
+            },
+            "error_code": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "error_message": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "latency_ms": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "reachable": {
+              "type": "boolean"
+            },
+            "supported": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "supported",
+            "reachable",
+            "authenticated"
+          ],
+          "type": "object"
+        },
+        "ProviderKind": {
+          "oneOf": [
+            {
+              "const": "ses"
+            },
+            {
+              "const": "smtp"
+            }
+          ]
+        },
+        "ProviderListmonkSnapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "bounce_processing_enabled": {
+              "type": "boolean"
+            },
+            "bounce_webhooks_enabled": {
+              "type": "boolean"
+            },
+            "from_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "from_email": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "matching_smtp_hosts": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "messenger": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "provider_bounce_enabled": {
+              "type": "boolean"
+            },
+            "smtp_configured": {
+              "type": "boolean"
+            },
+            "smtp_enabled": {
+              "type": "boolean"
+            },
+            "smtp_hosts": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "unsubscribe_header_enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "messenger",
+            "smtp_hosts",
+            "matching_smtp_hosts",
+            "smtp_configured",
+            "smtp_enabled",
+            "unsubscribe_header_enabled",
+            "bounce_processing_enabled",
+            "bounce_webhooks_enabled"
+          ],
+          "type": "object"
+        },
+        "ProviderProfileId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "type": "string"
+        },
+        "ProviderProfileSummary": {
+          "additionalProperties": false,
+          "properties": {
+            "credential_reference_configured": {
+              "type": "boolean"
+            },
+            "from_email": {
+              "$ref": "#/components/schemas/EmailAddress"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            },
+            "kind": {
+              "$ref": "#/components/schemas/ProviderKind"
+            },
+            "messenger": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "region": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "sending_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "smtp_hosts": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "webhook_source": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "messenger",
+            "sending_domain",
+            "smtp_hosts",
+            "webhook_source",
+            "credential_reference_configured"
+          ],
+          "type": "object"
+        },
+        "ProviderQuotaOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "checked_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "enforcement_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "max_24_hour_send": {
+              "type": "number"
+            },
+            "max_send_rate": {
+              "type": "number"
+            },
+            "production_access_enabled": {
+              "type": "boolean"
+            },
+            "provider_id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            },
+            "remaining_24_hours": {
+              "type": "number"
+            },
+            "sending_enabled": {
+              "type": "boolean"
+            },
+            "sent_last_24_hours": {
+              "type": "number"
+            },
+            "supported": {
+              "type": "boolean"
+            },
+            "utilization_percent": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "provider_id",
+            "supported",
+            "checked_at"
+          ],
+          "type": "object"
+        },
+        "ProviderStatusOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "account": {
+              "$ref": "#/components/schemas/SesAccountSnapshot"
+            },
+            "api": {
+              "$ref": "#/components/schemas/ProviderApiProbe"
+            },
+            "checked_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/components/schemas/DoctorCheck"
+              },
+              "type": "array"
+            },
+            "health": {
+              "oneOf": [
+                {
+                  "const": "degraded"
+                },
+                {
+                  "const": "healthy"
+                },
+                {
+                  "const": "unavailable"
+                }
+              ]
+            },
+            "identity": {
+              "$ref": "#/components/schemas/SesIdentitySnapshot"
+            },
+            "listmonk": {
+              "$ref": "#/components/schemas/ProviderListmonkSnapshot"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/ProviderProfileSummary"
+            }
+          },
+          "required": [
+            "provider",
+            "health",
+            "checked_at",
+            "api",
+            "checks"
+          ],
+          "type": "object"
+        },
+        "ProviderWebhookStatusOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "bounce_processing_enabled": {
+              "type": "boolean"
+            },
+            "bounce_webhooks_enabled": {
+              "type": "boolean"
+            },
+            "checked_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/components/schemas/DoctorCheck"
+              },
+              "type": "array"
+            },
+            "freshness": {
+              "oneOf": [
+                {
+                  "const": "fresh"
+                },
+                {
+                  "const": "stale"
+                },
+                {
+                  "const": "unknown"
+                }
+              ]
+            },
+            "healthy": {
+              "type": "boolean"
+            },
+            "last_event_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "last_event_type": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "max_age_hours": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "provider_bounce_enabled": {
+              "type": "boolean"
+            },
+            "provider_id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            },
+            "source": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "provider_id",
+            "source",
+            "checked_at",
+            "max_age_hours",
+            "bounce_processing_enabled",
+            "bounce_webhooks_enabled",
+            "freshness",
+            "healthy",
+            "checks"
+          ],
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "SesAccountSnapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "enforcement_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "max_24_hour_send": {
+              "type": "number"
+            },
+            "max_send_rate": {
+              "type": "number"
+            },
+            "production_access_enabled": {
+              "type": "boolean"
+            },
+            "sending_enabled": {
+              "type": "boolean"
+            },
+            "sent_last_24_hours": {
+              "type": "number"
+            },
+            "suppressed_reasons": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "suppressed_reasons"
+          ],
+          "type": "object"
+        },
+        "SesIdentitySnapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "dkim_signing_enabled": {
+              "type": "boolean"
+            },
+            "dkim_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "dkim_tokens": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "feedback_forwarding_enabled": {
+              "type": "boolean"
+            },
+            "identity_type": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "mail_from_behavior": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "mail_from_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "mail_from_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "verification_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "verified_for_sending": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "dkim_tokens"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "checked_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/components/schemas/DoctorCheck"
+          },
+          "type": "array"
+        },
+        "dns": {
+          "$ref": "#/components/schemas/DeliverabilityDnsCheckOutput"
+        },
+        "provider_id": {
+          "$ref": "#/components/schemas/ProviderProfileId"
+        },
+        "quota": {
+          "$ref": "#/components/schemas/ProviderQuotaOutput"
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/components/schemas/ProviderStatusOutput"
+        },
+        "summary": {
+          "additionalProperties": false,
+          "properties": {
+            "fail": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "pass": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "unknown": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "warn": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "pass",
+            "warn",
+            "fail",
+            "unknown"
+          ],
+          "type": "object"
+        },
+        "webhook": {
+          "$ref": "#/components/schemas/ProviderWebhookStatusOutput"
+        }
+      },
+      "required": [
+        "provider_id",
+        "checked_at",
+        "ready",
+        "summary",
+        "status",
+        "quota",
+        "webhook",
+        "dns",
+        "checks"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
   "emptyInputContract": {
     "components": {
       "schemas": {
@@ -2193,6 +3054,1024 @@
       },
       "required": [
         "playbooks"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "providerIdInputContract": {
+    "components": {
+      "schemas": {
+        "ProviderIdInput": {
+          "additionalProperties": false,
+          "properties": {
+            "provider_id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            }
+          },
+          "required": [
+            "provider_id"
+          ],
+          "type": "object"
+        },
+        "ProviderProfileId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "type": "string"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "provider_id": {
+          "$ref": "#/components/schemas/ProviderProfileId"
+        }
+      },
+      "required": [
+        "provider_id"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "providerListInputContract": {
+    "components": {
+      "schemas": {
+        "ProviderListInput": {
+          "additionalProperties": false,
+          "properties": {},
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {},
+      "required": [],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "providerListOutputContract": {
+    "components": {
+      "schemas": {
+        "EmailAddress": {
+          "format": "email",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "ProviderKind": {
+          "oneOf": [
+            {
+              "const": "ses"
+            },
+            {
+              "const": "smtp"
+            }
+          ]
+        },
+        "ProviderListOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "configured": {
+              "type": "boolean"
+            },
+            "profiles": {
+              "items": {
+                "$ref": "#/components/schemas/ProviderProfileSummary"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "configured",
+            "profiles"
+          ],
+          "type": "object"
+        },
+        "ProviderProfileId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "type": "string"
+        },
+        "ProviderProfileSummary": {
+          "additionalProperties": false,
+          "properties": {
+            "credential_reference_configured": {
+              "type": "boolean"
+            },
+            "from_email": {
+              "$ref": "#/components/schemas/EmailAddress"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            },
+            "kind": {
+              "$ref": "#/components/schemas/ProviderKind"
+            },
+            "messenger": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "region": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "sending_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "smtp_hosts": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "webhook_source": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "messenger",
+            "sending_domain",
+            "smtp_hosts",
+            "webhook_source",
+            "credential_reference_configured"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "configured": {
+          "type": "boolean"
+        },
+        "profiles": {
+          "items": {
+            "$ref": "#/components/schemas/ProviderProfileSummary"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "configured",
+        "profiles"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "providerQuotaOutputContract": {
+    "components": {
+      "schemas": {
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "ProviderProfileId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "type": "string"
+        },
+        "ProviderQuotaOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "checked_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "enforcement_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "max_24_hour_send": {
+              "type": "number"
+            },
+            "max_send_rate": {
+              "type": "number"
+            },
+            "production_access_enabled": {
+              "type": "boolean"
+            },
+            "provider_id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            },
+            "remaining_24_hours": {
+              "type": "number"
+            },
+            "sending_enabled": {
+              "type": "boolean"
+            },
+            "sent_last_24_hours": {
+              "type": "number"
+            },
+            "supported": {
+              "type": "boolean"
+            },
+            "utilization_percent": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "provider_id",
+            "supported",
+            "checked_at"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "checked_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "enforcement_status": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "max_24_hour_send": {
+          "type": "number"
+        },
+        "max_send_rate": {
+          "type": "number"
+        },
+        "production_access_enabled": {
+          "type": "boolean"
+        },
+        "provider_id": {
+          "$ref": "#/components/schemas/ProviderProfileId"
+        },
+        "remaining_24_hours": {
+          "type": "number"
+        },
+        "sending_enabled": {
+          "type": "boolean"
+        },
+        "sent_last_24_hours": {
+          "type": "number"
+        },
+        "supported": {
+          "type": "boolean"
+        },
+        "utilization_percent": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "provider_id",
+        "supported",
+        "checked_at"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "providerStatusOutputContract": {
+    "components": {
+      "schemas": {
+        "DoctorCheck": {
+          "additionalProperties": false,
+          "properties": {
+            "details": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "message": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "status": {
+              "$ref": "#/components/schemas/DoctorCheckStatus"
+            }
+          },
+          "required": [
+            "id",
+            "status",
+            "message"
+          ],
+          "type": "object"
+        },
+        "DoctorCheckStatus": {
+          "oneOf": [
+            {
+              "const": "fail"
+            },
+            {
+              "const": "pass"
+            },
+            {
+              "const": "unknown"
+            },
+            {
+              "const": "warn"
+            }
+          ]
+        },
+        "EmailAddress": {
+          "format": "email",
+          "type": "string"
+        },
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ProviderApiProbe": {
+          "additionalProperties": false,
+          "properties": {
+            "authenticated": {
+              "type": "boolean"
+            },
+            "error_code": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "error_message": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "latency_ms": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "reachable": {
+              "type": "boolean"
+            },
+            "supported": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "supported",
+            "reachable",
+            "authenticated"
+          ],
+          "type": "object"
+        },
+        "ProviderKind": {
+          "oneOf": [
+            {
+              "const": "ses"
+            },
+            {
+              "const": "smtp"
+            }
+          ]
+        },
+        "ProviderListmonkSnapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "bounce_processing_enabled": {
+              "type": "boolean"
+            },
+            "bounce_webhooks_enabled": {
+              "type": "boolean"
+            },
+            "from_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "from_email": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "matching_smtp_hosts": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "messenger": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "provider_bounce_enabled": {
+              "type": "boolean"
+            },
+            "smtp_configured": {
+              "type": "boolean"
+            },
+            "smtp_enabled": {
+              "type": "boolean"
+            },
+            "smtp_hosts": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "unsubscribe_header_enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "messenger",
+            "smtp_hosts",
+            "matching_smtp_hosts",
+            "smtp_configured",
+            "smtp_enabled",
+            "unsubscribe_header_enabled",
+            "bounce_processing_enabled",
+            "bounce_webhooks_enabled"
+          ],
+          "type": "object"
+        },
+        "ProviderProfileId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "type": "string"
+        },
+        "ProviderProfileSummary": {
+          "additionalProperties": false,
+          "properties": {
+            "credential_reference_configured": {
+              "type": "boolean"
+            },
+            "from_email": {
+              "$ref": "#/components/schemas/EmailAddress"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            },
+            "kind": {
+              "$ref": "#/components/schemas/ProviderKind"
+            },
+            "messenger": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "region": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "sending_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "smtp_hosts": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "webhook_source": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "messenger",
+            "sending_domain",
+            "smtp_hosts",
+            "webhook_source",
+            "credential_reference_configured"
+          ],
+          "type": "object"
+        },
+        "ProviderStatusOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "account": {
+              "$ref": "#/components/schemas/SesAccountSnapshot"
+            },
+            "api": {
+              "$ref": "#/components/schemas/ProviderApiProbe"
+            },
+            "checked_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/components/schemas/DoctorCheck"
+              },
+              "type": "array"
+            },
+            "health": {
+              "oneOf": [
+                {
+                  "const": "degraded"
+                },
+                {
+                  "const": "healthy"
+                },
+                {
+                  "const": "unavailable"
+                }
+              ]
+            },
+            "identity": {
+              "$ref": "#/components/schemas/SesIdentitySnapshot"
+            },
+            "listmonk": {
+              "$ref": "#/components/schemas/ProviderListmonkSnapshot"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/ProviderProfileSummary"
+            }
+          },
+          "required": [
+            "provider",
+            "health",
+            "checked_at",
+            "api",
+            "checks"
+          ],
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "SesAccountSnapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "enforcement_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "max_24_hour_send": {
+              "type": "number"
+            },
+            "max_send_rate": {
+              "type": "number"
+            },
+            "production_access_enabled": {
+              "type": "boolean"
+            },
+            "sending_enabled": {
+              "type": "boolean"
+            },
+            "sent_last_24_hours": {
+              "type": "number"
+            },
+            "suppressed_reasons": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "suppressed_reasons"
+          ],
+          "type": "object"
+        },
+        "SesIdentitySnapshot": {
+          "additionalProperties": false,
+          "properties": {
+            "dkim_signing_enabled": {
+              "type": "boolean"
+            },
+            "dkim_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "dkim_tokens": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "feedback_forwarding_enabled": {
+              "type": "boolean"
+            },
+            "identity_type": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "mail_from_behavior": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "mail_from_domain": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "mail_from_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "verification_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "verified_for_sending": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "dkim_tokens"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "$ref": "#/components/schemas/SesAccountSnapshot"
+        },
+        "api": {
+          "$ref": "#/components/schemas/ProviderApiProbe"
+        },
+        "checked_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/components/schemas/DoctorCheck"
+          },
+          "type": "array"
+        },
+        "health": {
+          "oneOf": [
+            {
+              "const": "degraded"
+            },
+            {
+              "const": "healthy"
+            },
+            {
+              "const": "unavailable"
+            }
+          ]
+        },
+        "identity": {
+          "$ref": "#/components/schemas/SesIdentitySnapshot"
+        },
+        "listmonk": {
+          "$ref": "#/components/schemas/ProviderListmonkSnapshot"
+        },
+        "provider": {
+          "$ref": "#/components/schemas/ProviderProfileSummary"
+        }
+      },
+      "required": [
+        "provider",
+        "health",
+        "checked_at",
+        "api",
+        "checks"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "providerTestOutputContract": {
+    "components": {
+      "schemas": {
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ProviderApiProbe": {
+          "additionalProperties": false,
+          "properties": {
+            "authenticated": {
+              "type": "boolean"
+            },
+            "error_code": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "error_message": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "latency_ms": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "reachable": {
+              "type": "boolean"
+            },
+            "supported": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "supported",
+            "reachable",
+            "authenticated"
+          ],
+          "type": "object"
+        },
+        "ProviderProfileId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "type": "string"
+        },
+        "ProviderTestOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "checked_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "probe": {
+              "$ref": "#/components/schemas/ProviderApiProbe"
+            },
+            "provider_id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            }
+          },
+          "required": [
+            "provider_id",
+            "checked_at",
+            "probe"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "checked_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "probe": {
+          "$ref": "#/components/schemas/ProviderApiProbe"
+        },
+        "provider_id": {
+          "$ref": "#/components/schemas/ProviderProfileId"
+        }
+      },
+      "required": [
+        "provider_id",
+        "checked_at",
+        "probe"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "providerWebhookStatusInputContract": {
+    "components": {
+      "schemas": {
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ProviderProfileId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "type": "string"
+        },
+        "ProviderWebhookStatusInput": {
+          "additionalProperties": false,
+          "properties": {
+            "max_age_hours": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "provider_id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            }
+          },
+          "required": [
+            "provider_id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "max_age_hours": {
+          "$ref": "#/components/schemas/PositiveInteger"
+        },
+        "provider_id": {
+          "$ref": "#/components/schemas/ProviderProfileId"
+        }
+      },
+      "required": [
+        "provider_id"
+      ],
+      "type": "object"
+    },
+    "stage": "normalized"
+  },
+  "providerWebhookStatusOutputContract": {
+    "components": {
+      "schemas": {
+        "DoctorCheck": {
+          "additionalProperties": false,
+          "properties": {
+            "details": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "message": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "status": {
+              "$ref": "#/components/schemas/DoctorCheckStatus"
+            }
+          },
+          "required": [
+            "id",
+            "status",
+            "message"
+          ],
+          "type": "object"
+        },
+        "DoctorCheckStatus": {
+          "oneOf": [
+            {
+              "const": "fail"
+            },
+            {
+              "const": "pass"
+            },
+            {
+              "const": "unknown"
+            },
+            {
+              "const": "warn"
+            }
+          ]
+        },
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ProviderProfileId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "type": "string"
+        },
+        "ProviderWebhookStatusOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "bounce_processing_enabled": {
+              "type": "boolean"
+            },
+            "bounce_webhooks_enabled": {
+              "type": "boolean"
+            },
+            "checked_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/components/schemas/DoctorCheck"
+              },
+              "type": "array"
+            },
+            "freshness": {
+              "oneOf": [
+                {
+                  "const": "fresh"
+                },
+                {
+                  "const": "stale"
+                },
+                {
+                  "const": "unknown"
+                }
+              ]
+            },
+            "healthy": {
+              "type": "boolean"
+            },
+            "last_event_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "last_event_type": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "max_age_hours": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "provider_bounce_enabled": {
+              "type": "boolean"
+            },
+            "provider_id": {
+              "$ref": "#/components/schemas/ProviderProfileId"
+            },
+            "source": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "provider_id",
+            "source",
+            "checked_at",
+            "max_age_hours",
+            "bounce_processing_enabled",
+            "bounce_webhooks_enabled",
+            "freshness",
+            "healthy",
+            "checks"
+          ],
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "bounce_processing_enabled": {
+          "type": "boolean"
+        },
+        "bounce_webhooks_enabled": {
+          "type": "boolean"
+        },
+        "checked_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/components/schemas/DoctorCheck"
+          },
+          "type": "array"
+        },
+        "freshness": {
+          "oneOf": [
+            {
+              "const": "fresh"
+            },
+            {
+              "const": "stale"
+            },
+            {
+              "const": "unknown"
+            }
+          ]
+        },
+        "healthy": {
+          "type": "boolean"
+        },
+        "last_event_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "last_event_type": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "max_age_hours": {
+          "$ref": "#/components/schemas/PositiveInteger"
+        },
+        "provider_bounce_enabled": {
+          "type": "boolean"
+        },
+        "provider_id": {
+          "$ref": "#/components/schemas/ProviderProfileId"
+        },
+        "source": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        }
+      },
+      "required": [
+        "provider_id",
+        "source",
+        "checked_at",
+        "max_age_hours",
+        "bounce_processing_enabled",
+        "bounce_webhooks_enabled",
+        "freshness",
+        "healthy",
+        "checks"
       ],
       "type": "object"
     },

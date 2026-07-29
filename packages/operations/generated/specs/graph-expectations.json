@@ -1187,7 +1187,196 @@
         "runtimeDefinitionNode": "packages/automation/src/sequence-operations.ts#sequenceStatusOperation:variable"
       },
       "operationId": "sequences.status"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/provider-operations.ts#providerListOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/providers.ts#bindProviderListOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/providers.ts#bindProviderListOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/providers.ts#providerListOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/provider-operations.ts#invokeProviderListOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/provider-operations.ts#executeProviderListOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/providers.ts#bindProviderListOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/providers.ts#providerListOperationSpec:variable",
+        "executorNode": "packages/automation/src/provider-operations.ts#executeProviderListOperation:function",
+        "invokerNode": "packages/automation/src/provider-operations.ts#invokeProviderListOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/provider-operations.ts#providerListOperation:variable"
+      },
+      "operationId": "providers.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/provider-operations.ts#providerStatusOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/providers.ts#bindProviderStatusOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/providers.ts#bindProviderStatusOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/providers.ts#providerStatusOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/provider-operations.ts#invokeProviderStatusOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/provider-operations.ts#executeProviderStatusOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/providers.ts#bindProviderStatusOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/providers.ts#providerStatusOperationSpec:variable",
+        "executorNode": "packages/automation/src/provider-operations.ts#executeProviderStatusOperation:function",
+        "invokerNode": "packages/automation/src/provider-operations.ts#invokeProviderStatusOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/provider-operations.ts#providerStatusOperation:variable"
+      },
+      "operationId": "providers.status"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/provider-operations.ts#providerTestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/providers.ts#bindProviderTestOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/providers.ts#bindProviderTestOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/providers.ts#providerTestOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/provider-operations.ts#invokeProviderTestOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/provider-operations.ts#executeProviderTestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/providers.ts#bindProviderTestOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/providers.ts#providerTestOperationSpec:variable",
+        "executorNode": "packages/automation/src/provider-operations.ts#executeProviderTestOperation:function",
+        "invokerNode": "packages/automation/src/provider-operations.ts#invokeProviderTestOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/provider-operations.ts#providerTestOperation:variable"
+      },
+      "operationId": "providers.test"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/provider-operations.ts#providerQuotaOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/providers.ts#bindProviderQuotaOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/providers.ts#bindProviderQuotaOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/providers.ts#providerQuotaOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/provider-operations.ts#invokeProviderQuotaOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/provider-operations.ts#executeProviderQuotaOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/providers.ts#bindProviderQuotaOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/providers.ts#providerQuotaOperationSpec:variable",
+        "executorNode": "packages/automation/src/provider-operations.ts#executeProviderQuotaOperation:function",
+        "invokerNode": "packages/automation/src/provider-operations.ts#invokeProviderQuotaOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/provider-operations.ts#providerQuotaOperation:variable"
+      },
+      "operationId": "providers.quota"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/provider-operations.ts#providerWebhookStatusOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/providers.ts#bindProviderWebhookStatusOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/providers.ts#bindProviderWebhookStatusOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/providers.ts#providerWebhookStatusOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/provider-operations.ts#invokeProviderWebhookStatusOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/provider-operations.ts#executeProviderWebhookStatusOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/providers.ts#bindProviderWebhookStatusOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/providers.ts#providerWebhookStatusOperationSpec:variable",
+        "executorNode": "packages/automation/src/provider-operations.ts#executeProviderWebhookStatusOperation:function",
+        "invokerNode": "packages/automation/src/provider-operations.ts#invokeProviderWebhookStatusOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/provider-operations.ts#providerWebhookStatusOperation:variable"
+      },
+      "operationId": "providers.webhook-status"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/provider-operations.ts#deliverabilityDnsCheckOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/providers.ts#bindDeliverabilityDnsCheckOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/providers.ts#bindDeliverabilityDnsCheckOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/providers.ts#deliverabilityDnsCheckOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/provider-operations.ts#invokeDeliverabilityDnsCheckOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/provider-operations.ts#executeDeliverabilityDnsCheckOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/providers.ts#bindDeliverabilityDnsCheckOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/providers.ts#deliverabilityDnsCheckOperationSpec:variable",
+        "executorNode": "packages/automation/src/provider-operations.ts#executeDeliverabilityDnsCheckOperation:function",
+        "invokerNode": "packages/automation/src/provider-operations.ts#invokeDeliverabilityDnsCheckOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/provider-operations.ts#deliverabilityDnsCheckOperation:variable"
+      },
+      "operationId": "deliverability.dns-check"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/provider-operations.ts#deliverabilityDoctorOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/providers.ts#bindDeliverabilityDoctorOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/providers.ts#bindDeliverabilityDoctorOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/providers.ts#deliverabilityDoctorOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/provider-operations.ts#invokeDeliverabilityDoctorOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/provider-operations.ts#executeDeliverabilityDoctorOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/providers.ts#bindDeliverabilityDoctorOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/providers.ts#deliverabilityDoctorOperationSpec:variable",
+        "executorNode": "packages/automation/src/provider-operations.ts#executeDeliverabilityDoctorOperation:function",
+        "invokerNode": "packages/automation/src/provider-operations.ts#invokeDeliverabilityDoctorOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/provider-operations.ts#deliverabilityDoctorOperation:variable"
+      },
+      "operationId": "deliverability.doctor"
     }
   ],
-  "schemaVersion": "1.6.0"
+  "schemaVersion": "1.7.0"
 }

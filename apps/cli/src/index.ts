@@ -11,6 +11,7 @@ import packageJson from "../package.json" with { type: "json" };
 import abtestCommand from "./commands/abtest";
 import campaignsCommand from "./commands/campaigns";
 import capabilitiesCommand from "./commands/capabilities";
+import deliverabilityCommand from "./commands/deliverability";
 import examplesCommand from "./commands/examples";
 import listsCommand from "./commands/lists";
 import mediaCommand from "./commands/media";
@@ -18,6 +19,7 @@ import opsCommand from "./commands/ops";
 import operationsCommand from "./commands/operations";
 import playbooksCommand from "./commands/playbooks";
 import primeCommand from "./commands/prime";
+import providersCommand from "./commands/providers";
 import specsCommand from "./commands/specs";
 import statusCommand from "./commands/status";
 import sequencesCommand from "./commands/sequences";
@@ -35,6 +37,8 @@ const entry = define({
 
 const subCommands = {
 	status: statusCommand,
+	providers: providersCommand,
+	deliverability: deliverabilityCommand,
 	sequences: sequencesCommand,
 	capabilities: capabilitiesCommand,
 	prime: primeCommand,
