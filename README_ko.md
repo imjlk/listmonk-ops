@@ -874,8 +874,12 @@ bounce event를 하나의 보고서로 합칩니다. Provider event가 아직 �
 webhook freshness를 실패로 추측하지 않고 `unknown`으로 보고합니다. 설정된
 Listmonk messenger와 실제 `app.from_email`을 검증하고, 제한된 DMARC DNS
 tree walk로 상속 policy와 strict/relaxed 정렬을 판정하며, CNAME 위임과 직접
-TXT DKIM 레코드를 모두 지원합니다. 일시적인 DNS 오류는 `unknown`으로
-구분하고 SES sandbox 상태는 전체 준비 완료 판정을 차단합니다. Generic
+TXT DKIM 레코드 중 모호하지 않은 단일 구성을 검증합니다. 같은 messenger
+이름과 SMTP endpoint를 공유하는 provider profile은 binding 검사에 실패하며,
+여러 profile이 같은 webhook source를 공유하면 Listmonk event를 특정
+profile에 귀속할 수 없으므로 freshness는 `unknown`으로 유지됩니다. 일시적인
+DNS 오류는 `unknown`으로 구분하고 SES sandbox 상태는 전체 준비 완료 판정을
+차단합니다. Generic
 SMTP profile은 Listmonk, DNS, webhook 진단을 지원하고 provider API·quota
 probe는 `unsupported`로 보고합니다.
 

@@ -15055,6 +15055,9 @@
                   "messenger": {
                     "$ref": "#/components/schemas/NonEmptyString"
                   },
+                  "messenger_binding_ambiguous": {
+                    "type": "boolean"
+                  },
                   "messenger_configured": {
                     "type": "boolean"
                   },
@@ -15082,6 +15085,7 @@
                 },
                 "required": [
                   "messenger",
+                  "messenger_binding_ambiguous",
                   "messenger_configured",
                   "messenger_enabled",
                   "smtp_hosts",
@@ -15901,6 +15905,16 @@
                     },
                     "type": "array"
                   },
+                  "evidence_scope": {
+                    "oneOf": [
+                      {
+                        "const": "profile"
+                      },
+                      {
+                        "const": "shared"
+                      }
+                    ]
+                  },
                   "freshness": {
                     "oneOf": [
                       {
@@ -15939,6 +15953,7 @@
                 "required": [
                   "provider_id",
                   "source",
+                  "evidence_scope",
                   "checked_at",
                   "max_age_hours",
                   "bounce_processing_enabled",
@@ -15973,6 +15988,16 @@
                   "$ref": "#/components/schemas/DoctorCheck"
                 },
                 "type": "array"
+              },
+              "evidence_scope": {
+                "oneOf": [
+                  {
+                    "const": "profile"
+                  },
+                  {
+                    "const": "shared"
+                  }
+                ]
               },
               "freshness": {
                 "oneOf": [
@@ -16012,6 +16037,7 @@
             "required": [
               "provider_id",
               "source",
+              "evidence_scope",
               "checked_at",
               "max_age_hours",
               "bounce_processing_enabled",
@@ -16684,6 +16710,9 @@
                   "messenger": {
                     "$ref": "#/components/schemas/NonEmptyString"
                   },
+                  "messenger_binding_ambiguous": {
+                    "type": "boolean"
+                  },
                   "messenger_configured": {
                     "type": "boolean"
                   },
@@ -16711,6 +16740,7 @@
                 },
                 "required": [
                   "messenger",
+                  "messenger_binding_ambiguous",
                   "messenger_configured",
                   "messenger_enabled",
                   "smtp_hosts",
@@ -16891,6 +16921,16 @@
                     },
                     "type": "array"
                   },
+                  "evidence_scope": {
+                    "oneOf": [
+                      {
+                        "const": "profile"
+                      },
+                      {
+                        "const": "shared"
+                      }
+                    ]
+                  },
                   "freshness": {
                     "oneOf": [
                       {
@@ -16929,6 +16969,7 @@
                 "required": [
                   "provider_id",
                   "source",
+                  "evidence_scope",
                   "checked_at",
                   "max_age_hours",
                   "bounce_processing_enabled",

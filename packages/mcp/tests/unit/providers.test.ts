@@ -58,7 +58,9 @@ const inspector: ProviderInspector = {
 
 const dns: ProviderDnsResolver = {
 	async txt(name) {
-		if (name.startsWith("_dmarc.")) return ["v=DMARC1; p=reject"];
+		if (name === "_dmarc.news.example.com") {
+			return ["v=DMARC1; p=reject"];
+		}
 		if (name.startsWith("bounce.")) {
 			return ["v=spf1 include:amazonses.com ~all"];
 		}

@@ -677,6 +677,7 @@ export interface ProviderListmonkSnapshot {
 	from_email?: string | undefined;
 	from_domain?: NonEmptyString | undefined;
 	messenger: NonEmptyString;
+	messenger_binding_ambiguous: boolean;
 	messenger_configured: boolean;
 	messenger_enabled: boolean;
 	smtp_hosts: string[];
@@ -723,6 +724,7 @@ export interface ProviderQuotaOutput {
 export interface ProviderWebhookStatusOutput {
 	provider_id: ProviderProfileId;
 	source: NonEmptyString;
+	evidence_scope: "profile" | "shared";
 	checked_at: IsoDateTime;
 	max_age_hours: ProviderWebhookMaxAgeHours;
 	bounce_processing_enabled: boolean;

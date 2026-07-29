@@ -261,6 +261,34 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("keeps webhook freshness unknown when the source is shared", async () => {
+		const secondary = providerProfileSchema.parse({
+			...profile,
+			id: "marketing-secondary",
+			sending_domain: "other.example.com",
+			from_email: "newsletter@other.example.com",
+			secret_ref: "aws:profile:secondary",
+		});
+		const webhook = await invokeProviderWebhookStatusOperation(
+			context({ profiles: [profile, secondary] }),
+			{ provider_id: profile.id },
+		);
+		expect(webhook).toMatchObject({
+			evidence_scope: "shared",
+			freshness: "unknown",
+		});
+		expect(webhook).not.toHaveProperty("last_event_at");
+		expect(webhook.checks).toContainEqual(
+			expect.objectContaining({
+				id: "webhook.freshness",
+				status: "unknown",
+				details: {
+					shared_provider_ids: ["marketing-secondary"],
+				},
+			}),
+		);
+	});
+
 	test("rejects Listmonk bounce error envelopes instead of reporting healthy freshness", async () => {
 		const errorContext = context({
 			client: {
@@ -297,6 +325,37 @@ describe("provider and deliverability operations", () => {
 			}),
 		);
 		expect(JSON.stringify(doctor)).not.toContain("401 unauthorized");
+	});
+
+	test("rejects malformed successful Listmonk bounce payloads", async () => {
+		const malformedContext = context({
+			client: {
+				...context().client!,
+				bounce: {
+					async list() {
+						return { data: { total: 0 } } as never;
+					},
+				},
+			},
+		});
+		await expect(
+			invokeProviderWebhookStatusOperation(malformedContext, {
+				provider_id: profile.id,
+			}),
+		).rejects.toThrow(
+			"Listmonk bounce inspection returned an invalid payload",
+		);
+		const doctor = await invokeDeliverabilityDoctorOperation(
+			malformedContext,
+			{ provider_id: profile.id },
+		);
+		expect(doctor.ready).toBe(false);
+		expect(doctor.checks).toContainEqual(
+			expect.objectContaining({
+				id: "webhook.inspection",
+				status: "fail",
+			}),
+		);
 	});
 
 	test("rejects Listmonk settings error envelopes", async () => {
@@ -586,6 +645,31 @@ describe("provider and deliverability operations", () => {
 			{ provider_id: profile.id },
 		);
 		expect(doctor.ready).toBe(false);
+	});
+
+	test("rejects provider bindings that share a messenger and SMTP endpoint", async () => {
+		const secondary = providerProfileSchema.parse({
+			...profile,
+			id: "marketing-secondary",
+			sending_domain: "other.example.com",
+			from_email: "newsletter@other.example.com",
+			secret_ref: "aws:profile:secondary",
+		});
+		const status = await invokeProviderStatusOperation(
+			context({ profiles: [profile, secondary] }),
+			{ provider_id: profile.id },
+		);
+		expect(status.listmonk).toMatchObject({
+			messenger_binding_ambiguous: true,
+			messenger_configured: false,
+			messenger_enabled: false,
+		});
+		expect(status.checks).toContainEqual(
+			expect.objectContaining({
+				id: "listmonk.messenger",
+				status: "fail",
+			}),
+		);
 	});
 
 	test("returns an invalid empty Listmonk From value as a diagnostic", async () => {
@@ -918,6 +1002,25 @@ describe("provider and deliverability operations", () => {
 		}
 	});
 
+	test("accepts optional whitespace around the DMARC version separator", async () => {
+		const whitespaceDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name === "_dmarc.news.example.com") {
+					return ["v = DMARC1; p = reject"];
+				}
+				return dns.txt(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: whitespaceDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dmarc", status: "pass" }),
+		);
+	});
+
 	test("rejects direct DKIM records with duplicate tags", async () => {
 		const duplicateDkimDns: ProviderDnsResolver = {
 			...dns,
@@ -937,6 +1040,250 @@ describe("provider and deliverability operations", () => {
 		);
 		expect(output.checks).toContainEqual(
 			expect.objectContaining({ id: "dns.dkim", status: "fail" }),
+		);
+	});
+
+	test("rejects multiple direct DKIM key records for one selector", async () => {
+		const duplicateKeyDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name.endsWith("._domainkey.news.example.com")) {
+					return ["k=rsa; p=old-key", "k=rsa; p=current-key"];
+				}
+				return dns.txt(name);
+			},
+			async cname() {
+				return [];
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: duplicateKeyDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "fail" }),
+		);
+	});
+
+	test("does not accept a direct DKIM key alongside an invalid CNAME", async () => {
+		const conflictingDkimDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name.endsWith("._domainkey.news.example.com")) {
+					return ["v=DKIM1; p=public-key"];
+				}
+				return dns.txt(name);
+			},
+			async cname(name) {
+				if (name.endsWith("._domainkey.news.example.com")) {
+					return ["unexpected.dkim.example.net"];
+				}
+				return dns.cname(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: conflictingDkimDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "fail" }),
+		);
+	});
+
+	test("rejects valid and malformed DMARC candidates published together", async () => {
+		const duplicateCandidateDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name === "_dmarc.news.example.com") {
+					return ["v=DMARC1; p=reject", "v=DMARC1"];
+				}
+				return dns.txt(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: duplicateCandidateDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dmarc", status: "fail" }),
+		);
+	});
+
+	test("continues past the default psd=u DMARC record", async () => {
+		const nestedDomain = "a.b.example.com";
+		const nestedProfile = providerProfileSchema.parse({
+			...profile,
+			id: "nested-domain",
+			sending_domain: nestedDomain,
+			from_email: `newsletter@${nestedDomain}`,
+		});
+		const nestedDns: ProviderDnsResolver = {
+			async txt(name) {
+				if (name === "_dmarc.b.example.com") {
+					return ["v=DMARC1; p=reject"];
+				}
+				if (name === "_dmarc.example.com") {
+					return ["v=DMARC1; p=none"];
+				}
+				if (name === "bounce.news.example.com") {
+					return ["v=spf1 include:amazonses.com ~all"];
+				}
+				return [];
+			},
+			async cname(name) {
+				return name.endsWith(`._domainkey.${nestedDomain}`)
+					? [`${name.split(".")[0]}.dkim.amazonses.com`]
+					: [];
+			},
+			mx: dns.mx,
+		};
+		const output = await inspectProviderDns(
+			nestedProfile,
+			context({ profiles: [nestedProfile], dns: nestedDns }),
+			await inspector().inspectIdentity(),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.dmarc",
+				status: "pass",
+				details: expect.objectContaining({
+					organizational_domain: "example.com",
+				}),
+			}),
+		);
+	});
+
+	test("stops at an explicit psd=n DMARC organizational boundary", async () => {
+		const nestedDomain = "a.b.example.com";
+		const nestedProfile = providerProfileSchema.parse({
+			...profile,
+			id: "explicit-organizational-domain",
+			sending_domain: nestedDomain,
+			from_email: `newsletter@${nestedDomain}`,
+		});
+		const nestedDns: ProviderDnsResolver = {
+			async txt(name) {
+				if (name === "_dmarc.b.example.com") {
+					return ["v=DMARC1; p=reject; psd=n"];
+				}
+				if (name === "_dmarc.example.com") {
+					return ["v=DMARC1; p=none"];
+				}
+				if (name === "bounce.news.example.com") {
+					return ["v=spf1 include:amazonses.com ~all"];
+				}
+				return [];
+			},
+			async cname(name) {
+				return name.endsWith(`._domainkey.${nestedDomain}`)
+					? [`${name.split(".")[0]}.dkim.amazonses.com`]
+					: [];
+			},
+			mx: dns.mx,
+		};
+		const output = await inspectProviderDns(
+			nestedProfile,
+			context({ profiles: [nestedProfile], dns: nestedDns }),
+			await inspector().inspectIdentity(),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.dmarc",
+				status: "pass",
+				details: expect.objectContaining({
+					organizational_domain: "b.example.com",
+				}),
+			}),
+		);
+	});
+
+	test("stops a DMARC tree walk at psd=y before higher records", async () => {
+		const nestedDomain = "a.giant.bank.example";
+		const nestedProfile = providerProfileSchema.parse({
+			...profile,
+			id: "public-suffix-boundary",
+			sending_domain: nestedDomain,
+			from_email: `newsletter@${nestedDomain}`,
+		});
+		const nestedDns: ProviderDnsResolver = {
+			async txt(name) {
+				if (name === "_dmarc.bank.example") {
+					return ["v=DMARC1; p=reject; psd=y"];
+				}
+				if (name === "_dmarc.example") {
+					return ["v=DMARC1; p=none"];
+				}
+				if (name === "bounce.news.example.com") {
+					return ["v=spf1 include:amazonses.com ~all"];
+				}
+				return [];
+			},
+			async cname(name) {
+				return name.endsWith(`._domainkey.${nestedDomain}`)
+					? [`${name.split(".")[0]}.dkim.amazonses.com`]
+					: [];
+			},
+			mx: dns.mx,
+		};
+		const output = await inspectProviderDns(
+			nestedProfile,
+			context({ profiles: [nestedProfile], dns: nestedDns }),
+			await inspector().inspectIdentity(),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.dmarc",
+				status: "pass",
+				message: expect.stringContaining("bank.example"),
+				details: expect.objectContaining({
+					organizational_domain: "giant.bank.example",
+				}),
+			}),
+		);
+	});
+
+	test("blocks strict DKIM alignment across parent and child domains", async () => {
+		const parentProfile = providerProfileSchema.parse({
+			...profile,
+			id: "parent-identity",
+			sending_domain: "example.com",
+			from_email: "sender@news.example.com",
+		});
+		const parentIdentity = {
+			...(await inspector().inspectIdentity()),
+			dkim_tokens: ["token-a"],
+			mail_from_domain: undefined,
+		};
+		const strictDkimDns: ProviderDnsResolver = {
+			async txt(name) {
+				return name === "_dmarc.news.example.com"
+					? ["v=DMARC1; p=reject; adkim=s"]
+					: [];
+			},
+			async cname(name) {
+				return name === "token-a._domainkey.example.com"
+					? ["token-a.dkim.amazonses.com"]
+					: [];
+			},
+			async mx() {
+				return [];
+			},
+		};
+		const output = await inspectProviderDns(
+			parentProfile,
+			context({ profiles: [parentProfile], dns: strictDkimDns }),
+			parentIdentity,
+			"news.example.com",
+		);
+		expect(output.healthy).toBe(false);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "pass" }),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.dkim-alignment",
+				status: "fail",
+			}),
 		);
 	});
 
@@ -1020,6 +1367,7 @@ describe("provider and deliverability operations", () => {
 		for (const id of [
 			"dns.dmarc",
 			"dns.dkim",
+			"dns.dkim-alignment",
 			"dns.spf",
 			"dns.mail-from-mx",
 			"dns.spf-alignment",
@@ -1139,6 +1487,34 @@ describe("provider and deliverability operations", () => {
 			expect.objectContaining({
 				id: "dns.mail-from-mx",
 				status: "pass",
+			}),
+		);
+	});
+
+	test("requires SES custom MAIL FROM MX preference 10", async () => {
+		const wrongPreferenceDns: ProviderDnsResolver = {
+			...dns,
+			async mx(name) {
+				if (name === "bounce.news.example.com") {
+					return [
+						{
+							priority: 0,
+							exchange:
+								"feedback-smtp.ap-northeast-2.amazonses.com",
+						},
+					];
+				}
+				return dns.mx(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: wrongPreferenceDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.mail-from-mx",
+				status: "fail",
 			}),
 		);
 	});

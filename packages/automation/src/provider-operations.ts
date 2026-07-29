@@ -113,6 +113,7 @@ const listmonkProviderSchema = z.object({
 	from_email: z.string().optional(),
 	from_domain: z.string().min(1).optional(),
 	messenger: z.string().min(1),
+	messenger_binding_ambiguous: z.boolean(),
 	messenger_configured: z.boolean(),
 	messenger_enabled: z.boolean(),
 	smtp_hosts: z.array(z.string()),
@@ -155,6 +156,7 @@ const providerQuotaOutputSchema = z.object({
 const providerWebhookOutputSchema = z.object({
 	provider_id: z.string().min(1),
 	source: z.string().min(1),
+	evidence_scope: z.enum(["profile", "shared"]),
 	checked_at: z.iso.datetime({ offset: true }),
 	max_age_hours: z.number().int().min(1).max(8_760),
 	bounce_processing_enabled: z.boolean(),
@@ -202,7 +204,7 @@ const providerDoctorOutputSchema = z.object({
 
 export interface ProviderOperationContext extends Omit<
 	ProviderInspectionContext,
-	"inspector"
+	"inspector" | "profiles"
 > {
 	profiles?:
 		| readonly ProviderProfile[]
@@ -239,10 +241,8 @@ async function withProfile<T>(
 		inspection: ProviderInspectionContext,
 	) => Promise<T>,
 ): Promise<T> {
-	const profile = getProviderProfile(
-		await operationProfiles(context),
-		providerId,
-	);
+	const profiles = await operationProfiles(context);
+	const profile = getProviderProfile(profiles, providerId);
 	const inspector = operationInspector(context, profile);
 	try {
 		return await execute(profile, {
@@ -251,6 +251,7 @@ async function withProfile<T>(
 			dnsInspectionTimeoutMs: context.dnsInspectionTimeoutMs,
 			now: context.now,
 			inspector,
+			profiles,
 		});
 	} finally {
 		try {

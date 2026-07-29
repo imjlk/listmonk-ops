@@ -220,7 +220,9 @@ tool results. Generic SMTP profiles return `unsupported` for provider API and
 quota probes while retaining Listmonk, DNS, and webhook diagnostics. DNS checks
 follow inherited DMARC policy, strict/relaxed alignment, and both CNAME and
 direct TXT DKIM while keeping transient resolver errors distinct from missing
-records.
+records. Shared messenger/SMTP bindings fail closed, and webhook sources shared
+by multiple profiles report freshness as `unknown` rather than borrowing
+another profile's event.
 
 ### Operations & Observability
 

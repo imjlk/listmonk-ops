@@ -15,6 +15,7 @@ const REQUIRED_READINESS_CHECK_IDS = new Set([
 	"listmonk.from-alignment",
 	"dns.dmarc",
 	"dns.dkim",
+	"dns.dkim-alignment",
 	"dns.spf",
 	"dns.mail-from-mx",
 	"dns.spf-alignment",
@@ -53,6 +54,7 @@ export interface ProviderListmonkSnapshot {
 	from_email?: string | undefined;
 	from_domain?: string | undefined;
 	messenger: string;
+	messenger_binding_ambiguous: boolean;
 	messenger_configured: boolean;
 	messenger_enabled: boolean;
 	smtp_hosts: string[];
@@ -102,6 +104,7 @@ export interface ProviderQuotaSnapshot {
 export interface ProviderWebhookSnapshot {
 	provider_id: string;
 	source: string;
+	evidence_scope: "profile" | "shared";
 	checked_at: string;
 	max_age_hours: number;
 	bounce_processing_enabled: boolean;
@@ -158,6 +161,7 @@ export interface ProviderDnsResolver {
 export interface ProviderInspectionContext {
 	client?: Pick<ListmonkClient, "settings" | "bounce"> | undefined;
 	inspector?: ProviderInspector | undefined;
+	profiles?: readonly ProviderProfile[] | undefined;
 	dns?: ProviderDnsResolver | undefined;
 	dnsInspectionTimeoutMs?: number | undefined;
 	now?: (() => Date) | undefined;
@@ -275,6 +279,29 @@ function profileWebhookSource(profile: ProviderProfile): string {
 	return profile.webhook_source ?? profile.kind;
 }
 
+function sharedWebhookProfileIds(
+	profile: ProviderProfile,
+	profiles: readonly ProviderProfile[] = [profile],
+): string[] {
+	const source = profileWebhookSource(profile);
+	return profiles
+		.filter(
+			(candidate) =>
+				candidate.id !== profile.id &&
+				profileWebhookSource(candidate) === source,
+		)
+		.map(({ id }) => id);
+}
+
+function webhookEvidenceScope(
+	profile: ProviderProfile,
+	profiles?: readonly ProviderProfile[] | undefined,
+): ProviderWebhookSnapshot["evidence_scope"] {
+	return sharedWebhookProfileIds(profile, profiles).length > 0
+		? "shared"
+		: "profile";
+}
+
 export function summarizeProviderProfile(
 	profile: ProviderProfile,
 ): ProviderProfileSummary {
@@ -325,9 +352,24 @@ function expectedSmtpHosts(profile: ProviderProfile): string[] {
 	return [];
 }
 
+function hasAmbiguousMessengerBinding(
+	profile: ProviderProfile,
+	profiles: readonly ProviderProfile[],
+): boolean {
+	const expectedHosts = new Set(expectedSmtpHosts(profile));
+	const messenger = normalizeMessengerName(profile.messenger);
+	return profiles.some(
+		(candidate) =>
+			candidate.id !== profile.id &&
+			normalizeMessengerName(candidate.messenger) === messenger &&
+			expectedSmtpHosts(candidate).some((host) => expectedHosts.has(host)),
+	);
+}
+
 export function inspectListmonkProviderSettings(
 	profile: ProviderProfile,
 	settings: Readonly<Record<string, unknown>>,
+	profiles: readonly ProviderProfile[] = [profile],
 ): ProviderListmonkSnapshot {
 	const expectedHosts = expectedSmtpHosts(profile);
 	const smtp = smtpRecords(settings);
@@ -346,6 +388,10 @@ export function inspectListmonkProviderSettings(
 		messengerName === "email"
 			? matching
 			: [...namedSmtp, ...namedCustomMessenger];
+	const messengerBindingAmbiguous = hasAmbiguousMessengerBinding(
+		profile,
+		profiles,
+	);
 	const configuredFrom =
 		typeof settings["app.from_email"] === "string"
 			? settings["app.from_email"]
@@ -358,8 +404,12 @@ export function inspectListmonkProviderSettings(
 			? {}
 			: { from_domain: configuredFromDomain }),
 		messenger: profile.messenger,
-		messenger_configured: matchingMessengers.length > 0,
-		messenger_enabled: matchingMessengers.some(isRecordEnabled),
+		messenger_binding_ambiguous: messengerBindingAmbiguous,
+		messenger_configured:
+			!messengerBindingAmbiguous && matchingMessengers.length > 0,
+		messenger_enabled:
+			!messengerBindingAmbiguous &&
+			matchingMessengers.some(isRecordEnabled),
 		smtp_hosts: smtp
 			.map(smtpHost)
 			.filter((host): host is string => host !== undefined),
@@ -423,6 +473,21 @@ function settingsChecks(
 		fromAlignmentMessage =
 			"Listmonk From domain does not align with the provider sending domain.";
 	}
+	let messengerStatus: DoctorCheckStatus;
+	let messengerMessage: string;
+	if (snapshot.messenger_binding_ambiguous) {
+		messengerStatus = "fail";
+		messengerMessage = `Listmonk messenger '${snapshot.messenger}' is shared by provider profiles with the same SMTP endpoint; use distinct messenger names.`;
+	} else if (
+		snapshot.messenger_configured &&
+		snapshot.messenger_enabled
+	) {
+		messengerStatus = "pass";
+		messengerMessage = `Listmonk messenger '${snapshot.messenger}' is configured and enabled.`;
+	} else {
+		messengerStatus = "fail";
+		messengerMessage = `Listmonk messenger '${snapshot.messenger}' is missing or disabled.`;
+	}
 
 	const checks: DoctorCheck[] = [
 		{
@@ -440,14 +505,8 @@ function settingsChecks(
 		},
 		{
 			id: "listmonk.messenger",
-			status:
-				snapshot.messenger_configured && snapshot.messenger_enabled
-					? "pass"
-					: "fail",
-			message:
-				snapshot.messenger_configured && snapshot.messenger_enabled
-					? `Listmonk messenger '${snapshot.messenger}' is configured and enabled.`
-					: `Listmonk messenger '${snapshot.messenger}' is missing or disabled.`,
+			status: messengerStatus,
+			message: messengerMessage,
 		},
 		{
 			id: "listmonk.from-alignment",
@@ -630,6 +689,7 @@ export async function inspectProviderStatus(
 		listmonk = inspectListmonkProviderSettings(
 			profile,
 			await readListmonkSettings(context),
+			context.profiles ?? [profile],
 		);
 		checks.push(...settingsChecks(profile, listmonk));
 	} catch (error) {
@@ -768,16 +828,34 @@ export async function inspectProviderQuota(
 	};
 }
 
-function bounceItems(result: unknown): ReadonlyArray<Readonly<Record<string, unknown>>> {
-	if (typeof result !== "object" || result === null) return [];
+function bounceItems(
+	result: unknown,
+): ReadonlyArray<Readonly<Record<string, unknown>>> {
+	if (typeof result !== "object" || result === null) {
+		throw new TypeError(
+			"Listmonk bounce inspection returned an invalid payload",
+		);
+	}
 	const data = (result as { data?: unknown }).data;
-	if (typeof data !== "object" || data === null) return [];
+	if (typeof data !== "object" || data === null) {
+		throw new TypeError(
+			"Listmonk bounce inspection returned an invalid payload",
+		);
+	}
 	const results = (data as { results?: unknown }).results;
-	if (!Array.isArray(results)) return [];
-	return results.filter(
-		(item): item is Readonly<Record<string, unknown>> =>
-			typeof item === "object" && item !== null,
-	);
+	if (!Array.isArray(results)) {
+		throw new TypeError(
+			"Listmonk bounce inspection returned an invalid payload",
+		);
+	}
+	if (
+		results.some((item) => typeof item !== "object" || item === null)
+	) {
+		throw new TypeError(
+			"Listmonk bounce inspection returned an invalid payload",
+		);
+	}
+	return results as ReadonlyArray<Readonly<Record<string, unknown>>>;
 }
 
 function throwOnListmonkResponseError(
@@ -814,7 +892,11 @@ export async function inspectProviderWebhook(
 		order: "desc",
 	});
 	throwOnListmonkResponseError(bounceResult, "Listmonk bounce inspection");
-	const latest = bounceItems(bounceResult)[0];
+	const sharedProfileIds = sharedWebhookProfileIds(profile, context.profiles);
+	const evidenceScope = webhookEvidenceScope(profile, context.profiles);
+	const sharedEvidence = evidenceScope === "shared";
+	const items = bounceItems(bounceResult);
+	const latest = sharedEvidence ? undefined : items[0];
 	const createdAt =
 		typeof latest?.created_at === "string" ? latest.created_at : undefined;
 	const latestType =
@@ -826,7 +908,7 @@ export async function inspectProviderWebhook(
 	const ageMs = Number.isFinite(parsed) ? now.getTime() - parsed : undefined;
 	const futureTimestamp = ageMs !== undefined && ageMs < 0;
 	const freshness =
-		ageMs === undefined || futureTimestamp
+		sharedEvidence || ageMs === undefined || futureTimestamp
 			? "unknown"
 			: ageMs <= maxAgeHours * 3_600_000
 				? "fresh"
@@ -843,6 +925,10 @@ export async function inspectProviderWebhook(
 		freshnessStatus = "unknown";
 		freshnessMessage =
 			"The latest provider event has a future timestamp; verify system clocks before treating it as freshness evidence.";
+	} else if (sharedEvidence) {
+		freshnessStatus = "unknown";
+		freshnessMessage =
+			"Webhook evidence uses a source shared by multiple provider profiles and cannot be attributed to this profile.";
 	} else {
 		freshnessStatus = "unknown";
 		freshnessMessage =
@@ -874,11 +960,15 @@ export async function inspectProviderWebhook(
 			id: "webhook.freshness",
 			status: freshnessStatus,
 			message: freshnessMessage,
+			...(sharedEvidence
+				? { details: { shared_provider_ids: sharedProfileIds } }
+				: {}),
 		},
 	];
 	return {
 		provider_id: profile.id,
 		source,
+		evidence_scope: evidenceScope,
 		checked_at: now.toISOString(),
 		max_age_hours: maxAgeHours,
 		bounce_processing_enabled: bounceProcessing,
@@ -1066,8 +1156,7 @@ const DMARC_POLICIES = new Set(["none", "quarantine", "reject"]);
 function validDmarcPolicyRecord(
 	record: string,
 ): { value: string; tags: ReadonlyMap<string, string> } | undefined {
-	const firstTag = record.split(";", 1)[0]?.trim();
-	if (firstTag?.toLowerCase() !== "v=dmarc1") return undefined;
+	if (!isDmarcCandidateRecord(record)) return undefined;
 	const tags = parseDmarcTags(record);
 	if (tags === undefined) return undefined;
 	if (tags.get("v") !== "dmarc1") return undefined;
@@ -1082,8 +1171,19 @@ function validDmarcPolicyRecord(
 		if (value !== undefined && value !== "r" && value !== "s") return undefined;
 	}
 	const psd = tags.get("psd");
-	if (psd !== undefined && psd !== "y" && psd !== "n") return undefined;
+	if (
+		psd !== undefined &&
+		psd !== "y" &&
+		psd !== "n" &&
+		psd !== "u"
+	) {
+		return undefined;
+	}
 	return { value: record, tags };
+}
+
+function isDmarcCandidateRecord(record: string): boolean {
+	return /^\s*v\s*=\s*dmarc1\s*(?:;|$)/i.test(record);
 }
 
 function childDomainBelow(startingDomain: string, parentDomain: string): string {
@@ -1116,21 +1216,15 @@ async function discoverDmarcPolicy(
 
 	for (const { candidate, name, result } of results) {
 		observations.push(result.observation);
-		const policyRecords = result.values
-			.map(validDmarcPolicyRecord)
-			.filter(
-				(
-					record,
-				): record is {
-					value: string;
-					tags: ReadonlyMap<string, string>;
-				} => record !== undefined,
-			);
-		if (policyRecords.length > 1) {
+		const candidateRecords = result.values.filter(isDmarcCandidateRecord);
+		if (candidateRecords.length > 1) {
 			allDuplicateDomains.push(candidate);
 			continue;
 		}
-		const policyRecord = policyRecords[0];
+		const policyRecord =
+			candidateRecords[0] === undefined
+				? undefined
+				: validDmarcPolicyRecord(candidateRecords[0]);
 		if (policyRecord !== undefined) {
 			records.push({
 				domain: candidate,
@@ -1144,14 +1238,17 @@ async function discoverDmarcPolicy(
 	let organizationalDomain: string | undefined;
 	let organizationalEvidenceIndex: number | undefined;
 	for (const record of records) {
-		if (record.tags.get("psd") === "n") {
+		// RFC 9989 defaults an omitted `psd` tag to `u`; only an explicit
+		// `n` or `y` terminates organizational-domain discovery early.
+		const psd = record.tags.get("psd") ?? "u";
+		if (psd === "n") {
 			organizationalDomain = record.domain;
 			organizationalEvidenceIndex = candidates.indexOf(record.domain);
 			break;
 		}
 		if (
 			record.domain !== startingDomain &&
-			record.tags.get("psd") === "y"
+			psd === "y"
 		) {
 			organizationalDomain = childDomainBelow(startingDomain, record.domain);
 			organizationalEvidenceIndex = candidates.indexOf(record.domain);
@@ -1160,14 +1257,20 @@ async function discoverDmarcPolicy(
 	}
 	organizationalDomain ??= records.at(-1)?.domain ?? startingDomain;
 
+	const discoveryEndIndex =
+		organizationalEvidenceIndex ?? candidates.length - 1;
+	const relevantRecords = records.filter(
+		({ domain: recordDomain }) =>
+			candidates.indexOf(recordDomain) <= discoveryEndIndex,
+	);
 	const policy =
-		records.find(
+		relevantRecords.find(
 			({ domain: recordDomain }) => recordDomain === startingDomain,
 		) ??
-		records.find(
+		relevantRecords.find(
 			({ domain: recordDomain }) => recordDomain === organizationalDomain,
 		) ??
-		records.at(-1);
+		relevantRecords.at(-1);
 	const policyIndex =
 		policy === undefined
 			? candidates.length
@@ -1207,6 +1310,10 @@ function hasDirectDkimKey(record: string): boolean {
 		(version === undefined || version === "dkim1") &&
 		(tags.get("p")?.length ?? 0) > 0
 	);
+}
+
+function hasSingleDirectDkimKey(records: readonly string[]): boolean {
+	return records.length === 1 && hasDirectDkimKey(records[0]!);
 }
 
 function hasExactSpfInclude(record: string, expectedDomain: string): boolean {
@@ -1297,9 +1404,9 @@ async function inspectProviderDnsUnbounded(
 					const expectedTarget = normalizeDomain(
 						`${selector}.dkim.amazonses.com`,
 					);
-					delegatedReady = cname.values.some(
-						(record) => normalizeDomain(record) === expectedTarget,
-					);
+					delegatedReady =
+						cname.values.length === 1 &&
+						normalizeDomain(cname.values[0]!) === expectedTarget;
 				} else if (cname.values.length > 0) {
 					const delegatedResults = await Promise.all(
 						cname.values.map(async (target) => {
@@ -1314,18 +1421,21 @@ async function inspectProviderDnsUnbounded(
 					delegatedObservations = delegatedResults.map(
 						({ observation }) => observation,
 					);
-					delegatedReady = delegatedResults.some(({ values }) =>
-						values.some((record) => hasDirectDkimKey(record)),
-					);
+					delegatedReady =
+						delegatedResults.length === 1 &&
+						hasSingleDirectDkimKey(delegatedResults[0]!.values);
 					delegatedIndeterminate = delegatedResults.some(
 						({ outcome }) => outcome === "error",
 					);
 				}
-				const direct = delegatedReady
-					? undefined
-					: await resolveDnsObservation(name, "TXT", () => dns.txt(name));
+				const direct =
+					cname.outcome === "missing"
+						? await resolveDnsObservation(name, "TXT", () =>
+								dns.txt(name),
+							)
+						: undefined;
 				const directReady =
-					direct?.values.some((record) => hasDirectDkimKey(record)) ?? false;
+					direct !== undefined && hasSingleDirectDkimKey(direct.values);
 				return {
 					observations: [
 						cname.observation,
@@ -1366,6 +1476,60 @@ async function inspectProviderDnsUnbounded(
 						: "DKIM readiness could not be determined because a DNS lookup failed.",
 		});
 	}
+
+	const dkimAlignmentMode =
+		dmarc.policy?.tags.get("adkim") === "s" ? "strict" : "relaxed";
+	const signingDomain = profile.sending_domain;
+	let signingOrganizationalDomain: string | undefined;
+	let dkimAlignmentStatus: DoctorCheckStatus;
+	if (dmarc.policy === undefined || dmarc.indeterminate) {
+		dkimAlignmentStatus = "unknown";
+	} else if (
+		normalizeDomain(signingDomain) === normalizeDomain(effectiveFromDomain)
+	) {
+		signingOrganizationalDomain = dmarc.organizationalDomain;
+		dkimAlignmentStatus = "pass";
+	} else if (dkimAlignmentMode === "strict") {
+		dkimAlignmentStatus = "fail";
+	} else {
+		const signingDmarc = await discoverDmarcPolicy(signingDomain, dns);
+		observations.push(...signingDmarc.observations);
+		signingOrganizationalDomain = signingDmarc.organizationalDomain;
+		if (
+			dmarc.organizationalDomainIndeterminate ||
+			signingDmarc.organizationalDomainIndeterminate
+		) {
+			dkimAlignmentStatus = "unknown";
+		} else if (
+			normalizeDomain(dmarc.organizationalDomain) ===
+			normalizeDomain(signingDmarc.organizationalDomain)
+		) {
+			dkimAlignmentStatus = "pass";
+		} else {
+			dkimAlignmentStatus = "fail";
+		}
+	}
+	let dkimAlignmentMessage: string;
+	if (dkimAlignmentStatus === "pass") {
+		dkimAlignmentMessage = `DKIM signing and From domains have ${dkimAlignmentMode} DMARC alignment.`;
+	} else if (dkimAlignmentStatus === "unknown") {
+		dkimAlignmentMessage =
+			"DMARC DKIM alignment could not be determined from the available DNS policy.";
+	} else {
+		dkimAlignmentMessage = `DKIM signing and From domains do not have ${dkimAlignmentMode} DMARC alignment.`;
+	}
+	checks.push({
+		id: "dns.dkim-alignment",
+		status: dkimAlignmentStatus,
+		message: dkimAlignmentMessage,
+		details: {
+			from_domain: effectiveFromDomain,
+			signing_domain: signingDomain,
+			alignment_mode: dkimAlignmentMode,
+			from_organizational_domain: dmarc.organizationalDomain,
+			signing_organizational_domain: signingOrganizationalDomain,
+		},
+	});
 
 	const mailFromDomain =
 		identity?.mail_from_domain ?? profile.mail_from_domain;
@@ -1432,7 +1596,7 @@ async function inspectProviderDnsUnbounded(
 			expectedMx === undefined
 				? mx.values.length > 0
 				: mx.values.length === 1 &&
-					mx.values[0]!.endsWith(` ${expectedMx}`);
+					mx.values[0] === `10 ${expectedMx}`;
 		const mxStatus: DoctorCheckStatus =
 			mx.outcome === "error" ? "unknown" : mxReady ? "pass" : "fail";
 		const mxMessage =
@@ -1545,6 +1709,7 @@ export async function inspectProviderDns(
 		const requiredCheckIds = [
 			"dns.dmarc",
 			"dns.dkim",
+			"dns.dkim-alignment",
 			...(mailFromDomain === undefined
 				? []
 				: ["dns.spf", "dns.mail-from-mx", "dns.spf-alignment"]),
@@ -1599,6 +1764,10 @@ export async function runProviderDoctor(
 			: {
 					provider_id: profile.id,
 					source: profileWebhookSource(profile),
+					evidence_scope: webhookEvidenceScope(
+						profile,
+						snapshotContext.profiles,
+					),
 					checked_at: now.toISOString(),
 					max_age_hours: maxWebhookAgeHours,
 					bounce_processing_enabled: false,
