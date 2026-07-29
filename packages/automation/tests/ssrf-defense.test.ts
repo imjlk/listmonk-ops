@@ -57,10 +57,27 @@ describe("SSRF defense — isPrivateHost", () => {
 		expect(isPrivateHost("fe80::1")).toBe(true);
 	});
 
+	it("blocks special-purpose IPv4 ranges", () => {
+		expect(isPrivateHost("192.0.2.1")).toBe(true);
+		expect(isPrivateHost("198.18.0.1")).toBe(true);
+		expect(isPrivateHost("198.51.100.1")).toBe(true);
+		expect(isPrivateHost("203.0.113.1")).toBe(true);
+		expect(isPrivateHost("224.0.0.1")).toBe(true);
+		expect(isPrivateHost("240.0.0.1")).toBe(true);
+	});
+
+	it("blocks non-global IPv6 ranges", () => {
+		expect(isPrivateHost("fec0::1")).toBe(true);
+		expect(isPrivateHost("ff02::1")).toBe(true);
+		expect(isPrivateHost("2001:db8::1")).toBe(true);
+		expect(isPrivateHost("3fff::1")).toBe(true);
+	});
+
 	it("allows public addresses", () => {
 		expect(isPrivateHost("8.8.8.8")).toBe(false);
 		expect(isPrivateHost("example.com")).toBe(false);
 		expect(isPrivateHost("1.1.1.1")).toBe(false);
+		expect(isPrivateHost("2001:4860:4860::8888")).toBe(false);
 	});
 });
 

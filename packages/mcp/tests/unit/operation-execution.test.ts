@@ -1,3 +1,7 @@
+import {
+	createOutboundWebhookEndpoint,
+	listOutboundWebhookDeliveries,
+} from "@listmonk-ops/automation";
 import { listOperationAuditEntries } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { afterEach, describe, expect, test } from "bun:test";
@@ -36,13 +40,16 @@ async function createAuditedServer() {
 	const directory = await mkdtemp(join(tmpdir(), "listmonk-ops-mcp-audit-"));
 	tempDirectories.push(directory);
 	const auditStorePath = join(directory, "operation-audit.json");
+	const webhookStorePath = join(directory, "outbound-webhooks.json");
 	return {
 		auditStorePath,
+		webhookStorePath,
 		server: createListmonkMCPServer({
 			baseUrl: "http://127.0.0.1:9000/api",
 			username: "api-admin",
 			apiToken: "dummy-token",
 			auditStorePath,
+			webhookStorePath,
 		}),
 	};
 }
@@ -176,6 +183,41 @@ describe("MCP operation execution safety", () => {
 			}),
 		]);
 		expect(entries[0]?.executionId).toBe(entries[1]?.executionId);
+	});
+
+	test("projects MCP audit events into the outbound webhook outbox", async () => {
+		const { auditStorePath, webhookStorePath, server } =
+			await createAuditedServer();
+		await createOutboundWebhookEndpoint(
+			{
+				name: "operations",
+				url: "https://8.8.8.8/hooks",
+				secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_OPERATIONS",
+				eventFilters: ["operation.*"],
+			},
+			{ path: webhookStorePath },
+		);
+
+		const result = await server.callTool(
+			request("listmonk_delete_list", { id: "8" }),
+		);
+		expect(result.isError).toBe(true);
+
+		const audit = await listOperationAuditEntries({ path: auditStorePath });
+		const deliveries = await listOutboundWebhookDeliveries({
+			path: webhookStorePath,
+		});
+		expect(deliveries.map((delivery) => delivery.event.type).sort()).toEqual([
+			"operation.blocked",
+			"operation.started",
+		]);
+		expect(
+			deliveries.every(
+				(delivery) =>
+					delivery.event.correlationId === audit[0]?.executionId &&
+					delivery.event.data.surface === "mcp",
+			),
+		).toBe(true);
 	});
 
 	test("records a defaulted hygiene preview as a dry run", async () => {

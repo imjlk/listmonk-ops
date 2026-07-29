@@ -2,6 +2,7 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { listOperationAuditEntries } from "@listmonk-ops/common";
 import {
 	createOutboundWebhookEndpoint,
 	deleteOutboundWebhookEndpoint,
@@ -13,11 +14,13 @@ import {
 	listOutboundWebhookEndpoints,
 	OutboundWebhookConflictError,
 	redactOutboundWebhookData,
+	recordOperationAuditWithLifecycle,
 	retryOutboundWebhookDelivery,
 	signOutboundWebhookPayload,
 	updateOutboundWebhookEndpoint,
 	verifyOutboundWebhookSignature,
 } from "../src/outbound-webhooks";
+import { postPinnedHttpsWebhookWithFallback } from "../src/webhook-transport";
 
 const directories: string[] = [];
 
@@ -262,6 +265,36 @@ describe("outbound webhook event outbox", () => {
 			},
 		});
 	});
+
+	test("keeps the durable audit result when lifecycle projection fails", async () => {
+		const path = await createStorePath();
+		const directory = await mkdtemp(
+			join(tmpdir(), "listmonk-ops-invalid-webhook-store-"),
+		);
+		directories.push(directory);
+		const errors: unknown[] = [];
+
+		const entry = await recordOperationAuditWithLifecycle(
+			{
+				executionId: "exec-durable",
+				surface: "cli",
+				operationId: "campaigns.schedule",
+				event: "started",
+				confirmationRequired: true,
+				confirmed: true,
+				dryRun: false,
+			},
+			{
+				audit: { path },
+				webhook: { path: directory },
+				onLifecycleError: (error) => errors.push(error),
+			},
+		);
+
+		expect(entry.executionId).toBe("exec-durable");
+		expect(await listOperationAuditEntries({ path })).toHaveLength(1);
+		expect(errors).toHaveLength(1);
+	});
 });
 
 describe("outbound webhook delivery", () => {
@@ -319,19 +352,27 @@ describe("outbound webhook delivery", () => {
 			);
 			expect(
 				verifyOutboundWebhookSignature({
-					secret: "test-secret",
+					secret: "  test-secret  ",
 					timestamp: headers.get("X-Listmonk-Ops-Timestamp")!,
 					body,
 					signature: headers.get("X-Listmonk-Ops-Signature")!,
 				}),
 			).toBe(true);
+			expect(
+				verifyOutboundWebhookSignature({
+					secret: "test-secret",
+					timestamp: headers.get("X-Listmonk-Ops-Timestamp")!,
+					body,
+					signature: headers.get("X-Listmonk-Ops-Signature")!,
+				}),
+			).toBe(false);
 			return new Response(null, { status: 204 });
 		});
 
 		const result = await dispatchOutboundWebhooks({
 			store: { path },
 			fetcher: fetcher as typeof fetch,
-			resolveSecret: () => "test-secret",
+			resolveSecret: () => "  test-secret  ",
 		});
 		expect(result).toMatchObject({
 			claimed: 1,
@@ -343,6 +384,66 @@ describe("outbound webhook delivery", () => {
 		expect(await listOutboundWebhookDeliveries({ path })).toMatchObject([
 			{ status: "succeeded", attemptCount: 1, statusCode: 204 },
 		]);
+	});
+
+	test("normalizes bracketed public IPv6 literals before address resolution", async () => {
+		const path = await createStorePath();
+		await createEndpoint(path, {
+			url: "https://[2001:4860:4860::8888]/hooks/listmonk",
+		});
+		await enqueueOutboundWebhookEvent(
+			{
+				type: "operation.succeeded",
+				source: "operation",
+				data: {},
+			},
+			{ path },
+		);
+		const fetcher = mock(async () => new Response(null, { status: 204 }));
+
+		expect(
+			await dispatchOutboundWebhooks({
+				store: { path },
+				fetcher: fetcher as typeof fetch,
+				resolveSecret: () => "test-secret",
+			}),
+		).toMatchObject({ succeeded: 1 });
+		expect(fetcher).toHaveBeenCalledTimes(1);
+	});
+
+	test("falls back across every validated address after connection errors", async () => {
+		const signal = new AbortController().signal;
+		const send = mock(
+			async (input: {
+				url: string;
+				address: { address: string; family: 4 | 6 };
+				headers: Readonly<Record<string, string>>;
+				body: string;
+				signal: AbortSignal;
+			}) => {
+				if (input.address.address === "203.0.113.10") {
+					throw new Error("first address unavailable");
+				}
+				return { ok: true, status: 204 };
+			},
+		);
+
+		expect(
+			await postPinnedHttpsWebhookWithFallback(
+				{
+					url: "https://example.com/hooks",
+					addresses: [
+						{ address: "203.0.113.10", family: 4 },
+						{ address: "2001:4860:4860::8888", family: 6 },
+					],
+					headers: {},
+					body: "{}",
+					signal,
+				},
+				send,
+			),
+		).toEqual({ ok: true, status: 204 });
+		expect(send).toHaveBeenCalledTimes(2);
 	});
 
 	test("claims bounded batches so leases start near actual delivery", async () => {

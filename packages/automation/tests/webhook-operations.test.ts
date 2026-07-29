@@ -107,7 +107,7 @@ describe("webhook shared operations", () => {
 			name: "primary",
 			url: "https://8.8.8.8/hooks",
 			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_PRIMARY",
-			event_filters: ["webhook.test"],
+			event_filters: ["campaign.*"],
 		});
 		const result = await invokeWebhookTestOperation(context, {
 			id: created.endpoint.id,
@@ -163,5 +163,33 @@ describe("webhook shared operations", () => {
 		await expect(
 			invokeWebhookDispatchOperation(context, { limit: 101 }),
 		).rejects.toThrow("Dispatch limit");
+		await expect(
+			invokeWebhookDeliveryListOperation(context, { limit: 1_001 }),
+		).rejects.toThrow("Delivery list limit");
+		await expect(
+			invokeWebhookCreateOperation(context, {
+				name: "invalid-delivery-policy",
+				url: "https://8.8.8.8/hooks",
+				secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_PRIMARY",
+				event_filters: ["operation.*"],
+				timeout_ms: 99,
+				max_attempts: 13,
+			}),
+		).rejects.toThrow();
+		for (const url of [
+			"http://8.8.8.8/hooks",
+			"https://user:pass@8.8.8.8/hooks",
+			"https://8.8.8.8/hooks?token=secret",
+			"https://8.8.8.8/hooks#fragment",
+		]) {
+			await expect(
+				invokeWebhookCreateOperation(context, {
+					name: url,
+					url,
+					secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_PRIMARY",
+					event_filters: ["operation.*"],
+				}),
+			).rejects.toThrow();
+		}
 	});
 });

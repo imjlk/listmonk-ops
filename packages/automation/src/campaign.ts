@@ -46,8 +46,6 @@ function summarizeChecks(checks: CampaignPreflightCheck[]) {
 	};
 }
 
-const LINK_LOCAL_PREFIXES = ["fe8", "fe9", "fea", "feb"];
-
 /**
  * Check links with bounded concurrency (max 5 at a time) to avoid
  * overwhelming the server or the network.
@@ -74,46 +72,159 @@ function collectBodyLinks(body: string): string[] {
 }
 
 /**
- * Check whether a URL's hostname resolves to a private or internal address.
- * Blocks loopback (127.x, ::1), private CIDRs (10.x, 172.16-31.x,
- * 192.168.x), link-local (169.254.x, fe80::), and cloud metadata IPs
- * (169.254.169.254) to prevent SSRF via campaign body content.
+ * Check whether a URL hostname is a literal address that is not globally
+ * routable. This includes private, loopback, link-local, documentation,
+ * benchmarking, multicast, and reserved ranges.
  */
-function isPrivateOctetPair(a: number, b: number): boolean {
-	if (a === 127 || a === 10 || a === 0) return true;
-	if (a === 172 && b >= 16 && b <= 31) return true;
-	if (a === 192 && b === 168) return true;
-	if (a === 169 && b === 254) return true;
-	if (a === 100 && b === 100) return true;
-	if (a === 100 && b >= 64 && b <= 127) return true; // shared address space 100.64.0.0/10
-	return false;
+type Ipv4Range = readonly [network: number, prefixLength: number];
+
+const NON_PUBLIC_IPV4_RANGES: readonly Ipv4Range[] = [
+	[0x00000000, 8], // current network
+	[0x0a000000, 8], // private
+	[0x64400000, 10], // shared address space
+	[0x7f000000, 8], // loopback
+	[0xa9fe0000, 16], // link-local
+	[0xac100000, 12], // private
+	[0xc0000000, 24], // IETF protocol assignments
+	[0xc0000200, 24], // TEST-NET-1
+	[0xc0586300, 24], // deprecated 6to4 relay anycast
+	[0xc0a80000, 16], // private
+	[0xc6120000, 15], // benchmarking
+	[0xc6336400, 24], // TEST-NET-2
+	[0xcb007100, 24], // TEST-NET-3
+	[0xe0000000, 4], // multicast
+	[0xf0000000, 4], // reserved and limited broadcast
+] as const;
+
+function parseIpv4Address(value: string): number | undefined {
+	const parts = value.split(".");
+	if (
+		parts.length !== 4 ||
+		parts.some((part) => !/^(?:0|[1-9]\d{0,2})$/u.test(part))
+	) {
+		return undefined;
+	}
+	const octets = parts.map(Number);
+	if (octets.some((octet) => octet > 255)) {
+		return undefined;
+	}
+	return (
+		((octets[0]! << 24) |
+			(octets[1]! << 16) |
+			(octets[2]! << 8) |
+			octets[3]!) >>>
+		0
+	);
 }
 
-export function isPrivateHost(hostname: string): boolean {
-	const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-	const mapped = host.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-	const checkHost = mapped ? mapped[1]! : host;
-	const parts = checkHost.split(".");
-	if (parts.length === 4) {
-		const nums = parts.map((p) => parseInt(p, 10));
-		if (nums.length === 4 && nums.every((n) => n >= 0 && n <= 255)) {
-			return isPrivateOctetPair(nums[0]!, nums[1]!);
+function isIpv4InRange(
+	address: number,
+	[network, prefixLength]: Ipv4Range,
+): boolean {
+	const mask =
+		prefixLength === 0 ? 0 : (0xffffffff << (32 - prefixLength)) >>> 0;
+	return (address & mask) >>> 0 === (network & mask) >>> 0;
+}
+
+function isPublicIpv4(address: number): boolean {
+	return !NON_PUBLIC_IPV4_RANGES.some((range) => isIpv4InRange(address, range));
+}
+
+function parseIpv6Address(value: string): bigint | undefined {
+	let normalized = value.toLowerCase();
+	const zoneIndex = normalized.indexOf("%");
+	if (zoneIndex >= 0) {
+		normalized = normalized.slice(0, zoneIndex);
+	}
+	const ipv4Tail = /(?:^|:)(\d+\.\d+\.\d+\.\d+)$/u.exec(normalized);
+	if (ipv4Tail) {
+		const ipv4 = parseIpv4Address(ipv4Tail[1]!);
+		if (ipv4 === undefined) {
+			return undefined;
 		}
+		normalized = `${normalized.slice(0, -ipv4Tail[1]!.length)}${(
+			(ipv4 >>> 16) &
+			0xffff
+		).toString(16)}:${(ipv4 & 0xffff).toString(16)}`;
 	}
-	if (host === "::1" || host === "::" || host === "localhost") return true;
-	if (host === "::ffff:0:0") return true;
-	const mappedHex = host.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
-	if (mappedHex) {
-		const hi = parseInt(mappedHex[1]!, 16);
-		const a = (hi >> 8) & 0xff;
-		const b = hi & 0xff;
-		return isPrivateOctetPair(a, b);
+	const halves = normalized.split("::");
+	if (halves.length > 2) {
+		return undefined;
 	}
-	if (host.includes("::")) {
-		if (host.startsWith("fc") || host.startsWith("fd")) return true;
-		if (LINK_LOCAL_PREFIXES.some((p) => host.startsWith(p))) return true;
+	const left = halves[0] ? halves[0].split(":") : [];
+	const right = halves[1] ? halves[1].split(":") : [];
+	const missing = 8 - left.length - right.length;
+	if (
+		(halves.length === 1 && missing !== 0) ||
+		(halves.length === 2 && missing < 1)
+	) {
+		return undefined;
 	}
-	return false;
+	const parts = [
+		...left,
+		...Array.from({ length: Math.max(0, missing) }, () => "0"),
+		...right,
+	];
+	if (
+		parts.length !== 8 ||
+		parts.some((part) => !/^[0-9a-f]{1,4}$/u.test(part))
+	) {
+		return undefined;
+	}
+	return parts.reduce(
+		(result, part) => (result << 16n) | BigInt(`0x${part}`),
+		0n,
+	);
+}
+
+function isIpv6InRange(
+	address: bigint,
+	network: bigint,
+	prefixLength: number,
+): boolean {
+	const shift = BigInt(128 - prefixLength);
+	return address >> shift === network >> shift;
+}
+
+function isPublicIpv6(address: bigint): boolean {
+	const mappedPrefix = address >> 32n;
+	if (mappedPrefix === 0xffffn) {
+		return isPublicIpv4(Number(address & 0xffffffffn));
+	}
+	if (!isIpv6InRange(address, 0x20000000000000000000000000000000n, 3)) {
+		return false;
+	}
+	const nonPublicRanges: readonly (readonly [
+		network: bigint,
+		prefixLength: number,
+	])[] = [
+		[0x20010000000000000000000000000000n, 23],
+		[0x20010db8000000000000000000000000n, 32],
+		[0x20020000000000000000000000000000n, 16],
+		[0x3fff0000000000000000000000000000n, 20],
+	];
+	return !nonPublicRanges.some(([network, prefixLength]) =>
+		isIpv6InRange(address, network, prefixLength),
+	);
+}
+
+/**
+ * Returns true for literal addresses that are not globally routable. Despite
+ * the historical name, this deliberately blocks all special-purpose ranges,
+ * including documentation, benchmarking, multicast, and reserved space.
+ * Non-literal hostnames are resolved and checked separately.
+ */
+export function isPrivateHost(hostname: string): boolean {
+	const host = hostname.replace(/^\[|\]$/gu, "").toLowerCase();
+	if (host === "localhost") {
+		return true;
+	}
+	const ipv4 = parseIpv4Address(host);
+	if (ipv4 !== undefined) {
+		return !isPublicIpv4(ipv4);
+	}
+	const ipv6 = parseIpv6Address(host);
+	return ipv6 === undefined ? false : !isPublicIpv6(ipv6);
 }
 
 /**

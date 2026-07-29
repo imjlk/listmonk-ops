@@ -1,14 +1,16 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { lookup as dnsLookup } from "node:dns/promises";
-import { request as httpsRequest } from "node:https";
-import type { LookupFunction } from "node:net";
+import { isIP } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
 	commitJsonFileStoreUpdate,
 	readJsonFileStore,
 	type JsonFileStore,
+	type OperationAuditEntry,
+	type OperationAuditStoreOptions,
 	type RecordOperationAuditInput,
+	recordOperationAudit,
 	updateJsonFileStore,
 } from "@listmonk-ops/common";
 import type {
@@ -17,6 +19,10 @@ import type {
 } from "@listmonk-ops/operations/specs";
 import { z } from "zod";
 import { isPrivateHost, isSafeFetchUrl } from "./campaign";
+import {
+	postPinnedHttpsWebhookWithFallback,
+	type ResolvedWebhookAddress,
+} from "./webhook-transport";
 
 export const OUTBOUND_WEBHOOK_STORE_VERSION = 1;
 export const OUTBOUND_WEBHOOK_EVENT_SCHEMA_VERSION = 1;
@@ -373,7 +379,7 @@ export function createOutboundWebhookStore(
 	};
 }
 
-function normalizeEndpointUrl(value: string): string {
+export function normalizeOutboundWebhookEndpointUrl(value: string): string {
 	let parsed: URL;
 	try {
 		parsed = new URL(value.trim());
@@ -530,7 +536,7 @@ export async function createOutboundWebhookEndpoint(
 	const endpoint = endpointSchema.parse({
 		id: randomUUID(),
 		name: input.name,
-		url: normalizeEndpointUrl(input.url),
+		url: normalizeOutboundWebhookEndpointUrl(input.url),
 		secretRef: input.secretRef,
 		eventFilters: normalizeEventFilters(input.eventFilters),
 		enabled: input.enabled ?? true,
@@ -579,7 +585,7 @@ export async function updateOutboundWebhookEndpoint(
 			...(input.name === undefined ? {} : { name: input.name }),
 			...(input.url === undefined
 				? {}
-				: { url: normalizeEndpointUrl(input.url) }),
+				: { url: normalizeOutboundWebhookEndpointUrl(input.url) }),
 			...(input.secretRef === undefined
 				? {}
 				: { secretRef: input.secretRef }),
@@ -685,6 +691,7 @@ export async function enqueueOutboundWebhookEvent(
 	input: CreateOutboundWebhookEventInput,
 	options: OutboundWebhookStoreOptions & {
 		endpointIds?: readonly string[];
+		bypassEventFilters?: boolean;
 	} = {},
 ): Promise<EnqueueOutboundWebhookResult> {
 	const event = createOutboundWebhookEvent(input);
@@ -698,7 +705,8 @@ export async function enqueueOutboundWebhookEvent(
 			(endpoint) =>
 				endpoint.enabled &&
 				(selected === undefined || selected.has(endpoint.id)) &&
-				matchesOutboundWebhookEvent(endpoint.eventFilters, event.type),
+				(options.bypassEventFilters === true ||
+					matchesOutboundWebhookEvent(endpoint.eventFilters, event.type)),
 		);
 		const existingKeys = new Set(
 			current.deliveries.map(
@@ -756,6 +764,7 @@ export async function enqueueOperationLifecycleEvent(
 		type: `operation.${input.event}`,
 		source: "operation",
 		correlationId: input.executionId,
+		occurredAt: input.at,
 		subject: { kind: "operation", key: input.operationId },
 		data: {
 			surface: input.surface,
@@ -783,6 +792,39 @@ export async function enqueueOperationLifecycleEvent(
 		...options,
 		endpointIds: matched.map((endpoint) => endpoint.id),
 	});
+}
+
+/**
+ * Persists the canonical metadata-only audit event first, then best-effort
+ * projects the same execution into the outbound event outbox. A webhook store
+ * failure must never replace an operation result or invite a duplicate retry.
+ */
+export async function recordOperationAuditWithLifecycle(
+	input: RecordOperationAuditInput,
+	options: Readonly<{
+		audit?: OperationAuditStoreOptions;
+		webhook?: OutboundWebhookStoreOptions;
+		onLifecycleError?: (error: unknown) => void;
+	}> = {},
+): Promise<OperationAuditEntry> {
+	const entry = await recordOperationAudit(input, options.audit);
+	try {
+		await enqueueOperationLifecycleEvent(
+			{
+				...input,
+				executionId: entry.executionId,
+				at: entry.at,
+			},
+			options.webhook,
+		);
+	} catch (error) {
+		try {
+			options.onLifecycleError?.(error);
+		} catch {
+			// Observability reporting must not shadow the durable audit result.
+		}
+	}
+	return entry;
 }
 
 export async function listOutboundWebhookDeliveries(
@@ -1087,11 +1129,6 @@ async function resolveWithTimeout<T>(
 	}
 }
 
-type ResolvedWebhookAddress = Readonly<{
-	address: string;
-	family: 4 | 6;
-}>;
-
 type WebhookAddressResolution =
 	| Readonly<{
 			safe: true;
@@ -1113,12 +1150,17 @@ async function resolvePublicWebhookAddresses(
 			reason: staticSafety.reason ?? "URL is not public",
 		};
 	}
-	const addresses = await dnsLookup(parsed.hostname, {
-		all: true,
-		verbatim: true,
-	});
+	const hostname = parsed.hostname.replace(/^\[|\]$/gu, "");
+	const literalFamily = isIP(hostname);
+	const addresses =
+		literalFamily === 0
+			? await dnsLookup(hostname, {
+					all: true,
+					verbatim: true,
+				})
+			: [{ address: hostname, family: literalFamily }];
 	if (addresses.length === 0) {
-		throw new Error(`Endpoint host has no DNS addresses: ${parsed.hostname}`);
+		throw new Error(`Endpoint host has no DNS addresses: ${hostname}`);
 	}
 	const normalized = addresses
 		.map(({ address, family }) => ({
@@ -1130,43 +1172,10 @@ async function resolvePublicWebhookAddresses(
 	if (blocked) {
 		return {
 			safe: false,
-			reason: `Host ${parsed.hostname} resolves to private/internal address ${blocked.address}`,
+			reason: `Host ${hostname} resolves to private/internal address ${blocked.address}`,
 		};
 	}
 	return { safe: true, addresses: normalized };
-}
-
-function postPinnedHttpsWebhook(input: {
-	url: string;
-	address: ResolvedWebhookAddress;
-	headers: Readonly<Record<string, string>>;
-	body: string;
-	signal: AbortSignal;
-}): Promise<{ ok: boolean; status: number }> {
-	const parsed = new URL(input.url);
-	const lookup: LookupFunction = (_hostname, _options, callback) => {
-		callback(null, input.address.address, input.address.family);
-	};
-	return new Promise((resolve, reject) => {
-		const request = httpsRequest(
-			parsed,
-			{
-				method: "POST",
-				headers: input.headers,
-				lookup,
-				family: input.address.family,
-				servername: parsed.hostname,
-				signal: input.signal,
-			},
-			(response) => {
-				response.resume();
-				const status = response.statusCode ?? 0;
-				resolve({ ok: status >= 200 && status < 300, status });
-			},
-		);
-		request.once("error", reject);
-		request.end(input.body);
-	});
 }
 
 async function deliverClaimedWebhook(
@@ -1196,8 +1205,8 @@ async function deliverClaimedWebhook(
 			error: "Endpoint is disabled",
 		};
 	}
-	const secret = options.resolveSecret(endpoint.secretRef)?.trim();
-	if (!secret) {
+	const secret = options.resolveSecret(endpoint.secretRef);
+	if (secret === undefined || secret.trim().length === 0) {
 		return {
 			success: false,
 			retryable: true,
@@ -1257,9 +1266,9 @@ async function deliverClaimedWebhook(
 						response.body?.cancel().catch(() => {});
 						return { ok: response.ok, status: response.status };
 					})
-			: await postPinnedHttpsWebhook({
+			: await postPinnedHttpsWebhookWithFallback({
 					url: endpoint.url,
-					address: addressResolution.addresses[0]!,
+					addresses: addressResolution.addresses,
 					headers,
 					body,
 					signal: controller.signal,

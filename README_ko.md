@@ -692,6 +692,12 @@ listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
 받습니다. 초기 계약은 operation, campaign, subscriber, delivery, A/B test,
 test event를 포함합니다. 자격 증명이나 개인정보 이름을 가진 payload 필드는
 저장 전에 재귀적으로 마스킹합니다.
+감사 대상 CLI/MCP operation은 같은 execution ID로 `operation.started`,
+`operation.blocked`, `operation.succeeded`, `operation.failed`를 자동 enqueue합니다.
+Event 투영은 durable audit 저장 이후 best-effort로 처리하므로 webhook 저장소
+장애가 operation 결과를 대체하거나 위험한 재시도를 유발하지 않습니다. 대상이
+지정된 `webhooks test` 진단은 endpoint의 일반 event filter를 변경하지 않고
+우회하여 전송합니다.
 
 요청에는 `X-Listmonk-Ops-Event-Id`, `X-Listmonk-Ops-Event-Type`,
 `X-Listmonk-Ops-Timestamp`,
@@ -705,8 +711,8 @@ test event를 포함합니다. 자격 증명이나 개인정보 이름을 가진
 log에서 확인할 수 있습니다.
 
 자격 증명, query string, fragment가 없는 public HTTPS endpoint만 허용합니다.
-Dispatch 시 DNS/IP 안전성을 다시 확인하고 검증된 public 주소를 HTTPS 연결에
-고정하며 redirect는 허용하지 않습니다.
+Dispatch 시 DNS/IP가 전역 라우팅 가능한 주소인지 다시 확인하고, 검증된 주소를
+차례로 시도하면서 각 HTTPS 연결에 고정하며 redirect는 허용하지 않습니다.
 `webhooks dispatch`는 scheduler에서 실행하세요. Endpoint 등록만으로 background
 daemon이 시작되지는 않습니다.
 

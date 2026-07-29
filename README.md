@@ -701,6 +701,12 @@ Filters accept an exact event type, a family wildcard such as `campaign.*`, or
 `*`. Initial contracts cover operation, campaign, subscriber, delivery, A/B
 test, and test events. Payload fields with credential or personal-data names
 are recursively redacted before persistence.
+Audited CLI and MCP operations automatically enqueue `operation.started`,
+`operation.blocked`, `operation.succeeded`, and `operation.failed` with the
+same execution ID. Event projection is best-effort after the durable audit
+write, so an unavailable webhook store cannot replace an operation result or
+invite an unsafe retry. A targeted `webhooks test` diagnostic bypasses the
+endpoint's normal event filters without changing them.
 
 Each request includes `X-Listmonk-Ops-Event-Id`,
 `X-Listmonk-Ops-Event-Type`, `X-Listmonk-Ops-Timestamp`, and
@@ -714,9 +720,10 @@ that attempt as `skipped` while preserving sibling results; inspect the shared
 delivery log for the final state.
 
 Only public HTTPS endpoints without credentials, query strings, or fragments
-are accepted. Destination DNS/IP safety is rechecked when dispatching, the
-validated public address is pinned for the HTTPS connection, and redirects are
-disabled. Run `webhooks dispatch` from a scheduler; endpoint
+are accepted. Destination DNS/IP safety is rechecked against globally routable
+address ranges when dispatching, each validated address is tried in order and
+pinned for its HTTPS connection, and redirects are disabled. Run
+`webhooks dispatch` from a scheduler; endpoint
 management does not start a background daemon.
 
 ## OpenAPI Regeneration (Hey API)

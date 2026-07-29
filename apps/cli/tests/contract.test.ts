@@ -113,7 +113,7 @@ describe("CLI contract", () => {
 			"--format=json",
 		]);
 		expect(deliveries.exitCode).toBe(0);
-		expect(deliveries.output).toContain('"deliveries": []');
+		expect(deliveries.output).toContain('"type": "operation.succeeded"');
 
 		const unconfirmed = runCli(["webhooks", "delete", "--id", id!]);
 		expect(unconfirmed.exitCode).not.toBe(0);

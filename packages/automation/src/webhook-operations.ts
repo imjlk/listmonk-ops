@@ -24,6 +24,7 @@ import {
 	getOutboundWebhookEndpoint,
 	listOutboundWebhookDeliveries,
 	listOutboundWebhookEndpoints,
+	normalizeOutboundWebhookEndpointUrl,
 	OUTBOUND_WEBHOOK_EVENT_TYPES,
 	OUTBOUND_WEBHOOK_SECRET_REF_PATTERN,
 	retryOutboundWebhookDelivery,
@@ -72,15 +73,44 @@ const deliveryStatusInput = z.enum([
 	"succeeded",
 	"exhausted",
 ]);
+const endpointUrlInput = z.url().superRefine((value, context) => {
+	try {
+		normalizeOutboundWebhookEndpointUrl(value);
+	} catch (error) {
+		context.addIssue({
+			code: "custom",
+			message:
+				error instanceof Error
+					? error.message
+					: "Invalid outbound webhook URL",
+		});
+	}
+});
+const webhookTimeoutInput = positiveIntegerInput.refine(
+	(value) => value >= 100 && value <= 30_000,
+	"timeout_ms must be between 100 and 30000",
+);
+const webhookMaxAttemptsInput = positiveIntegerInput.refine(
+	(value) => value <= 12,
+	"max_attempts must be between 1 and 12",
+);
+const webhookDispatchLimitInput = positiveIntegerInput.refine(
+	(value) => value <= 100,
+	"Dispatch limit must be between 1 and 100",
+);
+const webhookDeliveryListLimitInput = positiveIntegerInput.refine(
+	(value) => value <= 1_000,
+	"Delivery list limit must be between 1 and 1000",
+);
 
 const webhookListInputSchema = z.object({
 	enabled: booleanInput.optional().describe("Filter by enabled state"),
 });
 const webhookCreateInputSchema = z.object({
 	name: z.string().trim().min(1).max(120),
-	url: z
-		.url()
-		.describe("Public HTTPS endpoint without credentials, query, or fragment"),
+	url: endpointUrlInput.describe(
+		"Public HTTPS endpoint without credentials, query, or fragment",
+	),
 	secret_ref: z
 		.string()
 		.trim()
@@ -90,14 +120,14 @@ const webhookCreateInputSchema = z.object({
 		),
 	event_filters: z.array(eventFilterInput).min(1),
 	enabled: booleanInput.default(true),
-	timeout_ms: positiveIntegerInput.default(10_000),
-	max_attempts: positiveIntegerInput.default(6),
+	timeout_ms: webhookTimeoutInput.default(10_000),
+	max_attempts: webhookMaxAttemptsInput.default(6),
 });
 const webhookUpdateInputSchema = z
 	.object({
 		id: endpointIdInput,
 		name: z.string().trim().min(1).max(120).optional(),
-		url: z.url().optional(),
+		url: endpointUrlInput.optional(),
 		secret_ref: z
 			.string()
 			.trim()
@@ -108,8 +138,8 @@ const webhookUpdateInputSchema = z
 			.optional(),
 		event_filters: z.array(eventFilterInput).min(1).optional(),
 		enabled: booleanInput.optional(),
-		timeout_ms: positiveIntegerInput.optional(),
-		max_attempts: positiveIntegerInput.optional(),
+		timeout_ms: webhookTimeoutInput.optional(),
+		max_attempts: webhookMaxAttemptsInput.optional(),
 	})
 	.refine(
 		(input) =>
@@ -122,13 +152,13 @@ const webhookTestInputSchema = z.object({
 	correlation_id: z.string().trim().min(1).max(200).optional(),
 });
 const webhookDispatchInputSchema = z.object({
-	limit: positiveIntegerInput.default(25),
+	limit: webhookDispatchLimitInput.default(25),
 });
 const webhookDeliveryListInputSchema = z.object({
 	endpoint_id: endpointIdInput.optional(),
 	status: deliveryStatusInput.optional(),
 	event_type: eventTypeInput.optional(),
-	limit: positiveIntegerInput.default(100),
+	limit: webhookDeliveryListLimitInput.default(100),
 });
 const webhookDeliveryRetryInputSchema = z.object({
 	id: z.uuid().describe("Outbound webhook delivery ID"),
@@ -393,7 +423,11 @@ export async function executeWebhookTestOperation(
 			subject: { kind: "webhook", key: endpoint.id },
 			data: { endpoint_id: endpoint.id, endpoint_name: endpoint.name },
 		},
-		{ ...context.store, endpointIds: [endpoint.id] },
+		{
+			...context.store,
+			endpointIds: [endpoint.id],
+			bypassEventFilters: true,
+		},
 	);
 	const deliveryId = queued.deliveryIds[0];
 	const dispatch = await dispatchOutboundWebhooks({

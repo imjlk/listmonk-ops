@@ -406,6 +406,14 @@ export type WebhookMaxAttempts = number &
 	tags.Type<"int32"> &
 	tags.Minimum<1> &
 	tags.Maximum<12>;
+export type WebhookDispatchLimit = number &
+	tags.Type<"int32"> &
+	tags.Minimum<1> &
+	tags.Maximum<100>;
+export type WebhookDeliveryListLimit = number &
+	tags.Type<"int32"> &
+	tags.Minimum<1> &
+	tags.Maximum<1000>;
 export type WebhookEventType =
 	| "operation.started"
 	| "operation.blocked"
@@ -514,7 +522,7 @@ export interface WebhookTestInput {
 }
 
 export interface WebhookDispatchInput {
-	limit?: PositiveInteger | undefined;
+	limit?: WebhookDispatchLimit | undefined;
 }
 
 export type WebhookDispatchResult =
@@ -594,7 +602,7 @@ export interface WebhookDeliveryListInput {
 	endpoint_id?: WebhookId | undefined;
 	status?: WebhookDeliveryStatus | undefined;
 	event_type?: WebhookEventType | undefined;
-	limit?: PositiveInteger | undefined;
+	limit?: WebhookDeliveryListLimit | undefined;
 }
 
 export interface WebhookDeliveryListOutput {

@@ -1,10 +1,13 @@
 import {
 	createOperationAuditExecutionId,
-	recordOperationAudit,
 	type OperationAuditEvent,
 	type OperationAuditStoreOptions,
 	type RecordOperationAuditInput,
 } from "@listmonk-ops/common";
+import {
+	recordOperationAuditWithLifecycle,
+	type OutboundWebhookStoreOptions,
+} from "@listmonk-ops/automation";
 import {
 	assertOperationConfirmation,
 	getOperationEffectiveDryRun,
@@ -101,6 +104,8 @@ async function recordCliOperationAudit(
 	event: OperationAuditEvent,
 	recordAudit: CliOperationAuditRecorder | undefined,
 	auditStoreOptions: OperationAuditStoreOptions,
+	webhookStoreOptions: OutboundWebhookStoreOptions,
+	onLifecycleError: (message: string) => void,
 ): Promise<void> {
 	const input: RecordOperationAuditInput = {
 		executionId,
@@ -115,7 +120,15 @@ async function recordCliOperationAudit(
 		await recordAudit(input, auditStoreOptions);
 		return;
 	}
-	await recordOperationAudit(input, auditStoreOptions);
+	await recordOperationAuditWithLifecycle(input, {
+		audit: auditStoreOptions,
+		webhook: webhookStoreOptions,
+		onLifecycleError: (error) =>
+			reportCliOperationAuditError(
+				onLifecycleError,
+				`Unable to enqueue CLI operation lifecycle event for ${execution.operation.id}: ${toErrorMessage(error)}`,
+			),
+	});
 }
 
 async function completeCliOperationExecution(
@@ -124,6 +137,7 @@ async function completeCliOperationExecution(
 	event: "succeeded" | "failed",
 	recordAudit: CliOperationAuditRecorder | undefined,
 	auditStoreOptions: OperationAuditStoreOptions,
+	webhookStoreOptions: OutboundWebhookStoreOptions,
 	onAuditError: (message: string) => void,
 ): Promise<void> {
 	if (!executionId) {
@@ -137,6 +151,8 @@ async function completeCliOperationExecution(
 			event,
 			recordAudit,
 			auditStoreOptions,
+			webhookStoreOptions,
+			onAuditError,
 		);
 	} catch (error) {
 		// A durable started event already records the remote attempt. Replacing a
@@ -170,6 +186,7 @@ export async function executeCliOperation<Result>(config: {
 	confirmed?: boolean;
 	invoke: () => Promise<Result>;
 	auditStoreOptions?: OperationAuditStoreOptions;
+	webhookStoreOptions?: OutboundWebhookStoreOptions;
 	recordAudit?: CliOperationAuditRecorder;
 	onAuditError?: (message: string) => void;
 }): Promise<Result> {
@@ -179,6 +196,7 @@ export async function executeCliOperation<Result>(config: {
 		config.confirmed,
 	);
 	const auditStoreOptions = config.auditStoreOptions ?? {};
+	const webhookStoreOptions = config.webhookStoreOptions ?? {};
 	const recordAudit = config.recordAudit;
 	const onAuditError = config.onAuditError ?? ((message: string) => console.error(
 		message,
@@ -194,6 +212,8 @@ export async function executeCliOperation<Result>(config: {
 				"started",
 				recordAudit,
 				auditStoreOptions,
+				webhookStoreOptions,
+				onAuditError,
 			);
 		} catch (error) {
 			throw new CliOperationAuditStartError(execution.operation.id, error);
@@ -211,6 +231,8 @@ export async function executeCliOperation<Result>(config: {
 					"blocked",
 					recordAudit,
 					auditStoreOptions,
+					webhookStoreOptions,
+					onAuditError,
 				);
 			} catch (auditError) {
 				reportCliOperationAuditError(
@@ -230,6 +252,7 @@ export async function executeCliOperation<Result>(config: {
 			"succeeded",
 			recordAudit,
 			auditStoreOptions,
+			webhookStoreOptions,
 			onAuditError,
 		);
 		return result;
@@ -240,6 +263,7 @@ export async function executeCliOperation<Result>(config: {
 			"failed",
 			recordAudit,
 			auditStoreOptions,
+			webhookStoreOptions,
 			onAuditError,
 		);
 		throw error;

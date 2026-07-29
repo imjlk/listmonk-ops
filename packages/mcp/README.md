@@ -147,6 +147,10 @@ Endpoint records persist only `secret_ref`, never the HMAC value. Delivery uses
 the same versioned JSON outbox as the CLI, stable event IDs, at-least-once
 semantics, exponential retry, terminal exhaustion, replay-protected signatures,
 public-HTTPS validation, and disabled redirects.
+Audited MCP operations automatically enqueue matching `operation.*` lifecycle
+events with the same execution ID. This projection is best-effort after the
+durable audit write and does not turn an observability failure into a remote
+operation retry.
 
 ### Operations & Observability
 

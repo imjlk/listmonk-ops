@@ -118,6 +118,10 @@ The default store is `~/.listmonk-ops/outbound-webhooks.json`; override it with
 redirects, revalidates public HTTPS destination addresses, and pins the
 validated address into the TLS connection to prevent DNS rebinding between
 validation and delivery.
+If a hostname has multiple validated addresses, dispatch tries them in order
+within the endpoint timeout. Audited CLI and MCP executions are projected into
+`operation.*` events automatically after the durable metadata-only audit write;
+projection failure is reported without changing the operation result.
 
 Receivers should verify `X-Listmonk-Ops-Signature` over
 `<X-Listmonk-Ops-Timestamp>.<exact-body>` and apply replay protection.

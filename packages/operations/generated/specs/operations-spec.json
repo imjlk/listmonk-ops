@@ -6001,20 +6001,20 @@
         "input": {
           "components": {
             "schemas": {
-              "PositiveInteger": {
-                "maximum": 9007199254740991,
-                "minimum": 1,
-                "type": "integer"
-              },
               "WebhookDispatchInput": {
                 "additionalProperties": false,
                 "properties": {
                   "limit": {
-                    "$ref": "#/components/schemas/PositiveInteger"
+                    "$ref": "#/components/schemas/WebhookDispatchLimit"
                   }
                 },
                 "required": [],
                 "type": "object"
+              },
+              "WebhookDispatchLimit": {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
               }
             }
           },
@@ -6023,7 +6023,7 @@
             "additionalProperties": false,
             "properties": {
               "limit": {
-                "$ref": "#/components/schemas/PositiveInteger"
+                "$ref": "#/components/schemas/WebhookDispatchLimit"
               }
             },
             "required": [],
@@ -6249,11 +6249,6 @@
         "input": {
           "components": {
             "schemas": {
-              "PositiveInteger": {
-                "maximum": 9007199254740991,
-                "minimum": 1,
-                "type": "integer"
-              },
               "WebhookDeliveryListInput": {
                 "additionalProperties": false,
                 "properties": {
@@ -6334,7 +6329,7 @@
                     ]
                   },
                   "limit": {
-                    "$ref": "#/components/schemas/PositiveInteger"
+                    "$ref": "#/components/schemas/WebhookDeliveryListLimit"
                   },
                   "status": {
                     "oneOf": [
@@ -6358,6 +6353,11 @@
                 },
                 "required": [],
                 "type": "object"
+              },
+              "WebhookDeliveryListLimit": {
+                "maximum": 1000,
+                "minimum": 1,
+                "type": "integer"
               },
               "WebhookId": {
                 "format": "uuid",
@@ -6446,7 +6446,7 @@
                 ]
               },
               "limit": {
-                "$ref": "#/components/schemas/PositiveInteger"
+                "$ref": "#/components/schemas/WebhookDeliveryListLimit"
               },
               "status": {
                 "oneOf": [

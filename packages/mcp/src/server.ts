@@ -1,10 +1,13 @@
 import {
 	createOperationAuditExecutionId,
 	normalizeListmonkApiUrl,
-	recordOperationAudit,
 	type OperationAuditEvent,
 	type OperationAuditStoreOptions,
 } from "@listmonk-ops/common";
+import {
+	recordOperationAuditWithLifecycle,
+	type OutboundWebhookStoreOptions,
+} from "@listmonk-ops/automation";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { createListmonkClient } from "@listmonk-ops/openapi";
 import { assertOperationConfirmation } from "@listmonk-ops/operations";
@@ -163,6 +166,7 @@ export class ListmonkMCPServer {
 	private baseUrl: string;
 	private username: string;
 	private auditStoreOptions: OperationAuditStoreOptions;
+	private webhookStoreOptions: OutboundWebhookStoreOptions;
 	private httpAuthToken: string | undefined;
 	private allowedHttpHosts: Set<string>;
 	private allowedHttpOrigins: Set<string>;
@@ -193,8 +197,9 @@ export class ListmonkMCPServer {
 			path: config.auditStorePath,
 			limit: config.auditStoreLimit,
 		};
+		this.webhookStoreOptions = { path: config.webhookStorePath };
 		this.webhookHandler = createWebhookToolsHandler({
-			store: { path: config.webhookStorePath },
+			store: this.webhookStoreOptions,
 		});
 		this.httpAuthToken = config.httpAuthToken;
 		this.allowedHttpHosts = new Set(
@@ -386,7 +391,7 @@ export class ListmonkMCPServer {
 		executionId: string,
 		event: OperationAuditEvent,
 	): Promise<void> {
-		await recordOperationAudit(
+		await recordOperationAuditWithLifecycle(
 			{
 				executionId,
 				surface: "mcp",
@@ -396,7 +401,14 @@ export class ListmonkMCPServer {
 				confirmed: execution.confirmed,
 				dryRun: execution.dryRun,
 			},
-			this.auditStoreOptions,
+			{
+				audit: this.auditStoreOptions,
+				webhook: this.webhookStoreOptions,
+				onLifecycleError: (error) =>
+					console.error(
+						`Unable to enqueue MCP operation lifecycle event for ${execution.operation.id}: ${toErrorMessage(error)}`,
+					),
+			},
 		);
 	}
 
