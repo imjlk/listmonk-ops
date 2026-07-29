@@ -185,9 +185,8 @@ export async function loadProviderProfiles(
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(await readFile(absolutePath, "utf8"));
-	} catch (error) {
-		const detail = error instanceof Error ? error.message : String(error);
-		throw new TypeError(`Failed to parse provider config JSON: ${detail}`);
+	} catch {
+		throw new TypeError("Failed to parse provider config JSON");
 	}
 
 	return providerConfigSchema.parse(parsed).profiles;

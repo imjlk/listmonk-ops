@@ -1,4 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import { Buffer } from "node:buffer";
+import { createPublicKey } from "node:crypto";
 import { resolveCname, resolveMx, resolveTxt } from "node:dns/promises";
 import type {
 	ProviderInspector,
@@ -247,7 +249,7 @@ function isSameOrSubdomain(domain: string, parentDomain: string): boolean {
 }
 
 function normalizeMessengerName(name: string): string {
-	return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+	return name.trim();
 }
 
 function recordName(
@@ -1305,11 +1307,51 @@ async function discoverDmarcPolicy(
 function hasDirectDkimKey(record: string): boolean {
 	const tags = parseTagRecord(record);
 	const version = tags?.get("v")?.toLowerCase();
-	return (
-		tags !== undefined &&
-		(version === undefined || version === "dkim1") &&
-		(tags.get("p")?.length ?? 0) > 0
-	);
+	if (
+		tags === undefined ||
+		(version !== undefined && version !== "dkim1")
+	) {
+		return false;
+	}
+	const encoded = tags.get("p")?.replace(/\s+/g, "");
+	if (
+		!encoded ||
+		encoded.length % 4 !== 0 ||
+		!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+			encoded,
+		)
+	) {
+		return false;
+	}
+	const publicKey = Buffer.from(encoded, "base64");
+	if (
+		publicKey.length === 0 ||
+		publicKey.toString("base64") !== encoded
+	) {
+		return false;
+	}
+	const keyType = tags.get("k")?.toLowerCase() ?? "rsa";
+	if (keyType === "ed25519") return publicKey.length === 32;
+	if (keyType !== "rsa") return false;
+	for (const type of ["spki", "pkcs1"] as const) {
+		try {
+			const key = createPublicKey({
+				key: publicKey,
+				format: "der",
+				type,
+			});
+			if (
+				key.asymmetricKeyType === "rsa" &&
+				(key.asymmetricKeyDetails?.modulusLength ?? 0) >= 1_024
+			) {
+				return true;
+			}
+		} catch {
+			// RFC 6376 names RSAPublicKey while common DKIM tooling emits
+			// SubjectPublicKeyInfo, so validate both DER encodings.
+		}
+	}
+	return false;
 }
 
 function hasSingleDirectDkimKey(records: readonly string[]): boolean {
@@ -1331,6 +1373,15 @@ function hasExactSpfInclude(record: string, expectedDomain: string): boolean {
 		}
 	}
 	return false;
+}
+
+function isSpfVersionOneRecord(record: string): boolean {
+	return record.trim().split(/\s+/, 1)[0]?.toLowerCase() === "v=spf1";
+}
+
+function hasUsableMxRecord(record: string): boolean {
+	const match = /^\d+\s+(\S+)$/.exec(record.trim());
+	return match !== null && normalizeDomain(match[1]!) !== "";
 }
 
 async function inspectProviderDnsUnbounded(
@@ -1556,7 +1607,7 @@ async function inspectProviderDnsUnbounded(
 		);
 		observations.push(mx.observation);
 		const spfRecords = txt.values.filter((record) =>
-			record.trim().toLowerCase().startsWith("v=spf1"),
+			isSpfVersionOneRecord(record),
 		);
 		const expectedInclude =
 			profile.expected_spf_include ??
@@ -1594,7 +1645,7 @@ async function inspectProviderDnsUnbounded(
 				: undefined;
 		const mxReady =
 			expectedMx === undefined
-				? mx.values.length > 0
+				? mx.values.length > 0 && mx.values.every(hasUsableMxRecord)
 				: mx.values.length === 1 &&
 					mx.values[0] === `10 ${expectedMx}`;
 		const mxStatus: DoctorCheckStatus =

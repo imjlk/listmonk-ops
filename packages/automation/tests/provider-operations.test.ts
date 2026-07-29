@@ -23,6 +23,8 @@ import {
 } from "../src";
 
 const fixedNow = new Date("2026-07-29T00:00:00.000Z");
+const validRsaDkimPublicKey =
+	"MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCiRZP7BQUD9YLLLsAGRpKXPw/vidM72qPEBYY7HOv+NJ58tSojO2KTq3tOjWd0XVZA7c4r5k8ZnnIbUIa9fj/5Xkiu7c3mZ0aaJIjJsF1N9G7OYHV/nipUAzGJNDXY4N1MFPBHYwJMbpDRCMtSF7IejXWFm3m586oXZANtNvGw0wIDAQAB";
 const profile = providerProfileSchema.parse({
 	id: "marketing-primary",
 	kind: "ses",
@@ -672,6 +674,29 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("preserves punctuation when matching messenger identifiers", () => {
+		const punctuatedProfile = providerProfileSchema.parse({
+			...profile,
+			messenger: "marketing-a",
+		});
+		const different = inspectListmonkProviderSettings(punctuatedProfile, {
+			messengers: [{ name: "marketinga", enabled: true }],
+		});
+		expect(different).toMatchObject({
+			messenger_binding_ambiguous: false,
+			messenger_configured: false,
+			messenger_enabled: false,
+		});
+		const exact = inspectListmonkProviderSettings(punctuatedProfile, {
+			messengers: [{ name: "marketing-a", enabled: true }],
+		});
+		expect(exact).toMatchObject({
+			messenger_binding_ambiguous: false,
+			messenger_configured: true,
+			messenger_enabled: true,
+		});
+	});
+
 	test("returns an invalid empty Listmonk From value as a diagnostic", async () => {
 		const emptyFromClient = {
 			...context().client!,
@@ -777,7 +802,9 @@ describe("provider and deliverability operations", () => {
 					return ["v=DMARC1; p=quarantine"];
 				}
 				if (name.endsWith("._domainkey.news.example.com")) {
-					return ["v=DKIM1; k=rsa; p=public-key"];
+					return [
+						`v=DKIM1; k=rsa; p=${validRsaDkimPublicKey}`,
+					];
 				}
 				if (name === "bounce.example.com") {
 					return ["v=spf1 include:amazonses.com ~all"];
@@ -830,7 +857,7 @@ describe("provider and deliverability operations", () => {
 			...dns,
 			async txt(name) {
 				if (name.endsWith("._domainkey.news.example.com")) {
-					return ["k=rsa; p=public-key"];
+					return [`k=rsa; p=${validRsaDkimPublicKey}`];
 				}
 				return dns.txt(name);
 			},
@@ -1026,7 +1053,9 @@ describe("provider and deliverability operations", () => {
 			...dns,
 			async txt(name) {
 				if (name.endsWith("._domainkey.news.example.com")) {
-					return ["v=DKIM1; p=public-key; p=replacement-key"];
+					return [
+						`v=DKIM1; p=${validRsaDkimPublicKey}; p=${validRsaDkimPublicKey}`,
+					];
 				}
 				return dns.txt(name);
 			},
@@ -1048,7 +1077,10 @@ describe("provider and deliverability operations", () => {
 			...dns,
 			async txt(name) {
 				if (name.endsWith("._domainkey.news.example.com")) {
-					return ["k=rsa; p=old-key", "k=rsa; p=current-key"];
+					return [
+						`k=rsa; p=${validRsaDkimPublicKey}`,
+						`k=rsa; p=${validRsaDkimPublicKey}`,
+					];
 				}
 				return dns.txt(name);
 			},
@@ -1065,12 +1097,34 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("rejects malformed direct DKIM public-key data", async () => {
+		const malformedKeyDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name.endsWith("._domainkey.news.example.com")) {
+					return ["v=DKIM1; p=not-a-key"];
+				}
+				return dns.txt(name);
+			},
+			async cname() {
+				return [];
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: malformedKeyDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "fail" }),
+		);
+	});
+
 	test("does not accept a direct DKIM key alongside an invalid CNAME", async () => {
 		const conflictingDkimDns: ProviderDnsResolver = {
 			...dns,
 			async txt(name) {
 				if (name.endsWith("._domainkey.news.example.com")) {
-					return ["v=DKIM1; p=public-key"];
+					return [`v=DKIM1; p=${validRsaDkimPublicKey}`];
 				}
 				return dns.txt(name);
 			},
@@ -1436,6 +1490,7 @@ describe("provider and deliverability operations", () => {
 
 	test("requires a positively qualified exact SPF include mechanism", async () => {
 		for (const spfRecord of [
+			"v=spf10 include:amazonses.com ~all",
 			"v=spf1 include:amazonses.com.attacker.example ~all",
 			"v=spf1 -include:amazonses.com ~all",
 			"v=spf1 ~include:amazonses.com ~all",
@@ -1481,7 +1536,7 @@ describe("provider and deliverability operations", () => {
 					return ["v=spf1 include:_spf.google.com ~all"];
 				}
 				if (name === "provider-dkim.example.net") {
-					return ["k=rsa; p=public-key"];
+					return [`k=rsa; p=${validRsaDkimPublicKey}`];
 				}
 				return [];
 			},
@@ -1513,6 +1568,46 @@ describe("provider and deliverability operations", () => {
 			expect.objectContaining({
 				id: "dns.mail-from-mx",
 				status: "pass",
+			}),
+		);
+	});
+
+	test("rejects a generic SMTP null MX record", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "null-mx-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_include: "_spf.example.com",
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const nullMxDns: ProviderDnsResolver = {
+			async txt(name) {
+				if (name === "_dmarc.mail.example.com") {
+					return ["v=DMARC1; p=quarantine"];
+				}
+				if (name === "bounce.mail.example.com") {
+					return ["v=spf1 include:_spf.example.com ~all"];
+				}
+				return [];
+			},
+			async cname() {
+				return [];
+			},
+			async mx(name) {
+				return name === "bounce.mail.example.com"
+					? [{ priority: 0, exchange: "." }]
+					: [];
+			},
+		};
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({ profiles: [smtpProfile], dns: nullMxDns }),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.mail-from-mx",
+				status: "fail",
 			}),
 		);
 	});
@@ -1710,6 +1805,24 @@ describe("provider profile loader", () => {
 			{},
 		);
 		expect(output.profiles).toHaveLength(1);
+	});
+
+	test("does not expose malformed JSON source excerpts", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "listmonk-provider-"));
+		temporaryDirectories.push(directory);
+		const path = join(directory, "providers.json");
+		const credentialExcerpt = "must-not-leak-provider-secret";
+		await writeFile(
+			path,
+			`{"schema_version":1,"secret":${credentialExcerpt}}`,
+			"utf8",
+		);
+		await expect(loadProviderProfiles({ path })).rejects.toThrow(
+			"Failed to parse provider config JSON",
+		);
+		await expect(loadProviderProfiles({ path })).rejects.not.toThrow(
+			credentialExcerpt,
+		);
 	});
 
 	test("rejects duplicate IDs and raw credential material", () => {
