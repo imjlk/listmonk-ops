@@ -2,6 +2,7 @@ import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { Buffer } from "node:buffer";
 import { createPublicKey } from "node:crypto";
 import { resolveCname, resolveMx, resolveTxt } from "node:dns/promises";
+import { isIP } from "node:net";
 import type {
 	ProviderInspector,
 	ProviderProfile,
@@ -13,6 +14,7 @@ import { z } from "zod";
 const DEFAULT_DNS_TIMEOUT_MS = 5_000;
 const DEFAULT_DNS_INSPECTION_TIMEOUT_MS = 10_000;
 const MAX_DMARC_TREE_WALK_QUERIES = 8;
+const MAX_SPF_INCLUDE_DEPTH = 10;
 const ED25519_FIELD_PRIME = (1n << 255n) - 19n;
 const ED25519_CURVE_D =
 	37095705934669439343138083508754565189542113879843219016388785533085940283555n;
@@ -1444,6 +1446,19 @@ function allowsEmailDkimService(
 	);
 }
 
+function allowsSha256DkimHash(tags: ReadonlyMap<string, string>): boolean {
+	const hashAlgorithms = tags.get("h");
+	if (hashAlgorithms === undefined) return true;
+	const algorithms = hashAlgorithms
+		.split(":")
+		.map((value) => value.trim().toLowerCase());
+	return (
+		algorithms.length > 0 &&
+		algorithms.every(Boolean) &&
+		algorithms.includes("sha256")
+	);
+}
+
 function isValidRsaDkimPublicKey(publicKey: Buffer): boolean {
 	for (const type of ["spki", "pkcs1"] as const) {
 		try {
@@ -1472,7 +1487,8 @@ function hasDirectDkimKey(record: string): boolean {
 	if (
 		tags === undefined ||
 		(version !== undefined && version !== "dkim1") ||
-		!allowsEmailDkimService(tags)
+		!allowsEmailDkimService(tags) ||
+		!allowsSha256DkimHash(tags)
 	) {
 		return false;
 	}
@@ -1505,7 +1521,10 @@ function hasSingleDirectDkimKey(records: readonly string[]): boolean {
 
 function hasExactSpfInclude(record: string, expectedDomain: string): boolean {
 	const expected = normalizeDomain(expectedDomain);
-	for (const mechanism of record.trim().split(/\s+/).slice(1)) {
+	const terms = parseValidSpfTerms(record);
+	if (terms === undefined) return false;
+	for (const mechanism of terms) {
+		if (mechanism.includes("=")) continue;
 		const qualifier = /^[+?~-]/.exec(mechanism)?.[0];
 		const unqualified = mechanism.replace(/^[+?~-]/, "");
 		if (unqualified.toLowerCase() === "all") return false;
@@ -1522,6 +1541,260 @@ function hasExactSpfInclude(record: string, expectedDomain: string): boolean {
 
 function isSpfVersionOneRecord(record: string): boolean {
 	return record.trim().split(/\s+/, 1)[0]?.toLowerCase() === "v=spf1";
+}
+
+interface SpfAuthorizationInspection {
+	ready: boolean;
+	indeterminate: boolean;
+	invalid: boolean;
+	observations: DnsObservation[];
+}
+
+function isValidSpfDomainSpec(value: string): boolean {
+	return (
+		value.length > 0 &&
+		!value.includes("/") &&
+		normalizeDomain(value) !== ""
+	);
+}
+
+function isValidSpfIpNetwork(
+	value: string,
+	family: 4 | 6,
+	maxPrefixLength: number,
+): boolean {
+	const separator = value.lastIndexOf("/");
+	const address = separator === -1 ? value : value.slice(0, separator);
+	const prefix = separator === -1 ? undefined : value.slice(separator + 1);
+	if (isIP(address) !== family) return false;
+	if (prefix === undefined) return true;
+	if (!/^\d+$/.test(prefix)) return false;
+	const prefixLength = Number(prefix);
+	return prefixLength >= 0 && prefixLength <= maxPrefixLength;
+}
+
+function isValidSpfDualCidrMechanism(mechanism: string): boolean {
+	const match =
+		/^(?:a|mx)(?::([^/]+))?(?:\/(\d+))?(?:\/\/(\d+))?$/i.exec(mechanism);
+	if (match === null) return false;
+	const domain = match[1];
+	const ipv4Prefix = match[2];
+	const ipv6Prefix = match[3];
+	return (
+		(domain === undefined || isValidSpfDomainSpec(domain)) &&
+		(ipv4Prefix === undefined || Number(ipv4Prefix) <= 32) &&
+		(ipv6Prefix === undefined || Number(ipv6Prefix) <= 128)
+	);
+}
+
+function isValidSpfMechanism(mechanism: string): boolean {
+	const lower = mechanism.toLowerCase();
+	if (lower === "all") return true;
+	if (lower.startsWith("include:")) {
+		return isValidSpfDomainSpec(mechanism.slice("include:".length));
+	}
+	if (lower.startsWith("ip4:")) {
+		return isValidSpfIpNetwork(mechanism.slice("ip4:".length), 4, 32);
+	}
+	if (lower.startsWith("ip6:")) {
+		return isValidSpfIpNetwork(mechanism.slice("ip6:".length), 6, 128);
+	}
+	if (lower === "a" || lower.startsWith("a:") || lower.startsWith("a/")) {
+		return isValidSpfDualCidrMechanism(mechanism);
+	}
+	if (
+		lower === "mx" ||
+		lower.startsWith("mx:") ||
+		lower.startsWith("mx/")
+	) {
+		return isValidSpfDualCidrMechanism(mechanism);
+	}
+	if (lower === "ptr") return true;
+	if (lower.startsWith("ptr:")) {
+		return isValidSpfDomainSpec(mechanism.slice("ptr:".length));
+	}
+	if (lower.startsWith("exists:")) {
+		return isValidSpfDomainSpec(mechanism.slice("exists:".length));
+	}
+	return false;
+}
+
+function isDirectSpfAuthorizer(mechanism: string): boolean {
+	const name = mechanism.toLowerCase().split(/[:/]/, 1)[0];
+	return name !== "include" && isValidSpfMechanism(mechanism);
+}
+
+function parseValidSpfTerms(record: string): string[] | undefined {
+	if (!isSpfVersionOneRecord(record)) return undefined;
+	const terms = record.trim().split(/\s+/).slice(1);
+	const seenModifiers = new Set<string>();
+	for (const term of terms) {
+		const modifier = /^([a-z][a-z0-9._-]*)=(.*)$/i.exec(term);
+		if (modifier !== null) {
+			const name = modifier[1]!.toLowerCase();
+			if (seenModifiers.has(name)) return undefined;
+			seenModifiers.add(name);
+			if (
+				name === "redirect" &&
+				!isValidSpfDomainSpec(modifier[2]!)
+			) {
+				return undefined;
+			}
+			continue;
+		}
+		const mechanism = term.replace(/^[+?~-]/, "");
+		if (!isValidSpfMechanism(mechanism)) return undefined;
+	}
+	return terms;
+}
+
+async function inspectSpfAuthorizationTarget(
+	domain: string,
+	dns: ProviderDnsResolver,
+	visited: ReadonlySet<string> = new Set(),
+	depth = 0,
+): Promise<SpfAuthorizationInspection> {
+	const normalizedDomain = normalizeDomain(domain);
+	if (depth >= MAX_SPF_INCLUDE_DEPTH || visited.has(normalizedDomain)) {
+		return {
+			ready: false,
+			indeterminate: false,
+			invalid: true,
+			observations: [],
+		};
+	}
+	if (normalizedDomain.includes("%")) {
+		return {
+			ready: false,
+			indeterminate: true,
+			invalid: false,
+			observations: [],
+		};
+	}
+	const lookup = await resolveDnsObservation(normalizedDomain, "TXT", () =>
+		dns.txt(normalizedDomain),
+	);
+	const observations = [lookup.observation];
+	if (lookup.outcome === "error") {
+		return {
+			ready: false,
+			indeterminate: true,
+			invalid: false,
+			observations,
+		};
+	}
+	const records = lookup.values.filter(isSpfVersionOneRecord);
+	if (records.length !== 1) {
+		return {
+			ready: false,
+			indeterminate: false,
+			invalid: true,
+			observations,
+		};
+	}
+	const terms = parseValidSpfTerms(records[0]!);
+	if (terms === undefined) {
+		return {
+			ready: false,
+			indeterminate: false,
+			invalid: true,
+			observations,
+		};
+	}
+	const nextVisited = new Set(visited);
+	nextVisited.add(normalizedDomain);
+	let redirectTarget: string | undefined;
+	// SPF terms are intentionally evaluated in order: an earlier terminal
+	// mechanism or nested lookup error determines whether later paths matter.
+	for (const term of terms) {
+		const redirect = /^redirect=(.+)$/i.exec(term);
+		if (redirect) {
+			redirectTarget = redirect[1];
+			continue;
+		}
+		if (term.includes("=")) continue;
+		const qualifier = /^[+?~-]/.exec(term)?.[0];
+		const mechanism = term.replace(/^[+?~-]/, "");
+		const mechanismName = mechanism
+			.toLowerCase()
+			.split(/[:/]/, 1)[0];
+		if (mechanismName === "all") {
+			return {
+				ready:
+					(qualifier === undefined || qualifier === "+") &&
+					isDirectSpfAuthorizer(mechanism),
+				indeterminate: false,
+				invalid: false,
+				observations,
+			};
+		}
+		if (qualifier !== undefined && qualifier !== "+") continue;
+		if (mechanismName === "include") {
+			const nestedDomain = mechanism.slice("include:".length);
+			if (!nestedDomain) continue;
+			const nested = await inspectSpfAuthorizationTarget(
+				nestedDomain,
+				dns,
+				nextVisited,
+				depth + 1,
+			);
+			observations.push(...nested.observations);
+			if (nested.indeterminate) {
+				return {
+					ready: false,
+					indeterminate: true,
+					invalid: false,
+					observations,
+				};
+			}
+			if (nested.invalid) {
+				return {
+					ready: false,
+					indeterminate: false,
+					invalid: true,
+					observations,
+				};
+			}
+			if (nested.ready) {
+				return {
+					ready: true,
+					indeterminate: false,
+					invalid: false,
+					observations,
+				};
+			}
+			continue;
+		}
+		if (isDirectSpfAuthorizer(mechanism)) {
+			return {
+				ready: true,
+				indeterminate: false,
+				invalid: false,
+				observations,
+			};
+		}
+	}
+	if (redirectTarget !== undefined) {
+		const redirected = await inspectSpfAuthorizationTarget(
+			redirectTarget,
+			dns,
+			nextVisited,
+			depth + 1,
+		);
+		observations.push(...redirected.observations);
+		return {
+			ready: redirected.ready,
+			indeterminate: redirected.indeterminate,
+			invalid: redirected.invalid,
+			observations,
+		};
+	}
+	return {
+		ready: false,
+		indeterminate: false,
+		invalid: false,
+		observations,
+	};
 }
 
 function hasUsableMxRecord(record: string): boolean {
@@ -1763,26 +2036,21 @@ async function inspectProviderDnsUnbounded(
 		const expectedInclude =
 			profile.expected_spf_include ??
 			(profile.kind === "ses" ? "amazonses.com" : undefined);
-		const include =
+		const includeAuthorization =
 			expectedInclude === undefined
 				? undefined
-				: await resolveDnsObservation(expectedInclude, "TXT", () =>
-						dns.txt(expectedInclude),
-					);
-		if (include !== undefined) observations.push(include.observation);
-		const includeSpfRecords =
-			include?.values.filter((record) => isSpfVersionOneRecord(record)) ??
-			[];
-		const includeReady =
-			include !== undefined && includeSpfRecords.length === 1;
+				: await inspectSpfAuthorizationTarget(expectedInclude, dns);
+		if (includeAuthorization !== undefined) {
+			observations.push(...includeAuthorization.observations);
+		}
 		const spfReady =
 			spfRecords.length === 1 &&
 			expectedInclude !== undefined &&
 			hasExactSpfInclude(spfRecords[0]!, expectedInclude) &&
-			includeReady;
+			includeAuthorization?.ready === true;
 		const spfStatus: DoctorCheckStatus =
 			txt.outcome === "error" ||
-			include?.outcome === "error" ||
+			includeAuthorization?.indeterminate === true ||
 			expectedInclude === undefined
 				? "unknown"
 				: spfReady

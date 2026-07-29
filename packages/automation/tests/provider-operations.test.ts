@@ -966,6 +966,36 @@ describe("provider and deliverability operations", () => {
 		}
 	});
 
+	test("requires a direct DKIM key to permit SHA-256 signatures", async () => {
+		for (const [hashes, status] of [
+			["sha1", "fail"],
+			["sha1:sha256", "pass"],
+			["sha256", "pass"],
+		] as const) {
+			const hashDns: ProviderDnsResolver = {
+				...dns,
+				async txt(name) {
+					if (name.endsWith("._domainkey.news.example.com")) {
+						return [
+							`v=DKIM1; h=${hashes}; p=${validRsaDkimPublicKey}`,
+						];
+					}
+					return dns.txt(name);
+				},
+				async cname() {
+					return [];
+				},
+			};
+			const output = await invokeDeliverabilityDnsCheckOperation(
+				context({ dns: hashDns }),
+				{ provider_id: profile.id },
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.dkim", status }),
+			);
+		}
+	});
+
 	test("validates the encoded Ed25519 DKIM curve point", async () => {
 		for (const [publicKey, status] of [
 			[validEd25519DkimPublicKey, "pass"],
@@ -1753,6 +1783,83 @@ describe("provider and deliverability operations", () => {
 		expect(output.checks).toContainEqual(
 			expect.objectContaining({ id: "dns.spf", status: "fail" }),
 		);
+	});
+
+	test("requires the expected SPF policy to have an authorizing path", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "nested-spf-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_include: "_spf.provider.example",
+			smtp_hosts: ["smtp.example.com"],
+		});
+		for (const [providerRecord, nestedRecord, status] of [
+			["v=spf1 -all", undefined, "fail"],
+			["v=spf1 ip4: -all", undefined, "fail"],
+			["v=spf1 ip4:192.0.2.0/33 -all", undefined, "fail"],
+			[
+				"v=spf1 include:_spf.missing.example ip4:192.0.2.0/24 -all",
+				undefined,
+				"fail",
+			],
+			[
+				"v=spf1 include:_spf.provider.example ip4:192.0.2.0/24 -all",
+				undefined,
+				"fail",
+			],
+			[
+				"v=spf1 redirect=_spf.nested.example redirect=_spf.other.example",
+				"v=spf1 ip4:192.0.2.0/24 -all",
+				"fail",
+			],
+			[
+				"v=spf1 include:_spf.nested.example -all",
+				"v=spf1 ip4:192.0.2.0/24 -all",
+				"pass",
+			],
+		] as const) {
+			const authorizationDns: ProviderDnsResolver = {
+				async txt(name) {
+					if (name === "_dmarc.mail.example.com") {
+						return ["v=DMARC1; p=quarantine"];
+					}
+					if (name === "bounce.mail.example.com") {
+						return [
+							"v=spf1 include:_spf.provider.example ~all",
+						];
+					}
+					if (name === "_spf.provider.example") {
+						return [providerRecord];
+					}
+					if (
+						name === "_spf.nested.example" &&
+						nestedRecord !== undefined
+					) {
+						return [nestedRecord];
+					}
+					return [];
+				},
+				async cname() {
+					return [];
+				},
+				async mx(name) {
+					return name === "bounce.mail.example.com"
+						? [{ priority: 10, exchange: "mx.example.com" }]
+						: [];
+				},
+			};
+			const output = await inspectProviderDns(
+				smtpProfile,
+				context({
+					profiles: [smtpProfile],
+					dns: authorizationDns,
+				}),
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.spf", status }),
+			);
+		}
 	});
 
 	test("rejects a generic SMTP null MX record", async () => {
