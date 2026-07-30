@@ -51,8 +51,17 @@ const current = await Bun.file(outputPath).text().catch(() => undefined);
 
 if (checkOnly) {
 	if (current !== expected) {
+		const expectedLines = expected.split("\n");
+		const currentLines = (current ?? "").split("\n");
+		const firstDifferentLine = expectedLines.findIndex(
+			(line, index) => line !== currentLines[index],
+		);
+		const lineNumber =
+			firstDifferentLine === -1
+				? Math.min(expectedLines.length, currentLines.length) + 1
+				: firstDifferentLine + 1;
 		throw new Error(
-			"Generated runtime operation contracts are stale. Run `bun run operations:specs:runtime-contracts:generate && bun run operations:specs:generate`.",
+			`Generated runtime operation contracts are stale at line ${lineNumber}. Expected ${JSON.stringify(expectedLines[lineNumber - 1] ?? "<end of file>")}, received ${JSON.stringify(currentLines[lineNumber - 1] ?? "<end of file>")}. Run \`bun run operations:specs:runtime-contracts:generate && bun run operations:specs:generate\`.`,
 		);
 	}
 } else {
