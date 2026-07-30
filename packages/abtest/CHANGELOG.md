@@ -1,5 +1,19 @@
 # @listmonk-ops/abtest
 
+## 0.5.0 — 2026-07-30
+
+### Changed
+
+- [ca7e076](https://github.com/imjlk/listmonk-ops/commit/ca7e07630293cba676ca4962ed005583012ddee0) Update the shared esbuild toolchain to the patched 0.28.1 release — Thanks @imjlk!
+
+### Added
+
+- [ca7e076](https://github.com/imjlk/listmonk-ops/commit/ca7e07630293cba676ca4962ed005583012ddee0) Complete the compiler-driven email operations specification for all public shared operations and expose inspected-state guards through CLI lifecycle commands — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: common@0.5.1, openapi@0.4.2, operations@0.8.0
+
 ## 0.4.3 — 2026-07-28
 
 ### Changed
