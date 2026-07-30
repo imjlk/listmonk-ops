@@ -2969,6 +2969,122 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("evaluates nested SPF includes against the expected sender ranges", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "nested-budget-direct-policy-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["203.0.113.10"],
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const inspectNested = (nestedRecord: string) =>
+			inspectProviderDns(
+				smtpProfile,
+				context({
+					profiles: [smtpProfile],
+					dns: {
+						async txt(name) {
+							if (name === "_dmarc.mail.example.com") {
+								return ["v=DMARC1; p=quarantine"];
+							}
+							if (name === "bounce.mail.example.com") {
+								return [
+									"v=spf1 include:nested.example ip4:203.0.113.10 -all",
+								];
+							}
+							if (name === "nested.example") {
+								return [nestedRecord];
+							}
+							return [];
+						},
+						async cname() {
+							return [];
+						},
+						async mx(name) {
+							return name === "bounce.mail.example.com"
+								? [
+										{
+											priority: 10,
+											exchange: "mx.example.com",
+										},
+									]
+								: [];
+						},
+						async a(name) {
+							return name === "mx.example.com"
+								? ["203.0.113.10"]
+								: [];
+						},
+						async aaaa() {
+							return [];
+						},
+					},
+				}),
+			);
+
+		const invalid = await inspectNested(
+			"v=spf1 ip4:198.51.100.1 exists:void1.example exists:void2.example exists:void3.example -all",
+		);
+		expect(invalid.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "fail" }),
+		);
+
+		const firstMatchPasses = await inspectNested(
+			"v=spf1 ip4:203.0.113.10 exists:void1.example exists:void2.example exists:void3.example -all",
+		);
+		expect(firstMatchPasses.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "pass" }),
+		);
+	});
+
+	test("rejects scoped IPv6 SPF mechanisms without throwing", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "scoped-ipv6-direct-policy-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["fe80::1"],
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({
+				profiles: [smtpProfile],
+				dns: {
+					async txt(name) {
+						if (name === "_dmarc.mail.example.com") {
+							return ["v=DMARC1; p=quarantine"];
+						}
+						if (name === "bounce.mail.example.com") {
+							return ["v=spf1 ip6:fe80::1%eth0 -all"];
+						}
+						return [];
+					},
+					async cname() {
+						return [];
+					},
+					async mx(name) {
+						return name === "bounce.mail.example.com"
+							? [{ priority: 10, exchange: "mx.example.com" }]
+							: [];
+					},
+					async a(name) {
+						return name === "mx.example.com"
+							? ["203.0.113.10"]
+							: [];
+					},
+					async aaaa() {
+						return [];
+					},
+				},
+			}),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "fail" }),
+		);
+	});
+
 	test("requires a generic direct SPF policy to match the configured sender range", async () => {
 		const smtpProfile = providerProfileSchema.parse({
 			id: "mismatched-direct-policy-relay",
@@ -3227,6 +3343,19 @@ describe("provider profile loader", () => {
 				dkim_selectors: ["selector"],
 			}),
 		).toThrow("DNS owner name longer than 253 characters");
+	});
+
+	test("rejects scoped IPv6 expected SPF sender ranges", () => {
+		expect(() =>
+			providerProfileSchema.parse({
+				id: "scoped-ipv6-relay",
+				kind: "smtp",
+				sending_domain: "mail.example.com",
+				mail_from_domain: "bounce.mail.example.com",
+				expected_spf_ip_ranges: ["fe80::1%eth0"],
+				smtp_hosts: ["smtp.example.com"],
+			}),
+		).toThrow("valid IPv4 or IPv6 CIDR values");
 	});
 
 	test("rejects oversized SES identity-derived DKIM owner names before DNS lookup", async () => {

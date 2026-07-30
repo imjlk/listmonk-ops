@@ -1744,6 +1744,7 @@ function isValidSpfIpNetwork(
 	const separator = value.lastIndexOf("/");
 	const address = separator === -1 ? value : value.slice(0, separator);
 	const prefix = separator === -1 ? undefined : value.slice(separator + 1);
+	if (address.includes("%")) return false;
 	if (isIP(address) !== family) return false;
 	if (prefix === undefined) return true;
 	if (!/^\d+$/.test(prefix)) return false;
@@ -2360,7 +2361,7 @@ function ipv4Integer(address: string): bigint | undefined {
 }
 
 function ipv6Integer(address: string): bigint | undefined {
-	if (isIP(address) !== 6) return undefined;
+	if (address.includes("%") || isIP(address) !== 6) return undefined;
 	let normalized = address.toLowerCase();
 	const lastColon = normalized.lastIndexOf(":");
 	const possibleIpv4 = normalized.slice(lastColon + 1);
@@ -2385,10 +2386,14 @@ function ipv6Integer(address: string): bigint | undefined {
 	if (parts.length !== 8 || parts.some((part) => part.length === 0)) {
 		return undefined;
 	}
-	return parts.reduce(
-		(value, part) => (value << 16n) | BigInt(`0x${part}`),
-		0n,
-	);
+	try {
+		return parts.reduce(
+			(value, part) => (value << 16n) | BigInt(`0x${part}`),
+			0n,
+		);
+	} catch {
+		return undefined;
+	}
 }
 
 function parseSpfIpInterval(value: string): SpfIpInterval | undefined {
@@ -2396,6 +2401,7 @@ function parseSpfIpInterval(value: string): SpfIpInterval | undefined {
 	const separator = normalized.lastIndexOf("/");
 	const address =
 		separator === -1 ? normalized : normalized.slice(0, separator);
+	if (address.includes("%")) return undefined;
 	const family = isIP(address);
 	if (family !== 4 && family !== 6) return undefined;
 	const maximumPrefix = family === 4 ? 32 : 128;
@@ -2470,32 +2476,111 @@ function failedSpfAuthorization(
 	};
 }
 
-async function inspectExpectedDirectSpfRanges(
+async function inspectExpectedSpfDomain(
+	domain: string,
+	expectedRanges: readonly SpfIpInterval[],
+	dns: ProviderDnsResolver,
+	lookupBudget: SpfLookupBudget,
+	visited: ReadonlySet<string>,
+): Promise<SpfAuthorizationInspection> {
+	const normalizedDomain = normalizeDomain(domain);
+	if (
+		normalizedDomain.includes("%") ||
+		visited.has(normalizedDomain)
+	) {
+		return failedSpfAuthorization({
+			indeterminate: normalizedDomain.includes("%"),
+			invalid: visited.has(normalizedDomain),
+		});
+	}
+	const lookup = await resolveDnsObservation(normalizedDomain, "TXT", () =>
+		dns.txt(normalizedDomain),
+	);
+	const observations = [lookup.observation];
+	if (lookup.outcome === "error") {
+		return failedSpfAuthorization({
+			indeterminate: true,
+			observations,
+		});
+	}
+	if (
+		lookup.values.length === 0 &&
+		!consumeSpfVoidLookups(lookupBudget)
+	) {
+		return failedSpfAuthorization({
+			invalid: true,
+			observations,
+		});
+	}
+	const records = lookup.values.filter(isSpfVersionOneRecord);
+	if (records.length !== 1) {
+		return failedSpfAuthorization({
+			invalid: true,
+			observations,
+		});
+	}
+	const nextVisited = new Set(visited);
+	nextVisited.add(normalizedDomain);
+	const nested = await inspectExpectedSpfRecord(
+		records[0]!,
+		normalizedDomain,
+		expectedRanges,
+		dns,
+		lookupBudget,
+		nextVisited,
+		true,
+	);
+	return {
+		...nested,
+		observations: [...observations, ...nested.observations],
+	};
+}
+
+async function inspectExpectedSpfRecord(
 	record: string,
 	currentDomain: string,
-	expectedRanges: readonly string[],
+	expectedRanges: readonly SpfIpInterval[],
 	dns: ProviderDnsResolver,
+	lookupBudget: SpfLookupBudget,
+	visited: ReadonlySet<string>,
+	allowUnscopedPass: boolean,
 ): Promise<SpfAuthorizationInspection> {
 	const terms = parseValidSpfTerms(record);
 	if (terms === undefined || expectedRanges.length === 0) {
-		return failedSpfAuthorization({ invalid: terms === undefined });
+		return failedSpfAuthorization({
+			invalid: terms === undefined,
+		});
 	}
-	let remaining = expectedRanges
-		.map(parseSpfIpInterval)
-		.filter((range): range is SpfIpInterval => range !== undefined);
-	if (remaining.length !== expectedRanges.length) {
-		return failedSpfAuthorization({ invalid: true });
-	}
-	const lookupBudget: SpfLookupBudget = { used: 0, void: 0 };
+	let remaining = [...expectedRanges];
 	const observations: DnsObservation[] = [];
+	let redirectTarget: string | undefined;
 	for (const term of terms) {
+		const redirect = /^redirect=(.+)$/i.exec(term);
+		if (redirect !== null) {
+			redirectTarget = redirect[1];
+			continue;
+		}
 		if (term.includes("=")) continue;
 		const qualifier = /^[+?~-]/.exec(term)?.[0];
 		const mechanism = term.replace(/^[+?~-]/, "");
 		const mechanismName = mechanism
 			.toLowerCase()
 			.split(/[:/]/, 1)[0];
-		if (mechanismName === "all") break;
+		if (mechanismName === "all") {
+			if (
+				allowUnscopedPass &&
+				(qualifier === undefined || qualifier === "+")
+			) {
+				return {
+					ready: true,
+					unconditional_pass: true,
+					indeterminate: false,
+					invalid: false,
+					observations,
+				};
+			}
+			return failedSpfAuthorization({ observations });
+		}
 		if (mechanismName === "ip4" || mechanismName === "ip6") {
 			const mechanismRange = parseSpfIpInterval(mechanism.slice(4));
 			if (mechanismRange === undefined) {
@@ -2534,11 +2619,12 @@ async function inspectExpectedDirectSpfRanges(
 			return failedSpfAuthorization({ invalid: true, observations });
 		}
 		if (mechanismName === "include") {
-			const nested = await inspectSpfAuthorizationTarget(
+			const nested = await inspectExpectedSpfDomain(
 				mechanism.slice("include:".length),
+				remaining,
 				dns,
-				new Set([normalizeDomain(currentDomain)]),
 				lookupBudget,
+				visited,
 			);
 			observations.push(...nested.observations);
 			if (nested.indeterminate || nested.invalid) {
@@ -2548,13 +2634,15 @@ async function inspectExpectedDirectSpfRanges(
 					observations,
 				});
 			}
-			if (
-				nested.unconditional_pass === true ||
-				(nested.ready &&
-					qualifier !== undefined &&
-					qualifier !== "+")
-			) {
-				return failedSpfAuthorization({ observations });
+			if (nested.ready) {
+				return qualifier === undefined || qualifier === "+"
+					? {
+							ready: true,
+							indeterminate: false,
+							invalid: false,
+							observations,
+						}
+					: failedSpfAuthorization({ observations });
 			}
 			continue;
 		}
@@ -2579,10 +2667,70 @@ async function inspectExpectedDirectSpfRanges(
 			// A matching `exists` applies to every sender. For address-dependent
 			// mechanisms, fail closed when an earlier non-pass result may cover
 			// one of the expected sender ranges.
+			if (
+				allowUnscopedPass &&
+				mechanismName === "exists" &&
+				(qualifier === undefined || qualifier === "+")
+			) {
+				return {
+					ready: true,
+					unconditional_pass: true,
+					indeterminate: false,
+					invalid: false,
+					observations,
+				};
+			}
 			return failedSpfAuthorization({ observations });
 		}
 	}
+	if (redirectTarget !== undefined) {
+		if (!consumeSpfDnsLookup(lookupBudget)) {
+			return failedSpfAuthorization({
+				invalid: true,
+				observations,
+			});
+		}
+		const redirected = await inspectExpectedSpfDomain(
+			redirectTarget,
+			remaining,
+			dns,
+			lookupBudget,
+			visited,
+		);
+		return {
+			...redirected,
+			observations: [...observations, ...redirected.observations],
+		};
+	}
 	return failedSpfAuthorization({ observations });
+}
+
+async function inspectExpectedDirectSpfRanges(
+	record: string,
+	currentDomain: string,
+	expectedRanges: readonly string[],
+	dns: ProviderDnsResolver,
+): Promise<SpfAuthorizationInspection> {
+	const parsedRanges = expectedRanges
+		.map(parseSpfIpInterval)
+		.filter((range): range is SpfIpInterval => range !== undefined);
+	if (
+		expectedRanges.length === 0 ||
+		parsedRanges.length !== expectedRanges.length
+	) {
+		return failedSpfAuthorization({
+			invalid: expectedRanges.length > 0,
+		});
+	}
+	return inspectExpectedSpfRecord(
+		record,
+		normalizeDomain(currentDomain),
+		parsedRanges,
+		dns,
+		{ used: 0, void: 0 },
+		new Set([normalizeDomain(currentDomain)]),
+		false,
+	);
 }
 
 function mxExchange(record: string): string | undefined {

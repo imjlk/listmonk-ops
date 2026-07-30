@@ -84,6 +84,7 @@ const spfIpRangeSchema = z
 		const separator = value.lastIndexOf("/");
 		const address = separator === -1 ? value : value.slice(0, separator);
 		const prefix = separator === -1 ? undefined : value.slice(separator + 1);
+		if (address.includes("%")) return false;
 		const family = isIP(address);
 		if (family !== 4 && family !== 6) return false;
 		if (prefix === undefined) return true;
