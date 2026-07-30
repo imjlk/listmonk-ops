@@ -1,5 +1,11 @@
 # @listmonk-ops/common
 
+## 0.5.1 — 2026-07-30
+
+### Changed
+
+- [ca7e076](https://github.com/imjlk/listmonk-ops/commit/ca7e07630293cba676ca4962ed005583012ddee0) Update the shared esbuild toolchain to the patched 0.28.1 release — Thanks @imjlk!
+
 ## 0.5.0 — 2026-07-27
 
 ### Added
