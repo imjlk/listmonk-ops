@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
 	assertOperationSpecMigrationExemptionActive,
+	assertRuntimeOperationContracts,
 	assertRuntimeOperationProjection,
 	type AnyOperationSpec,
 	type OperationSpecMigrationExemption,
@@ -210,6 +211,8 @@ export function defineOperation<
 				specMigration: OperationSpecMigrationExemption;
 		  }
 	)): OperationDefinition<Context, InputSchema, OutputSchema> {
+	const inputJsonSchema = toObjectJsonSchema(config.inputSchema, "input");
+	const outputJsonSchema = toObjectJsonSchema(config.outputSchema, "output");
 	if (config.spec !== undefined) {
 		assertRuntimeOperationProjection(config.spec, {
 			id: config.id,
@@ -217,6 +220,10 @@ export function defineOperation<
 			description: config.description,
 			mcpName: config.mcp.name,
 			safety: config.safety,
+		});
+		assertRuntimeOperationContracts(config.spec, {
+			input: inputJsonSchema,
+			output: outputJsonSchema,
 		});
 	} else {
 		if (config.specMigration.operationId !== config.id) {
@@ -232,8 +239,8 @@ export function defineOperation<
 		description: config.description,
 		inputSchema: config.inputSchema,
 		outputSchema: config.outputSchema,
-		inputJsonSchema: toObjectJsonSchema(config.inputSchema, "input"),
-		outputJsonSchema: toObjectJsonSchema(config.outputSchema, "output"),
+		inputJsonSchema,
+		outputJsonSchema,
 		safety: config.safety,
 		mcp: config.mcp,
 		...(config.spec === undefined ? {} : { spec: config.spec }),

@@ -5,6 +5,7 @@ import type {
 } from "./json";
 import {
 	assertPolicyMatchesEffects,
+	expectedPolicyForEffects,
 	type OperationPolicy,
 	type PolicyForEffects,
 } from "./policy";
@@ -29,6 +30,7 @@ export type OperationSpecVerb =
 	| "launch"
 	| "analyze"
 	| "deploy"
+	| "deploy-winner"
 	| "stats"
 	| "status"
 	| "doctor"
@@ -52,7 +54,30 @@ export type OperationSpecVerb =
 	| "reset"
 	| "validate"
 	| "enroll"
-	| "resume";
+	| "resume"
+	| "clone"
+	| "set-default"
+	| "upload"
+	| "add-to-lists"
+	| "remove-from-lists"
+	| "unblocklist"
+	| "guard"
+	| "deliverability-guard"
+	| "hygiene"
+	| "drift"
+	| "sync"
+	| "registry-sync"
+	| "history"
+	| "registry-history"
+	| "promote"
+	| "registry-promote"
+	| "rollback"
+	| "registry-rollback"
+	| "daily"
+	| "stop"
+	| "recommend-sample-size"
+	| "run"
+	| "export-assignment";
 
 export type OperationSpecLifecycle =
 	| {
@@ -118,6 +143,10 @@ export type AnyOperationSpec = OperationSpecBase & {
 	policy: OperationPolicy;
 } & OperationSpecLifecycle;
 
+export type DerivedPolicyOperationSpec<
+	Effects extends readonly OperationEffect[],
+> = Omit<OperationSpec<Effects>, "policy">;
+
 const OPERATION_ID_PATTERN = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/;
 const MCP_NAME_PATTERN = /^listmonk_[a-z][a-z0-9_]*$/;
 
@@ -179,13 +208,6 @@ export function defineOperationSpec<
 		throw new TypeError(
 			`Operation spec ${operation.id} id verb (${idVerb}) must match declared verb (${operation.verb})`,
 		);
-	}
-	for (const effect of operation.effects) {
-		if (effect.resource !== operation.resource) {
-			throw new TypeError(
-				`Operation spec ${operation.id} effect resource (${effect.resource}) must match operation resource (${operation.resource})`,
-			);
-		}
 	}
 	if (operation.state !== undefined) {
 		if (operation.state.resource !== operation.resource) {
@@ -262,5 +284,30 @@ export function defineOperationSpec<
 			`Active operation spec ${operationId} must not declare deprecated metadata`,
 		);
 	}
+	if (
+		lifecycle.stability === "stable" &&
+		(operation.contract.input.source !== "typescript" ||
+			operation.contract.output.source !== "typescript")
+	) {
+		throw new TypeError(
+			`Stable operation spec ${operationId} must use TypeScript-authored input and output contracts`,
+		);
+	}
 	return operation;
+}
+
+/**
+ * Declare an operation and derive its safety policy from typed effects.
+ * Product declarations choose effects; confirmation, audit, and dry-run
+ * policy cannot be weakened independently.
+ */
+export function defineOperationSpecFromEffects<
+	const Effects extends readonly OperationEffect[],
+>(
+	operation: DerivedPolicyOperationSpec<Effects>,
+): OperationSpec<Effects> {
+	return defineOperationSpec({
+		...operation,
+		policy: expectedPolicyForEffects(operation.effects),
+	} as OperationSpec<Effects>);
 }

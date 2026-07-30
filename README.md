@@ -387,6 +387,9 @@ listmonk-cli operations --family campaigns
 listmonk-cli specs search --query "schedule a reviewed campaign"
 listmonk-cli specs describe --operation campaigns.schedule
 listmonk-cli playbooks get --id campaign.safe-start
+listmonk-cli playbooks get --id campaign.safe-schedule
+listmonk-cli playbooks get --id template.safe-promote
+listmonk-cli playbooks get --id abtest.safe-run
 listmonk-cli capabilities
 listmonk-cli prime --goal "schedule a reviewed campaign"
 listmonk-cli status
@@ -403,30 +406,50 @@ effect-derived safety, execution requirements, and `useWhen`/`avoidWhen`
 guidance. Status adds runtime identity and a live Listmonk health probe without
 returning credentials.
 
-Fourteen operations currently include a `spec` descriptor: the original
-`campaigns.get`, `campaigns.schedule`, and `subscribers.blocklist` pilot plus
-the high-risk `campaigns.start`, `campaigns.cancel`, `transactional.send`, and
-`ops.campaign.preflight` operations, and the seven discovery/readiness
-operations above. A descriptor adds normalized
-Typia-generated contracts, resource/state semantics, effects, derived safety
-policy, retry/reconciliation guidance, and agent usage context. Transactional
-send retry semantics are conditional on `idempotency_key`; its recipient
-contract is generated as an email-or-ID XOR. Existing Zod schemas remain the
-transport normalization and runtime validation authority.
+All 102 public shared operations now include a `spec` descriptor. Specs define
+product resources and states, effects and derived safety, retry/reconciliation,
+agent context, and typed playbooks independently of Listmonk endpoint shapes.
+The maintenance boundary is:
 
-The spec also publishes the typed `campaign.safe-start` playbook. It sequences
-campaign inspection, a guarded preflight (`summary.fail == 0`), human-approved
-bulk delivery, and post-start verification. Every shared operation must now
-bind either a descriptor or a dated migration exemption. Family catalogs and
-the post-build `operations:specs:coverage` gate reject missing, dangling,
-overlapping, mismatched, or expired coverage.
+```text
+Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
+```
+
+Fifty-one contracts are standalone TypeScript/Typia product contracts. The
+other 51 are explicitly `experimental` and use a committed snapshot of the
+normalized shared-operation boundary—not generated Listmonk SDK types—as a
+bridge. Upstream API changes are therefore absorbed at the generated transport
+and handwritten adapter first; the product spec changes only when the
+normalized operation contract or email-operation meaning changes. Static
+governance rejects OpenAPI/generated SDK imports from `src/specs`.
+
+Seven reviewed core operations are `stable`: `campaigns.get`,
+`campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
+`subscribers.blocklist`, `transactional.send`, and
+`ops.campaign.preflight`. Their contracts and policy semantics are checked
+against an accepted compatibility baseline. The other 95 descriptors remain
+experimental while their product contracts and behavior mature.
+
+The spec publishes four typed playbooks: `campaign.safe-start`,
+`campaign.safe-schedule`, `template.safe-promote`, and `abtest.safe-run`.
+Every public shared operation binds a descriptor, and the migration exemption
+manifest is empty. Coverage rejects missing, dangling, overlapping, or
+mismatched declarations.
 
 Operations Spec artifacts are checked in under
 `packages/operations/generated/specs`. Run `bun run operations:specs:generate`
 after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
-also verifies all 65 shared operations against descriptor/exemption coverage.
+also verifies all 102 shared operations, the API boundary rule, the 51 governed
+runtime bridges, the seven stable compatibility baselines, and 306 direct
+spec-to-runtime graph edges.
+
+If a normalized Zod boundary for one of the 51 bridge operations changes,
+build the workspaces and run
+`bun run operations:specs:runtime-contracts:generate`, review the committed
+snapshot diff, and then regenerate the spec artifacts. Normal CLI/MCP startup
+remains fail-closed when a runtime contract and its snapshot differ.
 
 The spec API is published from the existing operations package through the
 `@listmonk-ops/operations/specs` subpath; it is not a separate npm package.

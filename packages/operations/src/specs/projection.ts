@@ -15,6 +15,57 @@ export interface RuntimeOperationProjection {
 	};
 }
 
+const RUNTIME_CONTRACT_CAPTURE = Symbol.for(
+	"@listmonk-ops/operations/specs:runtime-contract-capture",
+);
+
+function stableValue(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(stableValue);
+	}
+	if (typeof value === "object" && value !== null) {
+		return Object.fromEntries(
+			Object.entries(value)
+				.filter(([key, nested]) => key !== "$schema" && nested !== undefined)
+				.sort(([left], [right]) =>
+					left < right ? -1 : left > right ? 1 : 0,
+				)
+				.map(([key, nested]) => [key, stableValue(nested)]),
+		);
+	}
+	return value;
+}
+
+export function assertRuntimeOperationContracts(
+	spec: AnyOperationSpec,
+	runtime: {
+		input: Readonly<Record<string, unknown>>;
+		output: Readonly<Record<string, unknown>>;
+	},
+): void {
+	// The explicit snapshot generator sets this process-global flag before
+	// dynamically loading every workspace catalog. Without this narrow capture
+	// mode, the stale snapshot that needs updating would prevent the generator
+	// from observing the new runtime schemas. Normal CLI/MCP startup never sets
+	// the flag and remains fail-closed.
+	if (Reflect.get(globalThis, RUNTIME_CONTRACT_CAPTURE) === true) {
+		return;
+	}
+	for (const direction of ["input", "output"] as const) {
+		const contract = spec.contract[direction];
+		if (contract.source !== "runtime-operation") {
+			continue;
+		}
+		const expected = JSON.stringify(stableValue(contract.schema));
+		const actual = JSON.stringify(stableValue(runtime[direction]));
+		if (actual !== expected) {
+			throw new TypeError(
+				`Runtime operation ${spec.id} ${direction} contract drifted from its committed operation spec bridge`,
+			);
+		}
+	}
+}
+
 function operationSpecIsReadOnly(operation: AnyOperationSpec): boolean {
 	return operation.effects.every((effect) => effect.kind === "read");
 }

@@ -44,6 +44,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "campaignGetOutputContract": {
@@ -435,6 +436,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "campaignLifecycleInputContract": {
@@ -474,6 +476,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "campaignLifecycleOutputContract": {
@@ -519,6 +522,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "campaignPreflightInputContract": {
@@ -593,6 +597,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "campaignPreflightOutputContract": {
@@ -764,6 +769,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "campaignScheduleInputContract": {
@@ -817,6 +823,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "campaignScheduleOutputContract": {
@@ -862,6 +869,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "controlCapabilitiesOutputContract": {
@@ -994,6 +1002,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "controlPrimeInputContract": {
@@ -1037,6 +1046,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "controlPrimeOutputContract": {
@@ -1341,6 +1351,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "controlStatusInputContract": {
@@ -1361,6 +1372,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "controlStatusOutputContract": {
@@ -1624,6 +1636,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "deliverabilityDnsCheckOutputContract": {
@@ -1815,6 +1828,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "deliverabilityDoctorOutputContract": {
@@ -2527,6 +2541,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "emptyInputContract": {
@@ -2547,6 +2562,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "playbookGetInputContract": {
@@ -2583,6 +2599,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "playbookGetOutputContract": {
@@ -3024,6 +3041,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "playbookListOutputContract": {
@@ -3099,6 +3117,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "providerIdInputContract": {
@@ -3137,6 +3156,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "providerListInputContract": {
@@ -3157,6 +3177,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "providerListOutputContract": {
@@ -3272,6 +3293,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "providerQuotaOutputContract": {
@@ -3382,6 +3404,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "providerStatusOutputContract": {
@@ -3801,6 +3824,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "providerTestOutputContract": {
@@ -3897,6 +3921,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "providerWebhookStatusInputContract": {
@@ -3946,6 +3971,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "providerWebhookStatusOutputContract": {
@@ -4170,6 +4196,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceCreateInputContract": {
@@ -4386,6 +4413,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceDefinitionOutputContract": {
@@ -4655,6 +4683,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceDeleteOutputContract": {
@@ -4932,6 +4961,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceEnrollInputContract": {
@@ -4999,6 +5029,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceEnrollmentGetInputContract": {
@@ -5033,6 +5064,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceEnrollmentListInputContract": {
@@ -5145,6 +5177,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceEnrollmentListOutputContract": {
@@ -5284,6 +5317,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceEnrollmentOutputContract": {
@@ -5417,6 +5451,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceIdInputContract": {
@@ -5451,6 +5486,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceListInputContract": {
@@ -5493,6 +5529,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceListOutputContract": {
@@ -5768,6 +5805,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceReconcileInputContract": {
@@ -5841,6 +5879,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceReconcileOutputContract": {
@@ -6004,6 +6043,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceStatusInputContract": {
@@ -6041,6 +6081,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceStatusOutputContract": {
@@ -6327,6 +6368,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceTickInputContract": {
@@ -6372,6 +6414,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceTickOutputContract": {
@@ -6469,6 +6512,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceUpdateInputContract": {
@@ -6693,6 +6737,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceValidateInputContract": {
@@ -6895,6 +6940,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "sequenceValidateOutputContract": {
@@ -6958,6 +7004,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "specDescribeInputContract": {
@@ -6996,6 +7043,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "specDescribeOutputContract": {
@@ -7165,6 +7213,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "specSearchInputContract": {
@@ -7230,6 +7279,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "specSearchOutputContract": {
@@ -7408,6 +7458,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "subscriberBlocklistInputContract": {
@@ -7490,6 +7541,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "subscriberBulkOutputContract": {
@@ -7557,6 +7609,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "transactionalSendInputContract": {
@@ -7704,6 +7757,7 @@
         }
       ]
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "transactionalSendOutputContract": {
@@ -7792,6 +7846,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookCircuitResetInputContract": {
@@ -7828,6 +7883,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookCircuitResetOutputContract": {
@@ -7880,6 +7936,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookCreateInputContract": {
@@ -8132,6 +8189,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookCreateOutputContract": {
@@ -8388,6 +8446,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDeleteInputContract": {
@@ -8424,6 +8483,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDeleteOutputContract": {
@@ -8688,6 +8748,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDeliveryListInputContract": {
@@ -8963,6 +9024,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDeliveryListOutputContract": {
@@ -9285,6 +9347,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDeliveryRetryInputContract": {
@@ -9321,6 +9384,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDeliveryRetryOutputContract": {
@@ -9637,6 +9701,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDispatchInputContract": {
@@ -9670,6 +9735,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDispatchOutputContract": {
@@ -9830,6 +9896,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDlqListInputContract": {
@@ -9873,6 +9940,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDlqListOutputContract": {
@@ -10195,6 +10263,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDlqReplayInputContract": {
@@ -10244,6 +10313,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookDlqReplayOutputContract": {
@@ -10367,6 +10437,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookInboundIngestInputContract": {
@@ -10511,6 +10582,7 @@
         }
       ]
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookInboundIngestOutputContract": {
@@ -10695,6 +10767,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookListInputContract": {
@@ -10723,6 +10796,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookListOutputContract": {
@@ -10985,6 +11059,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookPruneInputContract": {
@@ -11035,6 +11110,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookPruneOutputContract": {
@@ -11100,6 +11176,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookReconcileInputContract": {
@@ -11139,6 +11216,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookReconcileOutputContract": {
@@ -11208,6 +11286,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookRuntimeStatusInputContract": {
@@ -11240,6 +11319,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookRuntimeStatusOutputContract": {
@@ -11502,6 +11582,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookTestInputContract": {
@@ -11548,6 +11629,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookTestOutputContract": {
@@ -11711,6 +11793,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookTickInputContract": {
@@ -11755,6 +11838,7 @@
       "required": [],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookTickOutputContract": {
@@ -11940,6 +12024,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookUpdateInputContract": {
@@ -12194,6 +12279,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   },
   "webhookUpdateOutputContract": {
@@ -12450,6 +12536,7 @@
       ],
       "type": "object"
     },
+    "source": "typescript",
     "stage": "normalized"
   }
 }

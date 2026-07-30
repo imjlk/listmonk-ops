@@ -84,9 +84,12 @@ describe("operation catalog", () => {
 				(operation) => operation.id === "campaigns.schedule",
 			)?.spec,
 		);
-		expect(first?.specMigration).toMatchObject({
-			operationId: first?.id,
+		expect(first?.spec).toMatchObject({
+			id: "lists.list",
+			resource: "list",
+			stability: "experimental",
 		});
+		expect(first?.specMigration).toBeUndefined();
 	});
 
 	test("rejects duplicate family, operation, and MCP identities", () => {

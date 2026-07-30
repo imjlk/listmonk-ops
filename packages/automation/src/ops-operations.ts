@@ -31,9 +31,8 @@ import {
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
 import {
+	bindBridgedOperationSpec,
 	bindCampaignPreflightOperationSpec,
-	bindOperationSpecMigrationExemption,
-	operationSpecMigrationExemptionsByFamily,
 } from "@listmonk-ops/operations/specs";
 
 export interface OpsOperationContext {
@@ -510,9 +509,7 @@ export const deliverabilityGuardOperation = defineOperation({
 	outputSchema: deliverabilityGuardOutputSchema,
 	safety: mutationSafety,
 	mcp: { name: "listmonk_ops_deliverability_guard" },
-	specMigration: bindOperationSpecMigrationExemption(
-		"ops.campaign.deliverability-guard",
-	),
+	spec: bindBridgedOperationSpec("ops.campaign.deliverability-guard"),
 	execute: executeDeliverabilityGuardOperation,
 });
 
@@ -529,7 +526,7 @@ export const subscriberHygieneOperation = defineOperation({
 		openWorldHint: true,
 	},
 	mcp: { name: "listmonk_ops_subscriber_hygiene" },
-	specMigration: bindOperationSpecMigrationExemption("ops.subscribers.hygiene"),
+	spec: bindBridgedOperationSpec("ops.subscribers.hygiene"),
 	execute: executeSubscriberHygieneOperation,
 });
 
@@ -541,7 +538,7 @@ export const segmentDriftOperation = defineOperation({
 	outputSchema: segmentDriftOutputSchema,
 	safety: nonIdempotentLocalWriteSafety,
 	mcp: { name: "listmonk_ops_segment_drift" },
-	specMigration: bindOperationSpecMigrationExemption("ops.segments.drift"),
+	spec: bindBridgedOperationSpec("ops.segments.drift"),
 	execute: executeSegmentDriftOperation,
 });
 
@@ -553,9 +550,7 @@ export const templateRegistrySyncOperation = defineOperation({
 	outputSchema: templateRegistrySyncOutputSchema,
 	safety: localWriteSafety,
 	mcp: { name: "listmonk_ops_template_registry_sync" },
-	specMigration: bindOperationSpecMigrationExemption(
-		"ops.templates.registry-sync",
-	),
+	spec: bindBridgedOperationSpec("ops.templates.registry-sync"),
 	execute: executeTemplateRegistrySyncOperation,
 });
 
@@ -567,9 +562,7 @@ export const templateRegistryHistoryOperation = defineOperation({
 	outputSchema: templateRegistryHistoryOutputSchema,
 	safety: readSafety,
 	mcp: { name: "listmonk_ops_template_registry_history" },
-	specMigration: bindOperationSpecMigrationExemption(
-		"ops.templates.registry-history",
-	),
+	spec: bindBridgedOperationSpec("ops.templates.registry-history"),
 	execute: executeTemplateRegistryHistoryOperation,
 });
 
@@ -581,9 +574,7 @@ export const templateRegistryPromoteOperation = defineOperation({
 	outputSchema: templatePromoteOutputSchema,
 	safety: mutationSafety,
 	mcp: { name: "listmonk_ops_template_registry_promote" },
-	specMigration: bindOperationSpecMigrationExemption(
-		"ops.templates.registry-promote",
-	),
+	spec: bindBridgedOperationSpec("ops.templates.registry-promote"),
 	execute: executeTemplateRegistryPromoteOperation,
 });
 
@@ -595,9 +586,7 @@ export const templateRegistryRollbackOperation = defineOperation({
 	outputSchema: templatePromoteOutputSchema,
 	safety: nonIdempotentMutationSafety,
 	mcp: { name: "listmonk_ops_template_registry_rollback" },
-	specMigration: bindOperationSpecMigrationExemption(
-		"ops.templates.registry-rollback",
-	),
+	spec: bindBridgedOperationSpec("ops.templates.registry-rollback"),
 	execute: executeTemplateRegistryRollbackOperation,
 });
 
@@ -609,7 +598,7 @@ export const dailyDigestOperation = defineOperation({
 	outputSchema: dailyDigestOutputSchema,
 	safety: readSafety,
 	mcp: { name: "listmonk_ops_daily_digest" },
-	specMigration: bindOperationSpecMigrationExemption("ops.digest.daily"),
+	spec: bindBridgedOperationSpec("ops.digest.daily"),
 	execute: executeDailyDigestOperation,
 });
 
@@ -629,8 +618,7 @@ export const opsOperationCatalog = defineOperationCatalog({
 	id: "ops",
 	title: "Operations workflows",
 	operations: opsOperations,
-	specMigrationExemptions:
-		operationSpecMigrationExemptionsByFamily.ops,
+	specMigrationExemptions: [],
 });
 
 export type OpsOperation = (typeof opsOperations)[number];

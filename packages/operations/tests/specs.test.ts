@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+	assertRuntimeOperationContracts,
 	assertRuntimeOperationProjection,
+	bridgedOperationSpecsById,
 	campaignCancelOperationSpec,
 	campaignGetOperationSpec,
 	campaignPreflightOperationSpec,
@@ -17,6 +19,7 @@ import {
 	messageResource,
 	projectOperationSpec,
 	providerOperationSpecs,
+	runtimeOperationContractIds,
 	sequenceOperationSpecs,
 	subscriberBlocklistOperationSpec,
 	subscriberResource,
@@ -28,60 +31,34 @@ import {
 } from "../src/specs";
 
 describe("email operations specification", () => {
-	test("models pilot and high-risk operations as normalized typed contracts", () => {
-		expect(emailOperationsSpec.operations.map(({ id }) => id)).toEqual([
-			"campaigns.get",
-			"campaigns.schedule",
-			"subscribers.blocklist",
-			"campaigns.start",
-			"campaigns.cancel",
-			"transactional.send",
-			"ops.campaign.preflight",
-			"specs.search",
-			"specs.describe",
-			"playbooks.list",
-			"playbooks.get",
-			"control.capabilities",
-			"control.prime",
-			"control.status",
-			"webhooks.list",
-			"webhooks.create",
-			"webhooks.update",
-			"webhooks.delete",
-			"webhooks.test",
-			"webhooks.dispatch",
-			"webhooks.delivery.list",
-			"webhooks.delivery.retry",
-			"webhooks.reconcile",
-			"webhooks.prune",
-			"webhooks.tick",
-			"webhooks.runtime.status",
-			"webhooks.inbound.ingest",
-			"webhooks.dlq.list",
-			"webhooks.dlq.replay",
-			"webhooks.circuit.reset",
-			"sequences.validate",
-			"sequences.create",
-			"sequences.update",
-			"sequences.list",
-			"sequences.get",
-			"sequences.delete",
-			"sequences.enroll",
-			"sequences.enrollments.list",
-			"sequences.enrollments.get",
-			"sequences.pause",
-			"sequences.resume",
-			"sequences.tick",
-			"sequences.reconcile",
-			"sequences.status",
-			"providers.list",
-			"providers.status",
-			"providers.test",
-			"providers.quota",
-			"providers.webhook-status",
-			"deliverability.dns-check",
-			"deliverability.doctor",
-		]);
+	test("models every public shared operation with governed contracts", () => {
+		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
+		expect(operationIds).toHaveLength(102);
+		expect(new Set(operationIds).size).toBe(102);
+		expect(
+			runtimeOperationContractIds.every((operationId) =>
+				operationIds.includes(operationId),
+			),
+		).toBe(true);
+		expect(
+			emailOperationsSpec.operations.filter(
+				(operation) => operation.stability === "stable",
+			),
+		).toHaveLength(7);
+		expect(
+			emailOperationsSpec.operations
+				.filter((operation) =>
+					runtimeOperationContractIds.includes(
+						operation.id as (typeof runtimeOperationContractIds)[number],
+					),
+				)
+				.every(
+					(operation) =>
+						operation.stability === "experimental" &&
+						operation.contract.input.source === "runtime-operation" &&
+						operation.contract.output.source === "runtime-operation",
+				),
+		).toBe(true);
 		expect(campaignGetOperationSpec.contract.input).toMatchObject({
 			dialect: "openapi-3.1",
 			stage: "normalized",
@@ -364,14 +341,21 @@ describe("email operations specification", () => {
 			}),
 		).toThrow("id verb (get) must match declared verb (list)");
 
+		const crossResourceOperation = defineOperationSpec({
+			...campaignGetOperationSpec,
+			effects: [{ kind: "read", resource: "subscriber" }],
+		});
 		expect(() =>
-			defineOperationSpec({
-				...campaignGetOperationSpec,
-				effects: [{ kind: "read", resource: "subscriber" }],
+			defineEmailOperationsSpec({
+				schemaVersion: "test",
+				title: "Missing effect resource",
+				description: "Reject unknown cross-resource effects",
+				resources: [campaignResource],
+				operations: [crossResourceOperation],
+				events: [],
+				playbooks: [],
 			}),
-		).toThrow(
-			"effect resource (subscriber) must match operation resource (campaign)",
-		);
+		).toThrow("effect references unknown resource subscriber");
 
 		expect(() =>
 			defineOperationSpec({
@@ -428,7 +412,17 @@ describe("email operations specification", () => {
 					subscriberResource,
 					messageResource,
 				],
-				operations: [campaignGetOperationSpec],
+				operations: [
+					{
+						...campaignGetOperationSpec,
+						agent: {
+							...campaignGetOperationSpec.agent,
+							prerequisites: [],
+							verifyWith: [],
+							related: [],
+						},
+					},
+				],
 				events: [],
 				playbooks: [
 					{
@@ -458,7 +452,17 @@ describe("email operations specification", () => {
 				title: "Dangling event",
 				description: "Dangling event fixture",
 				resources: [campaignResource, subscriberResource],
-				operations: [campaignGetOperationSpec],
+				operations: [
+					{
+						...campaignGetOperationSpec,
+						agent: {
+							...campaignGetOperationSpec.agent,
+							prerequisites: [],
+							verifyWith: [],
+							related: [],
+						},
+					},
+				],
 				events: [
 					{
 						type: "provider.drifted",
@@ -475,9 +479,10 @@ describe("email operations specification", () => {
 	});
 
 	test("defines a guarded human-approved campaign start playbook", () => {
-		expect(emailOperationsSpec.playbooks).toEqual([
+		expect(emailOperationsSpec.playbooks).toHaveLength(4);
+		expect(emailOperationsSpec.playbooks).toContain(
 			campaignSafeStartPlaybook,
-		]);
+		);
 		expect(
 			campaignSafeStartPlaybook.steps.map(
 				({ id, operation, approval }) => ({
@@ -627,5 +632,48 @@ describe("email operations specification", () => {
 		);
 		expect(projected).toEqual(subscriberBlocklistOperationSpec);
 		expect(projected).not.toBe(subscriberBlocklistOperationSpec);
+	});
+
+	test("keeps runtime bridges experimental and rejects normalized contract drift", () => {
+		const bridged = bridgedOperationSpecsById["lists.list"];
+		expect(() =>
+			defineOperationSpec({
+				...bridged,
+				stability: "stable",
+			}),
+		).toThrow(
+			"Stable operation spec lists.list must use TypeScript-authored input and output contracts",
+		);
+		expect(() =>
+			assertRuntimeOperationContracts(bridged, {
+				input: { type: "object", properties: {} },
+				output: bridged.contract.output.schema,
+			}),
+		).toThrow(
+			"Runtime operation lists.list input contract drifted from its committed operation spec bridge",
+		);
+
+		const captureSymbol = Symbol.for(
+			"@listmonk-ops/operations/specs:runtime-contract-capture",
+		);
+		Reflect.set(globalThis, captureSymbol, true);
+		try {
+			expect(() =>
+				assertRuntimeOperationContracts(bridged, {
+					input: { type: "object", properties: {} },
+					output: bridged.contract.output.schema,
+				}),
+			).not.toThrow();
+		} finally {
+			Reflect.deleteProperty(globalThis, captureSymbol);
+		}
+		expect(() =>
+			assertRuntimeOperationContracts(bridged, {
+				input: { type: "object", properties: {} },
+				output: bridged.contract.output.schema,
+			}),
+		).toThrow(
+			"Runtime operation lists.list input contract drifted from its committed operation spec bridge",
+		);
 	});
 });

@@ -114,7 +114,50 @@ export function defineEmailOperationsSpec(
 				`Operation spec ${operation.id} references unknown resource ${operation.resource}`,
 			);
 		}
+		for (const effect of operation.effects) {
+			if (!resources.has(effect.resource)) {
+				throw new TypeError(
+					`Operation spec ${operation.id} effect references unknown resource ${effect.resource}`,
+				);
+			}
+		}
 		validateStateTransition(operation, resources);
+		for (const [relation, operationIds] of [
+			["prerequisite", operation.agent.prerequisites],
+			["verification", operation.agent.verifyWith],
+			["related", operation.agent.related],
+		] as const) {
+			for (const operationId of operationIds) {
+				if (!operationsById.has(operationId)) {
+					throw new TypeError(
+						`Operation spec ${operation.id} references unknown ${relation} operation ${operationId}`,
+					);
+				}
+			}
+		}
+		const retryTargets =
+			operation.retry.kind === "reconcile"
+				? [operation.retry.reconcileWith]
+				: operation.retry.kind === "conditional"
+					? operation.retry.cases.flatMap(({ semantics }) =>
+							semantics.kind === "reconcile" ? [semantics.reconcileWith] : [],
+						)
+					: [];
+		for (const retryTarget of retryTargets) {
+			if (!operationsById.has(retryTarget)) {
+				throw new TypeError(
+					`Operation spec ${operation.id} references unknown reconciliation operation ${retryTarget}`,
+				);
+			}
+		}
+		if (
+			operation.stability === "deprecated" &&
+			!operationsById.has(operation.deprecated.replacedBy)
+		) {
+			throw new TypeError(
+				`Deprecated operation spec ${operation.id} references unknown replacement ${operation.deprecated.replacedBy}`,
+			);
+		}
 	}
 	for (const event of schema.events) {
 		if (!resources.has(event.subject)) {
@@ -138,6 +181,39 @@ export function defineEmailOperationsSpec(
 				throw new TypeError(
 					`Operation playbook ${playbook.id} step ${step.id} must require human approval for ${step.operation}`,
 				);
+			}
+			const inputProperties = operation.contract.input.schema.properties;
+			const propertyNames =
+				typeof inputProperties === "object" &&
+				inputProperties !== null &&
+				!Array.isArray(inputProperties)
+					? new Set(Object.keys(inputProperties))
+					: undefined;
+			for (const binding of step.input) {
+				if (
+					propertyNames !== undefined &&
+					!propertyNames.has(binding.parameter)
+				) {
+					throw new TypeError(
+						`Operation playbook ${playbook.id} step ${step.id} binds unknown ${step.operation} input ${binding.parameter}`,
+					);
+				}
+			}
+			const requiredInputs = operation.contract.input.schema.required;
+			if (Array.isArray(requiredInputs)) {
+				const boundInputs = new Set(
+					step.input.map(({ parameter }) => parameter),
+				);
+				for (const requiredInput of requiredInputs) {
+					if (
+						typeof requiredInput === "string" &&
+						!boundInputs.has(requiredInput)
+					) {
+						throw new TypeError(
+							`Operation playbook ${playbook.id} step ${step.id} does not bind required ${step.operation} input ${requiredInput}`,
+						);
+					}
+				}
 			}
 		}
 		if (!operationsById.has(playbook.recoveryOperation)) {

@@ -135,6 +135,7 @@ function contractSchema(generated: {
 	return {
 		dialect: "openapi-3.1",
 		stage: "normalized",
+		source: "typescript",
 		schema: stableRecord(generated.schema, "contract schema"),
 		components: stableRecord(generated.components, "contract components"),
 	};

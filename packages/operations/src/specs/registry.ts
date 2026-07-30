@@ -4,6 +4,12 @@ import {
 	messageResource,
 } from "./high-risk";
 import {
+	abTestSafeRunPlaybook,
+	campaignSafeSchedulePlaybook,
+	templateSafePromotePlaybook,
+} from "./additional-playbooks";
+import { bridgedOperationSpecs } from "./bridged";
+import {
 	controlResource,
 	discoveryOperationSpecs,
 	playbookResource,
@@ -15,6 +21,13 @@ import {
 	subscriberResource,
 } from "./pilot";
 import { providerOperationSpecs, providerResource } from "./providers";
+import { resourceLifecycleEventSpecs } from "./lifecycle-events";
+import {
+	audienceResource,
+	listResource,
+	mediaResource,
+	templateResource,
+} from "./resources";
 import { defineEmailOperationsSpec } from "./schema";
 import { sequenceOperationSpecs, sequenceResource } from "./sequences";
 import {
@@ -32,11 +45,12 @@ export const operationSpecs = [
 	...webhookOperationSpecs,
 	...sequenceOperationSpecs,
 	...providerOperationSpecs,
+	...bridgedOperationSpecs,
 ] as const;
 
 export const emailOperationsSpec =
 	defineEmailOperationsSpec({
-		schemaVersion: "1.7.0",
+		schemaVersion: "2.0.0",
 		title: "listmonk-ops Email Operations Specification",
 		description:
 			"Typed, policy-aware, and verifiable email operations for humans and AI agents.",
@@ -52,8 +66,20 @@ export const emailOperationsSpec =
 			experimentResource,
 			sequenceResource,
 			providerResource,
+			listResource,
+			templateResource,
+			mediaResource,
+			audienceResource,
 		],
 		operations: operationSpecs,
-		events: outboundWebhookEventSpecs,
-		playbooks: [campaignSafeStartPlaybook],
+		events: [
+			...outboundWebhookEventSpecs,
+			...resourceLifecycleEventSpecs,
+		],
+		playbooks: [
+			campaignSafeStartPlaybook,
+			campaignSafeSchedulePlaybook,
+			templateSafePromotePlaybook,
+			abTestSafeRunPlaybook,
+		],
 	});
