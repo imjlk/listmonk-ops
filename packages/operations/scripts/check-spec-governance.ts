@@ -60,11 +60,13 @@ const sourcePaths = [
 ];
 const forbiddenImport =
 	/from\s+["'][^"']*(?:@listmonk-ops\/openapi|openapi\/generated|generated\/sdk)[^"']*["']/;
-for (const sourcePath of sourcePaths) {
-	const source = await Bun.file(sourcePath).text();
+const sources = await Promise.all(
+	sourcePaths.map((sourcePath) => Bun.file(sourcePath).text()),
+);
+for (const [index, source] of sources.entries()) {
 	if (forbiddenImport.test(source)) {
 		failures.push(
-			`${sourcePath} imports a transport or generated Listmonk API contract`,
+			`${sourcePaths[index]} imports a transport or generated Listmonk API contract`,
 		);
 	}
 }

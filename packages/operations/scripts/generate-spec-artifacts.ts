@@ -5,30 +5,10 @@ import {
 	type AnyOperationSpec,
 	type OperationPlaybook,
 } from "../src/specs";
+import { stableJson } from "./stable-json";
 
 const outputDirectory = resolve(import.meta.dir, "../generated/specs");
 const checkOnly = Bun.argv.includes("--check");
-
-function stableValue(value: unknown): unknown {
-	if (Array.isArray(value)) {
-		return value.map(stableValue);
-	}
-	if (typeof value === "object" && value !== null) {
-		return Object.fromEntries(
-			Object.entries(value)
-				.filter(([, nested]) => nested !== undefined)
-				.sort(([left], [right]) =>
-					left < right ? -1 : left > right ? 1 : 0,
-				)
-				.map(([key, nested]) => [key, stableValue(nested)]),
-		);
-	}
-	return value;
-}
-
-function stableJson(value: unknown): string {
-	return `${JSON.stringify(stableValue(value), null, 2)}\n`;
-}
 
 function markdownArtifact(value: string): string {
 	return `${value.trimEnd()}\n`;
@@ -136,7 +116,7 @@ function renderResourceReference(): string {
 		"",
 		...resource.states.map(
 			(state) =>
-				`- \`${state}\` → ${resource.transitions[state]?.length ? resource.transitions[state]?.map((target) => `\`${target}\``).join(", ") : "none"}`,
+				`- \`${state}\` → ${resource.transitions[state]?.length ? resource.transitions[state].map((target) => `\`${target}\``).join(", ") : "none"}`,
 		),
 		"",
 	].join("\n"));

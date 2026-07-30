@@ -1,31 +1,16 @@
 import { resolve } from "node:path";
 import { emailOperationsSpec } from "../src/specs";
+import { stableJson } from "./stable-json";
 
 const baselinePath = resolve(
 	import.meta.dir,
 	"../generated/specs/stable-contract-baseline.json",
 );
 const accept = Bun.argv.includes("--accept");
-
-function stableValue(value: unknown): unknown {
-	if (Array.isArray(value)) {
-		return value.map(stableValue);
-	}
-	if (typeof value === "object" && value !== null) {
-		return Object.fromEntries(
-			Object.entries(value)
-				.filter(([, nested]) => nested !== undefined)
-				.sort(([left], [right]) =>
-					left < right ? -1 : left > right ? 1 : 0,
-				)
-				.map(([key, nested]) => [key, stableValue(nested)]),
-		);
-	}
-	return value;
-}
+const STABLE_CONTRACT_BASELINE_VERSION = 1;
 
 const current = {
-	baselineVersion: 1,
+	baselineVersion: STABLE_CONTRACT_BASELINE_VERSION,
 	operations: emailOperationsSpec.operations
 		.filter((operation) => operation.stability === "stable")
 		.map((operation) => ({
@@ -40,7 +25,7 @@ const current = {
 			mcpName: operation.projection.mcpName,
 		})),
 };
-const expected = `${JSON.stringify(stableValue(current), null, 2)}\n`;
+const expected = stableJson(current);
 
 if (accept) {
 	await Bun.write(baselinePath, expected);
@@ -48,7 +33,10 @@ if (accept) {
 		`Accepted ${current.operations.length} stable operation contracts.`,
 	);
 } else {
-	const baseline = await Bun.file(baselinePath).text().catch(() => undefined);
+	const baselineFile = Bun.file(baselinePath);
+	const baseline = (await baselineFile.exists())
+		? await baselineFile.text()
+		: undefined;
 	if (baseline !== expected) {
 		throw new Error(
 			"Stable operation contracts changed. Review compatibility and run `bun run --cwd packages/operations specs:stable:accept` only for an intentional contract release.",
