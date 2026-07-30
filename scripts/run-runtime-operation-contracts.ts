@@ -20,6 +20,14 @@ try {
 		format: "esm",
 		platform: "node",
 		target: "node24",
+		define: {
+			__LISTMONK_OPS_RUNTIME_CONTRACT_OUTPUT_PATH__: JSON.stringify(
+				resolve(
+					root,
+					"packages/operations/src/specs/generated/runtime-operation-contracts.json",
+				),
+			),
+		},
 		alias: {
 			"@listmonk-ops/abtest": resolve(root, "packages/abtest/src/index.ts"),
 			"@listmonk-ops/automation": resolve(

@@ -1,12 +1,10 @@
-import { resolve } from "node:path";
 import { runtimeOperationContractIds } from "../packages/operations/src/specs/runtime-contract-ids";
 import { stableValue } from "../packages/operations/src/specs/stable-json.js";
 import { sharedOperationCatalogs } from "./shared-operation-catalogs";
 
-const outputPath = resolve(
-	import.meta.dir,
-	"../packages/operations/src/specs/generated/runtime-operation-contracts.json",
-);
+declare const __LISTMONK_OPS_RUNTIME_CONTRACT_OUTPUT_PATH__: string;
+
+const outputPath = __LISTMONK_OPS_RUNTIME_CONTRACT_OUTPUT_PATH__;
 const checkOnly = Bun.argv.includes("--check");
 
 function normalizedContract(schema: Readonly<Record<string, unknown>>) {
