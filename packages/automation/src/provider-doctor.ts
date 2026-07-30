@@ -487,6 +487,7 @@ export function inspectListmonkProviderSettings(
 	const smtpPoolExact =
 		enabledSmtp.length === enabledHosts.length &&
 		enabledSmtp.length > 0 &&
+		enabledSmtp.length === expectedHosts.length &&
 		setsEqual(expectedHosts, enabledHosts);
 	const expectedUsernameFingerprints =
 		profile.smtp_username_fingerprints;
@@ -1686,6 +1687,16 @@ function hasSingleDirectDkimKey(records: readonly string[]): boolean {
 	return records.length === 1 && hasDirectDkimKey(records[0]!);
 }
 
+function validDkimOwnerName(selector: string, domain: string): boolean {
+	return (
+		selector.length <= 253 &&
+		/^(?:[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(?:\.(?:[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?))*$/.test(
+			selector,
+		) &&
+		`${selector}._domainkey.${domain}`.length <= 253
+	);
+}
+
 function isSpfVersionOneRecord(record: string): boolean {
 	return record.trim().split(/\s+/, 1)[0]?.toLowerCase() === "v=spf1";
 }
@@ -2335,61 +2346,243 @@ async function inspectSpfAuthorizationTarget(
 	};
 }
 
-function normalizeSpfIpRange(value: string): string {
-	const normalized = value.toLowerCase();
-	if (normalized.includes("/")) return normalized;
-	return `${normalized}/${isIP(normalized) === 4 ? 32 : 128}`;
+interface SpfIpInterval {
+	family: 4 | 6;
+	start: bigint;
+	end: bigint;
 }
 
-function inspectExpectedDirectSpfRanges(
-	record: string,
-	expectedRanges: readonly string[],
+function ipv4Integer(address: string): bigint | undefined {
+	if (isIP(address) !== 4) return undefined;
+	return address
+		.split(".")
+		.reduce((value, part) => (value << 8n) | BigInt(part), 0n);
+}
+
+function ipv6Integer(address: string): bigint | undefined {
+	if (isIP(address) !== 6) return undefined;
+	let normalized = address.toLowerCase();
+	const lastColon = normalized.lastIndexOf(":");
+	const possibleIpv4 = normalized.slice(lastColon + 1);
+	if (possibleIpv4.includes(".")) {
+		const ipv4 = ipv4Integer(possibleIpv4);
+		if (ipv4 === undefined) return undefined;
+		normalized = `${normalized.slice(0, lastColon)}:${Number(
+			(ipv4 >> 16n) & 0xffffn,
+		).toString(16)}:${Number(ipv4 & 0xffffn).toString(16)}`;
+	}
+	const compression = normalized.split("::");
+	if (compression.length > 2) return undefined;
+	const left = compression[0] ? compression[0].split(":") : [];
+	const right =
+		compression.length === 2 && compression[1] ? compression[1].split(":") : [];
+	const missing =
+		compression.length === 2 ? 8 - left.length - right.length : 0;
+	const parts =
+		compression.length === 2
+			? [...left, ...Array<string>(missing).fill("0"), ...right]
+			: left;
+	if (parts.length !== 8 || parts.some((part) => part.length === 0)) {
+		return undefined;
+	}
+	return parts.reduce(
+		(value, part) => (value << 16n) | BigInt(`0x${part}`),
+		0n,
+	);
+}
+
+function parseSpfIpInterval(value: string): SpfIpInterval | undefined {
+	const normalized = value.toLowerCase();
+	const separator = normalized.lastIndexOf("/");
+	const address =
+		separator === -1 ? normalized : normalized.slice(0, separator);
+	const family = isIP(address);
+	if (family !== 4 && family !== 6) return undefined;
+	const maximumPrefix = family === 4 ? 32 : 128;
+	const prefix =
+		separator === -1 ? maximumPrefix : Number(normalized.slice(separator + 1));
+	if (
+		!Number.isInteger(prefix) ||
+		prefix < 0 ||
+		prefix > maximumPrefix
+	) {
+		return undefined;
+	}
+	const addressValue =
+		family === 4 ? ipv4Integer(address) : ipv6Integer(address);
+	if (addressValue === undefined) return undefined;
+	const hostBits = BigInt(maximumPrefix - prefix);
+	const start = (addressValue >> hostBits) << hostBits;
+	const hostMask = hostBits === 0n ? 0n : (1n << hostBits) - 1n;
+	return {
+		family,
+		start,
+		end: start | hostMask,
+	};
+}
+
+function intervalsOverlap(
+	left: SpfIpInterval,
+	right: SpfIpInterval,
+): boolean {
+	return (
+		left.family === right.family &&
+		left.start <= right.end &&
+		right.start <= left.end
+	);
+}
+
+function subtractSpfInterval(
+	source: SpfIpInterval,
+	authorized: SpfIpInterval,
+): SpfIpInterval[] {
+	if (!intervalsOverlap(source, authorized)) return [source];
+	const remaining: SpfIpInterval[] = [];
+	if (source.start < authorized.start) {
+		remaining.push({
+			family: source.family,
+			start: source.start,
+			end: authorized.start - 1n,
+		});
+	}
+	if (authorized.end < source.end) {
+		remaining.push({
+			family: source.family,
+			start: authorized.end + 1n,
+			end: source.end,
+		});
+	}
+	return remaining;
+}
+
+function failedSpfAuthorization(
+	options: {
+		indeterminate?: boolean;
+		invalid?: boolean;
+		observations?: DnsObservation[];
+	} = {},
 ): SpfAuthorizationInspection {
+	return {
+		ready: false,
+		indeterminate: options.indeterminate ?? false,
+		invalid: options.invalid ?? false,
+		observations: options.observations ?? [],
+	};
+}
+
+async function inspectExpectedDirectSpfRanges(
+	record: string,
+	currentDomain: string,
+	expectedRanges: readonly string[],
+	dns: ProviderDnsResolver,
+): Promise<SpfAuthorizationInspection> {
 	const terms = parseValidSpfTerms(record);
 	if (terms === undefined || expectedRanges.length === 0) {
-		return {
-			ready: false,
-			indeterminate: false,
-			invalid: terms === undefined,
-			observations: [],
-		};
+		return failedSpfAuthorization({ invalid: terms === undefined });
 	}
-	const remaining = new Set(expectedRanges.map(normalizeSpfIpRange));
+	let remaining = expectedRanges
+		.map(parseSpfIpInterval)
+		.filter((range): range is SpfIpInterval => range !== undefined);
+	if (remaining.length !== expectedRanges.length) {
+		return failedSpfAuthorization({ invalid: true });
+	}
+	const lookupBudget: SpfLookupBudget = { used: 0, void: 0 };
+	const observations: DnsObservation[] = [];
 	for (const term of terms) {
 		if (term.includes("=")) continue;
 		const qualifier = /^[+?~-]/.exec(term)?.[0];
 		const mechanism = term.replace(/^[+?~-]/, "");
-		const lower = mechanism.toLowerCase();
-		if (lower === "all") break;
-		if (!lower.startsWith("ip4:") && !lower.startsWith("ip6:")) {
+		const mechanismName = mechanism
+			.toLowerCase()
+			.split(/[:/]/, 1)[0];
+		if (mechanismName === "all") break;
+		if (mechanismName === "ip4" || mechanismName === "ip6") {
+			const mechanismRange = parseSpfIpInterval(mechanism.slice(4));
+			if (mechanismRange === undefined) {
+				return failedSpfAuthorization({
+					invalid: true,
+					observations,
+				});
+			}
+			const overlapsExpected = remaining.some((expected) =>
+				intervalsOverlap(expected, mechanismRange),
+			);
+			if (!overlapsExpected) continue;
+			if (qualifier !== undefined && qualifier !== "+") {
+				return failedSpfAuthorization({ observations });
+			}
+			remaining = remaining.flatMap((expected) =>
+				subtractSpfInterval(expected, mechanismRange),
+			);
+			if (remaining.length === 0) {
+				return {
+					ready: true,
+					indeterminate: false,
+					invalid: false,
+					observations,
+				};
+			}
 			continue;
 		}
-		const range = normalizeSpfIpRange(mechanism.slice(4));
-		if (!remaining.has(range)) continue;
-		if (qualifier !== undefined && qualifier !== "+") {
-			return {
-				ready: false,
-				indeterminate: false,
-				invalid: false,
-				observations: [],
-			};
+		if (
+			mechanismName !== "include" &&
+			!spfMechanismUsesDns(mechanism)
+		) {
+			continue;
 		}
-		remaining.delete(range);
-		if (remaining.size === 0) {
-			return {
-				ready: true,
-				indeterminate: false,
-				invalid: false,
-				observations: [],
-			};
+		if (!consumeSpfDnsLookup(lookupBudget)) {
+			return failedSpfAuthorization({ invalid: true, observations });
+		}
+		if (mechanismName === "include") {
+			const nested = await inspectSpfAuthorizationTarget(
+				mechanism.slice("include:".length),
+				dns,
+				new Set([normalizeDomain(currentDomain)]),
+				lookupBudget,
+			);
+			observations.push(...nested.observations);
+			if (nested.indeterminate || nested.invalid) {
+				return failedSpfAuthorization({
+					indeterminate: nested.indeterminate,
+					invalid: nested.invalid,
+					observations,
+				});
+			}
+			if (
+				nested.unconditional_pass === true ||
+				(nested.ready &&
+					qualifier !== undefined &&
+					qualifier !== "+")
+			) {
+				return failedSpfAuthorization({ observations });
+			}
+			continue;
+		}
+		const match = await inspectDirectSpfMechanism(
+			mechanism,
+			currentDomain,
+			dns,
+			lookupBudget,
+		);
+		if (match.indeterminate || match.invalid) {
+			return failedSpfAuthorization({
+				indeterminate: match.indeterminate,
+				invalid: match.invalid,
+				observations,
+			});
+		}
+		if (
+			match.matches &&
+			(mechanismName === "exists" ||
+				(qualifier !== undefined && qualifier !== "+"))
+		) {
+			// A matching `exists` applies to every sender. For address-dependent
+			// mechanisms, fail closed when an earlier non-pass result may cover
+			// one of the expected sender ranges.
+			return failedSpfAuthorization({ observations });
 		}
 	}
-	return {
-		ready: false,
-		indeterminate: false,
-		invalid: false,
-		observations: [],
-	};
+	return failedSpfAuthorization({ observations });
 }
 
 function mxExchange(record: string): string | undefined {
@@ -2481,6 +2674,18 @@ async function inspectProviderDnsUnbounded(
 			status: "unknown",
 			message:
 				"No DKIM selectors are available in the provider profile or identity response.",
+		});
+	} else if (
+		selectors.some(
+			(selector) =>
+				!validDkimOwnerName(selector, profile.sending_domain),
+		)
+	) {
+		checks.push({
+			id: "dns.dkim",
+			status: "fail",
+			message:
+				"One or more provider DKIM selectors cannot form a valid DNS owner name for the sending domain.",
 		});
 	} else {
 		const results = await Promise.all(
@@ -2687,9 +2892,11 @@ async function inspectProviderDnsUnbounded(
 		}
 		const directAuthorization =
 			expectedInclude === undefined && spfRecords.length === 1
-				? inspectExpectedDirectSpfRanges(
+				? await inspectExpectedDirectSpfRanges(
 						spfRecords[0]!,
+						mailFromDomain,
 						profile.expected_spf_ip_ranges,
+						dns,
 					)
 				: undefined;
 		if (directAuthorization !== undefined) {

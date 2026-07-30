@@ -86,11 +86,14 @@ reusing a messenger name fail binding even when their SMTP endpoints differ;
 the profile schema accepts only the built-in `email` messenger because custom
 HTTP messengers are separate delivery backends, not SMTP-provider bindings.
 Describe a complete Listmonk SMTP pool with one profile and all expected
-`smtp_hosts`. Readiness requires an exact enabled host-set match. SES profiles
-also require `sha256:<hex>` fingerprints for every distinct Listmonk SMTP
-username; raw usernames and fingerprints are not returned. Generic SMTP direct
-SPF policies require explicit `expected_spf_ip_ranges`, while provider include
-policies use `expected_spf_include`. Successful SES identity inspection is
+`smtp_hosts`. Readiness requires each expected enabled host exactly once and
+rejects duplicate routes. SES profiles also require `sha256:<hex>`
+fingerprints for every distinct Listmonk SMTP username; raw usernames and
+fingerprints are not returned. Generic SMTP direct SPF policies require
+explicit `expected_spf_ip_ranges`, while provider include policies use
+`expected_spf_include`. Direct ranges honor SPF ordering, CIDR containment,
+and shared DNS and void-lookup budgets. Provider-returned DKIM selectors are
+validated before DNS lookup. Successful SES identity inspection is
 authoritative about whether a custom MAIL FROM domain exists. Profiles sharing
 a webhook source retain `unknown` freshness because the bounce source is not
 attributable. SES sandbox access is a readiness failure.

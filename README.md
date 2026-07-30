@@ -905,14 +905,17 @@ only Listmonk's built-in `email` messenger; custom HTTP messengers are separate
 delivery backends and cannot prove an SMTP provider binding. Describe one
 Listmonk SMTP pool with one profile and list every expected pool endpoint in
 `smtp_hosts`. Readiness requires the complete enabled host set and configured
-SMTP username fingerprint set to match exactly; partial and unexpected routes
-fail closed. For generic SMTP direct SPF policies, configure every possible
-sender range in `expected_spf_ip_ranges`, or configure the provider's
-`expected_spf_include` instead. When SES identity inspection succeeds, its
+SMTP username fingerprint set to match exactly; each expected host must appear
+once, so duplicate, partial, and unexpected enabled routes fail closed. For
+generic SMTP direct SPF policies, configure every possible sender range in
+`expected_spf_ip_ranges`, or configure the provider's `expected_spf_include`
+instead. Direct-range validation follows SPF term order, CIDR containment, and
+the shared DNS and void-lookup budgets. Provider-returned DKIM selectors are
+validated before any DNS query. When SES identity inspection succeeds, its
 custom MAIL FROM result is authoritative; `mail_from_domain` is only fallback
-evidence when identity inspection is unavailable. When multiple profiles share
-one webhook source, event freshness remains `unknown` because Listmonk cannot
-attribute that evidence to one profile.
+evidence when identity inspection is unavailable. When multiple profiles
+share one webhook source, event freshness remains `unknown` because Listmonk
+cannot attribute that evidence to one profile.
 Transient DNS failures remain `unknown`, while SES sandbox access blocks the
 aggregate readiness result.
 Generic SMTP profiles support Listmonk, DNS, and webhook diagnostics; provider

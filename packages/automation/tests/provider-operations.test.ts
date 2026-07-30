@@ -263,6 +263,23 @@ describe("provider and deliverability operations", () => {
 					enabled: true,
 				},
 			],
+			[
+				{
+					host: "email-smtp.ap-northeast-2.amazonaws.com",
+					username: sesSmtpUsername,
+					enabled: true,
+				},
+				{
+					host: "email-smtp.ap-northeast-2.amazonaws.com",
+					username: sesSmtpUsername,
+					enabled: true,
+				},
+				{
+					host: "smtp-backup.example.com",
+					username: sesSmtpUsername,
+					enabled: true,
+				},
+			],
 		]) {
 			expect(
 				inspectListmonkProviderSettings(poolProfile, { smtp }),
@@ -2819,6 +2836,139 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("honors ordered CIDR containment for generic direct SPF policies", async () => {
+		const makeProfile = (expectedRange: string) =>
+			providerProfileSchema.parse({
+				id: "ordered-direct-policy-relay",
+				kind: "smtp",
+				sending_domain: "mail.example.com",
+				mail_from_domain: "bounce.mail.example.com",
+				expected_spf_ip_ranges: [expectedRange],
+				smtp_hosts: ["smtp.example.com"],
+			});
+		const inspectRecord = async (
+			record: string,
+			expectedRange = "203.0.113.10",
+		) =>
+			inspectProviderDns(
+				makeProfile(expectedRange),
+				context({
+					profiles: [makeProfile(expectedRange)],
+					dns: {
+						async txt(name) {
+							if (name === "_dmarc.mail.example.com") {
+								return ["v=DMARC1; p=quarantine"];
+							}
+							if (name === "bounce.mail.example.com") {
+								return [record];
+							}
+							return [];
+						},
+						async cname() {
+							return [];
+						},
+						async mx(name) {
+							return name === "bounce.mail.example.com"
+								? [
+										{
+											priority: 10,
+											exchange: "mx.example.com",
+										},
+									]
+								: [];
+						},
+						async a(name) {
+							return name === "mx.example.com"
+								? ["203.0.113.10"]
+								: [];
+						},
+						async aaaa() {
+							return [];
+						},
+					},
+				}),
+			);
+
+		const blocked = await inspectRecord(
+			"v=spf1 -ip4:203.0.113.0/24 ip4:203.0.113.10 -all",
+		);
+		expect(blocked.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "fail" }),
+		);
+
+		const contained = await inspectRecord(
+			"v=spf1 ip4:203.0.113.0/24 -all",
+		);
+		expect(contained.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "pass" }),
+		);
+
+		const splitCoverage = await inspectRecord(
+			"v=spf1 ip4:203.0.113.0/25 ip4:203.0.113.128/25 -all",
+			"203.0.113.0/24",
+		);
+		expect(splitCoverage.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "pass" }),
+		);
+
+		const ipv6 = await inspectRecord(
+			"v=spf1 ip6:2001:db8::/64 -all",
+			"2001:db8::1",
+		);
+		expect(ipv6.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "pass" }),
+		);
+	});
+
+	test("enforces SPF DNS and void lookup budgets before a direct range", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "void-budget-direct-policy-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["203.0.113.10"],
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({
+				profiles: [smtpProfile],
+				dns: {
+					async txt(name) {
+						if (name === "_dmarc.mail.example.com") {
+							return ["v=DMARC1; p=quarantine"];
+						}
+						if (name === "bounce.mail.example.com") {
+							return [
+								"v=spf1 exists:void1.example exists:void2.example exists:void3.example ip4:203.0.113.10 -all",
+							];
+						}
+						return [];
+					},
+					async cname() {
+						return [];
+					},
+					async mx(name) {
+						return name === "bounce.mail.example.com"
+							? [{ priority: 10, exchange: "mx.example.com" }]
+							: [];
+					},
+					async a(name) {
+						return name === "mx.example.com"
+							? ["203.0.113.10"]
+							: [];
+					},
+					async aaaa() {
+						return [];
+					},
+				},
+			}),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "fail" }),
+		);
+	});
+
 	test("requires a generic direct SPF policy to match the configured sender range", async () => {
 		const smtpProfile = providerProfileSchema.parse({
 			id: "mismatched-direct-policy-relay",
@@ -3077,6 +3227,52 @@ describe("provider profile loader", () => {
 				dkim_selectors: ["selector"],
 			}),
 		).toThrow("DNS owner name longer than 253 characters");
+	});
+
+	test("rejects oversized SES identity-derived DKIM owner names before DNS lookup", async () => {
+		const longDomain = [
+			"a".repeat(63),
+			"b".repeat(63),
+			"c".repeat(63),
+			"d".repeat(45),
+			"com",
+		].join(".");
+		const longDomainProfile = providerProfileSchema.parse({
+			...profile,
+			sending_domain: longDomain,
+			from_email: undefined,
+			dkim_selectors: [],
+		});
+		let cnameLookups = 0;
+		const output = await inspectProviderDns(
+			longDomainProfile,
+			context({
+				profiles: [longDomainProfile],
+				dns: {
+					async txt(name) {
+						return name === `_dmarc.${longDomain}`
+							? ["v=DMARC1; p=quarantine"]
+							: [];
+					},
+					async cname() {
+						cnameLookups += 1;
+						return [];
+					},
+					async mx() {
+						return [];
+					},
+				},
+			}),
+			{
+				...(await inspector().inspectIdentity()),
+				dkim_tokens: ["t".repeat(63)],
+				mail_from_domain: undefined,
+			},
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.dkim", status: "fail" }),
+		);
+		expect(cnameLookups).toBe(0);
 	});
 
 	test("does not expose an inaccessible provider config path", async () => {
