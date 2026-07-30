@@ -30,6 +30,7 @@ const ED25519_SQRT_MINUS_ONE =
 const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 const REQUIRED_READINESS_CHECK_IDS = new Set([
 	"listmonk.from-alignment",
+	"webhook.configuration",
 	"dns.dmarc",
 	"dns.dkim",
 	"dns.dkim-alignment",
@@ -411,7 +412,11 @@ function providerBounceEnabled(
 			values.push(nested.enabled);
 		}
 	}
-	return values.length > 0 && values.every((value) => value);
+	return values.length === 0 ? undefined : values.every((value) => value);
+}
+
+function missingProviderBounceConfigurationMessage(source: string): string {
+	return `Listmonk did not return ${source.toUpperCase()} bounce handling configuration.`;
 }
 
 function smtpRecords(
@@ -624,14 +629,27 @@ function settingsChecks(
 				: "Bounce webhooks are disabled.",
 		},
 	];
-	if (snapshot.provider_bounce_enabled !== undefined) {
-		const bounceSource = providerBounceSetting(profile)?.source ?? profile.kind;
+	const nativeBounceSetting = providerBounceSetting(profile);
+	if (nativeBounceSetting !== undefined) {
+		const bounceSource = nativeBounceSetting.source;
+		const providerBounceValue = snapshot.provider_bounce_enabled;
+		let providerBounceStatus: DoctorCheckStatus;
+		let providerBounceMessage: string;
+		if (providerBounceValue === undefined) {
+			providerBounceStatus = "unknown";
+			providerBounceMessage =
+				missingProviderBounceConfigurationMessage(bounceSource);
+		} else if (providerBounceValue) {
+			providerBounceStatus = "pass";
+			providerBounceMessage = `${bounceSource.toUpperCase()} bounce handling is enabled.`;
+		} else {
+			providerBounceStatus = "fail";
+			providerBounceMessage = `${bounceSource.toUpperCase()} bounce handling is disabled.`;
+		}
 		checks.push({
 			id: `listmonk.bounce-provider.${bounceSource}`,
-			status: snapshot.provider_bounce_enabled ? "pass" : "fail",
-			message: snapshot.provider_bounce_enabled
-				? `${bounceSource.toUpperCase()} bounce handling is enabled.`
-				: `${bounceSource.toUpperCase()} bounce handling is disabled.`,
+			status: providerBounceStatus,
+			message: providerBounceMessage,
 		});
 	}
 	return checks;
@@ -1023,21 +1041,31 @@ export async function inspectProviderWebhook(
 	const bounceProcessing = settingBoolean(settings, "bounce.enabled");
 	const bounceWebhooks = settingBoolean(settings, "bounce.webhooks_enabled");
 	const providerEnabled = providerBounceEnabled(profile, settings);
+	const nativeBounceSetting = providerBounceSetting(profile);
+	let configurationStatus: DoctorCheckStatus;
+	let configurationMessage: string;
+	if (!bounceProcessing || !bounceWebhooks || providerEnabled === false) {
+		configurationStatus = "fail";
+		configurationMessage =
+			"Listmonk provider webhook processing is incomplete.";
+	} else if (
+		nativeBounceSetting !== undefined &&
+		providerEnabled === undefined
+	) {
+		configurationStatus = "unknown";
+		configurationMessage = missingProviderBounceConfigurationMessage(
+			nativeBounceSetting.source,
+		);
+	} else {
+		configurationStatus = "pass";
+		configurationMessage =
+			"Listmonk provider webhook processing is enabled.";
+	}
 	const checks: DoctorCheck[] = [
 		{
 			id: "webhook.configuration",
-			status:
-				bounceProcessing &&
-				bounceWebhooks &&
-				(providerEnabled === undefined || providerEnabled)
-					? "pass"
-					: "fail",
-			message:
-				bounceProcessing &&
-				bounceWebhooks &&
-				(providerEnabled === undefined || providerEnabled)
-					? "Listmonk provider webhook processing is enabled."
-					: "Listmonk provider webhook processing is incomplete.",
+			status: configurationStatus,
+			message: configurationMessage,
 		},
 		{
 			id: "webhook.freshness",

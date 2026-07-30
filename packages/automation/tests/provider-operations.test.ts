@@ -313,6 +313,50 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("blocks doctor readiness when native bounce configuration evidence is missing", async () => {
+		const operationContext = context({
+			client: {
+				...context().client!,
+				settings: {
+					async get() {
+						return {
+							data: {
+								"app.from_email":
+									"Newsletter <newsletter@news.example.com>",
+								"privacy.unsubscribe_header": true,
+								"bounce.enabled": true,
+								"bounce.webhooks_enabled": true,
+								smtp: [
+									{
+										host: "email-smtp.ap-northeast-2.amazonaws.com",
+										enabled: true,
+									},
+								],
+							},
+						} as never;
+					},
+				},
+			},
+		});
+		const doctor = await invokeDeliverabilityDoctorOperation(
+			operationContext,
+			{ provider_id: profile.id },
+		);
+		expect(doctor.ready).toBe(false);
+		expect(doctor.checks).toContainEqual(
+			expect.objectContaining({
+				id: "webhook.configuration",
+				status: "unknown",
+			}),
+		);
+		expect(doctor.status.checks).toContainEqual(
+			expect.objectContaining({
+				id: "listmonk.bounce-provider.ses",
+				status: "unknown",
+			}),
+		);
+	});
+
 	test("checks native Listmonk bounce switches for generic SMTP profiles", async () => {
 		const nativeSettings = [
 			["azure", "bounce.azure.enabled", "bounce.azure"],
@@ -337,6 +381,9 @@ describe("provider and deliverability operations", () => {
 				"bounce.enabled": true,
 				"bounce.webhooks_enabled": true,
 			};
+			expect(
+				inspectListmonkProviderSettings(smtpProfile, baseSettings),
+			).not.toHaveProperty("provider_bounce_enabled");
 			expect(
 				inspectListmonkProviderSettings(smtpProfile, {
 					...baseSettings,
@@ -413,6 +460,34 @@ describe("provider and deliverability operations", () => {
 			expect.objectContaining({
 				id: "webhook.configuration",
 				status: "fail",
+			}),
+		);
+
+		const missingOutput = await invokeProviderWebhookStatusOperation(
+			context({
+				profiles: [sendgridProfile],
+				client: {
+					...context().client!,
+					settings: {
+						async get() {
+							return {
+								data: {
+									"bounce.enabled": true,
+									"bounce.webhooks_enabled": true,
+								},
+							} as never;
+						},
+					},
+				},
+			}),
+			{ provider_id: sendgridProfile.id },
+		);
+		expect(missingOutput).not.toHaveProperty("provider_bounce_enabled");
+		expect(missingOutput).toMatchObject({ healthy: true });
+		expect(missingOutput.checks).toContainEqual(
+			expect.objectContaining({
+				id: "webhook.configuration",
+				status: "unknown",
 			}),
 		);
 	});
