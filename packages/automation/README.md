@@ -83,8 +83,12 @@ actual `app.from_email`, follows a bounded DMARC tree walk, honors
 strict/relaxed SPF and DKIM alignment, requires unambiguous CNAME or direct TXT
 DKIM records, and reports transient resolver errors as `unknown`. Profiles
 reusing a messenger name fail binding even when their SMTP endpoints differ;
-profiles sharing a webhook source retain `unknown` freshness because the bounce
-source is not attributable. SES sandbox access is a readiness failure.
+the profile schema accepts only the built-in `email` messenger because custom
+HTTP messengers are separate delivery backends, not SMTP-provider bindings.
+Describe a complete Listmonk SMTP pool with one profile and all expected
+`smtp_hosts`. Profiles sharing a webhook source retain `unknown` freshness
+because the bounce source is not attributable. SES sandbox access is a
+readiness failure.
 
 ## Persistent Store Paths
 

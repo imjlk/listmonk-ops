@@ -887,9 +887,12 @@ the bounded DMARC DNS tree walk for inherited policy and strict/relaxed
 alignment, and accepts an unambiguous delegated CNAME or direct TXT DKIM
 record. Provider profiles that reuse a messenger name fail the binding check
 even when their SMTP endpoints differ, because campaign execution selects the
-messenger rather than a provider profile. When multiple profiles share one
-webhook source, event freshness remains `unknown` because Listmonk cannot
-attribute that evidence to one profile.
+messenger rather than a provider profile. Provider profiles therefore accept
+only Listmonk's built-in `email` messenger; custom HTTP messengers are separate
+delivery backends and cannot prove an SMTP provider binding. Describe one
+Listmonk SMTP pool with one profile and list every expected pool endpoint in
+`smtp_hosts`. When multiple profiles share one webhook source, event freshness
+remains `unknown` because Listmonk cannot attribute that evidence to one profile.
 Transient DNS failures remain `unknown`, while SES sandbox access blocks the
 aggregate readiness result.
 Generic SMTP profiles support Listmonk, DNS, and webhook diagnostics; provider

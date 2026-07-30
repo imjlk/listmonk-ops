@@ -771,14 +771,19 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
-	test("requires the configured Listmonk messenger and real From evidence", async () => {
+	test("requires the built-in email messenger and real From evidence", async () => {
+		expect(
+			providerProfileSchema.safeParse({
+				...profile,
+				messenger: "marketing",
+			}).success,
+		).toBe(false);
 		const missing = inspectListmonkProviderSettings(
-			{ ...profile, messenger: "marketing" },
+			profile,
 			{
 				smtp: [
 					{
-						name: "wrong",
-						host: "email-smtp.ap-northeast-2.amazonaws.com",
+						host: "email-smtp.us-east-1.amazonaws.com",
 						enabled: true,
 					},
 				],
@@ -791,17 +796,15 @@ describe("provider and deliverability operations", () => {
 		expect(missing).not.toHaveProperty("from_domain");
 
 		const configured = inspectListmonkProviderSettings(
-			{ ...profile, messenger: "marketing" },
+			profile,
 			{
 				"app.from_email": "not-an-email",
 				smtp: [
 					{
-						name: "wrong",
 						host: "email-smtp.ap-northeast-2.amazonaws.com",
 						enabled: true,
 					},
 				],
-				messengers: [{ name: "marketing", enabled: true }],
 			},
 		);
 		expect(configured).toMatchObject({
@@ -830,9 +833,13 @@ describe("provider and deliverability operations", () => {
 		});
 
 		const malformedEnabled = inspectListmonkProviderSettings(
-			{ ...profile, messenger: "marketing" },
+			profile,
 			{
-				messengers: [{ name: "marketing" }],
+				smtp: [
+					{
+						host: "email-smtp.ap-northeast-2.amazonaws.com",
+					},
+				],
 			},
 		);
 		expect(malformedEnabled).toMatchObject({
@@ -934,27 +941,15 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
-	test("preserves punctuation when matching messenger identifiers", () => {
-		const punctuatedProfile = providerProfileSchema.parse({
-			...profile,
-			messenger: "marketing-a",
-		});
-		const different = inspectListmonkProviderSettings(punctuatedProfile, {
-			messengers: [{ name: "marketinga", enabled: true }],
-		});
-		expect(different).toMatchObject({
-			messenger_binding_ambiguous: false,
-			messenger_configured: false,
-			messenger_enabled: false,
-		});
-		const exact = inspectListmonkProviderSettings(punctuatedProfile, {
-			messengers: [{ name: "marketing-a", enabled: true }],
-		});
-		expect(exact).toMatchObject({
-			messenger_binding_ambiguous: false,
-			messenger_configured: true,
-			messenger_enabled: true,
-		});
+	test("rejects custom HTTP messengers as SMTP provider bindings", () => {
+		for (const messenger of ["marketing", "marketing-a"]) {
+			expect(
+				providerProfileSchema.safeParse({
+					...profile,
+					messenger,
+				}).success,
+			).toBe(false);
+		}
 	});
 
 	test("returns an invalid empty Listmonk From value as a diagnostic", async () => {
@@ -1965,6 +1960,35 @@ describe("provider and deliverability operations", () => {
 			);
 			expect(output.checks).toContainEqual(
 				expect.objectContaining({ id: "dns.spf", status: "fail" }),
+			);
+		}
+	});
+
+	test("stops SPF path discovery after an earlier matching include", async () => {
+		for (const [nestedRecord, status] of [
+			["v=spf1 +all", "fail"],
+			["v=spf1 -all", "pass"],
+		] as const) {
+			const orderedSpfDns: ProviderDnsResolver = {
+				...dns,
+				async txt(name) {
+					if (name === "bounce.news.example.com") {
+						return [
+							"v=spf1 -include:_spf.block.example include:amazonses.com -all",
+						];
+					}
+					if (name === "_spf.block.example") {
+						return [nestedRecord];
+					}
+					return dns.txt(name);
+				},
+			};
+			const output = await invokeDeliverabilityDnsCheckOperation(
+				context({ dns: orderedSpfDns }),
+				{ provider_id: profile.id },
+			);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.spf", status }),
 			);
 		}
 	});

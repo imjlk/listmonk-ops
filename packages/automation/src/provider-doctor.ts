@@ -270,29 +270,10 @@ function normalizeMessengerName(name: string): string {
 	return name.trim();
 }
 
-function recordName(
-	record: Readonly<Record<string, unknown>>,
-): string | undefined {
-	return typeof record.name === "string"
-		? normalizeMessengerName(record.name)
-		: undefined;
-}
-
 function isRecordEnabled(record: Readonly<Record<string, unknown>>): boolean {
 	// Listmonk serializes this setting as a boolean. Treat missing or malformed
 	// values as disabled so readiness remains fail-closed.
 	return record.enabled === true;
-}
-
-function messengerRecords(
-	settings: Readonly<Record<string, unknown>>,
-): ReadonlyArray<Readonly<Record<string, unknown>>> {
-	const value = settings.messengers;
-	if (!Array.isArray(value)) return [];
-	return value.filter(
-		(entry): entry is Readonly<Record<string, unknown>> =>
-			typeof entry === "object" && entry !== null,
-	);
 }
 
 function profileWebhookSource(profile: ProviderProfile): string {
@@ -472,16 +453,7 @@ export function inspectListmonkProviderSettings(
 		return host !== undefined && expectedHosts.includes(host);
 	});
 	const messengerName = normalizeMessengerName(profile.messenger);
-	const namedSmtp = matching.filter(
-		(record) => recordName(record) === messengerName,
-	);
-	const namedCustomMessenger = messengerRecords(settings).filter(
-		(record) => recordName(record) === messengerName,
-	);
-	const matchingMessengers =
-		messengerName === "email"
-			? matching
-			: [...namedSmtp, ...namedCustomMessenger];
+	const matchingMessengers = messengerName === "email" ? matching : [];
 	const messengerBindingAmbiguous = hasAmbiguousMessengerBinding(
 		profile,
 		profiles,
@@ -2002,6 +1974,15 @@ async function inspectSpfExpectedIncludePath(
 					found: false,
 					indeterminate: nested.indeterminate,
 					invalid: nested.invalid,
+					observations,
+					lookupBudget,
+				};
+			}
+			if (nested.ready) {
+				return {
+					found: false,
+					indeterminate: false,
+					invalid: false,
 					observations,
 					lookupBudget,
 				};

@@ -68,7 +68,7 @@ export const providerProfileSchema = z
 	.object({
 		id: providerIdSchema,
 		kind: z.enum(["ses", "smtp"]),
-		messenger: z.string().trim().min(1).max(80).default("email"),
+		messenger: z.literal("email").default("email"),
 		sending_domain: domainSchema,
 		from_email: z.email().optional(),
 		smtp_hosts: z.array(hostnameSchema).max(20).default([]),

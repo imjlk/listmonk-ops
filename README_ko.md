@@ -877,12 +877,15 @@ tree walk로 상속 policy와 strict/relaxed 정렬을 판정하며, CNAME 위�
 TXT DKIM 레코드 중 모호하지 않은 단일 구성을 검증합니다. Campaign은 provider
 profile이 아니라 messenger를 선택하므로, SMTP endpoint가 달라도 같은 messenger
 이름을 재사용하는 provider profile은 binding 검사에 실패하며,
-여러 profile이 같은 webhook source를 공유하면 Listmonk event를 특정
-profile에 귀속할 수 없으므로 freshness는 `unknown`으로 유지됩니다. 일시적인
-DNS 오류는 `unknown`으로 구분하고 SES sandbox 상태는 전체 준비 완료 판정을
-차단합니다. Generic
-SMTP profile은 Listmonk, DNS, webhook 진단을 지원하고 provider API·quota
-probe는 `unsupported`로 보고합니다.
+provider profile은 Listmonk 기본 `email` messenger만 허용합니다. Custom HTTP
+messenger는 별도의 발송 backend이므로 SMTP provider binding의 증거가 될 수
+없습니다. 하나의 Listmonk SMTP pool은 하나의 profile로 기술하고, pool의 모든
+endpoint를 `smtp_hosts`에 나열합니다. 여러 profile이 같은 webhook source를
+공유하면 Listmonk event를 특정 profile에 귀속할 수 없으므로 freshness는
+`unknown`으로 유지됩니다. 일시적인 DNS 오류는 `unknown`으로 구분하고 SES
+sandbox 상태는 전체 준비 완료 판정을 차단합니다. Generic SMTP profile은
+Listmonk, DNS, webhook 진단을 지원하고 provider API·quota probe는
+`unsupported`로 보고합니다.
 
 ## OpenAPI 재생성 (Hey API)
 
