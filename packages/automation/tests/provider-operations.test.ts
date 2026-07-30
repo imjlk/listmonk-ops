@@ -3184,6 +3184,244 @@ describe("provider and deliverability operations", () => {
 		}
 	});
 
+	test("rejects an SPF mx exchange with more than ten address records", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "oversized-mx-address-policy-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["203.0.113.10"],
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({
+				profiles: [smtpProfile],
+				dns: {
+					async txt(name) {
+						if (name === "_dmarc.mail.example.com") {
+							return ["v=DMARC1; p=quarantine"];
+						}
+						if (name === "bounce.mail.example.com") {
+							return ["v=spf1 include:nested.example -all"];
+						}
+						if (name === "nested.example") {
+							return ["v=spf1 mx -all"];
+						}
+						return [];
+					},
+					async cname() {
+						return [];
+					},
+					async mx(name) {
+						if (name === "bounce.mail.example.com") {
+							return [
+								{
+									priority: 10,
+									exchange: "smtp-mx.example.com",
+								},
+							];
+						}
+						return name === "nested.example"
+							? [
+									{
+										priority: 10,
+										exchange: "oversized.example.com",
+									},
+								]
+							: [];
+					},
+					async a(name) {
+						if (name === "smtp-mx.example.com") {
+							return ["203.0.113.10"];
+						}
+						return name === "oversized.example.com"
+							? Array.from(
+									{ length: 11 },
+									(_, index) => `203.0.113.${index + 1}`,
+								)
+							: [];
+					},
+					async aaaa() {
+						return [];
+					},
+				},
+			}),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "fail" }),
+		);
+	});
+
+	test("tracks SPF void lookup budgets independently by sender family", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "dual-family-void-policy-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["203.0.113.10", "2001:db8::10"],
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({
+				profiles: [smtpProfile],
+				dns: {
+					async txt(name) {
+						if (name === "_dmarc.mail.example.com") {
+							return ["v=DMARC1; p=quarantine"];
+						}
+						if (name === "bounce.mail.example.com") {
+							return [
+								"v=spf1 a:void-one.example a:void-two.example ip4:203.0.113.10 ip6:2001:db8::10 -all",
+							];
+						}
+						return [];
+					},
+					async cname() {
+						return [];
+					},
+					async mx(name) {
+						return name === "bounce.mail.example.com"
+							? [
+									{
+										priority: 10,
+										exchange: "smtp-mx.example.com",
+									},
+								]
+							: [];
+					},
+					async a(name) {
+						return name === "smtp-mx.example.com"
+							? ["203.0.113.10"]
+							: [];
+					},
+					async aaaa(name) {
+						return name === "smtp-mx.example.com"
+							? ["2001:db8::10"]
+							: [];
+					},
+				},
+			}),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "pass" }),
+		);
+	});
+
+	test("counts SPF exists A-record voids against IPv6 sender paths", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "ipv6-exists-void-policy-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["203.0.113.10", "2001:db8::10"],
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({
+				profiles: [smtpProfile],
+				dns: {
+					async txt(name) {
+						if (name === "_dmarc.mail.example.com") {
+							return ["v=DMARC1; p=quarantine"];
+						}
+						if (name === "bounce.mail.example.com") {
+							return [
+								"v=spf1 ip4:203.0.113.10 a:void-one.example a:void-two.example exists:void-three.example ip6:2001:db8::10 -all",
+							];
+						}
+						return [];
+					},
+					async cname() {
+						return [];
+					},
+					async mx(name) {
+						return name === "bounce.mail.example.com"
+							? [
+									{
+										priority: 10,
+										exchange: "smtp-mx.example.com",
+									},
+								]
+							: [];
+					},
+					async a(name) {
+						return name === "smtp-mx.example.com"
+							? ["203.0.113.10"]
+							: [];
+					},
+					async aaaa(name) {
+						return name === "smtp-mx.example.com"
+							? ["2001:db8::10"]
+							: [];
+					},
+				},
+			}),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "fail" }),
+		);
+	});
+
+	test("does not resolve unexpanded SPF exists macros", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "exists-macro-policy-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["203.0.113.10"],
+			smtp_hosts: ["smtp.example.com"],
+		});
+		let macroQueries = 0;
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({
+				profiles: [smtpProfile],
+				dns: {
+					async txt(name) {
+						if (name === "_dmarc.mail.example.com") {
+							return ["v=DMARC1; p=quarantine"];
+						}
+						if (name === "bounce.mail.example.com") {
+							return [
+								"v=spf1 exists:%{i}.sender.example ip4:203.0.113.10 -all",
+							];
+						}
+						return [];
+					},
+					async cname() {
+						return [];
+					},
+					async mx(name) {
+						return name === "bounce.mail.example.com"
+							? [
+									{
+										priority: 10,
+										exchange: "smtp-mx.example.com",
+									},
+								]
+							: [];
+					},
+					async a(name) {
+						if (name.includes("%")) macroQueries += 1;
+						return name === "smtp-mx.example.com"
+							? ["203.0.113.10"]
+							: [];
+					},
+					async aaaa() {
+						return [];
+					},
+				},
+			}),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "unknown" }),
+		);
+		expect(macroQueries).toBe(0);
+	});
+
 	test("rejects scoped IPv6 SPF mechanisms without throwing", async () => {
 		const smtpProfile = providerProfileSchema.parse({
 			id: "scoped-ipv6-direct-policy-relay",

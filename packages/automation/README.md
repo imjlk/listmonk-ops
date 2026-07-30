@@ -95,12 +95,13 @@ explicit `expected_spf_ip_ranges`, while provider include policies use
 and shared DNS and void-lookup budgets recursively through nested includes.
 Partial range authorization is preserved across include paths, and `a`/`mx`
 mechanisms are matched against their resolved A/AAAA sender ranges instead of
-being accepted from record presence alone. Scoped IPv6 literals are rejected.
-Provider-returned DKIM selectors are validated before DNS lookup. Successful
-SES identity inspection is authoritative about whether a custom MAIL FROM
-domain exists. Profiles sharing a webhook source retain `unknown` freshness
-because the bounce source is not attributable. SES sandbox access is a
-readiness failure.
+being accepted from record presence alone. IPv4 and IPv6 void-lookup budgets
+are evaluated independently, and an MX exchange with more than ten addresses
+fails closed. Scoped IPv6 literals are rejected. Provider-returned DKIM
+selectors are validated before DNS lookup. Successful SES identity inspection
+is authoritative about whether a custom MAIL FROM domain exists. Profiles
+sharing a webhook source retain `unknown` freshness because the bounce source
+is not attributable. SES sandbox access is a readiness failure.
 
 ## Persistent Store Paths
 

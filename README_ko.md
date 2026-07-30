@@ -902,16 +902,18 @@ fail-closed로 처리합니다. Generic SMTP가 직접 SPF 정책을 사용한�
 검증은 SPF term 순서와 CIDR 포함 관계를 따르고 nested include까지 공통
 DNS·void lookup budget으로 재귀 평가합니다. 여러 include 경로가 각각 승인한
 일부 발신자 범위를 보존하며, `a`/`mx` mechanism은 주소 record 존재 여부만
-확인하지 않고 해석한 A/AAAA 범위를 설정된 발신자 범위와 대조합니다. SPF
-network로 유효하지 않은 scope가 붙은 IPv6 literal은 거부하며, provider가
-반환한 DKIM selector는 DNS 조회 전에 유효성을 검사합니다. SES identity
-조회에 성공한 경우 custom MAIL FROM 결과를 권위 있는 값으로 사용하며,
-`mail_from_domain`은 identity 조회가 불가능할 때만 fallback 근거로
-사용합니다. 여러 profile이 같은 webhook source를 공유하면 Listmonk event를
-특정 profile에 귀속할 수 없으므로 freshness는 `unknown`으로 유지됩니다.
-일시적인 DNS 오류는 `unknown`으로 구분하고 SES sandbox 상태는 전체 준비 완료
-판정을 차단합니다. Generic SMTP profile은 Listmonk, DNS, webhook 진단을
-지원하고 provider API·quota probe는 `unsupported`로 보고합니다.
+확인하지 않고 해석한 A/AAAA 범위를 설정된 발신자 범위와 대조합니다. IPv4와
+IPv6의 void lookup budget을 독립적으로 평가하고, 한 MX exchange에서 주소
+record가 10개를 초과하면 fail-closed로 처리합니다. SPF network로 유효하지
+않은 scope가 붙은 IPv6 literal은 거부하며, provider가 반환한 DKIM selector는
+DNS 조회 전에 유효성을 검사합니다. SES identity 조회에 성공한 경우 custom
+MAIL FROM 결과를 권위 있는 값으로 사용하며, `mail_from_domain`은 identity
+조회가 불가능할 때만 fallback 근거로 사용합니다. 여러 profile이 같은 webhook
+source를 공유하면 Listmonk event를 특정 profile에 귀속할 수 없으므로
+freshness는 `unknown`으로 유지됩니다. 일시적인 DNS 오류는 `unknown`으로
+구분하고 SES sandbox 상태는 전체 준비 완료 판정을 차단합니다. Generic SMTP
+profile은 Listmonk, DNS, webhook 진단을 지원하고 provider API·quota probe는
+`unsupported`로 보고합니다.
 
 ## OpenAPI 재생성 (Hey API)
 

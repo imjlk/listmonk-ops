@@ -22,6 +22,7 @@ const DEFAULT_DNS_INSPECTION_TIMEOUT_MS = 10_000;
 const MAX_DMARC_TREE_WALK_QUERIES = 8;
 const MAX_SPF_DNS_LOOKUPS = 10;
 const MAX_SPF_VOID_LOOKUPS = 2;
+const MAX_SPF_MX_ADDRESSES_PER_EXCHANGE = 10;
 const ED25519_FIELD_PRIME = (1n << 255n) - 19n;
 const ED25519_CURVE_D =
 	37095705934669439343138083508754565189542113879843219016388785533085940283555n;
@@ -1709,12 +1710,19 @@ interface SpfAuthorizationInspection {
 	observations: DnsObservation[];
 }
 
-interface SpfLookupBudget {
+interface SpfDnsLookupBudget {
 	used: number;
+}
+
+interface SpfLookupBudget extends SpfDnsLookupBudget {
 	void: number;
 }
 
-function consumeSpfDnsLookup(budget: SpfLookupBudget): boolean {
+interface ExpectedSpfLookupBudget extends SpfDnsLookupBudget {
+	voidByFamily: Record<4 | 6, number>;
+}
+
+function consumeSpfDnsLookup(budget: SpfDnsLookupBudget): boolean {
 	if (budget.used >= MAX_SPF_DNS_LOOKUPS) return false;
 	budget.used += 1;
 	return true;
@@ -1726,6 +1734,26 @@ function consumeSpfVoidLookups(
 ): boolean {
 	budget.void += count;
 	return budget.void <= MAX_SPF_VOID_LOOKUPS;
+}
+
+function consumeExpectedSpfVoidLookups(
+	budget: ExpectedSpfLookupBudget,
+	families: readonly (4 | 6)[],
+): boolean {
+	const uniqueFamilies = new Set(families);
+	for (const family of uniqueFamilies) {
+		if (
+			(budget.voidByFamily[family] ?? 0) + 1 >
+			MAX_SPF_VOID_LOOKUPS
+		) {
+			return false;
+		}
+	}
+	for (const family of uniqueFamilies) {
+		budget.voidByFamily[family] =
+			(budget.voidByFamily[family] ?? 0) + 1;
+	}
+	return true;
 }
 
 function isValidSpfDomainSpec(value: string): boolean {
@@ -2579,7 +2607,8 @@ async function resolveExpectedSpfAddressIntervals(
 	expectedRanges: readonly SpfIpInterval[],
 	prefixes: Readonly<{ ipv4: number; ipv6: number }>,
 	dns: ProviderDnsResolver,
-	lookupBudget: SpfLookupBudget,
+	lookupBudget: ExpectedSpfLookupBudget,
+	maximumAddresses?: number,
 ): Promise<ExpectedSpfDnsMatch> {
 	if (domain.includes("%")) {
 		return {
@@ -2623,22 +2652,6 @@ async function resolveExpectedSpfAddressIntervals(
 			addresses: await load(),
 		})),
 	);
-	const voidLookups = results.filter(
-		(result) =>
-			result.status === "fulfilled" &&
-			result.value.addresses.length === 0,
-	).length;
-	if (
-		voidLookups > 0 &&
-		!consumeSpfVoidLookups(lookupBudget, voidLookups)
-	) {
-		return {
-			intervals: [],
-			matchesAll: false,
-			indeterminate: false,
-			invalid: true,
-		};
-	}
 	if (results.some((result) => result.status === "rejected")) {
 		return {
 			intervals: [],
@@ -2646,6 +2659,31 @@ async function resolveExpectedSpfAddressIntervals(
 			indeterminate: true,
 			invalid: false,
 		};
+	}
+	for (const result of results) {
+		if (result.status !== "fulfilled") continue;
+		if (
+			maximumAddresses !== undefined &&
+			result.value.addresses.length > maximumAddresses
+		) {
+			return {
+				intervals: [],
+				matchesAll: false,
+				indeterminate: false,
+				invalid: true,
+			};
+		}
+		if (
+			result.value.addresses.length === 0 &&
+			!consumeExpectedSpfVoidLookups(lookupBudget, [result.value.family])
+		) {
+			return {
+				intervals: [],
+				matchesAll: false,
+				indeterminate: false,
+				invalid: true,
+			};
+		}
 	}
 	const intervals: SpfIpInterval[] = [];
 	for (const result of results) {
@@ -2681,23 +2719,62 @@ async function inspectExpectedSpfDnsMechanism(
 	currentDomain: string,
 	expectedRanges: readonly SpfIpInterval[],
 	dns: ProviderDnsResolver,
-	lookupBudget: SpfLookupBudget,
+	lookupBudget: ExpectedSpfLookupBudget,
 ): Promise<ExpectedSpfDnsMatch> {
 	const mechanismName = mechanism
 		.toLowerCase()
 		.split(/[:/]/, 1)[0];
 	if (mechanismName === "exists") {
-		const match = await inspectDirectSpfMechanism(
-			mechanism,
-			currentDomain,
-			dns,
-			lookupBudget,
-		);
+		const existsDomain = spfMechanismDomain(mechanism, currentDomain);
+		if (existsDomain.includes("%")) {
+			return {
+				intervals: [],
+				matchesAll: false,
+				indeterminate: true,
+				invalid: false,
+			};
+		}
+		if (dns.a === undefined) {
+			return {
+				intervals: [],
+				matchesAll: false,
+				indeterminate: true,
+				invalid: false,
+			};
+		}
+		let addresses: string[];
+		try {
+			addresses = await dns.a(existsDomain);
+		} catch {
+			return {
+				intervals: [],
+				matchesAll: false,
+				indeterminate: true,
+				invalid: false,
+			};
+		}
+		if (
+			addresses.length === 0 &&
+			// SPF `exists` always performs an A lookup, regardless of the
+			// sender address family. Every active sender-family evaluation
+			// therefore consumes the same void lookup.
+			!consumeExpectedSpfVoidLookups(
+				lookupBudget,
+				expectedRanges.map(({ family }) => family),
+			)
+		) {
+			return {
+				intervals: [],
+				matchesAll: false,
+				indeterminate: false,
+				invalid: true,
+			};
+		}
 		return {
 			intervals: [],
-			matchesAll: match.matches,
-			indeterminate: match.indeterminate,
-			invalid: match.invalid,
+			matchesAll: addresses.length > 0,
+			indeterminate: false,
+			invalid: false,
 		};
 	}
 	if (mechanismName === "ptr") {
@@ -2748,7 +2825,10 @@ async function inspectExpectedSpfDnsMechanism(
 	}
 	if (
 		records.length === 0 &&
-		!consumeSpfVoidLookups(lookupBudget)
+		!consumeExpectedSpfVoidLookups(
+			lookupBudget,
+			expectedRanges.map(({ family }) => family),
+		)
 	) {
 		return {
 			intervals: [],
@@ -2777,6 +2857,7 @@ async function inspectExpectedSpfDnsMechanism(
 			prefixes,
 			dns,
 			lookupBudget,
+			MAX_SPF_MX_ADDRESSES_PER_EXCHANGE,
 		);
 		if (resolved.indeterminate || resolved.invalid) return resolved;
 		intervals.push(...resolved.intervals);
@@ -2793,7 +2874,7 @@ async function inspectExpectedSpfDomain(
 	domain: string,
 	expectedRanges: readonly SpfIpInterval[],
 	dns: ProviderDnsResolver,
-	lookupBudget: SpfLookupBudget,
+	lookupBudget: ExpectedSpfLookupBudget,
 	visited: ReadonlySet<string>,
 ): Promise<ExpectedSpfInspection> {
 	const normalizedDomain = normalizeDomain(domain);
@@ -2818,7 +2899,10 @@ async function inspectExpectedSpfDomain(
 	}
 	if (
 		lookup.values.length === 0 &&
-		!consumeSpfVoidLookups(lookupBudget)
+		!consumeExpectedSpfVoidLookups(
+			lookupBudget,
+			expectedRanges.map(({ family }) => family),
+		)
 	) {
 		return expectedSpfInspection(expectedRanges, {
 			invalid: true,
@@ -2854,7 +2938,7 @@ async function inspectExpectedSpfRecord(
 	currentDomain: string,
 	expectedRanges: readonly SpfIpInterval[],
 	dns: ProviderDnsResolver,
-	lookupBudget: SpfLookupBudget,
+	lookupBudget: ExpectedSpfLookupBudget,
 	visited: ReadonlySet<string>,
 	allowUnscopedPass: boolean,
 ): Promise<ExpectedSpfInspection> {
@@ -3071,7 +3155,7 @@ async function inspectExpectedDirectSpfRanges(
 		normalizeDomain(currentDomain),
 		parsedRanges,
 		dns,
-		{ used: 0, void: 0 },
+		{ used: 0, voidByFamily: { 4: 0, 6: 0 } },
 		new Set([normalizeDomain(currentDomain)]),
 		false,
 	);

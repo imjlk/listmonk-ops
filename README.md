@@ -913,9 +913,10 @@ instead. Direct-range validation follows SPF term order, CIDR containment, and
 the shared DNS and void-lookup budgets recursively through nested includes.
 Partial range authorization is preserved across include paths, and `a`/`mx`
 mechanisms must resolve to the configured sender ranges rather than merely
-publishing address records. Scoped IPv6 literals are rejected because they are
-not valid SPF network terms. Provider-returned DKIM selectors are validated
-before any DNS query.
+publishing address records. IPv4 and IPv6 void-lookup budgets are evaluated
+independently, and an MX exchange with more than ten addresses fails closed.
+Scoped IPv6 literals are rejected because they are not valid SPF network
+terms. Provider-returned DKIM selectors are validated before any DNS query.
 When SES identity inspection succeeds, its custom MAIL FROM result is
 authoritative; `mail_from_domain` is only fallback evidence when identity
 inspection is unavailable. When multiple profiles share one webhook source,
