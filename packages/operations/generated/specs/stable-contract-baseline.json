@@ -481,8 +481,8 @@
                     "description": "Listmonk campaign ID."
                   },
                   "send_at": {
-                    "$ref": "#/components/schemas/NonEmptyString",
-                    "description": "ISO 8601 or Listmonk-compatible `YYYY-MM-DD HH:MM:SS` send timestamp.\nStateful validation remains in the campaign domain executor."
+                    "$ref": "#/components/schemas/CampaignSendAt",
+                    "description": "ISO 8601 or Listmonk-compatible `YYYY-MM-DD HH:MM:SS` send timestamp.\nThe exact accepted forms are shared with the campaign domain validator."
                   }
                 },
                 "required": [
@@ -490,6 +490,10 @@
                   "send_at"
                 ],
                 "type": "object"
+              },
+              "CampaignSendAt": {
+                "pattern": "^(?!0000-)(?:(?:[0-9]{4}-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8])))|(?:(?:(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26]))|(?:(?:[02468][048]|[13579][26])00))-02-29))(?:(?:T(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9](?:\\.[0-9]{1,9})?)?(?:Z|\\+(?:[01][0-9]|2[0-3]):?[0-5][0-9]|-(?:(?:0[1-9]|1[0-9]|2[0-3]):?[0-5][0-9]|00:?(?:0[1-9]|[1-5][0-9]))))|(?: (?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9](?:\\.[0-9]{1,9})?)?))$",
+                "type": "string"
               },
               "NonEmptyString": {
                 "minLength": 1,
@@ -515,8 +519,8 @@
                 "description": "Listmonk campaign ID."
               },
               "send_at": {
-                "$ref": "#/components/schemas/NonEmptyString",
-                "description": "ISO 8601 or Listmonk-compatible `YYYY-MM-DD HH:MM:SS` send timestamp.\nStateful validation remains in the campaign domain executor."
+                "$ref": "#/components/schemas/CampaignSendAt",
+                "description": "ISO 8601 or Listmonk-compatible `YYYY-MM-DD HH:MM:SS` send timestamp.\nThe exact accepted forms are shared with the campaign domain validator."
               }
             },
             "required": [

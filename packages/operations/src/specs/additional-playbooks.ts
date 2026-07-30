@@ -142,27 +142,29 @@ export const templateSafePromotePlaybook = defineOperationPlaybook({
 			required: true,
 			description: "Stored registry version ID to promote",
 		},
-		{
-			name: "expected_remote_hash",
-			type: "string",
-			required: true,
-			description:
-				"Hash of the remote template content observed before promotion",
-		},
 	],
 	steps: [
 		{
-			id: "inspect-remote",
-			operation: bridgedOperationSpecsById["templates.get"].id,
+			id: "capture-remote",
+			operation:
+				bridgedOperationSpecsById["ops.templates.registry-sync"].id,
 			approval: "none",
-			description: "Inspect current Listmonk template content.",
+			description:
+				"Capture the current Listmonk template and its canonical content hash.",
 			dependsOn: [],
 			input: [
 				{
-					parameter: "id",
+					parameter: "template_id",
 					source: { kind: "playbook-input", name: "template_id" },
 				},
 			],
+			resultGuard: {
+				path: "errors.length",
+				operator: "equals",
+				expected: 0,
+				onFailure: "stop",
+				message: "Do not promote when the remote template capture fails.",
+			},
 		},
 		{
 			id: "inspect-history",
@@ -170,7 +172,7 @@ export const templateSafePromotePlaybook = defineOperationPlaybook({
 				bridgedOperationSpecsById["ops.templates.registry-history"].id,
 			approval: "none",
 			description: "Inspect stored template versions.",
-			dependsOn: ["inspect-remote"],
+			dependsOn: ["capture-remote"],
 			input: [
 				{
 					parameter: "template_id",
@@ -197,8 +199,9 @@ export const templateSafePromotePlaybook = defineOperationPlaybook({
 				{
 					parameter: "expected_remote_hash",
 					source: {
-						kind: "playbook-input",
-						name: "expected_remote_hash",
+						kind: "step-output",
+						stepId: "capture-remote",
+						path: "templates.0.hash",
 					},
 				},
 			],

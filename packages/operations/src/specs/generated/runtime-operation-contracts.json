@@ -7910,6 +7910,10 @@
             "description": "Snapshot note",
             "type": "string"
           },
+          "template_id": {
+            "description": "Optional single template ID to sync",
+            "type": "number"
+          },
           "template_ids": {
             "description": "Optional template IDs to sync",
             "items": {

@@ -16,6 +16,7 @@ import {
 	opsOperations,
 	segmentDriftOperation,
 	templateRegistryRollbackOperation,
+	templateRegistrySyncOperation,
 } from "../src/ops-operations";
 
 const context = { client: {} as ListmonkClient };
@@ -58,6 +59,9 @@ describe("automation operation registry", () => {
 			click_threshold: 0.01,
 			pause_on_breach: false,
 		});
+		expect(
+			templateRegistrySyncOperation.inputSchema.parse({ template_id: "7" }),
+		).toEqual({ template_id: 7 });
 	});
 
 	test("rejects unsafe threshold and boolean values", () => {

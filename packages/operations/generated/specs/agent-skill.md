@@ -1475,11 +1475,10 @@ Inputs:
 
 - `template_id` (`number`, required): Listmonk template ID
 - `version_id` (`string`, required): Stored registry version ID to promote
-- `expected_remote_hash` (`string`, required): Hash of the remote template content observed before promotion
 
 Steps:
 
-1. `inspect-remote` → `templates.get` (none approval). Inspect current Listmonk template content.
+1. `capture-remote` → `ops.templates.registry-sync` (none approval). Capture the current Listmonk template and its canonical content hash. Guard: `errors.length equals 0`; on failure: Do not promote when the remote template capture fails.
 2. `inspect-history` → `ops.templates.registry-history` (none approval). Inspect stored template versions.
 3. `promote` → `ops.templates.registry-promote` (human approval). Promote the selected version after explicit approval.
 4. `verify` → `templates.get` (none approval). Re-read the remote template after promotion.

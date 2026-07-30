@@ -1170,11 +1170,24 @@ describe("email operations specification", () => {
 		const templatePromoteStep = emailOperationsSpec.playbooks
 			.find((playbook) => playbook.id === "template.safe-promote")
 			?.steps.find((step) => step.id === "promote");
+		const templateCaptureStep = emailOperationsSpec.playbooks
+			.find((playbook) => playbook.id === "template.safe-promote")
+			?.steps.find((step) => step.id === "capture-remote");
+		expect(templateCaptureStep).toMatchObject({
+			operation: "ops.templates.registry-sync",
+			input: [
+				{
+					parameter: "template_id",
+					source: { kind: "playbook-input", name: "template_id" },
+				},
+			],
+		});
 		expect(templatePromoteStep?.input).toContainEqual({
 			parameter: "expected_remote_hash",
 			source: {
-				kind: "playbook-input",
-				name: "expected_remote_hash",
+				kind: "step-output",
+				stepId: "capture-remote",
+				path: "templates.0.hash",
 			},
 		});
 		const scheduleStep = emailOperationsSpec.playbooks

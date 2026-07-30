@@ -1,4 +1,5 @@
 import type { tags } from "typia";
+import type { CAMPAIGN_SEND_AT_PATTERN_SOURCE } from "../src/campaign-send-at";
 
 export type ResourceId = number &
 	tags.Type<"int64"> &
@@ -26,6 +27,8 @@ export type PrimeRecommendationLimit = number &
 	tags.Maximum<20>;
 
 export type NonEmptyString = string & tags.MinLength<1>;
+export type CampaignSendAt = string &
+	tags.Pattern<typeof CAMPAIGN_SEND_AT_PATTERN_SOURCE>;
 export type EmailAddress = string & tags.Format<"email">;
 export type IsoDateTime = string & tags.Format<"date-time">;
 export type IdempotencyKey = string &
@@ -87,9 +90,9 @@ export interface CampaignScheduleInput {
 	id: ResourceId;
 	/**
 	 * ISO 8601 or Listmonk-compatible `YYYY-MM-DD HH:MM:SS` send timestamp.
-	 * Stateful validation remains in the campaign domain executor.
+	 * The exact accepted forms are shared with the campaign domain validator.
 	 */
-	send_at: NonEmptyString;
+	send_at: CampaignSendAt;
 	/** Campaign updated_at observed by the preflight that approved this send. */
 	expected_updated_at?: NonEmptyString | undefined;
 }

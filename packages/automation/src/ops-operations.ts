@@ -150,6 +150,9 @@ const segmentDriftInputSchema = z.object({
 });
 
 const templateRegistrySyncInputSchema = z.object({
+	template_id: positiveIntegerInput
+		.optional()
+		.describe("Optional single template ID to sync"),
 	template_ids: z
 		.array(positiveIntegerInput)
 		.optional()
@@ -443,7 +446,10 @@ export async function executeTemplateRegistrySyncOperation(
 ): Promise<TemplateRegistrySyncResult> {
 	const client = requireOpsClient(context);
 	const result = await syncTemplateRegistry(client, {
-		templateIds: input.template_ids,
+		templateIds:
+			input.template_id === undefined
+				? input.template_ids
+				: [...new Set([input.template_id, ...(input.template_ids ?? [])])],
 		note: input.note,
 	});
 	return result;

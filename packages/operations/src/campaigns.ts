@@ -23,9 +23,9 @@ import {
 import { defineOperationCatalog } from "./catalog";
 import {
 	assertCampaignTransition,
-	isParseableCampaignSendAt,
 	type CampaignLifecycleTarget,
 } from "./campaign-lifecycle";
+import { CAMPAIGN_SEND_AT_PATTERN } from "./campaign-send-at";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
@@ -416,7 +416,10 @@ const scheduleCampaignInputSchema = z
 		send_at: z
 			.string()
 			.trim()
-			.min(1)
+			.regex(
+				CAMPAIGN_SEND_AT_PATTERN,
+				"send_at must be an ISO 8601 timestamp (e.g. '2026-08-01T09:00:00Z') or a Listmonk-compatible 'YYYY-MM-DD HH:MM:SS' string",
+			)
 			.describe("ISO 8601 (or Listmonk-compatible) scheduled send timestamp"),
 		expected_updated_at: z
 			.string()
@@ -426,15 +429,7 @@ const scheduleCampaignInputSchema = z
 			.describe(
 				"Campaign updated_at observed by the preflight that approved this send",
 			),
-	})
-	.refine(
-		(input) => isParseableCampaignSendAt(input.send_at),
-		{
-			message:
-				"send_at must be an ISO 8601 timestamp (e.g. '2026-08-01T09:00:00Z') or a Listmonk-compatible 'YYYY-MM-DD HH:MM:SS' string",
-			path: ["send_at"],
-		},
-	);
+	});
 
 const campaignLifecycleInputSchema = z.object({
 	id: resourceIdSchema,
@@ -554,14 +549,14 @@ async function transitionCampaign(
 		input.id,
 		target,
 	);
+	if (loaded.status === target) {
+		return { id: input.id, status: target };
+	}
 	assertExpectedCampaignRevision(
 		input.id,
 		loaded.updated_at,
 		input.expected_updated_at,
 	);
-	if (loaded.status === target) {
-		return { id: input.id, status: target };
-	}
 	const response = await ctx.client.campaign.updateStatus({
 		path: { id: input.id },
 		body: { status: target },
@@ -592,16 +587,17 @@ export async function scheduleCampaign(
 		input.id,
 		"scheduled",
 	);
+	// Exact target-state retries are successful no-ops even when the original
+	// response was lost and Listmonk advanced updated_at. The revision guard
+	// still runs before every new mutation or re-schedule.
+	if (loaded.status === "scheduled" && loaded.send_at === input.send_at) {
+		return { id: input.id, status: "scheduled" };
+	}
 	assertExpectedCampaignRevision(
 		input.id,
 		loaded.updated_at,
 		input.expected_updated_at,
 	);
-	// Idempotent no-op: if the campaign is already scheduled with the
-	// same send_at, return success without re-calling the API.
-	if (loaded.status === "scheduled" && loaded.send_at === input.send_at) {
-		return { id: input.id, status: "scheduled" };
-	}
 	// When the campaign is already scheduled with a different send_at,
 	// only the update call is needed — the status is already "scheduled"
 	// and calling updateStatus(scheduled→scheduled) would be rejected by
