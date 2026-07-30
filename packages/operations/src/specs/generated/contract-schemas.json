@@ -1,4 +1,263 @@
 {
+  "campaignCollectionOutputContract": {
+    "components": {
+      "schemas": {
+        "CampaignCollectionOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "type": "number"
+            },
+            "per_page": {
+              "type": "number"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/CampaignGetOutput"
+              },
+              "type": "array"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "results",
+            "total",
+            "per_page",
+            "page"
+          ],
+          "type": "object"
+        },
+        "CampaignGetOutput": {
+          "additionalProperties": {},
+          "properties": {
+            "altbody": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "archive": {
+              "type": "boolean"
+            },
+            "body": {
+              "type": "string"
+            },
+            "body_source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "bounces": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "clicks": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "content_type": {
+              "oneOf": [
+                {
+                  "const": "html"
+                },
+                {
+                  "const": "markdown"
+                },
+                {
+                  "const": "plain"
+                },
+                {
+                  "const": "richtext"
+                },
+                {
+                  "const": "visual"
+                }
+              ]
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "from_email": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "type": "array"
+            },
+            "media": {
+              "items": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "type": "array"
+            },
+            "messenger": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "send_at": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "sent": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "started_at": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "template_id": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceId"
+                }
+              ]
+            },
+            "to_send": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "optin"
+                },
+                {
+                  "const": "regular"
+                }
+              ]
+            },
+            "updated_at": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            },
+            "views": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "type": "number"
+        },
+        "per_page": {
+          "type": "number"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/components/schemas/CampaignGetOutput"
+          },
+          "type": "array"
+        },
+        "total": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "results",
+        "total",
+        "per_page",
+        "page"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "campaignGetInputContract": {
     "components": {
       "schemas": {
@@ -537,6 +796,190 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "campaignListInputContract": {
+    "components": {
+      "schemas": {
+        "CampaignListInput": {
+          "additionalProperties": false,
+          "properties": {
+            "no_body": {
+              "type": "boolean"
+            },
+            "order": {
+              "oneOf": [
+                {
+                  "const": "ASC"
+                },
+                {
+                  "const": "DESC"
+                }
+              ]
+            },
+            "order_by": {
+              "oneOf": [
+                {
+                  "const": "created_at"
+                },
+                {
+                  "const": "name"
+                },
+                {
+                  "const": "status"
+                },
+                {
+                  "const": "updated_at"
+                }
+              ]
+            },
+            "page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "One-based result page. Omitted values use the shared operation default."
+            },
+            "per_page": {
+              "description": "Number of records per page, or all records.",
+              "oneOf": [
+                {
+                  "const": "all"
+                },
+                {
+                  "$ref": "#/components/schemas/PositiveInteger"
+                }
+              ]
+            },
+            "query": {
+              "type": "string"
+            },
+            "status": {
+              "items": {
+                "oneOf": [
+                  {
+                    "const": "cancelled"
+                  },
+                  {
+                    "const": "draft"
+                  },
+                  {
+                    "const": "finished"
+                  },
+                  {
+                    "const": "paused"
+                  },
+                  {
+                    "const": "running"
+                  },
+                  {
+                    "const": "scheduled"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "no_body": {
+          "type": "boolean"
+        },
+        "order": {
+          "oneOf": [
+            {
+              "const": "ASC"
+            },
+            {
+              "const": "DESC"
+            }
+          ]
+        },
+        "order_by": {
+          "oneOf": [
+            {
+              "const": "created_at"
+            },
+            {
+              "const": "name"
+            },
+            {
+              "const": "status"
+            },
+            {
+              "const": "updated_at"
+            }
+          ]
+        },
+        "page": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "One-based result page. Omitted values use the shared operation default."
+        },
+        "per_page": {
+          "description": "Number of records per page, or all records.",
+          "oneOf": [
+            {
+              "const": "all"
+            },
+            {
+              "$ref": "#/components/schemas/PositiveInteger"
+            }
+          ]
+        },
+        "query": {
+          "type": "string"
+        },
+        "status": {
+          "items": {
+            "oneOf": [
+              {
+                "const": "cancelled"
+              },
+              {
+                "const": "draft"
+              },
+              {
+                "const": "finished"
+              },
+              {
+                "const": "paused"
+              },
+              {
+                "const": "running"
+              },
+              {
+                "const": "scheduled"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "campaignPreflightInputContract": {
     "components": {
       "schemas": {
@@ -902,6 +1345,170 @@
       "required": [
         "id",
         "status"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "campaignStatsOutputContract": {
+    "components": {
+      "schemas": {
+        "CampaignStatsOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "bounces": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "clicks": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "sent": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "started_at": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "to_send": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "views": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "bounces": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "clicks": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "sent": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "started_at": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "to_send": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "views": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id"
       ],
       "type": "object"
     },
@@ -2601,6 +3208,260 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "mediaCollectionOutputContract": {
+    "components": {
+      "schemas": {
+        "MediaCollectionOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "type": "number"
+            },
+            "per_page": {
+              "type": "number"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/MediaRecord"
+              },
+              "type": "array"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "results",
+            "total",
+            "per_page",
+            "page"
+          ],
+          "type": "object"
+        },
+        "MediaRecord": {
+          "additionalProperties": {},
+          "properties": {
+            "content_type": {
+              "type": "string"
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "filename": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "meta": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "provider": {
+              "type": "string"
+            },
+            "thumb_uri": {
+              "type": "string"
+            },
+            "thumb_url": {
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "type": "number"
+        },
+        "per_page": {
+          "type": "number"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/components/schemas/MediaRecord"
+          },
+          "type": "array"
+        },
+        "total": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "results",
+        "total",
+        "per_page",
+        "page"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "mediaRecordContract": {
+    "components": {
+      "schemas": {
+        "MediaRecord": {
+          "additionalProperties": {},
+          "properties": {
+            "content_type": {
+              "type": "string"
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "filename": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "meta": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "provider": {
+              "type": "string"
+            },
+            "thumb_uri": {
+              "type": "string"
+            },
+            "thumb_url": {
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": {},
+      "properties": {
+        "content_type": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "meta": {
+          "$ref": "#/components/schemas/Recordstringunknown"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "thumb_uri": {
+          "type": "string"
+        },
+        "thumb_url": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "uuid": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "paginationInputContract": {
+    "components": {
+      "schemas": {
+        "PaginationInput": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "One-based result page. Omitted values use the shared operation default."
+            },
+            "per_page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Number of records per page. Omitted values use the shared operation default."
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "One-based result page. Omitted values use the shared operation default."
+        },
+        "per_page": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Number of records per page. Omitted values use the shared operation default."
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "playbookGetInputContract": {
     "components": {
       "schemas": {
@@ -4229,6 +5090,46 @@
         "freshness",
         "healthy",
         "checks"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "resourceIdInputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceIdInput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId",
+          "description": "Positive Listmonk resource ID."
+        }
+      },
+      "required": [
+        "id"
       ],
       "type": "object"
     },
@@ -7786,6 +8687,811 @@
         "failed",
         "errors"
       ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberCollectionOutputContract": {
+    "components": {
+      "schemas": {
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberCollectionOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "type": "number"
+            },
+            "per_page": {
+              "type": "number"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/SubscriberRecord"
+              },
+              "type": "array"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "results",
+            "total",
+            "per_page",
+            "page"
+          ],
+          "type": "object"
+        },
+        "SubscriberRecord": {
+          "additionalProperties": {},
+          "properties": {
+            "attribs": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "type": "array"
+            },
+            "name": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "updated_at": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "type": "number"
+        },
+        "per_page": {
+          "type": "number"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/components/schemas/SubscriberRecord"
+          },
+          "type": "array"
+        },
+        "total": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "results",
+        "total",
+        "per_page",
+        "page"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberListCollectionOutputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberListCollectionOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "type": "number"
+            },
+            "per_page": {
+              "type": "number"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/SubscriberListRecord"
+              },
+              "type": "array"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "results",
+            "total",
+            "per_page",
+            "page"
+          ],
+          "type": "object"
+        },
+        "SubscriberListRecord": {
+          "additionalProperties": {},
+          "properties": {
+            "created_at": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "name": {
+              "type": "string"
+            },
+            "optin": {
+              "type": "string"
+            },
+            "subscriber_count": {
+              "type": "number"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": {
+              "type": "string"
+            },
+            "updated_at": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "type": "number"
+        },
+        "per_page": {
+          "type": "number"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/components/schemas/SubscriberListRecord"
+          },
+          "type": "array"
+        },
+        "total": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "results",
+        "total",
+        "per_page",
+        "page"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberListInputContract": {
+    "components": {
+      "schemas": {
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberListInput": {
+          "additionalProperties": false,
+          "properties": {
+            "list_id": {
+              "description": "List filter normalized by the shared operation boundary. An empty array\nselects subscribers without restricting the source list.",
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "order": {
+              "oneOf": [
+                {
+                  "const": "ASC"
+                },
+                {
+                  "const": "DESC"
+                }
+              ]
+            },
+            "order_by": {
+              "oneOf": [
+                {
+                  "const": "created_at"
+                },
+                {
+                  "const": "name"
+                },
+                {
+                  "const": "status"
+                },
+                {
+                  "const": "updated_at"
+                }
+              ]
+            },
+            "page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "One-based result page. Omitted values use the shared operation default."
+            },
+            "per_page": {
+              "description": "Number of records per page, or all records.",
+              "oneOf": [
+                {
+                  "const": "all"
+                },
+                {
+                  "$ref": "#/components/schemas/PositiveInteger"
+                }
+              ]
+            },
+            "query": {
+              "type": "string"
+            },
+            "subscription_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "list_id": {
+          "description": "List filter normalized by the shared operation boundary. An empty array\nselects subscribers without restricting the source list.",
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "type": "array"
+        },
+        "order": {
+          "oneOf": [
+            {
+              "const": "ASC"
+            },
+            {
+              "const": "DESC"
+            }
+          ]
+        },
+        "order_by": {
+          "oneOf": [
+            {
+              "const": "created_at"
+            },
+            {
+              "const": "name"
+            },
+            {
+              "const": "status"
+            },
+            {
+              "const": "updated_at"
+            }
+          ]
+        },
+        "page": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "One-based result page. Omitted values use the shared operation default."
+        },
+        "per_page": {
+          "description": "Number of records per page, or all records.",
+          "oneOf": [
+            {
+              "const": "all"
+            },
+            {
+              "$ref": "#/components/schemas/PositiveInteger"
+            }
+          ]
+        },
+        "query": {
+          "type": "string"
+        },
+        "subscription_status": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberListRecordContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberListRecord": {
+          "additionalProperties": {},
+          "properties": {
+            "created_at": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "name": {
+              "type": "string"
+            },
+            "optin": {
+              "type": "string"
+            },
+            "subscriber_count": {
+              "type": "number"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": {
+              "type": "string"
+            },
+            "updated_at": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": {},
+      "properties": {
+        "created_at": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "optin": {
+          "type": "string"
+        },
+        "subscriber_count": {
+          "type": "number"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "uuid": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberRecordContract": {
+    "components": {
+      "schemas": {
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberRecord": {
+          "additionalProperties": {},
+          "properties": {
+            "attribs": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "type": "array"
+            },
+            "name": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "updated_at": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": {},
+      "properties": {
+        "attribs": {
+          "$ref": "#/components/schemas/Recordstringunknown"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "lists": {
+          "items": {
+            "$ref": "#/components/schemas/Recordstringunknown"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "uuid": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templateCollectionOutputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplateCollectionOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "type": "number"
+            },
+            "per_page": {
+              "type": "number"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/TemplateRecord"
+              },
+              "type": "array"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "results",
+            "total",
+            "per_page",
+            "page"
+          ],
+          "type": "object"
+        },
+        "TemplateRecord": {
+          "additionalProperties": {},
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "body_source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "is_default": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "updated_at": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "type": "number"
+        },
+        "per_page": {
+          "type": "number"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/components/schemas/TemplateRecord"
+          },
+          "type": "array"
+        },
+        "total": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "results",
+        "total",
+        "per_page",
+        "page"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templateListInputContract": {
+    "components": {
+      "schemas": {
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplateListInput": {
+          "additionalProperties": false,
+          "properties": {
+            "no_body": {
+              "description": "Omit template bodies from collection responses.",
+              "type": "boolean"
+            },
+            "page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "One-based result page. Omitted values use the shared operation default."
+            },
+            "per_page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Number of records per page. Omitted values use the shared operation default."
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "no_body": {
+          "description": "Omit template bodies from collection responses.",
+          "type": "boolean"
+        },
+        "page": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "One-based result page. Omitted values use the shared operation default."
+        },
+        "per_page": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Number of records per page. Omitted values use the shared operation default."
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templateRecordContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplateRecord": {
+          "additionalProperties": {},
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "body_source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "is_default": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "updated_at": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": {},
+      "properties": {
+        "body": {
+          "type": "string"
+        },
+        "body_source": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "is_default": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "required": [],
       "type": "object"
     },
     "source": "typescript",

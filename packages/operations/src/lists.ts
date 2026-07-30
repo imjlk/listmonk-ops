@@ -1,5 +1,9 @@
 import type { List, ListmonkClient } from "@listmonk-ops/openapi";
-import { bindBridgedOperationSpec } from "./specs";
+import {
+	bindBridgedOperationSpec,
+	bindListsGetOperationSpec,
+	bindListsListOperationSpec,
+} from "./specs";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
 import {
@@ -26,7 +30,7 @@ type DataResponse<T> = {
 };
 
 const subscriberListSchema = z.looseObject({
-	id: z.number().optional(),
+	id: z.number().int().positive().optional(),
 	created_at: z.string().optional(),
 	updated_at: z.string().optional(),
 	uuid: z.string().optional(),
@@ -283,7 +287,7 @@ export const getListsOperation = defineOperation({
 	outputSchema: listPageSchema,
 	safety: readSafety,
 	mcp: { name: "listmonk_get_lists" },
-	spec: bindBridgedOperationSpec("lists.list"),
+	spec: bindListsListOperationSpec(),
 	execute: listSubscriberLists,
 });
 
@@ -295,7 +299,7 @@ export const getListOperation = defineOperation({
 	outputSchema: subscriberListSchema,
 	safety: readSafety,
 	mcp: { name: "listmonk_get_list" },
-	spec: bindBridgedOperationSpec("lists.get"),
+	spec: bindListsGetOperationSpec(),
 	execute: getSubscriberList,
 });
 

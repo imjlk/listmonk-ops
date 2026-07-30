@@ -5,6 +5,8 @@ import {
 	bindCampaignGetOperationSpec,
 	bindCampaignScheduleOperationSpec,
 	bindCampaignStartOperationSpec,
+	bindCampaignsListOperationSpec,
+	bindCampaignsStatsOperationSpec,
 } from "./specs";
 import { z } from "zod";
 import {
@@ -822,7 +824,7 @@ export const getCampaignsOperation = defineOperation({
 	outputSchema: campaignListOutputSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_campaigns", legacySuccessText: jsonResourceValue },
-	spec: bindBridgedOperationSpec("campaigns.list"),
+	spec: bindCampaignsListOperationSpec(),
 	execute: listCampaigns,
 });
 
@@ -975,7 +977,7 @@ export const getCampaignStatsOperation = defineOperation({
 		name: "listmonk_get_campaign_stats",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("campaigns.stats"),
+	spec: bindCampaignsStatsOperationSpec(),
 	execute: getCampaignStats,
 });
 

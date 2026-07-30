@@ -3,14 +3,17 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import typia from "typia";
 import type {
+	CampaignCollectionOutput,
 	CampaignGetInput,
 	CampaignGetOutput,
+	CampaignListInput,
 	CampaignLifecycleInput,
 	CampaignLifecycleOutput,
 	CampaignPreflightInput,
 	CampaignPreflightOutput,
 	CampaignScheduleInput,
 	CampaignScheduleOutput,
+	CampaignStatsOutput,
 	ControlCapabilitiesOutput,
 	ControlPrimeInput,
 	ControlPrimeOutput,
@@ -19,6 +22,9 @@ import type {
 	DeliverabilityDnsCheckOutput,
 	DeliverabilityDoctorOutput,
 	EmptyInput,
+	MediaCollectionOutput,
+	MediaRecord,
+	PaginationInput,
 	PlaybookGetInput,
 	PlaybookGetOutput,
 	PlaybookListOutput,
@@ -30,6 +36,7 @@ import type {
 	ProviderTestOutput,
 	ProviderWebhookStatusInput,
 	ProviderWebhookStatusOutput,
+	ResourceIdInput,
 	SpecDescribeInput,
 	SpecDescribeOutput,
 	SpecSearchInput,
@@ -56,6 +63,14 @@ import type {
 	SequenceValidateOutput,
 	SubscriberBlocklistInput,
 	SubscriberBulkOutput,
+	SubscriberCollectionOutput,
+	SubscriberListCollectionOutput,
+	SubscriberListInput,
+	SubscriberListRecord,
+	SubscriberRecord,
+	TemplateCollectionOutput,
+	TemplateListInput,
+	TemplateRecord,
 	TransactionalSendInput,
 	TransactionalSendOutput,
 	WebhookCreateInput,
@@ -134,6 +149,43 @@ const contracts = {
 	),
 	campaignGetOutputContract: contractSchema(
 		typia.json.schema<CampaignGetOutput>(),
+	),
+	paginationInputContract: contractSchema(typia.json.schema<PaginationInput>()),
+	resourceIdInputContract: contractSchema(typia.json.schema<ResourceIdInput>()),
+	subscriberListRecordContract: contractSchema(
+		typia.json.schema<SubscriberListRecord>(),
+	),
+	subscriberListCollectionOutputContract: contractSchema(
+		typia.json.schema<SubscriberListCollectionOutput>(),
+	),
+	subscriberRecordContract: contractSchema(
+		typia.json.schema<SubscriberRecord>(),
+	),
+	subscriberListInputContract: contractSchema(
+		typia.json.schema<SubscriberListInput>(),
+	),
+	subscriberCollectionOutputContract: contractSchema(
+		typia.json.schema<SubscriberCollectionOutput>(),
+	),
+	campaignListInputContract: contractSchema(
+		typia.json.schema<CampaignListInput>(),
+	),
+	campaignCollectionOutputContract: contractSchema(
+		typia.json.schema<CampaignCollectionOutput>(),
+	),
+	campaignStatsOutputContract: contractSchema(
+		typia.json.schema<CampaignStatsOutput>(),
+	),
+	templateRecordContract: contractSchema(typia.json.schema<TemplateRecord>()),
+	templateListInputContract: contractSchema(
+		typia.json.schema<TemplateListInput>(),
+	),
+	templateCollectionOutputContract: contractSchema(
+		typia.json.schema<TemplateCollectionOutput>(),
+	),
+	mediaRecordContract: contractSchema(typia.json.schema<MediaRecord>()),
+	mediaCollectionOutputContract: contractSchema(
+		typia.json.schema<MediaCollectionOutput>(),
 	),
 	campaignLifecycleInputContract: contractSchema(
 		typia.json.schema<CampaignLifecycleInput>(),

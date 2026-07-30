@@ -10,6 +10,7 @@ import {
 	campaignSafeStartPlaybook,
 	campaignScheduleOperationSpec,
 	campaignStartOperationSpec,
+	coreReadOperationSpecs,
 	defineEmailOperationsSpec,
 	defineOperationPlaybook,
 	defineOperationSpec,
@@ -23,7 +24,9 @@ import {
 	runtimeOperationContractIds,
 	sequenceOperationSpecs,
 	subscriberBlocklistOperationSpec,
+	subscribersListOperationSpec,
 	subscriberResource,
+	templatesListOperationSpec,
 	transactionalSendOperationSpec,
 	webhookDispatchOperationSpec,
 	webhookOperationSpecs,
@@ -85,7 +88,25 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(7);
+		).toHaveLength(17);
+		expect(coreReadOperationSpecs).toHaveLength(10);
+		expect(
+			coreReadOperationSpecs.every(
+				(operation) =>
+					operation.stability === "stable" &&
+					operation.contract.input.source === "typescript" &&
+					operation.contract.output.source === "typescript" &&
+					!runtimeOperationContractIds.includes(
+						operation.id as (typeof runtimeOperationContractIds)[number],
+					),
+			),
+		).toBe(true);
+		expect(
+			subscribersListOperationSpec.contract.input.schema.required,
+		).toEqual([]);
+		expect(
+			templatesListOperationSpec.contract.input.schema.required,
+		).toEqual([]);
 		expect(
 			emailOperationsSpec.operations
 				.filter((operation) =>
@@ -1342,14 +1363,14 @@ describe("email operations specification", () => {
 	});
 
 	test("keeps runtime bridges experimental and rejects normalized contract drift", () => {
-		const bridged = bridgedOperationSpecsById["lists.list"];
+		const bridged = bridgedOperationSpecsById["lists.create"];
 		expect(() =>
 			defineOperationSpec({
 				...bridged,
 				stability: "stable",
 			}),
 		).toThrow(
-			"Stable operation spec lists.list must use TypeScript-authored input and output contracts",
+			"Stable operation spec lists.create must use TypeScript-authored input and output contracts",
 		);
 		expect(() =>
 			assertRuntimeOperationContracts(bridged, {
@@ -1357,7 +1378,7 @@ describe("email operations specification", () => {
 				output: bridged.contract.output.schema,
 			}),
 		).toThrow(
-			"Runtime operation lists.list input contract drifted from its committed operation spec bridge",
+			"Runtime operation lists.create input contract drifted from its committed operation spec bridge",
 		);
 
 		expect(() =>
@@ -1366,7 +1387,7 @@ describe("email operations specification", () => {
 				output: bridged.contract.output.schema,
 			}),
 		).toThrow(
-			"Runtime operation lists.list input contract drifted from its committed operation spec bridge",
+			"Runtime operation lists.create input contract drifted from its committed operation spec bridge",
 		);
 	});
 });

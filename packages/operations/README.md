@@ -30,12 +30,14 @@ Listmonk OpenAPI transport
   -> operation spec (resource, effect, policy, retry, agent context)
 ```
 
-Fifty-one mature contracts are authored as TypeScript types and projected with
-Typia. The remaining 51 operations use a committed
+Sixty-one contracts are authored as TypeScript types and projected with Typia.
+The remaining 41 operations use a committed
 `runtime-operation` bridge snapshot of the normalized executor boundary while
 their standalone product types are developed. Runtime bridges are always
 `experimental`; they never import `@listmonk-ops/openapi` or generated SDK
-types. Seven reviewed core operations are `stable`.
+types. Seventeen reviewed core operations are `stable`, including the first
+read-only promotion batch for list, subscriber, campaign, template, and media
+inspection.
 Their complete contracts, effects, policies, retry semantics, states, and MCP
 names are protected by an explicitly accepted compatibility baseline.
 

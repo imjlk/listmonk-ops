@@ -85,6 +85,170 @@ export interface CampaignGetOutput {
 	[key: string]: unknown;
 }
 
+export interface PaginationInput {
+	/** One-based result page. Omitted values use the shared operation default. */
+	page?: PositiveInteger | undefined;
+	/** Number of records per page. Omitted values use the shared operation default. */
+	per_page?: PositiveInteger | undefined;
+}
+
+export interface ResourceIdInput {
+	/** Positive Listmonk resource ID. */
+	id: ResourceId;
+}
+
+export interface SubscriberListRecord {
+	id?: ResourceId | undefined;
+	created_at?: string | undefined;
+	updated_at?: string | undefined;
+	uuid?: string | undefined;
+	name?: string | undefined;
+	type?: string | undefined;
+	optin?: string | undefined;
+	tags?: string[] | undefined;
+	subscriber_count?: number | undefined;
+	description?: string | undefined;
+	/** Preserve fields added by newer Listmonk releases. */
+	[key: string]: unknown;
+}
+
+export interface SubscriberListCollectionOutput {
+	results: SubscriberListRecord[];
+	total: number;
+	per_page: number;
+	page: number;
+}
+
+export interface SubscriberRecord {
+	id?: ResourceId | undefined;
+	created_at?: string | undefined;
+	updated_at?: string | undefined;
+	uuid?: string | undefined;
+	email?: string | undefined;
+	name?: string | undefined;
+	status?: string | undefined;
+	attribs?: Record<string, unknown> | undefined;
+	lists?: Record<string, unknown>[] | undefined;
+	/** Preserve fields added by newer Listmonk releases. */
+	[key: string]: unknown;
+}
+
+export interface SubscriberListInput {
+	/** One-based result page. Omitted values use the shared operation default. */
+	page?: PositiveInteger | undefined;
+	/** Number of records per page, or all records. */
+	per_page?: PositiveInteger | "all" | undefined;
+	/**
+	 * List filter normalized by the shared operation boundary. An empty array
+	 * selects subscribers without restricting the source list.
+	 */
+	list_id?: ResourceId[] | undefined;
+	query?: string | undefined;
+	order_by?: "name" | "status" | "created_at" | "updated_at" | undefined;
+	order?: "ASC" | "DESC" | undefined;
+	subscription_status?: NonEmptyString | undefined;
+}
+
+export interface SubscriberCollectionOutput {
+	results: SubscriberRecord[];
+	total: number;
+	per_page: number;
+	page: number;
+}
+
+export interface CampaignListInput {
+	/** One-based result page. Omitted values use the shared operation default. */
+	page?: PositiveInteger | undefined;
+	/** Number of records per page, or all records. */
+	per_page?: PositiveInteger | "all" | undefined;
+	status?:
+		| (
+				| "draft"
+				| "scheduled"
+				| "running"
+				| "paused"
+				| "finished"
+				| "cancelled"
+		  )[]
+		| undefined;
+	no_body?: boolean | undefined;
+	query?: string | undefined;
+	tags?: string[] | undefined;
+	order?: "ASC" | "DESC" | undefined;
+	order_by?: "name" | "status" | "created_at" | "updated_at" | undefined;
+}
+
+export interface CampaignCollectionOutput {
+	results: CampaignGetOutput[];
+	total: number;
+	per_page: number;
+	page: number;
+}
+
+export interface CampaignStatsOutput {
+	id: ResourceId;
+	status?: string | undefined;
+	views?: number | null | undefined;
+	clicks?: number | null | undefined;
+	bounces?: number | null | undefined;
+	to_send?: number | null | undefined;
+	sent?: number | null | undefined;
+	started_at?: string | null | undefined;
+}
+
+export interface TemplateRecord {
+	id?: ResourceId | undefined;
+	created_at?: string | undefined;
+	updated_at?: string | undefined;
+	name?: string | undefined;
+	body?: string | undefined;
+	body_source?: string | null | undefined;
+	subject?: string | undefined;
+	type?: string | undefined;
+	is_default?: boolean | undefined;
+	/** Preserve fields added by newer Listmonk releases. */
+	[key: string]: unknown;
+}
+
+export interface TemplateListInput {
+	/** One-based result page. Omitted values use the shared operation default. */
+	page?: PositiveInteger | undefined;
+	/** Number of records per page. Omitted values use the shared operation default. */
+	per_page?: PositiveInteger | undefined;
+	/** Omit template bodies from collection responses. */
+	no_body?: boolean | undefined;
+}
+
+export interface TemplateCollectionOutput {
+	results: TemplateRecord[];
+	total: number;
+	per_page: number;
+	page: number;
+}
+
+export interface MediaRecord {
+	id?: ResourceId | undefined;
+	uuid?: string | undefined;
+	filename?: string | undefined;
+	content_type?: string | undefined;
+	created_at?: string | undefined;
+	thumb_url?: string | undefined;
+	thumb_uri?: string | undefined;
+	provider?: string | undefined;
+	meta?: Record<string, unknown> | undefined;
+	url?: string | undefined;
+	uri?: string | undefined;
+	/** Preserve fields added by newer Listmonk releases. */
+	[key: string]: unknown;
+}
+
+export interface MediaCollectionOutput {
+	results: MediaRecord[];
+	total: number;
+	per_page: number;
+	page: number;
+}
+
 export interface CampaignScheduleInput {
 	/** Listmonk campaign ID. */
 	id: ResourceId;

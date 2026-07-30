@@ -1,5 +1,9 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import { bindBridgedOperationSpec } from "./specs";
+import {
+	bindBridgedOperationSpec,
+	bindMediaGetOperationSpec,
+	bindMediaListOperationSpec,
+} from "./specs";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
 import {
@@ -428,7 +432,7 @@ export const getMediaOperation = defineOperation({
 	outputSchema: mediaListOutputSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_media", legacySuccessText: jsonResourceValue },
-	spec: bindBridgedOperationSpec("media.list"),
+	spec: bindMediaListOperationSpec(),
 	execute: listMedia,
 });
 
@@ -443,7 +447,7 @@ export const getMediaFileOperation = defineOperation({
 		name: "listmonk_get_media_file",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("media.get"),
+	spec: bindMediaGetOperationSpec(),
 	execute: getMediaFile,
 });
 
