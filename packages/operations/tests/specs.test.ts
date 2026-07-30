@@ -193,6 +193,21 @@ describe("email operations specification", () => {
 				{ kind: "write", resource: "campaign", reversible: true },
 			]),
 		);
+		expect(bridgedOperationSpecsById["abtest.run"].effects).toEqual(
+			expect.arrayContaining([
+				{ kind: "write", resource: "campaign", reversible: true },
+			]),
+		);
+		expect(bridgedOperationSpecsById["abtest.tick"].effects).toEqual(
+			expect.arrayContaining([
+				{
+					kind: "write",
+					resource: "campaign",
+					reversible: true,
+					preview: true,
+				},
+			]),
+		);
 		expect(
 			bridgedOperationSpecsById["abtest.reconcile"].policy.dryRun,
 		).toBe(false);

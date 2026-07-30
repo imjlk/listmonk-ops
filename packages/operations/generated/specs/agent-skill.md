@@ -1376,7 +1376,7 @@ Retry guidance: Do not automatically retry an ambiguous failure; inspect the tar
 
 ## Run A/B test step (`abtest.run`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
 
 Use when: Advance a single A/B test one lifecycle step based on its current status
 
@@ -1390,7 +1390,7 @@ Retry guidance: Do not automatically retry an ambiguous failure; inspect the tar
 
 ## Tick A/B tests (`abtest.tick`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
 
 Use when: Advance every non-terminal A/B test one lifecycle step and report the actions taken
 

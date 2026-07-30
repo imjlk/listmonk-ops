@@ -1192,7 +1192,7 @@ Advance a single A/B test one lifecycle step based on its current status
 - Resource / verb: `experiment.run`
 - MCP tool: `listmonk_abtest_run`
 - Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, delivery:bulk:immediate`
+- Effects: `write:experiment, write:campaign, delivery:bulk:immediate`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
@@ -1204,7 +1204,7 @@ Advance every non-terminal A/B test one lifecycle step and report the actions ta
 - Resource / verb: `experiment.tick`
 - MCP tool: `listmonk_abtest_tick`
 - Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, delivery:bulk:immediate`
+- Effects: `write:experiment, write:campaign, delivery:bulk:immediate`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`

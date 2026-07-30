@@ -29277,6 +29277,11 @@
           "reversible": false
         },
         {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": true
+        },
+        {
           "audience": "bulk",
           "kind": "delivery",
           "resource": "campaign",
@@ -29419,6 +29424,12 @@
           "preview": true,
           "resource": "experiment",
           "reversible": false
+        },
+        {
+          "kind": "write",
+          "preview": true,
+          "resource": "campaign",
+          "reversible": true
         },
         {
           "audience": "bulk",

@@ -988,6 +988,7 @@ const bridgedOperationDeclarations = [
 		mcpName: "listmonk_abtest_run",
 		effects: [
 			{ kind: "write", resource: "experiment", reversible: false },
+			{ kind: "write", resource: "campaign", reversible: true },
 			{
 				kind: "delivery",
 				resource: "campaign",
@@ -1017,6 +1018,12 @@ const bridgedOperationDeclarations = [
 				kind: "write",
 				resource: "experiment",
 				reversible: false,
+				preview: true,
+			},
+			{
+				kind: "write",
+				resource: "campaign",
+				reversible: true,
 				preview: true,
 			},
 			{
