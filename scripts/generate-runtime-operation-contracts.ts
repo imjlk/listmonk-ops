@@ -1,5 +1,6 @@
 import { runtimeOperationContractIds } from "../packages/operations/src/specs/runtime-contract-ids";
 import { stableValue } from "../packages/operations/src/specs/stable-json.js";
+import { composeOperationCatalogStructure } from "../packages/operations/src/catalog-internal";
 import { sharedOperationCatalogs } from "./shared-operation-catalogs";
 
 declare const __LISTMONK_OPS_RUNTIME_CONTRACT_OUTPUT_PATH__: string;
@@ -18,9 +19,11 @@ function normalizedContract(schema: Readonly<Record<string, unknown>>) {
 	};
 }
 
+const sharedOperationCatalog =
+	composeOperationCatalogStructure(sharedOperationCatalogs);
 const contracts = Object.fromEntries(
-	sharedOperationCatalogs
-		.flatMap((catalog) => catalog.operations)
+	sharedOperationCatalog.entries
+		.map(({ operation }) => operation)
 		.filter((operation) =>
 			runtimeOperationContractIds.includes(
 				operation.id as (typeof runtimeOperationContractIds)[number],
