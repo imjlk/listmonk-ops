@@ -45,7 +45,9 @@ type DryRunForEffects<
 	Effects extends readonly OperationEffect[],
 	Default extends boolean,
 > = HasPreviewDeclaration<Effects, true> extends true
-	? true
+	? HasPreviewDeclaration<Effects, false> extends true
+		? never
+		: true
 	: HasPreviewDeclaration<Effects, false> extends true
 		? false
 		: Default;
@@ -144,7 +146,7 @@ export function expectedPolicyForEffects(
 		dryRun:
 			declaredPreview.size === 0
 				? policy.dryRun
-				: (declaredPreview.values().next().value ?? policy.dryRun),
+				: declaredPreview.values().next().value!,
 	});
 	if (hasEffectKind(effects, ["suppression"])) {
 		return withDeclaredPreview({

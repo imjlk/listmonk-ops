@@ -18,22 +18,42 @@ function referencedSchema(
 ): JsonSchemaObject | undefined {
 	const prefix = "#/components/schemas/";
 	if (!reference.startsWith(prefix)) return undefined;
-	const schemas = contract.components["schemas"];
+	const components: unknown = contract.components;
+	if (!isSchemaObject(components)) return undefined;
+	const schemas = components["schemas"];
 	if (!isSchemaObject(schemas)) return undefined;
 	const schema = schemas[reference.slice(prefix.length)];
 	return isSchemaObject(schema) ? schema : undefined;
 }
 
-function resolveSchema(
+interface ResolvedSchema {
+	schema: JsonSchemaObject;
+	seen: ReadonlySet<string>;
+}
+
+function resolveSchemaWithReferences(
 	schema: JsonSchemaObject,
 	contract: NormalizedContractSchema,
 	seen: ReadonlySet<string> = new Set(),
-): JsonSchemaObject {
+): ResolvedSchema {
 	const reference = schema["$ref"];
-	if (typeof reference !== "string" || seen.has(reference)) return schema;
+	if (typeof reference !== "string" || seen.has(reference)) {
+		return { schema, seen };
+	}
 	const resolved = referencedSchema(reference, contract);
-	if (resolved === undefined) return schema;
-	return resolveSchema(resolved, contract, new Set([...seen, reference]));
+	if (resolved === undefined) return { schema, seen };
+	return resolveSchemaWithReferences(
+		resolved,
+		contract,
+		new Set([...seen, reference]),
+	);
+}
+
+function resolveSchema(
+	schema: JsonSchemaObject,
+	contract: NormalizedContractSchema,
+): JsonSchemaObject {
+	return resolveSchemaWithReferences(schema, contract).schema;
 }
 
 function directObjectSurface(schema: JsonSchemaObject): ObjectSurface {
@@ -99,8 +119,10 @@ function schemaBranches(
 function objectSurface(
 	schema: JsonSchemaObject,
 	contract: NormalizedContractSchema,
+	seen: ReadonlySet<string> = new Set(),
 ): ObjectSurface {
-	const resolved = resolveSchema(schema, contract);
+	const resolvedSchema = resolveSchemaWithReferences(schema, contract, seen);
+	const resolved = resolvedSchema.schema;
 	const direct = directObjectSurface(resolved);
 	const allOf = schemaBranches(resolved, "allOf");
 	const alternatives = [
@@ -111,7 +133,9 @@ function objectSurface(
 	if (allOf.length > 0) {
 		composed.push(
 			mergePropertySurfaces(
-				allOf.map((branch) => objectSurface(branch, contract)),
+				allOf.map((branch) =>
+					objectSurface(branch, contract, resolvedSchema.seen),
+				),
 				"union",
 				"all",
 			),
@@ -120,7 +144,9 @@ function objectSurface(
 	if (alternatives.length > 0) {
 		composed.push(
 			mergePropertySurfaces(
-				alternatives.map((branch) => objectSurface(branch, contract)),
+				alternatives.map((branch) =>
+					objectSurface(branch, contract, resolvedSchema.seen),
+				),
 				"intersection",
 				"any",
 			),
@@ -158,8 +184,10 @@ function primitiveOf(value: unknown): SchemaPrimitive | undefined {
 function schemaTypes(
 	schema: JsonSchemaObject,
 	contract: NormalizedContractSchema,
+	seen: ReadonlySet<string> = new Set(),
 ): ReadonlySet<SchemaPrimitive> {
-	const resolved = resolveSchema(schema, contract);
+	const resolvedSchema = resolveSchemaWithReferences(schema, contract, seen);
+	const resolved = resolvedSchema.schema;
 	const types = new Set<SchemaPrimitive>();
 	const type = resolved["type"];
 	if (typeof type === "string") {
@@ -182,13 +210,17 @@ function schemaTypes(
 	}
 	for (const keyword of ["anyOf", "oneOf"] as const) {
 		for (const branch of schemaBranches(resolved, keyword)) {
-			for (const branchType of schemaTypes(branch, contract)) {
+			for (const branchType of schemaTypes(
+				branch,
+				contract,
+				resolvedSchema.seen,
+			)) {
 				types.add(branchType);
 			}
 		}
 	}
 	const allOfTypes = schemaBranches(resolved, "allOf")
-		.map((branch) => schemaTypes(branch, contract))
+		.map((branch) => schemaTypes(branch, contract, resolvedSchema.seen))
 		.filter((branchTypes) => branchTypes.size > 0);
 	if (allOfTypes.length > 0) {
 		for (const candidate of allOfTypes[0] ?? []) {
@@ -203,8 +235,10 @@ function schemaTypes(
 function schemaLiterals(
 	schema: JsonSchemaObject,
 	contract: NormalizedContractSchema,
+	seen: ReadonlySet<string> = new Set(),
 ): ReadonlySet<string> | undefined {
-	const resolved = resolveSchema(schema, contract);
+	const resolvedSchema = resolveSchemaWithReferences(schema, contract, seen);
+	const resolved = resolvedSchema.schema;
 	if ("const" in resolved) {
 		return new Set([JSON.stringify(resolved["const"])]);
 	}
@@ -217,7 +251,7 @@ function schemaLiterals(
 	];
 	if (alternatives.length === 0) return undefined;
 	const branchLiterals = alternatives.map((branch) =>
-		schemaLiterals(branch, contract),
+		schemaLiterals(branch, contract, resolvedSchema.seen),
 	);
 	if (branchLiterals.some((literals) => literals === undefined)) {
 		return undefined;
@@ -254,9 +288,11 @@ function assertSubset(
 function schemaItems(
 	schemas: readonly JsonSchemaObject[],
 	contract: NormalizedContractSchema,
+	seen: ReadonlySet<string> = new Set(),
 ): readonly JsonSchemaObject[] {
 	return schemas.flatMap((schema) => {
-		const resolved = resolveSchema(schema, contract);
+		const resolvedSchema = resolveSchemaWithReferences(schema, contract, seen);
+		const resolved = resolvedSchema.schema;
 		const directItems = resolved["items"];
 		const alternatives = [
 			...schemaBranches(resolved, "anyOf"),
@@ -264,7 +300,7 @@ function schemaItems(
 		];
 		return [
 			...(isSchemaObject(directItems) ? [directItems] : []),
-			...schemaItems(alternatives, contract),
+			...schemaItems(alternatives, contract, resolvedSchema.seen),
 		];
 	});
 }

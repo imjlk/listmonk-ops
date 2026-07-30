@@ -71,20 +71,18 @@ export interface WebhookEffect extends OperationPreviewCapability {
  * no-mutation execution path.
  */
 export type MaintenanceEffect =
-	| {
+	| ({
 			kind: "maintenance";
 			resource: OperationResourceKind;
 			action: "recover";
 			destructive: false;
-			preview?: boolean | undefined;
-	  }
-	| {
+	  } & OperationPreviewCapability)
+	| ({
 			kind: "maintenance";
 			resource: OperationResourceKind;
 			action: "prune" | "replay" | "resolve";
 			destructive: true;
-			preview?: boolean | undefined;
-	  };
+	  } & OperationPreviewCapability);
 
 export interface SuppressionEffect extends OperationPreviewCapability {
 	kind: "suppression";

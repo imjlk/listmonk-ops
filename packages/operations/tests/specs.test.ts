@@ -32,6 +32,28 @@ import {
 } from "../src/specs";
 import { assertTypeScriptContractCompatibility } from "../src/specs/schema-compatibility";
 import type { NormalizedContractSchema } from "../src/specs/json";
+import type { PolicyForEffects } from "../src/specs/policy";
+
+type IsNever<Value> = [Value] extends [never] ? true : false;
+const conflictingPreviewDryRunIsNever: IsNever<
+	PolicyForEffects<
+		readonly [
+			{
+				readonly kind: "write";
+				readonly resource: "experiment";
+				readonly reversible: false;
+				readonly preview: true;
+			},
+			{
+				readonly kind: "delivery";
+				readonly resource: "campaign";
+				readonly audience: "bulk";
+				readonly timing: "immediate";
+				readonly preview: false;
+			},
+		]
+	>["dryRun"]
+> = true;
 
 describe("email operations specification", () => {
 	test("models every public shared operation with governed contracts", () => {
@@ -190,6 +212,7 @@ describe("email operations specification", () => {
 	});
 
 	test("derives safety requirements from operation effects", () => {
+		expect(conflictingPreviewDryRunIsNever).toBe(true);
 		expect(expectedPolicyForEffects([{ kind: "read", resource: "campaign" }]))
 			.toEqual({
 				confirmation: "never",
@@ -615,6 +638,55 @@ describe("email operations specification", () => {
 				},
 			),
 		).toThrow("summary required fields not guaranteed by runtime");
+
+		const circularProduct = {
+			dialect: "openapi-3.1",
+			stage: "normalized",
+			source: "typescript",
+			schema: { $ref: "#/components/schemas/Node" },
+			components: {
+				schemas: {
+					Node: {
+						anyOf: [
+							{
+								type: "object",
+								properties: { value: { type: "string" } },
+								additionalProperties: false,
+							},
+							{ $ref: "#/components/schemas/Node" },
+						],
+					},
+				},
+			},
+		} as const satisfies NormalizedContractSchema;
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.circular",
+				"output",
+				circularProduct,
+				{
+					type: "object",
+					properties: { value: { type: "string" } },
+					additionalProperties: false,
+				},
+			),
+		).not.toThrow();
+
+		const malformedComponents = {
+			...circularProduct,
+			components: undefined,
+		} as unknown as NormalizedContractSchema;
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.malformed-components",
+				"output",
+				malformedComponents,
+				{
+					type: "object",
+					additionalProperties: false,
+				},
+			),
+		).not.toThrow();
 	});
 
 	test("rejects duplicate identities and invalid resource transitions", () => {
