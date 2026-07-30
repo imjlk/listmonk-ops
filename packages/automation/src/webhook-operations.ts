@@ -40,6 +40,7 @@ import {
 	listOutboundWebhookDeliveries,
 	listOutboundWebhookEndpoints,
 	normalizeOutboundWebhookEndpointUrl,
+	outboundWebhookEventFilterSchema,
 	OUTBOUND_WEBHOOK_EVENT_TYPES,
 	OUTBOUND_WEBHOOK_SECRET_REF_PATTERN,
 	pruneOutboundWebhookDeliveries,
@@ -87,25 +88,10 @@ const positiveIntegerInput = z.preprocess(
 	z.coerce.number().int().positive(),
 );
 const endpointIdInput = z.uuid().describe("Outbound webhook endpoint ID");
-const eventFilterInput = z
-	.string()
-	.trim()
-	.min(1)
+const eventFilterInput = outboundWebhookEventFilterSchema
 	.describe("Exact event type, family wildcard such as operation.*, or *");
 const eventTypeInput = z.enum(OUTBOUND_WEBHOOK_EVENT_TYPES);
-const eventFilterOutput = z.union([
-	eventTypeInput,
-	z.enum([
-		"operation.*",
-		"campaign.*",
-		"subscriber.*",
-		"delivery.*",
-		"abtest.*",
-		"sequence.*",
-		"webhook.*",
-	]),
-	z.literal("*"),
-]);
+const eventFilterOutput = outboundWebhookEventFilterSchema;
 const deliveryStatusInput = z.enum([
 	"pending",
 	"delivering",

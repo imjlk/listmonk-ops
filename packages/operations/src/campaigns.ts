@@ -519,6 +519,9 @@ function assertExpectedCampaignRevision(
 	actualUpdatedAt: string | undefined,
 	expectedUpdatedAt: string | undefined,
 ): void {
+	// This comparison narrows the race window after inspection; it is not an
+	// atomic lock because Listmonk's following status write has no ETag-style
+	// conditional request.
 	if (expectedUpdatedAt === undefined) return;
 	if (actualUpdatedAt !== expectedUpdatedAt) {
 		throw new Error(
