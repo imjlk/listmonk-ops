@@ -462,6 +462,10 @@
             "CampaignScheduleInput": {
               "additionalProperties": false,
               "properties": {
+                "expected_updated_at": {
+                  "$ref": "#/components/schemas/NonEmptyString",
+                  "description": "Campaign updated_at observed by the preflight that approved this send."
+                },
                 "id": {
                   "$ref": "#/components/schemas/ResourceId",
                   "description": "Listmonk campaign ID."
@@ -492,6 +496,10 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "expected_updated_at": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Campaign updated_at observed by the preflight that approved this send."
+            },
             "id": {
               "$ref": "#/components/schemas/ResourceId",
               "description": "Listmonk campaign ID."
@@ -743,6 +751,10 @@
             "CampaignLifecycleInput": {
               "additionalProperties": false,
               "properties": {
+                "expected_updated_at": {
+                  "$ref": "#/components/schemas/NonEmptyString",
+                  "description": "Campaign updated_at observed by the preflight that approved this transition."
+                },
                 "id": {
                   "$ref": "#/components/schemas/ResourceId",
                   "description": "Listmonk campaign ID."
@@ -752,6 +764,10 @@
                 "id"
               ],
               "type": "object"
+            },
+            "NonEmptyString": {
+              "minLength": 1,
+              "type": "string"
             },
             "ResourceId": {
               "maximum": 9007199254740991,
@@ -764,6 +780,10 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "expected_updated_at": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Campaign updated_at observed by the preflight that approved this transition."
+            },
             "id": {
               "$ref": "#/components/schemas/ResourceId",
               "description": "Listmonk campaign ID."
@@ -845,6 +865,10 @@
             "CampaignLifecycleInput": {
               "additionalProperties": false,
               "properties": {
+                "expected_updated_at": {
+                  "$ref": "#/components/schemas/NonEmptyString",
+                  "description": "Campaign updated_at observed by the preflight that approved this transition."
+                },
                 "id": {
                   "$ref": "#/components/schemas/ResourceId",
                   "description": "Listmonk campaign ID."
@@ -854,6 +878,10 @@
                 "id"
               ],
               "type": "object"
+            },
+            "NonEmptyString": {
+              "minLength": 1,
+              "type": "string"
             },
             "ResourceId": {
               "maximum": 9007199254740991,
@@ -866,6 +894,10 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "expected_updated_at": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Campaign updated_at observed by the preflight that approved this transition."
+            },
             "id": {
               "$ref": "#/components/schemas/ResourceId",
               "description": "Listmonk campaign ID."
@@ -1331,6 +1363,9 @@
                 "campaignName": {
                   "type": "string"
                 },
+                "campaignUpdatedAt": {
+                  "$ref": "#/components/schemas/NonEmptyString"
+                },
                 "checkedAt": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
@@ -1367,6 +1402,7 @@
               "required": [
                 "campaignId",
                 "campaignName",
+                "campaignUpdatedAt",
                 "status",
                 "audienceEstimate",
                 "checkedAt",
@@ -1377,6 +1413,10 @@
             },
             "IsoDateTime": {
               "format": "date-time",
+              "type": "string"
+            },
+            "NonEmptyString": {
+              "minLength": 1,
               "type": "string"
             },
             "NonNegativeInteger": {
@@ -1407,6 +1447,9 @@
             },
             "campaignName": {
               "type": "string"
+            },
+            "campaignUpdatedAt": {
+              "$ref": "#/components/schemas/NonEmptyString"
             },
             "checkedAt": {
               "$ref": "#/components/schemas/IsoDateTime"
@@ -1444,6 +1487,7 @@
           "required": [
             "campaignId",
             "campaignName",
+            "campaignUpdatedAt",
             "status",
             "audienceEstimate",
             "checkedAt",
@@ -5064,19 +5108,20 @@
       "input": {
         "components": {
           "schemas": {
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
             "Uuid": {
               "format": "uuid",
+              "type": "string"
+            },
+            "WebhookCorrelationId": {
+              "maxLength": 200,
+              "minLength": 1,
               "type": "string"
             },
             "WebhookTestInput": {
               "additionalProperties": false,
               "properties": {
                 "correlation_id": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookCorrelationId"
                 },
                 "id": {
                   "$ref": "#/components/schemas/Uuid"
@@ -5094,7 +5139,7 @@
           "additionalProperties": false,
           "properties": {
             "correlation_id": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/WebhookCorrelationId"
             },
             "id": {
               "$ref": "#/components/schemas/Uuid"
@@ -5798,6 +5843,11 @@
               "format": "uuid",
               "type": "string"
             },
+            "WebhookCorrelationId": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
             "WebhookDelivery": {
               "additionalProperties": false,
               "properties": {
@@ -5854,7 +5904,7 @@
               "additionalProperties": false,
               "properties": {
                 "correlation_id": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookCorrelationId"
                 },
                 "id": {
                   "$ref": "#/components/schemas/Uuid"
@@ -6172,6 +6222,11 @@
               "format": "uuid",
               "type": "string"
             },
+            "WebhookCorrelationId": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
             "WebhookDelivery": {
               "additionalProperties": false,
               "properties": {
@@ -6228,7 +6283,7 @@
               "additionalProperties": false,
               "properties": {
                 "correlation_id": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookCorrelationId"
                 },
                 "id": {
                   "$ref": "#/components/schemas/Uuid"
@@ -7705,6 +7760,11 @@
               "format": "uuid",
               "type": "string"
             },
+            "WebhookCorrelationId": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
             "WebhookDelivery": {
               "additionalProperties": false,
               "properties": {
@@ -7761,7 +7821,7 @@
               "additionalProperties": false,
               "properties": {
                 "correlation_id": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/WebhookCorrelationId"
                 },
                 "id": {
                   "$ref": "#/components/schemas/Uuid"
@@ -8336,6 +8396,12 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceConditionPath": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+              "type": "string"
+            },
             "SequenceStep": {
               "oneOf": [
                 {
@@ -8361,7 +8427,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -8384,7 +8450,7 @@
                       "$ref": "#/components/schemas/PositiveInteger"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait"
@@ -8404,7 +8470,7 @@
                       "$ref": "#/components/schemas/IsoDateTime"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait_until"
@@ -8421,13 +8487,13 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_false": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_true": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "operator": {
                       "oneOf": [
@@ -8443,7 +8509,7 @@
                       ]
                     },
                     "path": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceConditionPath"
                     },
                     "type": {
                       "const": "condition"
@@ -8464,7 +8530,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "stop"
@@ -8478,14 +8544,24 @@
                 }
               ]
             },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "SequenceSteps": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceStep"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
             "SequenceValidateInput": {
               "additionalProperties": false,
               "properties": {
                 "steps": {
-                  "items": {
-                    "$ref": "#/components/schemas/SequenceStep"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/SequenceSteps"
                 }
               },
               "required": [
@@ -8500,10 +8576,7 @@
           "additionalProperties": false,
           "properties": {
             "steps": {
-              "items": {
-                "$ref": "#/components/schemas/SequenceStep"
-              },
-              "type": "array"
+              "$ref": "#/components/schemas/SequenceSteps"
             }
           },
           "required": [
@@ -8517,14 +8590,16 @@
       "output": {
         "components": {
           "schemas": {
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
             "PositiveInteger": {
               "maximum": 9007199254740991,
               "minimum": 1,
               "type": "integer"
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
             },
             "SequenceValidateOutput": {
               "additionalProperties": false,
@@ -8534,7 +8609,7 @@
                 },
                 "step_ids": {
                   "items": {
-                    "$ref": "#/components/schemas/NonEmptyString"
+                    "$ref": "#/components/schemas/SequenceStepId"
                   },
                   "type": "array"
                 },
@@ -8560,7 +8635,7 @@
             },
             "step_ids": {
               "items": {
-                "$ref": "#/components/schemas/NonEmptyString"
+                "$ref": "#/components/schemas/SequenceStepId"
               },
               "type": "array"
             },
@@ -8617,20 +8692,23 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceConditionPath": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+              "type": "string"
+            },
             "SequenceCreateInput": {
               "additionalProperties": false,
               "properties": {
                 "description": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SequenceDescription"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceName"
                 },
                 "steps": {
-                  "items": {
-                    "$ref": "#/components/schemas/SequenceStep"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/SequenceSteps"
                 }
               },
               "required": [
@@ -8638,6 +8716,15 @@
                 "steps"
               ],
               "type": "object"
+            },
+            "SequenceDescription": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "SequenceName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
             },
             "SequenceStep": {
               "oneOf": [
@@ -8664,7 +8751,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -8687,7 +8774,7 @@
                       "$ref": "#/components/schemas/PositiveInteger"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait"
@@ -8707,7 +8794,7 @@
                       "$ref": "#/components/schemas/IsoDateTime"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait_until"
@@ -8724,13 +8811,13 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_false": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_true": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "operator": {
                       "oneOf": [
@@ -8746,7 +8833,7 @@
                       ]
                     },
                     "path": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceConditionPath"
                     },
                     "type": {
                       "const": "condition"
@@ -8767,7 +8854,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "stop"
@@ -8780,6 +8867,19 @@
                   "type": "object"
                 }
               ]
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "SequenceSteps": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceStep"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           }
         },
@@ -8788,16 +8888,13 @@
           "additionalProperties": false,
           "properties": {
             "description": {
-              "type": "string"
+              "$ref": "#/components/schemas/SequenceDescription"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/SequenceName"
             },
             "steps": {
-              "items": {
-                "$ref": "#/components/schemas/SequenceStep"
-              },
-              "type": "array"
+              "$ref": "#/components/schemas/SequenceSteps"
             }
           },
           "required": [
@@ -8834,6 +8931,12 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceConditionPath": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+              "type": "string"
+            },
             "SequenceDefinition": {
               "additionalProperties": false,
               "properties": {
@@ -8844,19 +8947,20 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "description": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SequenceDescription"
                 },
                 "id": {
                   "format": "uuid",
                   "type": "string"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceName"
                 },
                 "revisions": {
                   "items": {
                     "$ref": "#/components/schemas/SequenceRevision"
                   },
+                  "minItems": 1,
                   "type": "array"
                 },
                 "status": {
@@ -8896,6 +9000,15 @@
               ],
               "type": "object"
             },
+            "SequenceDescription": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "SequenceName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "SequenceRevision": {
               "additionalProperties": false,
               "properties": {
@@ -8906,10 +9019,7 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "steps": {
-                  "items": {
-                    "$ref": "#/components/schemas/SequenceStep"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/SequenceSteps"
                 }
               },
               "required": [
@@ -8944,7 +9054,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -8967,7 +9077,7 @@
                       "$ref": "#/components/schemas/PositiveInteger"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait"
@@ -8987,7 +9097,7 @@
                       "$ref": "#/components/schemas/IsoDateTime"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait_until"
@@ -9004,13 +9114,13 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_false": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_true": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "operator": {
                       "oneOf": [
@@ -9026,7 +9136,7 @@
                       ]
                     },
                     "path": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceConditionPath"
                     },
                     "type": {
                       "const": "condition"
@@ -9047,7 +9157,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "stop"
@@ -9060,6 +9170,19 @@
                   "type": "object"
                 }
               ]
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "SequenceSteps": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceStep"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           }
         },
@@ -9118,6 +9241,21 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceConditionPath": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+              "type": "string"
+            },
+            "SequenceDescription": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "SequenceName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "SequenceStep": {
               "oneOf": [
                 {
@@ -9143,7 +9281,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -9166,7 +9304,7 @@
                       "$ref": "#/components/schemas/PositiveInteger"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait"
@@ -9186,7 +9324,7 @@
                       "$ref": "#/components/schemas/IsoDateTime"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait_until"
@@ -9203,13 +9341,13 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_false": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_true": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "operator": {
                       "oneOf": [
@@ -9225,7 +9363,7 @@
                       ]
                     },
                     "path": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceConditionPath"
                     },
                     "type": {
                       "const": "condition"
@@ -9246,7 +9384,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "stop"
@@ -9260,24 +9398,34 @@
                 }
               ]
             },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "SequenceSteps": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceStep"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
             "SequenceUpdateInput": {
               "additionalProperties": false,
               "properties": {
                 "description": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SequenceDescription"
                 },
                 "id": {
                   "format": "uuid",
                   "type": "string"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceName"
                 },
                 "steps": {
-                  "items": {
-                    "$ref": "#/components/schemas/SequenceStep"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/SequenceSteps"
                 }
               },
               "required": [
@@ -9293,20 +9441,17 @@
           "additionalProperties": false,
           "properties": {
             "description": {
-              "type": "string"
+              "$ref": "#/components/schemas/SequenceDescription"
             },
             "id": {
               "format": "uuid",
               "type": "string"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/SequenceName"
             },
             "steps": {
-              "items": {
-                "$ref": "#/components/schemas/SequenceStep"
-              },
-              "type": "array"
+              "$ref": "#/components/schemas/SequenceSteps"
             }
           },
           "required": [
@@ -9343,6 +9488,12 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceConditionPath": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+              "type": "string"
+            },
             "SequenceDefinition": {
               "additionalProperties": false,
               "properties": {
@@ -9353,19 +9504,20 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "description": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SequenceDescription"
                 },
                 "id": {
                   "format": "uuid",
                   "type": "string"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceName"
                 },
                 "revisions": {
                   "items": {
                     "$ref": "#/components/schemas/SequenceRevision"
                   },
+                  "minItems": 1,
                   "type": "array"
                 },
                 "status": {
@@ -9405,6 +9557,15 @@
               ],
               "type": "object"
             },
+            "SequenceDescription": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "SequenceName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "SequenceRevision": {
               "additionalProperties": false,
               "properties": {
@@ -9415,10 +9576,7 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "steps": {
-                  "items": {
-                    "$ref": "#/components/schemas/SequenceStep"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/SequenceSteps"
                 }
               },
               "required": [
@@ -9453,7 +9611,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -9476,7 +9634,7 @@
                       "$ref": "#/components/schemas/PositiveInteger"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait"
@@ -9496,7 +9654,7 @@
                       "$ref": "#/components/schemas/IsoDateTime"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait_until"
@@ -9513,13 +9671,13 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_false": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_true": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "operator": {
                       "oneOf": [
@@ -9535,7 +9693,7 @@
                       ]
                     },
                     "path": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceConditionPath"
                     },
                     "type": {
                       "const": "condition"
@@ -9556,7 +9714,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "stop"
@@ -9569,6 +9727,19 @@
                   "type": "object"
                 }
               ]
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "SequenceSteps": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceStep"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           }
         },
@@ -9670,6 +9841,12 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceConditionPath": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+              "type": "string"
+            },
             "SequenceDefinition": {
               "additionalProperties": false,
               "properties": {
@@ -9680,19 +9857,20 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "description": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SequenceDescription"
                 },
                 "id": {
                   "format": "uuid",
                   "type": "string"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceName"
                 },
                 "revisions": {
                   "items": {
                     "$ref": "#/components/schemas/SequenceRevision"
                   },
+                  "minItems": 1,
                   "type": "array"
                 },
                 "status": {
@@ -9720,6 +9898,10 @@
               ],
               "type": "object"
             },
+            "SequenceDescription": {
+              "maxLength": 500,
+              "type": "string"
+            },
             "SequenceListOutput": {
               "additionalProperties": false,
               "properties": {
@@ -9735,6 +9917,11 @@
               ],
               "type": "object"
             },
+            "SequenceName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "SequenceRevision": {
               "additionalProperties": false,
               "properties": {
@@ -9745,10 +9932,7 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "steps": {
-                  "items": {
-                    "$ref": "#/components/schemas/SequenceStep"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/SequenceSteps"
                 }
               },
               "required": [
@@ -9783,7 +9967,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -9806,7 +9990,7 @@
                       "$ref": "#/components/schemas/PositiveInteger"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait"
@@ -9826,7 +10010,7 @@
                       "$ref": "#/components/schemas/IsoDateTime"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait_until"
@@ -9843,13 +10027,13 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_false": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_true": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "operator": {
                       "oneOf": [
@@ -9865,7 +10049,7 @@
                       ]
                     },
                     "path": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceConditionPath"
                     },
                     "type": {
                       "const": "condition"
@@ -9886,7 +10070,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "stop"
@@ -9899,6 +10083,19 @@
                   "type": "object"
                 }
               ]
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "SequenceSteps": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceStep"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           }
         },
@@ -9995,6 +10192,12 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceConditionPath": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+              "type": "string"
+            },
             "SequenceDefinition": {
               "additionalProperties": false,
               "properties": {
@@ -10005,19 +10208,20 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "description": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SequenceDescription"
                 },
                 "id": {
                   "format": "uuid",
                   "type": "string"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceName"
                 },
                 "revisions": {
                   "items": {
                     "$ref": "#/components/schemas/SequenceRevision"
                   },
+                  "minItems": 1,
                   "type": "array"
                 },
                 "status": {
@@ -10057,6 +10261,15 @@
               ],
               "type": "object"
             },
+            "SequenceDescription": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "SequenceName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "SequenceRevision": {
               "additionalProperties": false,
               "properties": {
@@ -10067,10 +10280,7 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "steps": {
-                  "items": {
-                    "$ref": "#/components/schemas/SequenceStep"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/SequenceSteps"
                 }
               },
               "required": [
@@ -10105,7 +10315,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -10128,7 +10338,7 @@
                       "$ref": "#/components/schemas/PositiveInteger"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait"
@@ -10148,7 +10358,7 @@
                       "$ref": "#/components/schemas/IsoDateTime"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait_until"
@@ -10165,13 +10375,13 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_false": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_true": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "operator": {
                       "oneOf": [
@@ -10187,7 +10397,7 @@
                       ]
                     },
                     "path": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceConditionPath"
                     },
                     "type": {
                       "const": "condition"
@@ -10208,7 +10418,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "stop"
@@ -10221,6 +10431,19 @@
                   "type": "object"
                 }
               ]
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "SequenceSteps": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceStep"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           }
         },
@@ -10314,6 +10537,12 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceConditionPath": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+              "type": "string"
+            },
             "SequenceDefinition": {
               "additionalProperties": false,
               "properties": {
@@ -10324,19 +10553,20 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "description": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SequenceDescription"
                 },
                 "id": {
                   "format": "uuid",
                   "type": "string"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceName"
                 },
                 "revisions": {
                   "items": {
                     "$ref": "#/components/schemas/SequenceRevision"
                   },
+                  "minItems": 1,
                   "type": "array"
                 },
                 "status": {
@@ -10380,6 +10610,15 @@
               ],
               "type": "object"
             },
+            "SequenceDescription": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "SequenceName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "SequenceRevision": {
               "additionalProperties": false,
               "properties": {
@@ -10390,10 +10629,7 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "steps": {
-                  "items": {
-                    "$ref": "#/components/schemas/SequenceStep"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/SequenceSteps"
                 }
               },
               "required": [
@@ -10428,7 +10664,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -10451,7 +10687,7 @@
                       "$ref": "#/components/schemas/PositiveInteger"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait"
@@ -10471,7 +10707,7 @@
                       "$ref": "#/components/schemas/IsoDateTime"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait_until"
@@ -10488,13 +10724,13 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_false": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_true": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "operator": {
                       "oneOf": [
@@ -10510,7 +10746,7 @@
                       ]
                     },
                     "path": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceConditionPath"
                     },
                     "type": {
                       "const": "condition"
@@ -10531,7 +10767,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "stop"
@@ -10544,6 +10780,19 @@
                   "type": "object"
                 }
               ]
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "SequenceSteps": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceStep"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           }
         },
@@ -10656,10 +10905,6 @@
               "format": "date-time",
               "type": "string"
             },
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
             "NonNegativeInteger": {
               "maximum": 9007199254740991,
               "minimum": 0,
@@ -10682,7 +10927,7 @@
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
                 "current_step_id": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceStepId"
                 },
                 "id": {
                   "format": "uuid",
@@ -10764,6 +11009,12 @@
                 "enrollment"
               ],
               "type": "object"
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
             }
           }
         },
@@ -10919,10 +11170,6 @@
               "format": "date-time",
               "type": "string"
             },
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
             "NonNegativeInteger": {
               "maximum": 9007199254740991,
               "minimum": 0,
@@ -10945,7 +11192,7 @@
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
                 "current_step_id": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceStepId"
                 },
                 "id": {
                   "format": "uuid",
@@ -11030,6 +11277,12 @@
                 "enrollments"
               ],
               "type": "object"
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
             }
           }
         },
@@ -11108,10 +11361,6 @@
               "format": "date-time",
               "type": "string"
             },
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
             "NonNegativeInteger": {
               "maximum": 9007199254740991,
               "minimum": 0,
@@ -11134,7 +11383,7 @@
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
                 "current_step_id": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceStepId"
                 },
                 "id": {
                   "format": "uuid",
@@ -11216,6 +11465,12 @@
                 "enrollment"
               ],
               "type": "object"
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
             }
           }
         },
@@ -11309,6 +11564,12 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceConditionPath": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+              "type": "string"
+            },
             "SequenceDefinition": {
               "additionalProperties": false,
               "properties": {
@@ -11319,19 +11580,20 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "description": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SequenceDescription"
                 },
                 "id": {
                   "format": "uuid",
                   "type": "string"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceName"
                 },
                 "revisions": {
                   "items": {
                     "$ref": "#/components/schemas/SequenceRevision"
                   },
+                  "minItems": 1,
                   "type": "array"
                 },
                 "status": {
@@ -11371,6 +11633,15 @@
               ],
               "type": "object"
             },
+            "SequenceDescription": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "SequenceName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "SequenceRevision": {
               "additionalProperties": false,
               "properties": {
@@ -11381,10 +11652,7 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "steps": {
-                  "items": {
-                    "$ref": "#/components/schemas/SequenceStep"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/SequenceSteps"
                 }
               },
               "required": [
@@ -11419,7 +11687,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -11442,7 +11710,7 @@
                       "$ref": "#/components/schemas/PositiveInteger"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait"
@@ -11462,7 +11730,7 @@
                       "$ref": "#/components/schemas/IsoDateTime"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait_until"
@@ -11479,13 +11747,13 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_false": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_true": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "operator": {
                       "oneOf": [
@@ -11501,7 +11769,7 @@
                       ]
                     },
                     "path": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceConditionPath"
                     },
                     "type": {
                       "const": "condition"
@@ -11522,7 +11790,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "stop"
@@ -11535,6 +11803,19 @@
                   "type": "object"
                 }
               ]
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "SequenceSteps": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceStep"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           }
         },
@@ -11628,6 +11909,12 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceConditionPath": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+              "type": "string"
+            },
             "SequenceDefinition": {
               "additionalProperties": false,
               "properties": {
@@ -11638,19 +11925,20 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "description": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SequenceDescription"
                 },
                 "id": {
                   "format": "uuid",
                   "type": "string"
                 },
                 "name": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceName"
                 },
                 "revisions": {
                   "items": {
                     "$ref": "#/components/schemas/SequenceRevision"
                   },
+                  "minItems": 1,
                   "type": "array"
                 },
                 "status": {
@@ -11690,6 +11978,15 @@
               ],
               "type": "object"
             },
+            "SequenceDescription": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "SequenceName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
             "SequenceRevision": {
               "additionalProperties": false,
               "properties": {
@@ -11700,10 +11997,7 @@
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "steps": {
-                  "items": {
-                    "$ref": "#/components/schemas/SequenceStep"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/SequenceSteps"
                 }
               },
               "required": [
@@ -11738,7 +12032,7 @@
                       "$ref": "#/components/schemas/NonEmptyString"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -11761,7 +12055,7 @@
                       "$ref": "#/components/schemas/PositiveInteger"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait"
@@ -11781,7 +12075,7 @@
                       "$ref": "#/components/schemas/IsoDateTime"
                     },
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "wait_until"
@@ -11798,13 +12092,13 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_false": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "on_true": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "operator": {
                       "oneOf": [
@@ -11820,7 +12114,7 @@
                       ]
                     },
                     "path": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceConditionPath"
                     },
                     "type": {
                       "const": "condition"
@@ -11841,7 +12135,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "id": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/SequenceStepId"
                     },
                     "type": {
                       "const": "stop"
@@ -11854,6 +12148,19 @@
                   "type": "object"
                 }
               ]
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "SequenceSteps": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceStep"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           }
         },
@@ -12128,10 +12435,6 @@
               "format": "date-time",
               "type": "string"
             },
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
             "NonNegativeInteger": {
               "maximum": 9007199254740991,
               "minimum": 0,
@@ -12154,7 +12457,7 @@
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
                 "current_step_id": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/SequenceStepId"
                 },
                 "id": {
                   "format": "uuid",
@@ -12251,6 +12554,12 @@
                 "dry_run"
               ],
               "type": "object"
+            },
+            "SequenceStepId": {
+              "maxLength": 80,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
             }
           }
         },
@@ -17506,6 +17815,11 @@
         "dialect": "openapi-3.1",
         "schema": {
           "properties": {
+            "expected_updated_at": {
+              "description": "Campaign updated_at observed by the preflight that approved this transition",
+              "minLength": 1,
+              "type": "string"
+            },
             "id": {
               "anyOf": [
                 {
@@ -23890,6 +24204,29 @@
               "description": "Confirm destructive side effects before running",
               "type": "boolean"
             },
+            "expected_status": {
+              "description": "A/B test status observed before approval",
+              "enum": [
+                "draft",
+                "testing",
+                "scheduled",
+                "running",
+                "analyzing",
+                "deploying",
+                "cancelling",
+                "completed",
+                "inconclusive",
+                "cancelled",
+                "failed"
+              ],
+              "type": "string"
+            },
+            "expected_updated_at": {
+              "description": "A/B test updatedAt revision token observed before approval; copy the value verbatim",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+              "type": "string"
+            },
             "test_id": {
               "description": "A/B test ID",
               "minLength": 1,
@@ -24713,7 +25050,7 @@
       "policy": {
         "audit": "required",
         "confirmation": "required",
-        "dryRun": true
+        "dryRun": false
       },
       "retry": {
         "kind": "safe",

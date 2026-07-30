@@ -365,6 +365,15 @@ const analyzeAbTestInputSchema = testIdInputSchema.extend({
 
 const runAbTestInputSchema = z.object({
 	test_id: z.string().trim().min(1).describe("A/B test ID"),
+	expected_status: abTestStatusSchema
+		.optional()
+		.describe("A/B test status observed before approval"),
+	expected_updated_at: z
+		.iso.datetime()
+		.optional()
+		.describe(
+			"A/B test updatedAt revision token observed before approval; copy the value verbatim",
+		),
 	confirm: optionalBooleanSchema.describe(
 		"Confirm destructive side effects before running",
 	),
@@ -655,7 +664,10 @@ export async function executeRunAbTestOperation(
 				context,
 				"write",
 				async (executors) => {
-					const run = await executors.runAbTest(input.test_id);
+					const run = await executors.runAbTest(input.test_id, {
+						expectedStatus: input.expected_status,
+						expectedUpdatedAt: input.expected_updated_at,
+					});
 					if (!run) {
 						throw new AbTestNotFoundError(input.test_id);
 					}

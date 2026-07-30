@@ -183,7 +183,7 @@ function collectHeaderIssues(
 export const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]+$/;
 export const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
 
-export const idempotencyKeySchema = z
+const idempotencyKeyBaseSchema = z
 	.string()
 	.trim()
 	.min(1)
@@ -191,7 +191,9 @@ export const idempotencyKeySchema = z
 	.regex(
 		IDEMPOTENCY_KEY_PATTERN,
 		"idempotency_key must contain only letters, digits, and . _ : - characters",
-	)
+	);
+
+export const idempotencyKeySchema = idempotencyKeyBaseSchema
 	.optional()
 	.describe(
 		"Optional client-supplied idempotency key. When set, a retry with the same key and payload replays the original result instead of re-sending. Different payload with the same key is rejected as a conflict.",
@@ -277,8 +279,7 @@ const sendTransactionalOutputSchema = z
 			.boolean()
 			.optional()
 			.describe("True when the result was replayed from an idempotency record"),
-		idempotency_key: z
-			.string()
+		idempotency_key: idempotencyKeyBaseSchema
 			.optional()
 			.describe("Echoed back when an idempotency key was supplied"),
 		expires_at: z

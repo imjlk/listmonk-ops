@@ -388,6 +388,14 @@ export const campaignSafeStartPlaybook = defineOperationPlaybook({
 					parameter: "id",
 					source: { kind: "playbook-input", name: "campaign_id" },
 				},
+				{
+					parameter: "expected_updated_at",
+					source: {
+						kind: "step-output",
+						stepId: "preflight",
+						path: "campaignUpdatedAt",
+					},
+				},
 			],
 		},
 		{

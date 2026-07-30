@@ -418,6 +418,14 @@ const scheduleCampaignInputSchema = z
 			.trim()
 			.min(1)
 			.describe("ISO 8601 (or Listmonk-compatible) scheduled send timestamp"),
+		expected_updated_at: z
+			.string()
+			.trim()
+			.min(1)
+			.optional()
+			.describe(
+				"Campaign updated_at observed by the preflight that approved this send",
+			),
 	})
 	.refine(
 		(input) => isParseableCampaignSendAt(input.send_at),
@@ -430,6 +438,14 @@ const scheduleCampaignInputSchema = z
 
 const campaignLifecycleInputSchema = z.object({
 	id: resourceIdSchema,
+	expected_updated_at: z
+		.string()
+		.trim()
+		.min(1)
+		.optional()
+		.describe(
+			"Campaign updated_at observed by the preflight that approved this transition",
+		),
 });
 
 const cloneCampaignInputSchema = z.object({
@@ -480,7 +496,12 @@ async function loadCampaignForTransitionForTarget(
 	client: Pick<ListmonkClient, "campaign">,
 	id: number,
 	target: CampaignLifecycleTarget,
-): Promise<{ id: number; status: string; send_at: string | null | undefined }> {
+): Promise<{
+	id: number;
+	status: string;
+	send_at: string | null | undefined;
+	updated_at: string | undefined;
+}> {
 	const response = await client.campaign.getById({ path: { id } });
 	const campaign = asCampaign(
 		unwrapResourceResponse(response, "Failed to load campaign for transition"),
@@ -490,7 +511,25 @@ async function loadCampaignForTransitionForTarget(
 	if (currentStatus !== target) {
 		assertCampaignTransition(currentStatus, target);
 	}
-	return { id, status: currentStatus, send_at: campaign.send_at };
+	return {
+		id,
+		status: currentStatus,
+		send_at: campaign.send_at,
+		updated_at: campaign.updated_at,
+	};
+}
+
+function assertExpectedCampaignRevision(
+	id: number,
+	actualUpdatedAt: string | undefined,
+	expectedUpdatedAt: string | undefined,
+): void {
+	if (expectedUpdatedAt === undefined) return;
+	if (actualUpdatedAt !== expectedUpdatedAt) {
+		throw new Error(
+			`Campaign ${id} changed after preflight (expected updated_at ${expectedUpdatedAt}, current ${actualUpdatedAt ?? "<missing>"}); inspect and preflight the campaign again`,
+		);
+	}
 }
 
 const CAMPAIGN_LIFECYCLE_VERBS: Readonly<Record<CampaignLifecycleTarget, string>> = {
@@ -502,7 +541,7 @@ const CAMPAIGN_LIFECYCLE_VERBS: Readonly<Record<CampaignLifecycleTarget, string>
 
 async function transitionCampaign(
 	ctx: CampaignOperationContext,
-	id: number,
+	input: z.output<typeof campaignLifecycleInputSchema>,
 	target: CampaignLifecycleTarget,
 ): Promise<{ id: number; status: string }> {
 	// loadCampaignForTransitionForTarget reads the current campaign and asserts the
@@ -512,19 +551,24 @@ async function transitionCampaign(
 	// metadata and allows safe client retries after timeouts.
 	const loaded = await loadCampaignForTransitionForTarget(
 		ctx.client,
-		id,
+		input.id,
 		target,
 	);
+	assertExpectedCampaignRevision(
+		input.id,
+		loaded.updated_at,
+		input.expected_updated_at,
+	);
 	if (loaded.status === target) {
-		return { id, status: target };
+		return { id: input.id, status: target };
 	}
 	const response = await ctx.client.campaign.updateStatus({
-		path: { id },
+		path: { id: input.id },
 		body: { status: target },
 	});
 	const verb = CAMPAIGN_LIFECYCLE_VERBS[target] ?? target;
-	requireAcknowledgement(response, `Failed to ${verb} campaign ${id}`);
-	return { id, status: target };
+	requireAcknowledgement(response, `Failed to ${verb} campaign ${input.id}`);
+	return { id: input.id, status: target };
 }
 
 export async function scheduleCampaign(
@@ -547,6 +591,11 @@ export async function scheduleCampaign(
 		ctx.client,
 		input.id,
 		"scheduled",
+	);
+	assertExpectedCampaignRevision(
+		input.id,
+		loaded.updated_at,
+		input.expected_updated_at,
 	);
 	// Idempotent no-op: if the campaign is already scheduled with the
 	// same send_at, return success without re-calling the API.
@@ -602,7 +651,7 @@ export async function startCampaign(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof campaignLifecycleInputSchema>,
 ): Promise<z.output<typeof campaignLifecycleOutputSchema>> {
-	return transitionCampaign(ctx, input.id, "running");
+	return transitionCampaign(ctx, input, "running");
 }
 
 /**
@@ -614,7 +663,7 @@ export async function pauseCampaign(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof campaignLifecycleInputSchema>,
 ): Promise<z.output<typeof campaignLifecycleOutputSchema>> {
-	return transitionCampaign(ctx, input.id, "paused");
+	return transitionCampaign(ctx, input, "paused");
 }
 
 /**
@@ -626,7 +675,7 @@ export async function cancelCampaign(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof campaignLifecycleInputSchema>,
 ): Promise<z.output<typeof campaignLifecycleOutputSchema>> {
-	return transitionCampaign(ctx, input.id, "cancelled");
+	return transitionCampaign(ctx, input, "cancelled");
 }
 
 export async function cloneCampaign(

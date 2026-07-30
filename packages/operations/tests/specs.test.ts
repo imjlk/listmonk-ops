@@ -169,6 +169,33 @@ describe("email operations specification", () => {
 				destructive: true,
 			},
 		]);
+		expect(
+			bridgedOperationSpecsById["ops.subscribers.hygiene"].effects,
+		).toEqual([
+			{
+				kind: "write",
+				resource: "subscriber",
+				reversible: true,
+				preview: true,
+			},
+			{
+				kind: "suppression",
+				resource: "subscriber",
+				scope: "audience",
+				reversible: false,
+				preview: true,
+			},
+		]);
+		expect(
+			bridgedOperationSpecsById["abtest.deploy-winner"].effects,
+		).toEqual(
+			expect.arrayContaining([
+				{ kind: "write", resource: "campaign", reversible: true },
+			]),
+		);
+		expect(
+			bridgedOperationSpecsById["abtest.reconcile"].policy.dryRun,
+		).toBe(false);
 		expect(emailOperationsSpec.events.map((event) => event.type)).toContain(
 			"operation.succeeded",
 		);
@@ -669,6 +696,155 @@ describe("email operations specification", () => {
 			),
 		).toThrow("summary required fields not guaranteed by runtime");
 
+		const constrainedStringsAndArrays = {
+			...productInput,
+			schema: {
+				type: "object",
+				properties: {
+					token: {
+						type: "string",
+						minLength: 1,
+						maxLength: 8,
+						pattern: "^[a-z]+$",
+					},
+					items: {
+						type: "array",
+						minItems: 1,
+						maxItems: 3,
+						items: { type: "string" },
+					},
+				},
+				required: ["token", "items"],
+				additionalProperties: false,
+			},
+		} as const satisfies NormalizedContractSchema;
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.string-output",
+				"output",
+				constrainedStringsAndArrays,
+				{
+					type: "object",
+					properties: {
+						token: { type: "string", maxLength: 8, pattern: "^[a-z]+$" },
+						items: {
+							type: "array",
+							minItems: 1,
+							maxItems: 3,
+							items: { type: "string" },
+						},
+					},
+					required: ["token", "items"],
+					additionalProperties: false,
+				},
+			),
+		).toThrow("token minLength drifted");
+		for (const [runtimeToken, expectedMessage] of [
+			[
+				{
+					type: "string",
+					minLength: 1,
+					maxLength: 9,
+					pattern: "^[a-z]+$",
+				},
+				"token maxLength drifted",
+			],
+			[
+				{
+					type: "string",
+					minLength: 1,
+					maxLength: 8,
+					pattern: "^[a-z0-9]+$",
+				},
+				"token pattern drifted",
+			],
+		] as const) {
+			expect(() =>
+				assertTypeScriptContractCompatibility(
+					"test.string-output",
+					"output",
+					constrainedStringsAndArrays,
+					{
+						type: "object",
+						properties: {
+							token: runtimeToken,
+							items: {
+								type: "array",
+								minItems: 1,
+								maxItems: 3,
+								items: { type: "string" },
+							},
+						},
+						required: ["token", "items"],
+						additionalProperties: false,
+					},
+				),
+			).toThrow(expectedMessage);
+		}
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.array-input",
+				"input",
+				{
+					...constrainedStringsAndArrays,
+					schema: {
+						...constrainedStringsAndArrays.schema,
+						properties: {
+							...constrainedStringsAndArrays.schema.properties,
+							items: {
+								type: "array",
+								items: { type: "string" },
+							},
+						},
+					},
+				},
+				{
+					type: "object",
+					properties: {
+						token: {
+							type: "string",
+							minLength: 1,
+							maxLength: 8,
+							pattern: "^[a-z]+$",
+						},
+						items: {
+							type: "array",
+							minItems: 1,
+							items: { type: "string" },
+						},
+					},
+					required: ["token", "items"],
+					additionalProperties: false,
+				},
+			),
+		).toThrow("items minItems drifted");
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.array-output",
+				"output",
+				constrainedStringsAndArrays,
+				{
+					type: "object",
+					properties: {
+						token: {
+							type: "string",
+							minLength: 1,
+							maxLength: 8,
+							pattern: "^[a-z]+$",
+						},
+						items: {
+							type: "array",
+							minItems: 1,
+							maxItems: 4,
+							items: { type: "string" },
+						},
+					},
+					required: ["token", "items"],
+					additionalProperties: false,
+				},
+			),
+		).toThrow("items maxItems drifted");
+
 		const circularProduct = {
 			dialect: "openapi-3.1",
 			stage: "normalized",
@@ -1001,6 +1177,51 @@ describe("email operations specification", () => {
 				name: "expected_remote_hash",
 			},
 		});
+		const scheduleStep = emailOperationsSpec.playbooks
+			.find((playbook) => playbook.id === "campaign.safe-schedule")
+			?.steps.find((step) => step.id === "schedule");
+		expect(scheduleStep?.input).toContainEqual({
+			parameter: "expected_updated_at",
+			source: {
+				kind: "step-output",
+				stepId: "preflight",
+				path: "campaignUpdatedAt",
+			},
+		});
+		const startStep = campaignSafeStartPlaybook.steps.find(
+			(step) => step.id === "start",
+		);
+		expect(startStep?.input).toContainEqual({
+			parameter: "expected_updated_at",
+			source: {
+				kind: "step-output",
+				stepId: "preflight",
+				path: "campaignUpdatedAt",
+			},
+		});
+		const abTestRunStep = emailOperationsSpec.playbooks
+			.find((playbook) => playbook.id === "abtest.safe-run")
+			?.steps.find((step) => step.id === "run");
+		expect(abTestRunStep?.input).toEqual(
+			expect.arrayContaining([
+				{
+					parameter: "expected_status",
+					source: {
+						kind: "step-output",
+						stepId: "inspect",
+						path: "test.status",
+					},
+				},
+				{
+					parameter: "expected_updated_at",
+					source: {
+						kind: "step-output",
+						stepId: "inspect",
+						path: "test.updatedAt",
+					},
+				},
+			]),
+		);
 
 		expect(() =>
 			defineOperationPlaybook({

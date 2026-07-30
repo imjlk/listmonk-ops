@@ -86,6 +86,14 @@ export const campaignSafeSchedulePlaybook = defineOperationPlaybook({
 					parameter: "send_at",
 					source: { kind: "playbook-input", name: "send_at" },
 				},
+				{
+					parameter: "expected_updated_at",
+					source: {
+						kind: "step-output",
+						stepId: "preflight",
+						path: "campaignUpdatedAt",
+					},
+				},
 			],
 		},
 		{
@@ -250,6 +258,22 @@ export const abTestSafeRunPlaybook = defineOperationPlaybook({
 				{
 					parameter: "test_id",
 					source: { kind: "playbook-input", name: "test_id" },
+				},
+				{
+					parameter: "expected_status",
+					source: {
+						kind: "step-output",
+						stepId: "inspect",
+						path: "test.status",
+					},
+				},
+				{
+					parameter: "expected_updated_at",
+					source: {
+						kind: "step-output",
+						stepId: "inspect",
+						path: "test.updatedAt",
+					},
 				},
 				{
 					parameter: "confirm",

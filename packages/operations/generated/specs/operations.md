@@ -1000,7 +1000,7 @@ Run the winback or sunset subscriber hygiene workflow
 - Resource / verb: `subscriber.hygiene`
 - MCP tool: `listmonk_ops_subscriber_hygiene`
 - Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `suppression:audience`
+- Effects: `write:subscriber, suppression:audience`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
@@ -1180,7 +1180,7 @@ Deploy a statistically significant winner to the holdout group
 - Resource / verb: `experiment.deploy-winner`
 - MCP tool: `listmonk_abtest_deploy_winner`
 - Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, delivery:bulk:immediate`
+- Effects: `write:experiment, write:campaign, delivery:bulk:immediate`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
@@ -1217,7 +1217,7 @@ Reconcile persisted A/B test state against expected lifecycle state; repairs are
 - MCP tool: `listmonk_abtest_reconcile`
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `maintenance:resolve:destructive`
-- Policy: confirmation `required`, audit `required`, dry-run `true`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 

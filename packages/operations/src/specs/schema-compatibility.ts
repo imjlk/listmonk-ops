@@ -307,10 +307,78 @@ function schemaItems(
 
 function scalarConstraint(
 	schema: JsonSchemaObject,
-	key: "format",
+	key: "format" | "pattern",
 ): string | undefined {
 	const value = schema[key];
 	return typeof value === "string" ? value : undefined;
+}
+
+function normalizedPattern(schema: JsonSchemaObject): string | undefined {
+	return scalarConstraint(schema, "pattern")?.replaceAll("\\/", "/");
+}
+
+function integerConstraint(
+	schema: JsonSchemaObject,
+	key: "maxItems" | "maxLength" | "minItems" | "minLength",
+): number | undefined {
+	const value = schema[key];
+	return typeof value === "number" && Number.isInteger(value)
+		? value
+		: undefined;
+}
+
+function stringLiteralValues(
+	schema: JsonSchemaObject,
+	contract: NormalizedContractSchema,
+): readonly string[] | undefined {
+	const literals = schemaLiterals(schema, contract);
+	if (literals === undefined) return undefined;
+	const values: string[] = [];
+	for (const literal of literals) {
+		try {
+			const value: unknown = JSON.parse(literal);
+			if (typeof value !== "string") return undefined;
+			values.push(value);
+		} catch {
+			return undefined;
+		}
+	}
+	return values;
+}
+
+function effectiveStringLengthConstraint(
+	schema: JsonSchemaObject,
+	contract: NormalizedContractSchema,
+	key: "maxLength" | "minLength",
+): number | undefined {
+	const declared = integerConstraint(schema, key);
+	if (declared !== undefined) return declared;
+	const literals = stringLiteralValues(schema, contract);
+	if (literals === undefined || literals.length === 0) return undefined;
+	// Runtime contracts are produced by Zod/typia validators, whose string
+	// length checks use JavaScript UTF-16 code units. Mirror that executable
+	// boundary here rather than applying a different code-point count.
+	const lengths = literals.map((literal) => literal.length);
+	return key === "minLength" ? Math.min(...lengths) : Math.max(...lengths);
+}
+
+function assertIntegerConstraintCompatibility(
+	operationId: string,
+	direction: "input" | "output",
+	path: string,
+	label: "maxItems" | "maxLength" | "minItems" | "minLength",
+	acceptedValue: number | undefined,
+	actualValue: number | undefined,
+	isCompatible: (actual: number, accepted: number) => boolean,
+): void {
+	if (
+		acceptedValue !== undefined &&
+		(actualValue === undefined || !isCompatible(actualValue, acceptedValue))
+	) {
+		throw new TypeError(
+			`Runtime operation ${operationId} ${direction} ${path} ${label} drifted`,
+		);
+	}
 }
 
 interface NumericBound {
@@ -401,6 +469,10 @@ function assertScalarCompatibility(
 	const runtime = resolveSchema(runtimeSchemas[0]!, runtimeContract);
 	const actual = direction === "input" ? product : runtime;
 	const accepted = direction === "input" ? runtime : product;
+	const actualContract =
+		direction === "input" ? productContract : runtimeContract;
+	const acceptedContract =
+		direction === "input" ? runtimeContract : productContract;
 	const actualIsInteger = schemaTypes(
 		actual,
 		direction === "input" ? productContract : runtimeContract,
@@ -411,13 +483,83 @@ function assertScalarCompatibility(
 	).has("integer");
 
 	const acceptedFormat = scalarConstraint(accepted, "format");
+	const actualFormat = scalarConstraint(actual, "format");
 	if (
 		direction === "output" &&
 		acceptedFormat !== undefined &&
-		scalarConstraint(actual, "format") !== acceptedFormat
+		actualFormat !== acceptedFormat
 	) {
 		throw new TypeError(
 			`Runtime operation ${operationId} ${direction} ${path} format drifted`,
+		);
+	}
+	const acceptedMinLength = effectiveStringLengthConstraint(
+		accepted,
+		acceptedContract,
+		"minLength",
+	);
+	const actualMinLength = effectiveStringLengthConstraint(
+		actual,
+		actualContract,
+		"minLength",
+	);
+	assertIntegerConstraintCompatibility(
+		operationId,
+		direction,
+		path,
+		"minLength",
+		acceptedMinLength,
+		actualMinLength,
+		(actualValue, acceptedValue) => actualValue >= acceptedValue,
+	);
+	const acceptedMaxLength = effectiveStringLengthConstraint(
+		accepted,
+		acceptedContract,
+		"maxLength",
+	);
+	const actualMaxLength = effectiveStringLengthConstraint(
+		actual,
+		actualContract,
+		"maxLength",
+	);
+	assertIntegerConstraintCompatibility(
+		operationId,
+		direction,
+		path,
+		"maxLength",
+		acceptedMaxLength,
+		actualMaxLength,
+		(actualValue, acceptedValue) => actualValue <= acceptedValue,
+	);
+	const acceptedPattern = normalizedPattern(accepted);
+	const actualStringLiterals = stringLiteralValues(actual, actualContract);
+	const literalsMatchAcceptedPattern =
+		actualStringLiterals !== undefined &&
+		(() => {
+			try {
+				const pattern = new RegExp(acceptedPattern ?? "");
+				return actualStringLiterals.every((literal) => pattern.test(literal));
+			} catch {
+				return false;
+			}
+		})();
+	if (
+		acceptedPattern !== undefined &&
+		normalizedPattern(actual) !== acceptedPattern &&
+		!(
+			acceptedFormat !== undefined &&
+			actualFormat !== undefined &&
+			actualFormat === acceptedFormat
+		) &&
+		!literalsMatchAcceptedPattern
+	) {
+		// General regex containment is undecidable. Require exact equality when
+		// the accepting side declares a product-specific pattern so a widened
+		// runtime contract cannot silently pass compatibility checks. Matching
+		// standard formats (for example `email`) are the semantic contract;
+		// typia and Zod may attach different implementation regexes for them.
+		throw new TypeError(
+			`Runtime operation ${operationId} ${direction} ${path} pattern drifted`,
 		);
 	}
 	const actualLower = actualIsInteger
@@ -448,6 +590,45 @@ function assertScalarCompatibility(
 			`Runtime operation ${operationId} ${direction} ${path} maximum drifted`,
 		);
 	}
+}
+
+function assertArrayCardinalityCompatibility(
+	operationId: string,
+	direction: "input" | "output",
+	path: string,
+	productSchemas: readonly JsonSchemaObject[],
+	productContract: NormalizedContractSchema,
+	runtimeSchemas: readonly JsonSchemaObject[],
+	runtimeContract: NormalizedContractSchema,
+): void {
+	if (productSchemas.length !== 1 || runtimeSchemas.length !== 1) return;
+	const product = resolveSchema(productSchemas[0]!, productContract);
+	const runtime = resolveSchema(runtimeSchemas[0]!, runtimeContract);
+	const actual = direction === "input" ? product : runtime;
+	const accepted = direction === "input" ? runtime : product;
+
+	const acceptedMinItems = integerConstraint(accepted, "minItems");
+	const actualMinItems = integerConstraint(actual, "minItems");
+	assertIntegerConstraintCompatibility(
+		operationId,
+		direction,
+		path,
+		"minItems",
+		acceptedMinItems,
+		actualMinItems,
+		(actualValue, acceptedValue) => actualValue >= acceptedValue,
+	);
+	const acceptedMaxItems = integerConstraint(accepted, "maxItems");
+	const actualMaxItems = integerConstraint(actual, "maxItems");
+	assertIntegerConstraintCompatibility(
+		operationId,
+		direction,
+		path,
+		"maxItems",
+		acceptedMaxItems,
+		actualMaxItems,
+		(actualValue, acceptedValue) => actualValue <= acceptedValue,
+	);
 }
 
 function assertObjectCompatibility(
@@ -615,6 +796,15 @@ function assertSchemaCompatibility(
 	}
 
 	if (productTypes.has("array") && runtimeTypes.has("array")) {
+		assertArrayCardinalityCompatibility(
+			operationId,
+			direction,
+			path,
+			productSchemas,
+			productContract,
+			runtimeSchemas,
+			runtimeContract,
+		);
 		const productItems = schemaItems(productSchemas, productContract);
 		const runtimeItems = schemaItems(runtimeSchemas, runtimeContract);
 		if (productItems.length > 0 && runtimeItems.length > 0) {

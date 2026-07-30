@@ -546,6 +546,32 @@ describe("shared CRUD resource operations", () => {
 		});
 	});
 
+	test("rejects a campaign changed after preflight before scheduling", async () => {
+		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const getById = mock(async () => ({
+			data: {
+				id: 10,
+				status: "draft",
+				send_at: null,
+				updated_at: "2026-07-30T10:00:00Z",
+			},
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		await expect(
+			invokeScheduleCampaignOperation(
+				campaignContext({ getById, update, updateStatus }),
+				{
+					id: 10,
+					send_at: "2026-08-01T09:00:00Z",
+					expected_updated_at: "2026-07-30T09:00:00Z",
+				},
+			),
+		).rejects.toThrow("changed after preflight");
+		expect(update).not.toHaveBeenCalled();
+		expect(updateStatus).not.toHaveBeenCalled();
+	});
+
 	test("clones a campaign by copying its body and resetting runtime fields", async () => {
 		const getById = mock(async () => ({
 			data: {

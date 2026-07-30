@@ -1152,7 +1152,7 @@ Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## Run subscriber hygiene (`ops.subscribers.hygiene`)
 
-Contract maturity: `experimental`; effects: `suppression:audience`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:subscriber, suppression:audience`; confirmation: `required`; retry: `unsafe`.
 
 Use when: Run the winback or sunset subscriber hygiene workflow
 
@@ -1362,7 +1362,7 @@ Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## Deploy A/B test winner (`abtest.deploy-winner`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
 
 Use when: Deploy a statistically significant winner to the holdout group
 

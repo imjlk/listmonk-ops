@@ -655,10 +655,17 @@ const bridgedOperationDeclarations = [
 		mcpName: "listmonk_ops_subscriber_hygiene",
 		effects: [
 			{
+				kind: "write",
+				resource: "subscriber",
+				reversible: true,
+				preview: true,
+			},
+			{
 				kind: "suppression",
 				resource: "subscriber",
 				scope: "audience",
 				reversible: false,
+				preview: true,
 			},
 		],
 		idempotent: false,
@@ -954,6 +961,7 @@ const bridgedOperationDeclarations = [
 		mcpName: "listmonk_abtest_deploy_winner",
 		effects: [
 			{ kind: "write", resource: "experiment", reversible: false },
+			{ kind: "write", resource: "campaign", reversible: true },
 			{
 				kind: "delivery",
 				resource: "campaign",
@@ -1042,6 +1050,7 @@ const bridgedOperationDeclarations = [
 				resource: "experiment",
 				action: "resolve",
 				destructive: true,
+				preview: false,
 			},
 		],
 		idempotent: true,

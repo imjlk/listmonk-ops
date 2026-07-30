@@ -93,6 +93,19 @@ const eventFilterInput = z
 	.min(1)
 	.describe("Exact event type, family wildcard such as operation.*, or *");
 const eventTypeInput = z.enum(OUTBOUND_WEBHOOK_EVENT_TYPES);
+const eventFilterOutput = z.union([
+	eventTypeInput,
+	z.enum([
+		"operation.*",
+		"campaign.*",
+		"subscriber.*",
+		"delivery.*",
+		"abtest.*",
+		"sequence.*",
+		"webhook.*",
+	]),
+	z.literal("*"),
+]);
 const deliveryStatusInput = z.enum([
 	"pending",
 	"delivering",
@@ -281,10 +294,10 @@ const webhookCircuitResetInputSchema = z.object({
 
 const webhookEndpointOutputSchema = z.object({
 	id: z.uuid(),
-	name: z.string(),
-	url: z.url(),
-	secret_ref: z.string(),
-	event_filters: z.array(z.string()),
+	name: z.string().trim().min(1).max(120),
+	url: z.string().min(1).regex(/^https:\/\/\S+$/),
+	secret_ref: z.string().regex(OUTBOUND_WEBHOOK_SECRET_REF_PATTERN),
+	event_filters: z.array(eventFilterOutput).min(1),
 	enabled: z.boolean(),
 	timeout_ms: z.number().int().min(100).max(30_000),
 	max_attempts: z.number().int().min(1).max(12),
@@ -315,19 +328,19 @@ const dispatchResultSchema = z.discriminatedUnion("status", [
 		...dispatchResultIdentitySchema,
 		status: z.literal("succeeded"),
 		status_code: z.number().int().min(100).max(599).optional(),
-		error: z.string().optional(),
+		error: z.string().min(1).optional(),
 	}),
 	z.object({
 		...dispatchResultIdentitySchema,
 		status: z.literal("retry"),
 		status_code: z.number().int().min(100).max(599).optional(),
-		error: z.string().optional(),
+		error: z.string().min(1).optional(),
 	}),
 	z.object({
 		...dispatchResultIdentitySchema,
 		status: z.literal("exhausted"),
 		status_code: z.number().int().min(100).max(599).optional(),
-		error: z.string().optional(),
+		error: z.string().min(1).optional(),
 	}),
 	z.object({
 		...dispatchResultIdentitySchema,
@@ -361,7 +374,7 @@ const webhookEventSummarySchema = z.object({
 		"sequence",
 		"webhook",
 	]),
-	correlation_id: z.string().optional(),
+	correlation_id: z.string().min(1).max(200).optional(),
 	subject: z
 		.object({
 			kind: z.enum([
@@ -373,7 +386,7 @@ const webhookEventSummarySchema = z.object({
 				"sequence",
 				"webhook",
 			]),
-			key: z.string(),
+			key: z.string().min(1),
 		})
 		.optional(),
 });
@@ -389,7 +402,7 @@ const webhookDeliveryOutputSchema = z.object({
 	last_attempt_at: z.iso.datetime({ offset: true }).optional(),
 	completed_at: z.iso.datetime({ offset: true }).optional(),
 	status_code: z.number().int().min(100).max(599).optional(),
-	last_error: z.string().optional(),
+	last_error: z.string().min(1).optional(),
 });
 const webhookDeliveryListOutputSchema = z.object({
 	deliveries: z.array(webhookDeliveryOutputSchema),
@@ -460,7 +473,7 @@ const webhookDlqReplayOutputSchema = z.object({
 	errors: z.array(
 		z.object({
 			delivery_id: z.uuid(),
-			error: z.string(),
+			error: z.string().min(1),
 		}),
 	),
 });
@@ -476,7 +489,9 @@ function toEndpointOutput(endpoint: OutboundWebhookEndpoint) {
 		name: endpoint.name,
 		url: endpoint.url,
 		secret_ref: endpoint.secretRef,
-		event_filters: [...endpoint.eventFilters],
+		event_filters: endpoint.eventFilters.map((filter) =>
+			eventFilterOutput.parse(filter),
+		),
 		enabled: endpoint.enabled,
 		timeout_ms: endpoint.timeoutMs,
 		max_attempts: endpoint.maxAttempts,
