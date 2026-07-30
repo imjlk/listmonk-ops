@@ -31,6 +31,7 @@ import {
 	handleListsTools,
 	handleMediaTools,
 	handleOpsTools,
+	handleProviderTools,
 	handleSettingsTools,
 	handleSubscribersTools,
 	handleTemplatesTools,
@@ -553,6 +554,8 @@ export class ListmonkMCPServer {
 				});
 			} else if (toolNameSets.ops.has(name)) {
 				result = await handleOpsTools(operationRequest, this.client);
+			} else if (toolNameSets.providers.has(name)) {
+				result = await handleProviderTools(operationRequest, this.client);
 			} else if (toolNameSets.abtest.has(name)) {
 				result = await handleAbTestTools(operationRequest, this.client);
 			} else if (toolNameSets.webhooks.has(name)) {

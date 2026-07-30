@@ -23,6 +23,7 @@ import {
 	assertListOperationsPublished,
 	assertMediaOperationsPublished,
 	assertOpsOperationsPublished,
+	assertProviderOperationsPublished,
 	assertSequenceOperationsPublished,
 	assertSubscriberOperationsPublished,
 	assertTemplateOperationsPublished,
@@ -68,8 +69,8 @@ const registeredServerTools = toolRegistrations.flatMap(
 
 describe("shared operation coverage", () => {
 	test("keeps CLI and MCP discovery catalogs in direct parity", () => {
-		expect(cliOperationCatalog.entries).toHaveLength(95);
-		expect(mcpOperationCatalog.entries).toHaveLength(95);
+		expect(cliOperationCatalog.entries).toHaveLength(102);
+		expect(mcpOperationCatalog.entries).toHaveLength(102);
 		expect(listCliOperationCatalogSummaries()).toEqual(
 			listMcpOperationCatalogSummaries(),
 		);
@@ -87,6 +88,7 @@ describe("shared operation coverage", () => {
 		assertDiscoveryOperationsPublished();
 		assertWebhookOperationsPublished();
 		assertSequenceOperationsPublished();
+		assertProviderOperationsPublished();
 	});
 
 	test("publishes media operations with matching shared metadata", () => {

@@ -530,6 +530,90 @@ Verify with: none
 
 Retry guidance: Retrying the same status read is safe.
 
+## List provider profiles (`providers.list`)
+
+Use when: The agent must discover configured delivery provider IDs before running diagnostics.
+
+Avoid when: The provider ID is already known.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry after the provider configuration file becomes readable or valid.
+
+## Inspect provider status (`providers.status`)
+
+Use when: The agent needs a structured provider and Listmonk readiness snapshot.
+
+Avoid when: Only raw SES quota values or DNS records are required.
+
+Prerequisites: `providers.list`
+
+Verify with: none
+
+Retry guidance: Retry transient Listmonk or provider failures with normal backoff.
+
+## Test provider API access (`providers.test`)
+
+Use when: Provider credentials or API reachability must be checked without sending a message.
+
+Avoid when: An actual mailbox delivery or SMTP transaction test is required.
+
+Prerequisites: `providers.list`
+
+Verify with: none
+
+Retry guidance: Retry throttling and transient network failures with bounded backoff.
+
+## Inspect provider sending quota (`providers.quota`)
+
+Use when: An audience or sequence send must be compared with current provider capacity.
+
+Avoid when: The provider has no supported quota adapter.
+
+Prerequisites: `providers.list`
+
+Verify with: none
+
+Retry guidance: Retry transient provider failures; do not assume cached quotas remain current.
+
+## Inspect provider webhook status (`providers.webhook-status`)
+
+Use when: Bounce or complaint feedback configuration and recent evidence must be checked.
+
+Avoid when: A missing event is being treated as proof of failure without first running a provider simulator test.
+
+Prerequisites: `providers.list`
+
+Verify with: none
+
+Retry guidance: Retry Listmonk read failures; an unknown freshness result requires a simulator test rather than blind retries.
+
+## Check provider DNS (`deliverability.dns-check`)
+
+Use when: The agent must verify public authentication records for a configured sending identity.
+
+Avoid when: The agent intends to mutate DNS or infer propagation from one failed lookup.
+
+Prerequisites: `providers.list`
+
+Verify with: none
+
+Retry guidance: Retry transient resolver failures after normal DNS propagation delay; this operation never changes records.
+
+## Run deliverability doctor (`deliverability.doctor`)
+
+Use when: An agent must determine whether a provider profile is ready before scheduling or launching email.
+
+Avoid when: The caller expects the operation to repair provider, DNS, or Listmonk configuration automatically.
+
+Prerequisites: `providers.list`
+
+Verify with: none
+
+Retry guidance: Retry transient reads; fix reported failures explicitly and rerun the doctor before delivery.
+
 # Typed playbooks
 
 ## `campaign.safe-start` — Safely start a campaign

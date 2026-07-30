@@ -99,6 +99,8 @@ export LISTMONK_OPS_SEQUENCE_STORE="$HOME/.listmonk-ops/sequences.json"
 # 선택 대안: 다중 프로세스/worker용 PostgreSQL sequence 저장소
 # LISTMONK_OPS_SEQUENCE_STORE와 동시에 설정하면 안 됩니다.
 # export LISTMONK_OPS_SEQUENCE_DATABASE_URL="postgres://user:password@host/database"
+# 선택: 읽기 전용 진단에 사용할 versioned provider profile JSON
+export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 ```
 
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
@@ -823,6 +825,95 @@ ambiguous 상태, lease, running/stale/stopped/failed worker health를 보고하
 오래된 worker 기록은 retention 기간 뒤 정리합니다. Sequence
 create/revise/enroll/pause/resume 및 운영자 reconcile은 typed `sequence.*`
 outbound event로도 투영됩니다.
+
+## Provider 및 Deliverability Doctor
+
+Provider profile은 raw 자격 증명을 저장하지 않고 기대하는 발송 구성을
+기술합니다. SES 연동은 표준 AWS credential chain 또는 이름이 지정된 로컬 AWS
+profile을 사용하며, 계정·identity를 읽기 전용으로 조회하고 메일을 보내지
+않습니다.
+
+```json
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "marketing-primary",
+      "kind": "ses",
+      "messenger": "email",
+      "sending_domain": "news.example.com",
+      "from_email": "newsletter@news.example.com",
+      "smtp_hosts": ["email-smtp.ap-northeast-2.amazonaws.com"],
+      "smtp_username_fingerprints": [
+        "sha256:<listmonk-smtp-username의-sha256>"
+      ],
+      "mail_from_domain": "bounce.news.example.com",
+      "region": "ap-northeast-2",
+      "secret_ref": "aws:default",
+      "webhook_source": "ses",
+      "webhook_max_age_hours": 168
+    }
+  ]
+}
+```
+
+SES의 `secret_ref`는 `aws:default` 또는 `aws:profile:<name>`만 허용합니다.
+Profile 목록, 감사 이벤트, CLI 출력, MCP 결과에는 reference와 실제 자격
+증명을 모두 노출하지 않습니다.
+SES profile에는 활성 Listmonk SMTP pool이 사용하는 서로 다른 SMTP username의
+SHA-256 지문도 모두 필요합니다. Username을 provider config에 기록하지 않고
+다음처럼 지문을 생성할 수 있습니다.
+
+```bash
+printf '%s' "$LISTMONK_SMTP_USERNAME" | shasum -a 256
+```
+
+결과를 `smtp_username_fingerprints`에 `sha256:<hex>` 형태로 저장합니다.
+Doctor는 원본 username과 설정된 지문을 결과에 노출하지 않습니다.
+
+```bash
+listmonk-cli providers list
+listmonk-cli providers status --provider-id marketing-primary
+listmonk-cli providers test --provider-id marketing-primary
+listmonk-cli providers quota --provider-id marketing-primary
+listmonk-cli providers webhook-status --provider-id marketing-primary
+listmonk-cli deliverability dns-check --provider-id marketing-primary
+listmonk-cli deliverability doctor --provider-id marketing-primary
+```
+
+Doctor는 Listmonk messenger·bounce 설정, SES 계정 quota·identity 상태,
+DMARC/DKIM/custom MAIL FROM DNS, From-domain 정렬, Listmonk의 최신 일치
+bounce event를 하나의 보고서로 합칩니다. Provider event가 아직 한 번도 없다면
+webhook freshness를 실패로 추측하지 않고 `unknown`으로 보고합니다. 설정된
+Listmonk messenger와 실제 `app.from_email`을 검증하고, 제한된 DMARC DNS
+tree walk로 상속 policy와 strict/relaxed 정렬을 판정하며, CNAME 위임과 직접
+TXT DKIM 레코드 중 모호하지 않은 단일 구성을 검증합니다. Campaign은 provider
+profile이 아니라 messenger를 선택하므로, SMTP endpoint가 달라도 같은 messenger
+이름을 재사용하는 provider profile은 binding 검사에 실패하며,
+provider profile은 Listmonk 기본 `email` messenger만 허용합니다. Custom HTTP
+messenger는 별도의 발송 backend이므로 SMTP provider binding의 증거가 될 수
+없습니다. 하나의 Listmonk SMTP pool은 하나의 profile로 기술하고, pool의 모든
+endpoint를 `smtp_hosts`에 나열합니다. 활성 host 전체 집합과 설정된 SMTP
+username 지문 집합이 정확히 일치해야 준비 완료로 판정합니다. 각 예상 host는
+활성 route에 한 번만 존재해야 하므로 중복, 일부 누락, 예상하지 않은 route는
+fail-closed로 처리합니다. Generic SMTP가 직접 SPF 정책을 사용한다면 가능한
+발신자 범위를 `expected_spf_ip_ranges`에 모두 지정하고, provider include
+정책을 사용한다면 대신 `expected_spf_include`를 지정합니다. Direct range
+검증은 SPF term 순서와 CIDR 포함 관계를 따르고 nested include까지 공통
+DNS·void lookup budget으로 재귀 평가합니다. 여러 include 경로가 각각 승인한
+일부 발신자 범위를 보존하며, `a`/`mx` mechanism은 주소 record 존재 여부만
+확인하지 않고 해석한 A/AAAA 범위를 설정된 발신자 범위와 대조합니다. IPv4와
+IPv6의 void lookup budget을 독립적으로 평가하고, 한 MX exchange에서 주소
+record가 10개를 초과하면 fail-closed로 처리합니다. SPF network로 유효하지
+않은 scope가 붙은 IPv6 literal은 거부하며, provider가 반환한 DKIM selector는
+DNS 조회 전에 유효성을 검사합니다. SES identity 조회에 성공한 경우 custom
+MAIL FROM 결과를 권위 있는 값으로 사용하며, `mail_from_domain`은 identity
+조회가 불가능할 때만 fallback 근거로 사용합니다. 여러 profile이 같은 webhook
+source를 공유하면 Listmonk event를 특정 profile에 귀속할 수 없으므로
+freshness는 `unknown`으로 유지됩니다. 일시적인 DNS 오류는 `unknown`으로
+구분하고 SES sandbox 상태는 전체 준비 완료 판정을 차단합니다. Generic SMTP
+profile은 Listmonk, DNS, webhook 진단을 지원하고 provider API·quota probe는
+`unsupported`로 보고합니다.
 
 ## OpenAPI 재생성 (Hey API)
 

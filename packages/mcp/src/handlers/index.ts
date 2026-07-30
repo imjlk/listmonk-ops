@@ -11,6 +11,7 @@ import { discoveryTools, handleDiscoveryTools } from "./discovery.js";
 import { handleListsTools, listsTools } from "./lists.js";
 import { handleMediaTools, mediaTools } from "./media.js";
 import { handleOpsTools, opsTools } from "./ops.js";
+import { handleProviderTools, providerTools } from "./providers.js";
 import { handleSettingsTools, settingsTools } from "./settings.js";
 import { handleSequenceTools, sequenceTools } from "./sequences.js";
 import { handleSubscribersTools, subscribersTools } from "./subscribers.js";
@@ -29,6 +30,7 @@ export * from "./discovery.js";
 export * from "./lists.js";
 export * from "./media.js";
 export * from "./ops.js";
+export * from "./providers.js";
 export * from "./settings.js";
 export * from "./sequences.js";
 export * from "./subscribers.js";
@@ -45,6 +47,7 @@ export const allTools: readonly MCPTool[] = [
 	...discoveryTools,
 	...mediaTools,
 	...opsTools,
+	...providerTools,
 	...bouncesTools,
 	...settingsTools,
 	...sequenceTools,
@@ -66,6 +69,7 @@ export const toolNameSets = {
 	lists: createToolNameSet(listsTools),
 	media: createToolNameSet(mediaTools),
 	ops: createToolNameSet(opsTools),
+	providers: createToolNameSet(providerTools),
 	settings: createToolNameSet(settingsTools),
 	sequences: createToolNameSet(sequenceTools),
 	subscribers: createToolNameSet(subscribersTools),
@@ -88,6 +92,7 @@ export const toolRegistrations: readonly ToolRegistration[] = [
 	{ tools: discoveryTools, handler: handleDiscoveryTools },
 	{ tools: mediaTools, handler: handleMediaTools },
 	{ tools: opsTools, handler: handleOpsTools },
+	{ tools: providerTools, handler: handleProviderTools },
 	{ tools: bouncesTools, handler: handleBouncesTools },
 	{ tools: settingsTools, handler: handleSettingsTools },
 	{ tools: sequenceTools, handler: handleSequenceTools },

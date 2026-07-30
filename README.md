@@ -99,6 +99,8 @@ export LISTMONK_OPS_SEQUENCE_STORE="$HOME/.listmonk-ops/sequences.json"
 # Optional alternative for multi-process/multi-worker sequence durability.
 # Configure LISTMONK_OPS_SEQUENCE_DATABASE_URL OR LISTMONK_OPS_SEQUENCE_STORE, never both.
 # export LISTMONK_OPS_SEQUENCE_DATABASE_URL="postgres://user:password@host/database"
+# Optional: versioned provider profile JSON for read-only diagnostics
+export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 ```
 
 You can create/manage tokens in the Listmonk admin UI.
@@ -833,6 +835,97 @@ same database so every worker observes one shared send decision.
 and running/stale/stopped/failed worker health. Old worker records are pruned
 after the retention window. Sequence create/revise/enroll/pause/resume and
 operator reconciliation also project typed `sequence.*` outbound events.
+
+## Provider and Deliverability Doctor
+
+Provider profiles describe the expected delivery setup without storing raw
+credentials. The SES integration uses the standard AWS credential chain or a
+named local AWS profile, performs read-only account and identity calls, and
+never sends a message.
+
+```json
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "marketing-primary",
+      "kind": "ses",
+      "messenger": "email",
+      "sending_domain": "news.example.com",
+      "from_email": "newsletter@news.example.com",
+      "smtp_hosts": ["email-smtp.ap-northeast-2.amazonaws.com"],
+      "smtp_username_fingerprints": [
+        "sha256:<sha256-of-the-listmonk-smtp-username>"
+      ],
+      "mail_from_domain": "bounce.news.example.com",
+      "region": "ap-northeast-2",
+      "secret_ref": "aws:default",
+      "webhook_source": "ses",
+      "webhook_max_age_hours": 168
+    }
+  ]
+}
+```
+
+`secret_ref` accepts only `aws:default` or `aws:profile:<name>` for SES. The
+profile list, audit events, CLI output, and MCP results never include the
+reference or resolved credentials.
+SES profiles also require a SHA-256 fingerprint for every distinct SMTP
+username used by the enabled Listmonk pool. Generate one without writing the
+username to the provider config:
+
+```bash
+printf '%s' "$LISTMONK_SMTP_USERNAME" | shasum -a 256
+```
+
+Store the result as `sha256:<hex>` in `smtp_username_fingerprints`; the raw
+username and the configured fingerprints are never returned by the doctor.
+
+```bash
+listmonk-cli providers list
+listmonk-cli providers status --provider-id marketing-primary
+listmonk-cli providers test --provider-id marketing-primary
+listmonk-cli providers quota --provider-id marketing-primary
+listmonk-cli providers webhook-status --provider-id marketing-primary
+listmonk-cli deliverability dns-check --provider-id marketing-primary
+listmonk-cli deliverability doctor --provider-id marketing-primary
+```
+
+The doctor composes Listmonk messenger and bounce settings, SES account quota
+and identity state, DMARC/DKIM/custom MAIL FROM DNS, From-domain alignment, and
+the latest matching Listmonk bounce event. If no provider event exists yet,
+webhook freshness is reported as `unknown` rather than inventing a failure.
+It verifies the selected Listmonk messenger and real `app.from_email`, follows
+the bounded DMARC DNS tree walk for inherited policy and strict/relaxed
+alignment, and accepts an unambiguous delegated CNAME or direct TXT DKIM
+record. Provider profiles that reuse a messenger name fail the binding check
+even when their SMTP endpoints differ, because campaign execution selects the
+messenger rather than a provider profile. Provider profiles therefore accept
+only Listmonk's built-in `email` messenger; custom HTTP messengers are separate
+delivery backends and cannot prove an SMTP provider binding. Describe one
+Listmonk SMTP pool with one profile and list every expected pool endpoint in
+`smtp_hosts`. Readiness requires the complete enabled host set and configured
+SMTP username fingerprint set to match exactly; each expected host must appear
+once, so duplicate, partial, and unexpected enabled routes fail closed. For
+generic SMTP direct SPF policies, configure every possible sender range in
+`expected_spf_ip_ranges`, or configure the provider's `expected_spf_include`
+instead. Direct-range validation follows SPF term order, CIDR containment, and
+the shared DNS and void-lookup budgets recursively through nested includes.
+Partial range authorization is preserved across include paths, and `a`/`mx`
+mechanisms must resolve to the configured sender ranges rather than merely
+publishing address records. IPv4 and IPv6 void-lookup budgets are evaluated
+independently, and an MX exchange with more than ten addresses fails closed.
+Scoped IPv6 literals are rejected because they are not valid SPF network
+terms. Provider-returned DKIM selectors are validated before any DNS query.
+When SES identity inspection succeeds, its custom MAIL FROM result is
+authoritative; `mail_from_domain` is only fallback evidence when identity
+inspection is unavailable. When multiple profiles share one webhook source,
+event freshness remains `unknown` because Listmonk cannot attribute that
+evidence to one profile.
+Transient DNS failures remain `unknown`, while SES sandbox access blocks the
+aggregate readiness result.
+Generic SMTP profiles support Listmonk, DNS, and webhook diagnostics; provider
+API and quota probes report `unsupported`.
 
 ## OpenAPI Regeneration (Hey API)
 

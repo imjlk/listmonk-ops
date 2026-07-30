@@ -1,6 +1,7 @@
 import { abTestOperationCatalog } from "@listmonk-ops/abtest";
 import {
 	opsOperationCatalog,
+	providerOperationCatalog,
 	sequenceOperationCatalog,
 	webhookOperationCatalog,
 } from "@listmonk-ops/automation";
@@ -28,6 +29,7 @@ export const mcpOperationCatalog = composeOperationCatalogs([
 	discoveryOperationCatalog,
 	webhookOperationCatalog,
 	sequenceOperationCatalog,
+	providerOperationCatalog,
 ]);
 
 export function listMcpOperationCatalogSummaries(

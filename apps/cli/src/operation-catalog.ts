@@ -12,6 +12,7 @@ import {
 import { abTestOperationCatalog } from "@listmonk-ops/abtest";
 import {
 	opsOperationCatalog,
+	providerOperationCatalog,
 	sequenceOperationCatalog,
 	webhookOperationCatalog,
 } from "@listmonk-ops/automation";
@@ -28,6 +29,7 @@ export const cliOperationCatalog = composeOperationCatalogs([
 	discoveryOperationCatalog,
 	webhookOperationCatalog,
 	sequenceOperationCatalog,
+	providerOperationCatalog,
 ]);
 
 export function listCliOperationCatalogSummaries(

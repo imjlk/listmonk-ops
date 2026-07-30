@@ -14,6 +14,7 @@ import {
 	pilotOperationSpecs,
 	subscriberResource,
 } from "./pilot";
+import { providerOperationSpecs, providerResource } from "./providers";
 import { defineEmailOperationsSpec } from "./schema";
 import { sequenceOperationSpecs, sequenceResource } from "./sequences";
 import {
@@ -30,11 +31,12 @@ export const operationSpecs = [
 	...discoveryOperationSpecs,
 	...webhookOperationSpecs,
 	...sequenceOperationSpecs,
+	...providerOperationSpecs,
 ] as const;
 
 export const emailOperationsSpec =
 	defineEmailOperationsSpec({
-		schemaVersion: "1.6.0",
+		schemaVersion: "1.7.0",
 		title: "listmonk-ops Email Operations Specification",
 		description:
 			"Typed, policy-aware, and verifiable email operations for humans and AI agents.",
@@ -49,6 +51,7 @@ export const emailOperationsSpec =
 			webhookResource,
 			experimentResource,
 			sequenceResource,
+			providerResource,
 		],
 		operations: operationSpecs,
 		events: outboundWebhookEventSpecs,

@@ -49,6 +49,16 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	controlPrimeOutputContract: NormalizedContractSchema;
 	controlStatusInputContract: NormalizedContractSchema;
 	controlStatusOutputContract: NormalizedContractSchema;
+	providerListInputContract: NormalizedContractSchema;
+	providerListOutputContract: NormalizedContractSchema;
+	providerIdInputContract: NormalizedContractSchema;
+	providerStatusOutputContract: NormalizedContractSchema;
+	providerTestOutputContract: NormalizedContractSchema;
+	providerQuotaOutputContract: NormalizedContractSchema;
+	providerWebhookStatusInputContract: NormalizedContractSchema;
+	providerWebhookStatusOutputContract: NormalizedContractSchema;
+	deliverabilityDnsCheckOutputContract: NormalizedContractSchema;
+	deliverabilityDoctorOutputContract: NormalizedContractSchema;
 	webhookListInputContract: NormalizedContractSchema;
 	webhookListOutputContract: NormalizedContractSchema;
 	webhookCreateInputContract: NormalizedContractSchema;
@@ -156,6 +166,22 @@ export const controlPrimeOutputContract = contracts.controlPrimeOutputContract;
 export const controlStatusInputContract = contracts.controlStatusInputContract;
 export const controlStatusOutputContract =
 	contracts.controlStatusOutputContract;
+export const providerListInputContract = contracts.providerListInputContract;
+export const providerListOutputContract = contracts.providerListOutputContract;
+export const providerIdInputContract = contracts.providerIdInputContract;
+export const providerStatusOutputContract =
+	contracts.providerStatusOutputContract;
+export const providerTestOutputContract = contracts.providerTestOutputContract;
+export const providerQuotaOutputContract =
+	contracts.providerQuotaOutputContract;
+export const providerWebhookStatusInputContract =
+	contracts.providerWebhookStatusInputContract;
+export const providerWebhookStatusOutputContract =
+	contracts.providerWebhookStatusOutputContract;
+export const deliverabilityDnsCheckOutputContract =
+	contracts.deliverabilityDnsCheckOutputContract;
+export const deliverabilityDoctorOutputContract =
+	contracts.deliverabilityDoctorOutputContract;
 export const webhookListInputContract = contracts.webhookListInputContract;
 export const webhookListOutputContract = contracts.webhookListOutputContract;
 export const webhookCreateInputContract = contracts.webhookCreateInputContract;

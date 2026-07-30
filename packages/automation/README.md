@@ -12,6 +12,7 @@ This package is designed for automation and orchestration use-cases:
 - daily digest generation
 - signed outbound event webhooks with a durable delivery outbox
 - revisioned headless email sequences with durable enrollments and workers
+- SES-first provider and deliverability readiness diagnostics
 
 ## Installation
 
@@ -58,6 +59,49 @@ const digest = await generateDailyDigest(client);
 
 console.log(preflight.summary, guard.allowLaunch, digest.generatedAt);
 ```
+
+## Provider and deliverability diagnostics
+
+Set `LISTMONK_OPS_PROVIDER_CONFIG` to a versioned JSON document containing
+`ses` or generic `smtp` profiles. The shared operations expose profile list,
+status, API test, quota, webhook freshness, DNS check, and aggregate doctor
+contracts through both CLI and MCP adapters.
+
+SES profiles use only `aws:default` or `aws:profile:<name>` references. The
+AWS SDK resolves credentials at execution time, and summaries never return the
+reference or resolved secret. Diagnostics call read-only SES account and
+identity APIs and do not send mail. Generic SMTP profiles keep the Listmonk,
+DNS, and webhook checks while returning `unsupported` for API and quota
+probes.
+
+`runProviderDoctor()` combines SES production/sending/enforcement and quota
+state, identity verification and DKIM, Listmonk SMTP/from/unsubscribe/bounce
+settings, DMARC/DKIM/custom MAIL FROM DNS, domain alignment, and the latest
+matching Listmonk bounce source. Missing webhook evidence remains `unknown`
+until a real event exists. It requires the selected Listmonk messenger and
+actual `app.from_email`, follows a bounded DMARC tree walk, honors
+strict/relaxed SPF and DKIM alignment, requires unambiguous CNAME or direct TXT
+DKIM records, and reports transient resolver errors as `unknown`. Profiles
+reusing a messenger name fail binding even when their SMTP endpoints differ;
+the profile schema accepts only the built-in `email` messenger because custom
+HTTP messengers are separate delivery backends, not SMTP-provider bindings.
+Describe a complete Listmonk SMTP pool with one profile and all expected
+`smtp_hosts`. Readiness requires each expected enabled host exactly once and
+rejects duplicate routes. SES profiles also require `sha256:<hex>`
+fingerprints for every distinct Listmonk SMTP username; raw usernames and
+fingerprints are not returned. Generic SMTP direct SPF policies require
+explicit `expected_spf_ip_ranges`, while provider include policies use
+`expected_spf_include`. Direct ranges honor SPF ordering, CIDR containment,
+and shared DNS and void-lookup budgets recursively through nested includes.
+Partial range authorization is preserved across include paths, and `a`/`mx`
+mechanisms are matched against their resolved A/AAAA sender ranges instead of
+being accepted from record presence alone. IPv4 and IPv6 void-lookup budgets
+are evaluated independently, and an MX exchange with more than ten addresses
+fails closed. Scoped IPv6 literals are rejected. Provider-returned DKIM
+selectors are validated before DNS lookup. Successful SES identity inspection
+is authoritative about whether a custom MAIL FROM domain exists. Profiles
+sharing a webhook source retain `unknown` freshness because the bounce source
+is not attributable. SES sandbox access is a readiness failure.
 
 ## Persistent Store Paths
 
