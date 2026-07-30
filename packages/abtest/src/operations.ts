@@ -833,7 +833,8 @@ export const launchAbTestOperation = defineOperation({
 export const stopAbTestOperation = defineOperation({
 	id: "abtest.stop",
 	title: "Stop A/B test",
-	description: "Stop a running A/B test and clean up temporary resources",
+	description:
+		"Stop an A/B test and clean up its non-terminal Listmonk campaigns and temporary lists",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
 	safety: destructiveNonIdempotentSafety,

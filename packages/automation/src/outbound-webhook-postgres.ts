@@ -25,7 +25,7 @@ import {
 	DEFAULT_OUTBOUND_WEBHOOK_WORKER_RETENTION_MS,
 } from "./outbound-webhooks";
 
-export const OUTBOUND_WEBHOOK_POSTGRES_SCHEMA_VERSION = 2;
+export const OUTBOUND_WEBHOOK_POSTGRES_SCHEMA_VERSION = 3;
 const POSTGRES_UUID_TYPE_OID = 2950;
 
 export interface PostgresOutboundWebhookRepositoryOptions {
@@ -301,6 +301,50 @@ async function initializeSchema(sql: Sql): Promise<void> {
 			await transaction`
 				UPDATE listmonk_ops.webhook_runtime_meta
 				SET value = '2', updated_at = now()
+				WHERE key = 'schema_version'
+			`;
+		}
+		if (storedVersion < 3) {
+			await transaction`
+				UPDATE listmonk_ops.webhook_endpoints
+				SET
+					timeout_ms = LEAST(GREATEST(timeout_ms, 100), 30000),
+					max_attempts = LEAST(GREATEST(max_attempts, 1), 12),
+					circuit_failure_threshold = LEAST(
+						GREATEST(circuit_failure_threshold, 1),
+						100
+					),
+					circuit_cooldown_ms = LEAST(
+						GREATEST(circuit_cooldown_ms, 1000),
+						86400000
+					)
+				WHERE
+					timeout_ms NOT BETWEEN 100 AND 30000
+					OR max_attempts NOT BETWEEN 1 AND 12
+					OR circuit_failure_threshold NOT BETWEEN 1 AND 100
+					OR circuit_cooldown_ms NOT BETWEEN 1000 AND 86400000
+			`;
+			await transaction`
+				ALTER TABLE listmonk_ops.webhook_endpoints
+					DROP CONSTRAINT IF EXISTS webhook_endpoints_timeout_ms_check,
+					DROP CONSTRAINT IF EXISTS webhook_endpoints_max_attempts_check,
+					DROP CONSTRAINT IF EXISTS webhook_endpoints_circuit_failure_threshold_check,
+					DROP CONSTRAINT IF EXISTS webhook_endpoints_circuit_cooldown_ms_check
+			`;
+			await transaction`
+				ALTER TABLE listmonk_ops.webhook_endpoints
+					ADD CONSTRAINT webhook_endpoints_timeout_ms_check
+						CHECK (timeout_ms BETWEEN 100 AND 30000),
+					ADD CONSTRAINT webhook_endpoints_max_attempts_check
+						CHECK (max_attempts BETWEEN 1 AND 12),
+					ADD CONSTRAINT webhook_endpoints_circuit_failure_threshold_check
+						CHECK (circuit_failure_threshold BETWEEN 1 AND 100),
+					ADD CONSTRAINT webhook_endpoints_circuit_cooldown_ms_check
+						CHECK (circuit_cooldown_ms BETWEEN 1000 AND 86400000)
+			`;
+			await transaction`
+				UPDATE listmonk_ops.webhook_runtime_meta
+				SET value = '3', updated_at = now()
 				WHERE key = 'schema_version'
 			`;
 		}

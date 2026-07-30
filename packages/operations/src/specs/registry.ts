@@ -21,7 +21,6 @@ import {
 	subscriberResource,
 } from "./pilot";
 import { providerOperationSpecs, providerResource } from "./providers";
-import { resourceLifecycleEventSpecs } from "./lifecycle-events";
 import {
 	audienceResource,
 	listResource,
@@ -72,10 +71,7 @@ export const emailOperationsSpec =
 			audienceResource,
 		],
 		operations: operationSpecs,
-		events: [
-			...outboundWebhookEventSpecs,
-			...resourceLifecycleEventSpecs,
-		],
+		events: outboundWebhookEventSpecs,
 		playbooks: [
 			campaignSafeStartPlaybook,
 			campaignSafeSchedulePlaybook,

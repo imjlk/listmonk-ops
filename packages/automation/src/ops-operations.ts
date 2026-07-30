@@ -197,7 +197,7 @@ const campaignPreflightOutputSchema = z.object({
 	campaignName: z.string(),
 	status: z.string(),
 	audienceEstimate: z.number().int().nonnegative(),
-	checkedAt: z.string().datetime(),
+	checkedAt: z.iso.datetime(),
 	checks: z.array(checkSchema),
 	summary: z.object({
 		pass: z.number().int().nonnegative(),

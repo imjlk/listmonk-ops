@@ -175,6 +175,9 @@ describe("email operations specification", () => {
 		expect(emailOperationsSpec.events.map((event) => event.type)).toContain(
 			"abtest.winner-selected",
 		);
+		expect(
+			emailOperationsSpec.events.map((event) => event.type),
+		).not.toContain("list.created");
 	});
 
 	test("models runtime preview capabilities and experiment lifecycle effects", () => {
@@ -206,6 +209,17 @@ describe("email operations specification", () => {
 			"ops.campaign.preflight",
 		);
 		expect(createSpec?.agent.related).toContain("ops.campaign.preflight");
+		expect(createSpec?.effects.map(({ resource }) => resource)).toEqual([
+			"experiment",
+			"campaign",
+			"list",
+			"campaign",
+		]);
+		expect(
+			bridgedOperationSpecsById["abtest.stop"]?.effects.map(
+				({ resource }) => resource,
+			),
+		).toEqual(["experiment", "campaign", "list"]);
 		expect(
 			bridgedOperationSpecsById["abtest.delete"]?.effects.map(
 				({ resource }) => resource,
@@ -977,6 +991,16 @@ describe("email operations specification", () => {
 				source: { kind: "literal", value: 4_000 },
 			},
 		]);
+		const templatePromoteStep = emailOperationsSpec.playbooks
+			.find((playbook) => playbook.id === "template.safe-promote")
+			?.steps.find((step) => step.id === "promote");
+		expect(templatePromoteStep?.input).toContainEqual({
+			parameter: "expected_remote_hash",
+			source: {
+				kind: "playbook-input",
+				name: "expected_remote_hash",
+			},
+		});
 
 		expect(() =>
 			defineOperationPlaybook({

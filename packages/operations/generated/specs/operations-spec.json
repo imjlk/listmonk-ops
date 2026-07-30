@@ -248,142 +248,6 @@
       "subject": "webhook",
       "title": "Webhook test",
       "type": "webhook.test"
-    },
-    {
-      "description": "A shared operation created a Listmonk subscriber list.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "list",
-      "title": "Subscriber list created",
-      "type": "list.created"
-    },
-    {
-      "description": "A shared operation changed a subscriber list.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "list",
-      "title": "Subscriber list updated",
-      "type": "list.updated"
-    },
-    {
-      "description": "A shared operation deleted a subscriber list.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "list",
-      "title": "Subscriber list deleted",
-      "type": "list.deleted"
-    },
-    {
-      "description": "A shared operation deleted a subscriber.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "subscriber",
-      "title": "Subscriber deleted",
-      "type": "subscriber.deleted"
-    },
-    {
-      "description": "A bulk operation changed subscriber list memberships.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "subscriber",
-      "title": "Subscriber memberships updated",
-      "type": "subscriber.membership-updated"
-    },
-    {
-      "description": "A bulk operation removed subscribers from the blocklist.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "subscriber",
-      "title": "Subscriber unblocklisted",
-      "type": "subscriber.unblocklisted"
-    },
-    {
-      "description": "A shared operation created an email template.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "template",
-      "title": "Template created",
-      "type": "template.created"
-    },
-    {
-      "description": "A shared operation or registry workflow changed a template.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "template",
-      "title": "Template updated",
-      "type": "template.updated"
-    },
-    {
-      "description": "A shared operation selected the Listmonk default template.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "template",
-      "title": "Default template selected",
-      "type": "template.default-set"
-    },
-    {
-      "description": "A shared operation deleted an email template.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "template",
-      "title": "Template deleted",
-      "type": "template.deleted"
-    },
-    {
-      "description": "A validated media asset was uploaded to Listmonk.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "media",
-      "title": "Media uploaded",
-      "type": "media.uploaded"
-    },
-    {
-      "description": "A shared operation deleted a media asset.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "media",
-      "title": "Media deleted",
-      "type": "media.deleted"
-    },
-    {
-      "description": "A segment snapshot crossed its configured drift threshold.",
-      "schemaVersion": 1,
-      "source": "operation",
-      "subject": "audience",
-      "title": "Audience drift detected",
-      "type": "audience.drift-detected"
-    },
-    {
-      "description": "An experiment definition was persisted.",
-      "schemaVersion": 1,
-      "source": "abtest",
-      "subject": "experiment",
-      "title": "A/B test created",
-      "type": "abtest.created"
-    },
-    {
-      "description": "An experiment was cancelled and cleanup was requested.",
-      "schemaVersion": 1,
-      "source": "abtest",
-      "subject": "experiment",
-      "title": "A/B test stopped",
-      "type": "abtest.stopped"
-    },
-    {
-      "description": "An experiment was removed from persisted state.",
-      "schemaVersion": 1,
-      "source": "abtest",
-      "subject": "experiment",
-      "title": "A/B test deleted",
-      "type": "abtest.deleted"
-    },
-    {
-      "description": "Experiment state was compared with its remote resources.",
-      "schemaVersion": 1,
-      "source": "abtest",
-      "subject": "experiment",
-      "title": "A/B test reconciled",
-      "type": "abtest.reconciled"
     }
   ],
   "operations": [
@@ -26309,6 +26173,16 @@
           "reversible": false
         },
         {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": true
+        },
+        {
+          "kind": "write",
+          "resource": "list",
+          "reversible": true
+        },
+        {
           "audience": "bulk",
           "kind": "delivery",
           "resource": "campaign",
@@ -27315,7 +27189,7 @@
         ],
         "retryGuidance": "Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.",
         "useWhen": [
-          "Stop a running A/B test and clean up temporary resources"
+          "Stop an A/B test and clean up its non-terminal Listmonk campaigns and temporary lists"
         ],
         "verifyWith": [
           "abtest.get"
@@ -27949,11 +27823,21 @@
           "stage": "normalized"
         }
       },
-      "description": "Stop a running A/B test and clean up temporary resources",
+      "description": "Stop an A/B test and clean up its non-terminal Listmonk campaigns and temporary lists",
       "effects": [
         {
           "kind": "write",
           "resource": "experiment",
+          "reversible": false
+        },
+        {
+          "kind": "delete",
+          "resource": "campaign",
+          "reversible": false
+        },
+        {
+          "kind": "delete",
+          "resource": "list",
           "reversible": false
         }
       ],
@@ -29729,6 +29613,12 @@
           "name": "version_id",
           "required": true,
           "type": "string"
+        },
+        {
+          "description": "Hash of the remote template content observed before promotion",
+          "name": "expected_remote_hash",
+          "required": true,
+          "type": "string"
         }
       ],
       "recoveryOperation": "templates.get",
@@ -29787,6 +29677,13 @@
               "source": {
                 "kind": "playbook-input",
                 "name": "version_id"
+              }
+            },
+            {
+              "parameter": "expected_remote_hash",
+              "source": {
+                "kind": "playbook-input",
+                "name": "expected_remote_hash"
               }
             }
           ],

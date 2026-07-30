@@ -827,6 +827,8 @@ const bridgedOperationDeclarations = [
 		mcpName: "listmonk_abtest_create",
 		effects: [
 			{ kind: "write", resource: "experiment", reversible: false },
+			{ kind: "write", resource: "campaign", reversible: true },
+			{ kind: "write", resource: "list", reversible: true },
 			{
 				kind: "delivery",
 				resource: "campaign",
@@ -889,9 +891,13 @@ const bridgedOperationDeclarations = [
 		verb: "stop",
 		title: "Stop A/B test",
 		description:
-			"Stop a running A/B test and clean up temporary resources",
+			"Stop an A/B test and clean up its non-terminal Listmonk campaigns and temporary lists",
 		mcpName: "listmonk_abtest_stop",
-		effects: write("experiment", false),
+		effects: [
+			...write("experiment", false),
+			...remove("campaign"),
+			...remove("list"),
+		],
 		idempotent: false,
 		runtimeFile: "packages/abtest/src/operations.ts",
 		runtimeDefinition: "stopAbTestOperation",

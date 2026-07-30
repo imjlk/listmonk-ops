@@ -45,7 +45,7 @@ try {
 				"packages/operations/src/specs/index.ts",
 			),
 		},
-		logLevel: "silent",
+		logLevel: "error",
 	});
 	await import(pathToFileURL(output).href);
 } finally {

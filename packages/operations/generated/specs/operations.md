@@ -1108,7 +1108,7 @@ Create and persist an A/B test; auto-launch can start its campaigns
 - Resource / verb: `experiment.create`
 - MCP tool: `listmonk_abtest_create`
 - Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, delivery:bulk:scheduled`
+- Effects: `write:experiment, write:campaign, write:list, delivery:bulk:scheduled`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
@@ -1139,12 +1139,12 @@ Launch a draft A/B test
 
 ## `abtest.stop`
 
-Stop a running A/B test and clean up temporary resources
+Stop an A/B test and clean up its non-terminal Listmonk campaigns and temporary lists
 
 - Resource / verb: `experiment.stop`
 - MCP tool: `listmonk_abtest_stop`
 - Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment`
+- Effects: `write:experiment, delete:campaign, delete:list`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`

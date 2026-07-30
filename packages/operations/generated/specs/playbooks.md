@@ -45,6 +45,7 @@ Inputs:
 
 - `template_id` (`number`, required): Listmonk template ID
 - `version_id` (`string`, required): Stored registry version ID to promote
+- `expected_remote_hash` (`string`, required): Hash of the remote template content observed before promotion
 
 Steps:
 

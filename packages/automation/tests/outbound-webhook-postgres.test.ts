@@ -490,7 +490,7 @@ describe("Postgres outbound webhook repository", () => {
 	);
 
 	postgresTest(
-		"migrates an existing v1 schema to v2 under the initialization lock",
+		"migrates an existing v1 schema to the current version under the initialization lock",
 		async () => {
 			if (!databaseUrl) {
 				throw new Error("Postgres integration database is unavailable");
@@ -536,7 +536,7 @@ describe("Postgres outbound webhook repository", () => {
 				}),
 			).toMatchObject({
 				store: "postgres",
-				schemaVersion: 2,
+				schemaVersion: 3,
 			});
 			const verify = postgres(databaseUrl, { max: 1, prepare: false });
 			try {
@@ -545,7 +545,7 @@ describe("Postgres outbound webhook repository", () => {
 					FROM listmonk_ops.webhook_runtime_meta
 					WHERE key = 'schema_version'
 				`;
-				expect(versions[0]?.value).toBe("2");
+				expect(versions[0]?.value).toBe("3");
 				const columns = await verify<{ column_name: string }[]>`
 					SELECT column_name
 					FROM information_schema.columns
@@ -554,6 +554,87 @@ describe("Postgres outbound webhook repository", () => {
 						AND column_name = 'circuit_state'
 				`;
 				expect(columns).toHaveLength(1);
+			} finally {
+				await verify.end({ timeout: 5 });
+			}
+		},
+	);
+
+	postgresTest(
+		"backfills existing endpoint bounds before adding database constraints",
+		async () => {
+			if (!databaseUrl) {
+				throw new Error("Postgres integration database is unavailable");
+			}
+			const endpointId = randomUUID();
+			endpointIds.add(endpointId);
+			const sql = postgres(databaseUrl, { max: 1, prepare: false });
+			try {
+				await sql`
+					TRUNCATE TABLE
+						listmonk_ops.webhook_deliveries,
+						listmonk_ops.webhook_endpoints,
+						listmonk_ops.webhook_workers
+				`;
+				await sql`
+					ALTER TABLE listmonk_ops.webhook_endpoints
+						DROP CONSTRAINT IF EXISTS webhook_endpoints_timeout_ms_check,
+						DROP CONSTRAINT IF EXISTS webhook_endpoints_max_attempts_check,
+						DROP CONSTRAINT IF EXISTS webhook_endpoints_circuit_failure_threshold_check,
+						DROP CONSTRAINT IF EXISTS webhook_endpoints_circuit_cooldown_ms_check
+				`;
+				await sql`
+					INSERT INTO listmonk_ops.webhook_endpoints (
+						id, name, name_key, url, secret_ref, event_filters, enabled,
+						timeout_ms, max_attempts, circuit_failure_threshold,
+						circuit_cooldown_ms, created_at, updated_at
+					)
+					VALUES (
+						${endpointId},
+						'legacy-out-of-range',
+						'legacy-out-of-range',
+						'https://8.8.8.8/hooks',
+						'LISTMONK_OPS_WEBHOOK_SECRET_POSTGRES',
+						${sql.json(["operation.*"])},
+						true,
+						50,
+						20,
+						200,
+						500,
+						now(),
+						now()
+					)
+				`;
+				await sql`
+					UPDATE listmonk_ops.webhook_runtime_meta
+					SET value = '2'
+					WHERE key = 'schema_version'
+				`;
+			} finally {
+				await sql.end({ timeout: 5 });
+			}
+
+			const migrated = createPostgresOutboundWebhookRepository({
+				connectionString: databaseUrl,
+				maxConnections: 1,
+			});
+			repositories.push(migrated);
+			expect(await migrated.getEndpoint(endpointId)).toMatchObject({
+				timeoutMs: 100,
+				maxAttempts: 12,
+				circuitFailureThreshold: 100,
+				circuitCooldownMs: 1_000,
+			});
+
+			const verify = postgres(databaseUrl, { max: 1, prepare: false });
+			try {
+				await expect(
+					verify`
+						UPDATE listmonk_ops.webhook_endpoints
+						SET timeout_ms = 99
+						WHERE id = ${endpointId}
+					`,
+				).rejects.toThrow();
 			} finally {
 				await verify.end({ timeout: 5 });
 			}

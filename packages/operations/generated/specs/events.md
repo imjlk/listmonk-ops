@@ -35,20 +35,3 @@
 | `sequence.reconciled` | `sequence` | `sequence` | An operator resolved an ambiguous sequence send outcome. |
 | `sequence.deleted` | `sequence` | `sequence` | A sequence and its terminal enrollment history were deleted. |
 | `webhook.test` | `webhook` | `webhook` | A signed test event was sent to one configured endpoint. |
-| `list.created` | `operation` | `list` | A shared operation created a Listmonk subscriber list. |
-| `list.updated` | `operation` | `list` | A shared operation changed a subscriber list. |
-| `list.deleted` | `operation` | `list` | A shared operation deleted a subscriber list. |
-| `subscriber.deleted` | `operation` | `subscriber` | A shared operation deleted a subscriber. |
-| `subscriber.membership-updated` | `operation` | `subscriber` | A bulk operation changed subscriber list memberships. |
-| `subscriber.unblocklisted` | `operation` | `subscriber` | A bulk operation removed subscribers from the blocklist. |
-| `template.created` | `operation` | `template` | A shared operation created an email template. |
-| `template.updated` | `operation` | `template` | A shared operation or registry workflow changed a template. |
-| `template.default-set` | `operation` | `template` | A shared operation selected the Listmonk default template. |
-| `template.deleted` | `operation` | `template` | A shared operation deleted an email template. |
-| `media.uploaded` | `operation` | `media` | A validated media asset was uploaded to Listmonk. |
-| `media.deleted` | `operation` | `media` | A shared operation deleted a media asset. |
-| `audience.drift-detected` | `operation` | `audience` | A segment snapshot crossed its configured drift threshold. |
-| `abtest.created` | `abtest` | `experiment` | An experiment definition was persisted. |
-| `abtest.stopped` | `abtest` | `experiment` | An experiment was cancelled and cleanup was requested. |
-| `abtest.deleted` | `abtest` | `experiment` | An experiment was removed from persisted state. |
-| `abtest.reconciled` | `abtest` | `experiment` | Experiment state was compared with its remote resources. |

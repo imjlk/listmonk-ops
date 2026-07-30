@@ -391,6 +391,11 @@ function assertScalarCompatibility(
 	runtimeSchemas: readonly JsonSchemaObject[],
 	runtimeContract: NormalizedContractSchema,
 ): void {
+	// Primitive types, literals, and object surfaces are compared for every
+	// resolved union branch elsewhere in this module. Numeric bounds and string
+	// formats are intentionally compared only for a single scalar branch:
+	// collapsing disjoint unions into one effective range would accept holes
+	// that neither contract actually permits.
 	if (productSchemas.length !== 1 || runtimeSchemas.length !== 1) return;
 	const product = resolveSchema(productSchemas[0]!, productContract);
 	const runtime = resolveSchema(runtimeSchemas[0]!, runtimeContract);
@@ -531,7 +536,7 @@ function assertSchemaCompatibility(
 ): void {
 	if (depth > 32) {
 		throw new TypeError(
-			`Runtime operation ${operationId} ${direction} ${path} contract nesting exceeds 32 levels`,
+			`Runtime operation ${operationId} ${direction} ${path} contract nesting or recursive $ref traversal exceeds 32 levels`,
 		);
 	}
 	const productTypes = new Set(

@@ -134,6 +134,13 @@ export const templateSafePromotePlaybook = defineOperationPlaybook({
 			required: true,
 			description: "Stored registry version ID to promote",
 		},
+		{
+			name: "expected_remote_hash",
+			type: "string",
+			required: true,
+			description:
+				"Hash of the remote template content observed before promotion",
+		},
 	],
 	steps: [
 		{
@@ -178,6 +185,13 @@ export const templateSafePromotePlaybook = defineOperationPlaybook({
 				{
 					parameter: "version_id",
 					source: { kind: "playbook-input", name: "version_id" },
+				},
+				{
+					parameter: "expected_remote_hash",
+					source: {
+						kind: "playbook-input",
+						name: "expected_remote_hash",
+					},
 				},
 			],
 		},

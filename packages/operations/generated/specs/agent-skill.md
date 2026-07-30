@@ -1278,7 +1278,7 @@ Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## Create A/B test (`abtest.create`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, write:campaign, write:list, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
 
 Use when: Create and persist an A/B test; auto-launch can start its campaigns
 
@@ -1320,9 +1320,9 @@ Retry guidance: Do not automatically retry an ambiguous failure; inspect the tar
 
 ## Stop A/B test (`abtest.stop`)
 
-Contract maturity: `experimental`; effects: `write:experiment`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, delete:campaign, delete:list`; confirmation: `required`; retry: `unsafe`.
 
-Use when: Stop a running A/B test and clean up temporary resources
+Use when: Stop an A/B test and clean up its non-terminal Listmonk campaigns and temporary lists
 
 Avoid when: The target, intended side effect, or required confirmation has not been verified.
 
@@ -1475,6 +1475,7 @@ Inputs:
 
 - `template_id` (`number`, required): Listmonk template ID
 - `version_id` (`string`, required): Stored registry version ID to promote
+- `expected_remote_hash` (`string`, required): Hash of the remote template content observed before promotion
 
 Steps:
 
