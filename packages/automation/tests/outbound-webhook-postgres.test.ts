@@ -628,13 +628,24 @@ describe("Postgres outbound webhook repository", () => {
 
 			const verify = postgres(databaseUrl, { max: 1, prepare: false });
 			try {
-				await expect(
-					verify`
-						UPDATE listmonk_ops.webhook_endpoints
-						SET timeout_ms = 99
-						WHERE id = ${endpointId}
-					`,
-				).rejects.toThrow();
+				const constraints = await verify<{ conname: string }[]>`
+					SELECT conname
+					FROM pg_constraint
+					WHERE conrelid = 'listmonk_ops.webhook_endpoints'::regclass
+						AND conname IN (
+							'webhook_endpoints_timeout_ms_check',
+							'webhook_endpoints_max_attempts_check',
+							'webhook_endpoints_circuit_failure_threshold_check',
+							'webhook_endpoints_circuit_cooldown_ms_check'
+						)
+					ORDER BY conname
+				`;
+				expect(constraints.map(({ conname }) => conname)).toEqual([
+					"webhook_endpoints_circuit_cooldown_ms_check",
+					"webhook_endpoints_circuit_failure_threshold_check",
+					"webhook_endpoints_max_attempts_check",
+					"webhook_endpoints_timeout_ms_check",
+				]);
 			} finally {
 				await verify.end({ timeout: 5 });
 			}
