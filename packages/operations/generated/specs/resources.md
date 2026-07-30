@@ -98,16 +98,19 @@ Transitions:
 
 ## `experiment` — Email experiment
 
-States: `draft`, `running`, `analyzing`, `deploying`, `completed`, `inconclusive`, `failed`, `cancelled`.
+States: `draft`, `testing`, `scheduled`, `running`, `analyzing`, `deploying`, `cancelling`, `completed`, `inconclusive`, `failed`, `cancelled`.
 
 Terminal states: `completed`, `inconclusive`, `failed`, `cancelled`.
 
 Transitions:
 
-- `draft` → `running`, `cancelled`
-- `running` → `analyzing`, `failed`, `cancelled`
-- `analyzing` → `deploying`, `inconclusive`, `failed`
-- `deploying` → `completed`, `failed`
+- `draft` → `testing`, `scheduled`, `cancelled`, `failed`
+- `testing` → `draft`, `scheduled`, `cancelling`, `failed`
+- `scheduled` → `running`, `cancelling`, `cancelled`, `failed`
+- `running` → `analyzing`, `cancelling`, `cancelled`, `failed`
+- `analyzing` → `deploying`, `completed`, `inconclusive`, `cancelling`, `failed`
+- `deploying` → `analyzing`, `completed`, `cancelling`, `failed`
+- `cancelling` → `cancelled`, `failed`
 - `completed` → none
 - `inconclusive` → none
 - `failed` → none

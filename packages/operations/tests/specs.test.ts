@@ -16,6 +16,7 @@ import {
 	defineOperationResourceSpec,
 	emailOperationsSpec,
 	expectedPolicyForEffects,
+	experimentResource,
 	messageResource,
 	projectOperationSpec,
 	providerOperationSpecs,
@@ -29,6 +30,8 @@ import {
 	webhookPruneOperationSpec,
 	webhookReconcileOperationSpec,
 } from "../src/specs";
+import { assertTypeScriptContractCompatibility } from "../src/specs/schema-compatibility";
+import type { NormalizedContractSchema } from "../src/specs/json";
 
 describe("email operations specification", () => {
 	test("models every public shared operation with governed contracts", () => {
@@ -134,6 +137,56 @@ describe("email operations specification", () => {
 		expect(emailOperationsSpec.events.map((event) => event.type)).toContain(
 			"abtest.winner-selected",
 		);
+	});
+
+	test("models runtime preview capabilities and experiment lifecycle effects", () => {
+		for (const operationId of [
+			"subscribers.add-to-lists",
+			"subscribers.remove-from-lists",
+			"subscribers.unblocklist",
+			"abtest.tick",
+		]) {
+			expect(bridgedOperationSpecsById[operationId]?.policy.dryRun).toBe(
+				true,
+			);
+		}
+		expect(
+			bridgedOperationSpecsById["ops.segments.drift"]?.policy.dryRun,
+		).toBe(false);
+		expect(
+			bridgedOperationSpecsById["ops.templates.registry-promote"]?.retry,
+		).toMatchObject({ kind: "unsafe" });
+
+		const createSpec = bridgedOperationSpecsById["abtest.create"];
+		const launchSpec = bridgedOperationSpecsById["abtest.launch"];
+		for (const operation of [createSpec, launchSpec]) {
+			expect(
+				operation?.effects.find((effect) => effect.kind === "delivery"),
+			).toMatchObject({ timing: "scheduled" });
+		}
+		expect(createSpec?.agent.prerequisites).not.toContain(
+			"ops.campaign.preflight",
+		);
+		expect(createSpec?.agent.related).toContain("ops.campaign.preflight");
+		expect(
+			bridgedOperationSpecsById["abtest.delete"]?.effects.map(
+				({ resource }) => resource,
+			),
+		).toEqual(["experiment", "campaign", "list"]);
+
+		expect(experimentResource.states).toEqual([
+			"draft",
+			"testing",
+			"scheduled",
+			"running",
+			"analyzing",
+			"deploying",
+			"cancelling",
+			"completed",
+			"inconclusive",
+			"failed",
+			"cancelled",
+		]);
 	});
 
 	test("derives safety requirements from operation effects", () => {
@@ -269,6 +322,299 @@ describe("email operations specification", () => {
 			audit: "required",
 			dryRun: true,
 		});
+		expect(
+			expectedPolicyForEffects([
+				{
+					kind: "write",
+					resource: "subscriber",
+					reversible: true,
+					preview: true,
+				},
+			]),
+		).toEqual({
+			confirmation: "never",
+			audit: "required",
+			dryRun: true,
+		});
+		expect(
+			expectedPolicyForEffects([
+				{
+					kind: "maintenance",
+					resource: "audience",
+					action: "recover",
+					destructive: false,
+					preview: false,
+				},
+			]),
+		).toEqual({
+			confirmation: "never",
+			audit: "required",
+			dryRun: false,
+		});
+		expect(() =>
+			expectedPolicyForEffects([
+				{
+					kind: "write",
+					resource: "experiment",
+					reversible: false,
+					preview: true,
+				},
+				{
+					kind: "delivery",
+					resource: "campaign",
+					audience: "bulk",
+					timing: "immediate",
+					preview: false,
+				},
+			]),
+		).toThrow("conflicting preview capabilities");
+	});
+
+	test("checks TypeScript-authored contracts against runtime boundary schemas", () => {
+		const productInput = {
+			dialect: "openapi-3.1",
+			stage: "normalized",
+			source: "typescript",
+			schema: {
+				type: "object",
+				properties: {
+					id: { type: "integer" },
+					mode: { enum: ["safe"] },
+				},
+				required: ["id", "mode"],
+			},
+			components: {},
+		} as const satisfies NormalizedContractSchema;
+		const runtimeInput = {
+			type: "object",
+			properties: {
+				id: { anyOf: [{ type: "integer" }, { type: "string" }] },
+				mode: { enum: ["safe", "force"] },
+			},
+			required: ["id"],
+		};
+
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.operation",
+				"input",
+				productInput,
+				runtimeInput,
+			),
+		).not.toThrow();
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.operation",
+				"input",
+				productInput,
+				{
+					...runtimeInput,
+					properties: {
+						id: { type: "string" },
+						mode: { enum: ["force"] },
+					},
+				},
+			),
+		).toThrow("primitive types drifted");
+
+		const productOutput = {
+			...productInput,
+			schema: {
+				type: "object",
+				properties: {
+					id: { type: "integer" },
+					status: { enum: ["accepted", "queued"] },
+				},
+				required: ["id"],
+			},
+		} as const satisfies NormalizedContractSchema;
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.operation",
+				"output",
+				productOutput,
+				{
+					type: "object",
+					properties: {
+						id: { type: "integer" },
+						status: { const: "accepted" },
+					},
+					required: ["id", "status"],
+				},
+			),
+		).not.toThrow();
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.operation",
+				"output",
+				productOutput,
+				{
+					type: "object",
+					properties: {
+						id: { type: "integer" },
+						status: { const: "rejected" },
+					},
+					required: ["id", "status"],
+				},
+			),
+		).toThrow("literal values drifted");
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.operation",
+				"output",
+				{
+					...productOutput,
+					schema: {
+						...productOutput.schema,
+						additionalProperties: {},
+					},
+				},
+				{
+					type: "object",
+					properties: {
+						id: { type: "integer" },
+						status: { const: "accepted" },
+						new_runtime_field: { type: "string" },
+					},
+					required: ["id", "status"],
+					additionalProperties: false,
+				},
+			),
+		).not.toThrow();
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.operation",
+				"output",
+				{
+					...productOutput,
+					schema: {
+						...productOutput.schema,
+						additionalProperties: false,
+					},
+				},
+				{
+					type: "object",
+					properties: {
+						id: { type: "integer" },
+						status: { const: "accepted" },
+						new_runtime_field: { type: "string" },
+					},
+					required: ["id", "status"],
+					additionalProperties: false,
+				},
+			),
+		).toThrow("properties missing from TypeScript contract");
+
+		const constrainedOutput = {
+			...productInput,
+			schema: {
+				type: "object",
+				properties: {
+					checked_at: { type: "string", format: "date-time" },
+					count: {
+						type: "integer",
+						minimum: 0,
+						maximum: 10,
+					},
+					summary: {
+						type: "object",
+						properties: {
+							ok: { type: "boolean" },
+						},
+						required: ["ok"],
+						additionalProperties: false,
+					},
+				},
+				required: ["checked_at", "count", "summary"],
+				additionalProperties: false,
+			},
+		} as const satisfies NormalizedContractSchema;
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.operation",
+				"output",
+				constrainedOutput,
+				{
+					type: "object",
+					properties: {
+						checked_at: { type: "string" },
+						count: {
+							type: "integer",
+							minimum: 0,
+							maximum: 10,
+						},
+						summary: {
+							type: "object",
+							properties: {
+								ok: { type: "boolean" },
+							},
+							required: ["ok"],
+							additionalProperties: false,
+						},
+					},
+					required: ["checked_at", "count", "summary"],
+					additionalProperties: false,
+				},
+			),
+		).toThrow("checked_at format drifted");
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.operation",
+				"output",
+				constrainedOutput,
+				{
+					type: "object",
+					properties: {
+						checked_at: {
+							type: "string",
+							format: "date-time",
+						},
+						count: {
+							type: "integer",
+							minimum: 0,
+							maximum: 20,
+						},
+						summary: {
+							type: "object",
+							properties: {},
+							required: [],
+							additionalProperties: false,
+						},
+					},
+					required: ["checked_at", "count", "summary"],
+					additionalProperties: false,
+				},
+			),
+		).toThrow("count maximum drifted");
+		expect(() =>
+			assertTypeScriptContractCompatibility(
+				"test.operation",
+				"output",
+				constrainedOutput,
+				{
+					type: "object",
+					properties: {
+						checked_at: {
+							type: "string",
+							format: "date-time",
+						},
+						count: {
+							type: "integer",
+							minimum: 0,
+							maximum: 10,
+						},
+						summary: {
+							type: "object",
+							properties: {},
+							required: [],
+							additionalProperties: false,
+						},
+					},
+					required: ["checked_at", "count", "summary"],
+					additionalProperties: false,
+				},
+			),
+		).toThrow("summary required fields not guaranteed by runtime");
 	});
 
 	test("rejects duplicate identities and invalid resource transitions", () => {

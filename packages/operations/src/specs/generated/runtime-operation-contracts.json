@@ -8045,13 +8045,19 @@
             "type": "array"
           },
           "failed": {
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
           },
           "processed": {
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
           },
           "succeeded": {
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [
@@ -8548,13 +8554,19 @@
             "type": "array"
           },
           "failed": {
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
           },
           "processed": {
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
           },
           "succeeded": {
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [
@@ -8629,13 +8641,19 @@
             "type": "array"
           },
           "failed": {
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
           },
           "processed": {
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
           },
           "succeeded": {
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [

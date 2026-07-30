@@ -78,7 +78,7 @@ const current = await Bun.file(outputPath).text().catch(() => undefined);
 if (checkOnly) {
 	if (current !== expected) {
 		throw new Error(
-			"Generated runtime operation contracts are stale. Run `bun run operations:specs:generate`.",
+			"Generated runtime operation contracts are stale. Run `bun run operations:specs:runtime-contracts:generate && bun run operations:specs:generate`.",
 		);
 	}
 } else {

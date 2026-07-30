@@ -283,6 +283,7 @@ const sendTransactionalOutputSchema = z
 			.describe("Echoed back when an idempotency key was supplied"),
 		expires_at: z
 			.string()
+			.datetime()
 			.optional()
 			.describe(
 				"ISO timestamp after which the idempotency record expires. Present when an idempotency key was supplied.",

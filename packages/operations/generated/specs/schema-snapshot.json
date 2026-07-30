@@ -1476,8 +1476,8 @@
               "minLength": 1,
               "type": "string"
             },
-            "PositiveInteger": {
-              "maximum": 9007199254740991,
+            "SearchResultLimit": {
+              "maximum": 100,
               "minimum": 1,
               "type": "integer"
             },
@@ -1488,7 +1488,7 @@
                   "$ref": "#/components/schemas/NonEmptyString"
                 },
                 "limit": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/SearchResultLimit"
                 },
                 "query": {
                   "$ref": "#/components/schemas/NonEmptyString"
@@ -1515,7 +1515,7 @@
               "$ref": "#/components/schemas/NonEmptyString"
             },
             "limit": {
-              "$ref": "#/components/schemas/PositiveInteger"
+              "$ref": "#/components/schemas/SearchResultLimit"
             },
             "query": {
               "$ref": "#/components/schemas/NonEmptyString"
@@ -2733,7 +2733,7 @@
                   "$ref": "#/components/schemas/NonEmptyString"
                 },
                 "limit": {
-                  "$ref": "#/components/schemas/PositiveInteger"
+                  "$ref": "#/components/schemas/PrimeRecommendationLimit"
                 }
               },
               "required": [],
@@ -2743,8 +2743,8 @@
               "minLength": 1,
               "type": "string"
             },
-            "PositiveInteger": {
-              "maximum": 9007199254740991,
+            "PrimeRecommendationLimit": {
+              "maximum": 20,
               "minimum": 1,
               "type": "integer"
             }
@@ -2758,7 +2758,7 @@
               "$ref": "#/components/schemas/NonEmptyString"
             },
             "limit": {
-              "$ref": "#/components/schemas/PositiveInteger"
+              "$ref": "#/components/schemas/PrimeRecommendationLimit"
             }
           },
           "required": [],
@@ -16048,13 +16048,19 @@
               "type": "array"
             },
             "failed": {
-              "type": "number"
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             },
             "processed": {
-              "type": "number"
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             },
             "succeeded": {
-              "type": "number"
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             }
           },
           "required": [
@@ -16071,7 +16077,7 @@
       "policy": {
         "audit": "required",
         "confirmation": "never",
-        "dryRun": false
+        "dryRun": true
       },
       "retry": {
         "kind": "safe",
@@ -16160,13 +16166,19 @@
               "type": "array"
             },
             "failed": {
-              "type": "number"
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             },
             "processed": {
-              "type": "number"
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             },
             "succeeded": {
-              "type": "number"
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             }
           },
           "required": [
@@ -16183,7 +16195,7 @@
       "policy": {
         "audit": "required",
         "confirmation": "required",
-        "dryRun": false
+        "dryRun": true
       },
       "retry": {
         "kind": "safe",
@@ -16253,13 +16265,19 @@
               "type": "array"
             },
             "failed": {
-              "type": "number"
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             },
             "processed": {
-              "type": "number"
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             },
             "succeeded": {
-              "type": "number"
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             }
           },
           "required": [
@@ -16276,7 +16294,7 @@
       "policy": {
         "audit": "required",
         "confirmation": "never",
-        "dryRun": false
+        "dryRun": true
       },
       "retry": {
         "kind": "safe",
@@ -19307,7 +19325,7 @@
       "policy": {
         "audit": "required",
         "confirmation": "never",
-        "dryRun": true
+        "dryRun": false
       },
       "retry": {
         "kind": "unsafe",
@@ -19618,8 +19636,8 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "kind": "unsafe",
+        "reason": "The shared operation may create, deliver, or advance state before an ambiguous failure."
       },
       "since": "0.9.0",
       "stability": "experimental"
@@ -24591,7 +24609,7 @@
       "policy": {
         "audit": "required",
         "confirmation": "required",
-        "dryRun": false
+        "dryRun": true
       },
       "retry": {
         "kind": "unsafe",

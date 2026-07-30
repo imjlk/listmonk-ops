@@ -2219,8 +2219,8 @@
                 "minLength": 1,
                 "type": "string"
               },
-              "PositiveInteger": {
-                "maximum": 9007199254740991,
+              "SearchResultLimit": {
+                "maximum": 100,
                 "minimum": 1,
                 "type": "integer"
               },
@@ -2231,7 +2231,7 @@
                     "$ref": "#/components/schemas/NonEmptyString"
                   },
                   "limit": {
-                    "$ref": "#/components/schemas/PositiveInteger"
+                    "$ref": "#/components/schemas/SearchResultLimit"
                   },
                   "query": {
                     "$ref": "#/components/schemas/NonEmptyString"
@@ -2258,7 +2258,7 @@
                 "$ref": "#/components/schemas/NonEmptyString"
               },
               "limit": {
-                "$ref": "#/components/schemas/PositiveInteger"
+                "$ref": "#/components/schemas/SearchResultLimit"
               },
               "query": {
                 "$ref": "#/components/schemas/NonEmptyString"
@@ -3674,7 +3674,7 @@
                     "$ref": "#/components/schemas/NonEmptyString"
                   },
                   "limit": {
-                    "$ref": "#/components/schemas/PositiveInteger"
+                    "$ref": "#/components/schemas/PrimeRecommendationLimit"
                   }
                 },
                 "required": [],
@@ -3684,8 +3684,8 @@
                 "minLength": 1,
                 "type": "string"
               },
-              "PositiveInteger": {
-                "maximum": 9007199254740991,
+              "PrimeRecommendationLimit": {
+                "maximum": 20,
                 "minimum": 1,
                 "type": "integer"
               }
@@ -3699,7 +3699,7 @@
                 "$ref": "#/components/schemas/NonEmptyString"
               },
               "limit": {
-                "$ref": "#/components/schemas/PositiveInteger"
+                "$ref": "#/components/schemas/PrimeRecommendationLimit"
               }
             },
             "required": [],
@@ -19016,13 +19016,19 @@
                 "type": "array"
               },
               "failed": {
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               },
               "processed": {
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               },
               "succeeded": {
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               }
             },
             "required": [
@@ -19041,6 +19047,7 @@
       "effects": [
         {
           "kind": "write",
+          "preview": true,
           "resource": "subscriber",
           "reversible": true
         }
@@ -19049,7 +19056,7 @@
       "policy": {
         "audit": "required",
         "confirmation": "never",
-        "dryRun": false
+        "dryRun": true
       },
       "projection": {
         "graph": {
@@ -19171,13 +19178,19 @@
                 "type": "array"
               },
               "failed": {
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               },
               "processed": {
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               },
               "succeeded": {
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               }
             },
             "required": [
@@ -19196,6 +19209,7 @@
       "effects": [
         {
           "kind": "write",
+          "preview": true,
           "resource": "subscriber",
           "reversible": false
         }
@@ -19204,7 +19218,7 @@
       "policy": {
         "audit": "required",
         "confirmation": "required",
-        "dryRun": false
+        "dryRun": true
       },
       "projection": {
         "graph": {
@@ -19306,13 +19320,19 @@
                 "type": "array"
               },
               "failed": {
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               },
               "processed": {
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               },
               "succeeded": {
-                "type": "number"
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
               }
             },
             "required": [
@@ -19331,6 +19351,7 @@
       "effects": [
         {
           "kind": "write",
+          "preview": true,
           "resource": "subscriber",
           "reversible": true
         }
@@ -19339,7 +19360,7 @@
       "policy": {
         "audit": "required",
         "confirmation": "never",
-        "dryRun": false
+        "dryRun": true
       },
       "projection": {
         "graph": {
@@ -23178,6 +23199,7 @@
           "action": "recover",
           "destructive": false,
           "kind": "maintenance",
+          "preview": false,
           "resource": "audience"
         }
       ],
@@ -23185,7 +23207,7 @@
       "policy": {
         "audit": "required",
         "confirmation": "never",
-        "dryRun": true
+        "dryRun": false
       },
       "projection": {
         "graph": {
@@ -23524,7 +23546,7 @@
         "related": [
           "ops.templates.registry-rollback"
         ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
+        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.",
         "useWhen": [
           "Promote a stored template version to active Listmonk content"
         ],
@@ -23630,8 +23652,8 @@
       },
       "resource": "template",
       "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "kind": "unsafe",
+        "reason": "The shared operation may create, deliver, or advance state before an ambiguous failure."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -25374,10 +25396,9 @@
         "avoidWhen": [
           "The target, intended side effect, or required confirmation has not been verified."
         ],
-        "prerequisites": [
-          "ops.campaign.preflight"
-        ],
+        "prerequisites": [],
         "related": [
+          "ops.campaign.preflight",
           "abtest.launch",
           "abtest.run"
         ],
@@ -26291,7 +26312,7 @@
           "audience": "bulk",
           "kind": "delivery",
           "resource": "campaign",
-          "timing": "immediate"
+          "timing": "scheduled"
         }
       ],
       "id": "abtest.create",
@@ -27250,7 +27271,7 @@
           "audience": "bulk",
           "kind": "delivery",
           "resource": "campaign",
-          "timing": "immediate"
+          "timing": "scheduled"
         }
       ],
       "id": "abtest.launch",
@@ -27974,7 +27995,7 @@
         "related": [],
         "retryGuidance": "Retry identical transient failures with bounded backoff.",
         "useWhen": [
-          "Delete an A/B test from persisted state"
+          "Delete an A/B test and clean up non-terminal Listmonk campaigns and temporary lists before removing persisted state"
         ],
         "verifyWith": [
           "abtest.list"
@@ -28019,11 +28040,21 @@
           "stage": "normalized"
         }
       },
-      "description": "Delete an A/B test from persisted state",
+      "description": "Delete an A/B test and clean up non-terminal Listmonk campaigns and temporary lists before removing persisted state",
       "effects": [
         {
           "kind": "delete",
           "resource": "experiment",
+          "reversible": false
+        },
+        {
+          "kind": "delete",
+          "resource": "campaign",
+          "reversible": false
+        },
+        {
+          "kind": "delete",
+          "resource": "list",
           "reversible": false
         }
       ],
@@ -29144,12 +29175,14 @@
       "effects": [
         {
           "kind": "write",
+          "preview": true,
           "resource": "experiment",
           "reversible": false
         },
         {
           "audience": "bulk",
           "kind": "delivery",
+          "preview": true,
           "resource": "campaign",
           "timing": "immediate"
         }
@@ -29158,7 +29191,7 @@
       "policy": {
         "audit": "required",
         "confirmation": "required",
-        "dryRun": false
+        "dryRun": true
       },
       "projection": {
         "graph": {
@@ -30020,9 +30053,12 @@
       "id": "experiment",
       "states": [
         "draft",
+        "testing",
+        "scheduled",
         "running",
         "analyzing",
         "deploying",
+        "cancelling",
         "completed",
         "inconclusive",
         "failed",
@@ -30038,25 +30074,48 @@
       "transitions": {
         "analyzing": [
           "deploying",
+          "completed",
           "inconclusive",
+          "cancelling",
           "failed"
         ],
         "cancelled": [],
+        "cancelling": [
+          "cancelled",
+          "failed"
+        ],
         "completed": [],
         "deploying": [
+          "analyzing",
           "completed",
+          "cancelling",
           "failed"
         ],
         "draft": [
-          "running",
-          "cancelled"
+          "testing",
+          "scheduled",
+          "cancelled",
+          "failed"
         ],
         "failed": [],
         "inconclusive": [],
         "running": [
           "analyzing",
-          "failed",
-          "cancelled"
+          "cancelling",
+          "cancelled",
+          "failed"
+        ],
+        "scheduled": [
+          "running",
+          "cancelling",
+          "cancelled",
+          "failed"
+        ],
+        "testing": [
+          "draft",
+          "scheduled",
+          "cancelling",
+          "failed"
         ]
       }
     },

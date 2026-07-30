@@ -1015,7 +1015,7 @@
               "$ref": "#/components/schemas/NonEmptyString"
             },
             "limit": {
-              "$ref": "#/components/schemas/PositiveInteger"
+              "$ref": "#/components/schemas/PrimeRecommendationLimit"
             }
           },
           "required": [],
@@ -1025,8 +1025,8 @@
           "minLength": 1,
           "type": "string"
         },
-        "PositiveInteger": {
-          "maximum": 9007199254740991,
+        "PrimeRecommendationLimit": {
+          "maximum": 20,
           "minimum": 1,
           "type": "integer"
         }
@@ -1040,7 +1040,7 @@
           "$ref": "#/components/schemas/NonEmptyString"
         },
         "limit": {
-          "$ref": "#/components/schemas/PositiveInteger"
+          "$ref": "#/components/schemas/PrimeRecommendationLimit"
         }
       },
       "required": [],
@@ -7223,8 +7223,8 @@
           "minLength": 1,
           "type": "string"
         },
-        "PositiveInteger": {
-          "maximum": 9007199254740991,
+        "SearchResultLimit": {
+          "maximum": 100,
           "minimum": 1,
           "type": "integer"
         },
@@ -7235,7 +7235,7 @@
               "$ref": "#/components/schemas/NonEmptyString"
             },
             "limit": {
-              "$ref": "#/components/schemas/PositiveInteger"
+              "$ref": "#/components/schemas/SearchResultLimit"
             },
             "query": {
               "$ref": "#/components/schemas/NonEmptyString"
@@ -7262,7 +7262,7 @@
           "$ref": "#/components/schemas/NonEmptyString"
         },
         "limit": {
-          "$ref": "#/components/schemas/PositiveInteger"
+          "$ref": "#/components/schemas/SearchResultLimit"
         },
         "query": {
           "$ref": "#/components/schemas/NonEmptyString"

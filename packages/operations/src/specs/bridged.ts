@@ -41,7 +41,15 @@ const read = (resource: OperationResourceKind): readonly OperationEffect[] => [
 const write = (
 	resource: OperationResourceKind,
 	reversible: boolean,
-): readonly OperationEffect[] => [{ kind: "write", resource, reversible }];
+	preview?: boolean,
+): readonly OperationEffect[] => [
+	{
+		kind: "write",
+		resource,
+		reversible,
+		...(preview === undefined ? {} : { preview }),
+	},
+];
 const remove = (resource: OperationResourceKind): readonly OperationEffect[] => [
 	{ kind: "delete", resource, reversible: false },
 ];
@@ -289,7 +297,7 @@ const bridgedOperationDeclarations = [
 		description:
 			"Add a batch of subscribers to one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
 		mcpName: "listmonk_add_subscribers_to_lists",
-		effects: write("subscriber", true),
+		effects: write("subscriber", true, true),
 		idempotent: true,
 		runtimeFile: "packages/operations/src/subscribers.ts",
 		runtimeDefinition: "addSubscribersToListsOperation",
@@ -307,7 +315,7 @@ const bridgedOperationDeclarations = [
 		description:
 			"Remove a batch of subscribers from one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-adding subscribers does not guarantee their previous per-list subscription state is reconstructed.",
 		mcpName: "listmonk_remove_subscribers_from_lists",
-		effects: write("subscriber", false),
+		effects: write("subscriber", false, true),
 		idempotent: true,
 		runtimeFile: "packages/operations/src/subscribers.ts",
 		runtimeDefinition: "removeSubscribersFromListsOperation",
@@ -325,7 +333,7 @@ const bridgedOperationDeclarations = [
 		description:
 			"Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
 		mcpName: "listmonk_unblocklist_subscribers",
-		effects: write("subscriber", true),
+		effects: write("subscriber", true, true),
 		idempotent: true,
 		runtimeFile: "packages/operations/src/subscribers.ts",
 		runtimeDefinition: "unblocklistSubscribersOperation",
@@ -675,6 +683,7 @@ const bridgedOperationDeclarations = [
 				resource: "audience",
 				action: "recover",
 				destructive: false,
+				preview: false,
 			},
 		],
 		idempotent: false,
@@ -728,7 +737,7 @@ const bridgedOperationDeclarations = [
 			"Promote a stored template version to active Listmonk content",
 		mcpName: "listmonk_ops_template_registry_promote",
 		effects: write("template", false),
-		idempotent: true,
+		idempotent: false,
 		runtimeFile: "packages/automation/src/ops-operations.ts",
 		runtimeDefinition: "templateRegistryPromoteOperation",
 		invoker: "invokeTemplateRegistryPromoteOperation",
@@ -822,7 +831,7 @@ const bridgedOperationDeclarations = [
 				kind: "delivery",
 				resource: "campaign",
 				audience: "bulk",
-				timing: "immediate",
+				timing: "scheduled",
 			},
 		],
 		idempotent: false,
@@ -830,9 +839,8 @@ const bridgedOperationDeclarations = [
 		runtimeDefinition: "createAbTestOperation",
 		invoker: "invokeCreateAbTestOperation",
 		executor: "executeCreateAbTestOperation",
-		prerequisites: ["ops.campaign.preflight"],
 		verifyWith: ["abtest.get"],
-		related: ["abtest.launch", "abtest.run"],
+		related: ["ops.campaign.preflight", "abtest.launch", "abtest.run"],
 	},
 	{
 		id: "abtest.analyze",
@@ -863,7 +871,7 @@ const bridgedOperationDeclarations = [
 				kind: "delivery",
 				resource: "campaign",
 				audience: "bulk",
-				timing: "immediate",
+				timing: "scheduled",
 			},
 		],
 		idempotent: false,
@@ -898,9 +906,14 @@ const bridgedOperationDeclarations = [
 		resource: "experiment",
 		verb: "delete",
 		title: "Delete A/B test",
-		description: "Delete an A/B test from persisted state",
+		description:
+			"Delete an A/B test and clean up non-terminal Listmonk campaigns and temporary lists before removing persisted state",
 		mcpName: "listmonk_abtest_delete",
-		effects: remove("experiment"),
+		effects: [
+			...remove("experiment"),
+			...remove("campaign"),
+			...remove("list"),
+		],
 		idempotent: true,
 		runtimeFile: "packages/abtest/src/operations.ts",
 		runtimeDefinition: "deleteAbTestOperation",
@@ -986,12 +999,18 @@ const bridgedOperationDeclarations = [
 			"Advance every non-terminal A/B test one lifecycle step and report the actions taken",
 		mcpName: "listmonk_abtest_tick",
 		effects: [
-			{ kind: "write", resource: "experiment", reversible: false },
+			{
+				kind: "write",
+				resource: "experiment",
+				reversible: false,
+				preview: true,
+			},
 			{
 				kind: "delivery",
 				resource: "campaign",
 				audience: "bulk",
 				timing: "immediate",
+				preview: true,
 			},
 		],
 		idempotent: false,

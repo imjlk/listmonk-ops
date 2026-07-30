@@ -1,6 +1,7 @@
 import type { AnyOperationSpec } from "./operation";
 import { cloneSpecValue } from "./json";
 import type { RetrySemantics, UnconditionalRetrySemantics } from "./retry";
+import { assertTypeScriptContractCompatibility } from "./schema-compatibility";
 
 export interface RuntimeOperationProjection {
 	id: string;
@@ -53,7 +54,13 @@ export function assertRuntimeOperationContracts(
 	}
 	for (const direction of ["input", "output"] as const) {
 		const contract = spec.contract[direction];
-		if (contract.source !== "runtime-operation") {
+		if (contract.source === "typescript") {
+			assertTypeScriptContractCompatibility(
+				spec.id,
+				direction,
+				contract,
+				runtime[direction],
+			);
 			continue;
 		}
 		const expected = JSON.stringify(stableValue(contract.schema));

@@ -848,7 +848,8 @@ export const stopAbTestOperation = defineOperation({
 export const deleteAbTestOperation = defineOperation({
 	id: "abtest.delete",
 	title: "Delete A/B test",
-	description: "Delete an A/B test from persisted state",
+	description:
+		"Delete an A/B test and clean up non-terminal Listmonk campaigns and temporary lists before removing persisted state",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ deleted: z.boolean() }),
 	safety: destructiveSafety,

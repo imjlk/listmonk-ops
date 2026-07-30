@@ -15,6 +15,16 @@ export type PositiveInteger = number &
 	tags.Minimum<1> &
 	tags.Maximum<9007199254740991>;
 
+export type SearchResultLimit = number &
+	tags.Type<"int64"> &
+	tags.Minimum<1> &
+	tags.Maximum<100>;
+
+export type PrimeRecommendationLimit = number &
+	tags.Type<"int64"> &
+	tags.Minimum<1> &
+	tags.Maximum<20>;
+
 export type NonEmptyString = string & tags.MinLength<1>;
 export type EmailAddress = string & tags.Format<"email">;
 export type IsoDateTime = string & tags.Format<"date-time">;
@@ -422,7 +432,7 @@ export interface SpecSearchInput {
 	family?: NonEmptyString | undefined;
 	resource?: NonEmptyString | undefined;
 	verb?: NonEmptyString | undefined;
-	limit?: PositiveInteger | undefined;
+	limit?: SearchResultLimit | undefined;
 }
 
 export interface SpecSearchOutput {
@@ -556,7 +566,7 @@ export interface ControlCapabilitiesOutput {
 
 export interface ControlPrimeInput {
 	goal?: NonEmptyString | undefined;
-	limit?: PositiveInteger | undefined;
+	limit?: PrimeRecommendationLimit | undefined;
 }
 
 export interface ControlPrimeOutput {

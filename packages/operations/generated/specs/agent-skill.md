@@ -1208,7 +1208,7 @@ Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## Promote template version (`ops.templates.registry-promote`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `safe`.
+Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `unsafe`.
 
 Use when: Promote a stored template version to active Listmonk content
 
@@ -1218,7 +1218,7 @@ Prerequisites: `ops.templates.registry-history`, `templates.get`
 
 Verify with: `templates.get`, `ops.templates.registry-history`
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
 
 ## Rollback template version (`ops.templates.registry-rollback`)
 
@@ -1278,13 +1278,13 @@ Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## Create A/B test (`abtest.create`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
 
 Use when: Create and persist an A/B test; auto-launch can start its campaigns
 
 Avoid when: The target, intended side effect, or required confirmation has not been verified.
 
-Prerequisites: `ops.campaign.preflight`
+Prerequisites: none
 
 Verify with: `abtest.get`
 
@@ -1306,7 +1306,7 @@ Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## Launch A/B test (`abtest.launch`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
 
 Use when: Launch a draft A/B test
 
@@ -1334,9 +1334,9 @@ Retry guidance: Do not automatically retry an ambiguous failure; inspect the tar
 
 ## Delete A/B test (`abtest.delete`)
 
-Contract maturity: `experimental`; effects: `delete:experiment`; confirmation: `required`; retry: `safe`.
+Contract maturity: `experimental`; effects: `delete:experiment, delete:campaign, delete:list`; confirmation: `required`; retry: `safe`.
 
-Use when: Delete an A/B test from persisted state
+Use when: Delete an A/B test and clean up non-terminal Listmonk campaigns and temporary lists before removing persisted state
 
 Avoid when: The target, intended side effect, or required confirmation has not been verified.
 

@@ -291,9 +291,9 @@ const subscriberBulkBlocklistInputSchema = z.object({
 const subscriberBulkUnblocklistInputSchema = subscriberBulkBlocklistInputSchema;
 
 const bulkOperationOutputSchema = z.object({
-	processed: z.number(),
-	succeeded: z.number(),
-	failed: z.number(),
+	processed: z.number().int().nonnegative(),
+	succeeded: z.number().int().nonnegative(),
+	failed: z.number().int().nonnegative(),
 	errors: z.array(z.string()),
 });
 

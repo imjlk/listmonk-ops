@@ -748,7 +748,7 @@ Add a batch of subscribers to one or more lists. Processes subscribers in chunks
 - MCP tool: `listmonk_add_subscribers_to_lists`
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `write:subscriber`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Policy: confirmation `never`, audit `required`, dry-run `true`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
@@ -760,7 +760,7 @@ Remove a batch of subscribers from one or more lists. Processes subscribers in c
 - MCP tool: `listmonk_remove_subscribers_from_lists`
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `write:subscriber`
-- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
@@ -772,7 +772,7 @@ Remove a batch of subscribers from the blocklist. Processes subscribers in chunk
 - MCP tool: `listmonk_unblocklist_subscribers`
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `write:subscriber`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Policy: confirmation `never`, audit `required`, dry-run `true`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
@@ -1013,7 +1013,7 @@ Snapshot list sizes and detect subscriber-count drift
 - MCP tool: `listmonk_ops_segment_drift`
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `maintenance:recover:recoverable`
-- Policy: confirmation `never`, audit `required`, dry-run `true`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
 
@@ -1050,7 +1050,7 @@ Promote a stored template version to active Listmonk content
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `write:template`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `safe`
+- Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
 
 ## `ops.templates.registry-rollback`
@@ -1108,7 +1108,7 @@ Create and persist an A/B test; auto-launch can start its campaigns
 - Resource / verb: `experiment.create`
 - MCP tool: `listmonk_abtest_create`
 - Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, delivery:bulk:immediate`
+- Effects: `write:experiment, delivery:bulk:scheduled`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
@@ -1132,7 +1132,7 @@ Launch a draft A/B test
 - Resource / verb: `experiment.launch`
 - MCP tool: `listmonk_abtest_launch`
 - Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, delivery:bulk:immediate`
+- Effects: `write:experiment, delivery:bulk:scheduled`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
@@ -1151,12 +1151,12 @@ Stop a running A/B test and clean up temporary resources
 
 ## `abtest.delete`
 
-Delete an A/B test from persisted state
+Delete an A/B test and clean up non-terminal Listmonk campaigns and temporary lists before removing persisted state
 
 - Resource / verb: `experiment.delete`
 - MCP tool: `listmonk_abtest_delete`
 - Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `delete:experiment`
+- Effects: `delete:experiment, delete:campaign, delete:list`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
@@ -1205,7 +1205,7 @@ Advance every non-terminal A/B test one lifecycle step and report the actions ta
 - MCP tool: `listmonk_abtest_tick`
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `write:experiment, delivery:bulk:immediate`
-- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
 
