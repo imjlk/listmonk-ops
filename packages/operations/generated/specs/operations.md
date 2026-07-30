@@ -630,7 +630,7 @@ Get subscriber lists from Listmonk
 - Effects: `read:list`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.10.0`
+- Stability: `stable` since `0.9.0`
 
 ## `lists.get`
 
@@ -642,7 +642,7 @@ Get a specific subscriber list by ID
 - Effects: `read:list`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.10.0`
+- Stability: `stable` since `0.9.0`
 
 ## `subscribers.list`
 
@@ -654,7 +654,7 @@ Get subscribers from Listmonk
 - Effects: `read:subscriber`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.10.0`
+- Stability: `stable` since `0.9.0`
 
 ## `subscribers.get`
 
@@ -666,7 +666,7 @@ Get a subscriber by ID
 - Effects: `read:subscriber`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.10.0`
+- Stability: `stable` since `0.9.0`
 
 ## `campaigns.list`
 
@@ -678,7 +678,7 @@ Get campaigns from Listmonk
 - Effects: `read:campaign`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.10.0`
+- Stability: `stable` since `0.9.0`
 
 ## `campaigns.stats`
 
@@ -690,7 +690,7 @@ Read delivery stats (views, clicks, bounces, to_send, sent, started_at) for a ca
 - Effects: `read:campaign`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.10.0`
+- Stability: `stable` since `0.9.0`
 
 ## `templates.list`
 
@@ -702,7 +702,7 @@ Get templates from Listmonk
 - Effects: `read:template`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.10.0`
+- Stability: `stable` since `0.9.0`
 
 ## `templates.get`
 
@@ -714,7 +714,7 @@ Get a template by ID
 - Effects: `read:template`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.10.0`
+- Stability: `stable` since `0.9.0`
 
 ## `media.list`
 
@@ -726,7 +726,7 @@ Get uploaded media files from Listmonk
 - Effects: `read:media`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.10.0`
+- Stability: `stable` since `0.9.0`
 
 ## `media.get`
 
@@ -738,7 +738,7 @@ Get an uploaded media file by ID
 - Effects: `read:media`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.10.0`
+- Stability: `stable` since `0.9.0`
 
 ## `lists.create`
 

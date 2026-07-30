@@ -62,7 +62,7 @@ export const listsListOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.10.0",
+	since: "0.9.0",
 });
 
 export const listsGetOperationSpec = defineOperationSpec({
@@ -110,7 +110,7 @@ export const listsGetOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.10.0",
+	since: "0.9.0",
 });
 
 export const subscribersListOperationSpec = defineOperationSpec({
@@ -158,7 +158,7 @@ export const subscribersListOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.10.0",
+	since: "0.9.0",
 });
 
 export const subscribersGetOperationSpec = defineOperationSpec({
@@ -210,7 +210,7 @@ export const subscribersGetOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.10.0",
+	since: "0.9.0",
 });
 
 export const campaignsListOperationSpec = defineOperationSpec({
@@ -258,7 +258,7 @@ export const campaignsListOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.10.0",
+	since: "0.9.0",
 });
 
 export const campaignsStatsOperationSpec = defineOperationSpec({
@@ -307,7 +307,7 @@ export const campaignsStatsOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.10.0",
+	since: "0.9.0",
 });
 
 export const templatesListOperationSpec = defineOperationSpec({
@@ -355,7 +355,7 @@ export const templatesListOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.10.0",
+	since: "0.9.0",
 });
 
 export const templatesGetOperationSpec = defineOperationSpec({
@@ -407,7 +407,7 @@ export const templatesGetOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.10.0",
+	since: "0.9.0",
 });
 
 export const mediaListOperationSpec = defineOperationSpec({
@@ -455,7 +455,7 @@ export const mediaListOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.10.0",
+	since: "0.9.0",
 });
 
 export const mediaGetOperationSpec = defineOperationSpec({
@@ -503,7 +503,7 @@ export const mediaGetOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.10.0",
+	since: "0.9.0",
 });
 
 export const coreReadOperationSpecs = [

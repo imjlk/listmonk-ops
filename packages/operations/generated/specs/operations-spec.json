@@ -17818,7 +17818,7 @@
         "kind": "safe",
         "reason": "The operation only reads the current subscriber-list collection."
       },
-      "since": "0.10.0",
+      "since": "0.9.0",
       "stability": "stable",
       "title": "List subscriber lists",
       "verb": "list"
@@ -18005,7 +18005,7 @@
         "kind": "safe",
         "reason": "The operation only reads the current subscriber-list representation."
       },
-      "since": "0.10.0",
+      "since": "0.9.0",
       "stability": "stable",
       "title": "Get subscriber list",
       "verb": "get"
@@ -18310,7 +18310,7 @@
         "kind": "safe",
         "reason": "The operation only reads a filtered subscriber collection."
       },
-      "since": "0.10.0",
+      "since": "0.9.0",
       "stability": "stable",
       "title": "List subscribers",
       "verb": "list"
@@ -18495,7 +18495,7 @@
         "kind": "safe",
         "reason": "The operation only reads the current subscriber representation."
       },
-      "since": "0.10.0",
+      "since": "0.9.0",
       "stability": "stable",
       "title": "Get subscriber",
       "verb": "get"
@@ -18990,7 +18990,7 @@
         "kind": "safe",
         "reason": "The operation only reads a filtered campaign collection."
       },
-      "since": "0.10.0",
+      "since": "0.9.0",
       "stability": "stable",
       "title": "List campaigns",
       "verb": "list"
@@ -19247,7 +19247,7 @@
         "kind": "safe",
         "reason": "The operation only reads the current campaign statistics."
       },
-      "since": "0.10.0",
+      "since": "0.9.0",
       "stability": "stable",
       "title": "Get campaign stats",
       "verb": "stats"
@@ -19460,7 +19460,7 @@
         "kind": "safe",
         "reason": "The operation only reads the current template collection."
       },
-      "since": "0.10.0",
+      "since": "0.9.0",
       "stability": "stable",
       "title": "List templates",
       "verb": "list"
@@ -19649,7 +19649,7 @@
         "kind": "safe",
         "reason": "The operation only reads the current template representation."
       },
-      "since": "0.10.0",
+      "since": "0.9.0",
       "stability": "stable",
       "title": "Get template",
       "verb": "get"
@@ -19857,7 +19857,7 @@
         "kind": "safe",
         "reason": "The operation only reads the current media collection."
       },
-      "since": "0.10.0",
+      "since": "0.9.0",
       "stability": "stable",
       "title": "List media",
       "verb": "list"
@@ -20046,7 +20046,7 @@
         "kind": "safe",
         "reason": "The operation only reads the current media-file representation."
       },
-      "since": "0.10.0",
+      "since": "0.9.0",
       "stability": "stable",
       "title": "Get media file",
       "verb": "get"
