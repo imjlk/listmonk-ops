@@ -2461,18 +2461,331 @@ function subtractSpfInterval(
 	return remaining;
 }
 
-function failedSpfAuthorization(
+function normalizeSpfIntervals(
+	ranges: readonly SpfIpInterval[],
+): SpfIpInterval[] {
+	const sorted = [...ranges].sort((left, right) => {
+		if (left.family !== right.family) return left.family - right.family;
+		if (left.start < right.start) return -1;
+		if (left.start > right.start) return 1;
+		if (left.end < right.end) return -1;
+		if (left.end > right.end) return 1;
+		return 0;
+	});
+	const normalized: SpfIpInterval[] = [];
+	for (const range of sorted) {
+		const previous = normalized.at(-1);
+		if (
+			previous === undefined ||
+			previous.family !== range.family ||
+			range.start > previous.end + 1n
+		) {
+			normalized.push({ ...range });
+			continue;
+		}
+		if (range.end > previous.end) previous.end = range.end;
+	}
+	return normalized;
+}
+
+function intersectSpfIntervals(
+	left: readonly SpfIpInterval[],
+	right: readonly SpfIpInterval[],
+): SpfIpInterval[] {
+	const intersections: SpfIpInterval[] = [];
+	for (const leftRange of left) {
+		for (const rightRange of right) {
+			if (!intervalsOverlap(leftRange, rightRange)) continue;
+			intersections.push({
+				family: leftRange.family,
+				start:
+					leftRange.start > rightRange.start
+						? leftRange.start
+						: rightRange.start,
+				end:
+					leftRange.end < rightRange.end
+						? leftRange.end
+						: rightRange.end,
+			});
+		}
+	}
+	return normalizeSpfIntervals(intersections);
+}
+
+function subtractSpfIntervals(
+	source: readonly SpfIpInterval[],
+	removed: readonly SpfIpInterval[],
+): SpfIpInterval[] {
+	let remaining = normalizeSpfIntervals(source);
+	for (const range of normalizeSpfIntervals(removed)) {
+		remaining = remaining.flatMap((candidate) =>
+			subtractSpfInterval(candidate, range),
+		);
+	}
+	return normalizeSpfIntervals(remaining);
+}
+
+interface ExpectedSpfInspection extends SpfAuthorizationInspection {
+	remaining: SpfIpInterval[];
+}
+
+function expectedSpfInspection(
+	remaining: readonly SpfIpInterval[],
 	options: {
 		indeterminate?: boolean;
 		invalid?: boolean;
 		observations?: DnsObservation[];
+		unconditionalPass?: boolean;
 	} = {},
-): SpfAuthorizationInspection {
+): ExpectedSpfInspection {
+	const normalizedRemaining = normalizeSpfIntervals(remaining);
+	const indeterminate = options.indeterminate ?? false;
+	const invalid = options.invalid ?? false;
+	const ready =
+		normalizedRemaining.length === 0 && !indeterminate && !invalid;
 	return {
-		ready: false,
-		indeterminate: options.indeterminate ?? false,
-		invalid: options.invalid ?? false,
+		ready,
+		...(ready && options.unconditionalPass === true
+			? { unconditional_pass: true }
+			: {}),
+		indeterminate,
+		invalid,
 		observations: options.observations ?? [],
+		remaining: normalizedRemaining,
+	};
+}
+
+interface ExpectedSpfDnsMatch {
+	intervals: SpfIpInterval[];
+	matchesAll: boolean;
+	indeterminate: boolean;
+	invalid: boolean;
+}
+
+function spfAddressPrefixes(mechanism: string): {
+	ipv4: number;
+	ipv6: number;
+} {
+	const match =
+		/^(?:a|mx)(?::([^/]+))?(?:\/(\d+))?(?:\/\/(\d+))?$/i.exec(mechanism);
+	return {
+		ipv4: match?.[2] === undefined ? 32 : Number(match[2]),
+		ipv6: match?.[3] === undefined ? 128 : Number(match[3]),
+	};
+}
+
+async function resolveExpectedSpfAddressIntervals(
+	domain: string,
+	expectedRanges: readonly SpfIpInterval[],
+	prefixes: Readonly<{ ipv4: number; ipv6: number }>,
+	dns: ProviderDnsResolver,
+	lookupBudget: SpfLookupBudget,
+): Promise<ExpectedSpfDnsMatch> {
+	if (domain.includes("%")) {
+		return {
+			intervals: [],
+			matchesAll: false,
+			indeterminate: true,
+			invalid: false,
+		};
+	}
+	const families = new Set(expectedRanges.map(({ family }) => family));
+	const available: Array<{
+		family: 4 | 6;
+		load: () => Promise<string[]>;
+	}> = [];
+	for (const family of families) {
+		if (family === 4) {
+			if (dns.a === undefined) {
+				return {
+					intervals: [],
+					matchesAll: false,
+					indeterminate: true,
+					invalid: false,
+				};
+			}
+			available.push({ family, load: () => dns.a!(domain) });
+			continue;
+		}
+		if (dns.aaaa === undefined) {
+			return {
+				intervals: [],
+				matchesAll: false,
+				indeterminate: true,
+				invalid: false,
+			};
+		}
+		available.push({ family, load: () => dns.aaaa!(domain) });
+	}
+	const results = await Promise.allSettled(
+		available.map(async ({ family, load }) => ({
+			family,
+			addresses: await load(),
+		})),
+	);
+	const voidLookups = results.filter(
+		(result) =>
+			result.status === "fulfilled" &&
+			result.value.addresses.length === 0,
+	).length;
+	if (
+		voidLookups > 0 &&
+		!consumeSpfVoidLookups(lookupBudget, voidLookups)
+	) {
+		return {
+			intervals: [],
+			matchesAll: false,
+			indeterminate: false,
+			invalid: true,
+		};
+	}
+	if (results.some((result) => result.status === "rejected")) {
+		return {
+			intervals: [],
+			matchesAll: false,
+			indeterminate: true,
+			invalid: false,
+		};
+	}
+	const intervals: SpfIpInterval[] = [];
+	for (const result of results) {
+		if (result.status !== "fulfilled") continue;
+		const prefix =
+			result.value.family === 4 ? prefixes.ipv4 : prefixes.ipv6;
+		for (const address of result.value.addresses) {
+			const interval = parseSpfIpInterval(`${address}/${prefix}`);
+			if (
+				interval === undefined ||
+				interval.family !== result.value.family
+			) {
+				return {
+					intervals: [],
+					matchesAll: false,
+					indeterminate: false,
+					invalid: true,
+				};
+			}
+			intervals.push(interval);
+		}
+	}
+	return {
+		intervals: normalizeSpfIntervals(intervals),
+		matchesAll: false,
+		indeterminate: false,
+		invalid: false,
+	};
+}
+
+async function inspectExpectedSpfDnsMechanism(
+	mechanism: string,
+	currentDomain: string,
+	expectedRanges: readonly SpfIpInterval[],
+	dns: ProviderDnsResolver,
+	lookupBudget: SpfLookupBudget,
+): Promise<ExpectedSpfDnsMatch> {
+	const mechanismName = mechanism
+		.toLowerCase()
+		.split(/[:/]/, 1)[0];
+	if (mechanismName === "exists") {
+		const match = await inspectDirectSpfMechanism(
+			mechanism,
+			currentDomain,
+			dns,
+			lookupBudget,
+		);
+		return {
+			intervals: [],
+			matchesAll: match.matches,
+			indeterminate: match.indeterminate,
+			invalid: match.invalid,
+		};
+	}
+	if (mechanismName === "ptr") {
+		return {
+			intervals: [],
+			matchesAll: false,
+			indeterminate: true,
+			invalid: false,
+		};
+	}
+	const prefixes = spfAddressPrefixes(mechanism);
+	const domain = spfMechanismDomain(mechanism, currentDomain);
+	if (mechanismName === "a") {
+		return resolveExpectedSpfAddressIntervals(
+			domain,
+			expectedRanges,
+			prefixes,
+			dns,
+			lookupBudget,
+		);
+	}
+	if (mechanismName !== "mx" || domain.includes("%")) {
+		return {
+			intervals: [],
+			matchesAll: false,
+			indeterminate: domain.includes("%"),
+			invalid: mechanismName !== "mx",
+		};
+	}
+	let records: Array<{ exchange: string; priority: number }>;
+	try {
+		records = await dns.mx(domain);
+	} catch {
+		return {
+			intervals: [],
+			matchesAll: false,
+			indeterminate: true,
+			invalid: false,
+		};
+	}
+	if (records.length > 10) {
+		return {
+			intervals: [],
+			matchesAll: false,
+			indeterminate: false,
+			invalid: true,
+		};
+	}
+	if (
+		records.length === 0 &&
+		!consumeSpfVoidLookups(lookupBudget)
+	) {
+		return {
+			intervals: [],
+			matchesAll: false,
+			indeterminate: false,
+			invalid: true,
+		};
+	}
+	const intervals: SpfIpInterval[] = [];
+	for (const { exchange } of records) {
+		const normalizedExchange = normalizeDomain(exchange);
+		if (
+			normalizedExchange.length === 0 ||
+			normalizedExchange.includes("%")
+		) {
+			return {
+				intervals: [],
+				matchesAll: false,
+				indeterminate: false,
+				invalid: true,
+			};
+		}
+		const resolved = await resolveExpectedSpfAddressIntervals(
+			normalizedExchange,
+			expectedRanges,
+			prefixes,
+			dns,
+			lookupBudget,
+		);
+		if (resolved.indeterminate || resolved.invalid) return resolved;
+		intervals.push(...resolved.intervals);
+	}
+	return {
+		intervals: normalizeSpfIntervals(intervals),
+		matchesAll: false,
+		indeterminate: false,
+		invalid: false,
 	};
 }
 
@@ -2482,13 +2795,13 @@ async function inspectExpectedSpfDomain(
 	dns: ProviderDnsResolver,
 	lookupBudget: SpfLookupBudget,
 	visited: ReadonlySet<string>,
-): Promise<SpfAuthorizationInspection> {
+): Promise<ExpectedSpfInspection> {
 	const normalizedDomain = normalizeDomain(domain);
 	if (
 		normalizedDomain.includes("%") ||
 		visited.has(normalizedDomain)
 	) {
-		return failedSpfAuthorization({
+		return expectedSpfInspection(expectedRanges, {
 			indeterminate: normalizedDomain.includes("%"),
 			invalid: visited.has(normalizedDomain),
 		});
@@ -2498,7 +2811,7 @@ async function inspectExpectedSpfDomain(
 	);
 	const observations = [lookup.observation];
 	if (lookup.outcome === "error") {
-		return failedSpfAuthorization({
+		return expectedSpfInspection(expectedRanges, {
 			indeterminate: true,
 			observations,
 		});
@@ -2507,14 +2820,14 @@ async function inspectExpectedSpfDomain(
 		lookup.values.length === 0 &&
 		!consumeSpfVoidLookups(lookupBudget)
 	) {
-		return failedSpfAuthorization({
+		return expectedSpfInspection(expectedRanges, {
 			invalid: true,
 			observations,
 		});
 	}
 	const records = lookup.values.filter(isSpfVersionOneRecord);
 	if (records.length !== 1) {
-		return failedSpfAuthorization({
+		return expectedSpfInspection(expectedRanges, {
 			invalid: true,
 			observations,
 		});
@@ -2544,14 +2857,15 @@ async function inspectExpectedSpfRecord(
 	lookupBudget: SpfLookupBudget,
 	visited: ReadonlySet<string>,
 	allowUnscopedPass: boolean,
-): Promise<SpfAuthorizationInspection> {
+): Promise<ExpectedSpfInspection> {
 	const terms = parseValidSpfTerms(record);
 	if (terms === undefined || expectedRanges.length === 0) {
-		return failedSpfAuthorization({
+		return expectedSpfInspection(expectedRanges, {
 			invalid: terms === undefined,
 		});
 	}
-	let remaining = [...expectedRanges];
+	let remaining = normalizeSpfIntervals(expectedRanges);
+	let terminalNotPass: SpfIpInterval[] = [];
 	const observations: DnsObservation[] = [];
 	let redirectTarget: string | undefined;
 	for (const term of terms) {
@@ -2571,41 +2885,42 @@ async function inspectExpectedSpfRecord(
 				allowUnscopedPass &&
 				(qualifier === undefined || qualifier === "+")
 			) {
-				return {
-					ready: true,
-					unconditional_pass: true,
-					indeterminate: false,
-					invalid: false,
+				remaining = [];
+				return expectedSpfInspection(terminalNotPass, {
 					observations,
-				};
+					unconditionalPass: terminalNotPass.length === 0,
+				});
 			}
-			return failedSpfAuthorization({ observations });
+			terminalNotPass = normalizeSpfIntervals([
+				...terminalNotPass,
+				...remaining,
+			]);
+			remaining = [];
+			return expectedSpfInspection(terminalNotPass, {
+				observations,
+			});
 		}
 		if (mechanismName === "ip4" || mechanismName === "ip6") {
 			const mechanismRange = parseSpfIpInterval(mechanism.slice(4));
 			if (mechanismRange === undefined) {
-				return failedSpfAuthorization({
+				return expectedSpfInspection([...terminalNotPass, ...remaining], {
 					invalid: true,
 					observations,
 				});
 			}
-			const overlapsExpected = remaining.some((expected) =>
-				intervalsOverlap(expected, mechanismRange),
-			);
-			if (!overlapsExpected) continue;
+			const matched = intersectSpfIntervals(remaining, [mechanismRange]);
+			if (matched.length === 0) continue;
+			remaining = subtractSpfIntervals(remaining, matched);
 			if (qualifier !== undefined && qualifier !== "+") {
-				return failedSpfAuthorization({ observations });
+				terminalNotPass = normalizeSpfIntervals([
+					...terminalNotPass,
+					...matched,
+				]);
 			}
-			remaining = remaining.flatMap((expected) =>
-				subtractSpfInterval(expected, mechanismRange),
-			);
 			if (remaining.length === 0) {
-				return {
-					ready: true,
-					indeterminate: false,
-					invalid: false,
+				return expectedSpfInspection(terminalNotPass, {
 					observations,
-				};
+				});
 			}
 			continue;
 		}
@@ -2616,7 +2931,10 @@ async function inspectExpectedSpfRecord(
 			continue;
 		}
 		if (!consumeSpfDnsLookup(lookupBudget)) {
-			return failedSpfAuthorization({ invalid: true, observations });
+			return expectedSpfInspection([...terminalNotPass, ...remaining], {
+				invalid: true,
+				observations,
+			});
 		}
 		if (mechanismName === "include") {
 			const nested = await inspectExpectedSpfDomain(
@@ -2628,64 +2946,75 @@ async function inspectExpectedSpfRecord(
 			);
 			observations.push(...nested.observations);
 			if (nested.indeterminate || nested.invalid) {
-				return failedSpfAuthorization({
+				return expectedSpfInspection([...terminalNotPass, ...remaining], {
 					indeterminate: nested.indeterminate,
 					invalid: nested.invalid,
 					observations,
 				});
 			}
-			if (nested.ready) {
-				return qualifier === undefined || qualifier === "+"
-					? {
-							ready: true,
-							indeterminate: false,
-							invalid: false,
-							observations,
-						}
-					: failedSpfAuthorization({ observations });
+			const passedByNested = subtractSpfIntervals(remaining, nested.remaining);
+			remaining = nested.remaining;
+			if (
+				qualifier !== undefined &&
+				qualifier !== "+" &&
+				passedByNested.length > 0
+			) {
+				terminalNotPass = normalizeSpfIntervals([
+					...terminalNotPass,
+					...passedByNested,
+				]);
+			}
+			if (remaining.length === 0) {
+				return expectedSpfInspection(terminalNotPass, {
+					observations,
+					unconditionalPass:
+						terminalNotPass.length === 0 &&
+						nested.unconditional_pass === true,
+				});
 			}
 			continue;
 		}
-		const match = await inspectDirectSpfMechanism(
+		const match = await inspectExpectedSpfDnsMechanism(
 			mechanism,
 			currentDomain,
+			remaining,
 			dns,
 			lookupBudget,
 		);
 		if (match.indeterminate || match.invalid) {
-			return failedSpfAuthorization({
+			return expectedSpfInspection([...terminalNotPass, ...remaining], {
 				indeterminate: match.indeterminate,
 				invalid: match.invalid,
 				observations,
 			});
 		}
+		const matched = match.matchesAll
+			? remaining
+			: intersectSpfIntervals(remaining, match.intervals);
+		if (matched.length === 0) continue;
 		if (
-			match.matches &&
-			(mechanismName === "exists" ||
-				(qualifier !== undefined && qualifier !== "+"))
+			match.matchesAll &&
+			mechanismName === "exists" &&
+			!allowUnscopedPass &&
+			(qualifier === undefined || qualifier === "+")
 		) {
-			// A matching `exists` applies to every sender. For address-dependent
-			// mechanisms, fail closed when an earlier non-pass result may cover
-			// one of the expected sender ranges.
-			if (
-				allowUnscopedPass &&
-				mechanismName === "exists" &&
-				(qualifier === undefined || qualifier === "+")
-			) {
-				return {
-					ready: true,
-					unconditional_pass: true,
-					indeterminate: false,
-					invalid: false,
-					observations,
-				};
-			}
-			return failedSpfAuthorization({ observations });
+			continue;
+		}
+		remaining = subtractSpfIntervals(remaining, matched);
+		if (qualifier !== undefined && qualifier !== "+") {
+			terminalNotPass = normalizeSpfIntervals([...terminalNotPass, ...matched]);
+		}
+		if (remaining.length === 0) {
+			return expectedSpfInspection(terminalNotPass, {
+				observations,
+				unconditionalPass:
+					terminalNotPass.length === 0 && match.matchesAll,
+			});
 		}
 	}
-	if (redirectTarget !== undefined) {
+	if (redirectTarget !== undefined && remaining.length > 0) {
 		if (!consumeSpfDnsLookup(lookupBudget)) {
-			return failedSpfAuthorization({
+			return expectedSpfInspection([...terminalNotPass, ...remaining], {
 				invalid: true,
 				observations,
 			});
@@ -2697,12 +3026,24 @@ async function inspectExpectedSpfRecord(
 			lookupBudget,
 			visited,
 		);
-		return {
-			...redirected,
-			observations: [...observations, ...redirected.observations],
-		};
+		return expectedSpfInspection(
+			[...terminalNotPass, ...redirected.remaining],
+			{
+				indeterminate: redirected.indeterminate,
+				invalid: redirected.invalid,
+				observations: [
+					...observations,
+					...redirected.observations,
+				],
+				unconditionalPass:
+					terminalNotPass.length === 0 &&
+					redirected.unconditional_pass === true,
+			},
+		);
 	}
-	return failedSpfAuthorization({ observations });
+	return expectedSpfInspection([...terminalNotPass, ...remaining], {
+		observations,
+	});
 }
 
 async function inspectExpectedDirectSpfRanges(
@@ -2718,11 +3059,14 @@ async function inspectExpectedDirectSpfRanges(
 		expectedRanges.length === 0 ||
 		parsedRanges.length !== expectedRanges.length
 	) {
-		return failedSpfAuthorization({
+		return {
+			ready: false,
+			indeterminate: false,
 			invalid: expectedRanges.length > 0,
-		});
+			observations: [],
+		};
 	}
-	return inspectExpectedSpfRecord(
+	const inspection = await inspectExpectedSpfRecord(
 		record,
 		normalizeDomain(currentDomain),
 		parsedRanges,
@@ -2731,6 +3075,15 @@ async function inspectExpectedDirectSpfRanges(
 		new Set([normalizeDomain(currentDomain)]),
 		false,
 	);
+	return {
+		ready: inspection.ready,
+		...(inspection.unconditional_pass === undefined
+			? {}
+			: { unconditional_pass: inspection.unconditional_pass }),
+		indeterminate: inspection.indeterminate,
+		invalid: inspection.invalid,
+		observations: inspection.observations,
+	};
 }
 
 function mxExchange(record: string): string | undefined {

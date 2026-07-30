@@ -3038,6 +3038,152 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("preserves partial sender-range authorization across nested SPF includes", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "partial-nested-direct-policy-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["203.0.113.10", "203.0.113.20"],
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({
+				profiles: [smtpProfile],
+				dns: {
+					async txt(name) {
+						if (name === "_dmarc.mail.example.com") {
+							return ["v=DMARC1; p=quarantine"];
+						}
+						if (name === "bounce.mail.example.com") {
+							return [
+								"v=spf1 include:nested-one.example include:nested-two.example -all",
+							];
+						}
+						if (name === "nested-one.example") {
+							return ["v=spf1 ip4:203.0.113.10 -all"];
+						}
+						if (name === "nested-two.example") {
+							return ["v=spf1 ip4:203.0.113.20 -all"];
+						}
+						return [];
+					},
+					async cname() {
+						return [];
+					},
+					async mx(name) {
+						return name === "bounce.mail.example.com"
+							? [
+									{
+										priority: 10,
+										exchange: "smtp-mx.example.com",
+									},
+								]
+							: [];
+					},
+					async a(name) {
+						return name === "smtp-mx.example.com"
+							? ["203.0.113.10"]
+							: [];
+					},
+					async aaaa() {
+						return [];
+					},
+				},
+			}),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "pass" }),
+		);
+	});
+
+	test("matches nested SPF a and mx mechanisms to configured sender ranges", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "nested-address-direct-policy-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["203.0.113.10"],
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const inspectNested = (
+			nestedRecord: string,
+			nestedAddress: string,
+		) =>
+			inspectProviderDns(
+				smtpProfile,
+				context({
+					profiles: [smtpProfile],
+					dns: {
+						async txt(name) {
+							if (name === "_dmarc.mail.example.com") {
+								return ["v=DMARC1; p=quarantine"];
+							}
+							if (name === "bounce.mail.example.com") {
+								return ["v=spf1 include:nested.example -all"];
+							}
+							if (name === "nested.example") {
+								return [nestedRecord];
+							}
+							return [];
+						},
+						async cname() {
+							return [];
+						},
+						async mx(name) {
+							if (name === "bounce.mail.example.com") {
+								return [
+									{
+										priority: 10,
+										exchange: "smtp-mx.example.com",
+									},
+								];
+							}
+							return name === "nested.example"
+								? [
+										{
+											priority: 10,
+											exchange: "spf-mx.example.com",
+										},
+									]
+								: [];
+						},
+						async a(name) {
+							if (name === "smtp-mx.example.com") {
+								return ["203.0.113.10"];
+							}
+							return name === "nested.example" ||
+								name === "spf-mx.example.com"
+								? [nestedAddress]
+								: [];
+						},
+						async aaaa() {
+							return [];
+						},
+					},
+				}),
+			);
+
+		for (const [record, address] of [
+			["v=spf1 a -all", "203.0.113.10"],
+			["v=spf1 a/24 -all", "203.0.113.1"],
+			["v=spf1 mx -all", "203.0.113.10"],
+		] as const) {
+			const output = await inspectNested(record, address);
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.spf", status: "pass" }),
+			);
+		}
+
+		for (const record of ["v=spf1 a -all", "v=spf1 mx -all"]) {
+			const output = await inspectNested(record, "198.51.100.10");
+			expect(output.checks).toContainEqual(
+				expect.objectContaining({ id: "dns.spf", status: "fail" }),
+			);
+		}
+	});
+
 	test("rejects scoped IPv6 SPF mechanisms without throwing", async () => {
 		const smtpProfile = providerProfileSchema.parse({
 			id: "scoped-ipv6-direct-policy-relay",
