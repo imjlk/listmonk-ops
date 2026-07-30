@@ -31,6 +31,9 @@ const nonCanonicalEd25519DkimPublicKey =
 	"7f///////////////////////////////////////38=";
 const smallOrderEd25519DkimPublicKey =
 	"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+const sesSmtpUsername = "AKIA_TEST_SES_SMTP_USERNAME";
+const sesSmtpUsernameFingerprint =
+	"sha256:5e966714de655274201793ffcfdd043fedd09b037e00c8b8238596bbbb757593";
 const profile = providerProfileSchema.parse({
 	id: "marketing-primary",
 	kind: "ses",
@@ -39,6 +42,7 @@ const profile = providerProfileSchema.parse({
 	from_email: "newsletter@news.example.com",
 	region: "ap-northeast-2",
 	secret_ref: "aws:profile:newsletter",
+	smtp_username_fingerprints: [sesSmtpUsernameFingerprint],
 	webhook_source: "ses",
 	webhook_max_age_hours: 168,
 });
@@ -130,6 +134,7 @@ function context(
 							smtp: [
 								{
 									host: "email-smtp.ap-northeast-2.amazonaws.com",
+									username: sesSmtpUsername,
 									enabled: true,
 								},
 							],
@@ -173,6 +178,7 @@ describe("provider and deliverability operations", () => {
 				smtp: [
 					{
 						host: "email-smtp.ap-northeast-2.amazonaws.com",
+						username: sesSmtpUsername,
 						enabled: true,
 					},
 				],
@@ -190,6 +196,7 @@ describe("provider and deliverability operations", () => {
 				smtp: [
 					{
 						host: "email-smtp.cn-north-1.amazonaws.com.cn",
+						username: sesSmtpUsername,
 						enabled: true,
 					},
 				],
@@ -197,6 +204,90 @@ describe("provider and deliverability operations", () => {
 		).toMatchObject({
 			smtp_configured: true,
 			smtp_enabled: true,
+		});
+	});
+
+	test("requires the complete enabled SMTP pool and configured credential fingerprints", () => {
+		const poolProfile = providerProfileSchema.parse({
+			...profile,
+			smtp_hosts: [
+				"email-smtp.ap-northeast-2.amazonaws.com",
+				"smtp-backup.example.com",
+			],
+		});
+		const exact = inspectListmonkProviderSettings(poolProfile, {
+			smtp: [
+				{
+					host: "email-smtp.ap-northeast-2.amazonaws.com",
+					username: sesSmtpUsername,
+					enabled: true,
+				},
+				{
+					host: "smtp-backup.example.com",
+					username: sesSmtpUsername,
+					enabled: true,
+				},
+			],
+		});
+		expect(exact).toMatchObject({
+			enabled_smtp_hosts: [
+				"email-smtp.ap-northeast-2.amazonaws.com",
+				"smtp-backup.example.com",
+			],
+			smtp_pool_exact: true,
+			smtp_credentials_bound: true,
+			smtp_enabled: true,
+		});
+		expect(JSON.stringify(exact)).not.toContain(sesSmtpUsername);
+		expect(JSON.stringify(exact)).not.toContain(
+			sesSmtpUsernameFingerprint,
+		);
+
+		for (const smtp of [
+			[
+				{
+					host: "email-smtp.ap-northeast-2.amazonaws.com",
+					username: sesSmtpUsername,
+					enabled: true,
+				},
+			],
+			[
+				{
+					host: "email-smtp.ap-northeast-2.amazonaws.com",
+					username: sesSmtpUsername,
+					enabled: true,
+				},
+				{
+					host: "smtp-unexpected.example.com",
+					username: sesSmtpUsername,
+					enabled: true,
+				},
+			],
+		]) {
+			expect(
+				inspectListmonkProviderSettings(poolProfile, { smtp }),
+			).toMatchObject({
+				smtp_pool_exact: false,
+				smtp_enabled: false,
+				messenger_enabled: false,
+			});
+		}
+
+		expect(
+			inspectListmonkProviderSettings(profile, {
+				smtp: [
+					{
+						host: "email-smtp.ap-northeast-2.amazonaws.com",
+						username: "DIFFERENT_SES_SMTP_USERNAME",
+						enabled: true,
+					},
+				],
+			}),
+		).toMatchObject({
+			smtp_pool_exact: true,
+			smtp_credentials_bound: false,
+			smtp_enabled: false,
+			messenger_enabled: false,
 		});
 	});
 
@@ -326,11 +417,12 @@ describe("provider and deliverability operations", () => {
 								"privacy.unsubscribe_header": true,
 								"bounce.enabled": true,
 								"bounce.webhooks_enabled": true,
-								smtp: [
-									{
-										host: "email-smtp.ap-northeast-2.amazonaws.com",
-										enabled: true,
-									},
+					smtp: [
+						{
+							host: "email-smtp.ap-northeast-2.amazonaws.com",
+							username: sesSmtpUsername,
+							enabled: true,
+						},
 								],
 							},
 						} as never;
@@ -800,10 +892,11 @@ describe("provider and deliverability operations", () => {
 			{
 				"app.from_email": "not-an-email",
 				smtp: [
-					{
-						host: "email-smtp.ap-northeast-2.amazonaws.com",
-						enabled: true,
-					},
+						{
+							host: "email-smtp.ap-northeast-2.amazonaws.com",
+							username: sesSmtpUsername,
+							enabled: true,
+						},
 				],
 			},
 		);
@@ -842,10 +935,10 @@ describe("provider and deliverability operations", () => {
 				],
 			},
 		);
-		expect(malformedEnabled).toMatchObject({
-			messenger_configured: true,
-			messenger_enabled: false,
-		});
+			expect(malformedEnabled).toMatchObject({
+				messenger_configured: false,
+				messenger_enabled: false,
+			});
 
 		const clientWithoutFrom = {
 			...context().client!,
@@ -907,7 +1000,7 @@ describe("provider and deliverability operations", () => {
 				id: "listmonk.messenger",
 				status: "fail",
 				message: expect.stringContaining(
-					"Campaigns select a messenger rather than a provider profile",
+					"consolidate that pool into one provider profile",
 				),
 			}),
 		);
@@ -935,7 +1028,7 @@ describe("provider and deliverability operations", () => {
 			expect.objectContaining({
 				id: "listmonk.messenger",
 				message: expect.stringContaining(
-					"Campaigns select a messenger rather than a provider profile",
+					"consolidate that pool into one provider profile",
 				),
 			}),
 		);
@@ -1789,6 +1882,40 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("honors SES identity evidence that no custom MAIL FROM is configured", async () => {
+		const queriedNames: string[] = [];
+		const noMailFromIdentity = {
+			...(await inspector().inspectIdentity()),
+			mail_from_domain: undefined,
+			mail_from_status: undefined,
+		};
+		const noMailFromDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				queriedNames.push(name);
+				return dns.txt(name);
+			},
+			async mx(name) {
+				queriedNames.push(name);
+				return dns.mx(name);
+			},
+		};
+		const output = await inspectProviderDns(
+			profile,
+			context({ dns: noMailFromDns }),
+			noMailFromIdentity,
+		);
+		expect(output).not.toHaveProperty("mail_from_domain");
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.mail-from",
+				status: "warn",
+			}),
+		);
+		expect(output.checks.some(({ id }) => id === "dns.spf")).toBe(false);
+		expect(queriedNames).not.toContain("bounce.news.example.com");
+	});
+
 	test("uses the RFC 9989 eight-query shortcut for deep DMARC trees", async () => {
 		const domain = "a.b.c.d.e.f.g.h.i.j.mail.example.com";
 		const deepProfile = providerProfileSchema.parse({
@@ -1991,6 +2118,30 @@ describe("provider and deliverability operations", () => {
 				expect.objectContaining({ id: "dns.spf", status }),
 			);
 		}
+	});
+
+	test("continues SPF path discovery past an unrelated earlier include", async () => {
+		const orderedSpfDns: ProviderDnsResolver = {
+			...dns,
+			async txt(name) {
+				if (name === "bounce.news.example.com") {
+					return [
+						"v=spf1 include:_spf.other.example include:amazonses.com -all",
+					];
+				}
+				if (name === "_spf.other.example") {
+					return ["v=spf1 ip4:198.51.100.0/24 -all"];
+				}
+				return dns.txt(name);
+			},
+		};
+		const output = await invokeDeliverabilityDnsCheckOperation(
+			context({ dns: orderedSpfDns }),
+			{ provider_id: profile.id },
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "pass" }),
+		);
 	});
 
 	test("accepts underscored SPF targets and multiple generic SMTP MX records", async () => {
@@ -2559,6 +2710,39 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("uses the China SES custom MAIL FROM MX suffix", async () => {
+		const chinaProfile = providerProfileSchema.parse({
+			...profile,
+			id: "china-marketing",
+			region: "cn-north-1",
+		});
+		const chinaDns: ProviderDnsResolver = {
+			...dns,
+			async mx(name) {
+				return name === "bounce.news.example.com"
+					? [
+							{
+								priority: 10,
+								exchange:
+									"feedback-smtp.cn-north-1.amazonses.com.cn",
+							},
+						]
+					: [];
+			},
+		};
+		const output = await inspectProviderDns(
+			chinaProfile,
+			context({ profiles: [chinaProfile], dns: chinaDns }),
+			await inspector().inspectIdentity(),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({
+				id: "dns.mail-from-mx",
+				status: "pass",
+			}),
+		);
+	});
+
 	test("rejects a dangling generic DKIM delegation", async () => {
 		const smtpProfile = providerProfileSchema.parse({
 			id: "dangling-relay",
@@ -2598,6 +2782,7 @@ describe("provider and deliverability operations", () => {
 			kind: "smtp",
 			sending_domain: "mail.example.com",
 			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["203.0.113.10"],
 			smtp_hosts: ["smtp.example.com"],
 		});
 		const directSpfDns: ProviderDnsResolver = {
@@ -2634,12 +2819,60 @@ describe("provider and deliverability operations", () => {
 		);
 	});
 
+	test("requires a generic direct SPF policy to match the configured sender range", async () => {
+		const smtpProfile = providerProfileSchema.parse({
+			id: "mismatched-direct-policy-relay",
+			kind: "smtp",
+			sending_domain: "mail.example.com",
+			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["203.0.113.20"],
+			smtp_hosts: ["smtp.example.com"],
+		});
+		const output = await inspectProviderDns(
+			smtpProfile,
+			context({
+				profiles: [smtpProfile],
+				dns: {
+					async txt(name) {
+						if (name === "_dmarc.mail.example.com") {
+							return ["v=DMARC1; p=quarantine"];
+						}
+						if (name === "bounce.mail.example.com") {
+							return ["v=spf1 ip4:203.0.113.10 -all"];
+						}
+						return [];
+					},
+					async cname() {
+						return [];
+					},
+					async mx(name) {
+						return name === "bounce.mail.example.com"
+							? [{ priority: 10, exchange: "mx.example.com" }]
+							: [];
+					},
+					async a(name) {
+						return name === "mx.example.com"
+							? ["203.0.113.10"]
+							: [];
+					},
+					async aaaa() {
+						return [];
+					},
+				},
+			}),
+		);
+		expect(output.checks).toContainEqual(
+			expect.objectContaining({ id: "dns.spf", status: "fail" }),
+		);
+	});
+
 	test("rejects a generic SMTP SPF policy without an authorization path", async () => {
 		const smtpProfile = providerProfileSchema.parse({
 			id: "unverified-relay",
 			kind: "smtp",
 			sending_domain: "mail.example.com",
 			mail_from_domain: "bounce.mail.example.com",
+			expected_spf_ip_ranges: ["203.0.113.10"],
 			smtp_hosts: ["smtp.example.com"],
 		});
 		const unverifiedSpfDns: ProviderDnsResolver = {
@@ -2822,6 +3055,28 @@ describe("provider profile loader", () => {
 				dkim_selectors: ["mail..eu"],
 			}),
 		).toThrow();
+	});
+
+	test("rejects invalid SES regions and oversized DKIM owner names", () => {
+		for (const region of ["us east 1", "us/east/1", "useast1"]) {
+			expect(() =>
+				providerProfileSchema.parse({ ...profile, region }),
+			).toThrow();
+		}
+		const longDomain = [
+			"a".repeat(63),
+			"b".repeat(63),
+			"c".repeat(63),
+			"d".repeat(45),
+			"com",
+		].join(".");
+		expect(() =>
+			providerProfileSchema.parse({
+				...profile,
+				sending_domain: longDomain,
+				dkim_selectors: ["selector"],
+			}),
+		).toThrow("DNS owner name longer than 253 characters");
 	});
 
 	test("does not expose an inaccessible provider config path", async () => {

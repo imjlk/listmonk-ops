@@ -1,6 +1,6 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { Buffer } from "node:buffer";
-import { createPublicKey } from "node:crypto";
+import { createHash, createPublicKey } from "node:crypto";
 import {
 	resolve4,
 	resolve6,
@@ -76,9 +76,13 @@ export interface ProviderListmonkSnapshot {
 	messenger_configured: boolean;
 	messenger_enabled: boolean;
 	smtp_hosts: string[];
+	enabled_smtp_hosts: string[];
 	matching_smtp_hosts: string[];
 	smtp_configured: boolean;
 	smtp_enabled: boolean;
+	smtp_pool_exact: boolean;
+	smtp_credential_binding_required: boolean;
+	smtp_credentials_bound: boolean;
 	unsubscribe_header_enabled: boolean;
 	bounce_processing_enabled: boolean;
 	bounce_webhooks_enabled: boolean;
@@ -417,8 +421,23 @@ function smtpHost(record: Readonly<Record<string, unknown>>): string | undefined
 		: undefined;
 }
 
+function smtpUsernameFingerprint(
+	record: Readonly<Record<string, unknown>>,
+): string | undefined {
+	if (typeof record.username !== "string" || record.username.length === 0) {
+		return undefined;
+	}
+	return `sha256:${createHash("sha256").update(record.username).digest("hex")}`;
+}
+
 function awsDnsSuffix(region: string): "amazonaws.com" | "amazonaws.com.cn" {
 	return region.startsWith("cn-") ? "amazonaws.com.cn" : "amazonaws.com";
+}
+
+function sesMailFromDnsSuffix(
+	region: string,
+): "amazonses.com" | "amazonses.com.cn" {
+	return region.startsWith("cn-") ? "amazonses.com.cn" : "amazonses.com";
 }
 
 function expectedSmtpHosts(profile: ProviderProfile): string[] {
@@ -427,6 +446,15 @@ function expectedSmtpHosts(profile: ProviderProfile): string[] {
 		return [`email-smtp.${profile.region}.${awsDnsSuffix(profile.region)}`];
 	}
 	return [];
+}
+
+function setsEqual(expected: readonly string[], actual: readonly string[]): boolean {
+	const expectedSet = new Set(expected);
+	const actualSet = new Set(actual);
+	return (
+		expectedSet.size === actualSet.size &&
+		[...expectedSet].every((value) => actualSet.has(value))
+	);
 }
 
 function hasAmbiguousMessengerBinding(
@@ -448,10 +476,29 @@ export function inspectListmonkProviderSettings(
 ): ProviderListmonkSnapshot {
 	const expectedHosts = expectedSmtpHosts(profile);
 	const smtp = smtpRecords(settings);
+	const enabledSmtp = smtp.filter(isRecordEnabled);
+	const enabledHosts = enabledSmtp
+		.map(smtpHost)
+		.filter((host): host is string => host !== undefined);
 	const matching = smtp.filter((record) => {
 		const host = smtpHost(record);
 		return host !== undefined && expectedHosts.includes(host);
 	});
+	const smtpPoolExact =
+		enabledSmtp.length === enabledHosts.length &&
+		enabledSmtp.length > 0 &&
+		setsEqual(expectedHosts, enabledHosts);
+	const expectedUsernameFingerprints =
+		profile.smtp_username_fingerprints;
+	const actualUsernameFingerprints = enabledSmtp
+		.map(smtpUsernameFingerprint)
+		.filter((value): value is string => value !== undefined);
+	const credentialBindingRequired =
+		expectedUsernameFingerprints.length > 0;
+	const smtpCredentialsBound =
+		!credentialBindingRequired ||
+		(enabledSmtp.length === actualUsernameFingerprints.length &&
+			setsEqual(expectedUsernameFingerprints, actualUsernameFingerprints));
 	const messengerName = normalizeMessengerName(profile.messenger);
 	const matchingMessengers = messengerName === "email" ? matching : [];
 	const messengerBindingAmbiguous = hasAmbiguousMessengerBinding(
@@ -473,18 +520,26 @@ export function inspectListmonkProviderSettings(
 		messenger: profile.messenger,
 		messenger_binding_ambiguous: messengerBindingAmbiguous,
 		messenger_configured:
-			!messengerBindingAmbiguous && matchingMessengers.length > 0,
+			!messengerBindingAmbiguous &&
+			matchingMessengers.length > 0 &&
+			smtpPoolExact &&
+			smtpCredentialsBound,
 		messenger_enabled:
 			!messengerBindingAmbiguous &&
-			matchingMessengers.some(isRecordEnabled),
+			smtpPoolExact &&
+			smtpCredentialsBound,
 		smtp_hosts: smtp
 			.map(smtpHost)
 			.filter((host): host is string => host !== undefined),
+		enabled_smtp_hosts: enabledHosts,
 		matching_smtp_hosts: matching
 			.map(smtpHost)
 			.filter((host): host is string => host !== undefined),
 		smtp_configured: matching.length > 0,
-		smtp_enabled: matching.some(isRecordEnabled),
+		smtp_enabled: smtpPoolExact && smtpCredentialsBound,
+		smtp_pool_exact: smtpPoolExact,
+		smtp_credential_binding_required: credentialBindingRequired,
+		smtp_credentials_bound: smtpCredentialsBound,
 		unsubscribe_header_enabled: settingBoolean(
 			settings,
 			"privacy.unsubscribe_header",
@@ -539,7 +594,7 @@ function settingsChecks(
 	let messengerMessage: string;
 	if (snapshot.messenger_binding_ambiguous) {
 		messengerStatus = "fail";
-		messengerMessage = `Listmonk messenger '${snapshot.messenger}' is shared by multiple provider profiles. Campaigns select a messenger rather than a provider profile; use distinct messenger names.`;
+		messengerMessage = `Listmonk messenger '${snapshot.messenger}' is shared by multiple provider profiles. Campaigns select the complete built-in email SMTP pool; consolidate that pool into one provider profile or remove the competing profile.`;
 	} else if (
 		snapshot.messenger_configured &&
 		snapshot.messenger_enabled
@@ -555,14 +610,22 @@ function settingsChecks(
 		{
 			id: "listmonk.smtp",
 			status:
-				snapshot.smtp_configured && snapshot.smtp_enabled ? "pass" : "fail",
+				snapshot.smtp_pool_exact &&
+				snapshot.smtp_credentials_bound
+					? "pass"
+					: "fail",
 			message:
-				snapshot.smtp_configured && snapshot.smtp_enabled
-					? "A matching enabled SMTP entry is configured in Listmonk."
-					: "No matching enabled SMTP entry is configured in Listmonk.",
+				snapshot.smtp_pool_exact &&
+				snapshot.smtp_credentials_bound
+					? "The complete enabled Listmonk SMTP pool matches the provider profile and required credential fingerprints."
+					: "The enabled Listmonk SMTP pool or its required credential fingerprints do not exactly match the provider profile.",
 			details: {
 				expected_hosts: expectedSmtpHosts(profile),
+				enabled_hosts: snapshot.enabled_smtp_hosts,
 				matching_hosts: snapshot.matching_smtp_hosts,
+				credential_binding_required:
+					snapshot.smtp_credential_binding_required,
+				credentials_bound: snapshot.smtp_credentials_bound,
 			},
 		},
 		{
@@ -1629,6 +1692,7 @@ function isSpfVersionOneRecord(record: string): boolean {
 
 interface SpfAuthorizationInspection {
 	ready: boolean;
+	unconditional_pass?: boolean | undefined;
 	indeterminate: boolean;
 	invalid: boolean;
 	observations: DnsObservation[];
@@ -1978,7 +2042,7 @@ async function inspectSpfExpectedIncludePath(
 					lookupBudget,
 				};
 			}
-			if (nested.ready) {
+			if (nested.unconditional_pass === true) {
 				return {
 					found: false,
 					indeterminate: false,
@@ -2116,6 +2180,10 @@ async function inspectSpfAuthorizationTarget(
 				ready:
 					(qualifier === undefined || qualifier === "+") &&
 					isDirectSpfAuthorizer(mechanism),
+				...((qualifier === undefined || qualifier === "+") &&
+				isDirectSpfAuthorizer(mechanism)
+					? { unconditional_pass: true }
+					: {}),
 				indeterminate: false,
 				invalid: false,
 				observations,
@@ -2161,6 +2229,9 @@ async function inspectSpfAuthorizationTarget(
 			) {
 				return {
 					ready: true,
+					...(nested.unconditional_pass === true
+						? { unconditional_pass: true }
+						: {}),
 					indeterminate: false,
 					invalid: false,
 					observations,
@@ -2245,6 +2316,12 @@ async function inspectSpfAuthorizationTarget(
 		observations.push(...redirected.observations);
 		return {
 			ready: redirected.ready,
+			...(redirected.unconditional_pass === undefined
+				? {}
+				: {
+						unconditional_pass:
+							redirected.unconditional_pass,
+					}),
 			indeterminate: redirected.indeterminate,
 			invalid: redirected.invalid,
 			observations,
@@ -2255,6 +2332,63 @@ async function inspectSpfAuthorizationTarget(
 		indeterminate: false,
 		invalid: false,
 		observations,
+	};
+}
+
+function normalizeSpfIpRange(value: string): string {
+	const normalized = value.toLowerCase();
+	if (normalized.includes("/")) return normalized;
+	return `${normalized}/${isIP(normalized) === 4 ? 32 : 128}`;
+}
+
+function inspectExpectedDirectSpfRanges(
+	record: string,
+	expectedRanges: readonly string[],
+): SpfAuthorizationInspection {
+	const terms = parseValidSpfTerms(record);
+	if (terms === undefined || expectedRanges.length === 0) {
+		return {
+			ready: false,
+			indeterminate: false,
+			invalid: terms === undefined,
+			observations: [],
+		};
+	}
+	const remaining = new Set(expectedRanges.map(normalizeSpfIpRange));
+	for (const term of terms) {
+		if (term.includes("=")) continue;
+		const qualifier = /^[+?~-]/.exec(term)?.[0];
+		const mechanism = term.replace(/^[+?~-]/, "");
+		const lower = mechanism.toLowerCase();
+		if (lower === "all") break;
+		if (!lower.startsWith("ip4:") && !lower.startsWith("ip6:")) {
+			continue;
+		}
+		const range = normalizeSpfIpRange(mechanism.slice(4));
+		if (!remaining.has(range)) continue;
+		if (qualifier !== undefined && qualifier !== "+") {
+			return {
+				ready: false,
+				indeterminate: false,
+				invalid: false,
+				observations: [],
+			};
+		}
+		remaining.delete(range);
+		if (remaining.size === 0) {
+			return {
+				ready: true,
+				indeterminate: false,
+				invalid: false,
+				observations: [],
+			};
+		}
+	}
+	return {
+		ready: false,
+		indeterminate: false,
+		invalid: false,
+		observations: [],
 	};
 }
 
@@ -2496,7 +2630,9 @@ async function inspectProviderDnsUnbounded(
 	});
 
 	const mailFromDomain =
-		identity?.mail_from_domain ?? profile.mail_from_domain;
+		identity === undefined
+			? profile.mail_from_domain
+			: identity.mail_from_domain;
 	if (mailFromDomain === undefined) {
 		checks.push({
 			id: "dns.mail-from",
@@ -2551,12 +2687,9 @@ async function inspectProviderDnsUnbounded(
 		}
 		const directAuthorization =
 			expectedInclude === undefined && spfRecords.length === 1
-				? await inspectSpfAuthorizationTarget(
-						mailFromDomain,
-						dns,
-						new Set(),
-						{ used: 0, void: 0 },
+				? inspectExpectedDirectSpfRanges(
 						spfRecords[0]!,
+						profile.expected_spf_ip_ranges,
 					)
 				: undefined;
 		if (directAuthorization !== undefined) {
@@ -2610,11 +2743,12 @@ async function inspectProviderDnsUnbounded(
 			details: {
 				name: mailFromDomain,
 				expected_include: expectedInclude,
+				expected_ip_ranges: profile.expected_spf_ip_ranges,
 			},
 		});
 		const expectedMx =
 			profile.kind === "ses" && profile.region
-				? `feedback-smtp.${profile.region}.amazonses.com`
+				? `feedback-smtp.${profile.region}.${sesMailFromDnsSuffix(profile.region)}`
 				: undefined;
 		const genericMxInspection =
 			expectedMx === undefined && mx.outcome === "found"
@@ -2747,7 +2881,9 @@ export async function inspectProviderDns(
 			fromDomain(profile.from_email) ??
 			profile.sending_domain;
 		const mailFromDomain =
-			identity?.mail_from_domain ?? profile.mail_from_domain;
+			identity === undefined
+				? profile.mail_from_domain
+				: identity.mail_from_domain;
 		const requiredCheckIds = [
 			"dns.dmarc",
 			"dns.dkim",

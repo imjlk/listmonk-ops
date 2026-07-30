@@ -12846,6 +12846,12 @@
                 "bounce_webhooks_enabled": {
                   "type": "boolean"
                 },
+                "enabled_smtp_hosts": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
                 "from_domain": {
                   "$ref": "#/components/schemas/NonEmptyString"
                 },
@@ -12876,6 +12882,12 @@
                 "smtp_configured": {
                   "type": "boolean"
                 },
+                "smtp_credential_binding_required": {
+                  "type": "boolean"
+                },
+                "smtp_credentials_bound": {
+                  "type": "boolean"
+                },
                 "smtp_enabled": {
                   "type": "boolean"
                 },
@@ -12884,6 +12896,9 @@
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "smtp_pool_exact": {
+                  "type": "boolean"
                 },
                 "unsubscribe_header_enabled": {
                   "type": "boolean"
@@ -12895,9 +12910,13 @@
                 "messenger_configured",
                 "messenger_enabled",
                 "smtp_hosts",
+                "enabled_smtp_hosts",
                 "matching_smtp_hosts",
                 "smtp_configured",
                 "smtp_enabled",
+                "smtp_pool_exact",
+                "smtp_credential_binding_required",
+                "smtp_credentials_bound",
                 "unsubscribe_header_enabled",
                 "bounce_processing_enabled",
                 "bounce_webhooks_enabled"
@@ -14298,6 +14317,12 @@
                 "bounce_webhooks_enabled": {
                   "type": "boolean"
                 },
+                "enabled_smtp_hosts": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
                 "from_domain": {
                   "$ref": "#/components/schemas/NonEmptyString"
                 },
@@ -14328,6 +14353,12 @@
                 "smtp_configured": {
                   "type": "boolean"
                 },
+                "smtp_credential_binding_required": {
+                  "type": "boolean"
+                },
+                "smtp_credentials_bound": {
+                  "type": "boolean"
+                },
                 "smtp_enabled": {
                   "type": "boolean"
                 },
@@ -14336,6 +14367,9 @@
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "smtp_pool_exact": {
+                  "type": "boolean"
                 },
                 "unsubscribe_header_enabled": {
                   "type": "boolean"
@@ -14347,9 +14381,13 @@
                 "messenger_configured",
                 "messenger_enabled",
                 "smtp_hosts",
+                "enabled_smtp_hosts",
                 "matching_smtp_hosts",
                 "smtp_configured",
                 "smtp_enabled",
+                "smtp_pool_exact",
+                "smtp_credential_binding_required",
+                "smtp_credentials_bound",
                 "unsubscribe_header_enabled",
                 "bounce_processing_enabled",
                 "bounce_webhooks_enabled"

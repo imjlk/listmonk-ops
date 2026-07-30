@@ -844,6 +844,9 @@ profile을 사용하며, 계정·identity를 읽기 전용으로 조회하고 �
       "sending_domain": "news.example.com",
       "from_email": "newsletter@news.example.com",
       "smtp_hosts": ["email-smtp.ap-northeast-2.amazonaws.com"],
+      "smtp_username_fingerprints": [
+        "sha256:<listmonk-smtp-username의-sha256>"
+      ],
       "mail_from_domain": "bounce.news.example.com",
       "region": "ap-northeast-2",
       "secret_ref": "aws:default",
@@ -857,6 +860,16 @@ profile을 사용하며, 계정·identity를 읽기 전용으로 조회하고 �
 SES의 `secret_ref`는 `aws:default` 또는 `aws:profile:<name>`만 허용합니다.
 Profile 목록, 감사 이벤트, CLI 출력, MCP 결과에는 reference와 실제 자격
 증명을 모두 노출하지 않습니다.
+SES profile에는 활성 Listmonk SMTP pool이 사용하는 서로 다른 SMTP username의
+SHA-256 지문도 모두 필요합니다. Username을 provider config에 기록하지 않고
+다음처럼 지문을 생성할 수 있습니다.
+
+```bash
+printf '%s' "$LISTMONK_SMTP_USERNAME" | shasum -a 256
+```
+
+결과를 `smtp_username_fingerprints`에 `sha256:<hex>` 형태로 저장합니다.
+Doctor는 원본 username과 설정된 지문을 결과에 노출하지 않습니다.
 
 ```bash
 listmonk-cli providers list
@@ -880,11 +893,18 @@ profile이 아니라 messenger를 선택하므로, SMTP endpoint가 달라도 �
 provider profile은 Listmonk 기본 `email` messenger만 허용합니다. Custom HTTP
 messenger는 별도의 발송 backend이므로 SMTP provider binding의 증거가 될 수
 없습니다. 하나의 Listmonk SMTP pool은 하나의 profile로 기술하고, pool의 모든
-endpoint를 `smtp_hosts`에 나열합니다. 여러 profile이 같은 webhook source를
-공유하면 Listmonk event를 특정 profile에 귀속할 수 없으므로 freshness는
-`unknown`으로 유지됩니다. 일시적인 DNS 오류는 `unknown`으로 구분하고 SES
-sandbox 상태는 전체 준비 완료 판정을 차단합니다. Generic SMTP profile은
-Listmonk, DNS, webhook 진단을 지원하고 provider API·quota probe는
+endpoint를 `smtp_hosts`에 나열합니다. 활성 host 전체 집합과 설정된 SMTP
+username 지문 집합이 정확히 일치해야 준비 완료로 판정하며, 일부 endpoint만
+일치하거나 예상하지 않은 route가 있으면 fail-closed로 처리합니다. Generic
+SMTP가 직접 SPF 정책을 사용한다면 가능한 발신자 범위를
+`expected_spf_ip_ranges`에 모두 지정하고, provider include 정책을 사용한다면
+대신 `expected_spf_include`를 지정합니다. SES identity 조회에 성공한 경우
+custom MAIL FROM 결과를 권위 있는 값으로 사용하며, `mail_from_domain`은
+identity 조회가 불가능할 때만 fallback 근거로 사용합니다. 여러 profile이 같은
+webhook source를 공유하면 Listmonk event를 특정 profile에 귀속할 수 없으므로
+freshness는 `unknown`으로 유지됩니다. 일시적인 DNS 오류는 `unknown`으로
+구분하고 SES sandbox 상태는 전체 준비 완료 판정을 차단합니다. Generic SMTP
+profile은 Listmonk, DNS, webhook 진단을 지원하고 provider API·quota probe는
 `unsupported`로 보고합니다.
 
 ## OpenAPI 재생성 (Hey API)

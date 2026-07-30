@@ -854,6 +854,9 @@ never sends a message.
       "sending_domain": "news.example.com",
       "from_email": "newsletter@news.example.com",
       "smtp_hosts": ["email-smtp.ap-northeast-2.amazonaws.com"],
+      "smtp_username_fingerprints": [
+        "sha256:<sha256-of-the-listmonk-smtp-username>"
+      ],
       "mail_from_domain": "bounce.news.example.com",
       "region": "ap-northeast-2",
       "secret_ref": "aws:default",
@@ -867,6 +870,16 @@ never sends a message.
 `secret_ref` accepts only `aws:default` or `aws:profile:<name>` for SES. The
 profile list, audit events, CLI output, and MCP results never include the
 reference or resolved credentials.
+SES profiles also require a SHA-256 fingerprint for every distinct SMTP
+username used by the enabled Listmonk pool. Generate one without writing the
+username to the provider config:
+
+```bash
+printf '%s' "$LISTMONK_SMTP_USERNAME" | shasum -a 256
+```
+
+Store the result as `sha256:<hex>` in `smtp_username_fingerprints`; the raw
+username and the configured fingerprints are never returned by the doctor.
 
 ```bash
 listmonk-cli providers list
@@ -891,8 +904,15 @@ messenger rather than a provider profile. Provider profiles therefore accept
 only Listmonk's built-in `email` messenger; custom HTTP messengers are separate
 delivery backends and cannot prove an SMTP provider binding. Describe one
 Listmonk SMTP pool with one profile and list every expected pool endpoint in
-`smtp_hosts`. When multiple profiles share one webhook source, event freshness
-remains `unknown` because Listmonk cannot attribute that evidence to one profile.
+`smtp_hosts`. Readiness requires the complete enabled host set and configured
+SMTP username fingerprint set to match exactly; partial and unexpected routes
+fail closed. For generic SMTP direct SPF policies, configure every possible
+sender range in `expected_spf_ip_ranges`, or configure the provider's
+`expected_spf_include` instead. When SES identity inspection succeeds, its
+custom MAIL FROM result is authoritative; `mail_from_domain` is only fallback
+evidence when identity inspection is unavailable. When multiple profiles share
+one webhook source, event freshness remains `unknown` because Listmonk cannot
+attribute that evidence to one profile.
 Transient DNS failures remain `unknown`, while SES sandbox access blocks the
 aggregate readiness result.
 Generic SMTP profiles support Listmonk, DNS, and webhook diagnostics; provider

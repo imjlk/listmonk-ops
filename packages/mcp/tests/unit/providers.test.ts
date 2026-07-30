@@ -13,6 +13,7 @@ import type { CallToolRequest } from "../../src/types/mcp.js";
 
 const validRsaDkimPublicKey =
 	"MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCiRZP7BQUD9YLLLsAGRpKXPw/vidM72qPEBYY7HOv+NJ58tSojO2KTq3tOjWd0XVZA7c4r5k8ZnnIbUIa9fj/5Xkiu7c3mZ0aaJIjJsF1N9G7OYHV/nipUAzGJNDXY4N1MFPBHYwJMbpDRCMtSF7IejXWFm3m586oXZANtNvGw0wIDAQAB";
+const sesSmtpUsername = "AKIA_TEST_SES_SMTP_USERNAME";
 
 function request(
 	name: string,
@@ -31,6 +32,9 @@ const profile = providerProfileSchema.parse({
 	from_email: "newsletter@news.example.com",
 	region: "ap-northeast-2",
 	secret_ref: "aws:default",
+	smtp_username_fingerprints: [
+		"sha256:5e966714de655274201793ffcfdd043fedd09b037e00c8b8238596bbbb757593",
+	],
 });
 
 const inspector: ProviderInspector = {
@@ -101,6 +105,7 @@ const client = {
 					smtp: [
 						{
 							host: "email-smtp.ap-northeast-2.amazonaws.com",
+							username: sesSmtpUsername,
 							enabled: true,
 						},
 					],

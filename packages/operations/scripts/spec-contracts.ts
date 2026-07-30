@@ -681,9 +681,13 @@ export interface ProviderListmonkSnapshot {
 	messenger_configured: boolean;
 	messenger_enabled: boolean;
 	smtp_hosts: string[];
+	enabled_smtp_hosts: string[];
 	matching_smtp_hosts: string[];
 	smtp_configured: boolean;
 	smtp_enabled: boolean;
+	smtp_pool_exact: boolean;
+	smtp_credential_binding_required: boolean;
+	smtp_credentials_bound: boolean;
 	unsubscribe_header_enabled: boolean;
 	bounce_processing_enabled: boolean;
 	bounce_webhooks_enabled: boolean;
