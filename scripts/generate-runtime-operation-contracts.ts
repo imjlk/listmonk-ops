@@ -1,38 +1,13 @@
 import { resolve } from "node:path";
 import { runtimeOperationContractIds } from "../packages/operations/src/specs/runtime-contract-ids";
-
-const runtimeContractCapture = Symbol.for(
-	"@listmonk-ops/operations/specs:runtime-contract-capture",
-);
-Reflect.set(globalThis, runtimeContractCapture, true);
-const { sharedOperationCatalog } = await import(
-	"./check-operation-spec-coverage"
-).finally(() => {
-	Reflect.deleteProperty(globalThis, runtimeContractCapture);
-});
+import { stableValue } from "../packages/operations/src/specs/stable-json.js";
+import { sharedOperationCatalogs } from "./shared-operation-catalogs";
 
 const outputPath = resolve(
 	import.meta.dir,
 	"../packages/operations/src/specs/generated/runtime-operation-contracts.json",
 );
 const checkOnly = Bun.argv.includes("--check");
-
-function stableValue(value: unknown): unknown {
-	if (Array.isArray(value)) {
-		return value.map(stableValue);
-	}
-	if (typeof value === "object" && value !== null) {
-		return Object.fromEntries(
-			Object.entries(value)
-				.filter(([, nested]) => nested !== undefined)
-				.sort(([left], [right]) =>
-					left < right ? -1 : left > right ? 1 : 0,
-				)
-				.map(([key, nested]) => [key, stableValue(nested)]),
-		);
-	}
-	return value;
-}
 
 function normalizedContract(schema: Readonly<Record<string, unknown>>) {
 	const { $schema: _schemaDialect, ...normalizedSchema } = schema;
@@ -46,16 +21,15 @@ function normalizedContract(schema: Readonly<Record<string, unknown>>) {
 }
 
 const contracts = Object.fromEntries(
-	[...sharedOperationCatalog.entries]
-		.filter(({ operation }) =>
+	sharedOperationCatalogs
+		.flatMap((catalog) => catalog.operations)
+		.filter((operation) =>
 			runtimeOperationContractIds.includes(
 				operation.id as (typeof runtimeOperationContractIds)[number],
 			),
 		)
-		.sort((left, right) =>
-			left.operation.id.localeCompare(right.operation.id),
-		)
-		.map(({ operation }) => [
+		.sort((left, right) => left.id.localeCompare(right.id))
+		.map((operation) => [
 			operation.id,
 			{
 				input: normalizedContract(operation.inputJsonSchema),

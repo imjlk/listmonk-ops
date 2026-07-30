@@ -17581,7 +17581,7 @@
       "resource": "list",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -17707,7 +17707,7 @@
       "resource": "list",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -18018,7 +18018,7 @@
       "resource": "list",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -18124,7 +18124,7 @@
       "resource": "list",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -18323,7 +18323,7 @@
       "resource": "subscriber",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -18454,7 +18454,7 @@
       "resource": "subscriber",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -18804,7 +18804,7 @@
       "resource": "subscriber",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -18910,7 +18910,7 @@
       "resource": "subscriber",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -19072,7 +19072,7 @@
       "resource": "subscriber",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -19234,7 +19234,7 @@
       "resource": "subscriber",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -19376,7 +19376,7 @@
       "resource": "subscriber",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -19713,7 +19713,7 @@
       "resource": "campaign",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -20625,7 +20625,7 @@
       "resource": "campaign",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -20731,7 +20731,7 @@
       "resource": "campaign",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -20840,7 +20840,7 @@
       "resource": "campaign",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -21290,7 +21290,7 @@
       "resource": "campaign",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -21443,7 +21443,7 @@
       "resource": "template",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -21572,7 +21572,7 @@
       "resource": "template",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -21865,7 +21865,7 @@
       "resource": "template",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -21971,7 +21971,7 @@
       "resource": "template",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -22078,7 +22078,7 @@
       "resource": "template",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -22228,7 +22228,7 @@
       "resource": "media",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -22356,7 +22356,7 @@
       "resource": "media",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -22462,7 +22462,7 @@
       "resource": "media",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -22810,7 +22810,7 @@
       "resource": "campaign",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -23369,7 +23369,7 @@
       "resource": "template",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -23527,7 +23527,7 @@
       "resource": "template",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -24014,7 +24014,7 @@
       "resource": "control",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -24705,7 +24705,7 @@
       "resource": "experiment",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -25384,7 +25384,7 @@
       "resource": "experiment",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -26604,7 +26604,7 @@
       "resource": "experiment",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -28078,7 +28078,7 @@
       "resource": "experiment",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -28267,7 +28267,7 @@
       "resource": "experiment",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -29355,7 +29355,7 @@
       "resource": "experiment",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -29448,7 +29448,7 @@
       "resource": "experiment",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares an identical retry idempotent."
+        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental",

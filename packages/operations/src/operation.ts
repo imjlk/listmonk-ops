@@ -1,7 +1,6 @@
 import { z } from "zod";
 import {
 	assertOperationSpecMigrationExemptionActive,
-	assertRuntimeOperationContracts,
 	assertRuntimeOperationProjection,
 	type AnyOperationSpec,
 	type OperationSpecMigrationExemption,
@@ -220,10 +219,6 @@ export function defineOperation<
 			description: config.description,
 			mcpName: config.mcp.name,
 			safety: config.safety,
-		});
-		assertRuntimeOperationContracts(config.spec, {
-			input: inputJsonSchema,
-			output: outputJsonSchema,
 		});
 	} else {
 		if (config.specMigration.operationId !== config.id) {

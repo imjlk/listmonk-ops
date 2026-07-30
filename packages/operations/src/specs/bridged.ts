@@ -61,7 +61,7 @@ function retrySemantics(
 		? {
 				kind: "safe",
 				reason:
-					"The shared operation contract declares an identical retry idempotent.",
+					"The shared operation contract declares identical retries idempotent.",
 			}
 		: {
 				kind: "unsafe",

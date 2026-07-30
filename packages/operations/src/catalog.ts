@@ -4,6 +4,7 @@ import type {
 	OperationSafety,
 } from "./operation";
 import {
+	assertRuntimeOperationContracts,
 	projectOperationSpec,
 	type AnyOperationSpec,
 	type OperationSpecMigrationExemption,
@@ -154,10 +155,20 @@ function validateCatalog(catalog: OperationCatalog): void {
 	}
 }
 
+function validateRuntimeContracts(catalog: OperationCatalog): void {
+	for (const operation of catalog.operations) {
+		if (operation.spec === undefined) continue;
+		assertRuntimeOperationContracts(operation.spec, {
+			input: operation.inputJsonSchema,
+			output: operation.outputJsonSchema,
+		});
+	}
+}
+
 /**
  * Declare one independently owned operation family. It is safe to use in a
- * runtime-neutral library: validation happens when the descriptor is loaded,
- * before either transport assembles its own catalog.
+ * runtime-neutral library. Structural validation happens immediately; runtime
+ * contract compatibility is enforced when a consumer composes its catalog.
  */
 export function defineOperationCatalog<
 	const Operations extends readonly OperationCatalogItem[],
@@ -180,6 +191,7 @@ export function composeOperationCatalogs(
 
 	for (const catalog of catalogs) {
 		validateCatalog(catalog);
+		validateRuntimeContracts(catalog);
 	}
 
 	const entries = catalogs.flatMap((catalog) =>

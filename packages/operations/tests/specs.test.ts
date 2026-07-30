@@ -33,6 +33,7 @@ import {
 import { assertTypeScriptContractCompatibility } from "../src/specs/schema-compatibility";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import type { PolicyForEffects } from "../src/specs/policy";
+import { stableValue } from "../src/specs/stable-json.js";
 
 type IsNever<Value> = [Value] extends [never] ? true : false;
 const conflictingPreviewDryRunIsNever: IsNever<
@@ -56,6 +57,21 @@ const conflictingPreviewDryRunIsNever: IsNever<
 > = true;
 
 describe("email operations specification", () => {
+	test("normalizes contract JSON through one deterministic implementation", () => {
+		expect(
+			JSON.stringify(
+				stableValue({
+					z: 2,
+					$schema: "https://json-schema.org/draft/2020-12/schema",
+					a: {
+						ignored: undefined,
+						value: 1,
+					},
+				}),
+			),
+		).toBe('{"a":{"value":1},"z":2}');
+	});
+
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
 		expect(operationIds).toHaveLength(102);
@@ -1071,20 +1087,6 @@ describe("email operations specification", () => {
 			"Runtime operation lists.list input contract drifted from its committed operation spec bridge",
 		);
 
-		const captureSymbol = Symbol.for(
-			"@listmonk-ops/operations/specs:runtime-contract-capture",
-		);
-		Reflect.set(globalThis, captureSymbol, true);
-		try {
-			expect(() =>
-				assertRuntimeOperationContracts(bridged, {
-					input: { type: "object", properties: {} },
-					output: bridged.contract.output.schema,
-				}),
-			).not.toThrow();
-		} finally {
-			Reflect.deleteProperty(globalThis, captureSymbol);
-		}
 		expect(() =>
 			assertRuntimeOperationContracts(bridged, {
 				input: { type: "object", properties: {} },

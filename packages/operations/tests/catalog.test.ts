@@ -149,4 +149,26 @@ describe("operation catalog", () => {
 			}),
 		).toThrow("duplicate MCP tool name");
 	});
+
+	test("enforces runtime contracts when a consumer composes catalogs", () => {
+		const firstListOperation = listOperations[0];
+		if (!firstListOperation || firstListOperation.spec === undefined) {
+			throw new Error("expected a described list operation");
+		}
+		const driftedCatalog = defineOperationCatalog({
+			id: "drifted-list",
+			title: "Drifted list",
+			operations: [
+				{
+					...firstListOperation,
+					inputJsonSchema: { type: "object", properties: {} },
+				},
+			],
+			specMigrationExemptions: [],
+		});
+
+		expect(() => composeOperationCatalogs([driftedCatalog])).toThrow(
+			"contract drifted from its committed operation spec bridge",
+		);
+	});
 });
