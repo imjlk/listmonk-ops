@@ -6,10 +6,7 @@ import {
 	parseOperationInput,
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
-import {
-	bindOperationSpecMigrationExemption,
-	operationSpecMigrationExemptionsByFamily,
-} from "@listmonk-ops/operations/specs";
+import { bindBridgedOperationSpec } from "@listmonk-ops/operations/specs";
 import { z } from "zod";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { AbTestNotFoundError } from "./errors";
@@ -24,7 +21,7 @@ export interface AbTestOperationContext {
 	storePath?: string;
 }
 
-const ABTEST_STATUSES = [
+export const ABTEST_STATUSES = [
 	"draft",
 	"testing",
 	"scheduled",
@@ -368,6 +365,15 @@ const analyzeAbTestInputSchema = testIdInputSchema.extend({
 
 const runAbTestInputSchema = z.object({
 	test_id: z.string().trim().min(1).describe("A/B test ID"),
+	expected_status: abTestStatusSchema
+		.optional()
+		.describe("A/B test status observed before approval"),
+	expected_updated_at: z
+		.iso.datetime()
+		.optional()
+		.describe(
+			"A/B test updatedAt revision token observed before approval; copy the value verbatim",
+		),
 	confirm: optionalBooleanSchema.describe(
 		"Confirm destructive side effects before running",
 	),
@@ -658,7 +664,10 @@ export async function executeRunAbTestOperation(
 				context,
 				"write",
 				async (executors) => {
-					const run = await executors.runAbTest(input.test_id);
+					const run = await executors.runAbTest(input.test_id, {
+						expectedStatus: input.expected_status,
+						expectedUpdatedAt: input.expected_updated_at,
+					});
 					if (!run) {
 						throw new AbTestNotFoundError(input.test_id);
 					}
@@ -768,7 +777,7 @@ export const listAbTestsOperation = defineOperation({
 		name: "listmonk_abtest_list",
 		legacySuccessText: (output) => jsonValue(output["tests"]),
 	},
-	specMigration: bindOperationSpecMigrationExemption("abtest.list"),
+	spec: bindBridgedOperationSpec("abtest.list"),
 	execute: executeListAbTestsOperation,
 });
 
@@ -783,7 +792,7 @@ export const getAbTestOperation = defineOperation({
 		name: "listmonk_abtest_get",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
-	specMigration: bindOperationSpecMigrationExemption("abtest.get"),
+	spec: bindBridgedOperationSpec("abtest.get"),
 	execute: executeGetAbTestOperation,
 });
 
@@ -799,7 +808,7 @@ export const createAbTestOperation = defineOperation({
 		name: "listmonk_abtest_create",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
-	specMigration: bindOperationSpecMigrationExemption("abtest.create"),
+	spec: bindBridgedOperationSpec("abtest.create"),
 	execute: executeCreateAbTestOperation,
 });
 
@@ -814,7 +823,7 @@ export const analyzeAbTestOperation = defineOperation({
 		name: "listmonk_abtest_analyze",
 		legacySuccessText: (output) => jsonValue(output["analysis"]),
 	},
-	specMigration: bindOperationSpecMigrationExemption("abtest.analyze"),
+	spec: bindBridgedOperationSpec("abtest.analyze"),
 	execute: executeAnalyzeAbTestOperation,
 });
 
@@ -829,14 +838,15 @@ export const launchAbTestOperation = defineOperation({
 		name: "listmonk_abtest_launch",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
-	specMigration: bindOperationSpecMigrationExemption("abtest.launch"),
+	spec: bindBridgedOperationSpec("abtest.launch"),
 	execute: executeLaunchAbTestOperation,
 });
 
 export const stopAbTestOperation = defineOperation({
 	id: "abtest.stop",
 	title: "Stop A/B test",
-	description: "Stop a running A/B test and clean up temporary resources",
+	description:
+		"Stop an A/B test and clean up its non-terminal Listmonk campaigns and temporary lists",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
 	safety: destructiveNonIdempotentSafety,
@@ -844,14 +854,15 @@ export const stopAbTestOperation = defineOperation({
 		name: "listmonk_abtest_stop",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
-	specMigration: bindOperationSpecMigrationExemption("abtest.stop"),
+	spec: bindBridgedOperationSpec("abtest.stop"),
 	execute: executeStopAbTestOperation,
 });
 
 export const deleteAbTestOperation = defineOperation({
 	id: "abtest.delete",
 	title: "Delete A/B test",
-	description: "Delete an A/B test from persisted state",
+	description:
+		"Delete an A/B test and clean up non-terminal Listmonk campaigns and temporary lists before removing persisted state",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ deleted: z.boolean() }),
 	safety: destructiveSafety,
@@ -859,7 +870,7 @@ export const deleteAbTestOperation = defineOperation({
 		name: "listmonk_abtest_delete",
 		legacySuccessText: (output) => jsonValue(output),
 	},
-	specMigration: bindOperationSpecMigrationExemption("abtest.delete"),
+	spec: bindBridgedOperationSpec("abtest.delete"),
 	execute: executeDeleteAbTestOperation,
 });
 
@@ -874,9 +885,7 @@ export const recommendAbTestSampleSizeOperation = defineOperation({
 		name: "listmonk_abtest_recommend_sample_size",
 		legacySuccessText: (output) => jsonValue(output["recommendation"]),
 	},
-	specMigration: bindOperationSpecMigrationExemption(
-		"abtest.recommend-sample-size",
-	),
+	spec: bindBridgedOperationSpec("abtest.recommend-sample-size"),
 	execute: executeRecommendAbTestSampleSizeOperation,
 });
 
@@ -891,7 +900,7 @@ export const deployAbTestWinnerOperation = defineOperation({
 		name: "listmonk_abtest_deploy_winner",
 		legacySuccessText: (output) => jsonValue(output),
 	},
-	specMigration: bindOperationSpecMigrationExemption("abtest.deploy-winner"),
+	spec: bindBridgedOperationSpec("abtest.deploy-winner"),
 	execute: executeDeployAbTestWinnerOperation,
 });
 
@@ -919,7 +928,7 @@ export const runAbTestOperation = defineOperation({
 		name: "listmonk_abtest_run",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
-	specMigration: bindOperationSpecMigrationExemption("abtest.run"),
+	spec: bindBridgedOperationSpec("abtest.run"),
 	execute: executeRunAbTestOperation,
 });
 
@@ -938,7 +947,7 @@ export const tickAbTestsOperation = defineOperation({
 		name: "listmonk_abtest_tick",
 		legacySuccessText: (output) => jsonValue(output),
 	},
-	specMigration: bindOperationSpecMigrationExemption("abtest.tick"),
+	spec: bindBridgedOperationSpec("abtest.tick"),
 	execute: executeTickAbTestsOperation,
 });
 
@@ -959,7 +968,7 @@ export const reconcileAbTestOperation = defineOperation({
 		name: "listmonk_abtest_reconcile",
 		legacySuccessText: (output) => jsonValue(output),
 	},
-	specMigration: bindOperationSpecMigrationExemption("abtest.reconcile"),
+	spec: bindBridgedOperationSpec("abtest.reconcile"),
 	execute: executeReconcileAbTestOperation,
 });
 
@@ -982,9 +991,7 @@ export const exportAbTestAssignmentOperation = defineOperation({
 		name: "listmonk_abtest_export_assignment",
 		legacySuccessText: (output) => jsonValue(output),
 	},
-	specMigration: bindOperationSpecMigrationExemption(
-		"abtest.export-assignment",
-	),
+	spec: bindBridgedOperationSpec("abtest.export-assignment"),
 	execute: executeExportAbTestAssignmentOperation,
 });
 
@@ -1008,8 +1015,7 @@ export const abTestOperationCatalog = defineOperationCatalog({
 	id: "abtest",
 	title: "A/B tests",
 	operations: abTestOperations,
-	specMigrationExemptions:
-		operationSpecMigrationExemptionsByFamily.abtest,
+	specMigrationExemptions: [],
 });
 
 export type AbTestOperation = (typeof abTestOperations)[number];

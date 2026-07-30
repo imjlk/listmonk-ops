@@ -84,9 +84,12 @@ describe("operation catalog", () => {
 				(operation) => operation.id === "campaigns.schedule",
 			)?.spec,
 		);
-		expect(first?.specMigration).toMatchObject({
-			operationId: first?.id,
+		expect(first?.spec).toMatchObject({
+			id: "lists.list",
+			resource: "list",
+			stability: "experimental",
 		});
+		expect(first?.specMigration).toBeUndefined();
 	});
 
 	test("rejects duplicate family, operation, and MCP identities", () => {
@@ -145,5 +148,27 @@ describe("operation catalog", () => {
 							],
 			}),
 		).toThrow("duplicate MCP tool name");
+	});
+
+	test("enforces runtime contracts when a consumer composes catalogs", () => {
+		const firstListOperation = listOperations[0];
+		if (!firstListOperation || firstListOperation.spec === undefined) {
+			throw new Error("expected a described list operation");
+		}
+		const driftedCatalog = defineOperationCatalog({
+			id: "drifted-list",
+			title: "Drifted list",
+			operations: [
+				{
+					...firstListOperation,
+					inputJsonSchema: { type: "object", properties: {} },
+				},
+			],
+			specMigrationExemptions: [],
+		});
+
+		expect(() => composeOperationCatalogs([driftedCatalog])).toThrow(
+			"contract drifted from its committed operation spec bridge",
+		);
 	});
 });

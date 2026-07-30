@@ -199,4 +199,51 @@ describe("A/B test operation registry", () => {
 			cause: expect.any(AbTestNotFoundError),
 		});
 	});
+
+	test("rejects an A/B test changed after approval before progressing it", async () => {
+		tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-run-"));
+		const storePath = join(tempDir, "abtests.json");
+		const fixture = createFixture("scheduled");
+		fixture.launchAt = "2026-01-01T00:00:00.000Z";
+		await saveStoredAbTests([fixture], storePath);
+		const context = { client: {} as ListmonkClient, storePath };
+
+		await expect(
+			invokeRunAbTestOperation(context, {
+				test_id: fixture.id,
+				expected_status: "scheduled",
+				expected_updated_at: "2026-01-02T00:00:00.000Z",
+				confirm: true,
+			}),
+		).rejects.toThrow("changed after approval");
+
+		const persisted = await invokeGetAbTestOperation(context, {
+			test_id: fixture.id,
+		});
+		expect(persisted.test.status).toBe("scheduled");
+		expect(persisted.test.updatedAt).toBe("2026-01-01T00:00:00.000Z");
+	});
+
+	test("requires the canonical UTC revision token emitted by A/B inspection", () => {
+		const runOperation = abTestOperations.find(
+			(operation) => operation.id === "abtest.run",
+		);
+		const baseInput = {
+			test_id: "test-canonical-revision",
+			expected_status: "analyzing",
+		};
+
+		expect(
+			runOperation?.inputSchema.safeParse({
+				...baseInput,
+				expected_updated_at: "2026-07-30T18:00:00.000Z",
+			}).success,
+		).toBe(true);
+		expect(
+			runOperation?.inputSchema.safeParse({
+				...baseInput,
+				expected_updated_at: "2026-07-31T03:00:00+09:00",
+			}).success,
+		).toBe(false);
+	});
 });

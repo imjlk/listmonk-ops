@@ -1376,7 +1376,1384 @@
         "runtimeDefinitionNode": "packages/automation/src/provider-operations.ts#deliverabilityDoctorOperation:variable"
       },
       "operationId": "deliverability.doctor"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/lists.ts#getListsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/lists.ts#invokeGetListsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/lists.ts#listSubscriberLists:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/lists.ts#listSubscriberLists:function",
+        "invokerNode": "packages/operations/src/lists.ts#invokeGetListsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/lists.ts#getListsOperation:variable"
+      },
+      "operationId": "lists.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/lists.ts#getListOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/lists.ts#invokeGetListOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/lists.ts#getSubscriberList:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/lists.ts#getSubscriberList:function",
+        "invokerNode": "packages/operations/src/lists.ts#invokeGetListOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/lists.ts#getListOperation:variable"
+      },
+      "operationId": "lists.get"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/lists.ts#createListOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/lists.ts#invokeCreateListOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/lists.ts#createSubscriberList:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/lists.ts#createSubscriberList:function",
+        "invokerNode": "packages/operations/src/lists.ts#invokeCreateListOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/lists.ts#createListOperation:variable"
+      },
+      "operationId": "lists.create"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/lists.ts#updateListOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/lists.ts#invokeUpdateListOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/lists.ts#updateSubscriberList:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/lists.ts#updateSubscriberList:function",
+        "invokerNode": "packages/operations/src/lists.ts#invokeUpdateListOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/lists.ts#updateListOperation:variable"
+      },
+      "operationId": "lists.update"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/lists.ts#deleteListOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/lists.ts#invokeDeleteListOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/lists.ts#deleteSubscriberList:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/lists.ts#deleteSubscriberList:function",
+        "invokerNode": "packages/operations/src/lists.ts#invokeDeleteListOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/lists.ts#deleteListOperation:variable"
+      },
+      "operationId": "lists.delete"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#getSubscribersOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeGetSubscribersOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#listSubscribers:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#listSubscribers:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeGetSubscribersOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#getSubscribersOperation:variable"
+      },
+      "operationId": "subscribers.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#getSubscriberOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeGetSubscriberOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#getSubscriber:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#getSubscriber:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeGetSubscriberOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#getSubscriberOperation:variable"
+      },
+      "operationId": "subscribers.get"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#createSubscriberOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeCreateSubscriberOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#createSubscriber:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#createSubscriber:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeCreateSubscriberOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#createSubscriberOperation:variable"
+      },
+      "operationId": "subscribers.create"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#updateSubscriberOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeUpdateSubscriberOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#updateSubscriber:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#updateSubscriber:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeUpdateSubscriberOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#updateSubscriberOperation:variable"
+      },
+      "operationId": "subscribers.update"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#deleteSubscriberOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeDeleteSubscriberOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#deleteSubscriber:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#deleteSubscriber:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeDeleteSubscriberOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#deleteSubscriberOperation:variable"
+      },
+      "operationId": "subscribers.delete"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#addSubscribersToLists:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#addSubscribersToLists:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable"
+      },
+      "operationId": "subscribers.add-to-lists"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#removeSubscribersFromLists:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable"
+      },
+      "operationId": "subscribers.remove-from-lists"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#unblocklistSubscribers:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable"
+      },
+      "operationId": "subscribers.unblocklist"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#getCampaignsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeGetCampaignsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#listCampaigns:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#listCampaigns:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeGetCampaignsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#getCampaignsOperation:variable"
+      },
+      "operationId": "campaigns.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#createCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeCreateCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#createCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#createCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeCreateCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#createCampaignOperation:variable"
+      },
+      "operationId": "campaigns.create"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#updateCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeUpdateCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#updateCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#updateCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeUpdateCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#updateCampaignOperation:variable"
+      },
+      "operationId": "campaigns.update"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#deleteCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#deleteCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#deleteCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#deleteCampaignOperation:variable"
+      },
+      "operationId": "campaigns.delete"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#pauseCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#pauseCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#pauseCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#pauseCampaignOperation:variable"
+      },
+      "operationId": "campaigns.pause"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#cloneCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#cloneCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable"
+      },
+      "operationId": "campaigns.clone"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#getCampaignStatsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeGetCampaignStatsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#getCampaignStats:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#getCampaignStats:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeGetCampaignStatsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#getCampaignStatsOperation:variable"
+      },
+      "operationId": "campaigns.stats"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#getTemplatesOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeGetTemplatesOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#listTemplates:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/templates.ts#listTemplates:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeGetTemplatesOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#getTemplatesOperation:variable"
+      },
+      "operationId": "templates.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#getTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeGetTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#getTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/templates.ts#getTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeGetTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#getTemplateOperation:variable"
+      },
+      "operationId": "templates.get"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#createTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#createTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/templates.ts#createTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#createTemplateOperation:variable"
+      },
+      "operationId": "templates.create"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#updateTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#updateTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/templates.ts#updateTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#updateTemplateOperation:variable"
+      },
+      "operationId": "templates.update"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#deleteTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#deleteTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/templates.ts#deleteTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#deleteTemplateOperation:variable"
+      },
+      "operationId": "templates.delete"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#setDefaultTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/templates.ts#setDefaultTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable"
+      },
+      "operationId": "templates.set-default"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/media.ts#getMediaOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/media.ts#invokeGetMediaOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/media.ts#listMedia:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/media.ts#listMedia:function",
+        "invokerNode": "packages/operations/src/media.ts#invokeGetMediaOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/media.ts#getMediaOperation:variable"
+      },
+      "operationId": "media.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/media.ts#getMediaFileOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/media.ts#invokeGetMediaFileOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/media.ts#getMediaFile:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/media.ts#getMediaFile:function",
+        "invokerNode": "packages/operations/src/media.ts#invokeGetMediaFileOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/media.ts#getMediaFileOperation:variable"
+      },
+      "operationId": "media.get"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/media.ts#deleteMediaOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/media.ts#deleteMediaFile:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/media.ts#deleteMediaFile:function",
+        "invokerNode": "packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/media.ts#deleteMediaOperation:variable"
+      },
+      "operationId": "media.delete"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/media.ts#uploadMediaOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/media.ts#uploadMediaFile:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/media.ts#uploadMediaFile:function",
+        "invokerNode": "packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/media.ts#uploadMediaOperation:variable"
+      },
+      "operationId": "media.upload"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/ops-operations.ts#deliverabilityGuardOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeDeliverabilityGuardOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeDeliverabilityGuardOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeDeliverabilityGuardOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeDeliverabilityGuardOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#deliverabilityGuardOperation:variable"
+      },
+      "operationId": "ops.campaign.deliverability-guard"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/ops-operations.ts#subscriberHygieneOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeSubscriberHygieneOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeSubscriberHygieneOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeSubscriberHygieneOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeSubscriberHygieneOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#subscriberHygieneOperation:variable"
+      },
+      "operationId": "ops.subscribers.hygiene"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable"
+      },
+      "operationId": "ops.segments.drift"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/ops-operations.ts#templateRegistrySyncOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistrySyncOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeTemplateRegistrySyncOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistrySyncOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistrySyncOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistrySyncOperation:variable"
+      },
+      "operationId": "ops.templates.registry-sync"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/ops-operations.ts#templateRegistryHistoryOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryHistoryOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeTemplateRegistryHistoryOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryHistoryOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryHistoryOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryHistoryOperation:variable"
+      },
+      "operationId": "ops.templates.registry-history"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/ops-operations.ts#templateRegistryPromoteOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryPromoteOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeTemplateRegistryPromoteOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryPromoteOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryPromoteOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryPromoteOperation:variable"
+      },
+      "operationId": "ops.templates.registry-promote"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/ops-operations.ts#templateRegistryRollbackOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryRollbackOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryRollbackOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryRollbackOperation:variable"
+      },
+      "operationId": "ops.templates.registry-rollback"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/ops-operations.ts#dailyDigestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#dailyDigestOperation:variable"
+      },
+      "operationId": "ops.digest.daily"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#listAbTestsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeListAbTestsOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeListAbTestsOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeListAbTestsOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeListAbTestsOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#listAbTestsOperation:variable"
+      },
+      "operationId": "abtest.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#getAbTestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeGetAbTestOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeGetAbTestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeGetAbTestOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeGetAbTestOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#getAbTestOperation:variable"
+      },
+      "operationId": "abtest.get"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#createAbTestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeCreateAbTestOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeCreateAbTestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeCreateAbTestOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeCreateAbTestOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#createAbTestOperation:variable"
+      },
+      "operationId": "abtest.create"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#analyzeAbTestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeAnalyzeAbTestOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeAnalyzeAbTestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeAnalyzeAbTestOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeAnalyzeAbTestOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#analyzeAbTestOperation:variable"
+      },
+      "operationId": "abtest.analyze"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#launchAbTestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeLaunchAbTestOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeLaunchAbTestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeLaunchAbTestOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeLaunchAbTestOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#launchAbTestOperation:variable"
+      },
+      "operationId": "abtest.launch"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#stopAbTestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeStopAbTestOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeStopAbTestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeStopAbTestOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeStopAbTestOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#stopAbTestOperation:variable"
+      },
+      "operationId": "abtest.stop"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#deleteAbTestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeDeleteAbTestOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeDeleteAbTestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeDeleteAbTestOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeDeleteAbTestOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#deleteAbTestOperation:variable"
+      },
+      "operationId": "abtest.delete"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#recommendAbTestSampleSizeOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeRecommendAbTestSampleSizeOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeRecommendAbTestSampleSizeOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeRecommendAbTestSampleSizeOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeRecommendAbTestSampleSizeOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#recommendAbTestSampleSizeOperation:variable"
+      },
+      "operationId": "abtest.recommend-sample-size"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#deployAbTestWinnerOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeDeployAbTestWinnerOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeDeployAbTestWinnerOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeDeployAbTestWinnerOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeDeployAbTestWinnerOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#deployAbTestWinnerOperation:variable"
+      },
+      "operationId": "abtest.deploy-winner"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#runAbTestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeRunAbTestOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeRunAbTestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeRunAbTestOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeRunAbTestOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#runAbTestOperation:variable"
+      },
+      "operationId": "abtest.run"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#tickAbTestsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeTickAbTestsOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeTickAbTestsOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeTickAbTestsOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeTickAbTestsOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#tickAbTestsOperation:variable"
+      },
+      "operationId": "abtest.tick"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#reconcileAbTestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeReconcileAbTestOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeReconcileAbTestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeReconcileAbTestOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeReconcileAbTestOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#reconcileAbTestOperation:variable"
+      },
+      "operationId": "abtest.reconcile"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/abtest/src/operations.ts#exportAbTestAssignmentOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/abtest/src/operations.ts#invokeExportAbTestAssignmentOperation:function",
+          "kind": "calls",
+          "to": "packages/abtest/src/operations.ts#executeExportAbTestAssignmentOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/abtest/src/operations.ts#executeExportAbTestAssignmentOperation:function",
+        "invokerNode": "packages/abtest/src/operations.ts#invokeExportAbTestAssignmentOperation:function",
+        "runtimeDefinitionNode": "packages/abtest/src/operations.ts#exportAbTestAssignmentOperation:variable"
+      },
+      "operationId": "abtest.export-assignment"
     }
   ],
-  "schemaVersion": "1.7.0"
+  "schemaVersion": "2.0.0"
 }

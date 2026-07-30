@@ -89,7 +89,7 @@ export const campaignStartOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#startCampaign:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.7.0",
 });
 
@@ -157,7 +157,7 @@ export const campaignCancelOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#cancelCampaign:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.7.0",
 });
 
@@ -235,7 +235,7 @@ export const transactionalSendOperationSpec = defineOperationSpec({
 				"packages/operations/src/transactional.ts#sendTransactionalMessage:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.7.0",
 });
 
@@ -291,7 +291,7 @@ export const campaignPreflightOperationSpec = defineOperationSpec({
 				"packages/automation/src/ops-operations.ts#executeCampaignPreflightOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.7.0",
 });
 
@@ -387,6 +387,14 @@ export const campaignSafeStartPlaybook = defineOperationPlaybook({
 				{
 					parameter: "id",
 					source: { kind: "playbook-input", name: "campaign_id" },
+				},
+				{
+					parameter: "expected_updated_at",
+					source: {
+						kind: "step-output",
+						stepId: "preflight",
+						path: "campaignUpdatedAt",
+					},
 				},
 			],
 		},

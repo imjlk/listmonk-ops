@@ -1,6 +1,8 @@
 import type { AnyOperationSpec } from "./operation";
 import { cloneSpecValue } from "./json";
 import type { RetrySemantics, UnconditionalRetrySemantics } from "./retry";
+import { assertTypeScriptContractCompatibility } from "./schema-compatibility";
+import { stableValue } from "./stable-json.js";
 
 export interface RuntimeOperationProjection {
 	id: string;
@@ -13,6 +15,34 @@ export interface RuntimeOperationProjection {
 		idempotentHint: boolean;
 		openWorldHint: boolean;
 	};
+}
+
+export function assertRuntimeOperationContracts(
+	spec: AnyOperationSpec,
+	runtime: {
+		input: Readonly<Record<string, unknown>>;
+		output: Readonly<Record<string, unknown>>;
+	},
+): void {
+	for (const direction of ["input", "output"] as const) {
+		const contract = spec.contract[direction];
+		if (contract.source === "typescript") {
+			assertTypeScriptContractCompatibility(
+				spec.id,
+				direction,
+				contract,
+				runtime[direction],
+			);
+			continue;
+		}
+		const expected = JSON.stringify(stableValue(contract.schema));
+		const actual = JSON.stringify(stableValue(runtime[direction]));
+		if (actual !== expected) {
+			throw new TypeError(
+				`Runtime operation ${spec.id} ${direction} contract drifted from its committed operation spec bridge`,
+			);
+		}
+	}
 }
 
 function operationSpecIsReadOnly(operation: AnyOperationSpec): boolean {

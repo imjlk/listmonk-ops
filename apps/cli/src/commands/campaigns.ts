@@ -55,6 +55,15 @@ export interface GetCampaignInput {
 	no_body?: boolean;
 }
 
+export interface CampaignLifecycleInput {
+	id: number;
+	expected_updated_at?: string;
+}
+
+export interface ScheduleCampaignInput extends CampaignLifecycleInput {
+	send_at: string;
+}
+
 export interface CreateCampaignInput {
 	name: string;
 	subject: string;
@@ -146,7 +155,7 @@ export async function renderDeleteCampaign(
 
 export async function renderScheduleCampaign(
 	context: CampaignsCliContext,
-	input: { id: number; send_at: string },
+	input: ScheduleCampaignInput,
 ) {
 	const result = await invokeScheduleCampaignOperation(context, input);
 	context.output.success(`Campaign ${input.id} scheduled for ${input.send_at}`);
@@ -156,7 +165,7 @@ export async function renderScheduleCampaign(
 
 export async function renderStartCampaign(
 	context: CampaignsCliContext,
-	input: { id: number },
+	input: CampaignLifecycleInput,
 ) {
 	const result = await invokeStartCampaignOperation(context, input);
 	context.output.success(`Campaign ${input.id} started`);
@@ -166,7 +175,7 @@ export async function renderStartCampaign(
 
 export async function renderPauseCampaign(
 	context: CampaignsCliContext,
-	input: { id: number },
+	input: CampaignLifecycleInput,
 ) {
 	const result = await invokePauseCampaignOperation(context, input);
 	context.output.success(`Campaign ${input.id} paused`);
@@ -176,7 +185,7 @@ export async function renderPauseCampaign(
 
 export async function renderCancelCampaign(
 	context: CampaignsCliContext,
-	input: { id: number },
+	input: CampaignLifecycleInput,
 ) {
 	const result = await invokeCancelCampaignOperation(context, input);
 	context.output.success(`Campaign ${input.id} cancelled`);
@@ -415,12 +424,20 @@ export async function handleDeleteCampaignCommand({
 export async function handleScheduleCampaignCommand({
 	flags,
 	...args
-}: HandlerArgs<{ id: number; "send-at": string }>) {
+}: HandlerArgs<{
+	id: number;
+	"send-at": string;
+	"expected-updated-at"?: string;
+}>) {
 	try {
 		const client = await getListmonkClient(args);
 		return await renderScheduleCampaign(
 			{ client, output: getOutput() },
-			{ id: flags.id, send_at: flags["send-at"] },
+			{
+				id: flags.id,
+				send_at: flags["send-at"],
+				expected_updated_at: flags["expected-updated-at"],
+			},
 		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to schedule campaign", error);
@@ -430,12 +447,15 @@ export async function handleScheduleCampaignCommand({
 export async function handleStartCampaignCommand({
 	flags,
 	...args
-}: HandlerArgs<{ id: number }>) {
+}: HandlerArgs<{ id: number; "expected-updated-at"?: string }>) {
 	try {
 		const client = await getListmonkClient(args);
 		return await renderStartCampaign(
 			{ client, output: getOutput() },
-			{ id: flags.id },
+			{
+				id: flags.id,
+				expected_updated_at: flags["expected-updated-at"],
+			},
 		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to start campaign", error);
@@ -445,12 +465,15 @@ export async function handleStartCampaignCommand({
 export async function handlePauseCampaignCommand({
 	flags,
 	...args
-}: HandlerArgs<{ id: number }>) {
+}: HandlerArgs<{ id: number; "expected-updated-at"?: string }>) {
 	try {
 		const client = await getListmonkClient(args);
 		return await renderPauseCampaign(
 			{ client, output: getOutput() },
-			{ id: flags.id },
+			{
+				id: flags.id,
+				expected_updated_at: flags["expected-updated-at"],
+			},
 		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to pause campaign", error);
@@ -460,12 +483,15 @@ export async function handlePauseCampaignCommand({
 export async function handleCancelCampaignCommand({
 	flags,
 	...args
-}: HandlerArgs<{ id: number }>) {
+}: HandlerArgs<{ id: number; "expected-updated-at"?: string }>) {
 	try {
 		const client = await getListmonkClient(args);
 		return await renderCancelCampaign(
 			{ client, output: getOutput() },
-			{ id: flags.id },
+			{
+				id: flags.id,
+				expected_updated_at: flags["expected-updated-at"],
+			},
 		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to cancel campaign", error);
@@ -506,6 +532,13 @@ const campaignTypeOption = z.enum(["regular", "optin"]).default("regular");
 const contentTypeOption = z
 	.enum(["richtext", "html", "markdown", "plain", "visual"])
 	.default("html");
+
+function expectedUpdatedAtOption() {
+	return option(z.string().trim().min(1).optional(), {
+		description:
+			"Campaign updated_at copied from the approving inspection or preflight",
+	});
+}
 
 export default defineGroup({
 	name: "campaigns",
@@ -723,6 +756,7 @@ export default defineGroup({
 					description:
 						"ISO 8601 (or Listmonk-compatible) scheduled send timestamp",
 				}),
+				"expected-updated-at": expectedUpdatedAtOption(),
 			},
 			handler: handleScheduleCampaignCommand,
 		}),
@@ -734,6 +768,7 @@ export default defineGroup({
 				id: option(z.coerce.number().int().positive(), {
 					description: "Campaign ID",
 				}),
+				"expected-updated-at": expectedUpdatedAtOption(),
 			},
 			handler: handleStartCampaignCommand,
 		}),
@@ -745,6 +780,7 @@ export default defineGroup({
 				id: option(z.coerce.number().int().positive(), {
 					description: "Campaign ID",
 				}),
+				"expected-updated-at": expectedUpdatedAtOption(),
 			},
 			handler: handlePauseCampaignCommand,
 		}),
@@ -756,6 +792,7 @@ export default defineGroup({
 				id: option(z.coerce.number().int().positive(), {
 					description: "Campaign ID",
 				}),
+				"expected-updated-at": expectedUpdatedAtOption(),
 			},
 			handler: handleCancelCampaignCommand,
 		}),

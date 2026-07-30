@@ -1,4 +1,6 @@
 export * from "./agent";
+export * from "./additional-playbooks";
+export * from "./bridged";
 export * from "./coverage";
 export * from "./discovery";
 export * from "./effect";
@@ -14,7 +16,10 @@ export * from "./projection";
 export * from "./providers";
 export * from "./registry";
 export * from "./resource";
+export * from "./resources";
 export * from "./retry";
+export * from "./runtime-contracts";
+export * from "./runtime-contract-ids";
 export * from "./schema";
 export * from "./sequences";
 export * from "./webhooks";

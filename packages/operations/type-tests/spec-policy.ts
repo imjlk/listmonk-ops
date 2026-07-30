@@ -6,6 +6,7 @@ import {
 const objectContract = {
 	dialect: "openapi-3.1",
 	stage: "normalized",
+	source: "typescript",
 	schema: { type: "object" },
 	components: {},
 } as const satisfies NormalizedContractSchema;

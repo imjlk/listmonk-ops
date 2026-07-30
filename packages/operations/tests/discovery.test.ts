@@ -47,7 +47,7 @@ describe("agent discovery operations", () => {
 		expect(result.results[0]?.use_when.length).toBeGreaterThan(0);
 	});
 
-	test("describes operations by ID or MCP name, including migration coverage", async () => {
+	test("describes every public operation by ID or MCP name", async () => {
 		const described = await invokeSpecDescribeOperation(context, {
 			operation: "listmonk_schedule_campaign",
 		});
@@ -63,15 +63,21 @@ describe("agent discovery operations", () => {
 			},
 		});
 
-		const migration = await invokeSpecDescribeOperation(context, {
+		const bridged = await invokeSpecDescribeOperation(context, {
 			operation: "lists.list",
 		});
-		expect(migration.operation).toMatchObject({
-			coverage: "migration",
-			migration: {
-				operationId: "lists.list",
+		expect(bridged.operation).toMatchObject({
+			coverage: "described",
+			stability: "experimental",
+			spec: {
+				resource: "list",
+				contract: {
+					input: { source: "runtime-operation" },
+					output: { source: "runtime-operation" },
+				},
 			},
 		});
+		expect(bridged.operation).not.toHaveProperty("migration");
 
 		await expect(
 			invokeSpecDescribeOperation(context, { operation: "missing.operation" }),

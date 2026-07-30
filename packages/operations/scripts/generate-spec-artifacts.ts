@@ -5,30 +5,10 @@ import {
 	type AnyOperationSpec,
 	type OperationPlaybook,
 } from "../src/specs";
+import { stableJson } from "./stable-json";
 
 const outputDirectory = resolve(import.meta.dir, "../generated/specs");
 const checkOnly = Bun.argv.includes("--check");
-
-function stableValue(value: unknown): unknown {
-	if (Array.isArray(value)) {
-		return value.map(stableValue);
-	}
-	if (typeof value === "object" && value !== null) {
-		return Object.fromEntries(
-			Object.entries(value)
-				.filter(([, nested]) => nested !== undefined)
-				.sort(([left], [right]) =>
-					left < right ? -1 : left > right ? 1 : 0,
-				)
-				.map(([key, nested]) => [key, stableValue(nested)]),
-		);
-	}
-	return value;
-}
-
-function stableJson(value: unknown): string {
-	return `${JSON.stringify(stableValue(value), null, 2)}\n`;
-}
 
 function markdownArtifact(value: string): string {
 	return `${value.trimEnd()}\n`;
@@ -75,6 +55,7 @@ function renderOperationReference(): string {
 			"",
 			`- Resource / verb: \`${operation.resource}.${operation.verb}\``,
 			`- MCP tool: \`${operation.projection.mcpName}\``,
+			`- Contract source: input \`${operation.contract.input.source}\`, output \`${operation.contract.output.source}\``,
 			`- Effects: \`${renderEffects(operation)}\``,
 			`- Policy: confirmation \`${operation.policy.confirmation}\`, audit \`${operation.policy.audit}\`, dry-run \`${String(operation.policy.dryRun)}\``,
 			`- Retry: \`${operation.retry.kind}\``,
@@ -94,6 +75,8 @@ function renderOperationReference(): string {
 function renderAgentSkill(): string {
 	const sections = emailOperationsSpec.operations.map((operation) => [
 		`## ${operation.title} (\`${operation.id}\`)`,
+		"",
+		`Contract maturity: \`${operation.stability}\`; effects: \`${renderEffects(operation)}\`; confirmation: \`${operation.policy.confirmation}\`; retry: \`${operation.retry.kind}\`.`,
 		"",
 		`Use when: ${operation.agent.useWhen.join(" ")}`,
 		"",
@@ -118,6 +101,48 @@ function renderAgentSkill(): string {
 		"# Typed playbooks",
 		"",
 		...playbooks,
+	].join("\n");
+}
+
+function renderResourceReference(): string {
+	const sections = emailOperationsSpec.resources.map((resource) => [
+		`## \`${resource.id}\` — ${resource.title}`,
+		"",
+		`States: ${resource.states.map((state) => `\`${state}\``).join(", ")}.`,
+		"",
+		`Terminal states: ${resource.terminalStates.length === 0 ? "none" : resource.terminalStates.map((state) => `\`${state}\``).join(", ")}.`,
+		"",
+		"Transitions:",
+		"",
+		...resource.states.map(
+			(state) =>
+				`- \`${state}\` → ${resource.transitions[state]?.length ? resource.transitions[state].map((target) => `\`${target}\``).join(", ") : "none"}`,
+		),
+		"",
+	].join("\n"));
+	return [
+		"# Email Operations Resources",
+		"",
+		"> Generated from `@listmonk-ops/operations/specs`. Do not edit manually.",
+		"",
+		...sections,
+	].join("\n");
+}
+
+function renderEventReference(): string {
+	const rows = emailOperationsSpec.events.map(
+		(event) =>
+			`| \`${event.type}\` | \`${event.source}\` | \`${event.subject}\` | ${event.description} |`,
+	);
+	return [
+		"# Email Operations Events",
+		"",
+		"> Generated from `@listmonk-ops/operations/specs`. Do not edit manually.",
+		"",
+		"| Event | Source | Subject | Meaning |",
+		"|---|---|---|---|",
+		...rows,
+		"",
 	].join("\n");
 }
 
@@ -206,6 +231,8 @@ const artifacts = {
 	"schema-snapshot.json": stableJson(schemaSnapshot),
 	"graph-expectations.json": stableJson(graphExpectations),
 	"operations.md": markdownArtifact(renderOperationReference()),
+	"resources.md": markdownArtifact(renderResourceReference()),
+	"events.md": markdownArtifact(renderEventReference()),
 	"playbooks.md": markdownArtifact(renderPlaybookReference()),
 	"agent-skill.md": markdownArtifact(renderAgentSkill()),
 };

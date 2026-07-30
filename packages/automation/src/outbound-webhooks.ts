@@ -74,9 +74,25 @@ export const OUTBOUND_WEBHOOK_EVENT_TYPES = [
 	"sequence.deleted",
 	"webhook.test",
 ] as const;
+export const OUTBOUND_WEBHOOK_EVENT_FAMILY_FILTERS = [
+	"operation.*",
+	"campaign.*",
+	"subscriber.*",
+	"delivery.*",
+	"abtest.*",
+	"sequence.*",
+	"webhook.*",
+] as const;
+export const OUTBOUND_WEBHOOK_EVENT_FILTERS = [
+	"*",
+	...OUTBOUND_WEBHOOK_EVENT_TYPES,
+	...OUTBOUND_WEBHOOK_EVENT_FAMILY_FILTERS,
+] as const;
 
 export type OutboundWebhookEventType =
 	(typeof OUTBOUND_WEBHOOK_EVENT_TYPES)[number];
+export type OutboundWebhookEventFilter =
+	(typeof OUTBOUND_WEBHOOK_EVENT_FILTERS)[number];
 export type OutboundWebhookEventSource = OperationEventSource;
 export type OutboundWebhookSubjectKind = Extract<
 	OperationResourceKind,
@@ -476,17 +492,20 @@ const secretRefSchema = z
 		OUTBOUND_WEBHOOK_SECRET_REF_PATTERN,
 		"secret_ref must be LISTMONK_OPS_WEBHOOK_SECRET or use its dedicated prefix",
 	);
-const eventFilterSchema = z
+export const outboundWebhookEventFilterSchema = z
 	.string()
 	.trim()
-	.min(1)
-	.refine(isSupportedEventFilter, "Unsupported event filter");
+	.pipe(
+		z.enum(OUTBOUND_WEBHOOK_EVENT_FILTERS, {
+			error: "Unsupported event filter",
+		}),
+	);
 const endpointSchema = z.object({
 	id: uuidSchema,
 	name: z.string().trim().min(1).max(120),
 	url: z.string().trim().min(1),
 	secretRef: secretRefSchema,
-	eventFilters: z.array(eventFilterSchema).min(1),
+	eventFilters: z.array(outboundWebhookEventFilterSchema).min(1),
 	enabled: z.boolean(),
 	timeoutMs: z.number().int().min(100).max(30_000),
 	maxAttempts: z.number().int().min(1).max(12),
@@ -826,21 +845,17 @@ export function normalizeOutboundWebhookEndpointUrl(value: string): string {
 }
 
 function normalizeEventFilters(filters: readonly string[]): readonly string[] {
-	const parsed = z.array(eventFilterSchema).min(1).parse(filters);
+	const parsed = z
+		.array(outboundWebhookEventFilterSchema)
+		.min(1)
+		.parse(filters);
 	return [...new Set(parsed)];
 }
 
 export function isSupportedEventFilter(filter: string): boolean {
 	const normalized = filter.trim();
-	if (normalized === "*") {
-		return true;
-	}
-	if (normalized.endsWith(".*")) {
-		const prefix = normalized.slice(0, -1);
-		return OUTBOUND_WEBHOOK_EVENT_TYPES.some((type) => type.startsWith(prefix));
-	}
-	return OUTBOUND_WEBHOOK_EVENT_TYPES.includes(
-		normalized as OutboundWebhookEventType,
+	return OUTBOUND_WEBHOOK_EVENT_FILTERS.includes(
+		normalized as OutboundWebhookEventFilter,
 	);
 }
 

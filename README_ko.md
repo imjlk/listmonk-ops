@@ -331,10 +331,11 @@ listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --template-id 1 --lists 10
 listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
-listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z --confirm
-listmonk-cli campaigns start --id 42 --confirm
-listmonk-cli campaigns pause --id 42
-listmonk-cli campaigns cancel --id 42 --confirm
+listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z \
+  --expected-updated-at <preflight의-campaignUpdatedAt> --confirm
+listmonk-cli campaigns start --id 42 --expected-updated-at <updated_at> --confirm
+listmonk-cli campaigns pause --id 42 --expected-updated-at <updated_at>
+listmonk-cli campaigns cancel --id 42 --expected-updated-at <updated_at> --confirm
 listmonk-cli campaigns clone --id 42 --name "Copy of Weekly update"
 listmonk-cli campaigns stats --id 42
 
@@ -386,6 +387,9 @@ listmonk-cli operations --family campaigns
 listmonk-cli specs search --query "schedule a reviewed campaign"
 listmonk-cli specs describe --operation campaigns.schedule
 listmonk-cli playbooks get --id campaign.safe-start
+listmonk-cli playbooks get --id campaign.safe-schedule
+listmonk-cli playbooks get --id template.safe-promote
+listmonk-cli playbooks get --id abtest.safe-run
 listmonk-cli capabilities
 listmonk-cli prime --goal "schedule a reviewed campaign"
 listmonk-cli status
@@ -402,31 +406,50 @@ Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제�
 자격 증명을 노출하지 않으면서 런타임 정보와 실제 Listmonk health probe
 결과를 함께 제공합니다.
 
-현재 14개 Operation에 `spec` descriptor가 포함됩니다. 기존 파일럿인
-`campaigns.get`, `campaigns.schedule`, `subscribers.blocklist`에 더해
-고위험 Operation인 `campaigns.start`, `campaigns.cancel`,
-`transactional.send`, `ops.campaign.preflight`, 그리고 위 7개
-discovery/readiness Operation이 포함됩니다. descriptor는
-Typia가 생성한 정규화 계약, 리소스/상태 의미, effect에서 파생한 안전 정책,
-재시도·reconcile 지침, 에이전트 사용 맥락을 제공합니다. 트랜잭셔널 발송의
-재시도 의미는 `idempotency_key` 유무에 따라 달라지며, 수신자 계약은
-email 또는 ID 중 정확히 하나를 받는 XOR schema로 생성됩니다. 기존 Zod
-schema는 계속 transport 정규화와 런타임 검증의 기준입니다.
+102개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
+정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
+유지보수 경계는 다음과 같습니다.
 
-Spec에는 타입드 `campaign.safe-start` 플레이북도 포함됩니다. 캠페인 확인,
-`summary.fail == 0`으로 보호되는 preflight, 사람 승인이 필요한 대량 발송
-시작, 시작 상태 검증을 순서대로 선언합니다. 모든 공용 Operation은 이제
-descriptor 또는 기한이 있는 migration exemption 중 정확히 하나를
-연결해야 합니다. family catalog와 build 후 실행되는
-`operations:specs:coverage` gate는 누락·dangling·중복·불일치·만료된
-coverage를 거부합니다.
+```text
+Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
+```
+
+51개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 나머지 51개는
+generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계의
+커밋된 snapshot을 브릿지로 사용하며 명시적으로 `experimental`입니다.
+따라서 upstream API 변경은 먼저 generated transport와 handwritten adapter에서
+흡수하며, 정규화 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을
+변경합니다. 정적 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면
+거부합니다.
+
+검토를 마친 핵심 7개 Operation인 `campaigns.get`,
+`campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
+`subscribers.blocklist`, `transactional.send`,
+`ops.campaign.preflight`는 `stable`입니다. 이들의 계약과 정책 의미는
+승인된 compatibility baseline과 비교합니다. 나머지 95개 descriptor는 제품
+계약과 동작이 더 성숙할 때까지 experimental로 유지합니다.
+
+Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
+`template.safe-promote`, `abtest.safe-run` 네 가지 타입드 플레이북을
+배포합니다. 모든 공용 shared Operation이 descriptor를 연결하므로 migration
+exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·중복·
+불일치 선언을 거부합니다.
 
 생성된 Operations Spec 산출물은 `packages/operations/generated/specs`에
 저장됩니다. 계약이나 descriptor를 바꾼 뒤에는
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
-executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 65개 공용
-Operation 전체의 descriptor/exemption coverage도 검증합니다.
+executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
+Operation 102개 전체, API 경계 규칙, 51개 governed runtime bridge, 7개
+stable compatibility baseline과 spec-to-runtime 직접 graph edge 306개를
+검증합니다.
+
+51개 bridge Operation 중 하나의 정규화 Zod 경계가 바뀌면 workspace를
+빌드한 뒤 `bun run operations:specs:runtime-contracts:generate`를 실행하고,
+커밋될 snapshot diff를 검토한 다음 Spec 산출물을 다시 생성하세요. 일반
+CLI/MCP 시작은 runtime contract와 snapshot이 다르면 계속 fail-closed로
+동작합니다.
 
 Spec API는 별도 npm 패키지가 아니라 기존 operations 패키지의
 `@listmonk-ops/operations/specs` 서브패스로 배포됩니다.
@@ -519,7 +542,9 @@ listmonk-cli abtest recommend-sample-size \
   --lists 123,456 --test-group-percentage 10 --variant-count 2
 listmonk-cli abtest deploy-winner --test-id <id> --confirm
 listmonk-cli abtest delete --test-id <id> --confirm
-listmonk-cli abtest run --test-id <id> --confirm
+listmonk-cli abtest run --test-id <id> \
+  --expected-status <get의-status> \
+  --expected-updated-at <get의-updatedAt> --confirm
 listmonk-cli abtest tick --dry-run true --confirm
 listmonk-cli abtest tick --confirm
 listmonk-cli abtest reconcile --test-id <id>
@@ -531,8 +556,10 @@ listmonk-cli abtest reconcile --all --repair --confirm
 
 `abtest tick`은 모든 비종료 테스트를 한 단계씩 진행합니다 (cron/systemd
 timer용). `--dry-run true`로 상태 변경 없이 미리보기할 수 있습니다.
-`abtest run`은 단일 테스트를 진행합니다. `abtest reconcile`은 로컬 드리프트를
-보고하고 `--repair --confirm`으로 수정할 수 있습니다.
+`abtest run`은 단일 테스트를 진행합니다. 직전 `abtest get` 결과의 `status`와
+`updatedAt`을 revision 옵션에 복사하면 중간에 실행된 tick이 승인 상태를
+조용히 무효화하지 못합니다. `abtest reconcile`은 로컬 드리프트를 보고하고
+`--repair --confirm`으로 수정할 수 있습니다.
 
 MCP에서도 A/B 테스트 라이프사이클 도구를 제공합니다.
 

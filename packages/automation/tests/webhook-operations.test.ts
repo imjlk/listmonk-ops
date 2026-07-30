@@ -302,6 +302,37 @@ describe("webhook shared operations", () => {
 		});
 	});
 
+	test("uses the canonical event filter contract at the operation boundary", async () => {
+		const context = await createContext();
+		await expect(
+			invokeWebhookCreateOperation(context, {
+				name: "invalid-filter",
+				url: "https://8.8.8.8/hooks",
+				secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_INVALID",
+				event_filters: ["operation.started.*"],
+			}),
+		).rejects.toThrow("Unsupported event filter");
+
+		const created = await invokeWebhookCreateOperation(context, {
+			name: "valid-filters",
+			url: "https://8.8.8.8/hooks",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_VALID",
+			event_filters: [" operation.started ", "operation.*", "*"],
+		});
+		expect(created.endpoint.event_filters).toEqual([
+			"operation.started",
+			"operation.*",
+			"*",
+		]);
+		expect(await invokeWebhookListOperation(context, {})).toMatchObject({
+			endpoints: [
+				{
+					event_filters: ["operation.started", "operation.*", "*"],
+				},
+			],
+		});
+	});
+
 	test("sends a targeted signed test and exposes redacted delivery state", async () => {
 		const context = await createContext();
 		const created = await invokeWebhookCreateOperation(context, {

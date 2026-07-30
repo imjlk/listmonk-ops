@@ -80,7 +80,7 @@ export const campaignGetOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#getCampaign:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.6.0",
 });
 
@@ -149,7 +149,7 @@ export const campaignScheduleOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#scheduleCampaign:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.6.0",
 });
 
@@ -218,7 +218,7 @@ export const subscriberBlocklistOperationSpec = defineOperationSpec({
 				"packages/operations/src/subscribers.ts#blocklistSubscribers:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.6.0",
 });
 

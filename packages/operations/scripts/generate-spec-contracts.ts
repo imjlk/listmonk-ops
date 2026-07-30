@@ -92,28 +92,13 @@ import type {
 	WebhookUpdateOutput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
+import { stableValue } from "../src/specs/stable-json.js";
 
 const outputPath = resolve(
 	dirname(fileURLToPath(import.meta.url)),
 	"../src/specs/generated/contract-schemas.json",
 );
 const checkOnly = process.argv.includes("--check");
-
-function stableValue(value: unknown): unknown {
-	if (Array.isArray(value)) {
-		return value.map(stableValue);
-	}
-	if (typeof value === "object" && value !== null) {
-		return Object.fromEntries(
-			Object.entries(value)
-				.sort(([left], [right]) =>
-					left < right ? -1 : left > right ? 1 : 0,
-				)
-				.map(([key, nested]) => [key, stableValue(nested)]),
-		);
-	}
-	return value;
-}
 
 function stableRecord(
 	value: unknown,
@@ -135,6 +120,7 @@ function contractSchema(generated: {
 	return {
 		dialect: "openapi-3.1",
 		stage: "normalized",
+		source: "typescript",
 		schema: stableRecord(generated.schema, "contract schema"),
 		components: stableRecord(generated.components, "contract components"),
 	};

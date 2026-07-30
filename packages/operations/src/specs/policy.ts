@@ -34,6 +34,24 @@ type HasDestructiveMaintenance<Effects extends readonly OperationEffect[]> = [
 	? false
 	: true;
 
+type HasPreviewDeclaration<
+	Effects extends readonly OperationEffect[],
+	Value extends boolean,
+> = [Extract<Effects[number], { preview: Value }>] extends [never]
+	? false
+	: true;
+
+type DryRunForEffects<
+	Effects extends readonly OperationEffect[],
+	Default extends boolean,
+> = HasPreviewDeclaration<Effects, true> extends true
+	? HasPreviewDeclaration<Effects, false> extends true
+		? never
+		: true
+	: HasPreviewDeclaration<Effects, false> extends true
+		? false
+		: Default;
+
 /**
  * Safety precedence is intentionally conservative:
  * suppression requires a preview and confirmation; outbound webhook effects,
@@ -49,54 +67,54 @@ export type PolicyForEffects<
 	? {
 			confirmation: "required";
 			audit: "required";
-			dryRun: true;
+			dryRun: DryRunForEffects<Effects, true>;
 		}
 	: HasDestructiveMaintenance<Effects> extends true
 		? {
 				confirmation: "required";
 				audit: "required";
-				dryRun: true;
+				dryRun: DryRunForEffects<Effects, true>;
 			}
 		: HasEffect<Effects, "maintenance"> extends true
 			? {
 					confirmation: "never";
 					audit: "required";
-					dryRun: true;
+					dryRun: DryRunForEffects<Effects, true>;
 				}
 	: HasEffect<Effects, "webhook"> extends true
 		? {
 				confirmation: "required";
 				audit: "required";
-				dryRun: false;
+				dryRun: DryRunForEffects<Effects, false>;
 			}
 		: HasBulkDelivery<Effects> extends true
 		? {
 				confirmation: "required";
 				audit: "required";
-				dryRun: false;
+				dryRun: DryRunForEffects<Effects, false>;
 			}
 		: HasEffect<Effects, "delete"> extends true
 			? {
 					confirmation: "required";
 					audit: "required";
-					dryRun: false;
+					dryRun: DryRunForEffects<Effects, false>;
 				}
 			: HasIrreversibleWrite<Effects> extends true
 				? {
 						confirmation: "required";
 						audit: "required";
-						dryRun: false;
+						dryRun: DryRunForEffects<Effects, false>;
 					}
 				: HasEffect<Effects, "delivery" | "write"> extends true
 					? {
 							confirmation: "never";
 							audit: "required";
-							dryRun: false;
+							dryRun: DryRunForEffects<Effects, false>;
 						}
 					: {
 							confirmation: "never";
 							audit: "optional";
-							dryRun: false;
+							dryRun: DryRunForEffects<Effects, false>;
 						};
 
 function hasEffectKind(
@@ -109,12 +127,33 @@ function hasEffectKind(
 export function expectedPolicyForEffects(
 	effects: readonly OperationEffect[],
 ): OperationPolicy {
+	const declaredPreview = new Set(
+		effects
+			.map((effect) =>
+				"preview" in effect ? effect.preview : undefined,
+			)
+			.filter((preview): preview is boolean => preview !== undefined),
+	);
+	if (declaredPreview.size > 1) {
+		throw new TypeError(
+			"Operation effects must not declare conflicting preview capabilities",
+		);
+	}
+	const withDeclaredPreview = (
+		policy: OperationPolicy,
+	): OperationPolicy => ({
+		...policy,
+		dryRun:
+			declaredPreview.size === 0
+				? policy.dryRun
+				: declaredPreview.values().next().value!,
+	});
 	if (hasEffectKind(effects, ["suppression"])) {
-		return {
+		return withDeclaredPreview({
 			confirmation: "required",
 			audit: "required",
 			dryRun: true,
-		};
+		});
 	}
 	if (
 		effects.some(
@@ -122,25 +161,25 @@ export function expectedPolicyForEffects(
 				effect.kind === "maintenance" && effect.destructive,
 		)
 	) {
-		return {
+		return withDeclaredPreview({
 			confirmation: "required",
 			audit: "required",
 			dryRun: true,
-		};
+		});
 	}
 	if (hasEffectKind(effects, ["maintenance"])) {
-		return {
+		return withDeclaredPreview({
 			confirmation: "never",
 			audit: "required",
 			dryRun: true,
-		};
+		});
 	}
 	if (hasEffectKind(effects, ["webhook"])) {
-		return {
+		return withDeclaredPreview({
 			confirmation: "required",
 			audit: "required",
 			dryRun: false,
-		};
+		});
 	}
 	if (
 		effects.some(
@@ -149,35 +188,35 @@ export function expectedPolicyForEffects(
 		) ||
 		hasEffectKind(effects, ["delete"])
 	) {
-		return {
+		return withDeclaredPreview({
 			confirmation: "required",
 			audit: "required",
 			dryRun: false,
-		};
+		});
 	}
 	if (
 		effects.some(
 			(effect) => effect.kind === "write" && effect.reversible === false,
 		)
 	) {
-		return {
+		return withDeclaredPreview({
 			confirmation: "required",
 			audit: "required",
 			dryRun: false,
-		};
+		});
 	}
 	if (hasEffectKind(effects, ["delivery", "write"])) {
-		return {
+		return withDeclaredPreview({
 			confirmation: "never",
 			audit: "required",
 			dryRun: false,
-		};
+		});
 	}
-	return {
+	return withDeclaredPreview({
 		confirmation: "never",
 		audit: "optional",
 		dryRun: false,
-	};
+	});
 }
 
 export function assertPolicyMatchesEffects(

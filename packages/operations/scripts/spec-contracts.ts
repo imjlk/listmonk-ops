@@ -1,4 +1,5 @@
 import type { tags } from "typia";
+import type { CAMPAIGN_SEND_AT_PATTERN_SOURCE } from "../src/campaign-send-at";
 
 export type ResourceId = number &
 	tags.Type<"int64"> &
@@ -15,7 +16,19 @@ export type PositiveInteger = number &
 	tags.Minimum<1> &
 	tags.Maximum<9007199254740991>;
 
+export type SearchResultLimit = number &
+	tags.Type<"int64"> &
+	tags.Minimum<1> &
+	tags.Maximum<100>;
+
+export type PrimeRecommendationLimit = number &
+	tags.Type<"int64"> &
+	tags.Minimum<1> &
+	tags.Maximum<20>;
+
 export type NonEmptyString = string & tags.MinLength<1>;
+export type CampaignSendAt = string &
+	tags.Pattern<typeof CAMPAIGN_SEND_AT_PATTERN_SOURCE>;
 export type EmailAddress = string & tags.Format<"email">;
 export type IsoDateTime = string & tags.Format<"date-time">;
 export type IdempotencyKey = string &
@@ -77,9 +90,11 @@ export interface CampaignScheduleInput {
 	id: ResourceId;
 	/**
 	 * ISO 8601 or Listmonk-compatible `YYYY-MM-DD HH:MM:SS` send timestamp.
-	 * Stateful validation remains in the campaign domain executor.
+	 * The exact accepted forms are shared with the campaign domain validator.
 	 */
-	send_at: NonEmptyString;
+	send_at: CampaignSendAt;
+	/** Campaign updated_at observed by the preflight that approved this send. */
+	expected_updated_at?: NonEmptyString | undefined;
 }
 
 export interface CampaignScheduleOutput {
@@ -90,6 +105,8 @@ export interface CampaignScheduleOutput {
 export interface CampaignLifecycleInput {
 	/** Listmonk campaign ID. */
 	id: ResourceId;
+	/** Campaign updated_at observed by the preflight that approved this transition. */
+	expected_updated_at?: NonEmptyString | undefined;
 }
 
 export interface CampaignLifecycleOutput {
@@ -118,6 +135,7 @@ export interface CampaignPreflightCheck {
 export interface CampaignPreflightOutput {
 	campaignId: ResourceId;
 	campaignName: string;
+	campaignUpdatedAt: NonEmptyString;
 	status: string;
 	audienceEstimate: NonNegativeInteger;
 	checkedAt: IsoDateTime;
@@ -181,9 +199,18 @@ export interface TransactionalSendOutput {
 	expires_at?: IsoDateTime | undefined;
 }
 
+export type SequenceStepId = NonEmptyString &
+	tags.MaxLength<80> &
+	tags.Pattern<"^[A-Za-z0-9._:-]+$">;
+export type SequenceConditionPath = NonEmptyString &
+	tags.MaxLength<200> &
+	tags.Pattern<"^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$">;
+export type SequenceName = NonEmptyString & tags.MaxLength<120>;
+export type SequenceDescription = string & tags.MaxLength<500>;
+
 export type SequenceStep =
 	| {
-			id: NonEmptyString;
+			id: SequenceStepId;
 			type: "send";
 			template_id: ResourceId;
 			from_email?: NonEmptyString | undefined;
@@ -191,42 +218,44 @@ export type SequenceStep =
 			content_type?: "html" | "markdown" | "plain" | undefined;
 	  }
 	| {
-			id: NonEmptyString;
+			id: SequenceStepId;
 			type: "wait";
 			duration_seconds: PositiveInteger;
 	  }
 	| {
-			id: NonEmptyString;
+			id: SequenceStepId;
 			type: "wait_until";
 			at: IsoDateTime;
 	  }
 	| {
-			id: NonEmptyString;
+			id: SequenceStepId;
 			type: "condition";
-			path: NonEmptyString;
+			path: SequenceConditionPath;
 			operator: "equals" | "not_equals" | "exists";
 			value?: unknown;
-			on_true: NonEmptyString;
-			on_false: NonEmptyString;
+			on_true: SequenceStepId;
+			on_false: SequenceStepId;
 	  }
 	| {
-			id: NonEmptyString;
+			id: SequenceStepId;
 			type: "stop";
 	  };
 
+export type SequenceSteps = SequenceStep[] & tags.MinItems<1>;
+
 export interface SequenceRevision {
 	revision: PositiveInteger;
-	steps: SequenceStep[];
+	steps: SequenceSteps;
 	created_at: IsoDateTime;
 }
 
 export interface SequenceDefinition {
 	id: string & tags.Format<"uuid">;
-	name: NonEmptyString;
-	description?: string | undefined;
+	name: SequenceName;
+	description?: SequenceDescription | undefined;
 	status: "active" | "paused";
 	current_revision: PositiveInteger;
-	revisions: SequenceRevision[];
+	revisions: SequenceRevision[] & tags.MinItems<1>;
 	created_at: IsoDateTime;
 	updated_at: IsoDateTime;
 }
@@ -246,7 +275,7 @@ export interface SequenceEnrollment {
 		| "ambiguous"
 		| "cancelled";
 	retry_count: NonNegativeInteger;
-	current_step_id: NonEmptyString;
+	current_step_id: SequenceStepId;
 	next_run_at: IsoDateTime;
 	last_error?: string | undefined;
 	created_at: IsoDateTime;
@@ -254,19 +283,19 @@ export interface SequenceEnrollment {
 }
 
 export interface SequenceValidateInput {
-	steps: SequenceStep[];
+	steps: SequenceSteps;
 }
 
 export interface SequenceValidateOutput {
 	valid: true;
 	step_count: PositiveInteger;
-	step_ids: NonEmptyString[];
+	step_ids: SequenceStepId[];
 }
 
 export interface SequenceCreateInput {
-	name: NonEmptyString;
-	description?: string | undefined;
-	steps: SequenceStep[];
+	name: SequenceName;
+	description?: SequenceDescription | undefined;
+	steps: SequenceSteps;
 }
 
 export interface SequenceDefinitionOutput {
@@ -275,9 +304,9 @@ export interface SequenceDefinitionOutput {
 
 export interface SequenceUpdateInput {
 	id: string & tags.Format<"uuid">;
-	name?: NonEmptyString | undefined;
-	description?: string | undefined;
-	steps: SequenceStep[];
+	name?: SequenceName | undefined;
+	description?: SequenceDescription | undefined;
+	steps: SequenceSteps;
 }
 
 export interface SequenceListInput {
@@ -422,7 +451,7 @@ export interface SpecSearchInput {
 	family?: NonEmptyString | undefined;
 	resource?: NonEmptyString | undefined;
 	verb?: NonEmptyString | undefined;
-	limit?: PositiveInteger | undefined;
+	limit?: SearchResultLimit | undefined;
 }
 
 export interface SpecSearchOutput {
@@ -556,7 +585,7 @@ export interface ControlCapabilitiesOutput {
 
 export interface ControlPrimeInput {
 	goal?: NonEmptyString | undefined;
-	limit?: PositiveInteger | undefined;
+	limit?: PrimeRecommendationLimit | undefined;
 }
 
 export interface ControlPrimeOutput {
@@ -789,6 +818,7 @@ export type SubscriberUuid = Uuid;
  */
 export type WebhookUrl = NonEmptyString & tags.Pattern<"^https://\\S+$">;
 export type WebhookName = NonEmptyString & tags.MaxLength<120>;
+export type WebhookCorrelationId = NonEmptyString & tags.MaxLength<200>;
 export type WebhookTimeoutMs = number &
 	tags.Type<"int32"> &
 	tags.Minimum<100> &
@@ -932,7 +962,7 @@ export interface WebhookDeleteOutput {
 
 export interface WebhookTestInput {
 	id: WebhookId;
-	correlation_id?: NonEmptyString | undefined;
+	correlation_id?: WebhookCorrelationId | undefined;
 }
 
 export interface WebhookDispatchInput {
@@ -991,7 +1021,7 @@ export interface WebhookDeliveryEventSummary {
 	schema_version: PositiveInteger;
 	occurred_at: IsoDateTime;
 	source: WebhookEventSource;
-	correlation_id?: NonEmptyString | undefined;
+	correlation_id?: WebhookCorrelationId | undefined;
 	subject?: {
 		kind: WebhookSubjectKind;
 		key: NonEmptyString;

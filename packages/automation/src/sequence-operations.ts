@@ -227,16 +227,16 @@ const sequenceStepOutputSchema = buildSequenceStepSchema(
 );
 const sequenceRevisionOutputSchema = z.object({
 	revision: z.number().int().positive(),
-	steps: z.array(sequenceStepOutputSchema),
+	steps: z.array(sequenceStepOutputSchema).min(1),
 	created_at: isoDateTimeInput,
 });
 const sequenceDefinitionOutputSchema = z.object({
 	id: sequenceIdInput,
-	name: z.string(),
-	description: z.string().optional(),
+	name: z.string().min(1).max(120),
+	description: z.string().max(500).optional(),
 	status: z.enum(["active", "paused"]),
 	current_revision: z.number().int().positive(),
-	revisions: z.array(sequenceRevisionOutputSchema),
+	revisions: z.array(sequenceRevisionOutputSchema).min(1),
 	created_at: isoDateTimeInput,
 	updated_at: isoDateTimeInput,
 });
@@ -247,7 +247,7 @@ const sequenceEnrollmentOutputSchema = z.object({
 	subscriber_id: z.number().int().positive(),
 	status: sequenceEnrollmentStatusInput,
 	retry_count: z.number().int().nonnegative(),
-	current_step_id: z.string(),
+	current_step_id: stepIdInput,
 	next_run_at: isoDateTimeInput,
 	last_error: z.string().optional(),
 	created_at: isoDateTimeInput,
@@ -256,7 +256,7 @@ const sequenceEnrollmentOutputSchema = z.object({
 const sequenceValidateOutputSchema = z.object({
 	valid: z.literal(true),
 	step_count: z.number().int().positive(),
-	step_ids: z.array(z.string()),
+	step_ids: z.array(stepIdInput),
 });
 const sequenceDefinitionEnvelopeSchema = z.object({
 	sequence: sequenceDefinitionOutputSchema,

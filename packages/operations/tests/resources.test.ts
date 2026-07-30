@@ -435,6 +435,9 @@ describe("shared CRUD resource operations", () => {
 			// Structurally matches ISO 8601 but contains impossible components.
 			"2026-13-45T25:61:61Z",
 			"0000-00-00 00:00:00",
+			"2025-02-29T09:00:00Z",
+			"2026-02-30 09:00:00",
+			"2026-04-31T09:00:00Z",
 			// Timezone offset out of range — the regex would accept these
 			// without an explicit offset-range check.
 			"2026-08-01T09:00:00+99:99",
@@ -472,6 +475,8 @@ describe("shared CRUD resource operations", () => {
 			"2026-08-01T09:00:00.000Z",
 			"2026-08-01T09:00:00.123456Z",
 			"2026-08-01T09:00:00.123456789Z",
+			"2024-02-29T09:00:00Z",
+			"2026-08-01 09:00:00",
 			// `+00:00` is a valid UTC offset equivalent to `Z` per ISO 8601 /
 			// RFC 3339. Postgres, Python datetime.isoformat(), and Go
 			// time.RFC3339 all emit it, so it must round-trip.
@@ -479,6 +484,7 @@ describe("shared CRUD resource operations", () => {
 			"2026-08-01T09:00:00.123+00:00",
 			// Real signed offsets must work too.
 			"2026-08-01T09:00:00+09:00",
+			"2026-08-01T09:00:00+0900",
 			"2026-08-01T09:00:00-05:00",
 		]) {
 			await expect(
@@ -502,6 +508,32 @@ describe("shared CRUD resource operations", () => {
 			{ id: 10, send_at: "2026-08-01T09:00:00Z" },
 		);
 		expect(result).toEqual({ id: 10, status: "scheduled" });
+		expect(update).not.toHaveBeenCalled();
+		expect(updateStatus).not.toHaveBeenCalled();
+	});
+
+	test("a successful schedule retry ignores the pre-mutation revision token", async () => {
+		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const getById = mock(async () => ({
+			data: {
+				id: 10,
+				status: "scheduled",
+				send_at: "2026-08-01T09:00:00Z",
+				updated_at: "2026-07-30T10:00:00Z",
+			},
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		await expect(
+			invokeScheduleCampaignOperation(
+				campaignContext({ getById, update, updateStatus }),
+				{
+					id: 10,
+					send_at: "2026-08-01T09:00:00Z",
+					expected_updated_at: "2026-07-30T09:00:00Z",
+				},
+			),
+		).resolves.toEqual({ id: 10, status: "scheduled" });
 		expect(update).not.toHaveBeenCalled();
 		expect(updateStatus).not.toHaveBeenCalled();
 	});
@@ -544,6 +576,32 @@ describe("shared CRUD resource operations", () => {
 			path: { id: 10 },
 			body: { status: "scheduled" },
 		});
+	});
+
+	test("rejects a campaign changed after preflight before scheduling", async () => {
+		const update = mock(async () => ({ data: {} })) as unknown as CampaignClient["campaign"]["update"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+		const getById = mock(async () => ({
+			data: {
+				id: 10,
+				status: "draft",
+				send_at: null,
+				updated_at: "2026-07-30T10:00:00Z",
+			},
+		})) as unknown as CampaignClient["campaign"]["getById"];
+
+		await expect(
+			invokeScheduleCampaignOperation(
+				campaignContext({ getById, update, updateStatus }),
+				{
+					id: 10,
+					send_at: "2026-08-01T09:00:00Z",
+					expected_updated_at: "2026-07-30T09:00:00Z",
+				},
+			),
+		).rejects.toThrow("changed after preflight");
+		expect(update).not.toHaveBeenCalled();
+		expect(updateStatus).not.toHaveBeenCalled();
 	});
 
 	test("clones a campaign by copying its body and resetting runtime fields", async () => {
@@ -697,6 +755,28 @@ describe("shared CRUD resource operations", () => {
 			{ id: 2 },
 		);
 		expect(cancelled).toEqual({ id: 2, status: "cancelled" });
+	});
+
+	test("a successful lifecycle retry ignores the pre-mutation revision token", async () => {
+		const getById = mock(async () => ({
+			data: {
+				id: 2,
+				status: "cancelled",
+				updated_at: "2026-07-30T10:00:00Z",
+			},
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		const updateStatus = mock(async () => ({ data: true })) as unknown as CampaignClient["campaign"]["updateStatus"];
+
+		await expect(
+			invokeCancelCampaignOperation(
+				campaignContext({ getById, updateStatus }),
+				{
+					id: 2,
+					expected_updated_at: "2026-07-30T09:00:00Z",
+				},
+			),
+		).resolves.toEqual({ id: 2, status: "cancelled" });
+		expect(updateStatus).not.toHaveBeenCalled();
 	});
 
 	test("rejects cancel/pause on non-running campaigns per Listmonk 6.2.0", async () => {

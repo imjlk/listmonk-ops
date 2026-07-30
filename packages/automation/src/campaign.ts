@@ -21,6 +21,8 @@ export interface CampaignPreflightCheck {
 export interface CampaignPreflightResult {
 	campaignId: number;
 	campaignName: string;
+	/** Listmonk revision token that delivery operations must re-check. */
+	campaignUpdatedAt: string;
 	status: string;
 	audienceEstimate: number;
 	checkedAt: string;
@@ -468,6 +470,12 @@ export async function runCampaignPreflight(
 	const campaign = await getCampaign(client, campaignId);
 
 	const campaignName = campaign.name?.trim() || `Campaign ${campaignId}`;
+	const campaignUpdatedAt = campaign.updated_at?.trim();
+	if (!campaignUpdatedAt) {
+		throw new Error(
+			`Campaign ${campaignId} is missing updated_at; cannot create a preflight revision token`,
+		);
+	}
 	const status = campaign.status || "unknown";
 	const subject = campaign.subject?.trim() || "";
 	const body = campaign.body || "";
@@ -640,6 +648,7 @@ export async function runCampaignPreflight(
 	return {
 		campaignId,
 		campaignName,
+		campaignUpdatedAt,
 		status,
 		audienceEstimate,
 		checkedAt: new Date().toISOString(),

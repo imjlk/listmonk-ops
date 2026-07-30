@@ -66,7 +66,7 @@ const doctorCheckSchema = z.object({
 	details: z.record(z.string(), z.unknown()).optional(),
 });
 const providerSummarySchema = z.object({
-	id: z.string().min(1),
+	id: providerIdInput,
 	kind: z.enum(["ses", "smtp"]),
 	messenger: z.string().min(1),
 	sending_domain: z.string().min(1),
@@ -140,12 +140,12 @@ const providerStatusOutputSchema = z.object({
 	checks: z.array(doctorCheckSchema),
 });
 const providerTestOutputSchema = z.object({
-	provider_id: z.string().min(1),
+	provider_id: providerIdInput,
 	checked_at: z.iso.datetime({ offset: true }),
 	probe: providerApiProbeSchema,
 });
 const providerQuotaOutputSchema = z.object({
-	provider_id: z.string().min(1),
+	provider_id: providerIdInput,
 	supported: z.boolean(),
 	checked_at: z.iso.datetime({ offset: true }),
 	max_24_hour_send: z.number().optional(),
@@ -158,7 +158,7 @@ const providerQuotaOutputSchema = z.object({
 	enforcement_status: z.string().min(1).optional(),
 });
 const providerWebhookOutputSchema = z.object({
-	provider_id: z.string().min(1),
+	provider_id: providerIdInput,
 	source: z.string().min(1),
 	evidence_scope: z.enum(["profile", "shared"]),
 	checked_at: z.iso.datetime({ offset: true }),
@@ -179,7 +179,7 @@ const dnsObservationSchema = z.object({
 	error: z.string().min(1).optional(),
 });
 const providerDnsOutputSchema = z.object({
-	provider_id: z.string().min(1),
+	provider_id: providerIdInput,
 	sending_domain: z.string().min(1),
 	from_domain: z.string().min(1),
 	mail_from_domain: z.string().min(1).optional(),
@@ -195,7 +195,7 @@ const doctorSummarySchema = z.object({
 	unknown: z.number().int().nonnegative(),
 });
 const providerDoctorOutputSchema = z.object({
-	provider_id: z.string().min(1),
+	provider_id: providerIdInput,
 	checked_at: z.iso.datetime({ offset: true }),
 	ready: z.boolean(),
 	summary: doctorSummarySchema,

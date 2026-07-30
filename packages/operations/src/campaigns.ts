@@ -1,11 +1,10 @@
 import type { Campaign, ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	bindBridgedOperationSpec,
 	bindCampaignCancelOperationSpec,
 	bindCampaignGetOperationSpec,
 	bindCampaignScheduleOperationSpec,
 	bindCampaignStartOperationSpec,
-	bindOperationSpecMigrationExemption,
-	operationSpecMigrationExemptionsByFamily,
 } from "./specs";
 import { z } from "zod";
 import {
@@ -24,9 +23,9 @@ import {
 import { defineOperationCatalog } from "./catalog";
 import {
 	assertCampaignTransition,
-	isParseableCampaignSendAt,
 	type CampaignLifecycleTarget,
 } from "./campaign-lifecycle";
+import { CAMPAIGN_SEND_AT_PATTERN } from "./campaign-send-at";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
@@ -417,20 +416,31 @@ const scheduleCampaignInputSchema = z
 		send_at: z
 			.string()
 			.trim()
-			.min(1)
-			.describe("ISO 8601 (or Listmonk-compatible) scheduled send timestamp"),
-	})
-	.refine(
-		(input) => isParseableCampaignSendAt(input.send_at),
-		{
-			message:
+			.regex(
+				CAMPAIGN_SEND_AT_PATTERN,
 				"send_at must be an ISO 8601 timestamp (e.g. '2026-08-01T09:00:00Z') or a Listmonk-compatible 'YYYY-MM-DD HH:MM:SS' string",
-			path: ["send_at"],
-		},
-	);
+			)
+			.describe("ISO 8601 (or Listmonk-compatible) scheduled send timestamp"),
+		expected_updated_at: z
+			.string()
+			.trim()
+			.min(1)
+			.optional()
+			.describe(
+				"Campaign updated_at observed by the preflight that approved this send",
+			),
+	});
 
 const campaignLifecycleInputSchema = z.object({
 	id: resourceIdSchema,
+	expected_updated_at: z
+		.string()
+		.trim()
+		.min(1)
+		.optional()
+		.describe(
+			"Campaign updated_at observed by the preflight that approved this transition",
+		),
 });
 
 const cloneCampaignInputSchema = z.object({
@@ -481,7 +491,12 @@ async function loadCampaignForTransitionForTarget(
 	client: Pick<ListmonkClient, "campaign">,
 	id: number,
 	target: CampaignLifecycleTarget,
-): Promise<{ id: number; status: string; send_at: string | null | undefined }> {
+): Promise<{
+	id: number;
+	status: string;
+	send_at: string | null | undefined;
+	updated_at: string | undefined;
+}> {
 	const response = await client.campaign.getById({ path: { id } });
 	const campaign = asCampaign(
 		unwrapResourceResponse(response, "Failed to load campaign for transition"),
@@ -491,7 +506,28 @@ async function loadCampaignForTransitionForTarget(
 	if (currentStatus !== target) {
 		assertCampaignTransition(currentStatus, target);
 	}
-	return { id, status: currentStatus, send_at: campaign.send_at };
+	return {
+		id,
+		status: currentStatus,
+		send_at: campaign.send_at,
+		updated_at: campaign.updated_at,
+	};
+}
+
+function assertExpectedCampaignRevision(
+	id: number,
+	actualUpdatedAt: string | undefined,
+	expectedUpdatedAt: string | undefined,
+): void {
+	// This comparison narrows the race window after inspection; it is not an
+	// atomic lock because Listmonk's following status write has no ETag-style
+	// conditional request.
+	if (expectedUpdatedAt === undefined) return;
+	if (actualUpdatedAt !== expectedUpdatedAt) {
+		throw new Error(
+			`Campaign ${id} changed after preflight (expected updated_at ${expectedUpdatedAt}, current ${actualUpdatedAt ?? "<missing>"}); inspect and preflight the campaign again`,
+		);
+	}
 }
 
 const CAMPAIGN_LIFECYCLE_VERBS: Readonly<Record<CampaignLifecycleTarget, string>> = {
@@ -503,7 +539,7 @@ const CAMPAIGN_LIFECYCLE_VERBS: Readonly<Record<CampaignLifecycleTarget, string>
 
 async function transitionCampaign(
 	ctx: CampaignOperationContext,
-	id: number,
+	input: z.output<typeof campaignLifecycleInputSchema>,
 	target: CampaignLifecycleTarget,
 ): Promise<{ id: number; status: string }> {
 	// loadCampaignForTransitionForTarget reads the current campaign and asserts the
@@ -513,19 +549,24 @@ async function transitionCampaign(
 	// metadata and allows safe client retries after timeouts.
 	const loaded = await loadCampaignForTransitionForTarget(
 		ctx.client,
-		id,
+		input.id,
 		target,
 	);
 	if (loaded.status === target) {
-		return { id, status: target };
+		return { id: input.id, status: target };
 	}
+	assertExpectedCampaignRevision(
+		input.id,
+		loaded.updated_at,
+		input.expected_updated_at,
+	);
 	const response = await ctx.client.campaign.updateStatus({
-		path: { id },
+		path: { id: input.id },
 		body: { status: target },
 	});
 	const verb = CAMPAIGN_LIFECYCLE_VERBS[target] ?? target;
-	requireAcknowledgement(response, `Failed to ${verb} campaign ${id}`);
-	return { id, status: target };
+	requireAcknowledgement(response, `Failed to ${verb} campaign ${input.id}`);
+	return { id: input.id, status: target };
 }
 
 export async function scheduleCampaign(
@@ -549,11 +590,17 @@ export async function scheduleCampaign(
 		input.id,
 		"scheduled",
 	);
-	// Idempotent no-op: if the campaign is already scheduled with the
-	// same send_at, return success without re-calling the API.
+	// Exact target-state retries are successful no-ops even when the original
+	// response was lost and Listmonk advanced updated_at. The revision guard
+	// still runs before every new mutation or re-schedule.
 	if (loaded.status === "scheduled" && loaded.send_at === input.send_at) {
 		return { id: input.id, status: "scheduled" };
 	}
+	assertExpectedCampaignRevision(
+		input.id,
+		loaded.updated_at,
+		input.expected_updated_at,
+	);
 	// When the campaign is already scheduled with a different send_at,
 	// only the update call is needed — the status is already "scheduled"
 	// and calling updateStatus(scheduled→scheduled) would be rejected by
@@ -603,7 +650,7 @@ export async function startCampaign(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof campaignLifecycleInputSchema>,
 ): Promise<z.output<typeof campaignLifecycleOutputSchema>> {
-	return transitionCampaign(ctx, input.id, "running");
+	return transitionCampaign(ctx, input, "running");
 }
 
 /**
@@ -615,7 +662,7 @@ export async function pauseCampaign(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof campaignLifecycleInputSchema>,
 ): Promise<z.output<typeof campaignLifecycleOutputSchema>> {
-	return transitionCampaign(ctx, input.id, "paused");
+	return transitionCampaign(ctx, input, "paused");
 }
 
 /**
@@ -627,7 +674,7 @@ export async function cancelCampaign(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof campaignLifecycleInputSchema>,
 ): Promise<z.output<typeof campaignLifecycleOutputSchema>> {
-	return transitionCampaign(ctx, input.id, "cancelled");
+	return transitionCampaign(ctx, input, "cancelled");
 }
 
 export async function cloneCampaign(
@@ -775,7 +822,7 @@ export const getCampaignsOperation = defineOperation({
 	outputSchema: campaignListOutputSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_campaigns", legacySuccessText: jsonResourceValue },
-	specMigration: bindOperationSpecMigrationExemption("campaigns.list"),
+	spec: bindBridgedOperationSpec("campaigns.list"),
 	execute: listCampaigns,
 });
 
@@ -802,7 +849,7 @@ export const createCampaignOperation = defineOperation({
 		name: "listmonk_create_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
-	specMigration: bindOperationSpecMigrationExemption("campaigns.create"),
+	spec: bindBridgedOperationSpec("campaigns.create"),
 	execute: createCampaign,
 });
 
@@ -817,7 +864,7 @@ export const updateCampaignOperation = defineOperation({
 		name: "listmonk_update_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
-	specMigration: bindOperationSpecMigrationExemption("campaigns.update"),
+	spec: bindBridgedOperationSpec("campaigns.update"),
 	execute: updateCampaign,
 });
 
@@ -832,7 +879,7 @@ export const deleteCampaignOperation = defineOperation({
 		name: "listmonk_delete_campaign",
 		legacySuccessText: "Campaign deleted successfully",
 	},
-	specMigration: bindOperationSpecMigrationExemption("campaigns.delete"),
+	spec: bindBridgedOperationSpec("campaigns.delete"),
 	execute: deleteCampaign,
 });
 
@@ -880,7 +927,7 @@ export const pauseCampaignOperation = defineOperation({
 		name: "listmonk_pause_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
-	specMigration: bindOperationSpecMigrationExemption("campaigns.pause"),
+	spec: bindBridgedOperationSpec("campaigns.pause"),
 	execute: pauseCampaign,
 });
 
@@ -912,7 +959,7 @@ export const cloneCampaignOperation = defineOperation({
 		name: "listmonk_clone_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
-	specMigration: bindOperationSpecMigrationExemption("campaigns.clone"),
+	spec: bindBridgedOperationSpec("campaigns.clone"),
 	execute: cloneCampaign,
 });
 
@@ -928,7 +975,7 @@ export const getCampaignStatsOperation = defineOperation({
 		name: "listmonk_get_campaign_stats",
 		legacySuccessText: jsonResourceValue,
 	},
-	specMigration: bindOperationSpecMigrationExemption("campaigns.stats"),
+	spec: bindBridgedOperationSpec("campaigns.stats"),
 	execute: getCampaignStats,
 });
 
@@ -1181,8 +1228,7 @@ export const campaignOperationCatalog = defineOperationCatalog({
 	id: "campaigns",
 	title: "Campaigns",
 	operations: campaignOperations,
-	specMigrationExemptions:
-		operationSpecMigrationExemptionsByFamily.campaigns,
+	specMigrationExemptions: [],
 });
 
 export type CampaignOperation = (typeof campaignOperations)[number];

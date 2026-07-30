@@ -1,39 +1,15 @@
-import { abTestOperationCatalog } from "../packages/abtest/src/operations";
-import { opsOperationCatalog } from "../packages/automation/src/ops-operations";
-import { providerOperationCatalog } from "../packages/automation/src/provider-operations";
-import { sequenceOperationCatalog } from "../packages/automation/src/sequence-operations";
-import { webhookOperationCatalog } from "../packages/automation/src/webhook-operations";
-import {
-	campaignOperationCatalog,
-	composeOperationCatalogs,
-	discoveryOperationCatalog,
-	listOperationCatalog,
-	mediaOperationCatalog,
-	subscriberOperationCatalog,
-	templateOperationCatalog,
-	transactionalOperationCatalog,
-} from "../packages/operations/src";
+import { composeOperationCatalogs } from "../packages/operations/src";
 import {
 	assertOperationSpecCoverage,
 	emailOperationsSpec,
 	operationSpecMigrationExemptions,
 	type OperationSpecCoverageReport,
 } from "../packages/operations/src/specs";
+import { sharedOperationCatalogs } from "./shared-operation-catalogs";
 
-export const sharedOperationCatalog = composeOperationCatalogs([
-	listOperationCatalog,
-	subscriberOperationCatalog,
-	campaignOperationCatalog,
-	templateOperationCatalog,
-	mediaOperationCatalog,
-	transactionalOperationCatalog,
-	opsOperationCatalog,
-	abTestOperationCatalog,
-	discoveryOperationCatalog,
-	webhookOperationCatalog,
-	sequenceOperationCatalog,
-	providerOperationCatalog,
-]);
+export const sharedOperationCatalog = composeOperationCatalogs(
+	sharedOperationCatalogs,
+);
 
 export function checkOperationSpecCoverage(
 	now?: Date,

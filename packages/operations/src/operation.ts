@@ -210,6 +210,8 @@ export function defineOperation<
 				specMigration: OperationSpecMigrationExemption;
 		  }
 	)): OperationDefinition<Context, InputSchema, OutputSchema> {
+	const inputJsonSchema = toObjectJsonSchema(config.inputSchema, "input");
+	const outputJsonSchema = toObjectJsonSchema(config.outputSchema, "output");
 	if (config.spec !== undefined) {
 		assertRuntimeOperationProjection(config.spec, {
 			id: config.id,
@@ -232,8 +234,8 @@ export function defineOperation<
 		description: config.description,
 		inputSchema: config.inputSchema,
 		outputSchema: config.outputSchema,
-		inputJsonSchema: toObjectJsonSchema(config.inputSchema, "input"),
-		outputJsonSchema: toObjectJsonSchema(config.outputSchema, "output"),
+		inputJsonSchema,
+		outputJsonSchema,
 		safety: config.safety,
 		mcp: config.mcp,
 		...(config.spec === undefined ? {} : { spec: config.spec }),

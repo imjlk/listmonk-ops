@@ -154,10 +154,31 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 	// duration checks, and reconciliation logic land in later stages.
 	const runAbTestImpl = async (
 		testId: string,
+		expected: {
+			expectedStatus?: AbTest["status"];
+			expectedUpdatedAt?: string;
+		} = {},
 	): Promise<AbTest | null> => {
 		const test = await abTestService.getTest(testId);
 		if (!test) {
 			throw new AbTestNotFoundError(testId);
+		}
+		const actualUpdatedAt = test.updatedAt.toISOString();
+		if (
+			expected.expectedStatus !== undefined &&
+			test.status !== expected.expectedStatus
+		) {
+			throw new Error(
+				`A/B test ${testId} changed after approval (expected status ${expected.expectedStatus}, current ${test.status}); inspect the test again`,
+			);
+		}
+		if (
+			expected.expectedUpdatedAt !== undefined &&
+			actualUpdatedAt !== expected.expectedUpdatedAt
+		) {
+			throw new Error(
+				`A/B test ${testId} changed after approval (expected updatedAt ${expected.expectedUpdatedAt}, current ${actualUpdatedAt}); inspect the test again`,
+			);
 		}
 
 		if (TERMINAL_STATUSES.has(test.status)) {
