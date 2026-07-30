@@ -1,4 +1,5 @@
 import {
+	ABTEST_STATUSES,
 	type CreateAbTestInput,
 	type AnalyzeAbTestOperationOutput,
 	type CreateAbTestOperationOutput,
@@ -57,6 +58,20 @@ type VariantForCreateInput = {
 		body?: string;
 	};
 };
+
+export type RunAbTestFlags = {
+	"test-id": string;
+	"expected-status"?: (typeof ABTEST_STATUSES)[number];
+	"expected-updated-at"?: string;
+};
+
+export function buildRunAbTestInputFromFlags(flags: RunAbTestFlags) {
+	return {
+		test_id: flags["test-id"],
+		expected_status: flags["expected-status"],
+		expected_updated_at: flags["expected-updated-at"],
+	};
+}
 
 function roundToFour(value: number): number {
 	return Math.round(value * 10000) / 10000;
@@ -942,12 +957,19 @@ export default defineGroup({
 				"test-id": option(z.string().trim().min(1), {
 					description: "Test ID",
 				}),
+				"expected-status": option(z.enum(ABTEST_STATUSES).optional(), {
+					description: "Test status copied from the approving inspection",
+				}),
+				"expected-updated-at": option(z.iso.datetime().optional(), {
+					description:
+						"Test updatedAt revision copied verbatim from the approving inspection",
+				}),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
 					const { test: run } = await invokeCliRunAbTest(
 						args,
-						{ test_id: flags["test-id"] },
+						buildRunAbTestInputFromFlags(flags),
 					);
 					getOutput().success(`A/B test advanced: ${flags["test-id"]}`);
 					getOutput().json(run);

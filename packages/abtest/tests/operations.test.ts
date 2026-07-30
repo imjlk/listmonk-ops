@@ -223,4 +223,27 @@ describe("A/B test operation registry", () => {
 		expect(persisted.test.status).toBe("scheduled");
 		expect(persisted.test.updatedAt).toBe("2026-01-01T00:00:00.000Z");
 	});
+
+	test("requires the canonical UTC revision token emitted by A/B inspection", () => {
+		const runOperation = abTestOperations.find(
+			(operation) => operation.id === "abtest.run",
+		);
+		const baseInput = {
+			test_id: "test-canonical-revision",
+			expected_status: "analyzing",
+		};
+
+		expect(
+			runOperation?.inputSchema.safeParse({
+				...baseInput,
+				expected_updated_at: "2026-07-30T18:00:00.000Z",
+			}).success,
+		).toBe(true);
+		expect(
+			runOperation?.inputSchema.safeParse({
+				...baseInput,
+				expected_updated_at: "2026-07-31T03:00:00+09:00",
+			}).success,
+		).toBe(false);
+	});
 });

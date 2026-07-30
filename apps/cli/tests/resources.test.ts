@@ -197,6 +197,7 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 				data: {
 					id: 10,
 					status: currentStatus,
+					updated_at: "2026-07-30T09:00:00Z",
 					// Required create fields so clone's input validation passes.
 					subject: "Subject",
 					from_email: "sender@example.com",
@@ -232,26 +233,36 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 		await renderScheduleCampaign(cliContext, {
 			id: 10,
 			send_at: "2026-08-01T09:00:00Z",
+			expected_updated_at: "2026-07-30T09:00:00Z",
 		});
 		expect(cliContext.output.success).toHaveBeenCalledWith(
 			"Campaign 10 scheduled for 2026-08-01T09:00:00Z",
 		);
 
-		await renderStartCampaign(cliContext, { id: 10 });
+		await renderStartCampaign(cliContext, {
+			id: 10,
+			expected_updated_at: "2026-07-30T09:00:00Z",
+		});
 		expect(cliContext.output.success).toHaveBeenCalledWith(
 			"Campaign 10 started",
 		);
 
 		// Listmonk 6.2.0 only accepts cancel from `running`, so cancel must
 		// run while the campaign is still running (before any pause).
-		await renderCancelCampaign(cliContext, { id: 10 });
+		await renderCancelCampaign(cliContext, {
+			id: 10,
+			expected_updated_at: "2026-07-30T09:00:00Z",
+		});
 		expect(cliContext.output.success).toHaveBeenCalledWith(
 			"Campaign 10 cancelled",
 		);
 
 		// Pause is exercised separately: reset to running, then pause.
 		currentStatus = "running";
-		await renderPauseCampaign(cliContext, { id: 10 });
+		await renderPauseCampaign(cliContext, {
+			id: 10,
+			expected_updated_at: "2026-07-30T09:00:00Z",
+		});
 		expect(cliContext.output.success).toHaveBeenCalledWith(
 			"Campaign 10 paused",
 		);

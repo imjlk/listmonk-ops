@@ -21,7 +21,7 @@ export interface AbTestOperationContext {
 	storePath?: string;
 }
 
-const ABTEST_STATUSES = [
+export const ABTEST_STATUSES = [
 	"draft",
 	"testing",
 	"scheduled",

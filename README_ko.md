@@ -331,10 +331,11 @@ listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --template-id 1 --lists 10
 listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
-listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z --confirm
-listmonk-cli campaigns start --id 42 --confirm
-listmonk-cli campaigns pause --id 42
-listmonk-cli campaigns cancel --id 42 --confirm
+listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z \
+  --expected-updated-at <preflight의-campaignUpdatedAt> --confirm
+listmonk-cli campaigns start --id 42 --expected-updated-at <updated_at> --confirm
+listmonk-cli campaigns pause --id 42 --expected-updated-at <updated_at>
+listmonk-cli campaigns cancel --id 42 --expected-updated-at <updated_at> --confirm
 listmonk-cli campaigns clone --id 42 --name "Copy of Weekly update"
 listmonk-cli campaigns stats --id 42
 
@@ -541,7 +542,9 @@ listmonk-cli abtest recommend-sample-size \
   --lists 123,456 --test-group-percentage 10 --variant-count 2
 listmonk-cli abtest deploy-winner --test-id <id> --confirm
 listmonk-cli abtest delete --test-id <id> --confirm
-listmonk-cli abtest run --test-id <id> --confirm
+listmonk-cli abtest run --test-id <id> \
+  --expected-status <get의-status> \
+  --expected-updated-at <get의-updatedAt> --confirm
 listmonk-cli abtest tick --dry-run true --confirm
 listmonk-cli abtest tick --confirm
 listmonk-cli abtest reconcile --test-id <id>
@@ -553,8 +556,10 @@ listmonk-cli abtest reconcile --all --repair --confirm
 
 `abtest tick`은 모든 비종료 테스트를 한 단계씩 진행합니다 (cron/systemd
 timer용). `--dry-run true`로 상태 변경 없이 미리보기할 수 있습니다.
-`abtest run`은 단일 테스트를 진행합니다. `abtest reconcile`은 로컬 드리프트를
-보고하고 `--repair --confirm`으로 수정할 수 있습니다.
+`abtest run`은 단일 테스트를 진행합니다. 직전 `abtest get` 결과의 `status`와
+`updatedAt`을 revision 옵션에 복사하면 중간에 실행된 tick이 승인 상태를
+조용히 무효화하지 못합니다. `abtest reconcile`은 로컬 드리프트를 보고하고
+`--repair --confirm`으로 수정할 수 있습니다.
 
 MCP에서도 A/B 테스트 라이프사이클 도구를 제공합니다.
 

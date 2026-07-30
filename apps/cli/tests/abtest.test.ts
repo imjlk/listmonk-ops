@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { buildCreateInputFromFlags } from "../src/commands/abtest";
+import {
+	buildCreateInputFromFlags,
+	buildRunAbTestInputFromFlags,
+} from "../src/commands/abtest";
 
 function createFlags(overrides: Partial<Parameters<typeof buildCreateInputFromFlags>[0]> = {}) {
 	return {
@@ -65,5 +68,19 @@ describe("A/B test CLI input", () => {
 				}),
 			),
 		).toThrow("Variant percentages must sum to less than 100");
+	});
+
+	test("forwards inspected A/B state to the shared run operation", () => {
+		expect(
+			buildRunAbTestInputFromFlags({
+				"test-id": "test-safe-run",
+				"expected-status": "analyzing",
+				"expected-updated-at": "2026-07-30T17:00:00.000Z",
+			}),
+		).toEqual({
+			test_id: "test-safe-run",
+			expected_status: "analyzing",
+			expected_updated_at: "2026-07-30T17:00:00.000Z",
+		});
 	});
 });

@@ -332,10 +332,11 @@ listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --template-id 1 --lists 10
 listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
-listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z --confirm
-listmonk-cli campaigns start --id 42 --confirm
-listmonk-cli campaigns pause --id 42
-listmonk-cli campaigns cancel --id 42 --confirm
+listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z \
+  --expected-updated-at <campaignUpdatedAt-from-preflight> --confirm
+listmonk-cli campaigns start --id 42 --expected-updated-at <updated_at> --confirm
+listmonk-cli campaigns pause --id 42 --expected-updated-at <updated_at>
+listmonk-cli campaigns cancel --id 42 --expected-updated-at <updated_at> --confirm
 listmonk-cli campaigns clone --id 42 --name "Copy of Weekly update"
 listmonk-cli campaigns stats --id 42
 
@@ -543,7 +544,9 @@ listmonk-cli abtest recommend-sample-size \
   --lists 123,456 --test-group-percentage 10 --variant-count 2
 listmonk-cli abtest deploy-winner --test-id <id> --confirm
 listmonk-cli abtest delete --test-id <id> --confirm
-listmonk-cli abtest run --test-id <id> --confirm
+listmonk-cli abtest run --test-id <id> \
+  --expected-status <status-from-get> \
+  --expected-updated-at <updatedAt-from-get> --confirm
 listmonk-cli abtest tick --dry-run true --confirm
 listmonk-cli abtest tick --confirm
 listmonk-cli abtest reconcile --test-id <id>
@@ -555,8 +558,10 @@ review that flag as a sending operation before using it in automation.
 
 `abtest tick` advances every non-terminal test one lifecycle step (for
 cron/systemd timers). Use `--dry-run true` to preview without mutating.
-`abtest run` progresses a single test. `abtest reconcile` reports local
-drift and can repair with `--repair --confirm`.
+`abtest run` progresses a single test. Copy `status` and `updatedAt` from the
+preceding `abtest get` result into its revision options so an intervening tick
+cannot invalidate the approved state silently. `abtest reconcile` reports
+local drift and can repair with `--repair --confirm`.
 
 MCP now also exposes A/B test lifecycle tools:
 

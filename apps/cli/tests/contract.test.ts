@@ -243,12 +243,20 @@ describe("CLI contract", () => {
 	test("renders nested group and leaf help", () => {
 		const group = runCli(["campaigns", "--help"]);
 		const leaf = runCli(["campaigns", "get", "--help"]);
+		const schedule = runCli(["campaigns", "schedule", "--help"]);
+		const start = runCli(["campaigns", "start", "--help"]);
+		const pause = runCli(["campaigns", "pause", "--help"]);
+		const cancel = runCli(["campaigns", "cancel", "--help"]);
 
 		expect(group.exitCode).toBe(0);
 		expect(group.output).toContain("list");
 		expect(group.output).toContain("get");
 		expect(leaf.exitCode).toBe(0);
 		expect(leaf.output).toContain("--id");
+		expect(schedule.output).toContain("--expected-updated-at");
+		expect(start.output).toContain("--expected-updated-at");
+		expect(pause.output).toContain("--expected-updated-at");
+		expect(cancel.output).toContain("--expected-updated-at");
 	});
 
 	test("exposes list pagination flags", () => {
@@ -257,6 +265,55 @@ describe("CLI contract", () => {
 		expect(result.exitCode).toBe(0);
 		expect(result.output).toContain("--page");
 		expect(result.output).toContain("--per-page");
+	});
+
+	test("forwards opaque campaign revision tokens without narrowing the shared contract", () => {
+		const result = runCli([
+			"campaigns",
+			"start",
+			"--id",
+			"42",
+			"--expected-updated-at",
+			"2026-07-31 03:00:00.123456+09",
+			"--confirm",
+		]);
+
+		expect(result.exitCode).not.toBe(0);
+		expect(result.output).toContain("Missing LISTMONK_API_TOKEN");
+	});
+
+	test("rejects empty campaign revision tokens before execution", () => {
+		const result = runCli([
+			"campaigns",
+			"start",
+			"--id",
+			"42",
+			"--expected-updated-at",
+			"",
+			"--confirm",
+		]);
+
+		expect(result.exitCode).not.toBe(0);
+		expect(result.output).toContain("expected-updated-at");
+		expect(result.output).not.toContain("Missing LISTMONK_API_TOKEN");
+	});
+
+	test("rejects non-canonical A/B revision timestamps before execution", () => {
+		const result = runCli([
+			"abtest",
+			"run",
+			"--test-id",
+			"test-offset-revision",
+			"--expected-status",
+			"analyzing",
+			"--expected-updated-at",
+			"2026-07-31T03:00:00+09:00",
+			"--confirm",
+		]);
+
+		expect(result.exitCode).not.toBe(0);
+		expect(result.output).toContain("expected-updated-at");
+		expect(result.output).not.toContain("Missing LISTMONK_API_TOKEN");
 	});
 
 	test("exposes subscriber-list CRUD commands", () => {
@@ -291,6 +348,7 @@ describe("CLI contract", () => {
 		const group = runCli(["abtest", "--help"]);
 		const recommendation = runCli(["abtest", "recommend-sample-size", "--help"]);
 		const deploy = runCli(["abtest", "deploy-winner", "--help"]);
+		const run = runCli(["abtest", "run", "--help"]);
 
 		expect(group.exitCode).toBe(0);
 		for (const command of [
@@ -308,6 +366,8 @@ describe("CLI contract", () => {
 		}
 		expect(recommendation.output).toContain("--lists");
 		expect(deploy.output).toContain("--test-id");
+		expect(run.output).toContain("--expected-status");
+		expect(run.output).toContain("--expected-updated-at");
 	});
 
 	test("exposes the shared transactional payload flags", () => {
