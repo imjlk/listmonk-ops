@@ -1147,6 +1147,7 @@ export type WebhookDispatchErrorCode =
 	| "url_policy_blocked"
 	| "http_rejected"
 	| "lease_conflict"
+	| "delivery_state_conflict"
 	| "delivery_failed";
 
 export type WebhookDispatchResult =

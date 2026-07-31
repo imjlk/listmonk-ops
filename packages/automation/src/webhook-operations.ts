@@ -318,6 +318,7 @@ const dispatchErrorCodeSchema = z.enum([
 	"url_policy_blocked",
 	"http_rejected",
 	"lease_conflict",
+	"delivery_state_conflict",
 	"delivery_failed",
 ]);
 const dispatchResultSchema = z.discriminatedUnion("status", [
@@ -534,7 +535,7 @@ function toDeliveryOutput(delivery: OutboundWebhookDelivery) {
 function toDispatchOutput(
 	result: Awaited<ReturnType<typeof dispatchOutboundWebhooks>>,
 ) {
-	return {
+	return webhookDispatchOutputSchema.parse({
 		claimed: result.claimed,
 		succeeded: result.succeeded,
 		retried: result.retried,
@@ -556,7 +557,7 @@ function toDispatchOutput(
 						error_code: entry.errorCode,
 					},
 		),
-	};
+	});
 }
 
 export async function executeWebhookListOperation(

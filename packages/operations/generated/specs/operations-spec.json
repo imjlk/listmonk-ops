@@ -6241,6 +6241,9 @@
                     "const": "delivery_failed"
                   },
                   {
+                    "const": "delivery_state_conflict"
+                  },
+                  {
                     "const": "delivery_unavailable"
                   },
                   {
@@ -6310,6 +6313,9 @@
                         "oneOf": [
                           {
                             "const": "delivery_failed"
+                          },
+                          {
+                            "const": "delivery_state_conflict"
                           },
                           {
                             "const": "delivery_unavailable"
@@ -6539,6 +6545,9 @@
                     "const": "delivery_failed"
                   },
                   {
+                    "const": "delivery_state_conflict"
+                  },
+                  {
                     "const": "delivery_unavailable"
                   },
                   {
@@ -6608,6 +6617,9 @@
                         "oneOf": [
                           {
                             "const": "delivery_failed"
+                          },
+                          {
+                            "const": "delivery_state_conflict"
                           },
                           {
                             "const": "delivery_unavailable"
@@ -8249,6 +8261,9 @@
                     "const": "delivery_failed"
                   },
                   {
+                    "const": "delivery_state_conflict"
+                  },
+                  {
                     "const": "delivery_unavailable"
                   },
                   {
@@ -8318,6 +8333,9 @@
                         "oneOf": [
                           {
                             "const": "delivery_failed"
+                          },
+                          {
+                            "const": "delivery_state_conflict"
                           },
                           {
                             "const": "delivery_unavailable"
@@ -9732,6 +9750,9 @@
                 "oneOf": [
                   {
                     "const": "delivery_failed"
+                  },
+                  {
+                    "const": "delivery_state_conflict"
                   },
                   {
                     "const": "delivery_unavailable"

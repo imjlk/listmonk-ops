@@ -275,6 +275,7 @@ export type OutboundWebhookDispatchErrorCode =
 	| "url_policy_blocked"
 	| "http_rejected"
 	| "lease_conflict"
+	| "delivery_state_conflict"
 	| "delivery_failed";
 
 type ReplayDeadLetterError = Readonly<{
@@ -606,7 +607,14 @@ export class OutboundWebhookNotFoundError extends Error {
 }
 
 export class OutboundWebhookConflictError extends Error {
-	public constructor(message: string) {
+	public constructor(
+		message: string,
+		public readonly code:
+			| "conflict"
+			| "endpoint_unavailable"
+			| "delivery_state_conflict"
+			| "lease_conflict" = "conflict",
+	) {
 		super(message);
 		this.name = "OutboundWebhookConflictError";
 	}
@@ -1330,6 +1338,7 @@ export async function retryOutboundWebhookDelivery(
 		if (!["retry", "exhausted"].includes(previous.status)) {
 			throw new OutboundWebhookConflictError(
 				`Delivery ${id} cannot be retried from status ${previous.status}`,
+				"delivery_state_conflict",
 			);
 		}
 		if (
@@ -1339,6 +1348,7 @@ export async function retryOutboundWebhookDelivery(
 		) {
 			throw new OutboundWebhookConflictError(
 				`Delivery ${id} endpoint is missing or disabled`,
+				"endpoint_unavailable",
 			);
 		}
 		const delivery = deliverySchema.parse({
@@ -1370,7 +1380,13 @@ function classifyReplayDeadLetterError(
 		return "delivery_unavailable";
 	}
 	if (error instanceof OutboundWebhookConflictError) {
-		return "lease_conflict";
+		if (error.code === "endpoint_unavailable") {
+			return "endpoint_unavailable";
+		}
+		if (error.code === "lease_conflict") {
+			return "lease_conflict";
+		}
+		return "delivery_state_conflict";
 	}
 	return "delivery_failed";
 }
@@ -1849,6 +1865,7 @@ async function completeOutboundWebhookDelivery(
 		) {
 			throw new OutboundWebhookConflictError(
 				`Delivery ${claimed.id} lease is no longer owned by this worker`,
+				"lease_conflict",
 			);
 		}
 		const exhausted =

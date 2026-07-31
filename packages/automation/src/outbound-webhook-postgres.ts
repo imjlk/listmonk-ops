@@ -711,6 +711,7 @@ export function createPostgresOutboundWebhookRepository(
 				if (row.status !== "retry" && row.status !== "exhausted") {
 					throw new OutboundWebhookConflictError(
 						`Delivery ${id} cannot be retried from status ${row.status}`,
+						"delivery_state_conflict",
 					);
 				}
 				const endpointRows = await transaction<{ enabled: boolean }[]>`
@@ -721,6 +722,7 @@ export function createPostgresOutboundWebhookRepository(
 				if (endpointRows[0]?.enabled !== true) {
 					throw new OutboundWebhookConflictError(
 						`Delivery ${id} endpoint is missing or disabled`,
+						"endpoint_unavailable",
 					);
 				}
 				const updatedRows = await transaction<DeliveryRow[]>`
@@ -896,6 +898,7 @@ export function createPostgresOutboundWebhookRepository(
 				if (!rows[0]) {
 					throw new OutboundWebhookConflictError(
 						`Delivery ${claimed.id} lease is no longer owned by this worker`,
+						"lease_conflict",
 					);
 				}
 				if (endpoint) {
