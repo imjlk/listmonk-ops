@@ -119,12 +119,22 @@ describe("webhook shared operations", () => {
 		expect(
 			await invokeWebhookDlqReplayOperation(context, { dry_run: true }),
 		).toMatchObject({ eligible: 1, replayed: 0, dry_run: true });
-		expect(await invokeWebhookRuntimeStatusOperation(context, {})).toMatchObject({
+		const exhaustedHealth = await invokeWebhookRuntimeStatusOperation(
+			context,
+			{},
+		);
+		expect(exhaustedHealth).toMatchObject({
 			store: "file",
 			schema_version: 2,
 			endpoints: { circuit_open: 1 },
 			deliveries: { dead_letter: 1 },
 		});
+		const exhaustedHealthJson = JSON.stringify(exhaustedHealth);
+		expect(exhaustedHealthJson).not.toContain(
+			"LISTMONK_OPS_WEBHOOK_SECRET_PROVIDER",
+		);
+		expect(exhaustedHealthJson).not.toContain("https://8.8.8.8/hooks");
+		expect(exhaustedHealthJson).not.toContain("hidden@example.com");
 		expect(
 			await invokeWebhookTestOperation(context, { id: endpoint.endpoint.id }),
 		).toMatchObject({

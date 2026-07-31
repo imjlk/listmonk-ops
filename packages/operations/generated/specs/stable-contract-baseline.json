@@ -3299,6 +3299,978 @@
         "input": {
           "components": {
             "schemas": {
+              "WebhookRuntimeStatusInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "worker_stale_ms": {
+                    "maximum": 86400000,
+                    "minimum": 1000,
+                    "type": "integer"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "worker_stale_ms": {
+                "maximum": 86400000,
+                "minimum": 1000,
+                "type": "integer"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookRuntimeStatusOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "checked_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "deliveries": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dead_letter": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "delivering": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "due": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "exhausted": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "oldest_due_at": {
+                        "$ref": "#/components/schemas/IsoDateTime"
+                      },
+                      "pending": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "retry": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "succeeded": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      }
+                    },
+                    "required": [
+                      "pending",
+                      "delivering",
+                      "retry",
+                      "succeeded",
+                      "exhausted",
+                      "due",
+                      "dead_letter"
+                    ],
+                    "type": "object"
+                  },
+                  "endpoints": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "circuit_open": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "enabled": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "total": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      }
+                    },
+                    "required": [
+                      "total",
+                      "enabled",
+                      "circuit_open"
+                    ],
+                    "type": "object"
+                  },
+                  "healthy": {
+                    "type": "boolean"
+                  },
+                  "schema_version": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "store": {
+                    "oneOf": [
+                      {
+                        "const": "file"
+                      },
+                      {
+                        "const": "postgres"
+                      }
+                    ]
+                  },
+                  "workers": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "failed": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "last_heartbeat_at": {
+                        "$ref": "#/components/schemas/IsoDateTime"
+                      },
+                      "running": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "stale": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "stopped": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      }
+                    },
+                    "required": [
+                      "running",
+                      "stale",
+                      "stopped",
+                      "failed"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "store",
+                  "schema_version",
+                  "healthy",
+                  "checked_at",
+                  "endpoints",
+                  "deliveries",
+                  "workers"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "checked_at": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "deliveries": {
+                "additionalProperties": false,
+                "properties": {
+                  "dead_letter": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "delivering": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "due": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "oldest_due_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "pending": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "retry": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "pending",
+                  "delivering",
+                  "retry",
+                  "succeeded",
+                  "exhausted",
+                  "due",
+                  "dead_letter"
+                ],
+                "type": "object"
+              },
+              "endpoints": {
+                "additionalProperties": false,
+                "properties": {
+                  "circuit_open": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "enabled": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "total": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "total",
+                  "enabled",
+                  "circuit_open"
+                ],
+                "type": "object"
+              },
+              "healthy": {
+                "type": "boolean"
+              },
+              "schema_version": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              },
+              "store": {
+                "oneOf": [
+                  {
+                    "const": "file"
+                  },
+                  {
+                    "const": "postgres"
+                  }
+                ]
+              },
+              "workers": {
+                "additionalProperties": false,
+                "properties": {
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "last_heartbeat_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "running": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "stale": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "stopped": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "running",
+                  "stale",
+                  "stopped",
+                  "failed"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "store",
+              "schema_version",
+              "healthy",
+              "checked_at",
+              "endpoints",
+              "deliveries",
+              "workers"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "webhook"
+        }
+      ],
+      "id": "webhooks.runtime.status",
+      "mcpName": "listmonk_webhooks_runtime_status",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "webhook",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads durable runtime state."
+      },
+      "verb": "status"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceConditionPath": {
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+                "type": "string"
+              },
+              "SequenceStep": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "content_type": {
+                        "oneOf": [
+                          {
+                            "const": "html"
+                          },
+                          {
+                            "const": "markdown"
+                          },
+                          {
+                            "const": "plain"
+                          }
+                        ]
+                      },
+                      "data": {
+                        "$ref": "#/components/schemas/Recordstringunknown"
+                      },
+                      "from_email": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "template_id": {
+                        "$ref": "#/components/schemas/ResourceId"
+                      },
+                      "type": {
+                        "const": "send"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "template_id"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "duration_seconds": {
+                        "$ref": "#/components/schemas/PositiveInteger"
+                      },
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "type": {
+                        "const": "wait"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "duration_seconds"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "at": {
+                        "$ref": "#/components/schemas/IsoDateTime"
+                      },
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "type": {
+                        "const": "wait_until"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "at"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "on_false": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "on_true": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "operator": {
+                        "oneOf": [
+                          {
+                            "const": "equals"
+                          },
+                          {
+                            "const": "exists"
+                          },
+                          {
+                            "const": "not_equals"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "$ref": "#/components/schemas/SequenceConditionPath"
+                      },
+                      "type": {
+                        "const": "condition"
+                      },
+                      "value": {}
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "path",
+                      "operator",
+                      "on_true",
+                      "on_false"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "type": {
+                        "const": "stop"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "SequenceStepId": {
+                "maxLength": 80,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "SequenceSteps": {
+                "items": {
+                  "$ref": "#/components/schemas/SequenceStep"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "SequenceValidateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "steps": {
+                    "$ref": "#/components/schemas/SequenceSteps"
+                  }
+                },
+                "required": [
+                  "steps"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "steps": {
+                "$ref": "#/components/schemas/SequenceSteps"
+              }
+            },
+            "required": [
+              "steps"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceStepId": {
+                "maxLength": 80,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "SequenceValidateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "step_count": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "step_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/SequenceStepId"
+                    },
+                    "type": "array"
+                  },
+                  "valid": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "valid",
+                  "step_count",
+                  "step_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "step_count": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              },
+              "step_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/SequenceStepId"
+                },
+                "type": "array"
+              },
+              "valid": {
+                "const": true
+              }
+            },
+            "required": [
+              "valid",
+              "step_count",
+              "step_ids"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "sequence"
+        }
+      ],
+      "id": "sequences.validate",
+      "mcpName": "listmonk_sequences_validate",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "kind": "safe",
+        "reason": "Validation is pure and does not write state."
+      },
+      "verb": "validate"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceStatusInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "worker_stale_ms": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  }
+                },
+                "required": [
+                  "worker_stale_ms"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "worker_stale_ms": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              }
+            },
+            "required": [
+              "worker_stale_ms"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceStatusOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "checked_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "definitions": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "active": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "paused": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "total": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      }
+                    },
+                    "required": [
+                      "total",
+                      "active",
+                      "paused"
+                    ],
+                    "type": "object"
+                  },
+                  "enrollments": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "ambiguous": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "cancelled": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "completed": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "due": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "failed": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "leased": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "oldest_due_at": {
+                        "$ref": "#/components/schemas/IsoDateTime"
+                      },
+                      "paused": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "pending": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "running": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "waiting": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      }
+                    },
+                    "required": [
+                      "pending",
+                      "running",
+                      "waiting",
+                      "paused",
+                      "completed",
+                      "failed",
+                      "ambiguous",
+                      "cancelled",
+                      "due",
+                      "leased"
+                    ],
+                    "type": "object"
+                  },
+                  "healthy": {
+                    "type": "boolean"
+                  },
+                  "schema_version": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "store": {
+                    "oneOf": [
+                      {
+                        "const": "file"
+                      },
+                      {
+                        "const": "postgres"
+                      }
+                    ]
+                  },
+                  "workers": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "failed": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "last_heartbeat_at": {
+                        "$ref": "#/components/schemas/IsoDateTime"
+                      },
+                      "running": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "stale": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      },
+                      "stopped": {
+                        "$ref": "#/components/schemas/NonNegativeInteger"
+                      }
+                    },
+                    "required": [
+                      "running",
+                      "stale",
+                      "stopped",
+                      "failed"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "store",
+                  "schema_version",
+                  "healthy",
+                  "checked_at",
+                  "definitions",
+                  "enrollments",
+                  "workers"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "checked_at": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "definitions": {
+                "additionalProperties": false,
+                "properties": {
+                  "active": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "paused": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "total": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "total",
+                  "active",
+                  "paused"
+                ],
+                "type": "object"
+              },
+              "enrollments": {
+                "additionalProperties": false,
+                "properties": {
+                  "ambiguous": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "cancelled": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "completed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "due": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "leased": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "oldest_due_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "paused": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "pending": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "running": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "waiting": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "pending",
+                  "running",
+                  "waiting",
+                  "paused",
+                  "completed",
+                  "failed",
+                  "ambiguous",
+                  "cancelled",
+                  "due",
+                  "leased"
+                ],
+                "type": "object"
+              },
+              "healthy": {
+                "type": "boolean"
+              },
+              "schema_version": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              },
+              "store": {
+                "oneOf": [
+                  {
+                    "const": "file"
+                  },
+                  {
+                    "const": "postgres"
+                  }
+                ]
+              },
+              "workers": {
+                "additionalProperties": false,
+                "properties": {
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "last_heartbeat_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "running": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "stale": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "stopped": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "running",
+                  "stale",
+                  "stopped",
+                  "failed"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "store",
+              "schema_version",
+              "healthy",
+              "checked_at",
+              "definitions",
+              "enrollments",
+              "workers"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "sequence"
+        }
+      ],
+      "id": "sequences.status",
+      "mcpName": "listmonk_sequences_status",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads runtime state."
+      },
+      "verb": "status"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "ProviderListInput": {
                 "additionalProperties": false,
                 "properties": {},

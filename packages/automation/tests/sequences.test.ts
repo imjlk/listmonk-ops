@@ -13,6 +13,7 @@ import {
 	runSequenceWorker,
 } from "../src/sequence-engine";
 import {
+	invokeSequenceStatusOperation,
 	invokeSequenceValidateOperation,
 	sequenceOperationCatalog,
 	sequenceReconcileOperation,
@@ -191,6 +192,63 @@ describe("sequence definitions and file persistence", () => {
 				steps: [{ id: "wait", type: "wait", duration_seconds: 60 }],
 			}),
 		).rejects.toThrow("must be followed by another step");
+	});
+
+	test("keeps validation and runtime health output aggregate-only", async () => {
+		const validation = await invokeSequenceValidateOperation({}, {
+			steps: [
+				{
+					id: "send",
+					type: "send",
+					template_id: 7,
+					data: {
+						api_secret: "must-not-be-returned",
+						recipient_email: "hidden@example.com",
+					},
+				},
+				{ id: "stop", type: "stop" },
+			],
+		});
+		expect(validation).toEqual({
+			valid: true,
+			step_count: 2,
+			step_ids: ["send", "stop"],
+		});
+		expect(JSON.stringify(validation)).not.toContain("must-not-be-returned");
+		expect(JSON.stringify(validation)).not.toContain("hidden@example.com");
+
+		const { repository } = await createStores();
+		await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "aggregate-only",
+					steps: [
+						{
+							id: "send",
+							type: "send",
+							templateId: 7,
+							data: { api_secret: "stored-secret-reference" },
+						},
+						{ id: "stop", type: "stop" },
+					],
+				},
+				new Date("2026-08-01T09:00:00.000Z"),
+			),
+		);
+		const status = await invokeSequenceStatusOperation(
+			{
+				repository,
+				now: () => new Date("2026-08-01T10:00:00.000Z"),
+			},
+			{},
+		);
+		expect(status).toMatchObject({
+			store: "file",
+			healthy: true,
+			definitions: { total: 1, active: 1, paused: 0 },
+		});
+		expect(JSON.stringify(status)).not.toContain("stored-secret-reference");
+		expect(JSON.stringify(status)).not.toContain("aggregate-only");
 	});
 
 	test("claims the oldest due enrollment and removes terminal history on delete", async () => {

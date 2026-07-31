@@ -927,7 +927,7 @@ export const webhookRuntimeStatusOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookRuntimeStatusOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

@@ -354,7 +354,7 @@ Retry guidance: Inspect delivery state after a timeout before running another ti
 
 ## Inspect outbound webhook runtime health (`webhooks.runtime.status`)
 
-Contract maturity: `experimental`; effects: `read:webhook`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:webhook`; confirmation: `never`; retry: `safe`.
 
 Use when: Worker readiness, circuit state, or outbox backlog must be inspected.
 
@@ -424,7 +424,7 @@ Retry guidance: Retrying the same reset is safe.
 
 ## Validate sequence definition (`sequences.validate`)
 
-Contract maturity: `experimental`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
 
 Use when: A sequence definition must be checked before it is created or updated.
 
@@ -606,7 +606,7 @@ Retry guidance: Inspect sequences.status before retrying; ambiguous-send resolut
 
 ## Inspect sequence runtime health (`sequences.status`)
 
-Contract maturity: `experimental`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
 
 Use when: Sequence worker readiness or stalled work must be inspected.
 

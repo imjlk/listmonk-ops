@@ -24,6 +24,8 @@ import {
 	projectOperationSpec,
 	providerOperationSpecs,
 	runtimeOperationContractIds,
+	sequenceStatusOperationSpec,
+	sequenceValidateOperationSpec,
 	sequenceOperationSpecs,
 	subscriberBlocklistOperationSpec,
 	subscribersListOperationSpec,
@@ -34,6 +36,7 @@ import {
 	webhookOperationSpecs,
 	webhookPruneOperationSpec,
 	webhookReconcileOperationSpec,
+	webhookRuntimeStatusOperationSpec,
 } from "../src/specs";
 import { assertTypeScriptContractCompatibility } from "../src/specs/schema-compatibility";
 import type { NormalizedContractSchema } from "../src/specs/json";
@@ -90,7 +93,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(30);
+		).toHaveLength(33);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -144,6 +147,50 @@ describe("email operations specification", () => {
 			"session_token",
 		]) {
 			expect(providerContractJson).not.toContain(`"${forbiddenField}"`);
+		}
+		const stableControlPlaneReadSpecs = [
+			sequenceValidateOperationSpec,
+			sequenceStatusOperationSpec,
+			webhookRuntimeStatusOperationSpec,
+		] as const;
+		expect(
+			stableControlPlaneReadSpecs.every(
+				(operation) =>
+					operation.stability === "stable" &&
+					operation.contract.input.source === "typescript" &&
+					operation.contract.output.source === "typescript" &&
+					operation.effects.every((effect) => effect.kind === "read") &&
+					operation.retry.kind === "safe" &&
+					operation.projection.openWorld === false,
+			),
+		).toBe(true);
+		const stableControlPlaneOutputJson = JSON.stringify(
+			stableControlPlaneReadSpecs.map(({ contract }) => contract.output),
+		);
+		for (const forbiddenField of [
+			"data",
+			"last_error",
+			"secret_ref",
+			"subscriber_id",
+		]) {
+			expect(stableControlPlaneOutputJson).not.toContain(
+				`"${forbiddenField}"`,
+			);
+		}
+		for (const operationId of [
+			"webhooks.list",
+			"webhooks.delivery.list",
+			"webhooks.dlq.list",
+			"sequences.list",
+			"sequences.get",
+			"sequences.enrollments.list",
+			"sequences.enrollments.get",
+		]) {
+			expect(
+				emailOperationsSpec.operations.find(
+					(operation) => operation.id === operationId,
+				)?.stability,
+			).toBe("experimental");
 		}
 		expect(
 			subscribersListOperationSpec.contract.input.schema.required,
