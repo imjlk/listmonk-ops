@@ -90,7 +90,12 @@ describe("Postgres sequence repository", () => {
 			const enrollmentIds = [randomUUID(), randomUUID()].sort();
 			try {
 				for (const [index, id] of ids.toReversed().entries()) {
-					const definition = createSequenceDefinition(
+					const canonicalIndex = ids.indexOf(id);
+					const createdAt =
+						canonicalIndex === 0
+							? "2026-07-29T01:00:00.000+01:00"
+							: "2026-07-29T00:00:00.000Z";
+					const baseDefinition = createSequenceDefinition(
 						{
 							id,
 							name: `parity-${id}`,
@@ -113,17 +118,37 @@ describe("Postgres sequence repository", () => {
 						},
 						now,
 					);
+					const definition = parseSequenceDefinition({
+						...baseDefinition,
+						createdAt,
+						updatedAt: createdAt,
+						revisions: [
+							{
+								...baseDefinition.revisions[0]!,
+								createdAt,
+							},
+						],
+					});
 					await file.createDefinition(definition);
 					await database.createDefinition(definition);
-					const enrollment = createSequenceEnrollment(
-						definition,
-						{
-							id: enrollmentIds[index]!,
-							sequenceId: definition.id,
-							subscriberId: 40 + index,
-						},
-						now,
-					);
+					const enrollmentCreatedAt =
+						index === 0
+							? "2026-07-29T01:00:00.000+01:00"
+							: "2026-07-29T00:00:00.000Z";
+					const enrollment = {
+						...createSequenceEnrollment(
+							definition,
+							{
+								id: enrollmentIds[index]!,
+								sequenceId: definition.id,
+								subscriberId: 40 + index,
+							},
+							now,
+						),
+						createdAt: enrollmentCreatedAt,
+						updatedAt: enrollmentCreatedAt,
+						lastTransitionAt: enrollmentCreatedAt,
+					};
 					await file.createEnrollment(enrollment);
 					await database.createEnrollment(enrollment);
 				}

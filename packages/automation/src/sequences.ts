@@ -545,8 +545,10 @@ function compareByCreatedAtThenId(
 	left: Readonly<{ createdAt: string; id: string }>,
 	right: Readonly<{ createdAt: string; id: string }>,
 ): number {
-	if (left.createdAt !== right.createdAt) {
-		return left.createdAt < right.createdAt ? -1 : 1;
+	const createdAtDifference =
+		Date.parse(left.createdAt) - Date.parse(right.createdAt);
+	if (createdAtDifference !== 0) {
+		return createdAtDifference;
 	}
 	return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
 }
