@@ -153,7 +153,7 @@ export const sequenceListOperationSpec = defineOperationSpec({
 	resource: "sequence",
 	verb: "list",
 	title: "List sequences",
-	description: "List sequence definitions and their current revisions.",
+	description: "List redacted sequence definitions and revision summaries.",
 	contract: {
 		input: sequenceListInputContract,
 		output: sequenceListOutputContract,
@@ -163,7 +163,7 @@ export const sequenceListOperationSpec = defineOperationSpec({
 	retry: { kind: "safe", reason: "The operation only reads sequence state." },
 	agent: {
 		useWhen: ["Available sequences or their paused state must be discovered."],
-		avoidWhen: ["One known sequence requires full revision detail."],
+		avoidWhen: ["One known sequence must be inspected."],
 		prerequisites: [],
 		verifyWith: [],
 		related: ["sequences.get", "sequences.status"],
@@ -174,7 +174,7 @@ export const sequenceListOperationSpec = defineOperationSpec({
 		openWorld: false,
 		graph: graphNodes("list"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -183,7 +183,8 @@ export const sequenceGetOperationSpec = defineOperationSpec({
 	resource: "sequence",
 	verb: "get",
 	title: "Get sequence",
-	description: "Get one sequence definition including immutable revisions.",
+	description:
+		"Get one redacted sequence definition with immutable revision summaries.",
 	contract: {
 		input: sequenceIdInputContract,
 		output: sequenceDefinitionOutputContract,
@@ -204,7 +205,7 @@ export const sequenceGetOperationSpec = defineOperationSpec({
 		openWorld: false,
 		graph: graphNodes("get"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -288,7 +289,7 @@ export const sequenceEnrollmentListOperationSpec = defineOperationSpec({
 	verb: "list",
 	title: "List sequence enrollments",
 	description:
-		"List sequence enrollments with filters so operators can discover pending, failed, or ambiguous work.",
+		"List redacted sequence enrollments so operators can discover pending, failed, or ambiguous work.",
 	contract: {
 		input: sequenceEnrollmentListInputContract,
 		output: sequenceEnrollmentListOutputContract,
@@ -309,7 +310,7 @@ export const sequenceEnrollmentListOperationSpec = defineOperationSpec({
 		openWorld: false,
 		graph: graphNodes("enrollmentList"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -319,7 +320,7 @@ export const sequenceEnrollmentGetOperationSpec = defineOperationSpec({
 	verb: "get",
 	title: "Get sequence enrollment",
 	description:
-		"Get one sequence enrollment including its current step, status, and last error.",
+		"Get one redacted sequence enrollment including its current step, status, and error presence.",
 	contract: {
 		input: sequenceEnrollmentGetInputContract,
 		output: sequenceEnrollmentOutputContract,
@@ -340,7 +341,7 @@ export const sequenceEnrollmentGetOperationSpec = defineOperationSpec({
 		openWorld: false,
 		graph: graphNodes("enrollmentGet"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

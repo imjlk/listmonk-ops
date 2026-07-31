@@ -7,6 +7,7 @@ import {
 	parseOperationOutput,
 	type TransactionalIdempotencyStore,
 } from "@listmonk-ops/operations";
+import { createHash } from "node:crypto";
 import {
 	bindSequenceCreateOperationSpec,
 	bindSequenceDeleteOperationSpec,
@@ -33,6 +34,7 @@ import { getSequenceRepositoryFromEnvironment } from "./sequence-runtime";
 import {
 	createSequenceDefinition,
 	createSequenceEnrollment,
+	SEQUENCE_STEP_TYPES,
 	sequenceEnrollmentStatusSchema,
 	type SequenceDefinition,
 	type SequenceEnrollment,
@@ -221,19 +223,17 @@ const sequenceStatusInputSchema = z.object({
 		.default(90_000),
 });
 
-const sequenceStepOutputSchema = buildSequenceStepSchema(
-	z.number().int().positive(),
-	z.number().int().positive().max(31_536_000),
-);
 const sequenceRevisionOutputSchema = z.object({
 	revision: z.number().int().positive(),
-	steps: z.array(sequenceStepOutputSchema).min(1),
+	step_count: z.number().int().positive(),
+	step_types: z.array(z.enum(SEQUENCE_STEP_TYPES)).min(1),
+	content_fingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/),
 	created_at: isoDateTimeInput,
 });
 const sequenceDefinitionOutputSchema = z.object({
 	id: sequenceIdInput,
 	name: z.string().min(1).max(120),
-	description: z.string().max(500).optional(),
+	description_present: z.boolean(),
 	status: z.enum(["active", "paused"]),
 	current_revision: z.number().int().positive(),
 	revisions: z.array(sequenceRevisionOutputSchema).min(1),
@@ -244,12 +244,12 @@ const sequenceEnrollmentOutputSchema = z.object({
 	id: sequenceIdInput,
 	sequence_id: sequenceIdInput,
 	revision: z.number().int().positive(),
-	subscriber_id: z.number().int().positive(),
+	subscriber_reference_present: z.literal(true),
 	status: sequenceEnrollmentStatusInput,
 	retry_count: z.number().int().nonnegative(),
 	current_step_id: stepIdInput,
 	next_run_at: isoDateTimeInput,
-	last_error: z.string().optional(),
+	last_error_present: z.boolean(),
 	created_at: isoDateTimeInput,
 	updated_at: isoDateTimeInput,
 });
@@ -362,53 +362,38 @@ function toInternalStep(
 	}
 }
 
-function toOutputStep(step: SequenceStep) {
-	switch (step.type) {
-		case "send":
-			return {
-				id: step.id,
-				type: step.type,
-				template_id: step.templateId,
-				from_email: step.fromEmail,
-				data: step.data,
-				content_type: step.contentType,
-			};
-		case "wait":
-			return {
-				id: step.id,
-				type: step.type,
-				duration_seconds: step.durationSeconds,
-			};
-		case "wait_until":
-			return step;
-		case "condition":
-			return {
-				id: step.id,
-				type: step.type,
-				path: step.path,
-				operator: step.operator,
-				value: step.value,
-				on_true: step.onTrue,
-				on_false: step.onFalse,
-			};
-		case "stop":
-			return step;
-		default:
-			step satisfies never;
-			throw new Error("Unsupported sequence step");
+function canonicalizeSequenceValue(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(canonicalizeSequenceValue);
 	}
+	if (value === null || typeof value !== "object") {
+		return value;
+	}
+	return Object.fromEntries(
+		Object.entries(value as Record<string, unknown>)
+			.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+			.map(([key, nested]) => [key, canonicalizeSequenceValue(nested)]),
+	);
+}
+
+function sequenceRevisionFingerprint(steps: readonly SequenceStep[]): string {
+	return `sha256:${createHash("sha256")
+		.update(JSON.stringify(canonicalizeSequenceValue(steps)))
+		.digest("hex")}`;
 }
 
 function toDefinitionOutput(definition: SequenceDefinition) {
 	return {
 		id: definition.id,
 		name: definition.name,
-		description: definition.description,
+		description_present: definition.description !== undefined,
 		status: definition.status,
 		current_revision: definition.currentRevision,
 		revisions: definition.revisions.map((revision) => ({
 			revision: revision.revision,
-			steps: revision.steps.map(toOutputStep),
+			step_count: revision.steps.length,
+			step_types: revision.steps.map(({ type }) => type),
+			content_fingerprint: sequenceRevisionFingerprint(revision.steps),
 			created_at: revision.createdAt,
 		})),
 		created_at: definition.createdAt,
@@ -421,12 +406,12 @@ function toEnrollmentOutput(enrollment: SequenceEnrollment) {
 		id: enrollment.id,
 		sequence_id: enrollment.sequenceId,
 		revision: enrollment.revision,
-		subscriber_id: enrollment.subscriberId,
+		subscriber_reference_present: true as const,
 		status: enrollment.status,
 		retry_count: enrollment.retryCount,
 		current_step_id: enrollment.currentStepId,
 		next_run_at: enrollment.nextRunAt,
-		last_error: enrollment.lastError,
+		last_error_present: enrollment.lastError !== undefined,
 		created_at: enrollment.createdAt,
 		updated_at: enrollment.updatedAt,
 	};
@@ -730,7 +715,7 @@ export const sequenceUpdateOperation = defineOperation({
 export const sequenceListOperation = defineOperation({
 	id: "sequences.list",
 	title: "List sequences",
-	description: "List sequence definitions and their current revisions.",
+	description: "List redacted sequence definitions and revision summaries.",
 	inputSchema: sequenceListInputSchema,
 	outputSchema: sequenceListOutputSchema,
 	safety: {
@@ -746,7 +731,8 @@ export const sequenceListOperation = defineOperation({
 export const sequenceGetOperation = defineOperation({
 	id: "sequences.get",
 	title: "Get sequence",
-	description: "Get one sequence definition including immutable revisions.",
+	description:
+		"Get one redacted sequence definition with immutable revision summaries.",
 	inputSchema: sequenceGetInputSchema,
 	outputSchema: sequenceDefinitionEnvelopeSchema,
 	safety: {
@@ -797,7 +783,7 @@ export const sequenceEnrollmentListOperation = defineOperation({
 	id: "sequences.enrollments.list",
 	title: "List sequence enrollments",
 	description:
-		"List sequence enrollments with filters so operators can discover pending, failed, or ambiguous work.",
+		"List redacted sequence enrollments so operators can discover pending, failed, or ambiguous work.",
 	inputSchema: sequenceEnrollmentListInputSchema,
 	outputSchema: sequenceEnrollmentListOutputSchema,
 	safety: {
@@ -814,7 +800,7 @@ export const sequenceEnrollmentGetOperation = defineOperation({
 	id: "sequences.enrollments.get",
 	title: "Get sequence enrollment",
 	description:
-		"Get one sequence enrollment including its current step, status, and last error.",
+		"Get one redacted sequence enrollment including its current step, status, and error presence.",
 	inputSchema: sequenceEnrollmentGetInputSchema,
 	outputSchema: sequenceEnrollmentEnvelopeSchema,
 	safety: {

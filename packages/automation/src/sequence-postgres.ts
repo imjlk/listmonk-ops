@@ -604,7 +604,7 @@ export function createPostgresSequenceRepository(
 			const rows = await sql<DefinitionRow[]>`
 				SELECT id, definition
 				FROM listmonk_ops.sequence_definitions
-				ORDER BY created_at ASC
+				ORDER BY created_at ASC, id ASC
 			`;
 			return rows.map(toDefinition);
 		},
@@ -786,7 +786,7 @@ export function createPostgresSequenceRepository(
 						${subscriberIds === undefined}
 						OR subscriber_id IN ${sql(subscriberIds ?? [-1])}
 					)
-				ORDER BY created_at ASC
+				ORDER BY created_at ASC, id ASC
 				LIMIT ${limit}
 			`;
 			return rows.map(toEnrollment);

@@ -404,7 +404,7 @@ Append an immutable revision while existing enrollments stay pinned to their ori
 
 ## `sequences.list`
 
-List sequence definitions and their current revisions.
+List redacted sequence definitions and revision summaries.
 
 - Resource / verb: `sequence.list`
 - MCP tool: `listmonk_sequences_list`
@@ -412,11 +412,11 @@ List sequence definitions and their current revisions.
 - Effects: `read:sequence`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.get`
 
-Get one sequence definition including immutable revisions.
+Get one redacted sequence definition with immutable revision summaries.
 
 - Resource / verb: `sequence.get`
 - MCP tool: `listmonk_sequences_get`
@@ -424,7 +424,7 @@ Get one sequence definition including immutable revisions.
 - Effects: `read:sequence`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.delete`
 
@@ -452,7 +452,7 @@ Pin one subscriber to the current immutable sequence revision and schedule its f
 
 ## `sequences.enrollments.list`
 
-List sequence enrollments with filters so operators can discover pending, failed, or ambiguous work.
+List redacted sequence enrollments so operators can discover pending, failed, or ambiguous work.
 
 - Resource / verb: `sequence.list`
 - MCP tool: `listmonk_sequences_enrollments_list`
@@ -460,11 +460,11 @@ List sequence enrollments with filters so operators can discover pending, failed
 - Effects: `read:sequence`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.enrollments.get`
 
-Get one sequence enrollment including its current step, status, and last error.
+Get one redacted sequence enrollment including its current step, status, and error presence.
 
 - Resource / verb: `sequence.get`
 - MCP tool: `listmonk_sequences_enrollments_get`
@@ -472,7 +472,7 @@ Get one sequence enrollment including its current step, status, and last error.
 - Effects: `read:sequence`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.pause`
 

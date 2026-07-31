@@ -466,11 +466,11 @@ Retry guidance: Read the current revision before retrying an ambiguous update.
 
 ## List sequences (`sequences.list`)
 
-Contract maturity: `experimental`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
 
 Use when: Available sequences or their paused state must be discovered.
 
-Avoid when: One known sequence requires full revision detail.
+Avoid when: One known sequence must be inspected.
 
 Prerequisites: none
 
@@ -480,7 +480,7 @@ Retry guidance: Retrying the same read is safe.
 
 ## Get sequence (`sequences.get`)
 
-Contract maturity: `experimental`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
 
 Use when: A known sequence and its revision history must be inspected.
 
@@ -522,7 +522,7 @@ Retry guidance: Inspect sequence state before retrying enrollment.
 
 ## List sequence enrollments (`sequences.enrollments.list`)
 
-Contract maturity: `experimental`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
 
 Use when: Enrollment IDs or runtime outcomes must be discovered.
 
@@ -536,7 +536,7 @@ Retry guidance: Retrying the same enrollment query is safe.
 
 ## Get sequence enrollment (`sequences.enrollments.get`)
 
-Contract maturity: `experimental`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:sequence`; confirmation: `never`; retry: `safe`.
 
 Use when: A known enrollment needs detailed inspection or reconciliation.
 
