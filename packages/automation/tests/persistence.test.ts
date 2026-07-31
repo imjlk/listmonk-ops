@@ -233,8 +233,9 @@ describe("automation persistence", () => {
 			| undefined;
 		const result = await syncTemplateRegistry(client, {
 			templateIds: [42],
-			onCaptureError: (failure) => {
+			onCaptureError: async (failure) => {
 				capturedFailure = failure;
+				throw new Error("diagnostic sink failed");
 			},
 		});
 		expect(result.errors).toEqual(["Template 42: capture failed"]);

@@ -52,7 +52,7 @@ export interface TemplateRegistrySyncOptions {
 	note?: string;
 	onCaptureError?: (
 		failure: Readonly<{ templateId: number; error: unknown }>,
-	) => void;
+	) => void | Promise<void>;
 }
 
 export interface TemplateRegistrySyncResult {
@@ -250,7 +250,7 @@ async function captureTemplateRegistry(
 			});
 		} catch (error) {
 			try {
-				options.onCaptureError?.({ templateId, error });
+				await options.onCaptureError?.({ templateId, error });
 			} catch {
 				// Diagnostics must never change the registry sync result.
 			}
