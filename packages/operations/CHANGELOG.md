@@ -1,5 +1,20 @@
 # @listmonk-ops/operations
 
+## 0.9.0 — 2026-07-31
+
+### Changed
+
+- [1cde446](https://github.com/imjlk/listmonk-ops/commit/1cde4461884bc15cd0bd78089ee3b17fa085363c) Stabilize redacted sequence definition and enrollment read contracts — Thanks @imjlk!
+- [170a9b2](https://github.com/imjlk/listmonk-ops/commit/170a9b25abdf9f8b91b0a4a91c0eea3b9be93ef6) Stabilize static agent discovery operation contracts. — Thanks @imjlk!
+- [9636e08](https://github.com/imjlk/listmonk-ops/commit/9636e08b8389848af25649ea30c79165e7aebb08) Stabilize provider and deliverability read operation contracts. — Thanks @imjlk!
+- [054390e](https://github.com/imjlk/listmonk-ops/commit/054390e68463bddea5e1574d39fb126f663de5ff) Stabilize aggregate webhook and sequence control-plane read contracts. — Thanks @imjlk!
+- [bdb8882](https://github.com/imjlk/listmonk-ops/commit/bdb8882e7dabbdaffa88dc441ba144ab750b102a) Promote the first ten mature read-only operation specs to stable TypeScript contracts. — Thanks @imjlk!
+- [179279f](https://github.com/imjlk/listmonk-ops/commit/179279fa18268aaddbbd7ba15a816efbd1b7e0b4) Stabilize redacted webhook endpoint, delivery, and dead-letter read contracts — Thanks @imjlk!
+
+### Security
+
+- [3eb67ba](https://github.com/imjlk/listmonk-ops/commit/3eb67ba5d486bff97b08e52e3a1dfdccf0bf49ea) Prevent shared mutation results from exposing raw remote errors or subscriber identifiers — Thanks @imjlk!
+
 ## 0.8.0 — 2026-07-30
 
 ### Added
