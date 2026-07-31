@@ -1772,7 +1772,7 @@
         "reason": "The operation deterministically searches immutable in-process catalog metadata."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "specs.describe",
@@ -1995,7 +1995,7 @@
         "reason": "The operation reads immutable in-process catalog metadata without side effects."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "playbooks.list",
@@ -2106,7 +2106,7 @@
         "reason": "The operation reads immutable in-process playbook metadata."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "playbooks.get",
@@ -2599,7 +2599,7 @@
         "reason": "The operation reads immutable in-process playbook metadata."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "control.capabilities",
@@ -2767,7 +2767,7 @@
         "reason": "The operation deterministically summarizes immutable catalog metadata."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "control.prime",
@@ -3130,7 +3130,7 @@
         "reason": "The operation deterministically derives recommendations from immutable catalog metadata."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "control.status",

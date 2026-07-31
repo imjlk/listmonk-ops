@@ -424,15 +424,21 @@ and handwritten adapter first; the product spec changes only when the
 normalized operation contract or email-operation meaning changes. Static
 governance rejects OpenAPI/generated SDK imports from `src/specs`.
 
-Seventeen reviewed core operations are `stable`: the existing
+Twenty-three reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
 `lists.list`, `lists.get`, `subscribers.list`, `subscribers.get`,
 `campaigns.list`, `campaigns.stats`, `templates.list`, `templates.get`,
-`media.list`, and `media.get`. Their contracts and policy semantics are
-checked against an accepted compatibility baseline. The other 85 descriptors
-remain experimental while their product contracts and behavior mature.
+`media.list`, and `media.get`, and the static agent-discovery batch:
+`specs.search`, `specs.describe`, `playbooks.list`, `playbooks.get`,
+`control.capabilities`, and `control.prime`. Their contracts and policy
+semantics are checked against an accepted compatibility baseline. These six
+operations inspect immutable in-process catalog metadata, use safe retry
+semantics, and have closed-world projections. `control.status` remains
+experimental because it includes a live Listmonk health probe; newer
+subsystem, aggregation, and analytics reads remain experimental while their
+product semantics mature. The other 79 descriptors are experimental.
 
 The spec publishes four typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, and `abtest.safe-run`.
@@ -446,7 +452,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 102 shared operations, the API boundary rule, the 41 governed
-runtime bridges, the 17 stable compatibility baselines, and 306 direct
+runtime bridges, the 23 stable compatibility baselines, and 306 direct
 spec-to-runtime graph edges.
 
 If a normalized Zod boundary for one of the 41 bridge operations changes,

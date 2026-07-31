@@ -90,7 +90,7 @@ export const specSearchOperationSpec = defineOperationSpec({
 				"packages/operations/src/discovery.ts#searchOperationSpecs:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
@@ -142,7 +142,7 @@ export const specDescribeOperationSpec = defineOperationSpec({
 				"packages/operations/src/discovery.ts#describeOperationSpec:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
@@ -193,7 +193,7 @@ export const playbookListOperationSpec = defineOperationSpec({
 				"packages/operations/src/discovery.ts#listOperationPlaybooks:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
@@ -244,7 +244,7 @@ export const playbookGetOperationSpec = defineOperationSpec({
 				"packages/operations/src/discovery.ts#getOperationPlaybook:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
@@ -295,7 +295,7 @@ export const controlCapabilitiesOperationSpec = defineOperationSpec({
 				"packages/operations/src/discovery.ts#getControlCapabilities:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
@@ -347,7 +347,7 @@ export const controlPrimeOperationSpec = defineOperationSpec({
 				"packages/operations/src/discovery.ts#primeOperationsAgent:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
@@ -404,13 +404,17 @@ export const controlStatusOperationSpec = defineOperationSpec({
 	since: "0.8.0",
 });
 
-export const discoveryOperationSpecs = [
+export const catalogReadOperationSpecs = [
 	specSearchOperationSpec,
 	specDescribeOperationSpec,
 	playbookListOperationSpec,
 	playbookGetOperationSpec,
 	controlCapabilitiesOperationSpec,
 	controlPrimeOperationSpec,
+] as const;
+
+export const discoveryOperationSpecs = [
+	...catalogReadOperationSpecs,
 	controlStatusOperationSpec,
 ] as const;
 

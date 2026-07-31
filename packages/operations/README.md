@@ -35,9 +35,11 @@ The remaining 41 operations use a committed
 `runtime-operation` bridge snapshot of the normalized executor boundary while
 their standalone product types are developed. Runtime bridges are always
 `experimental`; they never import `@listmonk-ops/openapi` or generated SDK
-types. Seventeen reviewed core operations are `stable`, including the first
+types. Twenty-three reviewed core operations are `stable`, including the first
 read-only promotion batch for list, subscriber, campaign, template, and media
-inspection.
+inspection plus the static `specs.*`, `playbooks.*`, and agent control-plane
+discovery operations. The live, open-world `control.status` health probe
+remains experimental.
 Their complete contracts, effects, policies, retry semantics, states, and MCP
 names are protected by an explicitly accepted compatibility baseline.
 

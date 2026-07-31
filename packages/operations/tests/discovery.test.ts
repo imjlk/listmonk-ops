@@ -63,6 +63,14 @@ describe("agent discovery operations", () => {
 			},
 		});
 
+		const stableDiscovery = await invokeSpecDescribeOperation(context, {
+			operation: "specs.search",
+		});
+		expect(stableDiscovery.operation).toMatchObject({
+			id: "specs.search",
+			stability: "stable",
+		});
+
 		const bridged = await invokeSpecDescribeOperation(context, {
 			operation: "lists.create",
 		});

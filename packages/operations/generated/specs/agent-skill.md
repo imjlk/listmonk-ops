@@ -102,7 +102,7 @@ Retry guidance: Retry transient reads or public-link probes; re-evaluate the ret
 
 ## Search operation specs (`specs.search`)
 
-Contract maturity: `experimental`; effects: `read:spec`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:spec`; confirmation: `never`; retry: `safe`.
 
 Use when: The agent knows an operational intent but not the exact operation or MCP tool name.
 
@@ -116,7 +116,7 @@ Retry guidance: Retrying the same catalog search is safe.
 
 ## Describe operation spec (`specs.describe`)
 
-Contract maturity: `experimental`; effects: `read:spec`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:spec`; confirmation: `never`; retry: `safe`.
 
 Use when: The exact operation ID or MCP tool name is known and the full contract must be inspected before execution.
 
@@ -130,7 +130,7 @@ Retry guidance: Retrying the same catalog lookup is safe.
 
 ## List operation playbooks (`playbooks.list`)
 
-Contract maturity: `experimental`; effects: `read:playbook`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:playbook`; confirmation: `never`; retry: `safe`.
 
 Use when: The agent needs a predefined safe workflow instead of composing raw operations.
 
@@ -144,7 +144,7 @@ Retry guidance: Retrying the same playbook listing is safe.
 
 ## Get operation playbook (`playbooks.get`)
 
-Contract maturity: `experimental`; effects: `read:playbook`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:playbook`; confirmation: `never`; retry: `safe`.
 
 Use when: A known playbook must be inspected before executing any of its steps.
 
@@ -158,7 +158,7 @@ Retry guidance: Retrying the same playbook lookup is safe.
 
 ## Get control-plane capabilities (`control.capabilities`)
 
-Contract maturity: `experimental`; effects: `read:control`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:control`; confirmation: `never`; retry: `safe`.
 
 Use when: The agent must discover the breadth and typed coverage of the current listmonk-ops installation.
 
@@ -172,7 +172,7 @@ Retry guidance: Retrying the same capability inspection is safe.
 
 ## Prime an operations agent (`control.prime`)
 
-Contract maturity: `experimental`; effects: `read:control`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:control`; confirmation: `never`; retry: `safe`.
 
 Use when: An agent is beginning an email operations task and needs a compact, goal-oriented starting context.
 

@@ -10,7 +10,9 @@ import {
 	campaignSafeStartPlaybook,
 	campaignScheduleOperationSpec,
 	campaignStartOperationSpec,
+	catalogReadOperationSpecs,
 	coreReadOperationSpecs,
+	controlStatusOperationSpec,
 	defineEmailOperationsSpec,
 	defineOperationPlaybook,
 	defineOperationSpec,
@@ -88,7 +90,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(17);
+		).toHaveLength(23);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -101,6 +103,22 @@ describe("email operations specification", () => {
 					),
 			),
 		).toBe(true);
+		expect(catalogReadOperationSpecs).toHaveLength(6);
+		expect(
+			catalogReadOperationSpecs.every(
+				(operation) =>
+					operation.stability === "stable" &&
+					operation.contract.input.source === "typescript" &&
+					operation.contract.output.source === "typescript" &&
+					operation.effects.every((effect) => effect.kind === "read") &&
+					operation.retry.kind === "safe" &&
+					operation.projection.openWorld === false,
+			),
+		).toBe(true);
+		expect(controlStatusOperationSpec).toMatchObject({
+			stability: "experimental",
+			projection: { openWorld: true },
+		});
 		expect(
 			subscribersListOperationSpec.contract.input.schema.required,
 		).toEqual([]);
