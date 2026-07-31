@@ -5382,29 +5382,10 @@
           "format": "date-time",
           "type": "string"
         },
-        "NonEmptyString": {
-          "minLength": 1,
-          "type": "string"
-        },
         "PositiveInteger": {
           "maximum": 9007199254740991,
           "minimum": 1,
           "type": "integer"
-        },
-        "Recordstringunknown": {
-          "additionalProperties": {},
-          "type": "object"
-        },
-        "ResourceId": {
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
-        "SequenceConditionPath": {
-          "maxLength": 200,
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
-          "type": "string"
         },
         "SequenceDefinition": {
           "additionalProperties": false,
@@ -5415,8 +5396,8 @@
             "current_revision": {
               "$ref": "#/components/schemas/PositiveInteger"
             },
-            "description": {
-              "$ref": "#/components/schemas/SequenceDescription"
+            "description_present": {
+              "type": "boolean"
             },
             "id": {
               "format": "uuid",
@@ -5449,6 +5430,7 @@
           "required": [
             "id",
             "name",
+            "description_present",
             "status",
             "current_revision",
             "revisions",
@@ -5469,10 +5451,6 @@
           ],
           "type": "object"
         },
-        "SequenceDescription": {
-          "maxLength": 500,
-          "type": "string"
-        },
         "SequenceName": {
           "maxLength": 120,
           "minLength": 1,
@@ -5481,177 +5459,51 @@
         "SequenceRevision": {
           "additionalProperties": false,
           "properties": {
+            "content_fingerprint": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
             "created_at": {
               "$ref": "#/components/schemas/IsoDateTime"
             },
             "revision": {
               "$ref": "#/components/schemas/PositiveInteger"
             },
-            "steps": {
-              "$ref": "#/components/schemas/SequenceSteps"
+            "step_count": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "step_types": {
+              "items": {
+                "oneOf": [
+                  {
+                    "const": "condition"
+                  },
+                  {
+                    "const": "send"
+                  },
+                  {
+                    "const": "stop"
+                  },
+                  {
+                    "const": "wait"
+                  },
+                  {
+                    "const": "wait_until"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "type": "array"
             }
           },
           "required": [
             "revision",
-            "steps",
+            "step_count",
+            "step_types",
+            "content_fingerprint",
             "created_at"
           ],
           "type": "object"
-        },
-        "SequenceStep": {
-          "oneOf": [
-            {
-              "additionalProperties": false,
-              "properties": {
-                "content_type": {
-                  "oneOf": [
-                    {
-                      "const": "html"
-                    },
-                    {
-                      "const": "markdown"
-                    },
-                    {
-                      "const": "plain"
-                    }
-                  ]
-                },
-                "data": {
-                  "$ref": "#/components/schemas/Recordstringunknown"
-                },
-                "from_email": {
-                  "$ref": "#/components/schemas/NonEmptyString"
-                },
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "template_id": {
-                  "$ref": "#/components/schemas/ResourceId"
-                },
-                "type": {
-                  "const": "send"
-                }
-              },
-              "required": [
-                "id",
-                "type",
-                "template_id"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "duration_seconds": {
-                  "$ref": "#/components/schemas/PositiveInteger"
-                },
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "type": {
-                  "const": "wait"
-                }
-              },
-              "required": [
-                "id",
-                "type",
-                "duration_seconds"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "at": {
-                  "$ref": "#/components/schemas/IsoDateTime"
-                },
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "type": {
-                  "const": "wait_until"
-                }
-              },
-              "required": [
-                "id",
-                "type",
-                "at"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "on_false": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "on_true": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "operator": {
-                  "oneOf": [
-                    {
-                      "const": "equals"
-                    },
-                    {
-                      "const": "exists"
-                    },
-                    {
-                      "const": "not_equals"
-                    }
-                  ]
-                },
-                "path": {
-                  "$ref": "#/components/schemas/SequenceConditionPath"
-                },
-                "type": {
-                  "const": "condition"
-                },
-                "value": {}
-              },
-              "required": [
-                "id",
-                "type",
-                "path",
-                "operator",
-                "on_true",
-                "on_false"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "type": {
-                  "const": "stop"
-                }
-              },
-              "required": [
-                "id",
-                "type"
-              ],
-              "type": "object"
-            }
-          ]
-        },
-        "SequenceStepId": {
-          "maxLength": 80,
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9._:-]+$",
-          "type": "string"
-        },
-        "SequenceSteps": {
-          "items": {
-            "$ref": "#/components/schemas/SequenceStep"
-          },
-          "minItems": 1,
-          "type": "array"
         }
       }
     },
@@ -5678,29 +5530,10 @@
           "format": "date-time",
           "type": "string"
         },
-        "NonEmptyString": {
-          "minLength": 1,
-          "type": "string"
-        },
         "PositiveInteger": {
           "maximum": 9007199254740991,
           "minimum": 1,
           "type": "integer"
-        },
-        "Recordstringunknown": {
-          "additionalProperties": {},
-          "type": "object"
-        },
-        "ResourceId": {
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
-        "SequenceConditionPath": {
-          "maxLength": 200,
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
-          "type": "string"
         },
         "SequenceDefinition": {
           "additionalProperties": false,
@@ -5711,8 +5544,8 @@
             "current_revision": {
               "$ref": "#/components/schemas/PositiveInteger"
             },
-            "description": {
-              "$ref": "#/components/schemas/SequenceDescription"
+            "description_present": {
+              "type": "boolean"
             },
             "id": {
               "format": "uuid",
@@ -5745,6 +5578,7 @@
           "required": [
             "id",
             "name",
+            "description_present",
             "status",
             "current_revision",
             "revisions",
@@ -5769,10 +5603,6 @@
           ],
           "type": "object"
         },
-        "SequenceDescription": {
-          "maxLength": 500,
-          "type": "string"
-        },
         "SequenceName": {
           "maxLength": 120,
           "minLength": 1,
@@ -5781,177 +5611,51 @@
         "SequenceRevision": {
           "additionalProperties": false,
           "properties": {
+            "content_fingerprint": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
             "created_at": {
               "$ref": "#/components/schemas/IsoDateTime"
             },
             "revision": {
               "$ref": "#/components/schemas/PositiveInteger"
             },
-            "steps": {
-              "$ref": "#/components/schemas/SequenceSteps"
+            "step_count": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "step_types": {
+              "items": {
+                "oneOf": [
+                  {
+                    "const": "condition"
+                  },
+                  {
+                    "const": "send"
+                  },
+                  {
+                    "const": "stop"
+                  },
+                  {
+                    "const": "wait"
+                  },
+                  {
+                    "const": "wait_until"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "type": "array"
             }
           },
           "required": [
             "revision",
-            "steps",
+            "step_count",
+            "step_types",
+            "content_fingerprint",
             "created_at"
           ],
           "type": "object"
-        },
-        "SequenceStep": {
-          "oneOf": [
-            {
-              "additionalProperties": false,
-              "properties": {
-                "content_type": {
-                  "oneOf": [
-                    {
-                      "const": "html"
-                    },
-                    {
-                      "const": "markdown"
-                    },
-                    {
-                      "const": "plain"
-                    }
-                  ]
-                },
-                "data": {
-                  "$ref": "#/components/schemas/Recordstringunknown"
-                },
-                "from_email": {
-                  "$ref": "#/components/schemas/NonEmptyString"
-                },
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "template_id": {
-                  "$ref": "#/components/schemas/ResourceId"
-                },
-                "type": {
-                  "const": "send"
-                }
-              },
-              "required": [
-                "id",
-                "type",
-                "template_id"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "duration_seconds": {
-                  "$ref": "#/components/schemas/PositiveInteger"
-                },
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "type": {
-                  "const": "wait"
-                }
-              },
-              "required": [
-                "id",
-                "type",
-                "duration_seconds"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "at": {
-                  "$ref": "#/components/schemas/IsoDateTime"
-                },
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "type": {
-                  "const": "wait_until"
-                }
-              },
-              "required": [
-                "id",
-                "type",
-                "at"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "on_false": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "on_true": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "operator": {
-                  "oneOf": [
-                    {
-                      "const": "equals"
-                    },
-                    {
-                      "const": "exists"
-                    },
-                    {
-                      "const": "not_equals"
-                    }
-                  ]
-                },
-                "path": {
-                  "$ref": "#/components/schemas/SequenceConditionPath"
-                },
-                "type": {
-                  "const": "condition"
-                },
-                "value": {}
-              },
-              "required": [
-                "id",
-                "type",
-                "path",
-                "operator",
-                "on_true",
-                "on_false"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "type": {
-                  "const": "stop"
-                }
-              },
-              "required": [
-                "id",
-                "type"
-              ],
-              "type": "object"
-            }
-          ]
-        },
-        "SequenceStepId": {
-          "maxLength": 80,
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9._:-]+$",
-          "type": "string"
-        },
-        "SequenceSteps": {
-          "items": {
-            "$ref": "#/components/schemas/SequenceStep"
-          },
-          "minItems": 1,
-          "type": "array"
         }
       }
     },
@@ -6208,11 +5912,6 @@
           "minimum": 1,
           "type": "integer"
         },
-        "ResourceId": {
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
         "SequenceEnrollment": {
           "additionalProperties": false,
           "properties": {
@@ -6226,8 +5925,8 @@
               "format": "uuid",
               "type": "string"
             },
-            "last_error": {
-              "type": "string"
+            "last_error_present": {
+              "type": "boolean"
             },
             "next_run_at": {
               "$ref": "#/components/schemas/IsoDateTime"
@@ -6270,8 +5969,8 @@
                 }
               ]
             },
-            "subscriber_id": {
-              "$ref": "#/components/schemas/ResourceId"
+            "subscriber_reference_present": {
+              "const": true
             },
             "updated_at": {
               "$ref": "#/components/schemas/IsoDateTime"
@@ -6281,11 +5980,12 @@
             "id",
             "sequence_id",
             "revision",
-            "subscriber_id",
+            "subscriber_reference_present",
             "status",
             "retry_count",
             "current_step_id",
             "next_run_at",
+            "last_error_present",
             "created_at",
             "updated_at"
           ],
@@ -6350,11 +6050,6 @@
           "minimum": 1,
           "type": "integer"
         },
-        "ResourceId": {
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
         "SequenceEnrollment": {
           "additionalProperties": false,
           "properties": {
@@ -6368,8 +6063,8 @@
               "format": "uuid",
               "type": "string"
             },
-            "last_error": {
-              "type": "string"
+            "last_error_present": {
+              "type": "boolean"
             },
             "next_run_at": {
               "$ref": "#/components/schemas/IsoDateTime"
@@ -6412,8 +6107,8 @@
                 }
               ]
             },
-            "subscriber_id": {
-              "$ref": "#/components/schemas/ResourceId"
+            "subscriber_reference_present": {
+              "const": true
             },
             "updated_at": {
               "$ref": "#/components/schemas/IsoDateTime"
@@ -6423,11 +6118,12 @@
             "id",
             "sequence_id",
             "revision",
-            "subscriber_id",
+            "subscriber_reference_present",
             "status",
             "retry_count",
             "current_step_id",
             "next_run_at",
+            "last_error_present",
             "created_at",
             "updated_at"
           ],
@@ -6554,29 +6250,10 @@
           "format": "date-time",
           "type": "string"
         },
-        "NonEmptyString": {
-          "minLength": 1,
-          "type": "string"
-        },
         "PositiveInteger": {
           "maximum": 9007199254740991,
           "minimum": 1,
           "type": "integer"
-        },
-        "Recordstringunknown": {
-          "additionalProperties": {},
-          "type": "object"
-        },
-        "ResourceId": {
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
-        "SequenceConditionPath": {
-          "maxLength": 200,
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
-          "type": "string"
         },
         "SequenceDefinition": {
           "additionalProperties": false,
@@ -6587,8 +6264,8 @@
             "current_revision": {
               "$ref": "#/components/schemas/PositiveInteger"
             },
-            "description": {
-              "$ref": "#/components/schemas/SequenceDescription"
+            "description_present": {
+              "type": "boolean"
             },
             "id": {
               "format": "uuid",
@@ -6621,6 +6298,7 @@
           "required": [
             "id",
             "name",
+            "description_present",
             "status",
             "current_revision",
             "revisions",
@@ -6628,10 +6306,6 @@
             "updated_at"
           ],
           "type": "object"
-        },
-        "SequenceDescription": {
-          "maxLength": 500,
-          "type": "string"
         },
         "SequenceListOutput": {
           "additionalProperties": false,
@@ -6656,177 +6330,51 @@
         "SequenceRevision": {
           "additionalProperties": false,
           "properties": {
+            "content_fingerprint": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
             "created_at": {
               "$ref": "#/components/schemas/IsoDateTime"
             },
             "revision": {
               "$ref": "#/components/schemas/PositiveInteger"
             },
-            "steps": {
-              "$ref": "#/components/schemas/SequenceSteps"
+            "step_count": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "step_types": {
+              "items": {
+                "oneOf": [
+                  {
+                    "const": "condition"
+                  },
+                  {
+                    "const": "send"
+                  },
+                  {
+                    "const": "stop"
+                  },
+                  {
+                    "const": "wait"
+                  },
+                  {
+                    "const": "wait_until"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "type": "array"
             }
           },
           "required": [
             "revision",
-            "steps",
+            "step_count",
+            "step_types",
+            "content_fingerprint",
             "created_at"
           ],
           "type": "object"
-        },
-        "SequenceStep": {
-          "oneOf": [
-            {
-              "additionalProperties": false,
-              "properties": {
-                "content_type": {
-                  "oneOf": [
-                    {
-                      "const": "html"
-                    },
-                    {
-                      "const": "markdown"
-                    },
-                    {
-                      "const": "plain"
-                    }
-                  ]
-                },
-                "data": {
-                  "$ref": "#/components/schemas/Recordstringunknown"
-                },
-                "from_email": {
-                  "$ref": "#/components/schemas/NonEmptyString"
-                },
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "template_id": {
-                  "$ref": "#/components/schemas/ResourceId"
-                },
-                "type": {
-                  "const": "send"
-                }
-              },
-              "required": [
-                "id",
-                "type",
-                "template_id"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "duration_seconds": {
-                  "$ref": "#/components/schemas/PositiveInteger"
-                },
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "type": {
-                  "const": "wait"
-                }
-              },
-              "required": [
-                "id",
-                "type",
-                "duration_seconds"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "at": {
-                  "$ref": "#/components/schemas/IsoDateTime"
-                },
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "type": {
-                  "const": "wait_until"
-                }
-              },
-              "required": [
-                "id",
-                "type",
-                "at"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "on_false": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "on_true": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "operator": {
-                  "oneOf": [
-                    {
-                      "const": "equals"
-                    },
-                    {
-                      "const": "exists"
-                    },
-                    {
-                      "const": "not_equals"
-                    }
-                  ]
-                },
-                "path": {
-                  "$ref": "#/components/schemas/SequenceConditionPath"
-                },
-                "type": {
-                  "const": "condition"
-                },
-                "value": {}
-              },
-              "required": [
-                "id",
-                "type",
-                "path",
-                "operator",
-                "on_true",
-                "on_false"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "$ref": "#/components/schemas/SequenceStepId"
-                },
-                "type": {
-                  "const": "stop"
-                }
-              },
-              "required": [
-                "id",
-                "type"
-              ],
-              "type": "object"
-            }
-          ]
-        },
-        "SequenceStepId": {
-          "maxLength": 80,
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9._:-]+$",
-          "type": "string"
-        },
-        "SequenceSteps": {
-          "items": {
-            "$ref": "#/components/schemas/SequenceStep"
-          },
-          "minItems": 1,
-          "type": "array"
         }
       }
     },
@@ -6940,11 +6488,6 @@
           "minimum": 1,
           "type": "integer"
         },
-        "ResourceId": {
-          "maximum": 9007199254740991,
-          "minimum": 1,
-          "type": "integer"
-        },
         "SequenceEnrollment": {
           "additionalProperties": false,
           "properties": {
@@ -6958,8 +6501,8 @@
               "format": "uuid",
               "type": "string"
             },
-            "last_error": {
-              "type": "string"
+            "last_error_present": {
+              "type": "boolean"
             },
             "next_run_at": {
               "$ref": "#/components/schemas/IsoDateTime"
@@ -7002,8 +6545,8 @@
                 }
               ]
             },
-            "subscriber_id": {
-              "$ref": "#/components/schemas/ResourceId"
+            "subscriber_reference_present": {
+              "const": true
             },
             "updated_at": {
               "$ref": "#/components/schemas/IsoDateTime"
@@ -7013,11 +6556,12 @@
             "id",
             "sequence_id",
             "revision",
-            "subscriber_id",
+            "subscriber_reference_present",
             "status",
             "retry_count",
             "current_step_id",
             "next_run_at",
+            "last_error_present",
             "created_at",
             "updated_at"
           ],

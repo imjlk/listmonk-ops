@@ -24,6 +24,10 @@ import {
 	projectOperationSpec,
 	providerOperationSpecs,
 	runtimeOperationContractIds,
+	sequenceEnrollmentGetOperationSpec,
+	sequenceEnrollmentListOperationSpec,
+	sequenceGetOperationSpec,
+	sequenceListOperationSpec,
 	sequenceStatusOperationSpec,
 	sequenceValidateOperationSpec,
 	sequenceOperationSpecs,
@@ -96,7 +100,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(36);
+		).toHaveLength(40);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -158,6 +162,10 @@ describe("email operations specification", () => {
 			webhookListOperationSpec,
 			webhookDeliveryListOperationSpec,
 			webhookDlqListOperationSpec,
+			sequenceListOperationSpec,
+			sequenceGetOperationSpec,
+			sequenceEnrollmentListOperationSpec,
+			sequenceEnrollmentGetOperationSpec,
 		] as const;
 		expect(
 			stableControlPlaneReadSpecs.every(
@@ -182,18 +190,6 @@ describe("email operations specification", () => {
 			expect(stableControlPlaneOutputJson).not.toContain(
 				`"${forbiddenField}"`,
 			);
-		}
-		for (const operationId of [
-			"sequences.list",
-			"sequences.get",
-			"sequences.enrollments.list",
-			"sequences.enrollments.get",
-		]) {
-			expect(
-				emailOperationsSpec.operations.find(
-					(operation) => operation.id === operationId,
-				)?.stability,
-			).toBe("experimental");
 		}
 		expect(
 			subscribersListOperationSpec.contract.input.schema.required,

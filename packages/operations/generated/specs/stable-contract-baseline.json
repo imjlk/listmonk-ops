@@ -5249,6 +5249,896 @@
         "input": {
           "components": {
             "schemas": {
+              "SequenceListInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "active"
+                      },
+                      {
+                        "const": "paused"
+                      }
+                    ]
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "status": {
+                "oneOf": [
+                  {
+                    "const": "active"
+                  },
+                  {
+                    "const": "paused"
+                  }
+                ]
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceDefinition": {
+                "additionalProperties": false,
+                "properties": {
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "current_revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "description_present": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/SequenceName"
+                  },
+                  "revisions": {
+                    "items": {
+                      "$ref": "#/components/schemas/SequenceRevision"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "active"
+                      },
+                      {
+                        "const": "paused"
+                      }
+                    ]
+                  },
+                  "updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "description_present",
+                  "status",
+                  "current_revision",
+                  "revisions",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "object"
+              },
+              "SequenceListOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "sequences": {
+                    "items": {
+                      "$ref": "#/components/schemas/SequenceDefinition"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "sequences"
+                ],
+                "type": "object"
+              },
+              "SequenceName": {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              "SequenceRevision": {
+                "additionalProperties": false,
+                "properties": {
+                  "content_fingerprint": {
+                    "pattern": "^sha256:[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "step_count": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "step_types": {
+                    "items": {
+                      "oneOf": [
+                        {
+                          "const": "condition"
+                        },
+                        {
+                          "const": "send"
+                        },
+                        {
+                          "const": "stop"
+                        },
+                        {
+                          "const": "wait"
+                        },
+                        {
+                          "const": "wait_until"
+                        }
+                      ]
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "revision",
+                  "step_count",
+                  "step_types",
+                  "content_fingerprint",
+                  "created_at"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "sequences": {
+                "items": {
+                  "$ref": "#/components/schemas/SequenceDefinition"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "sequences"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "sequence"
+        }
+      ],
+      "id": "sequences.list",
+      "mcpName": "listmonk_sequences_list",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads sequence state."
+      },
+      "verb": "list"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "SequenceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceDefinition": {
+                "additionalProperties": false,
+                "properties": {
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "current_revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "description_present": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/SequenceName"
+                  },
+                  "revisions": {
+                    "items": {
+                      "$ref": "#/components/schemas/SequenceRevision"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "active"
+                      },
+                      {
+                        "const": "paused"
+                      }
+                    ]
+                  },
+                  "updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "description_present",
+                  "status",
+                  "current_revision",
+                  "revisions",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "object"
+              },
+              "SequenceDefinitionOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "sequence": {
+                    "$ref": "#/components/schemas/SequenceDefinition"
+                  }
+                },
+                "required": [
+                  "sequence"
+                ],
+                "type": "object"
+              },
+              "SequenceName": {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              "SequenceRevision": {
+                "additionalProperties": false,
+                "properties": {
+                  "content_fingerprint": {
+                    "pattern": "^sha256:[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "step_count": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "step_types": {
+                    "items": {
+                      "oneOf": [
+                        {
+                          "const": "condition"
+                        },
+                        {
+                          "const": "send"
+                        },
+                        {
+                          "const": "stop"
+                        },
+                        {
+                          "const": "wait"
+                        },
+                        {
+                          "const": "wait_until"
+                        }
+                      ]
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "revision",
+                  "step_count",
+                  "step_types",
+                  "content_fingerprint",
+                  "created_at"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "sequence": {
+                "$ref": "#/components/schemas/SequenceDefinition"
+              }
+            },
+            "required": [
+              "sequence"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "sequence"
+        }
+      ],
+      "id": "sequences.get",
+      "mcpName": "listmonk_sequences_get",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads sequence state."
+      },
+      "verb": "get"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceEnrollmentListInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "limit": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "sequence_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "ambiguous"
+                      },
+                      {
+                        "const": "cancelled"
+                      },
+                      {
+                        "const": "completed"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "paused"
+                      },
+                      {
+                        "const": "pending"
+                      },
+                      {
+                        "const": "running"
+                      },
+                      {
+                        "const": "waiting"
+                      }
+                    ]
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "limit"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "limit": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              },
+              "sequence_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "status": {
+                "oneOf": [
+                  {
+                    "const": "ambiguous"
+                  },
+                  {
+                    "const": "cancelled"
+                  },
+                  {
+                    "const": "completed"
+                  },
+                  {
+                    "const": "failed"
+                  },
+                  {
+                    "const": "paused"
+                  },
+                  {
+                    "const": "pending"
+                  },
+                  {
+                    "const": "running"
+                  },
+                  {
+                    "const": "waiting"
+                  }
+                ]
+              },
+              "subscriber_id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "limit"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceEnrollment": {
+                "additionalProperties": false,
+                "properties": {
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "current_step_id": {
+                    "$ref": "#/components/schemas/SequenceStepId"
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "last_error_present": {
+                    "type": "boolean"
+                  },
+                  "next_run_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "retry_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "sequence_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "ambiguous"
+                      },
+                      {
+                        "const": "cancelled"
+                      },
+                      {
+                        "const": "completed"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "paused"
+                      },
+                      {
+                        "const": "pending"
+                      },
+                      {
+                        "const": "running"
+                      },
+                      {
+                        "const": "waiting"
+                      }
+                    ]
+                  },
+                  "subscriber_reference_present": {
+                    "const": true
+                  },
+                  "updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  }
+                },
+                "required": [
+                  "id",
+                  "sequence_id",
+                  "revision",
+                  "subscriber_reference_present",
+                  "status",
+                  "retry_count",
+                  "current_step_id",
+                  "next_run_at",
+                  "last_error_present",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "object"
+              },
+              "SequenceEnrollmentListOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "enrollments": {
+                    "items": {
+                      "$ref": "#/components/schemas/SequenceEnrollment"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "enrollments"
+                ],
+                "type": "object"
+              },
+              "SequenceStepId": {
+                "maxLength": 80,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "enrollments": {
+                "items": {
+                  "$ref": "#/components/schemas/SequenceEnrollment"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "enrollments"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "sequence"
+        }
+      ],
+      "id": "sequences.enrollments.list",
+      "mcpName": "listmonk_sequences_enrollments_list",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads enrollment state."
+      },
+      "verb": "list"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "SequenceEnrollmentGetInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceEnrollment": {
+                "additionalProperties": false,
+                "properties": {
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "current_step_id": {
+                    "$ref": "#/components/schemas/SequenceStepId"
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "last_error_present": {
+                    "type": "boolean"
+                  },
+                  "next_run_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "retry_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "sequence_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "ambiguous"
+                      },
+                      {
+                        "const": "cancelled"
+                      },
+                      {
+                        "const": "completed"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "paused"
+                      },
+                      {
+                        "const": "pending"
+                      },
+                      {
+                        "const": "running"
+                      },
+                      {
+                        "const": "waiting"
+                      }
+                    ]
+                  },
+                  "subscriber_reference_present": {
+                    "const": true
+                  },
+                  "updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  }
+                },
+                "required": [
+                  "id",
+                  "sequence_id",
+                  "revision",
+                  "subscriber_reference_present",
+                  "status",
+                  "retry_count",
+                  "current_step_id",
+                  "next_run_at",
+                  "last_error_present",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "object"
+              },
+              "SequenceEnrollmentOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "enrollment": {
+                    "$ref": "#/components/schemas/SequenceEnrollment"
+                  }
+                },
+                "required": [
+                  "enrollment"
+                ],
+                "type": "object"
+              },
+              "SequenceStepId": {
+                "maxLength": 80,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "enrollment": {
+                "$ref": "#/components/schemas/SequenceEnrollment"
+              }
+            },
+            "required": [
+              "enrollment"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "sequence"
+        }
+      ],
+      "id": "sequences.enrollments.get",
+      "mcpName": "listmonk_sequences_enrollments_get",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads enrollment state."
+      },
+      "verb": "get"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "PositiveInteger": {
                 "maximum": 9007199254740991,
                 "minimum": 1,

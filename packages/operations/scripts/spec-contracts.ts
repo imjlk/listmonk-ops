@@ -409,14 +409,16 @@ export type SequenceSteps = SequenceStep[] & tags.MinItems<1>;
 
 export interface SequenceRevision {
 	revision: PositiveInteger;
-	steps: SequenceSteps;
+	step_count: PositiveInteger;
+	step_types: Array<SequenceStep["type"]> & tags.MinItems<1>;
+	content_fingerprint: string & tags.Pattern<"^sha256:[a-f0-9]{64}$">;
 	created_at: IsoDateTime;
 }
 
 export interface SequenceDefinition {
 	id: string & tags.Format<"uuid">;
 	name: SequenceName;
-	description?: SequenceDescription | undefined;
+	description_present: boolean;
 	status: "active" | "paused";
 	current_revision: PositiveInteger;
 	revisions: SequenceRevision[] & tags.MinItems<1>;
@@ -428,7 +430,7 @@ export interface SequenceEnrollment {
 	id: string & tags.Format<"uuid">;
 	sequence_id: string & tags.Format<"uuid">;
 	revision: PositiveInteger;
-	subscriber_id: ResourceId;
+	subscriber_reference_present: true;
 	status:
 		| "pending"
 		| "running"
@@ -441,7 +443,7 @@ export interface SequenceEnrollment {
 	retry_count: NonNegativeInteger;
 	current_step_id: SequenceStepId;
 	next_run_at: IsoDateTime;
-	last_error?: string | undefined;
+	last_error_present: boolean;
 	created_at: IsoDateTime;
 	updated_at: IsoDateTime;
 }

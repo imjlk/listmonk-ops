@@ -1,8 +1,18 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import postgres from "postgres";
+import {
+	invokeSequenceEnrollmentGetOperation,
+	invokeSequenceEnrollmentListOperation,
+	invokeSequenceGetOperation,
+	invokeSequenceListOperation,
+} from "../src/sequence-operations";
 import { createPostgresSequenceRepository } from "../src/sequence-postgres";
 import {
+	createFileSequenceRepository,
 	createSequenceDefinition,
 	createSequenceEnrollment,
 	parseSequenceDefinition,
@@ -62,6 +72,138 @@ afterAll(async () => {
 });
 
 describe("Postgres sequence repository", () => {
+	postgresTest(
+		"matches file-backed ordering and redacted public read projections",
+		async () => {
+			if (!databaseUrl) {
+				throw new Error("Postgres integration database is unavailable");
+			}
+			const directory = await mkdtemp(
+				join(tmpdir(), "listmonk-ops-sequence-parity-"),
+			);
+			const file = createFileSequenceRepository(
+				join(directory, "sequences.json"),
+			);
+			const database = repositories[0]!;
+			const now = new Date("2026-07-29T00:00:00.000Z");
+			const ids = [randomUUID(), randomUUID()].sort();
+			const enrollmentIds = [randomUUID(), randomUUID()].sort();
+			try {
+				for (const [index, id] of ids.toReversed().entries()) {
+					const definition = createSequenceDefinition(
+						{
+							id,
+							name: `parity-${id}`,
+							description: "private description",
+							steps: [
+								{
+									id: "branch",
+									type: "condition",
+									path: "profile.plan",
+									operator: "equals",
+									value:
+										index === 0
+											? { nested: { b: 2, a: 1 } }
+											: { nested: { a: 1, b: 2 } },
+									onTrue: "stop",
+									onFalse: "stop",
+								},
+								{ id: "stop", type: "stop" },
+							],
+						},
+						now,
+					);
+					await file.createDefinition(definition);
+					await database.createDefinition(definition);
+					const enrollment = createSequenceEnrollment(
+						definition,
+						{
+							id: enrollmentIds[index]!,
+							sequenceId: definition.id,
+							subscriberId: 40 + index,
+						},
+						now,
+					);
+					await file.createEnrollment(enrollment);
+					await database.createEnrollment(enrollment);
+				}
+
+				const fileList = await invokeSequenceListOperation(
+					{ repository: file },
+					{},
+				);
+				const databaseList = await invokeSequenceListOperation(
+					{ repository: database },
+					{},
+				);
+				expect(databaseList).toEqual(fileList);
+				expect(fileList.sequences.map(({ id }) => id)).toEqual(ids);
+				expect(
+					fileList.sequences[0]?.revisions[0]?.content_fingerprint,
+				).toBe(fileList.sequences[1]?.revisions[0]?.content_fingerprint);
+				expect(JSON.stringify(fileList)).not.toContain("private description");
+				expect(JSON.stringify(fileList)).not.toContain("profile.plan");
+
+				for (const id of ids) {
+					expect(
+						await invokeSequenceGetOperation(
+							{ repository: database },
+							{ id },
+						),
+					).toEqual(
+						await invokeSequenceGetOperation({ repository: file }, { id }),
+					);
+				}
+
+				const fileEnrollments =
+					await invokeSequenceEnrollmentListOperation(
+						{ repository: file },
+						{},
+					);
+				const databaseEnrollments =
+					await invokeSequenceEnrollmentListOperation(
+						{ repository: database },
+						{},
+					);
+				expect(databaseEnrollments).toEqual(fileEnrollments);
+				expect(fileEnrollments.enrollments.map(({ id }) => id)).toEqual(
+					enrollmentIds,
+				);
+				expect(JSON.stringify(fileEnrollments)).not.toContain(
+					'"subscriber_id"',
+				);
+				for (const id of enrollmentIds) {
+					expect(
+						await invokeSequenceEnrollmentGetOperation(
+							{ repository: database },
+							{ id },
+						),
+					).toEqual(
+						await invokeSequenceEnrollmentGetOperation(
+							{ repository: file },
+							{ id },
+						),
+					);
+				}
+			} finally {
+				const cleanup = postgres(databaseUrl, { max: 1, prepare: false });
+				try {
+					await cleanup`
+						DELETE FROM listmonk_ops.sequence_enrollments
+						WHERE id IN ${cleanup(enrollmentIds)}
+					`;
+					await cleanup`
+						DELETE FROM listmonk_ops.sequence_definitions
+						WHERE id IN ${cleanup(ids)}
+					`;
+				} finally {
+					await cleanup.end({ timeout: 5 });
+				}
+				await rm(directory, { recursive: true, force: true });
+			}
+		},
+	);
+
 	postgresTest(
 		"coordinates claims, fences leases, keeps ambiguity active, and prunes workers",
 		async () => {

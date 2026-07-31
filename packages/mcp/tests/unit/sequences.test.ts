@@ -71,8 +71,17 @@ describe("MCP sequence tools", () => {
 		const created = await server.callTool(
 			request("listmonk_sequences_create", {
 				name: "mcp-sequence",
+				description: "private sequence description",
 				steps: [
-					{ id: "wait", type: "wait", duration_seconds: 60 },
+					{
+						id: "branch",
+						type: "condition",
+						path: "plan",
+						operator: "equals",
+						value: "private-plan-value",
+						on_true: "stop",
+						on_false: "stop",
+					},
 					{ id: "stop", type: "stop" },
 				],
 			}),
@@ -83,9 +92,26 @@ describe("MCP sequence tools", () => {
 			| undefined;
 		expect(sequence).toMatchObject({
 			name: "mcp-sequence",
+			description_present: true,
 			current_revision: 1,
 			status: "active",
+			revisions: [
+				{
+					revision: 1,
+					step_count: 2,
+					step_types: ["condition", "stop"],
+				},
+			],
 		});
+		const sequenceJson = JSON.stringify(sequence);
+		expect(sequenceJson).not.toContain("private sequence description");
+		expect(sequenceJson).not.toContain("private-plan-value");
+		expect(sequenceJson).not.toContain('"steps"');
+		expect(
+			(
+				sequence?.revisions as Array<{ content_fingerprint: string }>
+			)[0]?.content_fingerprint,
+		).toMatch(/^sha256:[a-f0-9]{64}$/);
 		const id = sequence?.id as string;
 
 		const enrollment = await server.callTool(
@@ -100,10 +126,14 @@ describe("MCP sequence tools", () => {
 			enrollment: {
 				sequence_id: id,
 				revision: 1,
-				subscriber_id: 42,
+				subscriber_reference_present: true,
 				status: "pending",
+				last_error_present: false,
 			},
 		});
+		expect(JSON.stringify(enrollment.structuredContent)).not.toContain(
+			'"subscriber_id"',
+		);
 		const enrollmentId = (
 			enrollment.structuredContent?.enrollment as { id: string }
 		).id;
@@ -114,8 +144,17 @@ describe("MCP sequence tools", () => {
 			}),
 		);
 		expect(enrollmentList.structuredContent).toMatchObject({
-			enrollments: [{ id: enrollmentId, sequence_id: id, subscriber_id: 42 }],
+			enrollments: [
+				{
+					id: enrollmentId,
+					sequence_id: id,
+					subscriber_reference_present: true,
+				},
+			],
 		});
+		expect(JSON.stringify(enrollmentList.structuredContent)).not.toContain(
+			'"subscriber_id"',
+		);
 		const enrollmentGet = await server.callTool(
 			request("listmonk_sequences_enrollments_get", {
 				id: enrollmentId,

@@ -35,7 +35,7 @@ The remaining 41 operations use a committed
 `runtime-operation` bridge snapshot of the normalized executor boundary while
 their standalone product types are developed. Runtime bridges are always
 `experimental`; they never import `@listmonk-ops/openapi` or generated SDK
-types. Thirty-six reviewed core operations are `stable`, including the first
+types. Forty reviewed core operations are `stable`, including the first
 read-only promotion batch for list, subscriber, campaign, template, and media
 inspection plus the static `specs.*`, `playbooks.*`, and agent control-plane
 discovery operations and the seven normalized provider/deliverability
@@ -46,9 +46,10 @@ aggregate-only sequence/webhook runtime health are also stable closed-world
 reads. Redacted endpoint, delivery, and dead-letter reads are stable as well:
 endpoint output exposes only origin, fingerprint, and secret-reference
 presence, while delivery output exposes subject and stored-error presence
-without their values. Detailed sequence-definition and enrollment reads remain
-experimental until their sensitive metadata projection is explicitly
-stabilized. The runtime-readiness
+without their values. Redacted sequence-definition and enrollment reads are
+stable as well: revisions expose counts, types, and content fingerprints, while
+enrollments expose subscriber-reference and stored-error presence without
+their values. The runtime-readiness
 `control.status` operation remains experimental.
 Their complete contracts, effects, policies, retry semantics, states, and MCP
 names are protected by an explicitly accepted compatibility baseline.

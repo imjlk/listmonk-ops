@@ -26,10 +26,18 @@ const stepIdSchema = z
 	.regex(/^[A-Za-z0-9._:-]+$/);
 const jsonObjectSchema = z.record(z.string(), z.unknown());
 
+export const SEQUENCE_STEP_TYPES = [
+	"send",
+	"wait",
+	"wait_until",
+	"condition",
+	"stop",
+] as const;
+
 export const sequenceStepSchema = z.discriminatedUnion("type", [
 	z.object({
 		id: stepIdSchema,
-		type: z.literal("send"),
+		type: z.literal(SEQUENCE_STEP_TYPES[0]),
 		templateId: z.number().int().positive(),
 		fromEmail: z.string().trim().min(1).optional(),
 		data: jsonObjectSchema.optional(),
@@ -37,17 +45,17 @@ export const sequenceStepSchema = z.discriminatedUnion("type", [
 	}),
 	z.object({
 		id: stepIdSchema,
-		type: z.literal("wait"),
+		type: z.literal(SEQUENCE_STEP_TYPES[1]),
 		durationSeconds: z.number().int().min(1).max(31_536_000),
 	}),
 	z.object({
 		id: stepIdSchema,
-		type: z.literal("wait_until"),
+		type: z.literal(SEQUENCE_STEP_TYPES[2]),
 		at: isoDateTimeSchema,
 	}),
 	z.object({
 		id: stepIdSchema,
-		type: z.literal("condition"),
+		type: z.literal(SEQUENCE_STEP_TYPES[3]),
 		path: z
 			.string()
 			.trim()
@@ -61,7 +69,7 @@ export const sequenceStepSchema = z.discriminatedUnion("type", [
 	}),
 	z.object({
 		id: stepIdSchema,
-		type: z.literal("stop"),
+		type: z.literal(SEQUENCE_STEP_TYPES[4]),
 	}),
 ]);
 
@@ -533,6 +541,16 @@ function enrollmentIsTerminal(status: SequenceEnrollmentStatus): boolean {
 	return ["completed", "failed", "cancelled"].includes(status);
 }
 
+function compareByCreatedAtThenId(
+	left: Readonly<{ createdAt: string; id: string }>,
+	right: Readonly<{ createdAt: string; id: string }>,
+): number {
+	if (left.createdAt !== right.createdAt) {
+		return left.createdAt < right.createdAt ? -1 : 1;
+	}
+	return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
+}
+
 export function createFileSequenceRepository(
 	path = getSequenceStorePath(),
 ): SequenceRepository {
@@ -540,7 +558,9 @@ export function createFileSequenceRepository(
 	return {
 		kind: "file",
 		async listDefinitions() {
-			return (await readJsonFileStore(store)).definitions;
+			return [...(await readJsonFileStore(store)).definitions].sort(
+				compareByCreatedAtThenId,
+			);
 		},
 		async getDefinition(id) {
 			return getFileDefinition(await readJsonFileStore(store), id);
@@ -651,7 +671,7 @@ export function createFileSequenceRepository(
 		},
 		async listEnrollments(options = {}) {
 			const limit = options.limit ?? 100;
-			return (await readJsonFileStore(store)).enrollments
+			return [...(await readJsonFileStore(store)).enrollments]
 				.filter(
 					(enrollment) =>
 						(options.sequenceId === undefined ||
@@ -661,6 +681,7 @@ export function createFileSequenceRepository(
 						(options.subscriberId === undefined ||
 							enrollment.subscriberId === options.subscriberId),
 				)
+				.sort(compareByCreatedAtThenId)
 				.slice(0, limit);
 		},
 		async getEnrollment(id) {
