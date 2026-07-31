@@ -246,7 +246,6 @@ const subscriberHygieneOutputSchema = z.object({
 	blocklist: z.boolean(),
 	sample: z.array(
 		z.object({
-			id: z.number().int().positive(),
 			emailMasked: z.string(),
 			updated_at: z.string().optional(),
 		}),

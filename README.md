@@ -113,6 +113,10 @@ schemas are rejected instead of being overwritten.
 Shared MCP operation audit events use the same atomic persistence mechanism.
 They retain execution metadata only, never request inputs, outputs,
 credentials, or remote error text.
+Public automation results follow the same boundary: webhook delivery failures
+are projected as bounded error codes, subscriber bulk/hygiene and template
+registry failures omit remote error text, and hygiene samples omit subscriber
+IDs while retaining masked email addresses.
 
 ## Workspace Commands
 

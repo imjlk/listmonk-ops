@@ -640,7 +640,7 @@ export const webhookDeliveryListOperationSpec = defineOperationSpec({
 	verb: "list",
 	title: "List outbound webhook deliveries",
 	description:
-		"Inspect redacted outbox delivery state, attempts, status codes, and exhausted errors.",
+		"Inspect redacted outbox delivery state, attempts, status codes, and stored-error presence.",
 	contract: {
 		input: webhookDeliveryListInputContract,
 		output: webhookDeliveryListOutputContract,

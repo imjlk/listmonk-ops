@@ -191,6 +191,42 @@ describe("email operations specification", () => {
 				`"${forbiddenField}"`,
 			);
 		}
+		const mutationOutputJson = JSON.stringify(
+			emailOperationsSpec.operations
+				.filter((operation) =>
+					operation.effects.some((effect) => effect.kind !== "read"),
+				)
+				.map(({ contract }) => contract.output),
+		);
+		for (const forbiddenField of [
+			"context",
+			"error",
+			"error_message",
+			"last_error",
+			"payload",
+			"secret_ref",
+			"subscriber_id",
+			"subscriber_uuid",
+		]) {
+			expect(mutationOutputJson).not.toContain(`"${forbiddenField}"`);
+		}
+		const publicOutputJson = JSON.stringify(
+			emailOperationsSpec.operations.map(({ contract }) => contract.output),
+		);
+		for (const forbiddenCredentialField of [
+			"access_key_id",
+			"api_key",
+			"authorization",
+			"credential",
+			"password",
+			"secret_access_key",
+			"secret_ref",
+			"session_token",
+		]) {
+			expect(publicOutputJson).not.toContain(
+				`"${forbiddenCredentialField}"`,
+			);
+		}
 		expect(
 			subscribersListOperationSpec.contract.input.schema.required,
 		).toEqual([]);

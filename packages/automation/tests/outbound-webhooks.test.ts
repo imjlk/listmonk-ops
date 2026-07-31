@@ -15,6 +15,7 @@ import {
 	OutboundWebhookConflictError,
 	redactOutboundWebhookData,
 	recordOperationAuditWithLifecycle,
+	replayOutboundWebhookDeadLetters,
 	retryOutboundWebhookDelivery,
 	signOutboundWebhookPayload,
 	updateOutboundWebhookEndpoint,
@@ -581,7 +582,7 @@ describe("outbound webhook delivery", () => {
 				expect.objectContaining({
 					deliveryId: targetDeliveryId,
 					status: "skipped",
-					error: expect.stringContaining("lease"),
+					errorCode: "lease_conflict",
 				}),
 			]),
 		});
@@ -667,7 +668,43 @@ describe("outbound webhook delivery", () => {
 			resolveSecret: () => undefined,
 		});
 		expect(result).toMatchObject({ claimed: 1, exhausted: 1 });
-		expect(result.results[0]?.error).toBe("Endpoint is disabled");
+		expect(result.results[0]?.errorCode).toBe("endpoint_unavailable");
+		expect(result.results[0]).not.toHaveProperty("error");
 		expect(fetcher).not.toHaveBeenCalled();
+	});
+
+	test("returns structured replay failures without backend error text", async () => {
+		const path = await createStorePath();
+		const endpoint = await createEndpoint(path);
+		await enqueueOutboundWebhookEvent(
+			{
+				type: "operation.started",
+				source: "operation",
+				data: {},
+			},
+			{ path },
+		);
+		await dispatchOutboundWebhooks({
+			store: { path },
+			fetcher: mock(async () => new Response(null, { status: 400 })) as typeof fetch,
+			resolveSecret: () => "test-secret",
+		});
+		await updateOutboundWebhookEndpoint(
+			endpoint.id,
+			{ enabled: false },
+			{ path },
+		);
+
+		const result = await replayOutboundWebhookDeadLetters({
+			path,
+			dryRun: false,
+		});
+		expect(result).toMatchObject({
+			eligible: 1,
+			replayed: 0,
+			failed: 1,
+			errors: [{ errorCode: "endpoint_unavailable" }],
+		});
+		expect(JSON.stringify(result)).not.toContain('"error":');
 	});
 });

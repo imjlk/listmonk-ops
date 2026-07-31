@@ -216,6 +216,38 @@ describe("automation persistence", () => {
 		expect(finalHistory.activeVersionId).toBe(firstVersion.versionId);
 	});
 
+	test("redacts remote template errors from registry sync results", async () => {
+		await useTemporaryStores();
+		const client = {
+			template: {
+				getById: async () => {
+					throw new Error(
+						"remote token=private-template-token https://internal.example",
+					);
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		let capturedFailure:
+			| Readonly<{ templateId: number; error: unknown }>
+			| undefined;
+		const result = await syncTemplateRegistry(client, {
+			templateIds: [42],
+			onCaptureError: async (failure) => {
+				capturedFailure = failure;
+				throw new Error("diagnostic sink failed");
+			},
+		});
+		expect(result.errors).toEqual(["Template 42: capture failed"]);
+		expect(capturedFailure).toMatchObject({
+			templateId: 42,
+			error: expect.any(Error),
+		});
+		const serialized = JSON.stringify(result);
+		expect(serialized).not.toContain("private-template-token");
+		expect(serialized).not.toContain("internal.example");
+	});
+
 	test("reports an unconfirmed registry commit after a remote promotion", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let remoteUpdates = 0;

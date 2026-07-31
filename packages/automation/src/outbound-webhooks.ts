@@ -268,6 +268,21 @@ export type DispatchOutboundWebhooksOptions = Readonly<{
 	bypassCircuitBreaker?: boolean;
 }>;
 
+export type OutboundWebhookDispatchErrorCode =
+	| "endpoint_unavailable"
+	| "delivery_unavailable"
+	| "signing_secret_unavailable"
+	| "url_policy_blocked"
+	| "http_rejected"
+	| "lease_conflict"
+	| "delivery_state_conflict"
+	| "delivery_failed";
+
+type ReplayDeadLetterError = Readonly<{
+	deliveryId: string;
+	errorCode: OutboundWebhookDispatchErrorCode;
+}>;
+
 export type OutboundWebhookDispatchResultEntry =
 	| Readonly<{
 			deliveryId: string;
@@ -277,13 +292,13 @@ export type OutboundWebhookDispatchResultEntry =
 				"succeeded" | "retry" | "exhausted"
 			>;
 			statusCode?: number | undefined;
-			error?: string | undefined;
+			errorCode?: OutboundWebhookDispatchErrorCode | undefined;
 	  }>
 	| Readonly<{
 		deliveryId: string;
 		endpointId: string;
 		status: "skipped";
-		error: string;
+		errorCode: OutboundWebhookDispatchErrorCode;
 	  }>;
 
 export type DispatchOutboundWebhooksResult = Readonly<{
@@ -347,7 +362,7 @@ export type ReplayOutboundWebhookDeadLettersResult = Readonly<{
 	failed: number;
 	dryRun: boolean;
 	deliveryIds: readonly string[];
-	errors: readonly Readonly<{ deliveryId: string; error: string }>[];
+	errors: readonly ReplayDeadLetterError[];
 }>;
 
 export type OutboundWebhookRuntimeHealth = Readonly<{
@@ -592,7 +607,14 @@ export class OutboundWebhookNotFoundError extends Error {
 }
 
 export class OutboundWebhookConflictError extends Error {
-	public constructor(message: string) {
+	public constructor(
+		message: string,
+		public readonly code:
+			| "conflict"
+			| "endpoint_unavailable"
+			| "delivery_state_conflict"
+			| "lease_conflict" = "conflict",
+	) {
 		super(message);
 		this.name = "OutboundWebhookConflictError";
 	}
@@ -1316,6 +1338,7 @@ export async function retryOutboundWebhookDelivery(
 		if (!["retry", "exhausted"].includes(previous.status)) {
 			throw new OutboundWebhookConflictError(
 				`Delivery ${id} cannot be retried from status ${previous.status}`,
+				"delivery_state_conflict",
 			);
 		}
 		if (
@@ -1325,6 +1348,7 @@ export async function retryOutboundWebhookDelivery(
 		) {
 			throw new OutboundWebhookConflictError(
 				`Delivery ${id} endpoint is missing or disabled`,
+				"endpoint_unavailable",
 			);
 		}
 		const delivery = deliverySchema.parse({
@@ -1347,6 +1371,24 @@ export async function retryOutboundWebhookDelivery(
 			delivery,
 		);
 	});
+}
+
+function classifyReplayDeadLetterError(
+	error: unknown,
+): OutboundWebhookDispatchErrorCode {
+	if (error instanceof OutboundWebhookNotFoundError) {
+		return "delivery_unavailable";
+	}
+	if (error instanceof OutboundWebhookConflictError) {
+		if (error.code === "endpoint_unavailable") {
+			return "endpoint_unavailable";
+		}
+		if (error.code === "lease_conflict") {
+			return "lease_conflict";
+		}
+		return "delivery_state_conflict";
+	}
+	return "delivery_failed";
 }
 
 export async function replayOutboundWebhookDeadLetters(
@@ -1386,12 +1428,12 @@ export async function replayOutboundWebhookDeadLetters(
 					.map((endpoint) => endpoint.id),
 			);
 			const replacements = new Map<string, OutboundWebhookDelivery>();
-			const errors: { deliveryId: string; error: string }[] = [];
+			const errors: ReplayDeadLetterError[] = [];
 			for (const delivery of deliveries) {
 				if (!enabledEndpointIds.has(delivery.endpointId)) {
 					errors.push({
 						deliveryId: delivery.id,
-						error: `Delivery ${delivery.id} endpoint is missing or disabled`,
+						errorCode: "endpoint_unavailable",
 					});
 					continue;
 				}
@@ -1452,7 +1494,7 @@ export async function replayOutboundWebhookDeadLetters(
 		};
 	}
 	const deliveryIds: string[] = [];
-	const errors: { deliveryId: string; error: string }[] = [];
+	const errors: ReplayDeadLetterError[] = [];
 	const replayConcurrency = 10;
 	for (let offset = 0; offset < deliveries.length; offset += replayConcurrency) {
 		const batch = deliveries.slice(offset, offset + replayConcurrency);
@@ -1463,11 +1505,16 @@ export async function replayOutboundWebhookDeadLetters(
 						...options,
 						now: options.now,
 					});
-					return { deliveryId: delivery.id, error: undefined };
+					return {
+						deliveryId: delivery.id,
+						error: undefined,
+						errorCode: undefined,
+					};
 				} catch (error) {
 					return {
 						deliveryId: delivery.id,
 						error: truncateOutboundWebhookError(error),
+						errorCode: classifyReplayDeadLetterError(error),
 					};
 				}
 			}),
@@ -1478,7 +1525,7 @@ export async function replayOutboundWebhookDeadLetters(
 			} else {
 				errors.push({
 					deliveryId: result.deliveryId,
-					error: result.error,
+					errorCode: result.errorCode,
 				});
 			}
 		}
@@ -1818,6 +1865,7 @@ async function completeOutboundWebhookDelivery(
 		) {
 			throw new OutboundWebhookConflictError(
 				`Delivery ${claimed.id} lease is no longer owned by this worker`,
+				"lease_conflict",
 			);
 		}
 		const exhausted =
@@ -2233,6 +2281,7 @@ async function deliverClaimedWebhook(
 	retryable: boolean;
 	statusCode?: number;
 	error?: unknown;
+	errorCode?: OutboundWebhookDispatchErrorCode;
 }> {
 	const { delivery, endpoint } = claimed;
 	if (!endpoint) {
@@ -2240,6 +2289,7 @@ async function deliverClaimedWebhook(
 			success: false,
 			retryable: false,
 			error: "Endpoint was deleted before delivery",
+			errorCode: "endpoint_unavailable",
 		};
 	}
 	if (!endpoint.enabled) {
@@ -2247,6 +2297,7 @@ async function deliverClaimedWebhook(
 			success: false,
 			retryable: false,
 			error: "Endpoint is disabled",
+			errorCode: "endpoint_unavailable",
 		};
 	}
 	const secret = options.resolveSecret(endpoint.secretRef);
@@ -2255,6 +2306,7 @@ async function deliverClaimedWebhook(
 			success: false,
 			retryable: true,
 			error: `Signing secret environment variable is unavailable: ${endpoint.secretRef}`,
+			errorCode: "signing_secret_unavailable",
 		};
 	}
 	const startedAt = Date.now();
@@ -2270,6 +2322,7 @@ async function deliverClaimedWebhook(
 			success: false,
 			retryable: true,
 			error,
+			errorCode: "delivery_failed",
 		};
 	}
 	if (!addressResolution.safe) {
@@ -2277,6 +2330,7 @@ async function deliverClaimedWebhook(
 			success: false,
 			retryable: false,
 			error: `Endpoint blocked by URL policy: ${addressResolution.reason}`,
+			errorCode: "url_policy_blocked",
 		};
 	}
 	const timestamp = nowIso();
@@ -2334,12 +2388,14 @@ async function deliverClaimedWebhook(
 				result.status >= 500,
 			statusCode: result.status,
 			error: `Endpoint returned HTTP ${result.status}`,
+			errorCode: "http_rejected",
 		};
 	} catch (error) {
 		return {
 			success: false,
 			retryable: true,
 			error,
+			errorCode: "delivery_failed",
 		};
 	} finally {
 		clearTimeout(timeout);
@@ -2425,7 +2481,7 @@ export async function dispatchOutboundWebhooks(
 							deliveryId: entry.delivery.id,
 							endpointId: entry.delivery.endpointId,
 							status: "skipped" as const,
-							error: truncateOutboundWebhookError(error),
+							errorCode: "lease_conflict" as const,
 						};
 					}
 					throw error;
@@ -2435,7 +2491,7 @@ export async function dispatchOutboundWebhooks(
 					endpointId: delivery.endpointId,
 					status: delivery.status as "succeeded" | "retry" | "exhausted",
 					statusCode: delivery.statusCode,
-					error: delivery.lastError,
+					errorCode: attempt.errorCode,
 				};
 			}),
 		);

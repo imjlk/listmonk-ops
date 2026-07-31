@@ -1140,19 +1140,29 @@ export interface WebhookDispatchInput {
 	limit?: WebhookDispatchLimit | undefined;
 }
 
+export type WebhookDispatchErrorCode =
+	| "endpoint_unavailable"
+	| "delivery_unavailable"
+	| "signing_secret_unavailable"
+	| "url_policy_blocked"
+	| "http_rejected"
+	| "lease_conflict"
+	| "delivery_state_conflict"
+	| "delivery_failed";
+
 export type WebhookDispatchResult =
 	| {
 			delivery_id: WebhookId;
 			endpoint_id: WebhookId;
 			status: "succeeded" | "retry" | "exhausted";
 			status_code?: PositiveInteger | undefined;
-			error?: NonEmptyString | undefined;
+			error_code?: WebhookDispatchErrorCode | undefined;
 	  }
 	| {
 			delivery_id: WebhookId;
 			endpoint_id: WebhookId;
 			status: "skipped";
-			error: NonEmptyString;
+			error_code: WebhookDispatchErrorCode;
 	  };
 
 export interface WebhookDispatchOutput {
@@ -1369,7 +1379,7 @@ export interface WebhookDlqReplayOutput {
 	delivery_ids: WebhookId[];
 	errors: {
 		delivery_id: WebhookId;
-		error: NonEmptyString;
+		error_code: WebhookDispatchErrorCode;
 	}[];
 }
 

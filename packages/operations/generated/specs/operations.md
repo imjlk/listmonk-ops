@@ -248,7 +248,7 @@ Claim due outbox deliveries and send signed HTTPS requests with bounded retries.
 
 ## `webhooks.delivery.list`
 
-Inspect redacted outbox delivery state, attempts, status codes, and exhausted errors.
+Inspect redacted outbox delivery state, attempts, status codes, and stored-error presence.
 
 - Resource / verb: `webhook.list`
 - MCP tool: `listmonk_webhook_deliveries_list`

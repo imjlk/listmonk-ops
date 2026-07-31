@@ -26,7 +26,6 @@ export interface SubscriberHygieneResult {
 	targetListId?: number;
 	blocklist: boolean;
 	sample: Array<{
-		id: number;
 		emailMasked: string;
 		updated_at?: string;
 	}>;
@@ -156,10 +155,8 @@ export async function runSubscriberHygiene(
 					});
 					mutated = true;
 				}
-			} catch (error) {
-				errors.push(
-					`Subscriber ${id}: ${error instanceof Error ? error.message : String(error)}`,
-				);
+			} catch {
+				errors.push("Subscriber mutation failed");
 			} finally {
 				if (mutated) {
 					processedSubscribers += 1;
@@ -179,7 +176,6 @@ export async function runSubscriberHygiene(
 		targetListId: options.targetListId,
 		blocklist,
 		sample: selected.slice(0, 20).map((candidate) => ({
-			id: Number(candidate.id),
 			emailMasked: maskEmail(candidate.email || ""),
 			updated_at: candidate.updated_at,
 		})),
