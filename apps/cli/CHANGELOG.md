@@ -1,5 +1,17 @@
 # @listmonk-ops/cli
 
+## 0.10.0 — 2026-07-31
+
+### Security
+
+- [1cde446](https://github.com/imjlk/listmonk-ops/commit/1cde4461884bc15cd0bd78089ee3b17fa085363c) Redact sensitive sequence definition and enrollment fields from CLI JSON output — Thanks @imjlk!
+- [179279f](https://github.com/imjlk/listmonk-ops/commit/179279fa18268aaddbbd7ba15a816efbd1b7e0b4) Redact sensitive webhook endpoint and delivery fields from CLI JSON output — Thanks @imjlk!
+- [3eb67ba](https://github.com/imjlk/listmonk-ops/commit/3eb67ba5d486bff97b08e52e3a1dfdccf0bf49ea) Omit raw remote failure text and subscriber identifiers from automation output — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.5.1, automation@0.4.0, operations@0.9.0
+
 ## 0.9.0 — 2026-07-30
 
 ### Added

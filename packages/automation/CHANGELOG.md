@@ -1,5 +1,18 @@
 # @listmonk-ops/automation
 
+## 0.4.0 — 2026-07-31
+
+### Security
+
+- [179279f](https://github.com/imjlk/listmonk-ops/commit/179279fa18268aaddbbd7ba15a816efbd1b7e0b4) Redact sensitive webhook endpoint and delivery projection values — Thanks @imjlk!
+- [1cde446](https://github.com/imjlk/listmonk-ops/commit/1cde4461884bc15cd0bd78089ee3b17fa085363c) Redact sensitive sequence definition and enrollment read projections — Thanks @imjlk!
+- [9636e08](https://github.com/imjlk/listmonk-ops/commit/9636e08b8389848af25649ea30c79165e7aebb08) Reject credential material in provider diagnostic output. — Thanks @imjlk!
+- [3eb67ba](https://github.com/imjlk/listmonk-ops/commit/3eb67ba5d486bff97b08e52e3a1dfdccf0bf49ea) Project webhook and workflow failures as bounded redacted summaries — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: operations@0.9.0
+
 ## 0.3.0 — 2026-07-30
 
 ### Added
