@@ -100,7 +100,7 @@ Search shared Listmonk operation contracts and agent guidance by intent, family,
 - Effects: `read:spec`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `specs.describe`
 
@@ -112,7 +112,7 @@ Describe one shared operation by operation ID or MCP tool name, including safety
 - Effects: `read:spec`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `playbooks.list`
 
@@ -124,7 +124,7 @@ List typed operation playbooks that encode safe multi-step Listmonk workflows.
 - Effects: `read:playbook`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `playbooks.get`
 
@@ -136,7 +136,7 @@ Get a typed operation playbook and the operation contracts referenced by its ste
 - Effects: `read:playbook`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `control.capabilities`
 
@@ -148,7 +148,7 @@ Summarize shared operation families, typed specification coverage, resources, an
 - Effects: `read:control`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `control.prime`
 
@@ -160,7 +160,7 @@ Return installation capabilities and goal-oriented operation and playbook recomm
 - Effects: `read:control`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `control.status`
 
