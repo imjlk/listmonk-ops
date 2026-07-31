@@ -51,6 +51,9 @@ stable as well: revisions expose counts, types, and content fingerprints, while
 enrollments expose subscriber-reference and stored-error presence without
 their values. The runtime-readiness
 `control.status` operation remains experimental.
+Experimental mutation contracts are audited with the same redaction boundary:
+they may expose bounded error codes, counts, and presence flags, but not raw
+provider/store error messages, secret references, or subscriber identifiers.
 Their complete contracts, effects, policies, retry semantics, states, and MCP
 names are protected by an explicitly accepted compatibility baseline.
 

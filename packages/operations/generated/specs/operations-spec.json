@@ -6221,10 +6221,6 @@
         "output": {
           "components": {
             "schemas": {
-              "NonEmptyString": {
-                "minLength": 1,
-                "type": "string"
-              },
               "NonNegativeInteger": {
                 "maximum": 9007199254740991,
                 "minimum": 0,
@@ -6238,6 +6234,31 @@
               "Uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "WebhookDispatchErrorCode": {
+                "oneOf": [
+                  {
+                    "const": "delivery_failed"
+                  },
+                  {
+                    "const": "delivery_unavailable"
+                  },
+                  {
+                    "const": "endpoint_unavailable"
+                  },
+                  {
+                    "const": "http_rejected"
+                  },
+                  {
+                    "const": "lease_conflict"
+                  },
+                  {
+                    "const": "signing_secret_unavailable"
+                  },
+                  {
+                    "const": "url_policy_blocked"
+                  }
+                ]
               },
               "WebhookDispatchOutput": {
                 "additionalProperties": false,
@@ -6285,8 +6306,30 @@
                       "endpoint_id": {
                         "$ref": "#/components/schemas/Uuid"
                       },
-                      "error": {
-                        "$ref": "#/components/schemas/NonEmptyString"
+                      "error_code": {
+                        "oneOf": [
+                          {
+                            "const": "delivery_failed"
+                          },
+                          {
+                            "const": "delivery_unavailable"
+                          },
+                          {
+                            "const": "endpoint_unavailable"
+                          },
+                          {
+                            "const": "http_rejected"
+                          },
+                          {
+                            "const": "lease_conflict"
+                          },
+                          {
+                            "const": "signing_secret_unavailable"
+                          },
+                          {
+                            "const": "url_policy_blocked"
+                          }
+                        ]
                       },
                       "status": {
                         "oneOf": [
@@ -6321,8 +6364,8 @@
                       "endpoint_id": {
                         "$ref": "#/components/schemas/Uuid"
                       },
-                      "error": {
-                        "$ref": "#/components/schemas/NonEmptyString"
+                      "error_code": {
+                        "$ref": "#/components/schemas/WebhookDispatchErrorCode"
                       },
                       "status": {
                         "const": "skipped"
@@ -6332,7 +6375,7 @@
                       "delivery_id",
                       "endpoint_id",
                       "status",
-                      "error"
+                      "error_code"
                     ],
                     "type": "object"
                   }
@@ -6476,10 +6519,6 @@
         "output": {
           "components": {
             "schemas": {
-              "NonEmptyString": {
-                "minLength": 1,
-                "type": "string"
-              },
               "NonNegativeInteger": {
                 "maximum": 9007199254740991,
                 "minimum": 0,
@@ -6493,6 +6532,31 @@
               "Uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "WebhookDispatchErrorCode": {
+                "oneOf": [
+                  {
+                    "const": "delivery_failed"
+                  },
+                  {
+                    "const": "delivery_unavailable"
+                  },
+                  {
+                    "const": "endpoint_unavailable"
+                  },
+                  {
+                    "const": "http_rejected"
+                  },
+                  {
+                    "const": "lease_conflict"
+                  },
+                  {
+                    "const": "signing_secret_unavailable"
+                  },
+                  {
+                    "const": "url_policy_blocked"
+                  }
+                ]
               },
               "WebhookDispatchOutput": {
                 "additionalProperties": false,
@@ -6540,8 +6604,30 @@
                       "endpoint_id": {
                         "$ref": "#/components/schemas/Uuid"
                       },
-                      "error": {
-                        "$ref": "#/components/schemas/NonEmptyString"
+                      "error_code": {
+                        "oneOf": [
+                          {
+                            "const": "delivery_failed"
+                          },
+                          {
+                            "const": "delivery_unavailable"
+                          },
+                          {
+                            "const": "endpoint_unavailable"
+                          },
+                          {
+                            "const": "http_rejected"
+                          },
+                          {
+                            "const": "lease_conflict"
+                          },
+                          {
+                            "const": "signing_secret_unavailable"
+                          },
+                          {
+                            "const": "url_policy_blocked"
+                          }
+                        ]
                       },
                       "status": {
                         "oneOf": [
@@ -6576,8 +6662,8 @@
                       "endpoint_id": {
                         "$ref": "#/components/schemas/Uuid"
                       },
-                      "error": {
-                        "$ref": "#/components/schemas/NonEmptyString"
+                      "error_code": {
+                        "$ref": "#/components/schemas/WebhookDispatchErrorCode"
                       },
                       "status": {
                         "const": "skipped"
@@ -6587,7 +6673,7 @@
                       "delivery_id",
                       "endpoint_id",
                       "status",
-                      "error"
+                      "error_code"
                     ],
                     "type": "object"
                   }
@@ -7287,7 +7373,7 @@
           "stage": "normalized"
         }
       },
-      "description": "Inspect redacted outbox delivery state, attempts, status codes, and exhausted errors.",
+      "description": "Inspect redacted outbox delivery state, attempts, status codes, and stored-error presence.",
       "effects": [
         {
           "kind": "read",
@@ -8143,10 +8229,6 @@
         "output": {
           "components": {
             "schemas": {
-              "NonEmptyString": {
-                "minLength": 1,
-                "type": "string"
-              },
               "NonNegativeInteger": {
                 "maximum": 9007199254740991,
                 "minimum": 0,
@@ -8160,6 +8242,31 @@
               "Uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "WebhookDispatchErrorCode": {
+                "oneOf": [
+                  {
+                    "const": "delivery_failed"
+                  },
+                  {
+                    "const": "delivery_unavailable"
+                  },
+                  {
+                    "const": "endpoint_unavailable"
+                  },
+                  {
+                    "const": "http_rejected"
+                  },
+                  {
+                    "const": "lease_conflict"
+                  },
+                  {
+                    "const": "signing_secret_unavailable"
+                  },
+                  {
+                    "const": "url_policy_blocked"
+                  }
+                ]
               },
               "WebhookDispatchOutput": {
                 "additionalProperties": false,
@@ -8207,8 +8314,30 @@
                       "endpoint_id": {
                         "$ref": "#/components/schemas/Uuid"
                       },
-                      "error": {
-                        "$ref": "#/components/schemas/NonEmptyString"
+                      "error_code": {
+                        "oneOf": [
+                          {
+                            "const": "delivery_failed"
+                          },
+                          {
+                            "const": "delivery_unavailable"
+                          },
+                          {
+                            "const": "endpoint_unavailable"
+                          },
+                          {
+                            "const": "http_rejected"
+                          },
+                          {
+                            "const": "lease_conflict"
+                          },
+                          {
+                            "const": "signing_secret_unavailable"
+                          },
+                          {
+                            "const": "url_policy_blocked"
+                          }
+                        ]
                       },
                       "status": {
                         "oneOf": [
@@ -8243,8 +8372,8 @@
                       "endpoint_id": {
                         "$ref": "#/components/schemas/Uuid"
                       },
-                      "error": {
-                        "$ref": "#/components/schemas/NonEmptyString"
+                      "error_code": {
+                        "$ref": "#/components/schemas/WebhookDispatchErrorCode"
                       },
                       "status": {
                         "const": "skipped"
@@ -8254,7 +8383,7 @@
                       "delivery_id",
                       "endpoint_id",
                       "status",
-                      "error"
+                      "error_code"
                     ],
                     "type": "object"
                   }
@@ -9590,10 +9719,6 @@
         "output": {
           "components": {
             "schemas": {
-              "NonEmptyString": {
-                "minLength": 1,
-                "type": "string"
-              },
               "NonNegativeInteger": {
                 "maximum": 9007199254740991,
                 "minimum": 0,
@@ -9602,6 +9727,31 @@
               "Uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "WebhookDispatchErrorCode": {
+                "oneOf": [
+                  {
+                    "const": "delivery_failed"
+                  },
+                  {
+                    "const": "delivery_unavailable"
+                  },
+                  {
+                    "const": "endpoint_unavailable"
+                  },
+                  {
+                    "const": "http_rejected"
+                  },
+                  {
+                    "const": "lease_conflict"
+                  },
+                  {
+                    "const": "signing_secret_unavailable"
+                  },
+                  {
+                    "const": "url_policy_blocked"
+                  }
+                ]
               },
               "WebhookDlqReplayOutput": {
                 "additionalProperties": false,
@@ -9625,13 +9775,13 @@
                         "delivery_id": {
                           "$ref": "#/components/schemas/Uuid"
                         },
-                        "error": {
-                          "$ref": "#/components/schemas/NonEmptyString"
+                        "error_code": {
+                          "$ref": "#/components/schemas/WebhookDispatchErrorCode"
                         }
                       },
                       "required": [
                         "delivery_id",
-                        "error"
+                        "error_code"
                       ],
                       "type": "object"
                     },
@@ -9679,13 +9829,13 @@
                     "delivery_id": {
                       "$ref": "#/components/schemas/Uuid"
                     },
-                    "error": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                    "error_code": {
+                      "$ref": "#/components/schemas/WebhookDispatchErrorCode"
                     }
                   },
                   "required": [
                     "delivery_id",
-                    "error"
+                    "error_code"
                   ],
                   "type": "object"
                 },
@@ -22823,17 +22973,11 @@
                     "emailMasked": {
                       "type": "string"
                     },
-                    "id": {
-                      "exclusiveMinimum": 0,
-                      "maximum": 9007199254740991,
-                      "type": "integer"
-                    },
                     "updated_at": {
                       "type": "string"
                     }
                   },
                   "required": [
-                    "id",
                     "emailMasked"
                   ],
                   "type": "object"

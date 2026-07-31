@@ -311,29 +311,38 @@ const dispatchResultIdentitySchema = {
 	delivery_id: z.uuid(),
 	endpoint_id: z.uuid(),
 };
+const dispatchErrorCodeSchema = z.enum([
+	"endpoint_unavailable",
+	"delivery_unavailable",
+	"signing_secret_unavailable",
+	"url_policy_blocked",
+	"http_rejected",
+	"lease_conflict",
+	"delivery_failed",
+]);
 const dispatchResultSchema = z.discriminatedUnion("status", [
 	z.object({
 		...dispatchResultIdentitySchema,
 		status: z.literal("succeeded"),
 		status_code: z.number().int().min(100).max(599).optional(),
-		error: z.string().min(1).optional(),
+		error_code: dispatchErrorCodeSchema.optional(),
 	}),
 	z.object({
 		...dispatchResultIdentitySchema,
 		status: z.literal("retry"),
 		status_code: z.number().int().min(100).max(599).optional(),
-		error: z.string().min(1).optional(),
+		error_code: dispatchErrorCodeSchema.optional(),
 	}),
 	z.object({
 		...dispatchResultIdentitySchema,
 		status: z.literal("exhausted"),
 		status_code: z.number().int().min(100).max(599).optional(),
-		error: z.string().min(1).optional(),
+		error_code: dispatchErrorCodeSchema.optional(),
 	}),
 	z.object({
 		...dispatchResultIdentitySchema,
 		status: z.literal("skipped"),
-		error: z.string().min(1),
+		error_code: dispatchErrorCodeSchema,
 	}),
 ]);
 const webhookDispatchOutputSchema = z.object({
@@ -461,7 +470,7 @@ const webhookDlqReplayOutputSchema = z.object({
 	errors: z.array(
 		z.object({
 			delivery_id: z.uuid(),
-			error: z.string().min(1),
+			error_code: dispatchErrorCodeSchema,
 		}),
 	),
 });
@@ -537,14 +546,14 @@ function toDispatchOutput(
 						delivery_id: entry.deliveryId,
 						endpoint_id: entry.endpointId,
 						status: entry.status,
-						error: entry.error,
+						error_code: entry.errorCode,
 					}
 				: {
 						delivery_id: entry.deliveryId,
 						endpoint_id: entry.endpointId,
 						status: entry.status,
 						status_code: entry.statusCode,
-						error: entry.error,
+						error_code: entry.errorCode,
 					},
 		),
 	};
@@ -856,7 +865,7 @@ export async function executeWebhookDlqReplayOperation(
 		delivery_ids: [...result.deliveryIds],
 		errors: result.errors.map((entry) => ({
 			delivery_id: entry.deliveryId,
-			error: entry.error,
+			error_code: entry.errorCode,
 		})),
 	};
 }
@@ -999,7 +1008,7 @@ export const webhookDeliveryListOperation = defineOperation({
 	id: "webhooks.delivery.list",
 	title: "List outbound webhook deliveries",
 	description:
-		"Inspect redacted outbox delivery state, attempts, status codes, and exhausted errors.",
+		"Inspect redacted outbox delivery state, attempts, status codes, and stored-error presence.",
 	inputSchema: webhookDeliveryListInputSchema,
 	outputSchema: webhookDeliveryListOutputSchema,
 	safety: {

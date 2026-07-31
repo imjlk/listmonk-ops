@@ -34,7 +34,10 @@ export interface BulkExecutorResult {
 	succeeded: number;
 	/** Number of subscriber IDs whose chunk failed. */
 	failed: number;
-	/** Per-chunk error messages, only populated when continue_on_error is true. */
+	/**
+	 * Bounded per-chunk failure summaries. Provider error text is intentionally
+	 * omitted so CLI and MCP results cannot expose remote response details.
+	 */
 	errors: string[];
 }
 
@@ -109,13 +112,13 @@ export async function executeSubscriberBulk(
 			await params.action(chunk);
 			result.succeeded += chunk.length;
 		} catch (error) {
-			const message = `Chunk at offset ${offset} (${chunk.length} subscribers): ${error instanceof Error ? error.message : String(error)}`;
+			const message = `Chunk at offset ${offset} (${chunk.length} subscribers) failed`;
 			if (!options.continue_on_error) {
 				// Fail-fast: do not record bookkeeping on `result` because it
-				// is never returned. Surface a clear error wrapping the
-				// underlying cause instead.
+				// is never returned. Preserve the underlying cause for local
+				// diagnostics without copying it into the public message.
 				throw new Error(
-					`Subscriber bulk operation failed at offset ${offset}. ${message}`,
+					`Subscriber bulk operation failed at offset ${offset} (${chunk.length} subscribers)`,
 					{ cause: error },
 				);
 			}

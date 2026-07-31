@@ -50,6 +50,9 @@ export interface TemplateRegistryStore {
 export interface TemplateRegistrySyncOptions {
 	templateIds?: number[];
 	note?: string;
+	onCaptureError?: (
+		failure: Readonly<{ templateId: number; error: unknown }>,
+	) => void;
 }
 
 export interface TemplateRegistrySyncResult {
@@ -246,9 +249,12 @@ async function captureTemplateRegistry(
 				hash: createTemplateHash(snapshot),
 			});
 		} catch (error) {
-			errors.push(
-				`Template ${templateId}: ${error instanceof Error ? error.message : String(error)}`,
-			);
+			try {
+				options.onCaptureError?.({ templateId, error });
+			} catch {
+				// Diagnostics must never change the registry sync result.
+			}
+			errors.push(`Template ${templateId}: capture failed`);
 		}
 	}
 

@@ -900,7 +900,10 @@ describe("shared CRUD resource operations", () => {
 		expect(result.processed).toBe(2);
 		expect(result.succeeded).toBe(0);
 		expect(result.failed).toBe(2);
-		expect(result.errors).toHaveLength(1);
+		expect(result.errors).toEqual([
+			"Chunk at offset 0 (2 subscribers) failed",
+		]);
+		expect(JSON.stringify(result)).not.toContain("server rejected");
 	});
 
 	test("uploads media files through the shared operation", async () => {

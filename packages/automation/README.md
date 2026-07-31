@@ -14,6 +14,11 @@ This package is designed for automation and orchestration use-cases:
 - revisioned headless email sequences with durable enrollments and workers
 - SES-first provider and deliverability readiness diagnostics
 
+Public operation projections intentionally omit raw provider/store errors and
+subscriber identifiers. Webhook dispatches expose bounded error codes,
+subscriber bulk/hygiene and template registry workflows expose redacted
+failure summaries, and hygiene samples retain only masked email addresses.
+
 ## Installation
 
 ```bash

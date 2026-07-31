@@ -410,6 +410,37 @@ describe("webhook shared operations", () => {
 		expect(deliveries.deliveries[0]).not.toHaveProperty("last_error");
 	});
 
+	test("projects dispatch failures as bounded codes without secret references", async () => {
+		const baseContext = await createContext();
+		const secretReference = "LISTMONK_OPS_WEBHOOK_SECRET_PRIVATE";
+		const context = {
+			...baseContext,
+			resolveSecret: () => undefined,
+		};
+		const created = await invokeWebhookCreateOperation(context, {
+			name: "missing-secret",
+			url: "https://8.8.8.8/hooks",
+			secret_ref: secretReference,
+			event_filters: ["webhook.test"],
+		});
+		const result = await invokeWebhookTestOperation(context, {
+			id: created.endpoint.id,
+		});
+		expect(result.dispatch).toMatchObject({
+			claimed: 1,
+			retried: 1,
+			results: [
+				{
+					status: "retry",
+					error_code: "signing_secret_unavailable",
+				},
+			],
+		});
+		const serialized = JSON.stringify(result);
+		expect(serialized).not.toContain(secretReference);
+		expect(serialized).not.toContain('"error":');
+	});
+
 	test("dispatches by MCP name and rejects invalid update and limits", async () => {
 		const context = await createContext();
 		expect(

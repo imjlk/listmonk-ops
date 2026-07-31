@@ -582,6 +582,7 @@ describe("outbound webhook delivery", () => {
 					deliveryId: targetDeliveryId,
 					status: "skipped",
 					error: expect.stringContaining("lease"),
+					errorCode: "lease_conflict",
 				}),
 			]),
 		});
@@ -668,6 +669,7 @@ describe("outbound webhook delivery", () => {
 		});
 		expect(result).toMatchObject({ claimed: 1, exhausted: 1 });
 		expect(result.results[0]?.error).toBe("Endpoint is disabled");
+		expect(result.results[0]?.errorCode).toBe("endpoint_unavailable");
 		expect(fetcher).not.toHaveBeenCalled();
 	});
 });
