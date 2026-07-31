@@ -184,7 +184,7 @@ List configured outbound webhook endpoints without exposing signing secret value
 - Effects: `read:webhook`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.create`
 
@@ -256,7 +256,7 @@ Inspect redacted outbox delivery state, attempts, status codes, and exhausted er
 - Effects: `read:webhook`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.delivery.retry`
 
@@ -340,7 +340,7 @@ List exhausted delivery records that require operator review.
 - Effects: `read:webhook`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.dlq.replay`
 

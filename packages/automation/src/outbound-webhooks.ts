@@ -951,7 +951,7 @@ export async function listOutboundWebhookEndpoints(
 		createOutboundWebhookStore(options.path),
 	);
 	return [...store.endpoints].sort((left, right) =>
-		left.createdAt.localeCompare(right.createdAt),
+		left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
 	);
 }
 
@@ -1288,7 +1288,11 @@ export async function listOutboundWebhookDeliveries(
 				(options.eventType === undefined ||
 					delivery.event.type === options.eventType),
 		)
-		.sort((left, right) => right.nextAttemptAt.localeCompare(left.nextAttemptAt))
+		.sort(
+			(left, right) =>
+				right.nextAttemptAt.localeCompare(left.nextAttemptAt) ||
+				right.id.localeCompare(left.id),
+		)
 		.slice(0, limit);
 }
 

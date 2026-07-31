@@ -417,7 +417,7 @@ export function createPostgresOutboundWebhookRepository(
 					timeout_ms, max_attempts, circuit_failure_threshold,
 					circuit_cooldown_ms, created_at, updated_at
 				FROM listmonk_ops.webhook_endpoints
-				ORDER BY created_at ASC
+				ORDER BY created_at ASC, id ASC
 			`;
 			return rows.map(toEndpoint);
 		},
@@ -685,7 +685,7 @@ export function createPostgresOutboundWebhookRepository(
 				${endpointFilter}
 				${statusFilter}
 				${eventTypeFilter}
-				ORDER BY next_attempt_at DESC
+				ORDER BY next_attempt_at DESC, id DESC
 				LIMIT ${limit}
 			`;
 			return rows.map(toDelivery);

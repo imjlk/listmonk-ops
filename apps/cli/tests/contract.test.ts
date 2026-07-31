@@ -145,9 +145,12 @@ describe("CLI contract", () => {
 			"--format=json",
 		]);
 		expect(create.exitCode).toBe(0);
-		expect(create.output).toContain(
-			'"secret_ref": "LISTMONK_OPS_WEBHOOK_SECRET_CONTRACT"',
+		expect(create.output).toContain('"url_origin": "https://8.8.8.8"');
+		expect(create.output).toContain('"secret_reference_configured": true');
+		expect(create.output).not.toContain(
+			"LISTMONK_OPS_WEBHOOK_SECRET_CONTRACT",
 		);
+		expect(create.output).not.toContain("https://8.8.8.8/hooks");
 		expect(create.output).not.toContain("secret-value");
 		const id = create.output.match(
 			/"id":\s*"([0-9a-f-]{36})"/i,

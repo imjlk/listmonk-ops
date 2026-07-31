@@ -200,7 +200,7 @@ Retry guidance: Retry transient health failures with normal backoff; do not infe
 
 ## List outbound webhook endpoints (`webhooks.list`)
 
-Contract maturity: `experimental`; effects: `read:webhook`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:webhook`; confirmation: `never`; retry: `safe`.
 
 Use when: Configured webhook endpoints or their filters must be inspected.
 
@@ -284,7 +284,7 @@ Retry guidance: Inspect delivery statuses after a timeout and rely on stable eve
 
 ## List outbound webhook deliveries (`webhooks.delivery.list`)
 
-Contract maturity: `experimental`; effects: `read:webhook`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:webhook`; confirmation: `never`; retry: `safe`.
 
 Use when: Delivery progress, retries, or exhausted events must be inspected.
 
@@ -382,7 +382,7 @@ Retry guidance: Retry with the same provider and provider_event_id; ingestion is
 
 ## List outbound webhook dead letters (`webhooks.dlq.list`)
 
-Contract maturity: `experimental`; effects: `read:webhook`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:webhook`; confirmation: `never`; retry: `safe`.
 
 Use when: Exhausted deliveries must be reviewed before replay.
 

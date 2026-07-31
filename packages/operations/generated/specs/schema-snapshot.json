@@ -3514,8 +3514,8 @@
                 "name": {
                   "$ref": "#/components/schemas/WebhookName"
                 },
-                "secret_ref": {
-                  "$ref": "#/components/schemas/WebhookSecretRef"
+                "secret_reference_configured": {
+                  "type": "boolean"
                 },
                 "timeout_ms": {
                   "$ref": "#/components/schemas/WebhookTimeoutMs"
@@ -3523,15 +3523,19 @@
                 "updated_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
-                "url": {
-                  "$ref": "#/components/schemas/WebhookUrl"
+                "url_fingerprint": {
+                  "$ref": "#/components/schemas/WebhookUrlFingerprint"
+                },
+                "url_origin": {
+                  "$ref": "#/components/schemas/WebhookUrlOrigin"
                 }
               },
               "required": [
                 "id",
                 "name",
-                "url",
-                "secret_ref",
+                "url_origin",
+                "url_fingerprint",
+                "secret_reference_configured",
                 "event_filters",
                 "enabled",
                 "timeout_ms",
@@ -3689,19 +3693,18 @@
               "minLength": 1,
               "type": "string"
             },
-            "WebhookSecretRef": {
-              "pattern": "^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$",
-              "type": "string"
-            },
             "WebhookTimeoutMs": {
               "maximum": 30000,
               "minimum": 100,
               "type": "integer"
             },
-            "WebhookUrl": {
-              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
+            "WebhookUrlFingerprint": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "WebhookUrlOrigin": {
               "minLength": 1,
-              "pattern": "^https://\\S+$",
+              "pattern": "^https://[^/?#]+$",
               "type": "string"
             }
           }
@@ -3735,7 +3738,7 @@
         "reason": "The operation only reads the local endpoint registry."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.create",
@@ -4056,8 +4059,8 @@
                 "name": {
                   "$ref": "#/components/schemas/WebhookName"
                 },
-                "secret_ref": {
-                  "$ref": "#/components/schemas/WebhookSecretRef"
+                "secret_reference_configured": {
+                  "type": "boolean"
                 },
                 "timeout_ms": {
                   "$ref": "#/components/schemas/WebhookTimeoutMs"
@@ -4065,15 +4068,19 @@
                 "updated_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
-                "url": {
-                  "$ref": "#/components/schemas/WebhookUrl"
+                "url_fingerprint": {
+                  "$ref": "#/components/schemas/WebhookUrlFingerprint"
+                },
+                "url_origin": {
+                  "$ref": "#/components/schemas/WebhookUrlOrigin"
                 }
               },
               "required": [
                 "id",
                 "name",
-                "url",
-                "secret_ref",
+                "url_origin",
+                "url_fingerprint",
+                "secret_reference_configured",
                 "event_filters",
                 "enabled",
                 "timeout_ms",
@@ -4216,19 +4223,18 @@
               "minLength": 1,
               "type": "string"
             },
-            "WebhookSecretRef": {
-              "pattern": "^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$",
-              "type": "string"
-            },
             "WebhookTimeoutMs": {
               "maximum": 30000,
               "minimum": 100,
               "type": "integer"
             },
-            "WebhookUrl": {
-              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
+            "WebhookUrlFingerprint": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "WebhookUrlOrigin": {
               "minLength": 1,
-              "pattern": "^https://\\S+$",
+              "pattern": "^https://[^/?#]+$",
               "type": "string"
             }
           }
@@ -4572,8 +4578,8 @@
                 "name": {
                   "$ref": "#/components/schemas/WebhookName"
                 },
-                "secret_ref": {
-                  "$ref": "#/components/schemas/WebhookSecretRef"
+                "secret_reference_configured": {
+                  "type": "boolean"
                 },
                 "timeout_ms": {
                   "$ref": "#/components/schemas/WebhookTimeoutMs"
@@ -4581,15 +4587,19 @@
                 "updated_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
-                "url": {
-                  "$ref": "#/components/schemas/WebhookUrl"
+                "url_fingerprint": {
+                  "$ref": "#/components/schemas/WebhookUrlFingerprint"
+                },
+                "url_origin": {
+                  "$ref": "#/components/schemas/WebhookUrlOrigin"
                 }
               },
               "required": [
                 "id",
                 "name",
-                "url",
-                "secret_ref",
+                "url_origin",
+                "url_fingerprint",
+                "secret_reference_configured",
                 "event_filters",
                 "enabled",
                 "timeout_ms",
@@ -4732,10 +4742,6 @@
               "minLength": 1,
               "type": "string"
             },
-            "WebhookSecretRef": {
-              "pattern": "^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$",
-              "type": "string"
-            },
             "WebhookTimeoutMs": {
               "maximum": 30000,
               "minimum": 100,
@@ -4753,10 +4759,13 @@
               ],
               "type": "object"
             },
-            "WebhookUrl": {
-              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
+            "WebhookUrlFingerprint": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "WebhookUrlOrigin": {
               "minLength": 1,
-              "pattern": "^https://\\S+$",
+              "pattern": "^https://[^/?#]+$",
               "type": "string"
             }
           }
@@ -4896,8 +4905,8 @@
                 "name": {
                   "$ref": "#/components/schemas/WebhookName"
                 },
-                "secret_ref": {
-                  "$ref": "#/components/schemas/WebhookSecretRef"
+                "secret_reference_configured": {
+                  "type": "boolean"
                 },
                 "timeout_ms": {
                   "$ref": "#/components/schemas/WebhookTimeoutMs"
@@ -4905,15 +4914,19 @@
                 "updated_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
-                "url": {
-                  "$ref": "#/components/schemas/WebhookUrl"
+                "url_fingerprint": {
+                  "$ref": "#/components/schemas/WebhookUrlFingerprint"
+                },
+                "url_origin": {
+                  "$ref": "#/components/schemas/WebhookUrlOrigin"
                 }
               },
               "required": [
                 "id",
                 "name",
-                "url",
-                "secret_ref",
+                "url_origin",
+                "url_fingerprint",
+                "secret_reference_configured",
                 "event_filters",
                 "enabled",
                 "timeout_ms",
@@ -5056,19 +5069,18 @@
               "minLength": 1,
               "type": "string"
             },
-            "WebhookSecretRef": {
-              "pattern": "^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$",
-              "type": "string"
-            },
             "WebhookTimeoutMs": {
               "maximum": 30000,
               "minimum": 100,
               "type": "integer"
             },
-            "WebhookUrl": {
-              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
+            "WebhookUrlFingerprint": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "WebhookUrlOrigin": {
               "minLength": 1,
-              "pattern": "^https://\\S+$",
+              "pattern": "^https://[^/?#]+$",
               "type": "string"
             }
           }
@@ -5829,10 +5841,6 @@
               "format": "date-time",
               "type": "string"
             },
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
             "NonNegativeInteger": {
               "maximum": 9007199254740991,
               "minimum": 0,
@@ -5845,11 +5853,6 @@
             },
             "Uuid": {
               "format": "uuid",
-              "type": "string"
-            },
-            "WebhookCorrelationId": {
-              "maxLength": 200,
-              "minLength": 1,
               "type": "string"
             },
             "WebhookDelivery": {
@@ -5876,8 +5879,8 @@
                 "last_attempt_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
-                "last_error": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                "last_error_present": {
+                  "type": "boolean"
                 },
                 "manual_retry_count": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
@@ -5900,15 +5903,16 @@
                 "status",
                 "attempt_count",
                 "manual_retry_count",
-                "next_attempt_at"
+                "next_attempt_at",
+                "last_error_present"
               ],
               "type": "object"
             },
             "WebhookDeliveryEventSummary": {
               "additionalProperties": false,
               "properties": {
-                "correlation_id": {
-                  "$ref": "#/components/schemas/WebhookCorrelationId"
+                "correlation_id_present": {
+                  "type": "boolean"
                 },
                 "id": {
                   "$ref": "#/components/schemas/Uuid"
@@ -5925,8 +5929,8 @@
                 "subject": {
                   "additionalProperties": false,
                   "properties": {
-                    "key": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                    "key_redacted": {
+                      "const": true
                     },
                     "kind": {
                       "$ref": "#/components/schemas/WebhookSubjectKind"
@@ -5934,7 +5938,7 @@
                   },
                   "required": [
                     "kind",
-                    "key"
+                    "key_redacted"
                   ],
                   "type": "object"
                 },
@@ -5947,7 +5951,8 @@
                 "type",
                 "schema_version",
                 "occurred_at",
-                "source"
+                "source",
+                "correlation_id_present"
               ],
               "type": "object"
             },
@@ -6160,7 +6165,7 @@
         "reason": "The operation only reads redacted delivery records."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.delivery.retry",
@@ -6208,10 +6213,6 @@
               "format": "date-time",
               "type": "string"
             },
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
             "NonNegativeInteger": {
               "maximum": 9007199254740991,
               "minimum": 0,
@@ -6224,11 +6225,6 @@
             },
             "Uuid": {
               "format": "uuid",
-              "type": "string"
-            },
-            "WebhookCorrelationId": {
-              "maxLength": 200,
-              "minLength": 1,
               "type": "string"
             },
             "WebhookDelivery": {
@@ -6255,8 +6251,8 @@
                 "last_attempt_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
-                "last_error": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                "last_error_present": {
+                  "type": "boolean"
                 },
                 "manual_retry_count": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
@@ -6279,15 +6275,16 @@
                 "status",
                 "attempt_count",
                 "manual_retry_count",
-                "next_attempt_at"
+                "next_attempt_at",
+                "last_error_present"
               ],
               "type": "object"
             },
             "WebhookDeliveryEventSummary": {
               "additionalProperties": false,
               "properties": {
-                "correlation_id": {
-                  "$ref": "#/components/schemas/WebhookCorrelationId"
+                "correlation_id_present": {
+                  "type": "boolean"
                 },
                 "id": {
                   "$ref": "#/components/schemas/Uuid"
@@ -6304,8 +6301,8 @@
                 "subject": {
                   "additionalProperties": false,
                   "properties": {
-                    "key": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                    "key_redacted": {
+                      "const": true
                     },
                     "kind": {
                       "$ref": "#/components/schemas/WebhookSubjectKind"
@@ -6313,7 +6310,7 @@
                   },
                   "required": [
                     "kind",
-                    "key"
+                    "key_redacted"
                   ],
                   "type": "object"
                 },
@@ -6326,7 +6323,8 @@
                 "type",
                 "schema_version",
                 "occurred_at",
-                "source"
+                "source",
+                "correlation_id_present"
               ],
               "type": "object"
             },
@@ -7746,10 +7744,6 @@
               "format": "date-time",
               "type": "string"
             },
-            "NonEmptyString": {
-              "minLength": 1,
-              "type": "string"
-            },
             "NonNegativeInteger": {
               "maximum": 9007199254740991,
               "minimum": 0,
@@ -7762,11 +7756,6 @@
             },
             "Uuid": {
               "format": "uuid",
-              "type": "string"
-            },
-            "WebhookCorrelationId": {
-              "maxLength": 200,
-              "minLength": 1,
               "type": "string"
             },
             "WebhookDelivery": {
@@ -7793,8 +7782,8 @@
                 "last_attempt_at": {
                   "$ref": "#/components/schemas/IsoDateTime"
                 },
-                "last_error": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                "last_error_present": {
+                  "type": "boolean"
                 },
                 "manual_retry_count": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
@@ -7817,15 +7806,16 @@
                 "status",
                 "attempt_count",
                 "manual_retry_count",
-                "next_attempt_at"
+                "next_attempt_at",
+                "last_error_present"
               ],
               "type": "object"
             },
             "WebhookDeliveryEventSummary": {
               "additionalProperties": false,
               "properties": {
-                "correlation_id": {
-                  "$ref": "#/components/schemas/WebhookCorrelationId"
+                "correlation_id_present": {
+                  "type": "boolean"
                 },
                 "id": {
                   "$ref": "#/components/schemas/Uuid"
@@ -7842,8 +7832,8 @@
                 "subject": {
                   "additionalProperties": false,
                   "properties": {
-                    "key": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                    "key_redacted": {
+                      "const": true
                     },
                     "kind": {
                       "$ref": "#/components/schemas/WebhookSubjectKind"
@@ -7851,7 +7841,7 @@
                   },
                   "required": [
                     "kind",
-                    "key"
+                    "key_redacted"
                   ],
                   "type": "object"
                 },
@@ -7864,7 +7854,8 @@
                 "type",
                 "schema_version",
                 "occurred_at",
-                "source"
+                "source",
+                "correlation_id_present"
               ],
               "type": "object"
             },
@@ -8077,7 +8068,7 @@
         "reason": "The operation only reads exhausted deliveries."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.dlq.replay",

@@ -443,13 +443,17 @@ but provider availability, quota values, DNS answers, and diagnostic outcomes
 are observations rather than guarantees. Every diagnostic result is checked
 fail-closed for credential references, AWS access keys, and forbidden secret
 fields before it leaves the shared executor. The closed-world control-plane
-batch also stabilizes pure `sequences.validate` and aggregate-only
-`sequences.status` and `webhooks.runtime.status`. Detailed endpoint, delivery,
-sequence-definition, and enrollment reads remain experimental because they can
-return secret references, arbitrary definition data, subscriber identifiers,
-or stored error text. `control.status` remains experimental because its runtime
-readiness contract is still maturing; newer subsystem, aggregation, and
-analytics reads remain experimental. The other 69 descriptors are
+batch also stabilizes pure `sequences.validate`, aggregate-only
+`sequences.status` and `webhooks.runtime.status`, plus redacted
+`webhooks.list`, `webhooks.delivery.list`, and `webhooks.dlq.list`. Webhook
+endpoint projections expose only the HTTPS origin, a deterministic
+configuration fingerprint, and secret-reference presence. Delivery projections
+expose subject and stored-error presence without returning their values.
+Detailed sequence-definition and enrollment reads remain experimental because
+they can return arbitrary definition data or subscriber identifiers.
+`control.status` remains experimental because its runtime readiness contract is
+still maturing; newer subsystem, aggregation, and analytics reads remain
+experimental. The other 66 descriptors are
 experimental.
 
 The spec publishes four typed playbooks: `campaign.safe-start`,
@@ -464,7 +468,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 102 shared operations, the API boundary rule, the 41 governed
-runtime bridges, the 33 stable compatibility baselines, and 306 direct
+runtime bridges, the 36 stable compatibility baselines, and 306 direct
 spec-to-runtime graph edges.
 
 If a normalized Zod boundary for one of the 41 bridge operations changes,

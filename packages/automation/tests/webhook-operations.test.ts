@@ -113,9 +113,20 @@ describe("webhook shared operations", () => {
 			{ ...context, fetcher: mock(async () => new Response(null, { status: 400 })) as typeof fetch },
 			{ limit: 10 },
 		);
-		expect(await invokeWebhookDlqListOperation(context, {})).toMatchObject({
+		const deadLetters = await invokeWebhookDlqListOperation(context, {});
+		expect(deadLetters).toMatchObject({
 			deliveries: [{ status: "exhausted" }],
 		});
+		expect(deadLetters.deliveries[0]).toMatchObject({
+			last_error_present: true,
+		});
+		const deadLetterJson = JSON.stringify(deadLetters);
+		expect(deadLetterJson).not.toContain('"last_error":');
+		expect(deadLetterJson).not.toContain(
+			"LISTMONK_OPS_WEBHOOK_SECRET_PROVIDER",
+		);
+		expect(deadLetterJson).not.toContain("https://8.8.8.8/hooks");
+		expect(deadLetterJson).not.toContain("hidden@example.com");
 		expect(
 			await invokeWebhookDlqReplayOperation(context, { dry_run: true }),
 		).toMatchObject({ eligible: 1, replayed: 0, dry_run: true });
@@ -286,13 +297,22 @@ describe("webhook shared operations", () => {
 		const id = created.endpoint.id;
 		expect(created.endpoint).toMatchObject({
 			name: "primary",
-			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_PRIMARY",
+			url_origin: "https://8.8.8.8",
+			secret_reference_configured: true,
 			enabled: true,
 		});
+		expect(created.endpoint.url_fingerprint).toMatch(/^sha256:[a-f0-9]{64}$/);
+		expect(created.endpoint).not.toHaveProperty("url");
+		expect(created.endpoint).not.toHaveProperty("secret_ref");
 		expect(created.endpoint).not.toHaveProperty("secret");
 
 		expect(await invokeWebhookListOperation(context, {})).toMatchObject({
-			endpoints: [{ id }],
+			endpoints: [
+				{
+					id,
+					url_fingerprint: created.endpoint.url_fingerprint,
+				},
+			],
 		});
 		expect(
 			await invokeWebhookListOperation(context, { enabled: false }),
@@ -374,12 +394,20 @@ describe("webhook shared operations", () => {
 					event: {
 						id: result.event_id,
 						type: "webhook.test",
-						correlation_id: "operator-check",
+						correlation_id_present: true,
+						subject: {
+							kind: "webhook",
+							key_redacted: true,
+						},
 					},
+					last_error_present: false,
 				},
 			],
 		});
 		expect(deliveries.deliveries[0]?.event).not.toHaveProperty("data");
+		expect(deliveries.deliveries[0]?.event).not.toHaveProperty("correlation_id");
+		expect(deliveries.deliveries[0]?.event.subject).not.toHaveProperty("key");
+		expect(deliveries.deliveries[0]).not.toHaveProperty("last_error");
 	});
 
 	test("dispatches by MCP name and rejects invalid update and limits", async () => {

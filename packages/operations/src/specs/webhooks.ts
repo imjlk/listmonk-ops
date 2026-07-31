@@ -391,7 +391,7 @@ export const webhookListOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookListOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
@@ -675,7 +675,7 @@ export const webhookDeliveryListOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookDeliveryListOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
@@ -1018,7 +1018,7 @@ export const webhookDlqListOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookDlqListOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
