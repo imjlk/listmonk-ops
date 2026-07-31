@@ -316,7 +316,7 @@ Inspect durable schema, endpoint circuit, dead-letter, delivery, and worker hear
 - Effects: `read:webhook`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.inbound.ingest`
 
@@ -376,7 +376,7 @@ Validate typed send, wait, wait-until, condition, and stop steps without persist
 - Effects: `read:sequence`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.create`
 
@@ -534,7 +534,7 @@ Inspect durable schema, definitions, enrollment states, due work, leases, and wo
 - Effects: `read:sequence`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `providers.list`
 

@@ -424,7 +424,7 @@ and handwritten adapter first; the product spec changes only when the
 normalized operation contract or email-operation meaning changes. Static
 governance rejects OpenAPI/generated SDK imports from `src/specs`.
 
-Thirty reviewed core operations are `stable`: the existing
+Thirty-three reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -442,10 +442,15 @@ normalized output shape, redaction boundary, and retry semantics are stable,
 but provider availability, quota values, DNS answers, and diagnostic outcomes
 are observations rather than guarantees. Every diagnostic result is checked
 fail-closed for credential references, AWS access keys, and forbidden secret
-fields before it leaves the shared executor. `control.status` remains
-experimental because its runtime readiness contract is still maturing; newer
-subsystem, aggregation, and analytics reads remain experimental. The other 72
-descriptors are experimental.
+fields before it leaves the shared executor. The closed-world control-plane
+batch also stabilizes pure `sequences.validate` and aggregate-only
+`sequences.status` and `webhooks.runtime.status`. Detailed endpoint, delivery,
+sequence-definition, and enrollment reads remain experimental because they can
+return secret references, arbitrary definition data, subscriber identifiers,
+or stored error text. `control.status` remains experimental because its runtime
+readiness contract is still maturing; newer subsystem, aggregation, and
+analytics reads remain experimental. The other 69 descriptors are
+experimental.
 
 The spec publishes four typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, and `abtest.safe-run`.
@@ -459,7 +464,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 102 shared operations, the API boundary rule, the 41 governed
-runtime bridges, the 30 stable compatibility baselines, and 306 direct
+runtime bridges, the 33 stable compatibility baselines, and 306 direct
 spec-to-runtime graph edges.
 
 If a normalized Zod boundary for one of the 41 bridge operations changes,

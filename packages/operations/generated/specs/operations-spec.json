@@ -8710,7 +8710,7 @@
         "reason": "The operation only reads durable runtime state."
       },
       "since": "0.8.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Inspect outbound webhook runtime health",
       "verb": "status"
     },
@@ -10237,7 +10237,7 @@
         "reason": "Validation is pure and does not write state."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Validate sequence definition",
       "verb": "validate"
     },
@@ -15084,7 +15084,7 @@
         "reason": "The operation only reads runtime state."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Inspect sequence runtime health",
       "verb": "status"
     },

@@ -76,7 +76,7 @@ export const sequenceValidateOperationSpec = defineOperationSpec({
 		openWorld: false,
 		graph: graphNodes("validate"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -539,7 +539,7 @@ export const sequenceStatusOperationSpec = defineOperationSpec({
 		openWorld: false,
 		graph: graphNodes("status"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
