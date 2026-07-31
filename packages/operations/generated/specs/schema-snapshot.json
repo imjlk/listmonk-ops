@@ -13100,7 +13100,7 @@
         "reason": "The operation only reads and validates the local provider configuration."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "providers.status",
@@ -13573,7 +13573,7 @@
         "reason": "Provider and Listmonk API calls are read-only and do not send messages."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "providers.test",
@@ -13723,7 +13723,7 @@
         "reason": "The probe uses only the provider account read API."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "providers.quota",
@@ -13887,7 +13887,7 @@
         "reason": "The provider quota API is read-only."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "providers.webhook-status",
@@ -14176,7 +14176,7 @@
         "reason": "The operation reads Listmonk settings and the latest matching bounce event."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "deliverability.dns-check",
@@ -14421,7 +14421,7 @@
         "reason": "DNS resolution is read-only."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "deliverability.doctor",
@@ -15198,7 +15198,7 @@
         "reason": "The doctor composes only read-only provider, Listmonk, and DNS checks."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "lists.list",

@@ -192,24 +192,41 @@ export interface ProviderInspectionContext {
 	now?: (() => Date) | undefined;
 }
 
+const AWS_ACCESS_KEY_ID_PATTERN = /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/;
+const AWS_ACCESS_KEY_ID_REPLACEMENT_PATTERN =
+	/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g;
+
 function errorMessage(error: unknown): string {
 	const raw = error instanceof Error ? error.message : String(error);
 	return raw
 		.replace(/(https?:\/\/)[^/@\s]+@/gi, "$1[redacted]@")
-		.replace(/\b(AKIA|ASIA)[A-Z0-9]{16}\b/g, "[redacted-aws-access-key]")
+		.replace(
+			AWS_ACCESS_KEY_ID_REPLACEMENT_PATTERN,
+			"[redacted-aws-access-key]",
+		)
 		.slice(0, 500);
 }
 
 function errorCode(error: unknown): string {
 	if (
-		typeof error === "object" &&
-		error !== null &&
-		"name" in error &&
-		typeof error.name === "string"
+		typeof error !== "object" ||
+		error === null ||
+		!("name" in error) ||
+		typeof error.name !== "string"
 	) {
-		return error.name.slice(0, 120);
+		return "ProviderInspectionError";
 	}
-	return "ProviderInspectionError";
+	const candidate = error.name.trim();
+	if (
+		candidate.length === 0 ||
+		candidate.length > 120 ||
+		!/^[A-Za-z][A-Za-z0-9._-]*$/.test(candidate) ||
+		AWS_ACCESS_KEY_ID_PATTERN.test(candidate) ||
+		/(?:credential|password|profile|secret|token)/i.test(candidate)
+	) {
+		return "ProviderInspectionError";
+	}
+	return candidate;
 }
 
 function hasProviderResponse(error: unknown): boolean {

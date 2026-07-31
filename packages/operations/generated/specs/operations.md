@@ -546,7 +546,7 @@ List configured provider profiles without exposing credential references.
 - Effects: `read:provider`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `providers.status`
 
@@ -558,7 +558,7 @@ Inspect provider account, identity, and Listmonk delivery configuration.
 - Effects: `read:provider`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `providers.test`
 
@@ -570,7 +570,7 @@ Run a bounded read-only provider API authentication and connectivity probe witho
 - Effects: `read:provider`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `providers.quota`
 
@@ -582,7 +582,7 @@ Read provider daily quota, rate limit, usage, sandbox, and enforcement status.
 - Effects: `read:provider`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `providers.webhook-status`
 
@@ -594,7 +594,7 @@ Inspect Listmonk bounce webhook configuration and the latest provider event fres
 - Effects: `read:provider`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `deliverability.dns-check`
 
@@ -606,7 +606,7 @@ Resolve DMARC, DKIM, custom MAIL FROM SPF/MX, and alignment records for a provid
 - Effects: `read:provider`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `deliverability.doctor`
 
@@ -618,7 +618,7 @@ Compose provider, Listmonk, quota, webhook, and DNS diagnostics into one readine
 - Effects: `read:provider`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `lists.list`
 

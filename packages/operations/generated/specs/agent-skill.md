@@ -620,7 +620,7 @@ Retry guidance: Retrying the same status read is safe.
 
 ## List provider profiles (`providers.list`)
 
-Contract maturity: `experimental`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
 
 Use when: The agent must discover configured delivery provider IDs before running diagnostics.
 
@@ -634,7 +634,7 @@ Retry guidance: Retry after the provider configuration file becomes readable or 
 
 ## Inspect provider status (`providers.status`)
 
-Contract maturity: `experimental`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
 
 Use when: The agent needs a structured provider and Listmonk readiness snapshot.
 
@@ -648,7 +648,7 @@ Retry guidance: Retry transient Listmonk or provider failures with normal backof
 
 ## Test provider API access (`providers.test`)
 
-Contract maturity: `experimental`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
 
 Use when: Provider credentials or API reachability must be checked without sending a message.
 
@@ -662,7 +662,7 @@ Retry guidance: Retry throttling and transient network failures with bounded bac
 
 ## Inspect provider sending quota (`providers.quota`)
 
-Contract maturity: `experimental`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
 
 Use when: An audience or sequence send must be compared with current provider capacity.
 
@@ -676,7 +676,7 @@ Retry guidance: Retry transient provider failures; do not assume cached quotas r
 
 ## Inspect provider webhook status (`providers.webhook-status`)
 
-Contract maturity: `experimental`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
 
 Use when: Bounce or complaint feedback configuration and recent evidence must be checked.
 
@@ -690,7 +690,7 @@ Retry guidance: Retry Listmonk read failures; an unknown freshness result requir
 
 ## Check provider DNS (`deliverability.dns-check`)
 
-Contract maturity: `experimental`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
 
 Use when: The agent must verify public authentication records for a configured sending identity.
 
@@ -704,7 +704,7 @@ Retry guidance: Retry transient resolver failures after normal DNS propagation d
 
 ## Run deliverability doctor (`deliverability.doctor`)
 
-Contract maturity: `experimental`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:provider`; confirmation: `never`; retry: `safe`.
 
 Use when: An agent must determine whether a provider profile is ready before scheduling or launching email.
 
