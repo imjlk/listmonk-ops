@@ -441,14 +441,15 @@ provider/deliverability Operation은 stable open-world read입니다. 정규화�
 가용성, quota 값, DNS 응답과 진단 결과 자체를 보장하지는 않습니다. 모든
 진단 결과는 shared executor를 벗어나기 전에 credential reference, AWS
 access key와 금지된 secret 필드가 없는지 fail-closed로 검사합니다. 여기에
-순수 검증인 `sequences.validate`, aggregate-only 조회인
-`sequences.status`, `webhooks.runtime.status`, 그리고 redaction을 적용한
-`webhooks.list`, `webhooks.delivery.list`, `webhooks.dlq.list`도
-closed-world control-plane 배치로 안정화했습니다. Webhook endpoint projection은
-HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설정 여부만 반환하고,
-delivery projection은 subject와 저장된 오류의 값 대신 존재 여부만 반환합니다.
-임의 definition data나 subscriber 식별자를 반환할 수 있는 sequence
-definition·enrollment 상세 조회는 experimental로 유지합니다.
+기존 stable closed-world control-plane 조회에는 순수 검증인
+`sequences.validate`와 aggregate-only 조회인 `sequences.status`,
+`webhooks.runtime.status`가 포함됩니다. 이번 릴리즈에서는 redaction을 적용한
+`webhooks.list`, `webhooks.delivery.list`, `webhooks.dlq.list` 세 개만 새로
+승격해 stable baseline을 33개에서 36개로 늘렸습니다. Webhook endpoint
+projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설정
+여부만 반환하고, delivery projection은 subject와 저장된 오류의 값 대신 존재
+여부만 반환합니다. 임의 definition data나 subscriber 식별자를 반환할 수 있는
+sequence definition·enrollment 상세 조회는 experimental로 유지합니다.
 `control.status`의 runtime readiness 계약과 신규 subsystem·집계·분석 조회는
 더 성숙할 때까지 experimental로 유지합니다. 나머지 experimental
 descriptor는 66개입니다.

@@ -442,11 +442,12 @@ normalized output shape, redaction boundary, and retry semantics are stable,
 but provider availability, quota values, DNS answers, and diagnostic outcomes
 are observations rather than guarantees. Every diagnostic result is checked
 fail-closed for credential references, AWS access keys, and forbidden secret
-fields before it leaves the shared executor. The closed-world control-plane
-batch also stabilizes pure `sequences.validate`, aggregate-only
-`sequences.status` and `webhooks.runtime.status`, plus redacted
-`webhooks.list`, `webhooks.delivery.list`, and `webhooks.dlq.list`. Webhook
-endpoint projections expose only the HTTPS origin, a deterministic
+fields before it leaves the shared executor. Existing stable closed-world
+control-plane reads include pure `sequences.validate` and aggregate-only
+`sequences.status` and `webhooks.runtime.status`. This release newly promotes
+the redacted `webhooks.list`, `webhooks.delivery.list`, and
+`webhooks.dlq.list`, taking the stable baseline from 33 to 36 operations.
+Webhook endpoint projections expose only the HTTPS origin, a deterministic
 configuration fingerprint, and secret-reference presence. Delivery projections
 expose subject and stored-error presence without returning their values.
 Detailed sequence-definition and enrollment reads remain experimental because
