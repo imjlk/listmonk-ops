@@ -40,6 +40,101 @@ const readOnlyOpenWorldSafety = {
 	openWorldHint: true,
 } as const;
 
+const FORBIDDEN_PROVIDER_OUTPUT_KEYS = new Set([
+	"accesskey",
+	"accesskeyid",
+	"accesstoken",
+	"apikey",
+	"apikeysecret",
+	"apisecret",
+	"authtoken",
+	"authorization",
+	"bearer",
+	"clientid",
+	"clientsecret",
+	"cookie",
+	"credential",
+	"credentialref",
+	"credentials",
+	"passphrase",
+	"passwd",
+	"password",
+	"privatekey",
+	"proxyauthorization",
+	"pwd",
+	"refreshtoken",
+	"secret",
+	"secretaccesskey",
+	"secretref",
+	"secretreference",
+	"sessiontoken",
+	"setcookie",
+	"signingkey",
+	"token",
+]);
+const AWS_ACCESS_KEY_ID_PATTERN = /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/;
+
+function normalizedProviderOutputKey(key: string): string {
+	return key.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function collectSecretReferences(
+	profiles: readonly ProviderProfile[],
+): string[] {
+	return profiles.flatMap(({ secret_ref }) =>
+		secret_ref === undefined ? [] : [secret_ref],
+	);
+}
+
+export class ProviderCredentialLeakError extends Error {
+	override readonly name = "ProviderCredentialLeakError";
+}
+
+export function assertProviderDiagnosticOutputRedacted(
+	value: unknown,
+	secretReferences: readonly string[] = [],
+): void {
+	const seen = new WeakSet<object>();
+
+	const visit = (current: unknown): void => {
+		if (typeof current === "string") {
+			const normalizedCurrent = current.toLowerCase();
+			if (
+				AWS_ACCESS_KEY_ID_PATTERN.test(current) ||
+				secretReferences.some(
+					(reference) =>
+						reference.length > 0 &&
+						normalizedCurrent.includes(reference.toLowerCase()),
+				)
+			) {
+				throw new ProviderCredentialLeakError(
+					"Provider diagnostic output contains credential material",
+				);
+			}
+			return;
+		}
+		if (typeof current !== "object" || current === null) return;
+		if (seen.has(current)) return;
+		seen.add(current);
+		if (Array.isArray(current)) {
+			for (const item of current) visit(item);
+			return;
+		}
+		for (const [key, child] of Object.entries(current)) {
+			if (
+				FORBIDDEN_PROVIDER_OUTPUT_KEYS.has(normalizedProviderOutputKey(key))
+			) {
+				throw new ProviderCredentialLeakError(
+					`Provider diagnostic output contains forbidden field ${key}`,
+				);
+			}
+			visit(child);
+		}
+	};
+
+	visit(value);
+}
+
 export const providerIdInput = z
 	.string()
 	.trim()
@@ -249,7 +344,7 @@ async function withProfile<T>(
 	const profile = getProviderProfile(profiles, providerId);
 	const inspector = operationInspector(context, profile);
 	try {
-		return await execute(profile, {
+		const output = await execute(profile, {
 			client: context.client,
 			dns: context.dns,
 			dnsInspectionTimeoutMs: context.dnsInspectionTimeoutMs,
@@ -257,6 +352,11 @@ async function withProfile<T>(
 			inspector,
 			profiles,
 		});
+		assertProviderDiagnosticOutputRedacted(
+			output,
+			collectSecretReferences(profiles),
+		);
+		return output;
 	} finally {
 		try {
 			inspector?.close();
@@ -271,10 +371,15 @@ export async function executeProviderListOperation(
 	_input: z.output<typeof emptyInputSchema>,
 ) {
 	const profiles = await operationProfiles(context);
-	return {
+	const output = {
 		configured: profiles.length > 0,
 		profiles: profiles.map(summarizeProviderProfile),
 	};
+	assertProviderDiagnosticOutputRedacted(
+		output,
+		collectSecretReferences(profiles),
+	);
+	return output;
 }
 
 export async function executeProviderStatusOperation(

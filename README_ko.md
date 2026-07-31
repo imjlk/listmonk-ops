@@ -423,7 +423,7 @@ generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계�
 변경합니다. 정적 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면
 거부합니다.
 
-검토를 마친 핵심 23개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 30개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -431,13 +431,19 @@ generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계�
 `campaigns.stats`, `templates.list`, `templates.get`, `media.list`,
 `media.get`, 그리고 정적 agent-discovery 배치인 `specs.search`,
 `specs.describe`, `playbooks.list`, `playbooks.get`,
-`control.capabilities`, `control.prime`이 추가됐습니다. 이들의 계약과 정책
-의미는 승인된 compatibility baseline과 비교합니다. 새로 승격한 6개
-Operation은 변경되지 않는 in-process catalog metadata만 조회하고, 안전한
-재시도 의미와 closed-world projection을 가집니다. live Listmonk health
-probe를 포함하는 `control.status`와 신규 subsystem·집계·분석 조회는 제품
-의미가 더 성숙할 때까지 experimental로 유지합니다. 나머지 experimental
-descriptor는 79개입니다.
+`control.capabilities`, `control.prime`, 그리고 provider/deliverability
+점검 배치인 `providers.list`, `providers.status`, `providers.test`,
+`providers.quota`, `providers.webhook-status`,
+`deliverability.dns-check`, `deliverability.doctor`가 추가됐습니다. 이들의
+계약과 정책 의미는 승인된 compatibility baseline과 비교합니다.
+provider/deliverability Operation은 stable open-world read입니다. 정규화된
+출력 형태, redaction 경계와 재시도 의미는 안정적으로 유지하지만 provider
+가용성, quota 값, DNS 응답과 진단 결과 자체를 보장하지는 않습니다. 모든
+진단 결과는 shared executor를 벗어나기 전에 credential reference, AWS
+access key와 금지된 secret 필드가 없는지 fail-closed로 검사합니다.
+`control.status`의 runtime readiness 계약과 신규 subsystem·집계·분석 조회는
+더 성숙할 때까지 experimental로 유지합니다. 나머지 experimental
+descriptor는 72개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run` 네 가지 타입드 플레이북을
@@ -450,7 +456,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 102개 전체, API 경계 규칙, 41개 governed runtime bridge, 23개
+Operation 102개 전체, API 경계 규칙, 41개 governed runtime bridge, 30개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 306개를
 검증합니다.
 

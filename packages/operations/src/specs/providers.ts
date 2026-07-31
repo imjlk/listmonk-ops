@@ -77,7 +77,7 @@ export const providerListOperationSpec = defineOperationSpec({
 				"packages/automation/src/provider-operations.ts#executeProviderListOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -133,7 +133,7 @@ export const providerStatusOperationSpec = defineOperationSpec({
 				"packages/automation/src/provider-operations.ts#executeProviderStatusOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -183,7 +183,7 @@ export const providerTestOperationSpec = defineOperationSpec({
 				"packages/automation/src/provider-operations.ts#executeProviderTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -231,7 +231,7 @@ export const providerQuotaOperationSpec = defineOperationSpec({
 				"packages/automation/src/provider-operations.ts#executeProviderQuotaOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -282,7 +282,7 @@ export const providerWebhookStatusOperationSpec = defineOperationSpec({
 				"packages/automation/src/provider-operations.ts#executeProviderWebhookStatusOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -332,7 +332,7 @@ export const deliverabilityDnsCheckOperationSpec = defineOperationSpec({
 				"packages/automation/src/provider-operations.ts#executeDeliverabilityDnsCheckOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -389,7 +389,7 @@ export const deliverabilityDoctorOperationSpec = defineOperationSpec({
 				"packages/automation/src/provider-operations.ts#executeDeliverabilityDoctorOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 

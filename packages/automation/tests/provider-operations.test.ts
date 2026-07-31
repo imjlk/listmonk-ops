@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	assertProviderDiagnosticOutputRedacted,
 	invokeDeliverabilityDnsCheckOperation,
 	invokeDeliverabilityDoctorOperation,
 	invokeProviderListOperation,
@@ -15,6 +16,7 @@ import {
 	loadProviderProfiles,
 	providerOperationCatalog,
 	providerConfigSchema,
+	ProviderCredentialLeakError,
 	providerProfileSchema,
 	type ProviderDnsResolver,
 	type ProviderInspector,
@@ -329,6 +331,73 @@ describe("provider and deliverability operations", () => {
 		});
 		expect(JSON.stringify(output)).not.toContain("aws:profile:newsletter");
 		expect(JSON.stringify(output)).not.toContain("secret_ref");
+	});
+
+	test("rejects credential material anywhere in provider diagnostic output", () => {
+		expect(() =>
+			assertProviderDiagnosticOutputRedacted(
+				{ checks: [{ details: { secret_ref: "hidden" } }] },
+				[],
+			),
+		).toThrow("forbidden field secret_ref");
+		expect(() =>
+			assertProviderDiagnosticOutputRedacted(
+				{ checks: [{ details: { accessToken: "hidden" } }] },
+				[],
+			),
+		).toThrow(ProviderCredentialLeakError);
+		expect(() =>
+			assertProviderDiagnosticOutputRedacted(
+				{ checks: [{ details: { "client-secret": "hidden" } }] },
+				[],
+			),
+		).toThrow("forbidden field client-secret");
+		expect(() =>
+			assertProviderDiagnosticOutputRedacted(
+				{ checks: [{ details: { token: "hidden" } }] },
+				[],
+			),
+		).toThrow("forbidden field token");
+		expect(() =>
+			assertProviderDiagnosticOutputRedacted(
+				{ checks: [{ details: { api_secret: "hidden" } }] },
+				[],
+			),
+		).toThrow("forbidden field api_secret");
+		expect(() =>
+			assertProviderDiagnosticOutputRedacted(
+				{ checks: [{ details: { passwd: "hidden" } }] },
+				[],
+			),
+		).toThrow("forbidden field passwd");
+		expect(() =>
+			assertProviderDiagnosticOutputRedacted(
+				{ error_message: "failed with aws:profile:newsletter" },
+				["aws:profile:newsletter"],
+			),
+		).toThrow("contains credential material");
+		expect(() =>
+			assertProviderDiagnosticOutputRedacted(
+				{ error_message: "failed with AWS:PROFILE:NEWSLETTER" },
+				["aws:profile:newsletter"],
+			),
+		).toThrow("contains credential material");
+		expect(() =>
+			assertProviderDiagnosticOutputRedacted(
+				{ error_code: "AKIAABCDEFGHIJKLMNOP" },
+				[],
+			),
+		).toThrow("contains credential material");
+		expect(() =>
+			assertProviderDiagnosticOutputRedacted(
+				{
+					credential_reference_configured: true,
+					smtp_credentials_bound: true,
+					dkim_tokens: ["public-selector"],
+				},
+				[],
+			),
+		).not.toThrow();
 	});
 
 	test("reports SES account, identity, quota, webhook, and DNS readiness", async () => {
@@ -732,12 +801,18 @@ describe("provider and deliverability operations", () => {
 	test("does not expose credential references through provider API failures", async () => {
 		const failingInspector: ProviderInspector = {
 			async inspectAccount() {
-				throw new Error(
-					"credential profile newsletter used AKIAABCDEFGHIJKLMNOP",
+				throw Object.assign(
+					new Error(
+						"credential profile newsletter used AKIAABCDEFGHIJKLMNOP",
+					),
+					{ name: "aws:profile:newsletter" },
 				);
 			},
 			async inspectIdentity() {
-				throw new Error("credential profile newsletter failed");
+				throw Object.assign(
+					new Error("credential profile newsletter failed"),
+					{ name: "AKIAABCDEFGHIJKLMNOP" },
+				);
 			},
 			close() {},
 		};
@@ -747,6 +822,7 @@ describe("provider and deliverability operations", () => {
 		);
 		expect(output.probe.authenticated).toBe(false);
 		expect(output.probe.error_message).toContain("provider inspection failed");
+		expect(output.probe.error_code).toBe("ProviderInspectionError");
 		expect(JSON.stringify(output)).not.toContain("newsletter");
 		expect(JSON.stringify(output)).not.toContain("AKIA");
 		expect(JSON.stringify(output)).not.toContain("aws:profile");

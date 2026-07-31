@@ -90,7 +90,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(23);
+		).toHaveLength(30);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -119,6 +119,32 @@ describe("email operations specification", () => {
 			stability: "experimental",
 			projection: { openWorld: true },
 		});
+		expect(providerOperationSpecs).toHaveLength(7);
+		expect(
+			providerOperationSpecs.every(
+				(operation) =>
+					operation.stability === "stable" &&
+					operation.contract.input.source === "typescript" &&
+					operation.contract.output.source === "typescript" &&
+					operation.effects.every((effect) => effect.kind === "read") &&
+					operation.retry.kind === "safe" &&
+					operation.projection.openWorld === true,
+			),
+		).toBe(true);
+		const providerContractJson = JSON.stringify(
+			providerOperationSpecs.map(({ contract }) => contract),
+		);
+		for (const forbiddenField of [
+			"access_key_id",
+			"api_key",
+			"authorization",
+			"password",
+			"secret_access_key",
+			"secret_ref",
+			"session_token",
+		]) {
+			expect(providerContractJson).not.toContain(`"${forbiddenField}"`);
+		}
 		expect(
 			subscribersListOperationSpec.contract.input.schema.required,
 		).toEqual([]);
