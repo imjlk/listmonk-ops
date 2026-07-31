@@ -279,7 +279,6 @@ export type OutboundWebhookDispatchErrorCode =
 
 type ReplayDeadLetterError = Readonly<{
 	deliveryId: string;
-	error: string;
 	errorCode: OutboundWebhookDispatchErrorCode;
 }>;
 
@@ -292,14 +291,12 @@ export type OutboundWebhookDispatchResultEntry =
 				"succeeded" | "retry" | "exhausted"
 			>;
 			statusCode?: number | undefined;
-			error?: string | undefined;
 			errorCode?: OutboundWebhookDispatchErrorCode | undefined;
 	  }>
 	| Readonly<{
 		deliveryId: string;
 		endpointId: string;
 		status: "skipped";
-		error: string;
 		errorCode: OutboundWebhookDispatchErrorCode;
 	  }>;
 
@@ -1420,7 +1417,6 @@ export async function replayOutboundWebhookDeadLetters(
 				if (!enabledEndpointIds.has(delivery.endpointId)) {
 					errors.push({
 						deliveryId: delivery.id,
-						error: `Delivery ${delivery.id} endpoint is missing or disabled`,
 						errorCode: "endpoint_unavailable",
 					});
 					continue;
@@ -1513,7 +1509,6 @@ export async function replayOutboundWebhookDeadLetters(
 			} else {
 				errors.push({
 					deliveryId: result.deliveryId,
-					error: result.error,
 					errorCode: result.errorCode,
 				});
 			}
@@ -2469,7 +2464,6 @@ export async function dispatchOutboundWebhooks(
 							deliveryId: entry.delivery.id,
 							endpointId: entry.delivery.endpointId,
 							status: "skipped" as const,
-							error: truncateOutboundWebhookError(error),
 							errorCode: "lease_conflict" as const,
 						};
 					}
@@ -2480,7 +2474,6 @@ export async function dispatchOutboundWebhooks(
 					endpointId: delivery.endpointId,
 					status: delivery.status as "succeeded" | "retry" | "exhausted",
 					statusCode: delivery.statusCode,
-					error: delivery.lastError,
 					errorCode: attempt.errorCode,
 				};
 			}),
