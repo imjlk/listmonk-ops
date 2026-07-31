@@ -718,31 +718,143 @@ Retry guidance: Retry transient reads; fix reported failures explicitly and reru
 
 ## List subscriber lists (`lists.list`)
 
-Contract maturity: `experimental`; effects: `read:list`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:list`; confirmation: `never`; retry: `safe`.
 
-Use when: Get subscriber lists from Listmonk
+Use when: Subscriber lists must be discovered or enumerated.
 
-Avoid when: A mutation or workflow transition is required instead of inspection.
+Avoid when: A specific subscriber list is already known by ID.
 
 Prerequisites: none
 
 Verify with: none
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Get subscriber list (`lists.get`)
 
-Contract maturity: `experimental`; effects: `read:list`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:list`; confirmation: `never`; retry: `safe`.
 
-Use when: Get a specific subscriber list by ID
+Use when: A subscriber list must be inspected by its numeric ID.
 
-Avoid when: A mutation or workflow transition is required instead of inspection.
+Avoid when: The subscriber-list ID is not known and discovery is required.
 
 Prerequisites: none
 
 Verify with: none
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## List subscribers (`subscribers.list`)
+
+Contract maturity: `stable`; effects: `read:subscriber`; confirmation: `never`; retry: `safe`.
+
+Use when: Subscribers must be searched, filtered, or enumerated.
+
+Avoid when: A specific subscriber is already known by ID.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## Get subscriber (`subscribers.get`)
+
+Contract maturity: `stable`; effects: `read:subscriber`; confirmation: `never`; retry: `safe`.
+
+Use when: A subscriber must be inspected by its numeric ID.
+
+Avoid when: The subscriber ID is not known and discovery is required.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## List campaigns (`campaigns.list`)
+
+Contract maturity: `stable`; effects: `read:campaign`; confirmation: `never`; retry: `safe`.
+
+Use when: Campaigns must be searched, filtered, or enumerated.
+
+Avoid when: A specific campaign is already known by ID.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## Get campaign stats (`campaigns.stats`)
+
+Contract maturity: `stable`; effects: `read:campaign`; confirmation: `never`; retry: `safe`.
+
+Use when: Delivery statistics for a campaign must be inspected.
+
+Avoid when: The full campaign representation or collection is required.
+
+Prerequisites: `campaigns.get`
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## List templates (`templates.list`)
+
+Contract maturity: `stable`; effects: `read:template`; confirmation: `never`; retry: `safe`.
+
+Use when: Templates must be discovered or enumerated.
+
+Avoid when: A specific template is already known by ID.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## Get template (`templates.get`)
+
+Contract maturity: `stable`; effects: `read:template`; confirmation: `never`; retry: `safe`.
+
+Use when: A template must be inspected by its numeric ID.
+
+Avoid when: The template ID is not known and discovery is required.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## List media (`media.list`)
+
+Contract maturity: `stable`; effects: `read:media`; confirmation: `never`; retry: `safe`.
+
+Use when: Uploaded media files must be discovered or enumerated.
+
+Avoid when: A specific media file is already known by ID.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## Get media file (`media.get`)
+
+Contract maturity: `stable`; effects: `read:media`; confirmation: `never`; retry: `safe`.
+
+Use when: An uploaded media file must be inspected by its numeric ID.
+
+Avoid when: The media-file ID is not known and discovery is required.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Create subscriber list (`lists.create`)
 
@@ -783,34 +895,6 @@ Avoid when: The target, intended side effect, or required confirmation has not b
 Prerequisites: `lists.get`
 
 Verify with: `lists.list`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## List subscribers (`subscribers.list`)
-
-Contract maturity: `experimental`; effects: `read:subscriber`; confirmation: `never`; retry: `safe`.
-
-Use when: Get subscribers from Listmonk
-
-Avoid when: A mutation or workflow transition is required instead of inspection.
-
-Prerequisites: none
-
-Verify with: none
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Get subscriber (`subscribers.get`)
-
-Contract maturity: `experimental`; effects: `read:subscriber`; confirmation: `never`; retry: `safe`.
-
-Use when: Get a subscriber by ID
-
-Avoid when: A mutation or workflow transition is required instead of inspection.
-
-Prerequisites: none
-
-Verify with: none
 
 Retry guidance: Retry identical transient failures with bounded backoff.
 
@@ -898,20 +982,6 @@ Verify with: `subscribers.get`
 
 Retry guidance: Retry identical transient failures with bounded backoff.
 
-## List campaigns (`campaigns.list`)
-
-Contract maturity: `experimental`; effects: `read:campaign`; confirmation: `never`; retry: `safe`.
-
-Use when: Get campaigns from Listmonk
-
-Avoid when: A mutation or workflow transition is required instead of inspection.
-
-Prerequisites: none
-
-Verify with: none
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
 ## Create campaign (`campaigns.create`)
 
 Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `unsafe`.
@@ -982,48 +1052,6 @@ Verify with: `campaigns.list`
 
 Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
 
-## Get campaign stats (`campaigns.stats`)
-
-Contract maturity: `experimental`; effects: `read:campaign`; confirmation: `never`; retry: `safe`.
-
-Use when: Read delivery stats (views, clicks, bounces, to_send, sent, started_at) for a campaign from Listmonk.
-
-Avoid when: A mutation or workflow transition is required instead of inspection.
-
-Prerequisites: `campaigns.get`
-
-Verify with: none
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## List templates (`templates.list`)
-
-Contract maturity: `experimental`; effects: `read:template`; confirmation: `never`; retry: `safe`.
-
-Use when: Get templates from Listmonk
-
-Avoid when: A mutation or workflow transition is required instead of inspection.
-
-Prerequisites: none
-
-Verify with: none
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Get template (`templates.get`)
-
-Contract maturity: `experimental`; effects: `read:template`; confirmation: `never`; retry: `safe`.
-
-Use when: Get a template by ID
-
-Avoid when: A mutation or workflow transition is required instead of inspection.
-
-Prerequisites: none
-
-Verify with: none
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
 ## Create template (`templates.create`)
 
 Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `unsafe`.
@@ -1077,34 +1105,6 @@ Avoid when: The target, intended side effect, or required confirmation has not b
 Prerequisites: `templates.get`
 
 Verify with: `templates.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## List media (`media.list`)
-
-Contract maturity: `experimental`; effects: `read:media`; confirmation: `never`; retry: `safe`.
-
-Use when: Get uploaded media files from Listmonk
-
-Avoid when: A mutation or workflow transition is required instead of inspection.
-
-Prerequisites: none
-
-Verify with: none
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Get media file (`media.get`)
-
-Contract maturity: `experimental`; effects: `read:media`; confirmation: `never`; retry: `safe`.
-
-Use when: Get an uploaded media file by ID
-
-Avoid when: A mutation or workflow transition is required instead of inspection.
-
-Prerequisites: none
-
-Verify with: none
 
 Retry guidance: Retry identical transient failures with bounded backoff.
 

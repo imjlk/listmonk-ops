@@ -626,11 +626,11 @@ Get subscriber lists from Listmonk
 
 - Resource / verb: `list.list`
 - MCP tool: `listmonk_get_lists`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `read:list`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `lists.get`
 
@@ -638,11 +638,107 @@ Get a specific subscriber list by ID
 
 - Resource / verb: `list.get`
 - MCP tool: `listmonk_get_list`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `read:list`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
+
+## `subscribers.list`
+
+Get subscribers from Listmonk
+
+- Resource / verb: `subscriber.list`
+- MCP tool: `listmonk_get_subscribers`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:subscriber`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.9.0`
+
+## `subscribers.get`
+
+Get a subscriber by ID
+
+- Resource / verb: `subscriber.get`
+- MCP tool: `listmonk_get_subscriber`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:subscriber`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.9.0`
+
+## `campaigns.list`
+
+Get campaigns from Listmonk
+
+- Resource / verb: `campaign.list`
+- MCP tool: `listmonk_get_campaigns`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:campaign`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.9.0`
+
+## `campaigns.stats`
+
+Read delivery stats (views, clicks, bounces, to_send, sent, started_at) for a campaign from Listmonk.
+
+- Resource / verb: `campaign.stats`
+- MCP tool: `listmonk_get_campaign_stats`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:campaign`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.9.0`
+
+## `templates.list`
+
+Get templates from Listmonk
+
+- Resource / verb: `template.list`
+- MCP tool: `listmonk_get_templates`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:template`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.9.0`
+
+## `templates.get`
+
+Get a template by ID
+
+- Resource / verb: `template.get`
+- MCP tool: `listmonk_get_template`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:template`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.9.0`
+
+## `media.list`
+
+Get uploaded media files from Listmonk
+
+- Resource / verb: `media.list`
+- MCP tool: `listmonk_get_media`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:media`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.9.0`
+
+## `media.get`
+
+Get an uploaded media file by ID
+
+- Resource / verb: `media.get`
+- MCP tool: `listmonk_get_media_file`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:media`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `stable` since `0.9.0`
 
 ## `lists.create`
 
@@ -677,30 +773,6 @@ Delete a subscriber list
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `delete:list`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `subscribers.list`
-
-Get subscribers from Listmonk
-
-- Resource / verb: `subscriber.list`
-- MCP tool: `listmonk_get_subscribers`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `read:subscriber`
-- Policy: confirmation `never`, audit `optional`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `subscribers.get`
-
-Get a subscriber by ID
-
-- Resource / verb: `subscriber.get`
-- MCP tool: `listmonk_get_subscriber`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `read:subscriber`
-- Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
@@ -776,18 +848,6 @@ Remove a batch of subscribers from the blocklist. Processes subscribers in chunk
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
-## `campaigns.list`
-
-Get campaigns from Listmonk
-
-- Resource / verb: `campaign.list`
-- MCP tool: `listmonk_get_campaigns`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `read:campaign`
-- Policy: confirmation `never`, audit `optional`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
 ## `campaigns.create`
 
 Create a campaign in Listmonk
@@ -849,42 +909,6 @@ Create a new campaign by copying the body, lists, template, and metadata of an e
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
 
-## `campaigns.stats`
-
-Read delivery stats (views, clicks, bounces, to_send, sent, started_at) for a campaign from Listmonk.
-
-- Resource / verb: `campaign.stats`
-- MCP tool: `listmonk_get_campaign_stats`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `read:campaign`
-- Policy: confirmation `never`, audit `optional`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `templates.list`
-
-Get templates from Listmonk
-
-- Resource / verb: `template.list`
-- MCP tool: `listmonk_get_templates`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `read:template`
-- Policy: confirmation `never`, audit `optional`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `templates.get`
-
-Get a template by ID
-
-- Resource / verb: `template.get`
-- MCP tool: `listmonk_get_template`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `read:template`
-- Policy: confirmation `never`, audit `optional`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
 ## `templates.create`
 
 Create a template in Listmonk
@@ -930,30 +954,6 @@ Set a template as the Listmonk default
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `write:template`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `media.list`
-
-Get uploaded media files from Listmonk
-
-- Resource / verb: `media.list`
-- MCP tool: `listmonk_get_media`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `read:media`
-- Policy: confirmation `never`, audit `optional`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `media.get`
-
-Get an uploaded media file by ID
-
-- Resource / verb: `media.get`
-- MCP tool: `listmonk_get_media_file`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `read:media`
-- Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 

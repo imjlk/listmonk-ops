@@ -2,6 +2,7 @@ export * from "./agent";
 export * from "./additional-playbooks";
 export * from "./bridged";
 export * from "./coverage";
+export * from "./core-reads";
 export * from "./discovery";
 export * from "./effect";
 export * from "./event";

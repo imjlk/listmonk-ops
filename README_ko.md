@@ -415,7 +415,7 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-51개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 나머지 51개는
+61개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 나머지 41개는
 generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계의
 커밋된 snapshot을 브릿지로 사용하며 명시적으로 `experimental`입니다.
 따라서 upstream API 변경은 먼저 generated transport와 handwritten adapter에서
@@ -423,12 +423,15 @@ generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계�
 변경합니다. 정적 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면
 거부합니다.
 
-검토를 마친 핵심 7개 Operation인 `campaigns.get`,
-`campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
-`subscribers.blocklist`, `transactional.send`,
-`ops.campaign.preflight`는 `stable`입니다. 이들의 계약과 정책 의미는
-승인된 compatibility baseline과 비교합니다. 나머지 95개 descriptor는 제품
-계약과 동작이 더 성숙할 때까지 experimental로 유지합니다.
+검토를 마친 핵심 17개 Operation은 `stable`입니다. 기존
+`campaigns.get`, `campaigns.schedule`, `campaigns.start`,
+`campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
+`ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
+`lists.get`, `subscribers.list`, `subscribers.get`, `campaigns.list`,
+`campaigns.stats`, `templates.list`, `templates.get`, `media.list`,
+`media.get`이 추가됐습니다. 이들의 계약과 정책 의미는 승인된 compatibility
+baseline과 비교합니다. 나머지 85개 descriptor는 제품 계약과 동작이 더
+성숙할 때까지 experimental로 유지합니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run` 네 가지 타입드 플레이북을
@@ -441,11 +444,11 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 102개 전체, API 경계 규칙, 51개 governed runtime bridge, 7개
+Operation 102개 전체, API 경계 규칙, 41개 governed runtime bridge, 17개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 306개를
 검증합니다.
 
-51개 bridge Operation 중 하나의 정규화 Zod 경계가 바뀌면 workspace를
+41개 bridge Operation 중 하나의 정규화 Zod 경계가 바뀌면 workspace를
 빌드한 뒤 `bun run operations:specs:runtime-contracts:generate`를 실행하고,
 커밋될 snapshot diff를 검토한 다음 Spec 산출물을 다시 생성하세요. 일반
 CLI/MCP 시작은 runtime contract와 snapshot이 다르면 계속 fail-closed로

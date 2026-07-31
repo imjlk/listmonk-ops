@@ -1,5 +1,9 @@
 import type { ListmonkClient, Template } from "@listmonk-ops/openapi";
-import { bindBridgedOperationSpec } from "./specs";
+import {
+	bindBridgedOperationSpec,
+	bindTemplatesGetOperationSpec,
+	bindTemplatesListOperationSpec,
+} from "./specs";
 import { z } from "zod";
 import {
 	createResourceSafety,
@@ -53,7 +57,7 @@ const templateIdInputSchema = z.object({
 const templateListInputSchema = z.object({
 	page: z.coerce.number().int().positive().default(1),
 	per_page: z.coerce.number().int().positive().default(20),
-	no_body: optionalBooleanSchema,
+	no_body: optionalBooleanSchema.optional(),
 });
 
 const createTemplateInputSchema = z.object({
@@ -269,7 +273,7 @@ export const getTemplatesOperation = defineOperation({
 	outputSchema: templateListOutputSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_templates", legacySuccessText: jsonResourceValue },
-	spec: bindBridgedOperationSpec("templates.list"),
+	spec: bindTemplatesListOperationSpec(),
 	execute: listTemplates,
 });
 
@@ -281,7 +285,7 @@ export const getTemplateOperation = defineOperation({
 	outputSchema: templateSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_template", legacySuccessText: jsonResourceValue },
-	spec: bindBridgedOperationSpec("templates.get"),
+	spec: bindTemplatesGetOperationSpec(),
 	execute: getTemplate,
 });
 

@@ -9,6 +9,7 @@ import {
 	templateSafePromotePlaybook,
 } from "./additional-playbooks";
 import { bridgedOperationSpecs } from "./bridged";
+import { coreReadOperationSpecs } from "./core-reads";
 import {
 	controlResource,
 	discoveryOperationSpecs,
@@ -44,6 +45,7 @@ export const operationSpecs = [
 	...webhookOperationSpecs,
 	...sequenceOperationSpecs,
 	...providerOperationSpecs,
+	...coreReadOperationSpecs,
 	...bridgedOperationSpecs,
 ] as const;
 

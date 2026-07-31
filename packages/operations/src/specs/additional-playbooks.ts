@@ -1,4 +1,5 @@
 import { bridgedOperationSpecsById } from "./bridged";
+import { templatesGetOperationSpec } from "./core-reads";
 import {
 	campaignGetOperationSpec,
 	campaignScheduleOperationSpec,
@@ -208,7 +209,7 @@ export const templateSafePromotePlaybook = defineOperationPlaybook({
 		},
 		{
 			id: "verify",
-			operation: bridgedOperationSpecsById["templates.get"].id,
+			operation: templatesGetOperationSpec.id,
 			approval: "none",
 			description: "Re-read the remote template after promotion.",
 			dependsOn: ["promote"],
@@ -220,7 +221,7 @@ export const templateSafePromotePlaybook = defineOperationPlaybook({
 			],
 		},
 	],
-	recoveryOperation: bridgedOperationSpecsById["templates.get"].id,
+	recoveryOperation: templatesGetOperationSpec.id,
 });
 
 export const abTestSafeRunPlaybook = defineOperationPlaybook({

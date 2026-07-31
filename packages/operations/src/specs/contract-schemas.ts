@@ -6,6 +6,21 @@ import type { NormalizedContractSchema } from "./json";
 const contracts = generatedContractSchemas as unknown as Readonly<{
 	campaignGetInputContract: NormalizedContractSchema;
 	campaignGetOutputContract: NormalizedContractSchema;
+	paginationInputContract: NormalizedContractSchema;
+	resourceIdInputContract: NormalizedContractSchema;
+	subscriberListRecordContract: NormalizedContractSchema;
+	subscriberListCollectionOutputContract: NormalizedContractSchema;
+	subscriberRecordContract: NormalizedContractSchema;
+	subscriberListInputContract: NormalizedContractSchema;
+	subscriberCollectionOutputContract: NormalizedContractSchema;
+	campaignListInputContract: NormalizedContractSchema;
+	campaignCollectionOutputContract: NormalizedContractSchema;
+	campaignStatsOutputContract: NormalizedContractSchema;
+	templateRecordContract: NormalizedContractSchema;
+	templateListInputContract: NormalizedContractSchema;
+	templateCollectionOutputContract: NormalizedContractSchema;
+	mediaRecordContract: NormalizedContractSchema;
+	mediaCollectionOutputContract: NormalizedContractSchema;
 	campaignLifecycleInputContract: NormalizedContractSchema;
 	campaignLifecycleOutputContract: NormalizedContractSchema;
 	campaignPreflightInputContract: NormalizedContractSchema;
@@ -95,6 +110,29 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
 export const campaignGetOutputContract = contracts.campaignGetOutputContract;
+export const paginationInputContract = contracts.paginationInputContract;
+export const resourceIdInputContract = contracts.resourceIdInputContract;
+export const subscriberListRecordContract =
+	contracts.subscriberListRecordContract;
+export const subscriberListCollectionOutputContract =
+	contracts.subscriberListCollectionOutputContract;
+export const subscriberRecordContract = contracts.subscriberRecordContract;
+export const subscriberListInputContract =
+	contracts.subscriberListInputContract;
+export const subscriberCollectionOutputContract =
+	contracts.subscriberCollectionOutputContract;
+export const campaignListInputContract = contracts.campaignListInputContract;
+export const campaignCollectionOutputContract =
+	contracts.campaignCollectionOutputContract;
+export const campaignStatsOutputContract =
+	contracts.campaignStatsOutputContract;
+export const templateRecordContract = contracts.templateRecordContract;
+export const templateListInputContract = contracts.templateListInputContract;
+export const templateCollectionOutputContract =
+	contracts.templateCollectionOutputContract;
+export const mediaRecordContract = contracts.mediaRecordContract;
+export const mediaCollectionOutputContract =
+	contracts.mediaCollectionOutputContract;
 export const campaignLifecycleInputContract =
 	contracts.campaignLifecycleInputContract;
 export const campaignLifecycleOutputContract =

@@ -87,7 +87,11 @@ describe("operation catalog", () => {
 		expect(first?.spec).toMatchObject({
 			id: "lists.list",
 			resource: "list",
-			stability: "experimental",
+			stability: "stable",
+			contract: {
+				input: { source: "typescript" },
+				output: { source: "typescript" },
+			},
 		});
 		expect(first?.specMigration).toBeUndefined();
 	});
@@ -151,16 +155,18 @@ describe("operation catalog", () => {
 	});
 
 	test("enforces runtime contracts when a consumer composes catalogs", () => {
-		const firstListOperation = listOperations[0];
-		if (!firstListOperation || firstListOperation.spec === undefined) {
-			throw new Error("expected a described list operation");
+		const createListOperation = listOperations.find(
+			(operation) => operation.id === "lists.create",
+		);
+		if (!createListOperation || createListOperation.spec === undefined) {
+			throw new Error("expected a bridged list operation");
 		}
 		const driftedCatalog = defineOperationCatalog({
 			id: "drifted-list",
 			title: "Drifted list",
 			operations: [
 				{
-					...firstListOperation,
+					...createListOperation,
 					inputJsonSchema: { type: "object", properties: {} },
 				},
 			],

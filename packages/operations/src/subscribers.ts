@@ -2,6 +2,8 @@ import type { ListmonkClient, Subscriber } from "@listmonk-ops/openapi";
 import {
 	bindBridgedOperationSpec,
 	bindSubscriberBlocklistOperationSpec,
+	bindSubscribersGetOperationSpec,
+	bindSubscribersListOperationSpec,
 } from "./specs";
 import { z } from "zod";
 import {
@@ -81,7 +83,7 @@ const subscriberListInputSchema = z.object({
 	per_page: z.union([z.coerce.number().int().positive(), z.literal("all")]).default(
 		20,
 	),
-	list_id: subscriberListIdSchema,
+	list_id: subscriberListIdSchema.optional(),
 	query: z.string().trim().optional(),
 	order_by: subscriberOrderBySchema.optional(),
 	order: subscriberOrderSchema.optional(),
@@ -449,7 +451,7 @@ export const getSubscribersOperation = defineOperation({
 		name: "listmonk_get_subscribers",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("subscribers.list"),
+	spec: bindSubscribersListOperationSpec(),
 	execute: listSubscribers,
 });
 
@@ -461,7 +463,7 @@ export const getSubscriberOperation = defineOperation({
 	outputSchema: subscriberSchema,
 	safety: readResourceSafety,
 	mcp: { name: "listmonk_get_subscriber", legacySuccessText: jsonResourceValue },
-	spec: bindBridgedOperationSpec("subscribers.get"),
+	spec: bindSubscribersGetOperationSpec(),
 	execute: getSubscriber,
 });
 

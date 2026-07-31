@@ -15203,32 +15203,126 @@
     {
       "id": "lists.list",
       "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "page": {
-              "default": 1,
-              "description": "Page number for pagination",
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
+        "components": {
+          "schemas": {
+            "PaginationInput": {
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "One-based result page. Omitted values use the shared operation default."
+                },
+                "per_page": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "Number of records per page. Omitted values use the shared operation default."
+                }
+              },
+              "required": [],
+              "type": "object"
             },
-            "per_page": {
-              "default": 20,
-              "description": "Number of items per page",
-              "exclusiveMinimum": 0,
+            "PositiveInteger": {
               "maximum": 9007199254740991,
+              "minimum": 1,
               "type": "integer"
             }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "One-based result page. Omitted values use the shared operation default."
+            },
+            "per_page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Number of records per page. Omitted values use the shared operation default."
+            }
           },
+          "required": [],
           "type": "object"
         },
-        "source": "runtime-operation",
+        "source": "typescript",
         "stage": "normalized"
       },
       "output": {
-        "components": {},
+        "components": {
+          "schemas": {
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "SubscriberListCollectionOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "number"
+                },
+                "per_page": {
+                  "type": "number"
+                },
+                "results": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubscriberListRecord"
+                  },
+                  "type": "array"
+                },
+                "total": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "results",
+                "total",
+                "per_page",
+                "page"
+              ],
+              "type": "object"
+            },
+            "SubscriberListRecord": {
+              "additionalProperties": {},
+              "properties": {
+                "created_at": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "optin": {
+                  "type": "string"
+                },
+                "subscriber_count": {
+                  "type": "number"
+                },
+                "tags": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string"
+                },
+                "uuid": {
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
         "dialect": "openapi-3.1",
         "schema": {
           "additionalProperties": false,
@@ -15241,43 +15335,7 @@
             },
             "results": {
               "items": {
-                "additionalProperties": {},
-                "properties": {
-                  "created_at": {
-                    "type": "string"
-                  },
-                  "description": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "type": "number"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "optin": {
-                    "type": "string"
-                  },
-                  "subscriber_count": {
-                    "type": "number"
-                  },
-                  "tags": {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  "type": {
-                    "type": "string"
-                  },
-                  "updated_at": {
-                    "type": "string"
-                  },
-                  "uuid": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/SubscriberListRecord"
               },
               "type": "array"
             },
@@ -15293,7 +15351,7 @@
           ],
           "type": "object"
         },
-        "source": "runtime-operation",
+        "source": "typescript",
         "stage": "normalized"
       },
       "policy": {
@@ -15303,31 +15361,43 @@
       },
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
+        "reason": "The operation only reads the current subscriber-list collection."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "lists.get",
       "input": {
-        "components": {},
+        "components": {
+          "schemas": {
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceIdInput": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Positive Listmonk resource ID."
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        },
         "dialect": "openapi-3.1",
         "schema": {
+          "additionalProperties": false,
           "properties": {
             "id": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991,
-                  "type": "integer"
-                },
-                {
-                  "pattern": "^[1-9][0-9]*$",
-                  "type": "string"
-                }
-              ],
-              "description": "Subscriber list ID"
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
             }
           },
           "required": [
@@ -15335,11 +15405,59 @@
           ],
           "type": "object"
         },
-        "source": "runtime-operation",
+        "source": "typescript",
         "stage": "normalized"
       },
       "output": {
-        "components": {},
+        "components": {
+          "schemas": {
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "SubscriberListRecord": {
+              "additionalProperties": {},
+              "properties": {
+                "created_at": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "optin": {
+                  "type": "string"
+                },
+                "subscriber_count": {
+                  "type": "number"
+                },
+                "tags": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string"
+                },
+                "uuid": {
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
         "dialect": "openapi-3.1",
         "schema": {
           "additionalProperties": {},
@@ -15351,7 +15469,7 @@
               "type": "string"
             },
             "id": {
-              "type": "number"
+              "$ref": "#/components/schemas/ResourceId"
             },
             "name": {
               "type": "string"
@@ -15378,9 +15496,10 @@
               "type": "string"
             }
           },
+          "required": [],
           "type": "object"
         },
-        "source": "runtime-operation",
+        "source": "typescript",
         "stage": "normalized"
       },
       "policy": {
@@ -15390,10 +15509,1746 @@
       },
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
+        "reason": "The operation only reads the current subscriber-list representation."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
+    },
+    {
+      "id": "subscribers.list",
+      "input": {
+        "components": {
+          "schemas": {
+            "NonEmptyString": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "SubscriberListInput": {
+              "additionalProperties": false,
+              "properties": {
+                "list_id": {
+                  "description": "List filter normalized by the shared operation boundary. An empty array\nselects subscribers without restricting the source list.",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "type": "array"
+                },
+                "order": {
+                  "oneOf": [
+                    {
+                      "const": "ASC"
+                    },
+                    {
+                      "const": "DESC"
+                    }
+                  ]
+                },
+                "order_by": {
+                  "oneOf": [
+                    {
+                      "const": "created_at"
+                    },
+                    {
+                      "const": "name"
+                    },
+                    {
+                      "const": "status"
+                    },
+                    {
+                      "const": "updated_at"
+                    }
+                  ]
+                },
+                "page": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "One-based result page. Omitted values use the shared operation default."
+                },
+                "per_page": {
+                  "description": "Number of records per page, or all records.",
+                  "oneOf": [
+                    {
+                      "const": "all"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PositiveInteger"
+                    }
+                  ]
+                },
+                "query": {
+                  "type": "string"
+                },
+                "subscription_status": {
+                  "$ref": "#/components/schemas/NonEmptyString"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "list_id": {
+              "description": "List filter normalized by the shared operation boundary. An empty array\nselects subscribers without restricting the source list.",
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "order": {
+              "oneOf": [
+                {
+                  "const": "ASC"
+                },
+                {
+                  "const": "DESC"
+                }
+              ]
+            },
+            "order_by": {
+              "oneOf": [
+                {
+                  "const": "created_at"
+                },
+                {
+                  "const": "name"
+                },
+                {
+                  "const": "status"
+                },
+                {
+                  "const": "updated_at"
+                }
+              ]
+            },
+            "page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "One-based result page. Omitted values use the shared operation default."
+            },
+            "per_page": {
+              "description": "Number of records per page, or all records.",
+              "oneOf": [
+                {
+                  "const": "all"
+                },
+                {
+                  "$ref": "#/components/schemas/PositiveInteger"
+                }
+              ]
+            },
+            "query": {
+              "type": "string"
+            },
+            "subscription_status": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "Recordstringunknown": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "SubscriberCollectionOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "number"
+                },
+                "per_page": {
+                  "type": "number"
+                },
+                "results": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubscriberRecord"
+                  },
+                  "type": "array"
+                },
+                "total": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "results",
+                "total",
+                "per_page",
+                "page"
+              ],
+              "type": "object"
+            },
+            "SubscriberRecord": {
+              "additionalProperties": {},
+              "properties": {
+                "attribs": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "lists": {
+                  "items": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "type": "array"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string"
+                },
+                "uuid": {
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "type": "number"
+            },
+            "per_page": {
+              "type": "number"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/SubscriberRecord"
+              },
+              "type": "array"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "results",
+            "total",
+            "per_page",
+            "page"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads a filtered subscriber collection."
+      },
+      "since": "0.9.0",
+      "stability": "stable"
+    },
+    {
+      "id": "subscribers.get",
+      "input": {
+        "components": {
+          "schemas": {
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceIdInput": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Positive Listmonk resource ID."
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "Recordstringunknown": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "SubscriberRecord": {
+              "additionalProperties": {},
+              "properties": {
+                "attribs": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "lists": {
+                  "items": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "type": "array"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string"
+                },
+                "uuid": {
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": {},
+          "properties": {
+            "attribs": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "type": "array"
+            },
+            "name": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "updated_at": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current subscriber representation."
+      },
+      "since": "0.9.0",
+      "stability": "stable"
+    },
+    {
+      "id": "campaigns.list",
+      "input": {
+        "components": {
+          "schemas": {
+            "CampaignListInput": {
+              "additionalProperties": false,
+              "properties": {
+                "no_body": {
+                  "type": "boolean"
+                },
+                "order": {
+                  "oneOf": [
+                    {
+                      "const": "ASC"
+                    },
+                    {
+                      "const": "DESC"
+                    }
+                  ]
+                },
+                "order_by": {
+                  "oneOf": [
+                    {
+                      "const": "created_at"
+                    },
+                    {
+                      "const": "name"
+                    },
+                    {
+                      "const": "status"
+                    },
+                    {
+                      "const": "updated_at"
+                    }
+                  ]
+                },
+                "page": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "One-based result page. Omitted values use the shared operation default."
+                },
+                "per_page": {
+                  "description": "Number of records per page, or all records.",
+                  "oneOf": [
+                    {
+                      "const": "all"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PositiveInteger"
+                    }
+                  ]
+                },
+                "query": {
+                  "type": "string"
+                },
+                "status": {
+                  "items": {
+                    "oneOf": [
+                      {
+                        "const": "cancelled"
+                      },
+                      {
+                        "const": "draft"
+                      },
+                      {
+                        "const": "finished"
+                      },
+                      {
+                        "const": "paused"
+                      },
+                      {
+                        "const": "running"
+                      },
+                      {
+                        "const": "scheduled"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                },
+                "tags": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "no_body": {
+              "type": "boolean"
+            },
+            "order": {
+              "oneOf": [
+                {
+                  "const": "ASC"
+                },
+                {
+                  "const": "DESC"
+                }
+              ]
+            },
+            "order_by": {
+              "oneOf": [
+                {
+                  "const": "created_at"
+                },
+                {
+                  "const": "name"
+                },
+                {
+                  "const": "status"
+                },
+                {
+                  "const": "updated_at"
+                }
+              ]
+            },
+            "page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "One-based result page. Omitted values use the shared operation default."
+            },
+            "per_page": {
+              "description": "Number of records per page, or all records.",
+              "oneOf": [
+                {
+                  "const": "all"
+                },
+                {
+                  "$ref": "#/components/schemas/PositiveInteger"
+                }
+              ]
+            },
+            "query": {
+              "type": "string"
+            },
+            "status": {
+              "items": {
+                "oneOf": [
+                  {
+                    "const": "cancelled"
+                  },
+                  {
+                    "const": "draft"
+                  },
+                  {
+                    "const": "finished"
+                  },
+                  {
+                    "const": "paused"
+                  },
+                  {
+                    "const": "running"
+                  },
+                  {
+                    "const": "scheduled"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "CampaignCollectionOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "number"
+                },
+                "per_page": {
+                  "type": "number"
+                },
+                "results": {
+                  "items": {
+                    "$ref": "#/components/schemas/CampaignGetOutput"
+                  },
+                  "type": "array"
+                },
+                "total": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "results",
+                "total",
+                "per_page",
+                "page"
+              ],
+              "type": "object"
+            },
+            "CampaignGetOutput": {
+              "additionalProperties": {},
+              "properties": {
+                "altbody": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "archive": {
+                  "type": "boolean"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "body_source": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "bounces": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "clicks": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "content_type": {
+                  "oneOf": [
+                    {
+                      "const": "html"
+                    },
+                    {
+                      "const": "markdown"
+                    },
+                    {
+                      "const": "plain"
+                    },
+                    {
+                      "const": "richtext"
+                    },
+                    {
+                      "const": "visual"
+                    }
+                  ]
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "from_email": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "lists": {
+                  "items": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "type": "array"
+                },
+                "media": {
+                  "items": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "type": "array"
+                },
+                "messenger": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "send_at": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "sent": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "started_at": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "tags": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "template_id": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ResourceId"
+                    }
+                  ]
+                },
+                "to_send": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "type": {
+                  "oneOf": [
+                    {
+                      "const": "optin"
+                    },
+                    {
+                      "const": "regular"
+                    }
+                  ]
+                },
+                "updated_at": {
+                  "type": "string"
+                },
+                "uuid": {
+                  "type": "string"
+                },
+                "views": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "Recordstringunknown": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "type": "number"
+            },
+            "per_page": {
+              "type": "number"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/CampaignGetOutput"
+              },
+              "type": "array"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "results",
+            "total",
+            "per_page",
+            "page"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads a filtered campaign collection."
+      },
+      "since": "0.9.0",
+      "stability": "stable"
+    },
+    {
+      "id": "campaigns.stats",
+      "input": {
+        "components": {
+          "schemas": {
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceIdInput": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Positive Listmonk resource ID."
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "CampaignStatsOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "bounces": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "clicks": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "sent": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "started_at": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "to_send": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "views": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "bounces": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "clicks": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "sent": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "started_at": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "to_send": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "views": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current campaign statistics."
+      },
+      "since": "0.9.0",
+      "stability": "stable"
+    },
+    {
+      "id": "templates.list",
+      "input": {
+        "components": {
+          "schemas": {
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "TemplateListInput": {
+              "additionalProperties": false,
+              "properties": {
+                "no_body": {
+                  "description": "Omit template bodies from collection responses.",
+                  "type": "boolean"
+                },
+                "page": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "One-based result page. Omitted values use the shared operation default."
+                },
+                "per_page": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "Number of records per page. Omitted values use the shared operation default."
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "no_body": {
+              "description": "Omit template bodies from collection responses.",
+              "type": "boolean"
+            },
+            "page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "One-based result page. Omitted values use the shared operation default."
+            },
+            "per_page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Number of records per page. Omitted values use the shared operation default."
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "TemplateCollectionOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "number"
+                },
+                "per_page": {
+                  "type": "number"
+                },
+                "results": {
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateRecord"
+                  },
+                  "type": "array"
+                },
+                "total": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "results",
+                "total",
+                "per_page",
+                "page"
+              ],
+              "type": "object"
+            },
+            "TemplateRecord": {
+              "additionalProperties": {},
+              "properties": {
+                "body": {
+                  "type": "string"
+                },
+                "body_source": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "is_default": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "type": "number"
+            },
+            "per_page": {
+              "type": "number"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/TemplateRecord"
+              },
+              "type": "array"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "results",
+            "total",
+            "per_page",
+            "page"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current template collection."
+      },
+      "since": "0.9.0",
+      "stability": "stable"
+    },
+    {
+      "id": "templates.get",
+      "input": {
+        "components": {
+          "schemas": {
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceIdInput": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Positive Listmonk resource ID."
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "TemplateRecord": {
+              "additionalProperties": {},
+              "properties": {
+                "body": {
+                  "type": "string"
+                },
+                "body_source": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "is_default": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": {},
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "body_source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "is_default": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "updated_at": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current template representation."
+      },
+      "since": "0.9.0",
+      "stability": "stable"
+    },
+    {
+      "id": "media.list",
+      "input": {
+        "components": {
+          "schemas": {
+            "PaginationInput": {
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "One-based result page. Omitted values use the shared operation default."
+                },
+                "per_page": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "Number of records per page. Omitted values use the shared operation default."
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "One-based result page. Omitted values use the shared operation default."
+            },
+            "per_page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Number of records per page. Omitted values use the shared operation default."
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "MediaCollectionOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "number"
+                },
+                "per_page": {
+                  "type": "number"
+                },
+                "results": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaRecord"
+                  },
+                  "type": "array"
+                },
+                "total": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "results",
+                "total",
+                "per_page",
+                "page"
+              ],
+              "type": "object"
+            },
+            "MediaRecord": {
+              "additionalProperties": {},
+              "properties": {
+                "content_type": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "filename": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "meta": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "thumb_uri": {
+                  "type": "string"
+                },
+                "thumb_url": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "uuid": {
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "Recordstringunknown": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "type": "number"
+            },
+            "per_page": {
+              "type": "number"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/MediaRecord"
+              },
+              "type": "array"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "results",
+            "total",
+            "per_page",
+            "page"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current media collection."
+      },
+      "since": "0.9.0",
+      "stability": "stable"
+    },
+    {
+      "id": "media.get",
+      "input": {
+        "components": {
+          "schemas": {
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceIdInput": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Positive Listmonk resource ID."
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "MediaRecord": {
+              "additionalProperties": {},
+              "properties": {
+                "content_type": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "filename": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "meta": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "thumb_uri": {
+                  "type": "string"
+                },
+                "thumb_url": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "uuid": {
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "Recordstringunknown": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": {},
+          "properties": {
+            "content_type": {
+              "type": "string"
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "filename": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "meta": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "provider": {
+              "type": "string"
+            },
+            "thumb_uri": {
+              "type": "string"
+            },
+            "thumb_url": {
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current media-file representation."
+      },
+      "since": "0.9.0",
+      "stability": "stable"
     },
     {
       "id": "lists.create",
@@ -15460,7 +17315,9 @@
               "type": "string"
             },
             "id": {
-              "type": "number"
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
             },
             "name": {
               "type": "string"
@@ -15579,7 +17436,9 @@
               "type": "string"
             },
             "id": {
-              "type": "number"
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
             },
             "name": {
               "type": "string"
@@ -15680,260 +17539,6 @@
       "policy": {
         "audit": "required",
         "confirmation": "required",
-        "dryRun": false
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
-      "id": "subscribers.list",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "list_id": {
-              "items": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              },
-              "type": "array"
-            },
-            "order": {
-              "enum": [
-                "ASC",
-                "DESC"
-              ],
-              "type": "string"
-            },
-            "order_by": {
-              "enum": [
-                "name",
-                "status",
-                "created_at",
-                "updated_at"
-              ],
-              "type": "string"
-            },
-            "page": {
-              "default": 1,
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            },
-            "per_page": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991,
-                  "type": "integer"
-                },
-                {
-                  "const": "all",
-                  "type": "string"
-                }
-              ],
-              "default": 20
-            },
-            "query": {
-              "type": "string"
-            },
-            "subscription_status": {
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          "required": [
-            "list_id"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": false,
-          "properties": {
-            "page": {
-              "type": "number"
-            },
-            "per_page": {
-              "type": "number"
-            },
-            "results": {
-              "items": {
-                "additionalProperties": {},
-                "properties": {
-                  "attribs": {
-                    "additionalProperties": {},
-                    "propertyNames": {
-                      "type": "string"
-                    },
-                    "type": "object"
-                  },
-                  "created_at": {
-                    "type": "string"
-                  },
-                  "email": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  "lists": {
-                    "items": {
-                      "additionalProperties": {},
-                      "properties": {},
-                      "type": "object"
-                    },
-                    "type": "array"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "status": {
-                    "type": "string"
-                  },
-                  "updated_at": {
-                    "type": "string"
-                  },
-                  "uuid": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              },
-              "type": "array"
-            },
-            "total": {
-              "type": "number"
-            }
-          },
-          "required": [
-            "results",
-            "total",
-            "per_page",
-            "page"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "optional",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
-      "id": "subscribers.get",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "id": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991,
-                  "type": "integer"
-                },
-                {
-                  "pattern": "^[1-9][0-9]*$",
-                  "type": "string"
-                }
-              ],
-              "description": "Listmonk resource ID"
-            }
-          },
-          "required": [
-            "id"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": {},
-          "properties": {
-            "attribs": {
-              "additionalProperties": {},
-              "propertyNames": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            "created_at": {
-              "type": "string"
-            },
-            "email": {
-              "type": "string"
-            },
-            "id": {
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            },
-            "lists": {
-              "items": {
-                "additionalProperties": {},
-                "properties": {},
-                "type": "object"
-              },
-              "type": "array"
-            },
-            "name": {
-              "type": "string"
-            },
-            "status": {
-              "type": "string"
-            },
-            "updated_at": {
-              "type": "string"
-            },
-            "uuid": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "optional",
-        "confirmation": "never",
         "dryRun": false
       },
       "retry": {
@@ -16608,305 +18213,6 @@
         "audit": "required",
         "confirmation": "never",
         "dryRun": true
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
-      "id": "campaigns.list",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "no_body": {
-              "type": "boolean"
-            },
-            "order": {
-              "enum": [
-                "ASC",
-                "DESC"
-              ],
-              "type": "string"
-            },
-            "order_by": {
-              "enum": [
-                "name",
-                "status",
-                "created_at",
-                "updated_at"
-              ],
-              "type": "string"
-            },
-            "page": {
-              "default": 1,
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            },
-            "per_page": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991,
-                  "type": "integer"
-                },
-                {
-                  "const": "all",
-                  "type": "string"
-                }
-              ],
-              "default": 20
-            },
-            "query": {
-              "type": "string"
-            },
-            "status": {
-              "items": {
-                "enum": [
-                  "draft",
-                  "scheduled",
-                  "running",
-                  "paused",
-                  "finished",
-                  "cancelled"
-                ],
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "tags": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": false,
-          "properties": {
-            "page": {
-              "type": "number"
-            },
-            "per_page": {
-              "type": "number"
-            },
-            "results": {
-              "items": {
-                "additionalProperties": {},
-                "properties": {
-                  "altbody": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "archive": {
-                    "type": "boolean"
-                  },
-                  "body": {
-                    "type": "string"
-                  },
-                  "body_source": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "bounces": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "clicks": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "content_type": {
-                    "enum": [
-                      "richtext",
-                      "html",
-                      "markdown",
-                      "plain",
-                      "visual"
-                    ],
-                    "type": "string"
-                  },
-                  "created_at": {
-                    "type": "string"
-                  },
-                  "from_email": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  "lists": {
-                    "items": {
-                      "additionalProperties": {},
-                      "properties": {},
-                      "type": "object"
-                    },
-                    "type": "array"
-                  },
-                  "media": {
-                    "items": {
-                      "additionalProperties": {},
-                      "properties": {},
-                      "type": "object"
-                    },
-                    "type": "array"
-                  },
-                  "messenger": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "send_at": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "sent": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "started_at": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "status": {
-                    "type": "string"
-                  },
-                  "subject": {
-                    "type": "string"
-                  },
-                  "tags": {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  "template_id": {
-                    "anyOf": [
-                      {
-                        "exclusiveMinimum": 0,
-                        "maximum": 9007199254740991,
-                        "type": "integer"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "to_send": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "type": {
-                    "enum": [
-                      "regular",
-                      "optin"
-                    ],
-                    "type": "string"
-                  },
-                  "updated_at": {
-                    "type": "string"
-                  },
-                  "uuid": {
-                    "type": "string"
-                  },
-                  "views": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "type": "object"
-              },
-              "type": "array"
-            },
-            "total": {
-              "type": "number"
-            }
-          },
-          "required": [
-            "results",
-            "total",
-            "per_page",
-            "page"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "optional",
-        "confirmation": "never",
-        "dryRun": false
       },
       "retry": {
         "kind": "safe",
@@ -18120,336 +19426,6 @@
       "stability": "experimental"
     },
     {
-      "id": "campaigns.stats",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "id": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991,
-                  "type": "integer"
-                },
-                {
-                  "pattern": "^[1-9][0-9]*$",
-                  "type": "string"
-                }
-              ],
-              "description": "Listmonk resource ID"
-            }
-          },
-          "required": [
-            "id"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": false,
-          "properties": {
-            "bounces": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "clicks": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "id": {
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            },
-            "sent": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "started_at": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "status": {
-              "type": "string"
-            },
-            "to_send": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "views": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            }
-          },
-          "required": [
-            "id"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "optional",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
-      "id": "templates.list",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "no_body": {
-              "type": "boolean"
-            },
-            "page": {
-              "default": 1,
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            },
-            "per_page": {
-              "default": 20,
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            }
-          },
-          "required": [
-            "no_body"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": false,
-          "properties": {
-            "page": {
-              "type": "number"
-            },
-            "per_page": {
-              "type": "number"
-            },
-            "results": {
-              "items": {
-                "additionalProperties": {},
-                "properties": {
-                  "body": {
-                    "type": "string"
-                  },
-                  "body_source": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "created_at": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  "is_default": {
-                    "type": "boolean"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "subject": {
-                    "type": "string"
-                  },
-                  "type": {
-                    "type": "string"
-                  },
-                  "updated_at": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              },
-              "type": "array"
-            },
-            "total": {
-              "type": "number"
-            }
-          },
-          "required": [
-            "results",
-            "total",
-            "per_page",
-            "page"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "optional",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
-      "id": "templates.get",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "id": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991,
-                  "type": "integer"
-                },
-                {
-                  "pattern": "^[1-9][0-9]*$",
-                  "type": "string"
-                }
-              ],
-              "description": "Listmonk resource ID"
-            }
-          },
-          "required": [
-            "id"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": {},
-          "properties": {
-            "body": {
-              "type": "string"
-            },
-            "body_source": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "created_at": {
-              "type": "string"
-            },
-            "id": {
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            },
-            "is_default": {
-              "type": "boolean"
-            },
-            "name": {
-              "type": "string"
-            },
-            "subject": {
-              "type": "string"
-            },
-            "type": {
-              "type": "string"
-            },
-            "updated_at": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "optional",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
       "id": "templates.create",
       "input": {
         "components": {},
@@ -18785,209 +19761,6 @@
       },
       "policy": {
         "audit": "required",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
-      "id": "media.list",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "page": {
-              "default": 1,
-              "description": "Page number",
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            },
-            "per_page": {
-              "default": 20,
-              "description": "Items per page",
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            }
-          },
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": false,
-          "properties": {
-            "page": {
-              "type": "number"
-            },
-            "per_page": {
-              "type": "number"
-            },
-            "results": {
-              "items": {
-                "additionalProperties": {},
-                "properties": {
-                  "content_type": {
-                    "type": "string"
-                  },
-                  "created_at": {
-                    "type": "string"
-                  },
-                  "filename": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  "meta": {
-                    "additionalProperties": {},
-                    "properties": {},
-                    "type": "object"
-                  },
-                  "provider": {
-                    "type": "string"
-                  },
-                  "thumb_uri": {
-                    "type": "string"
-                  },
-                  "thumb_url": {
-                    "type": "string"
-                  },
-                  "uri": {
-                    "type": "string"
-                  },
-                  "url": {
-                    "type": "string"
-                  },
-                  "uuid": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              },
-              "type": "array"
-            },
-            "total": {
-              "type": "number"
-            }
-          },
-          "required": [
-            "results",
-            "total",
-            "per_page",
-            "page"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "optional",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
-      "id": "media.get",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "id": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991,
-                  "type": "integer"
-                },
-                {
-                  "pattern": "^[1-9][0-9]*$",
-                  "type": "string"
-                }
-              ],
-              "description": "Listmonk resource ID"
-            }
-          },
-          "required": [
-            "id"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": {},
-          "properties": {
-            "content_type": {
-              "type": "string"
-            },
-            "created_at": {
-              "type": "string"
-            },
-            "filename": {
-              "type": "string"
-            },
-            "id": {
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            },
-            "meta": {
-              "additionalProperties": {},
-              "properties": {},
-              "type": "object"
-            },
-            "provider": {
-              "type": "string"
-            },
-            "thumb_uri": {
-              "type": "string"
-            },
-            "thumb_url": {
-              "type": "string"
-            },
-            "uri": {
-              "type": "string"
-            },
-            "url": {
-              "type": "string"
-            },
-            "uuid": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "optional",
         "confirmation": "never",
         "dryRun": false
       },
