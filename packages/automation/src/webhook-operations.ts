@@ -5,6 +5,7 @@ import {
 	parseOperationInput,
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
+import { createHash } from "node:crypto";
 import {
 	bindWebhookCreateOperationSpec,
 	bindWebhookDeleteOperationSpec,
@@ -281,8 +282,9 @@ const webhookCircuitResetInputSchema = z.object({
 const webhookEndpointOutputSchema = z.object({
 	id: z.uuid(),
 	name: z.string().trim().min(1).max(120),
-	url: z.string().min(1).regex(/^https:\/\/\S+$/),
-	secret_ref: z.string().regex(OUTBOUND_WEBHOOK_SECRET_REF_PATTERN),
+	url_origin: z.string().min(1).regex(/^https:\/\/[^/?#]+$/),
+	url_fingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+	secret_reference_configured: z.boolean(),
 	event_filters: z.array(eventFilterOutput).min(1),
 	enabled: z.boolean(),
 	timeout_ms: z.number().int().min(100).max(30_000),
@@ -360,7 +362,7 @@ const webhookEventSummarySchema = z.object({
 		"sequence",
 		"webhook",
 	]),
-	correlation_id: z.string().min(1).max(200).optional(),
+	correlation_id_present: z.boolean(),
 	subject: z
 		.object({
 			kind: z.enum([
@@ -372,7 +374,7 @@ const webhookEventSummarySchema = z.object({
 				"sequence",
 				"webhook",
 			]),
-			key: z.string().min(1),
+			key_redacted: z.literal(true),
 		})
 		.optional(),
 });
@@ -388,7 +390,7 @@ const webhookDeliveryOutputSchema = z.object({
 	last_attempt_at: z.iso.datetime({ offset: true }).optional(),
 	completed_at: z.iso.datetime({ offset: true }).optional(),
 	status_code: z.number().int().min(100).max(599).optional(),
-	last_error: z.string().min(1).optional(),
+	last_error_present: z.boolean(),
 });
 const webhookDeliveryListOutputSchema = z.object({
 	deliveries: z.array(webhookDeliveryOutputSchema),
@@ -473,8 +475,9 @@ function toEndpointOutput(endpoint: OutboundWebhookEndpoint) {
 	return {
 		id: endpoint.id,
 		name: endpoint.name,
-		url: endpoint.url,
-		secret_ref: endpoint.secretRef,
+		url_origin: new URL(endpoint.url).origin,
+		url_fingerprint: `sha256:${createHash("sha256").update(endpoint.url).digest("hex")}`,
+		secret_reference_configured: endpoint.secretRef.length > 0,
 		event_filters: endpoint.eventFilters.map((filter) =>
 			eventFilterOutput.parse(filter),
 		),
@@ -499,8 +502,14 @@ function toDeliveryOutput(delivery: OutboundWebhookDelivery) {
 			schema_version: delivery.event.schemaVersion,
 			occurred_at: delivery.event.occurredAt,
 			source: delivery.event.source,
-			correlation_id: delivery.event.correlationId,
-			subject: delivery.event.subject,
+			correlation_id_present: delivery.event.correlationId !== undefined,
+			subject:
+				delivery.event.subject === undefined
+					? undefined
+					: {
+							kind: delivery.event.subject.kind,
+							key_redacted: true as const,
+						},
 		},
 		status: delivery.status,
 		attempt_count: delivery.attemptCount,
@@ -509,7 +518,7 @@ function toDeliveryOutput(delivery: OutboundWebhookDelivery) {
 		last_attempt_at: delivery.lastAttemptAt,
 		completed_at: delivery.completedAt,
 		status_code: delivery.statusCode,
-		last_error: delivery.lastError,
+		last_error_present: delivery.lastError !== undefined,
 	};
 }
 

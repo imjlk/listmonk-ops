@@ -981,6 +981,10 @@ export type SubscriberUuid = Uuid;
  * enforces the complete absolute-URL policy.
  */
 export type WebhookUrl = NonEmptyString & tags.Pattern<"^https://\\S+$">;
+export type WebhookUrlOrigin = NonEmptyString &
+	tags.Pattern<"^https://[^/?#]+$">;
+export type WebhookUrlFingerprint = string &
+	tags.Pattern<"^sha256:[a-f0-9]{64}$">;
 export type WebhookName = NonEmptyString & tags.MaxLength<120>;
 export type WebhookCorrelationId = NonEmptyString & tags.MaxLength<200>;
 export type WebhookTimeoutMs = number &
@@ -1061,8 +1065,9 @@ export type WebhookDeliveryStatus =
 export interface WebhookEndpoint {
 	id: WebhookId;
 	name: WebhookName;
-	url: WebhookUrl;
-	secret_ref: WebhookSecretRef;
+	url_origin: WebhookUrlOrigin;
+	url_fingerprint: WebhookUrlFingerprint;
+	secret_reference_configured: boolean;
 	event_filters: WebhookEventFilter[] & tags.MinItems<1>;
 	enabled: boolean;
 	timeout_ms: WebhookTimeoutMs;
@@ -1185,10 +1190,10 @@ export interface WebhookDeliveryEventSummary {
 	schema_version: PositiveInteger;
 	occurred_at: IsoDateTime;
 	source: WebhookEventSource;
-	correlation_id?: WebhookCorrelationId | undefined;
+	correlation_id_present: boolean;
 	subject?: {
 		kind: WebhookSubjectKind;
-		key: NonEmptyString;
+		key_redacted: true;
 	} | undefined;
 }
 
@@ -1204,7 +1209,7 @@ export interface WebhookDelivery {
 	last_attempt_at?: IsoDateTime | undefined;
 	completed_at?: IsoDateTime | undefined;
 	status_code?: PositiveInteger | undefined;
-	last_error?: NonEmptyString | undefined;
+	last_error_present: boolean;
 }
 
 export interface WebhookDeliveryListInput {

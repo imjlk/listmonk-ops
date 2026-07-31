@@ -149,9 +149,13 @@ describe("MCP outbound webhook tools", () => {
 			| undefined;
 		expect(endpoint).toMatchObject({
 			name: "mcp-endpoint",
-			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_MCP",
+			url_origin: "https://8.8.8.8",
+			secret_reference_configured: true,
 			enabled: true,
 		});
+		expect(endpoint?.url_fingerprint).toMatch(/^sha256:[a-f0-9]{64}$/);
+		expect(endpoint).not.toHaveProperty("url");
+		expect(endpoint).not.toHaveProperty("secret_ref");
 		expect(endpoint).not.toHaveProperty("secret");
 		const id = endpoint?.id as string;
 
@@ -223,10 +227,17 @@ describe("MCP outbound webhook tools", () => {
 			endpoints: [
 				{
 					name: "cli-created",
-					secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_PARITY",
+					url_origin: "https://8.8.8.8",
+					secret_reference_configured: true,
 					event_filters: ["campaign.*"],
 				},
 			],
 		});
+		expect(JSON.stringify(listed.structuredContent)).not.toContain(
+			"LISTMONK_OPS_WEBHOOK_SECRET_PARITY",
+		);
+		expect(JSON.stringify(listed.structuredContent)).not.toContain(
+			"https://8.8.8.8/hooks",
+		);
 	});
 });

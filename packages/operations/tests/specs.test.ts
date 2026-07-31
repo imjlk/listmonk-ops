@@ -33,6 +33,9 @@ import {
 	templatesListOperationSpec,
 	transactionalSendOperationSpec,
 	webhookDispatchOperationSpec,
+	webhookDeliveryListOperationSpec,
+	webhookDlqListOperationSpec,
+	webhookListOperationSpec,
 	webhookOperationSpecs,
 	webhookPruneOperationSpec,
 	webhookReconcileOperationSpec,
@@ -93,7 +96,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(33);
+		).toHaveLength(36);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -152,6 +155,9 @@ describe("email operations specification", () => {
 			sequenceValidateOperationSpec,
 			sequenceStatusOperationSpec,
 			webhookRuntimeStatusOperationSpec,
+			webhookListOperationSpec,
+			webhookDeliveryListOperationSpec,
+			webhookDlqListOperationSpec,
 		] as const;
 		expect(
 			stableControlPlaneReadSpecs.every(
@@ -178,9 +184,6 @@ describe("email operations specification", () => {
 			);
 		}
 		for (const operationId of [
-			"webhooks.list",
-			"webhooks.delivery.list",
-			"webhooks.dlq.list",
 			"sequences.list",
 			"sequences.get",
 			"sequences.enrollments.list",

@@ -423,7 +423,7 @@ generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계�
 변경합니다. 정적 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면
 거부합니다.
 
-검토를 마친 핵심 33개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 36개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -441,14 +441,18 @@ provider/deliverability Operation은 stable open-world read입니다. 정규화�
 가용성, quota 값, DNS 응답과 진단 결과 자체를 보장하지는 않습니다. 모든
 진단 결과는 shared executor를 벗어나기 전에 credential reference, AWS
 access key와 금지된 secret 필드가 없는지 fail-closed로 검사합니다. 여기에
-순수 검증인 `sequences.validate`와 aggregate-only 조회인
-`sequences.status`, `webhooks.runtime.status`도 closed-world control-plane
-배치로 안정화했습니다. secret reference, 임의 definition data, subscriber
-식별자 또는 저장된 오류 문자열을 반환할 수 있는 endpoint·delivery·sequence
-definition·enrollment 상세 조회는 experimental로 유지합니다.
+기존 stable closed-world control-plane 조회에는 순수 검증인
+`sequences.validate`와 aggregate-only 조회인 `sequences.status`,
+`webhooks.runtime.status`가 포함됩니다. 이번 릴리즈에서는 redaction을 적용한
+`webhooks.list`, `webhooks.delivery.list`, `webhooks.dlq.list` 세 개만 새로
+승격해 stable baseline을 33개에서 36개로 늘렸습니다. Webhook endpoint
+projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설정
+여부만 반환하고, delivery projection은 subject와 저장된 오류의 값 대신 존재
+여부만 반환합니다. 임의 definition data나 subscriber 식별자를 반환할 수 있는
+sequence definition·enrollment 상세 조회는 experimental로 유지합니다.
 `control.status`의 runtime readiness 계약과 신규 subsystem·집계·분석 조회는
 더 성숙할 때까지 experimental로 유지합니다. 나머지 experimental
-descriptor는 69개입니다.
+descriptor는 66개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run` 네 가지 타입드 플레이북을
@@ -461,7 +465,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 102개 전체, API 경계 규칙, 41개 governed runtime bridge, 33개
+Operation 102개 전체, API 경계 규칙, 41개 governed runtime bridge, 36개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 306개를
 검증합니다.
 
