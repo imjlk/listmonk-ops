@@ -105,6 +105,29 @@ export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 
 You can create/manage tokens in the Listmonk admin UI.
 
+### Declarative template provisioning
+
+`@listmonk-ops/operations` exposes read-only planning and explicit apply helpers
+for versioned template manifests. `reconcileTemplate()` and
+`reconcileTemplateManifest()` plan by default; pass `{ apply: true }` or use
+`ensureTemplate()` to mutate Listmonk. Exact-name duplicates fail closed, and a
+complete manifest is planned before its first mutation.
+
+Listmonk does not provide a multi-template transaction. If an apply fails after
+earlier entries succeeded, `TemplateManifestApplyError` identifies the failed
+template and exposes the completed results for an explicit retry or rollback.
+An omitted `body_source` is unmanaged because Listmonk preserves that field on
+update; provide it when the manifest should enforce visual-template source.
+
+After applying a manifest, `syncTemplateRegistry()` can capture the resulting
+remote versions for promotion and rollback workflows. Keep release-time
+template credentials separate from runtime delivery credentials. Before
+promoting a transactional template, run the local Listmonk + Mailpit E2E suite.
+
+The runtime-neutral generated client under `@listmonk-ops/openapi/sdk` uses the
+standard Fetch API and can be consumed from Workers-compatible runtimes;
+file-backed registry automation remains a release/provisioning concern.
+
 The A/B test, segment drift, and template registry stores use versioned JSON,
 atomic replacement, and cross-process write locks so CLI and MCP processes can
 share the same local state without losing concurrent updates. Invalid or newer

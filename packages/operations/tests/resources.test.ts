@@ -31,6 +31,10 @@ import {
 	invokeUpdateTemplateOperation,
 	subscriberOperations,
 	mediaOperations,
+	ensureTemplate,
+	reconcileTemplate,
+	reconcileTemplateManifest,
+	TemplateManifestApplyError,
 	templateOperations,
 	OperationInputError,
 } from "../src";
@@ -65,6 +69,246 @@ function mediaContext(methods: Partial<MediaClient["media"]>): {
 }
 
 describe("shared CRUD resource operations", () => {
+	test("plans then applies an exact-name template update", async () => {
+		const list = mock(async () => ({
+			data: {
+				results: [
+					{
+						id: 9,
+						name: "Account sign-in code",
+						type: "tx",
+						subject: "Sign-in code",
+						body: "<p>Old</p>",
+					},
+				],
+				total: 1,
+			},
+		}));
+		const getById = mock(async () => ({
+			data: {
+				id: 9,
+				name: "Account sign-in code",
+				type: "tx",
+				subject: "Sign-in code",
+				body: "<p>Old</p>",
+			},
+		}));
+		const update = mock(async ({ body }: { body: Record<string, unknown> }) => ({
+			data: { id: 9, ...body },
+		}));
+		const result = await reconcileTemplate(
+			templateContext({
+				list: list as TemplateClient["template"]["list"],
+				getById: getById as TemplateClient["template"]["getById"],
+				update: update as TemplateClient["template"]["update"],
+			}),
+			{
+				name: "Account sign-in code",
+				type: "tx",
+				subject: "Sign-in code",
+				body: "<p>{{ .Tx.Data.otp }}</p>",
+			},
+		);
+		expect(result).toMatchObject({
+			action: "update",
+			applied: false,
+			template: { id: 9, body: "<p>Old</p>" },
+		});
+		expect(list).toHaveBeenCalledTimes(1);
+		expect(update).not.toHaveBeenCalled();
+
+		await expect(
+			ensureTemplate(
+				templateContext({
+					list: list as TemplateClient["template"]["list"],
+					getById: getById as TemplateClient["template"]["getById"],
+					update: update as TemplateClient["template"]["update"],
+				}),
+				{
+					name: "Account sign-in code",
+					type: "tx",
+					subject: "Sign-in code",
+					body: "<p>{{ .Tx.Data.otp }}</p>",
+				},
+			),
+		).resolves.toMatchObject({
+			action: "update",
+			applied: true,
+			template: { id: 9, body: "<p>{{ .Tx.Data.otp }}</p>" },
+		});
+		expect(update).toHaveBeenCalledTimes(1);
+	});
+
+	test("plans a missing template, then ensures it and preserves exact matches", async () => {
+		const create = mock(async ({ body }: { body: Record<string, unknown> }) => ({
+			data: { id: 12, ...body },
+		}));
+		const missing = mock(async () => ({ data: { results: [], total: 0 } }));
+		await expect(
+			reconcileTemplate(
+				templateContext({
+					list: missing as TemplateClient["template"]["list"],
+					create: create as TemplateClient["template"]["create"],
+				}),
+				{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+			),
+		).resolves.toEqual({
+			name: "Account sign-in code",
+			action: "create",
+			applied: false,
+		});
+		expect(create).not.toHaveBeenCalled();
+
+		await expect(
+			ensureTemplate(
+				templateContext({
+					list: missing as TemplateClient["template"]["list"],
+					create: create as TemplateClient["template"]["create"],
+				}),
+				{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+			),
+		).resolves.toMatchObject({
+			action: "create",
+			applied: true,
+			template: { id: 12 },
+		});
+
+		const matching = mock(async () => ({
+			data: {
+				results: [
+					{
+						id: 12,
+						name: "Account sign-in code",
+					},
+				],
+				total: 1,
+			},
+		}));
+		const getById = mock(async () => ({
+			data: {
+				id: 12,
+				name: "Account sign-in code",
+				type: "tx",
+				subject: "",
+				body: "<p>OTP</p>",
+				body_source: "preserved remote source",
+			},
+		}));
+		await expect(
+			reconcileTemplate(
+				templateContext({
+					list: matching as TemplateClient["template"]["list"],
+					getById: getById as TemplateClient["template"]["getById"],
+				}),
+				{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+			),
+		).resolves.toMatchObject({
+			action: "unchanged",
+			applied: false,
+			template: { id: 12 },
+		});
+	});
+
+	test("plans a complete versioned manifest before applying mutations", async () => {
+		const list = mock(async () => ({ data: { results: [], total: 0 } }));
+		const create = mock(async ({ body }: { body: Record<string, unknown> }) => ({
+			data: { id: 20, ...body },
+		}));
+		const context = templateContext({
+			list: list as TemplateClient["template"]["list"],
+			create: create as TemplateClient["template"]["create"],
+		});
+		const manifest = {
+			schema_version: 1 as const,
+			templates: [
+				{ name: "Account sign-in code", type: "tx" as const, body: "<p>OTP</p>" },
+				{ name: "Password reset code", type: "tx" as const, body: "<p>Reset</p>" },
+			],
+		};
+
+		await expect(reconcileTemplateManifest(context, manifest)).resolves.toEqual({
+			schema_version: 1,
+			apply: false,
+			results: [
+				{ name: "Account sign-in code", action: "create", applied: false },
+				{ name: "Password reset code", action: "create", applied: false },
+			],
+		});
+		expect(list).toHaveBeenCalledTimes(1);
+		expect(create).not.toHaveBeenCalled();
+
+		await expect(
+			reconcileTemplateManifest(context, {
+				schema_version: 1,
+				templates: [
+					{ name: "Duplicate", body: "<p>First</p>" },
+					{ name: "Duplicate", body: "<p>Second</p>" },
+				],
+			}),
+		).rejects.toThrow("duplicate name");
+	});
+
+	test("reports partial manifest results when a remote apply fails", async () => {
+		const list = mock(async () => ({ data: { results: [], total: 0 } }));
+		const create = mock(async ({ body }: { body: Record<string, unknown> }) => {
+			if (body.name === "Password reset code") {
+				throw new Error("remote create failed");
+			}
+			return { data: { id: 20, ...body } };
+		});
+		let failure: unknown;
+		try {
+			await reconcileTemplateManifest(
+				templateContext({
+					list: list as TemplateClient["template"]["list"],
+					create: create as TemplateClient["template"]["create"],
+				}),
+				{
+					schema_version: 1,
+					templates: [
+						{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+						{ name: "Password reset code", type: "tx", body: "<p>Reset</p>" },
+					],
+				},
+				{ apply: true },
+			);
+		} catch (error) {
+			failure = error;
+		}
+
+		expect(failure).toBeInstanceOf(TemplateManifestApplyError);
+		const manifestError = failure as TemplateManifestApplyError;
+		expect(manifestError.failedTemplate).toBe("Password reset code");
+		expect(manifestError.appliedResults).toEqual([
+			expect.objectContaining({
+				name: "Account sign-in code",
+				action: "create",
+				applied: true,
+			}),
+		]);
+		expect(create).toHaveBeenCalledTimes(2);
+	});
+
+	test("fails closed when exact-name template reconciliation is ambiguous", async () => {
+		const list = mock(async () => ({
+			data: {
+				results: [
+					{ id: 9, name: "Account sign-in code" },
+					{ id: 10, name: "Account sign-in code" },
+				],
+				total: 2,
+			},
+		}));
+		await expect(
+			reconcileTemplate(
+				templateContext({
+					list: list as TemplateClient["template"]["list"],
+				}),
+				{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+			),
+		).rejects.toThrow("ambiguous");
+	});
+
 	test("exposes object-root registries with safety metadata", () => {
 		expect(campaignOperations).toHaveLength(11);
 		expect(subscriberOperations).toHaveLength(9);

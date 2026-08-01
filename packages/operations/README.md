@@ -13,6 +13,17 @@ functions preserve the registry validation and error contract while keeping
 CLI/MCP-to-domain call paths visible to static tooling. Surface packages remain
 responsible for authentication and presentation.
 
+Release provisioning can plan one exact-name template with
+`reconcileTemplate`, or a versioned set with `reconcileTemplateManifest`.
+Planning is read-only by default; `{ apply: true }` or `ensureTemplate` applies
+the change. Duplicate manifest or remote names fail closed, and a complete
+manifest is planned before its first mutation. Apply the manifest before using
+the automation package's version registry for promotion or rollback.
+Remote writes are not transactional; `TemplateManifestApplyError` reports the
+failed template and the entries completed before the failure.
+An omitted `body_source` remains unmanaged to match Listmonk's preserve-on-
+update behavior; specify it to enforce visual-template source.
+
 All 102 public shared operations attach an
 `@listmonk-ops/operations/specs` descriptor. The operation definition validates
 runtime identity, safety hints, MCP metadata, and normalized input/output

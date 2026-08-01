@@ -105,6 +105,30 @@ export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 
 토큰은 Listmonk 관리자 UI에서 생성/관리할 수 있습니다.
 
+### 선언형 template provisioning
+
+`@listmonk-ops/operations`는 버전이 지정된 template manifest를 위한 읽기 전용
+계획과 명시적 적용 helper를 제공합니다. `reconcileTemplate()`과
+`reconcileTemplateManifest()`는 기본적으로 계획만 수행합니다. Listmonk를
+변경하려면 `{ apply: true }`를 전달하거나 `ensureTemplate()`을 사용합니다.
+정확한 이름이 중복되면 실패하며, 전체 manifest를 먼저 계획한 뒤 첫 변경을
+적용합니다.
+
+Listmonk는 여러 template을 묶는 transaction을 제공하지 않습니다. 앞선 항목이
+성공한 뒤 apply가 실패하면 `TemplateManifestApplyError`가 실패한 template과 이미
+완료된 결과를 제공하므로 명시적으로 재시도하거나 rollback할 수 있습니다.
+`body_source`를 생략하면 Listmonk update가 기존 값을 유지하므로 해당 필드는 관리
+대상에서 제외됩니다. Visual template source를 강제하려면 값을 명시하세요.
+
+Manifest 적용 후 `syncTemplateRegistry()`로 원격 버전을 capture하여 승격과
+rollback workflow에 사용할 수 있습니다. 릴리스 시점 template credential과
+런타임 전송 credential은 분리하세요. Transactional template을 승격하기 전에는
+로컬 Listmonk + Mailpit E2E를 실행합니다.
+
+`@listmonk-ops/openapi/sdk`의 runtime-neutral 생성 클라이언트는 표준 Fetch API를
+사용하므로 Workers 호환 런타임에서 소비할 수 있습니다. 파일 기반 registry
+자동화는 릴리스/provisioning 경계에만 둡니다.
+
 A/B 테스트, segment drift, template registry 저장소는 버전이 지정된 JSON,
 atomic 교체, 프로세스 간 쓰기 잠금을 사용합니다. 따라서 CLI와 MCP 프로세스가
 같은 로컬 상태를 공유해도 동시 업데이트를 잃지 않으며, 잘못되었거나 더 최신인
