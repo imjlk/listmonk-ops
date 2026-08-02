@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { createListmonkClient } from "../index";
+import { createUserRoleOperations } from "../src/client/role-operations";
 
 const originalFetch = globalThis.fetch;
 
@@ -147,5 +148,82 @@ describe("user role operations", () => {
 			error: transportError,
 			request: { method: "POST" },
 		});
+	});
+
+	test("preserves an intentional empty permission set for no-access roles", async () => {
+		globalThis.fetch = (async (input, init) => {
+			const request = new Request(input, init);
+			const body = await request.json();
+			return Response.json({ data: { id: 4, type: "user", ...body } });
+		}) as typeof fetch;
+		const client = createListmonkClient({
+			baseUrl: "http://localhost:9000/api",
+			retries: 0,
+		});
+
+		await expect(
+			client.userRole.create({
+				body: { name: "No access", permissions: [] },
+			}),
+		).resolves.toMatchObject({
+			data: { id: 4, name: "No access", permissions: [] },
+		});
+	});
+
+	test("rejects invalid direct inputs before making a request", async () => {
+		const resilientFetch = mock(async () =>
+			Response.json({ data: [] }));
+		const operations = createUserRoleOperations({
+			baseUrl: "http://localhost:9000/api",
+			resilientFetch,
+		});
+		const invalidBodies = [
+			null,
+			{ name: "", permissions: ["tx:send"] },
+			{ name: "  ", permissions: ["tx:send"] },
+			{ name: "Runtime", permissions: "tx:send" },
+			{ name: "Runtime", permissions: [""] },
+			{ name: "Runtime", permissions: ["  "] },
+		];
+
+		for (const body of invalidBodies) {
+			await expect(
+				operations.create({ body: body as never }),
+			).resolves.toMatchObject({ error: expect.any(TypeError) });
+		}
+		await expect(
+			operations.update({
+				path: { id: Number.NaN },
+				body: { name: "Runtime", permissions: ["tx:send"] },
+			}),
+		).resolves.toMatchObject({ error: expect.any(TypeError) });
+		expect(resilientFetch).not.toHaveBeenCalled();
+	});
+
+	test("surfaces malformed successful role payloads as error results", async () => {
+		const malformedPayloads = [
+			{ id: "2", name: "Runtime", permissions: ["tx:send"] },
+			{ id: 2, name: "", permissions: ["tx:send"] },
+			{ id: 2, name: "  ", permissions: ["tx:send"] },
+			{ id: 2, name: "Runtime", permissions: "tx:send" },
+			{ id: 2, name: "Runtime", permissions: ["  "] },
+		];
+		let responseIndex = 0;
+		const operations = createUserRoleOperations({
+			baseUrl: "http://localhost:9000/api",
+			resilientFetch: async () =>
+				Response.json({ data: malformedPayloads[responseIndex++] }),
+		});
+
+		for (const _payload of malformedPayloads) {
+			await expect(
+				operations.create({
+					body: { name: "Runtime", permissions: ["tx:send"] },
+				}),
+			).resolves.toMatchObject({
+				error: expect.any(TypeError),
+				response: { status: 200 },
+			});
+		}
 	});
 });

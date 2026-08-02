@@ -30,6 +30,69 @@ async function parseResponsePayload(response: Response): Promise<unknown> {
 	}
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isBlankFreeStringArray(value: unknown): value is string[] {
+	// Listmonk permits an empty permission set for a no-access role. Reject
+	// blank entries without requiring the array itself to be non-empty.
+	return (
+		Array.isArray(value) &&
+		value.every((entry) => typeof entry === "string" && entry.trim().length > 0)
+	);
+}
+
+function hasValidNameAndPermissions(
+	value: Record<string, unknown>,
+): boolean {
+	return (
+		typeof value.name === "string" &&
+		value.name.trim().length > 0 &&
+		isBlankFreeStringArray(value.permissions)
+	);
+}
+
+function isUserRoleInput(value: unknown): value is UserRoleInput {
+	return isRecord(value) && hasValidNameAndPermissions(value);
+}
+
+function isUserRole(value: unknown): value is UserRole {
+	return (
+		isRecord(value) &&
+		typeof value.id === "number" &&
+		Number.isSafeInteger(value.id) &&
+		value.id > 0 &&
+		hasValidNameAndPermissions(value) &&
+		(value.type === undefined || typeof value.type === "string") &&
+		(value.created_at === undefined || typeof value.created_at === "string") &&
+		(value.updated_at === undefined || typeof value.updated_at === "string")
+	);
+}
+
+function requestInputError(requestOptions: {
+	id?: number;
+	body?: UserRoleInput;
+}): TypeError | undefined {
+	if (
+		requestOptions.id !== undefined &&
+		(!Number.isSafeInteger(requestOptions.id) || requestOptions.id <= 0)
+	) {
+		return new TypeError(
+			"Listmonk user role ID must be a positive safe integer",
+		);
+	}
+	if (
+		requestOptions.body !== undefined &&
+		!isUserRoleInput(requestOptions.body)
+	) {
+		return new TypeError(
+			"Listmonk user role body requires a non-empty name and string permissions",
+		);
+	}
+	return undefined;
+}
+
 async function requestRoleEndpoint<T>(
 	options: RoleOperationOptions,
 	requestOptions: {
@@ -37,7 +100,11 @@ async function requestRoleEndpoint<T>(
 		id?: number;
 		body?: UserRoleInput;
 	},
+	validateData: (value: unknown) => value is T,
 ): Promise<CrudResult<T>> {
+	const inputError = requestInputError(requestOptions);
+	if (inputError !== undefined) return { error: inputError };
+
 	const headers = new Headers(options.headers);
 	headers.set("Accept", "application/json");
 	if (requestOptions.body !== undefined) {
@@ -74,11 +141,19 @@ async function requestRoleEndpoint<T>(
 		};
 	}
 
-	return (await transformResponse({
+	const transformed = (await transformResponse({
 		data: payload,
 		request,
 		response,
-	})) as FlattenedResponse<T>;
+	})) as FlattenedResponse<unknown>;
+	if (!validateData(transformed.data)) {
+		return {
+			error: new TypeError("Listmonk returned a malformed user role response"),
+			request,
+			response,
+		};
+	}
+	return transformed as FlattenedResponse<T>;
 }
 
 /**
@@ -90,20 +165,31 @@ export function createUserRoleOperations(
 ): EnhancedListmonkClient["userRole"] {
 	return {
 		async list(): Promise<ListResult<UserRole>> {
-			const response = await requestRoleEndpoint<UserRole[]>(options, {
-				method: "GET",
-			});
+			const response = await requestRoleEndpoint<UserRole[]>(
+				options,
+				{ method: "GET" },
+				(value): value is UserRole[] =>
+					Array.isArray(value) && value.every(isUserRole),
+			);
 			return normalizeListResult<UserRole>(response);
 		},
 		async create({ body }) {
-			return requestRoleEndpoint<UserRole>(options, { method: "POST", body });
+			return requestRoleEndpoint<UserRole>(
+				options,
+				{ method: "POST", body },
+				isUserRole,
+			);
 		},
 		async update({ path, body }) {
-			return requestRoleEndpoint<UserRole>(options, {
-				method: "PUT",
-				id: path.id,
-				body,
-			});
+			return requestRoleEndpoint<UserRole>(
+				options,
+				{
+					method: "PUT",
+					id: path.id,
+					body,
+				},
+				isUserRole,
+			);
 		},
 	};
 }
