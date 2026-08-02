@@ -18,6 +18,9 @@ export type {
 	SubscriberOperations,
 	Template,
 	TemplateOperations,
+	UserRole,
+	UserRoleInput,
+	UserRoleOperations,
 } from "./contracts";
 export {
 	createClient,

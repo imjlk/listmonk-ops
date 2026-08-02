@@ -125,6 +125,21 @@ rollback workflow에 사용할 수 있습니다. 릴리스 시점 template crede
 런타임 전송 credential은 분리하세요. Transactional template을 승격하기 전에는
 로컬 Listmonk + Mailpit E2E를 실행합니다.
 
+### 최소 권한 user role
+
+Enhanced client는 upstream OpenAPI 문서에 없는 Listmonk 6.2 role endpoint를
+위해 handwritten `userRole` facade를 제공합니다. `reconcileUserRole()`과
+`reconcileUserRoleManifest()`는 기본적으로 계획만 수행하고,
+`ensureUserRole()` 또는 `{ apply: true }`가 실제 변경을 수행합니다. 권한 이름은
+Listmonk 6.2 vocabulary로 제한하며, 정확한 이름 중복은 실패하고 예약된 Super
+Admin role(ID 1)은 절대 관리하지 않습니다.
+
+일반적인 역할 분리를 위한 preset도 제공합니다. Transactional subscriber 전송
+runtime에는 `tx:send`와 `subscribers:manage`만, template provisioning에는
+`templates:get`과 `templates:manage`만 부여합니다. Role reconcile을 실행하는
+credential은 `roles:get`과 `roles:manage`가 필요한 별도 control-plane
+credential입니다. 이 권한을 runtime delivery role에 부여하지 마세요.
+
 `@listmonk-ops/openapi/sdk`의 runtime-neutral 생성 클라이언트는 표준 Fetch API를
 사용하므로 Workers 호환 런타임에서 소비할 수 있습니다. 파일 기반 registry
 자동화는 릴리스/provisioning 경계에만 둡니다.

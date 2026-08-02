@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+	createClient,
+	getSubscribers,
+	transactWithSubscriber,
+} from "@listmonk-ops/openapi/sdk";
+import {
 	fetchMailpitJson,
 	findMailpitMessage,
 	findMailpitMessages,
@@ -7,7 +12,7 @@ import {
 	type MailpitMessageSummary,
 } from "./mailpit.js";
 import { createMCPTestSuite } from "../mcp-helper.js";
-import { buildTestEmail, buildTestName } from "../setup.js";
+import { buildTestEmail, buildTestName, TEST_CONFIG } from "../setup.js";
 
 describe("Transactional MCP Tool", () => {
 	const { client, utils } = createMCPTestSuite();
@@ -76,6 +81,69 @@ describe("Transactional MCP Tool", () => {
 			`/message/${delivered.ID}/headers`,
 		);
 		expect(headers[headerName]).toContain(traceId);
+	});
+
+	test("sends to an external address through the public SDK without creating a subscriber", async () => {
+		const recipient = buildTestEmail("transactional-external");
+		const subject = buildTestName("transactional-external-subject");
+		const createResult = await client.callTool("listmonk_create_template", {
+			name: buildTestName("transactional-external-template"),
+			type: "tx",
+			subject,
+			body: "<p>External transactional delivery through the generated SDK.</p>",
+		});
+		const template = utils.assertSuccess<{ id: number }>(
+			createResult,
+			"Failed to create external transactional template",
+		);
+		if (!TEST_CONFIG.apiToken) {
+			throw new Error("External SDK smoke requires a Listmonk API token");
+		}
+		const sdkClient = createClient({
+			baseUrl: TEST_CONFIG.baseUrl,
+			headers: {
+				Authorization: `token ${TEST_CONFIG.username}:${TEST_CONFIG.apiToken}`,
+			},
+		});
+
+		const sendResult = await transactWithSubscriber({
+			client: sdkClient,
+			body: {
+				subscriber_mode: "external",
+				subscriber_emails: [recipient],
+				template_id: template.id,
+				from_email: "listmonk-ops@example.com",
+				data: { delivery_mode: "external" },
+			},
+		});
+		if (sendResult.error !== undefined) {
+			throw new Error(`External SDK send failed: ${JSON.stringify(sendResult.error)}`);
+		}
+		expect(sendResult.data?.data).toBe(true);
+
+		let delivered: MailpitMessageSummary | undefined;
+		await utils.waitFor(async () => {
+			try {
+				delivered = await findMailpitMessage(recipient, subject);
+				return delivered !== undefined;
+			} catch {
+				return false;
+			}
+		}, 20000);
+		if (!delivered) {
+			throw new Error("External transactional message was not found in Mailpit");
+		}
+
+		const subscribers = await getSubscribers({
+			client: sdkClient,
+			query: { query: `email = '${recipient}'`, per_page: "all" },
+		});
+		if (subscribers.error !== undefined) {
+			throw new Error(
+				`External subscriber verification failed: ${JSON.stringify(subscribers.error)}`,
+			);
+		}
+		expect(subscribers.data?.data?.results ?? []).toHaveLength(0);
 	});
 
 	test("replays an idempotent send instead of re-dispatching", async () => {

@@ -124,6 +124,22 @@ remote versions for promotion and rollback workflows. Keep release-time
 template credentials separate from runtime delivery credentials. Before
 promoting a transactional template, run the local Listmonk + Mailpit E2E suite.
 
+### Least-privilege user roles
+
+The enhanced client includes a handwritten `userRole` facade for Listmonk 6.2
+role endpoints that are absent from its upstream OpenAPI document.
+`reconcileUserRole()` and `reconcileUserRoleManifest()` plan by default;
+`ensureUserRole()` or `{ apply: true }` performs the mutation. Permission names
+are restricted to the Listmonk 6.2 vocabulary, exact-name duplicates fail
+closed, and the reserved Super Admin role (ID 1) is never managed.
+
+Two generic permission presets cover common separation-of-duty boundaries:
+transactional subscriber delivery uses only `tx:send` and
+`subscribers:manage`, while template provisioning uses only `templates:get`
+and `templates:manage`. The credential running role reconciliation is a
+separate control-plane credential and requires `roles:get` plus
+`roles:manage`; do not grant those permissions to the runtime delivery role.
+
 The runtime-neutral generated client under `@listmonk-ops/openapi/sdk` uses the
 standard Fetch API and can be consumed from Workers-compatible runtimes;
 file-backed registry automation remains a release/provisioning concern.
