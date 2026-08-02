@@ -492,9 +492,10 @@ function templateMatchesDesiredState(
 		// Listmonk 6.2 validates syntax without rewriting the body before it
 		// persists the supplied value, so body remains an exact managed field.
 		(template.body ?? "") === desired.body &&
-		// Omitted body_source is unmanaged: Listmonk also preserves the current
-		// value when its update request leaves this field absent or empty.
+		// Omitted or empty body_source is unmanaged: Listmonk preserves the
+		// current value when its update request leaves this field absent or empty.
 		(desired.body_source === undefined ||
+			desired.body_source === "" ||
 			(template.body_source ?? "") === desired.body_source)
 	);
 }

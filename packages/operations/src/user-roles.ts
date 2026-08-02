@@ -262,7 +262,12 @@ export async function ensureUserRole(
 	return reconcileUserRole(context, input, { apply: true });
 }
 
-/** Plan a complete versioned role manifest before its first remote mutation. */
+/**
+ * Reconcile a versioned role manifest. The complete manifest is planned before
+ * the first remote mutation. Remote writes are not transactional; an apply
+ * failure exposes completed entries through UserRoleManifestApplyError so
+ * callers can reconcile the partial remote state.
+ */
 export async function reconcileUserRoleManifest(
 	context: UserRoleOperationContext,
 	input: UserRoleManifest,

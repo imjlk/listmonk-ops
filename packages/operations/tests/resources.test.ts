@@ -207,6 +207,24 @@ describe("shared CRUD resource operations", () => {
 			applied: false,
 			template: { id: 12 },
 		});
+		await expect(
+			reconcileTemplate(
+				templateContext({
+					list: matching as TemplateClient["template"]["list"],
+					getById: getById as TemplateClient["template"]["getById"],
+				}),
+				{
+					name: "Account sign-in code",
+					type: "tx",
+					body: "<p>OTP</p>",
+					body_source: "",
+				},
+			),
+		).resolves.toMatchObject({
+			action: "unchanged",
+			applied: false,
+			template: { id: 12 },
+		});
 	});
 
 	test("plans a complete versioned manifest before applying mutations", async () => {
