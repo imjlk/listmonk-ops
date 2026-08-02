@@ -68,7 +68,7 @@ const client = createListmonkClient({
 - `createClient` (raw hey-api client factory)
 - `rawSdk` (generated SDK functions)
 - `transformResponse` (response flatten helper)
-- Types: `ListmonkClient`, `ListmonkConfig`, `About`, `Campaign`, `List`, `Subscriber`, `Template`
+- Types: `ListmonkClient`, `ListmonkConfig`, `About`, `Campaign`, `List`, `Subscriber`, `Template`, `UserRole`, `UserRoleInput`, `UserRoleOperations`
 
 ## Client Structure
 
@@ -79,6 +79,7 @@ const client = createListmonkClient({
 - `subscriber.*`
 - `campaign.*`
 - `template.*`
+- `userRole.list()`, `userRole.create()`, `userRole.update()`
 - `media.*`
 - `import.*`
 - `bounce.*`
@@ -114,6 +115,8 @@ handwritten implementation is split into named, graph-friendly modules:
   factories
 - `service-operations.ts`: import, bounce, transactional, settings, dashboard,
   and system factories
+- `role-operations.ts`: Listmonk 6.2 user-role endpoints omitted by the
+  upstream OpenAPI document
 - `crud.ts`, `response.ts`, `transport.ts`: shared CRUD dispatch, response
   normalization, and retry/abort transport policy
 
@@ -155,6 +158,22 @@ const client = createClient({
 const result = await getLists({
 	client,
 	query: { page: 1, per_page: 10 },
+});
+```
+
+Workers-compatible transactional consumers can send to an address without
+creating a Listmonk subscriber by using the explicit external mode:
+
+```ts
+import { transactWithSubscriber } from "@listmonk-ops/openapi/sdk";
+
+await transactWithSubscriber({
+  client,
+  body: {
+    subscriber_mode: "external",
+    subscriber_emails: ["recipient@example.com"],
+    template_id: 42,
+  },
 });
 ```
 

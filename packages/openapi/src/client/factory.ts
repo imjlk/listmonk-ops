@@ -19,6 +19,7 @@ import {
 	createSubscriberOperations,
 	createTemplateOperations,
 } from "./resource-operations";
+import { createUserRoleOperations } from "./role-operations";
 import type { FlattenedResponse } from "./response";
 import { transformResponse } from "./response";
 import {
@@ -166,6 +167,11 @@ export function createListmonkClient(
 		subscriber: createSubscriberOperations(sdkOptions),
 		campaign: createCampaignOperations(sdkOptions),
 		template: createTemplateOperations(sdkOptions),
+		userRole: createUserRoleOperations({
+			baseUrl: resolvedConfig.baseUrl,
+			headers: resolvedConfig.headers,
+			resilientFetch,
+		}),
 		media: createMediaOperations(sdkOptions),
 		import: createImportOperations(sdkOptions),
 		bounce: createBounceOperations(sdkOptions),

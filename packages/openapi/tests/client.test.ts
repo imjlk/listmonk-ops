@@ -27,6 +27,9 @@ describe("Client Creation", () => {
 			expect(typeof client.getHealthCheck).toBe("function");
 			expect(typeof client.list.create).toBe("function");
 			expect(typeof client.list.list).toBe("function");
+			expect(typeof client.userRole.list).toBe("function");
+			expect(typeof client.userRole.create).toBe("function");
+			expect(typeof client.userRole.update).toBe("function");
 		});
 
 		test("should create client with custom config", () => {

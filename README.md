@@ -105,6 +105,45 @@ export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 
 You can create/manage tokens in the Listmonk admin UI.
 
+### Declarative template provisioning
+
+`@listmonk-ops/operations` exposes read-only planning and explicit apply helpers
+for versioned template manifests. `reconcileTemplate()` and
+`reconcileTemplateManifest()` plan by default; pass `{ apply: true }` or use
+`ensureTemplate()` to mutate Listmonk. Exact-name duplicates fail closed, and a
+complete manifest is planned before its first mutation.
+
+Listmonk does not provide a multi-template transaction. If an apply fails after
+earlier entries succeeded, `TemplateManifestApplyError` identifies the failed
+template and exposes the completed results for an explicit retry or rollback.
+An omitted `body_source` is unmanaged because Listmonk preserves that field on
+update; provide it when the manifest should enforce visual-template source.
+
+After applying a manifest, `syncTemplateRegistry()` can capture the resulting
+remote versions for promotion and rollback workflows. Keep release-time
+template credentials separate from runtime delivery credentials. Before
+promoting a transactional template, run the local Listmonk + Mailpit E2E suite.
+
+### Least-privilege user roles
+
+The enhanced client includes a handwritten `userRole` facade for Listmonk 6.2
+role endpoints that are absent from its upstream OpenAPI document.
+`reconcileUserRole()` and `reconcileUserRoleManifest()` plan by default;
+`ensureUserRole()` or `{ apply: true }` performs the mutation. Permission names
+are restricted to the Listmonk 6.2 vocabulary, exact-name duplicates fail
+closed, and the reserved Super Admin role (ID 1) is never managed.
+
+Two generic permission presets cover common separation-of-duty boundaries:
+transactional subscriber delivery uses only `tx:send` and
+`subscribers:manage`, while template provisioning uses only `templates:get`
+and `templates:manage`. The credential running role reconciliation is a
+separate control-plane credential and requires `roles:get` plus
+`roles:manage`; do not grant those permissions to the runtime delivery role.
+
+The runtime-neutral generated client under `@listmonk-ops/openapi/sdk` uses the
+standard Fetch API and can be consumed from Workers-compatible runtimes;
+file-backed registry automation remains a release/provisioning concern.
+
 The A/B test, segment drift, and template registry stores use versioned JSON,
 atomic replacement, and cross-process write locks so CLI and MCP processes can
 share the same local state without losing concurrent updates. Invalid or newer

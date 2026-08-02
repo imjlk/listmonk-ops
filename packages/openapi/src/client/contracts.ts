@@ -63,6 +63,30 @@ export interface TemplateOperations
 	}): Promise<FlattenedResponse<unknown>>;
 }
 
+/** Listmonk user role, served by endpoints missing from the upstream OpenAPI document. */
+export interface UserRole {
+	id: number;
+	created_at?: string;
+	updated_at?: string;
+	type?: string;
+	name: string;
+	permissions: string[];
+}
+
+export interface UserRoleInput {
+	name: string;
+	permissions: string[];
+}
+
+export interface UserRoleOperations {
+	list(): Promise<ListResult<UserRole>>;
+	create(options: { body: UserRoleInput }): Promise<CrudResult<UserRole>>;
+	update(options: {
+		path: { id: number };
+		body: UserRoleInput;
+	}): Promise<CrudResult<UserRole>>;
+}
+
 export interface SubscriberOperations
 	extends CrudOperations<
 		Subscriber,
@@ -291,6 +315,7 @@ export interface EnhancedListmonkClient {
 	subscriber: SubscriberOperations;
 	campaign: CampaignOperations;
 	template: TemplateOperations;
+	userRole: UserRoleOperations;
 	media: MediaOperations;
 
 	import: ImportOperations;

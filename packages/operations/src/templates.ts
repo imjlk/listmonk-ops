@@ -68,6 +68,65 @@ const createTemplateInputSchema = z.object({
 	body: z.string().min(1),
 });
 
+const templateManifestSchema = z
+	.object({
+		schema_version: z.literal(1),
+		templates: z.array(createTemplateInputSchema).min(1),
+	})
+	.superRefine((manifest, context) => {
+		const names = new Set<string>();
+		for (const [index, template] of manifest.templates.entries()) {
+			if (names.has(template.name)) {
+				context.addIssue({
+					code: "custom",
+					message: `Template manifest contains duplicate name ${JSON.stringify(template.name)}`,
+					path: ["templates", index, "name"],
+				});
+			}
+			names.add(template.name);
+		}
+	});
+
+export type TemplateDesiredState = z.input<typeof createTemplateInputSchema>;
+export type TemplateManifest = z.input<typeof templateManifestSchema>;
+
+export interface TemplateReconcileOptions {
+	/** Apply the planned mutation. Omit or set false for a read-only plan. */
+	apply?: boolean;
+}
+
+export interface TemplateReconcileResult {
+	name: string;
+	action: "create" | "update" | "unchanged";
+	applied: boolean;
+	template?: z.output<typeof templateSchema>;
+}
+
+export interface TemplateManifestReconcileResult {
+	schema_version: 1;
+	apply: boolean;
+	results: TemplateReconcileResult[];
+}
+
+export class TemplateManifestApplyError extends Error {
+	public readonly failedTemplate: string;
+	public readonly appliedResults: readonly TemplateReconcileResult[];
+
+	public constructor(
+		failedTemplate: string,
+		appliedResults: readonly TemplateReconcileResult[],
+		cause: unknown,
+	) {
+		super(
+			`Template manifest apply failed at ${JSON.stringify(failedTemplate)} after ${appliedResults.length} completed entries`,
+			{ cause },
+		);
+		this.name = "TemplateManifestApplyError";
+		this.failedTemplate = failedTemplate;
+		this.appliedResults = [...appliedResults];
+	}
+}
+
 const updateTemplateInputSchema = z
 	.object({
 		id: resourceIdSchema,
@@ -110,6 +169,10 @@ type TemplateListOptions = Parameters<
 
 function asTemplate(value: Template): z.output<typeof templateSchema> {
 	return value as z.output<typeof templateSchema>;
+}
+
+function isPositiveSafeInteger(value: unknown): value is number {
+	return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
 export async function listTemplates(
@@ -237,6 +300,203 @@ export async function updateTemplate(
 	});
 	return asTemplate(
 		unwrapResourceResponse(response, "Failed to update template"),
+	);
+}
+
+async function planTemplateFromCandidates(
+	{ client }: TemplateOperationContext,
+	desired: z.output<typeof createTemplateInputSchema>,
+	candidates: readonly Template[],
+): Promise<TemplateReconcileResult> {
+	const matches = candidates.filter(
+		(template) => template.name === desired.name,
+	);
+	if (matches.length > 1) {
+		throw new Error(
+			`Template reconcile is ambiguous: ${matches.length} templates are named ${JSON.stringify(desired.name)}`,
+		);
+	}
+	const existing = matches[0];
+	if (existing === undefined) {
+		return {
+			name: desired.name,
+			action: "create",
+			applied: false,
+		};
+	}
+	const existingId = existing.id;
+	if (!isPositiveSafeInteger(existingId)) {
+		throw new Error(
+			`Template reconcile found ${JSON.stringify(desired.name)} with invalid ID ${JSON.stringify(existingId)}`,
+		);
+	}
+	const current = unwrapResourceResponse(
+		await client.template.getById({ path: { id: existingId } }),
+		"Failed to load current template for reconcile",
+	);
+	if (templateMatchesDesiredState(current, desired)) {
+		return {
+			name: desired.name,
+			action: "unchanged",
+			applied: false,
+			template: asTemplate(current),
+		};
+	}
+	return {
+		name: desired.name,
+		action: "update",
+		applied: false,
+		template: asTemplate(current),
+	};
+}
+
+/** Plan one exact-name template reconciliation without mutating Listmonk. */
+export async function planTemplateReconcile(
+	context: TemplateOperationContext,
+	input: TemplateDesiredState,
+): Promise<TemplateReconcileResult> {
+	const desired = createTemplateInputSchema.parse(input);
+	const candidates = await listTemplatesForReconcile(context.client);
+	return planTemplateFromCandidates(context, desired, candidates);
+}
+
+async function applyTemplateReconcilePlan(
+	context: TemplateOperationContext,
+	desired: z.output<typeof createTemplateInputSchema>,
+	plan: TemplateReconcileResult,
+): Promise<TemplateReconcileResult> {
+	if (plan.action === "unchanged") return plan;
+
+	if (plan.action === "create") {
+		return {
+			...plan,
+			applied: true,
+			template: await createTemplate(context, desired),
+		};
+	}
+
+	const existingId = plan.template?.id;
+	if (!isPositiveSafeInteger(existingId)) {
+		throw new Error(
+			`Template update plan for ${JSON.stringify(desired.name)} is missing a positive template ID`,
+		);
+	}
+	return {
+		...plan,
+		applied: true,
+		template: await updateTemplate(context, {
+			id: existingId,
+			name: desired.name,
+			type: desired.type,
+			subject: desired.subject,
+			body_source: desired.body_source,
+			body: desired.body,
+		}),
+	};
+}
+
+/** Reconcile one exact-name template, read-only unless `apply` is true. */
+export async function reconcileTemplate(
+	context: TemplateOperationContext,
+	input: TemplateDesiredState,
+	options: TemplateReconcileOptions = {},
+): Promise<TemplateReconcileResult> {
+	const desired = createTemplateInputSchema.parse(input);
+	const candidates = await listTemplatesForReconcile(context.client);
+	const plan = await planTemplateFromCandidates(context, desired, candidates);
+	if (options.apply !== true || plan.action === "unchanged") {
+		return plan;
+	}
+	return applyTemplateReconcilePlan(context, desired, plan);
+}
+
+/** Ensure one exact-name template exists and matches the desired state. */
+export async function ensureTemplate(
+	context: TemplateOperationContext,
+	input: TemplateDesiredState,
+): Promise<TemplateReconcileResult> {
+	return reconcileTemplate(context, input, { apply: true });
+}
+
+/**
+ * Reconcile a versioned template manifest. The complete manifest is planned
+ * before the first remote mutation. Remote writes are not transactional; an
+ * apply failure exposes completed entries through TemplateManifestApplyError
+ * so callers can reconcile the partial remote state.
+ */
+export async function reconcileTemplateManifest(
+	context: TemplateOperationContext,
+	input: TemplateManifest,
+	options: TemplateReconcileOptions = {},
+): Promise<TemplateManifestReconcileResult> {
+	const manifest = templateManifestSchema.parse(input);
+	const candidates = await listTemplatesForReconcile(context.client);
+	const desiredTemplates = manifest.templates;
+	const plannedTemplates: Array<{
+		desired: z.output<typeof createTemplateInputSchema>;
+		plan: TemplateReconcileResult;
+	}> = [];
+	// Bound concurrent detail reads so large manifests do not serialize all
+	// network latency or create an unbounded burst against Listmonk.
+	const planningConcurrency = 4;
+	for (let offset = 0; offset < desiredTemplates.length; offset += planningConcurrency) {
+		const batch = desiredTemplates.slice(offset, offset + planningConcurrency);
+		plannedTemplates.push(
+			...(await Promise.all(
+				batch.map(async (desired) => ({
+					desired,
+					plan: await planTemplateFromCandidates(context, desired, candidates),
+				})),
+			)),
+		);
+	}
+	const plans = plannedTemplates.map(({ plan }) => plan);
+	if (options.apply !== true) {
+		return { schema_version: 1, apply: false, results: plans };
+	}
+
+	const results: TemplateReconcileResult[] = [];
+	for (const { desired, plan } of plannedTemplates) {
+		try {
+			results.push(await applyTemplateReconcilePlan(context, desired, plan));
+		} catch (cause) {
+			throw new TemplateManifestApplyError(desired.name, results, cause);
+		}
+	}
+	return { schema_version: 1, apply: true, results };
+}
+
+async function listTemplatesForReconcile(
+	client: Pick<ListmonkClient, "template">,
+): Promise<Template[]> {
+	// Listmonk 6.2 GetTemplates returns Core.GetTemplates directly and ignores
+	// page/per_page. The SDK wraps that exhaustive array with synthetic list
+	// metadata, so following the metadata as pagination would repeat the same
+	// records rather than discover additional templates.
+	const response = await client.template.list({ query: { no_body: true } });
+	const data = unwrapResourceResponse(
+		response,
+		"Failed to list templates for reconcile",
+	);
+	return data.results ?? [];
+}
+
+function templateMatchesDesiredState(
+	template: Template,
+	desired: z.output<typeof createTemplateInputSchema>,
+): boolean {
+	return (
+		template.name === desired.name &&
+		template.type === desired.type &&
+		(template.subject ?? "") === desired.subject &&
+		// Listmonk 6.2 validates syntax without rewriting the body before it
+		// persists the supplied value, so body remains an exact managed field.
+		(template.body ?? "") === desired.body &&
+		// Omitted or empty body_source is unmanaged: Listmonk preserves the
+		// current value when its update request leaves this field absent or empty.
+		(desired.body_source === undefined ||
+			desired.body_source === "" ||
+			(template.body_source ?? "") === desired.body_source)
 	);
 }
 

@@ -14,6 +14,9 @@ import type {
 	ListmonkClient,
 	Subscriber,
 	Template,
+	UserRole,
+	UserRoleInput,
+	UserRoleOperations,
 } from "./src/client/index";
 // Client imports
 import {
@@ -43,7 +46,13 @@ export {
 /**
  * Core types
  */
-export type { ListmonkClient, ListmonkConfig };
+export type {
+	ListmonkClient,
+	ListmonkConfig,
+	UserRole,
+	UserRoleInput,
+	UserRoleOperations,
+};
 
 /**
  * Core entity types
