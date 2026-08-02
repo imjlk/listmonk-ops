@@ -1,5 +1,19 @@
 # @listmonk-ops/operations
 
+## 0.10.0 — 2026-08-02
+
+### Added
+
+- [a595f71](https://github.com/imjlk/listmonk-ops/commit/a595f716ba92a95de384e0aa07f6af54ffd90469) Add a typed Listmonk 6.2 user-role facade, declarative least-privilege role
+  reconciliation, generic permission presets, and external-subscriber SDK smoke
+  coverage. — Thanks @imjlk!
+- [a595f71](https://github.com/imjlk/listmonk-ops/commit/a595f716ba92a95de384e0aa07f6af54ffd90469) Add versioned template-manifest planning and exact-name reconciliation helpers
+  with explicit apply semantics and duplicate-name fail-closed validation. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: openapi@0.5.0
+
 ## 0.9.0 — 2026-07-31
 
 ### Changed

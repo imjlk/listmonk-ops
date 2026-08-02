@@ -1,5 +1,13 @@
 # @listmonk-ops/openapi
 
+## 0.5.0 — 2026-08-02
+
+### Added
+
+- [a595f71](https://github.com/imjlk/listmonk-ops/commit/a595f716ba92a95de384e0aa07f6af54ffd90469) Add a typed Listmonk 6.2 user-role facade, declarative least-privilege role
+  reconciliation, generic permission presets, and external-subscriber SDK smoke
+  coverage. — Thanks @imjlk!
+
 ## 0.4.2 — 2026-07-30
 
 ### Changed
