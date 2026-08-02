@@ -55,7 +55,6 @@ const userRoleDesiredStateSchema = z.object({
 	name: z.string().trim().min(1),
 	permissions: z
 		.array(userPermissionSchema)
-		.min(1)
 		.transform((permissions) => [...new Set(permissions)].sort()),
 });
 const userRoleManifestSchema = z
@@ -91,6 +90,7 @@ type NormalizedUserRoleDesiredState = z.output<
 
 export interface UserRoleDesiredState {
 	name: string;
+	/** Empty creates or reconciles a valid no-access role. */
 	permissions: readonly ListmonkUserPermission[];
 }
 

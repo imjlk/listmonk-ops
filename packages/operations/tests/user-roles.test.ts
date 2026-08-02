@@ -128,6 +128,48 @@ describe("declarative user role reconciliation", () => {
 		]);
 	});
 
+	test("reconciles an empty permission set for a no-access role", async () => {
+		const list = mock(async () => ({
+			data: {
+				results: [
+					{
+						id: 4,
+						type: "user",
+						name: "Suspended integration",
+						permissions: ["tx:send"],
+					},
+				],
+				total: 1,
+				per_page: 1,
+				page: 1,
+			},
+		}));
+		const update = mock(
+			async ({ path, body }: { path: { id: number }; body: Record<string, unknown> }) => ({
+				data: { id: path.id, type: "user", ...body },
+			}),
+		);
+		const context = userRoleContext({
+			list: list as UserRoleClient["userRole"]["list"],
+			update: update as UserRoleClient["userRole"]["update"],
+		});
+
+		await expect(
+			ensureUserRole(context, {
+				name: "Suspended integration",
+				permissions: [],
+			}),
+		).resolves.toMatchObject({
+			action: "update",
+			applied: true,
+			role: { id: 4, permissions: [] },
+		});
+		expect(update).toHaveBeenCalledWith({
+			path: { id: 4 },
+			body: { name: "Suspended integration", permissions: [] },
+		});
+	});
+
 	test("fails closed for duplicate names and the protected Super Admin role", async () => {
 		const list = mock(async () => ({
 			data: {
