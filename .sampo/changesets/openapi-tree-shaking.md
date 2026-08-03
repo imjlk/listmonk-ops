@@ -1,5 +1,5 @@
 ---
-npm/@listmonk-ops/openapi: major (Breaking)
+npm/@listmonk-ops/openapi: minor (Removed)
 ---
 
 Remove the `rawSdk` namespace export and replace dynamic CRUD method dispatch
