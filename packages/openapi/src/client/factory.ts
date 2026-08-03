@@ -1,5 +1,4 @@
 import { createClient } from "../../generated/client";
-import * as sdk from "../../generated/sdk.gen";
 import {
 	configToHeaders,
 	createConfig,
@@ -190,7 +189,5 @@ export function createListmonkClientFromEnv(
 ): EnhancedListmonkClient {
 	return createListmonkClient(overrides);
 }
-
-export const rawSdk = sdk;
 
 export { createClient };

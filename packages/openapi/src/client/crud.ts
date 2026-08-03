@@ -1,5 +1,4 @@
 import type { createClient } from "../../generated/client";
-import * as sdk from "../../generated/sdk.gen";
 import {
 	type CrudResult,
 	type FlattenedResponse,
@@ -28,26 +27,15 @@ export interface SdkOptions {
 }
 
 type CrudMethod = "create" | "list" | "getById" | "update" | "delete";
-type CrudMethodOverrides = Partial<Record<CrudMethod, string[]>>;
 type SdkMethod = (options: unknown) => Promise<unknown>;
 
-function resolveSdkMethod(candidateNames: string[]): SdkMethod {
-	for (const methodName of candidateNames) {
-		const method = (sdk as Record<string, unknown>)[methodName];
-		if (typeof method === "function") {
-			return method as SdkMethod;
-		}
-	}
-	throw new Error(`SDK method not found: ${candidateNames.join(" | ")}`);
-}
-
-function createSdkMethodResolver(candidateNames: string[]): () => SdkMethod {
-	let resolvedMethod: SdkMethod | undefined;
-	return () => {
-		resolvedMethod ??= resolveSdkMethod(candidateNames);
-		return resolvedMethod;
-	};
-}
+/**
+ * Maps a CRUD method name to the concrete generated SDK function it should
+ * invoke. Callers pass the resolved function directly instead of dispatching
+ * through a dynamic property lookup on the SDK namespace, which keeps unused
+ * SDK functions tree-shakeable.
+ */
+export type CrudMethodResolvers = Record<CrudMethod, () => SdkMethod>;
 
 function mergeSdkOptions(
 	sdkOptions: SdkOptions,
@@ -58,35 +46,42 @@ function mergeSdkOptions(
 		: sdkOptions;
 }
 
-export function createCrudOperations<T>(
-	resourceName: string,
-	sdkOptions: SdkOptions,
-	methodOverrides: CrudMethodOverrides = {},
-): CrudOperations<T, unknown, unknown, unknown, unknown, unknown> {
-	const defaultMethodNames: Record<CrudMethod, string[]> = {
-		create: [`create${resourceName}`],
-		list: [`get${resourceName}s`],
-		getById: [`get${resourceName}ById`],
-		update: [`update${resourceName}ById`],
-		delete: [`delete${resourceName}ById`],
+function memoizeSdkMethod(method: SdkMethod): () => SdkMethod {
+	let resolved: SdkMethod | undefined;
+	return () => {
+		resolved ??= method;
+		return resolved;
 	};
+}
 
-	const methodNames: Record<CrudMethod, string[]> = {
-		create: [...(methodOverrides.create ?? []), ...defaultMethodNames.create],
-		list: [...(methodOverrides.list ?? []), ...defaultMethodNames.list],
-		getById: [
-			...(methodOverrides.getById ?? []),
-			...defaultMethodNames.getById,
-		],
-		update: [...(methodOverrides.update ?? []), ...defaultMethodNames.update],
-		delete: [...(methodOverrides.delete ?? []), ...defaultMethodNames.delete],
+/**
+ * Returns a resolver that throws when the resource does not expose a generated
+ * SDK function for the given CRUD slot. Preserves the original lazy-failure
+ * behavior of the previous dynamic dispatcher without pinning the whole SDK
+ * namespace into the bundle.
+ */
+export function unsupportedCrudMethod(
+	resourceName: string,
+	method: CrudMethod,
+): () => SdkMethod {
+	const fail: SdkMethod = () => {
+		throw new Error(
+			`SDK method not found: ${method} for resource ${resourceName}`,
+		);
 	};
+	return memoizeSdkMethod(fail);
+}
+
+export function createCrudOperations<T>(
+	resolvers: CrudMethodResolvers,
+	sdkOptions: SdkOptions,
+): CrudOperations<T, unknown, unknown, unknown, unknown, unknown> {
 	const resolveMethods = {
-		create: createSdkMethodResolver(methodNames.create),
-		list: createSdkMethodResolver(methodNames.list),
-		getById: createSdkMethodResolver(methodNames.getById),
-		update: createSdkMethodResolver(methodNames.update),
-		delete: createSdkMethodResolver(methodNames.delete),
+		create: resolvers.create,
+		list: resolvers.list,
+		getById: resolvers.getById,
+		update: resolvers.update,
+		delete: resolvers.delete,
 	};
 
 	return {
@@ -125,4 +120,17 @@ export function createCrudOperations<T>(
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 	};
+}
+
+/**
+ * Wraps a directly-imported generated SDK function so it satisfies the
+ * `SdkMethod` contract without losing the static call edge that lets bundlers
+ * drop unused SDK functions. The generated functions accept narrower option
+ * types than `unknown`; we accept them as-is here and let `createCrudOperations`
+ * merge typed options at the call site.
+ */
+export function staticSdkMethod<T extends (...args: never[]) => Promise<unknown>>(
+	method: T,
+): () => SdkMethod {
+	return memoizeSdkMethod(method as unknown as SdkMethod);
 }
