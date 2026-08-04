@@ -170,19 +170,67 @@ const result = await getLists({
 });
 ```
 
-Workers-compatible transactional consumers can send to an address without
-creating a Listmonk subscriber by using the explicit external mode:
+Workers-compatible transactional consumers can use the dedicated runtime
+entrypoint. It normalizes the API URL, creates the token authorization header,
+requires HTTPS, rejects percent-encoded URL authorities, keeps the generated SDK
+client behind an opaque frozen handle, and sends to one external address without
+creating a Listmonk subscriber:
+
+```ts
+import {
+	createListmonkRuntimeClient,
+	sendExternalTransactionalEmail,
+} from "@listmonk-ops/openapi/runtime";
+
+const runtime = createListmonkRuntimeClient({
+	baseUrl: env.LISTMONK_BASE_URL,
+	username: env.LISTMONK_USERNAME,
+	accessToken: env.LISTMONK_ACCESS_TOKEN,
+	fetch,
+});
+
+await sendExternalTransactionalEmail({
+	client: runtime,
+	templateId: Number(env.LISTMONK_TEMPLATE_ID),
+	recipient: "recipient@example.com",
+	subject: "Your verification code",
+	data: { code: "123456" },
+});
+```
+
+The helper fixes `subscriber_mode` to `external`, accepts exactly one recipient,
+limits the recipient address to 254 UTF-8 bytes, and requires Listmonk's
+explicit `data: true` acknowledgement. Subjects are limited to 256 UTF-8 bytes,
+and the complete request body must serialize successfully within 64 KiB.
+Template data is snapshotted and limited to JSON-standard values, dense arrays
+without extra properties, 2,048 nodes, and 32 levels of nesting before
+serialization. Callable or accessor `toJSON` hooks are rejected; an ordinary
+literal field named `toJSON` remains valid JSON data.
+Failures are
+reported as `ListmonkRuntimeError` with bounded `code`, `reason`, and `status` fields;
+remote response bodies, credentials, and recipient addresses are not copied
+into the error message. HTTP status remains available when either a success or
+error response body cannot be read. Provision templates and least-privilege
+roles outside the request path with `@listmonk-ops/operations`. The runtime helper dispatches
+once and does not retry; the consuming service remains responsible for rate
+limits and request-level idempotency. An `aborted` error means delivery is
+unknown, so it must not be treated as proof that retrying is safe. Requests
+time out after 30 seconds by default; a `timed_out` result is equally ambiguous.
+HTTP redirects are rejected rather than replaying the non-idempotent body.
+
+Use the raw SDK when a different transactional mode or lower-level endpoint is
+required:
 
 ```ts
 import { transactWithSubscriber } from "@listmonk-ops/openapi/sdk";
 
 await transactWithSubscriber({
-  client,
-  body: {
-    subscriber_mode: "external",
-    subscriber_emails: ["recipient@example.com"],
-    template_id: 42,
-  },
+	client,
+	body: {
+		subscriber_mode: "external",
+		subscriber_emails: ["recipient@example.com"],
+		template_id: 42,
+	},
 });
 ```
 

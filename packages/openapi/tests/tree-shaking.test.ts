@@ -69,4 +69,16 @@ describe("OpenAPI consumer tree-shaking", () => {
 		expect(generatedEndpointUrls(bundle)).toEqual(["/lists"]);
 		expect(Buffer.byteLength(bundle)).toBeLessThan(12_000);
 	});
+
+	test("keeps the Workers runtime helper limited to transactional delivery", async () => {
+		const bundle = await bundleConsumer(`
+			import { createListmonkRuntimeClient, sendExternalTransactionalEmail } from "./runtime.ts";
+			globalThis.__treeShakingProbe = { createListmonkRuntimeClient, sendExternalTransactionalEmail };
+		`);
+
+		expect(generatedEndpointUrls(bundle)).toEqual(["/tx"]);
+		// Keep the opaque client and bounded payload validation within a small
+		// Worker entrypoint while retaining only the transactional endpoint.
+		expect(Buffer.byteLength(bundle)).toBeLessThan(20_000);
+	});
 });

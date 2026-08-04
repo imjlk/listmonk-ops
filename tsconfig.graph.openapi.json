@@ -2,6 +2,7 @@
 	"extends": "./tsconfig.graph.json",
 	"include": [
 		"packages/openapi/index.ts",
+		"packages/openapi/runtime.ts",
 		"packages/openapi/sdk.ts",
 		"packages/openapi/src/**/*.ts",
 		"packages/openapi/tests/**/*.ts",

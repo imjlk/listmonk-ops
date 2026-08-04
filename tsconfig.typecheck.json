@@ -11,6 +11,7 @@
 		"packages/*/type-tests/**/*.ts",
 		"packages/openapi/generated/**/*.ts",
 		"packages/openapi/index.ts",
+		"packages/openapi/runtime.ts",
 		"packages/openapi/sdk.ts",
 		"scripts/**/*.ts",
 		"*.ts"

@@ -143,6 +143,14 @@ separate control-plane credential and requires `roles:get` plus
 The runtime-neutral generated client under `@listmonk-ops/openapi/sdk` uses the
 standard Fetch API and can be consumed from Workers-compatible runtimes;
 file-backed registry automation remains a release/provisioning concern.
+`@listmonk-ops/openapi/runtime` adds an opaque token-authenticated runtime handle
+and a single-recipient external transactional helper for Worker request paths. It
+does not create subscribers, caps recipient addresses at 254 UTF-8 bytes and
+subjects at 256 UTF-8 bytes, caps the successfully serialized transactional body
+at 64 KiB, snapshots and bounds template data to 2,048 nodes and 32 nesting
+levels, and projects remote failures to bounded errors. It rejects sparse or
+extended arrays, callable/accessor serialization hooks, and HTTP redirects
+before they can transform or replay a validated non-idempotent request.
 
 The package root no longer exports the generated SDK as a `rawSdk` namespace,
 because that namespace forced bundlers to retain every generated endpoint.
