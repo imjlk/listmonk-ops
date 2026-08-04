@@ -7,6 +7,7 @@ import type {
 	Subscriber,
 	Template,
 } from "../index";
+import * as indexModule from "../index";
 import { createListmonkClient } from "../index";
 
 describe("Main Public API Exports", () => {
@@ -28,8 +29,6 @@ describe("Main Public API Exports", () => {
 	});
 
 	test("should have minimal exports for smaller bundle size", () => {
-		// Import the module and check it only exports what we expect
-		const indexModule = require("../index");
 		const exportedKeys = Object.keys(indexModule);
 
 		// Should only have the essential exports
