@@ -66,9 +66,13 @@ const client = createListmonkClient({
 - `createListmonkClient(config?)`
 - `createListmonkClientFromEnv(overrides?)` (deprecated alias)
 - `createClient` (raw hey-api client factory)
-- `rawSdk` (generated SDK functions)
 - `transformResponse` (response flatten helper)
 - Types: `ListmonkClient`, `ListmonkConfig`, `About`, `Campaign`, `List`, `Subscriber`, `Template`, `UserRole`, `UserRoleInput`, `UserRoleOperations`
+
+> The previous `rawSdk` namespace export has been removed. It forced the
+> bundler to retain every generated SDK function, defeating tree-shaking for
+> the enhanced client. Use `@listmonk-ops/openapi/sdk` for direct access to
+> individual generated functions, or the enhanced client operations.
 
 ## Client Structure
 
@@ -117,7 +121,7 @@ handwritten implementation is split into named, graph-friendly modules:
   and system factories
 - `role-operations.ts`: Listmonk 6.2 user-role endpoints omitted by the
   upstream OpenAPI document
-- `crud.ts`, `response.ts`, `transport.ts`: shared CRUD dispatch, response
+- `crud.ts`, `response.ts`, `transport.ts`: shared CRUD resolver, response
   normalization, and retry/abort transport policy
 
 `generated/` remains Hey API output and must not be edited by hand. Boundary
@@ -141,9 +145,14 @@ normal project graph.
 
 ## Tree-Shakable SDK Entry
 
-`@listmonk-ops/openapi` keeps `createListmonkClient()` as the convenience entrypoint.
+`@listmonk-ops/openapi` marks `sideEffects: false` and references each generated
+SDK function through a named import. Bundlers can drop endpoints the enhanced
+client never exposes (for example public subscription, maintenance, or i18n
+helpers) without affecting runtime behavior.
 
-If you want a leaner consumer bundle, import from `@listmonk-ops/openapi/sdk` instead and use only the raw generated functions you need.
+If you want the leanest consumer bundle, import from
+`@listmonk-ops/openapi/sdk` instead and use only the raw generated functions you
+need.
 
 ```ts
 import { createClient, getLists } from "@listmonk-ops/openapi/sdk";

@@ -144,6 +144,11 @@ credential입니다. 이 권한을 runtime delivery role에 부여하지 마세�
 사용하므로 Workers 호환 런타임에서 소비할 수 있습니다. 파일 기반 registry
 자동화는 릴리스/provisioning 경계에만 둡니다.
 
+패키지 root에서는 더 이상 생성 SDK를 `rawSdk` namespace로 export하지 않습니다.
+이 namespace가 bundler로 하여금 모든 생성 endpoint를 유지하게 했기 때문입니다.
+개별 생성 함수는 `@listmonk-ops/openapi/sdk`에서 import하세요.
+`createListmonkClient()`는 전체 client를 위한 편의 entrypoint로 계속 제공됩니다.
+
 A/B 테스트, segment drift, template registry 저장소는 버전이 지정된 JSON,
 atomic 교체, 프로세스 간 쓰기 잠금을 사용합니다. 따라서 CLI와 MCP 프로세스가
 같은 로컬 상태를 공유해도 동시 업데이트를 잃지 않으며, 잘못되었거나 더 최신인

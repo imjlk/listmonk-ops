@@ -26,6 +26,5 @@ export {
 	createClient,
 	createListmonkClient,
 	createListmonkClientFromEnv,
-	rawSdk,
 } from "./factory";
 export { transformResponse } from "./response";

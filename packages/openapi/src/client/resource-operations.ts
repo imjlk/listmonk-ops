@@ -1,4 +1,51 @@
-import * as sdk from "../../generated/sdk.gen";
+import {
+	blocklistSubscribersQuery,
+	createCampaign,
+	createCampaignContentById,
+	createList,
+	createSubscriber,
+	createTemplate,
+	deleteCampaignById,
+	deleteListById,
+	deleteMediaById,
+	deleteSubscriberById,
+	deleteSubscriberBouncesById,
+	deleteSubscriberByQuery,
+	deleteTemplateById,
+	exportSubscriberDataById,
+	getCampaignAnalytics,
+	getCampaignById,
+	getCampaigns,
+	getListById,
+	getLists,
+	getMedia,
+	getMediaById,
+	getRunningCampaignStats,
+	getSubscriberById,
+	getSubscriberBouncesById,
+	getSubscribers,
+	getTemplateById,
+	getTemplates,
+	manageBlocklistBySubscriberList,
+	manageBlocklistSubscribersById,
+	manageSubscriberListById,
+	manageSubscriberLists,
+	manageSubscriberListsByQuery,
+	patchSubscriberById,
+	previewCampaignById,
+	previewCampaignTextById,
+	setDefaultTemplateById,
+	subscriberSendOptinById,
+	testCampaignById,
+	updateCampaignArchiveById,
+	updateCampaignById,
+	updateCampaignStatusById,
+	updateListById,
+	updatePreviewCampaignById,
+	updateSubscriberById,
+	updateTemplateById,
+	uploadMedia,
+} from "../../generated/sdk.gen";
 import type * as t from "../../generated/types.gen";
 import type {
 	Campaign,
@@ -8,23 +55,46 @@ import type {
 	Subscriber,
 	TemplateOperations,
 } from "./contracts";
-import { createCrudOperations, type SdkOptions } from "./crud";
+import {
+	createCrudOperations,
+	staticSdkMethod,
+	unsupportedCrudMethod,
+	type SdkOptions,
+} from "./crud";
 import type { CrudResult, FlattenedResponse } from "./response";
 import { transformResponse } from "./response";
 
 export function createListOperations(
 	sdkOptions: SdkOptions,
 ): EnhancedListmonkClient["list"] {
-	return createCrudOperations<List>("List", sdkOptions);
+	return createCrudOperations<List>(
+		{
+			create: staticSdkMethod(createList),
+			list: staticSdkMethod(getLists),
+			getById: staticSdkMethod(getListById),
+			update: staticSdkMethod(updateListById),
+			delete: staticSdkMethod(deleteListById),
+		},
+		sdkOptions,
+	);
 }
 
 export function createSubscriberOperations(
 	sdkOptions: SdkOptions,
 ): EnhancedListmonkClient["subscriber"] {
 	return {
-		...createCrudOperations<Subscriber>("Subscriber", sdkOptions),
+		...createCrudOperations<Subscriber>(
+			{
+				create: staticSdkMethod(createSubscriber),
+				list: staticSdkMethod(getSubscribers),
+				getById: staticSdkMethod(getSubscriberById),
+				update: staticSdkMethod(updateSubscriberById),
+				delete: staticSdkMethod(deleteSubscriberById),
+			},
+			sdkOptions,
+		),
 		async patch(options: Omit<t.PatchSubscriberByIdData, "url">) {
-			const result = await sdk.patchSubscriberById({ ...sdkOptions, ...options });
+			const result = await patchSubscriberById({ ...sdkOptions, ...options });
 			return (await transformResponse(result)) as CrudResult<Subscriber>;
 		},
 		async manageLists(options: {
@@ -35,7 +105,7 @@ export function createSubscriberOperations(
 				ids?: number[];
 			};
 		}) {
-			const result = await sdk.manageSubscriberLists({
+			const result = await manageSubscriberLists({
 				...sdkOptions,
 				...options,
 			});
@@ -50,7 +120,7 @@ export function createSubscriberOperations(
 				ids?: number[];
 			};
 		}) {
-			const result = await sdk.manageSubscriberListById({
+			const result = await manageSubscriberListById({
 				...sdkOptions,
 				...options,
 			});
@@ -59,7 +129,7 @@ export function createSubscriberOperations(
 		async manageBlocklist(options: {
 			body: { action?: "add" | "remove"; query?: string; ids?: number[] };
 		}) {
-			const result = await sdk.manageBlocklistBySubscriberList({
+			const result = await manageBlocklistBySubscriberList({
 				...sdkOptions,
 				...options,
 			});
@@ -69,14 +139,14 @@ export function createSubscriberOperations(
 			path: { id: number };
 			body: { action?: "add" | "remove" };
 		}) {
-			const result = await sdk.manageBlocklistSubscribersById({
+			const result = await manageBlocklistSubscribersById({
 				...sdkOptions,
 				...options,
 			});
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 		async export(options: { path: { id: number } }) {
-			const result = await sdk.exportSubscriberDataById({
+			const result = await exportSubscriberDataById({
 				...sdkOptions,
 				...options,
 			});
@@ -85,14 +155,14 @@ export function createSubscriberOperations(
 			>;
 		},
 		async sendOptin(options: { path: { id: number } }) {
-			const result = await sdk.subscriberSendOptinById({
+			const result = await subscriberSendOptinById({
 				...sdkOptions,
 				...options,
 			});
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 		async getBounces(options: { path: { id: number } }) {
-			const result = await sdk.getSubscriberBouncesById({
+			const result = await getSubscriberBouncesById({
 				...sdkOptions,
 				...options,
 			});
@@ -101,21 +171,21 @@ export function createSubscriberOperations(
 			>;
 		},
 		async deleteBounces(options: { path: { id: number } }) {
-			const result = await sdk.deleteSubscriberBouncesById({
+			const result = await deleteSubscriberBouncesById({
 				...sdkOptions,
 				...options,
 			});
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 		async deleteByQuery(options: { body: { query?: string } }) {
-			const result = await sdk.deleteSubscriberByQuery({
+			const result = await deleteSubscriberByQuery({
 				...sdkOptions,
 				...options,
 			});
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 		async blocklistByQuery(options: { body: { query?: string } }) {
-			const result = await sdk.blocklistSubscribersQuery({
+			const result = await blocklistSubscribersQuery({
 				...sdkOptions,
 				...options,
 			});
@@ -128,7 +198,7 @@ export function createSubscriberOperations(
 				query?: string;
 			};
 		}) {
-			const result = await sdk.manageSubscriberListsByQuery({
+			const result = await manageSubscriberListsByQuery({
 				...sdkOptions,
 				...options,
 			});
@@ -141,9 +211,18 @@ export function createCampaignOperations(
 	sdkOptions: SdkOptions,
 ): EnhancedListmonkClient["campaign"] {
 	return {
-		...createCrudOperations<Campaign>("Campaign", sdkOptions),
+		...createCrudOperations<Campaign>(
+			{
+				create: staticSdkMethod(createCampaign),
+				list: staticSdkMethod(getCampaigns),
+				getById: staticSdkMethod(getCampaignById),
+				update: staticSdkMethod(updateCampaignById),
+				delete: staticSdkMethod(deleteCampaignById),
+			},
+			sdkOptions,
+		),
 		async preview(options: { path: { id: number } }) {
-			const result = await sdk.previewCampaignById({
+			const result = await previewCampaignById({
 				...sdkOptions,
 				...options,
 			});
@@ -153,7 +232,7 @@ export function createCampaignOperations(
 			path: { id: number };
 			body: { template_id?: number; body?: string };
 		}) {
-			const result = await sdk.updatePreviewCampaignById({
+			const result = await updatePreviewCampaignById({
 				...sdkOptions,
 				...options,
 			});
@@ -163,7 +242,7 @@ export function createCampaignOperations(
 			path: { id: number };
 			body: { template_id?: number; body?: string };
 		}) {
-			const result = await sdk.previewCampaignTextById({
+			const result = await previewCampaignTextById({
 				...sdkOptions,
 				...options,
 			});
@@ -173,7 +252,7 @@ export function createCampaignOperations(
 			path: { id: number };
 			body: { status: "scheduled" | "running" | "paused" | "cancelled" };
 		}) {
-			const result = await sdk.updateCampaignStatusById({
+			const result = await updateCampaignStatusById({
 				...sdkOptions,
 				...options,
 			});
@@ -183,7 +262,7 @@ export function createCampaignOperations(
 			path: { id: number };
 			body: { archive: boolean };
 		}) {
-			const result = await sdk.updateCampaignArchiveById({
+			const result = await updateCampaignArchiveById({
 				...sdkOptions,
 				...options,
 			});
@@ -196,18 +275,18 @@ export function createCampaignOperations(
 				body: string;
 			};
 		}) {
-			const result = await sdk.createCampaignContentById({
+			const result = await createCampaignContentById({
 				...sdkOptions,
 				...options,
 			});
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 		async test(options: CampaignTestParams) {
-			const result = await sdk.testCampaignById({ ...sdkOptions, ...options });
+			const result = await testCampaignById({ ...sdkOptions, ...options });
 			return (await transformResponse(result)) as FlattenedResponse<boolean>;
 		},
 		async getRunningStats(options: { query: { campaign_id: number } }) {
-			const result = await sdk.getRunningCampaignStats({
+			const result = await getRunningCampaignStats({
 				...sdkOptions,
 				...options,
 			});
@@ -219,7 +298,7 @@ export function createCampaignOperations(
 			path: { type: "links" | "views" | "clicks" | "bounces" };
 			query: { from: string; to: string; id: string };
 		}) {
-			const result = await sdk.getCampaignAnalytics({
+			const result = await getCampaignAnalytics({
 				...sdkOptions,
 				...options,
 			});
@@ -234,9 +313,18 @@ export function createTemplateOperations(
 	sdkOptions: SdkOptions,
 ): TemplateOperations {
 	return {
-		...createCrudOperations<t.Template>("Template", sdkOptions),
+		...createCrudOperations<t.Template>(
+			{
+				create: staticSdkMethod(createTemplate),
+				list: staticSdkMethod(getTemplates),
+				getById: staticSdkMethod(getTemplateById),
+				update: staticSdkMethod(updateTemplateById),
+				delete: staticSdkMethod(deleteTemplateById),
+			},
+			sdkOptions,
+		),
 		async setAsDefault(options: { path: { id: number } }) {
-			const result = await sdk.setDefaultTemplateById({
+			const result = await setDefaultTemplateById({
 				...sdkOptions,
 				...options,
 			});
@@ -249,9 +337,14 @@ export function createMediaOperations(
 	sdkOptions: SdkOptions,
 ): EnhancedListmonkClient["media"] {
 	const crudOperations = createCrudOperations<t.MediaFileObject>(
-		"Media",
+		{
+			create: unsupportedCrudMethod("Media", "create"),
+			list: staticSdkMethod(getMedia),
+			getById: staticSdkMethod(getMediaById),
+			update: unsupportedCrudMethod("Media", "update"),
+			delete: staticSdkMethod(deleteMediaById),
+		},
 		sdkOptions,
-		{ list: ["getMedia"] },
 	);
 	return {
 		list: crudOperations.list as EnhancedListmonkClient["media"]["list"],
@@ -266,10 +359,10 @@ export function createMediaOperations(
 			// enumerable entries, so we must wrap it under the `file` field
 			// name Listmonk expects. Otherwise the serializer emits an empty
 			// FormData and the upload silently succeeds with no file.
-			const result = await sdk.uploadMedia({
+			const result = await uploadMedia({
 				...sdkOptions,
 				body: { file: options.body },
-			} as unknown as Parameters<typeof sdk.uploadMedia>[0]);
+			} as unknown as Parameters<typeof uploadMedia>[0]);
 			return (await transformResponse(
 				result,
 			)) as FlattenedResponse<t.MediaFileObject>;

@@ -144,6 +144,11 @@ The runtime-neutral generated client under `@listmonk-ops/openapi/sdk` uses the
 standard Fetch API and can be consumed from Workers-compatible runtimes;
 file-backed registry automation remains a release/provisioning concern.
 
+The package root no longer exports the generated SDK as a `rawSdk` namespace,
+because that namespace forced bundlers to retain every generated endpoint.
+Import individual generated functions from `@listmonk-ops/openapi/sdk` instead;
+`createListmonkClient()` remains the ergonomic full-client entrypoint.
+
 The A/B test, segment drift, and template registry stores use versioned JSON,
 atomic replacement, and cross-process write locks so CLI and MCP processes can
 share the same local state without losing concurrent updates. Invalid or newer
