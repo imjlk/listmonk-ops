@@ -1,0 +1,72 @@
+import { describe, expect, test } from "bun:test";
+import { build } from "esbuild";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+async function bundleConsumer(contents: string): Promise<string> {
+	const result = await build({
+		stdin: {
+			contents,
+			loader: "ts",
+			resolveDir: packageDirectory,
+			sourcefile: "tree-shaking-consumer.ts",
+		},
+		bundle: true,
+		format: "esm",
+		logLevel: "silent",
+		minify: true,
+		platform: "browser",
+		treeShaking: true,
+		write: false,
+	});
+	const output = result.outputFiles[0];
+	if (!output) throw new Error("esbuild did not produce a consumer bundle");
+	return output.text;
+}
+
+function generatedEndpointUrls(bundle: string): string[] {
+	return [
+		...new Set(
+			Array.from(bundle.matchAll(/url:"([^"]+)"/g), (match) => match[1]),
+		),
+	].sort();
+}
+
+describe("OpenAPI consumer tree-shaking", () => {
+	test("keeps the raw client factory free of generated endpoints", async () => {
+		const bundle = await bundleConsumer(`
+			import { createClient } from "./index.ts";
+			globalThis.__treeShakingProbe = createClient;
+		`);
+
+		expect(generatedEndpointUrls(bundle)).toEqual([]);
+		expect(Buffer.byteLength(bundle)).toBeLessThan(12_000);
+	});
+
+	test("drops endpoints that the enhanced client does not expose", async () => {
+		const bundle = await bundleConsumer(`
+			import { createListmonkClient } from "./index.ts";
+			globalThis.__treeShakingProbe = createListmonkClient;
+		`);
+		const urls = generatedEndpointUrls(bundle);
+
+		expect(urls).toHaveLength(42);
+		expect(urls).toContain("/lists");
+		expect(urls).not.toContain("/lang/{lang}");
+		expect(urls).not.toContain("/maintenance/analytics/{type}");
+		expect(urls).not.toContain("/public/subscription");
+		expect(Buffer.byteLength(bundle)).toBeLessThan(30_000);
+	});
+
+	test("keeps a single raw SDK operation isolated", async () => {
+		const bundle = await bundleConsumer(`
+			import { getLists } from "./sdk.ts";
+			globalThis.__treeShakingProbe = getLists;
+		`);
+
+		expect(generatedEndpointUrls(bundle)).toEqual(["/lists"]);
+		expect(Buffer.byteLength(bundle)).toBeLessThan(12_000);
+	});
+});

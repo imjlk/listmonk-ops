@@ -13,12 +13,12 @@ them. Each CRUD slot now references a specific generated function through a
 named import, and slots with no backing endpoint (for example media
 create/update) fail lazily with a clear error instead of pinning the namespace.
 
-Measured impact on the published `dist/index.js` bundle: 30,453 → 27,369
-bytes (~10% smaller), with nine previously-retained endpoint URLs (public
+Measured impact on the published `dist/index.js` bundle: 30,453 → 27,127
+bytes (~11% smaller), with nine previously-retained endpoint URLs (public
 subscription, maintenance/GC, i18n, analytics cleanup) now stripped at build
 time.
 
-`rawSdk` was an internal namespace re-export with no in-repo or graph-traced
-consumers; the contract test already asserted its absence on the runtime
-client. To call generated functions directly, use the
-`@listmonk-ops/openapi/sdk` subpath, which remains fully tree-shakeable.
+`rawSdk` was a documented module-level export with no in-repo or graph-traced
+consumers. Its removal is a breaking public API change. To call generated
+functions directly, use the `@listmonk-ops/openapi/sdk` subpath, which remains
+fully tree-shakeable.

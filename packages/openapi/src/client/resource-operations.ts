@@ -10,7 +10,6 @@ import {
 	deleteMediaById,
 	deleteSubscriberById,
 	deleteSubscriberBouncesById,
-	deleteSubscriberByList,
 	deleteSubscriberByQuery,
 	deleteTemplateById,
 	exportSubscriberDataById,

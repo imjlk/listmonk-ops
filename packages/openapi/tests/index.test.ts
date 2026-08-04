@@ -34,6 +34,7 @@ describe("Main Public API Exports", () => {
 
 		// Should only have the essential exports
 		expect(exportedKeys).toContain("createListmonkClient");
+		expect(exportedKeys).not.toContain("rawSdk");
 		expect(exportedKeys.length).toBeLessThan(10); // Much smaller than before
 	});
 });
