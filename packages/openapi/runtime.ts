@@ -563,15 +563,31 @@ async function readBoundedAcknowledgementBody(
 	const decoder = new TextDecoder();
 	let byteLength = 0;
 	let text = "";
-	while (true) {
-		const chunk = await reader.read();
-		if (chunk.done) return text + decoder.decode();
-		byteLength += chunk.value.byteLength;
-		if (byteLength > MAX_ACKNOWLEDGEMENT_BYTES) {
-			void reader.cancel().catch(() => undefined);
-			return undefined;
+	let drained = false;
+	try {
+		while (true) {
+			const chunk = await reader.read();
+			if (chunk.done) {
+				drained = true;
+				return text + decoder.decode();
+			}
+			byteLength += chunk.value.byteLength;
+			if (byteLength > MAX_ACKNOWLEDGEMENT_BYTES) return undefined;
+			text += decoder.decode(chunk.value, { stream: true });
 		}
-		text += decoder.decode(chunk.value, { stream: true });
+	} finally {
+		if (!drained) {
+			try {
+				void reader.cancel().catch(() => undefined);
+			} catch {
+				// Cleanup must not replace an unreadable acknowledgement outcome.
+			}
+		}
+		try {
+			reader.releaseLock();
+		} catch {
+			// A non-standard stream must not escape the bounded error surface.
+		}
 	}
 }
 
