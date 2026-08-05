@@ -97,6 +97,7 @@ function runCliReconcileTemplateManifest(
 				options.stateDirectory,
 				"outbound-webhooks.json",
 			),
+			LISTMONK_OPS_WEBHOOK_DATABASE_URL: "",
 		},
 		stdout: "pipe",
 		stderr: "pipe",
