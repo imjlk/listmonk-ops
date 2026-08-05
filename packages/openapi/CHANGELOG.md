@@ -1,5 +1,40 @@
 # @listmonk-ops/openapi
 
+## 0.6.0 — 2026-08-05
+
+### Added
+
+- [35b1354](https://github.com/imjlk/listmonk-ops/commit/35b13543893b7da1c3b97391d54f84e1d7e4029f) Add the tree-shakable `@listmonk-ops/openapi/runtime` entrypoint for Fetch-compatible
+  services such as Cloudflare Workers. It normalizes Listmonk API origins, creates
+  HTTPS-only token-authenticated clients, and sends single-recipient external
+  transactional messages without creating subscribers. Runtime failures expose
+  bounded error codes, diagnostic reasons, and HTTP status without copying remote
+  bodies or recipient data. Requests use a configurable 30-second default timeout
+  and expose aborts and timeouts as ambiguous, non-retry-safe outcomes. — Thanks @imjlk!
+
+### Removed
+
+- [1e16bbb](https://github.com/imjlk/listmonk-ops/commit/1e16bbb6fd8094f00d9558323921d7c3f13b8e65) Remove the `rawSdk` namespace export and replace dynamic CRUD method dispatch
+  with direct named imports of the generated SDK functions.
+  
+  The previous `rawSdk = sdk` re-export and `import * as sdk` namespace usage in
+  `crud.ts`, `resource-operations.ts`, and `service-operations.ts` forced
+  bundlers to retain every generated SDK function, so consumer bundles always
+  carried all 51 Listmonk endpoints even when the enhanced client never exposed
+  them. Each CRUD slot now references a specific generated function through a
+  named import, and slots with no backing endpoint (for example media
+  create/update) fail lazily with a clear error instead of pinning the namespace.
+  
+  Measured impact on the published `dist/index.js` bundle: 30,453 → 27,127
+  bytes (~11% smaller), with nine previously-retained endpoint URLs (public
+  subscription, maintenance/GC, i18n, analytics cleanup) now stripped at build
+  time.
+  
+  `rawSdk` was a documented module-level export with no in-repo or graph-traced
+  consumers. Its removal is a breaking public API change. To call generated
+  functions directly, use the `@listmonk-ops/openapi/sdk` subpath, which remains
+  fully tree-shakeable. — Thanks @imjlk!
+
 ## 0.5.0 — 2026-08-02
 
 ### Added
