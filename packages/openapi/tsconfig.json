@@ -36,6 +36,6 @@
 			}
 		]
 	},
-	"include": ["src/**/*", "generated/**/*", "index.ts", "sdk.ts"],
+	"include": ["src/**/*", "generated/**/*", "index.ts", "runtime.ts", "sdk.ts"],
 	"exclude": ["generate.ts", "tests/**/*", "dist/**/*"]
 }

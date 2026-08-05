@@ -21,6 +21,11 @@
 			"types": "./dist/sdk.d.ts",
 			"import": "./dist/sdk.js",
 			"default": "./dist/sdk.js"
+		},
+		"./runtime": {
+			"types": "./dist/runtime.d.ts",
+			"import": "./dist/runtime.js",
+			"default": "./dist/runtime.js"
 		}
 	},
 	"files": [
@@ -33,7 +38,7 @@
 		"test": "bun test",
 		"test:watch": "bun test --watch",
 		"clean": "rm -rf dist tsconfig.tsbuildinfo",
-		"build": "bun run clean && bun run generate && ttsc && esbuild index.ts sdk.ts --bundle --outdir=dist --format=esm --minify",
+		"build": "bun run clean && bun run generate && ttsc && esbuild index.ts sdk.ts runtime.ts --bundle --outdir=dist --format=esm --minify",
 		"typecheck": "ttsc --noEmit",
 		"format": "ttsc format",
 		"lint": "ttsc --noEmit",

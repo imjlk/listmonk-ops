@@ -5,6 +5,18 @@ import { fileURLToPath } from "node:url";
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
+async function buildRuntimeArtifact(): Promise<void> {
+	await build({
+		bundle: true,
+		entryPoints: [resolve(packageDirectory, "runtime.ts")],
+		format: "esm",
+		logLevel: "silent",
+		minify: true,
+		outfile: resolve(packageDirectory, "dist/runtime.js"),
+		platform: "browser",
+	});
+}
+
 async function bundleConsumer(contents: string): Promise<string> {
 	const result = await build({
 		stdin: {
@@ -68,5 +80,41 @@ describe("OpenAPI consumer tree-shaking", () => {
 
 		expect(generatedEndpointUrls(bundle)).toEqual(["/lists"]);
 		expect(Buffer.byteLength(bundle)).toBeLessThan(12_000);
+	});
+
+	test("keeps the Workers runtime helper limited to transactional delivery", async () => {
+		const bundle = await bundleConsumer(`
+			import { createListmonkRuntimeClient, sendExternalTransactionalEmail } from "./runtime.ts";
+			globalThis.__treeShakingProbe = { createListmonkRuntimeClient, sendExternalTransactionalEmail };
+		`);
+
+		expect(generatedEndpointUrls(bundle)).toEqual(["/tx"]);
+		// Keep the opaque client and bounded payload validation within a small
+		// Worker entrypoint while retaining only the transactional endpoint.
+		expect(Buffer.byteLength(bundle)).toBeLessThan(21_500);
+	});
+
+	test("exposes the same bounded helper through the built runtime subpath", async () => {
+		await buildRuntimeArtifact();
+		const runtimePath = await Bun.resolve(
+			"@listmonk-ops/openapi/runtime",
+			packageDirectory,
+		);
+		expect(runtimePath).toBe(resolve(packageDirectory, "dist/runtime.js"));
+		const runtime = await import(runtimePath);
+		expect(Object.keys(runtime).sort()).toEqual([
+			"ListmonkRuntimeError",
+			"createListmonkRuntimeClient",
+			"createListmonkTokenAuthorization",
+			"normalizeListmonkApiBaseUrl",
+			"sendExternalTransactionalEmail",
+		]);
+
+		const bundle = await bundleConsumer(`
+			import { createListmonkRuntimeClient, sendExternalTransactionalEmail } from "@listmonk-ops/openapi/runtime";
+			globalThis.__treeShakingProbe = { createListmonkRuntimeClient, sendExternalTransactionalEmail };
+		`);
+		expect(generatedEndpointUrls(bundle)).toEqual(["/tx"]);
+		expect(Buffer.byteLength(bundle)).toBeLessThan(21_500);
 	});
 });

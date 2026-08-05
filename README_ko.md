@@ -143,6 +143,17 @@ credential입니다. 이 권한을 runtime delivery role에 부여하지 마세�
 `@listmonk-ops/openapi/sdk`의 runtime-neutral 생성 클라이언트는 표준 Fetch API를
 사용하므로 Workers 호환 런타임에서 소비할 수 있습니다. 파일 기반 registry
 자동화는 릴리스/provisioning 경계에만 둡니다.
+`@listmonk-ops/openapi/runtime`은 Worker 요청 경로용으로 불투명한 token 인증 runtime
+handle과 단일 외부 수신자 transactional helper를 제공합니다. 생성 SDK client는
+handle 내부에 숨기며 Subscriber를 생성하지 않습니다.
+수신자 주소는 UTF-8 254바이트, 제목은 256바이트, 정상 직렬화되는 transactional
+body는 64 KiB로 제한합니다. Template data는 최대 2,048개 node와 32단계 중첩으로
+제한하고 원격 오류를 제한된 오류 코드와 상태로 투영합니다. Template data를
+snapshot한 뒤 검증하며, 비멱등 요청이 달라지거나 다른 origin으로 재전송되지
+않도록 sparse/확장 array, callable/accessor 직렬화 hook, HTTP redirect를 거부합니다.
+Runtime base URL은 URL 파싱 전에 percent encoding, backslash, dot segment를
+거부합니다. 수신자 domain은 DNS label 규칙을 검증하되 private Mailpit 배포를 위한
+single-label local domain은 허용합니다.
 
 패키지 root에서는 더 이상 생성 SDK를 `rawSdk` namespace로 export하지 않습니다.
 이 namespace가 bundler로 하여금 모든 생성 endpoint를 유지하게 했기 때문입니다.

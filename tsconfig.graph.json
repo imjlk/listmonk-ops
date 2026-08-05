@@ -9,6 +9,7 @@
 			"@listmonk-ops/common": ["./packages/common/src/index.ts"],
 			"@listmonk-ops/mcp": ["./packages/mcp/src/index.ts"],
 			"@listmonk-ops/openapi": ["./packages/openapi/index.ts"],
+			"@listmonk-ops/openapi/runtime": ["./packages/openapi/runtime.ts"],
 			"@listmonk-ops/openapi/sdk": ["./packages/openapi/sdk.ts"],
 			"@listmonk-ops/operations": ["./packages/operations/src/index.ts"],
 			"@listmonk-ops/operations/specs": [
@@ -24,6 +25,7 @@
 		"packages/*/type-tests/**/*.ts",
 		"packages/*/tests/**/*.ts",
 		"packages/openapi/index.ts",
+		"packages/openapi/runtime.ts",
 		"packages/openapi/sdk.ts",
 		"scripts/**/*.ts"
 	],
