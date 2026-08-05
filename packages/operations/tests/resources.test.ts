@@ -21,6 +21,7 @@ import {
 	invokeCreateTemplateOperation,
 	invokeGetTemplatesOperation,
 	invokePauseCampaignOperation,
+	invokeReconcileTemplateManifestOperation,
 	invokeRemoveSubscribersFromListsOperation,
 	invokeScheduleCampaignOperation,
 	invokeSetDefaultTemplateOperation,
@@ -307,6 +308,67 @@ describe("shared CRUD resource operations", () => {
 		expect(create).toHaveBeenCalledTimes(2);
 	});
 
+	test("normalizes template manifest reconciliation for shared surfaces", async () => {
+		const list = mock(async () => ({ data: { results: [], total: 0 } }));
+		const output = await invokeReconcileTemplateManifestOperation(
+			templateContext({
+				list: list as TemplateClient["template"]["list"],
+			}),
+			{
+				schema_version: 1,
+				templates: [
+					{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+				],
+			},
+		);
+
+		expect(output).toEqual({
+			schema_version: 1,
+			dry_run: true,
+			results: [
+				{
+					name: "Account sign-in code",
+					action: "create",
+					applied: false,
+				},
+			],
+		});
+		await expect(
+			invokeReconcileTemplateManifestOperation(
+				templateContext({
+					list: list as TemplateClient["template"]["list"],
+				}),
+				{
+					schema_version: 1,
+					templates: [
+						{ name: "Duplicate", body: "<p>First</p>" },
+						{ name: "Duplicate", body: "<p>Second</p>" },
+					],
+				},
+			),
+		).rejects.toBeInstanceOf(OperationInputError);
+		expect(list).toHaveBeenCalledTimes(1);
+	});
+
+	test("rejects oversized shared template manifests before remote reads", async () => {
+		const list = mock(async () => ({ data: { results: [], total: 0 } }));
+		await expect(
+			invokeReconcileTemplateManifestOperation(
+				templateContext({
+					list: list as TemplateClient["template"]["list"],
+				}),
+				{
+					schema_version: 1,
+					templates: Array.from({ length: 501 }, (_, index) => ({
+						name: `Template ${index}`,
+						body: "<p>Body</p>",
+					})),
+				},
+			),
+		).rejects.toBeInstanceOf(OperationInputError);
+		expect(list).not.toHaveBeenCalled();
+	});
+
 	test("fails closed when exact-name template reconciliation is ambiguous", async () => {
 		const list = mock(async () => ({
 			data: {
@@ -330,7 +392,7 @@ describe("shared CRUD resource operations", () => {
 	test("exposes object-root registries with safety metadata", () => {
 		expect(campaignOperations).toHaveLength(11);
 		expect(subscriberOperations).toHaveLength(9);
-		expect(templateOperations).toHaveLength(6);
+		expect(templateOperations).toHaveLength(7);
 		expect(mediaOperations).toHaveLength(4);
 		for (const operation of [
 			...campaignOperations,
@@ -351,6 +413,16 @@ describe("shared CRUD resource operations", () => {
 		).toEqual({
 			readOnlyHint: false,
 			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
+		});
+		expect(
+			templateOperations.find(
+				(operation) => operation.id === "templates.reconcile",
+			)?.safety,
+		).toEqual({
+			readOnlyHint: false,
+			destructiveHint: true,
 			idempotentHint: true,
 			openWorldHint: true,
 		});

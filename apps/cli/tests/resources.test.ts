@@ -19,6 +19,7 @@ import {
 	type SubscribersCliContext,
 } from "../src/commands/subscribers";
 import {
+	renderReconcileTemplateManifest,
 	renderSetDefaultTemplate,
 	renderUpdateTemplate,
 	type TemplatesCliContext,
@@ -147,6 +148,51 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 		);
 		expect(cliContext.output.json).toHaveBeenCalledWith(
 			{ id: 5, set_default: true },
+		);
+	});
+
+	test("plans template manifests through the shared operation", async () => {
+		const list = mock(async () => ({
+			data: { results: [], total: 0 },
+		}));
+		const create = mock(async ({ body }: { body: Record<string, unknown> }) => ({
+			data: { id: 19, ...body },
+		}));
+		const cliContext = {
+			client: { template: { list, create } } as unknown as Pick<
+				ListmonkClient,
+				"template"
+			>,
+			output: output(),
+		} satisfies TemplatesCliContext;
+
+		await renderReconcileTemplateManifest(cliContext, {
+			schema_version: 1,
+			templates: [{ name: "Sign-in code", type: "tx", body: "<p>OTP</p>" }],
+			dry_run: true,
+		});
+
+		expect(list).toHaveBeenCalledWith({ query: { no_body: true } });
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Template manifest planned: 1 entries",
+		);
+		expect(cliContext.output.json).toHaveBeenCalledWith({
+			schema_version: 1,
+			dry_run: true,
+			results: [
+				{ name: "Sign-in code", action: "create", applied: false },
+			],
+		});
+
+		await renderReconcileTemplateManifest(cliContext, {
+			schema_version: 1,
+			templates: [{ name: "Sign-in code", type: "tx", body: "<p>OTP</p>" }],
+			dry_run: false,
+		});
+
+		expect(create).toHaveBeenCalledTimes(1);
+		expect(cliContext.output.success).toHaveBeenCalledWith(
+			"Template manifest applied: 1 changed, 0 unchanged",
 		);
 	});
 

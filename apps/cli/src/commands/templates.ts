@@ -6,6 +6,7 @@ import {
 	invokeDeleteTemplateOperation,
 	invokeGetTemplateOperation,
 	invokeGetTemplatesOperation,
+	invokeReconcileTemplateManifestOperation,
 	invokeSetDefaultTemplateOperation,
 	invokeUpdateTemplateOperation,
 	OperationExecutionError,
@@ -17,7 +18,7 @@ import {
 	type HandlerArgs,
 	option,
 } from "../lib/command";
-import { toErrorMessage } from "../lib/command-utils";
+import { parseJson, toErrorMessage } from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
 
 type TemplatesOutput = Pick<
@@ -45,6 +46,8 @@ export interface CreateTemplateInput {
 }
 
 export type UpdateTemplateInput = Partial<CreateTemplateInput> & { id: number };
+
+const MAX_TEMPLATE_MANIFEST_BYTES = 1024 * 1024;
 
 export function createTemplateCommandError(context: string, error: unknown): Error {
 	if (error instanceof OperationExecutionError) return error;
@@ -104,6 +107,21 @@ export async function renderSetDefaultTemplate(
 	const template = await invokeSetDefaultTemplateOperation(context, input);
 	context.output.success(`Default template set: ${input.id}`);
 	context.output.json(template);
+}
+
+export async function renderReconcileTemplateManifest(
+	context: TemplatesCliContext,
+	input: unknown,
+): Promise<void> {
+	const result = await invokeReconcileTemplateManifestOperation(context, input);
+	const appliedCount = result.results.filter(({ applied }) => applied).length;
+	const summary = result.dry_run
+		? `${result.results.length} entries`
+		: `${appliedCount} changed, ${result.results.length - appliedCount} unchanged`;
+	context.output.success(
+		`Template manifest ${result.dry_run ? "planned" : "applied"}: ${summary}`,
+	);
+	context.output.json(result);
 }
 
 type ListCommandFlags = { page?: number; "per-page"?: number; "no-body"?: boolean };
@@ -229,6 +247,49 @@ export async function handleSetDefaultTemplateCommand({
 	}
 }
 
+type ReconcileCommandFlags = {
+	"manifest-file": string;
+	"dry-run": boolean;
+};
+
+export async function handleReconcileTemplateManifestCommand({
+	flags,
+	...args
+}: HandlerArgs<ReconcileCommandFlags>): Promise<void> {
+	try {
+		// defineCommand enforces the operation's destructive safety metadata and
+		// global --confirm flag before this handler can read or apply a manifest.
+		const file = Bun.file(flags["manifest-file"]);
+		if (!(await file.exists())) {
+			throw new Error(`File not found: ${flags["manifest-file"]}`);
+		}
+		if (file.size > MAX_TEMPLATE_MANIFEST_BYTES) {
+			throw new Error(
+				`Template manifest exceeds the ${MAX_TEMPLATE_MANIFEST_BYTES}-byte limit`,
+			);
+		}
+		const parsed = parseJson<unknown>(await file.text(), "template manifest");
+		if (typeof parsed !== "object" || parsed === null || Array.isArray(
+			parsed,
+		)) {
+			throw new Error("Template manifest must contain a JSON object");
+		}
+		const client = await getListmonkClient(args);
+		await renderReconcileTemplateManifest(
+			{ client, output: getOutput() },
+			{
+				...parsed,
+				dry_run: flags["dry-run"],
+			},
+		);
+	} catch (error) {
+		throw createTemplateCommandError(
+			"Failed to reconcile template manifest",
+			error,
+		);
+	}
+}
+
 const templateTypeOption = z.enum(["campaign", "campaign_visual", "tx"]).default(
 	"campaign",
 );
@@ -327,6 +388,21 @@ export default defineGroup({
 				}),
 			},
 			handler: handleSetDefaultTemplateCommand,
+		}),
+		defineCommand({
+			name: "reconcile",
+			operationId: "templates.reconcile",
+			description: "Plan or apply a versioned template manifest",
+			options: {
+				"manifest-file": option(z.string().trim().min(1), {
+					description: "Path to a versioned template manifest JSON file",
+					fileType: "path",
+				}),
+				"dry-run": option(z.boolean().default(true), {
+					description: "Plan without changing Listmonk",
+				}),
+			},
+			handler: handleReconcileTemplateManifestCommand,
 		}),
 	],
 });

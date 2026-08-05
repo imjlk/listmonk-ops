@@ -91,6 +91,13 @@ existing behavior until they are migrated.
 - `listmonk_get_campaign_running_stats` - Get live run metrics
 - `listmonk_get_campaign_analytics` - Get timeseries analytics
 
+### Templates
+
+- `listmonk_reconcile_template_manifest` - Plan or apply up to 500 exact-name
+  templates from a versioned manifest. `dry_run` defaults to `true`; pass
+  `dry_run: false` and `confirm: true` to apply. Results omit template bodies
+  and expose only names, actions, and apply state.
+
 ### Media
 
 - `listmonk_get_media` - List uploaded media files

@@ -957,6 +957,18 @@ Set a template as the Listmonk default
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
+## `templates.reconcile`
+
+Plan or apply a versioned template manifest against exact-name Listmonk templates
+
+- Resource / verb: `template.reconcile`
+- MCP tool: `listmonk_reconcile_template_manifest`
+- Contract source: input `runtime-operation`, output `runtime-operation`
+- Effects: `write:template`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
 ## `media.delete`
 
 Delete an uploaded media file from Listmonk

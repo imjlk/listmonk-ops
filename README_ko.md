@@ -114,6 +114,12 @@ export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 정확한 이름이 중복되면 실패하며, 전체 manifest를 먼저 계획한 뒤 첫 변경을
 적용합니다.
 
+같은 계약을 `listmonk-cli templates reconcile`과
+`listmonk_reconcile_template_manifest` MCP 도구에서도 사용할 수 있습니다.
+두 표면 모두 기본값은 dry run이며 manifest를 500개 항목으로 제한하고 결과에서
+template body를 제외하며 명시적 확인을 요구합니다. CLI 실제 적용에는
+`--no-dry-run --confirm`을 사용합니다.
+
 Listmonk는 여러 template을 묶는 transaction을 제공하지 않습니다. 앞선 항목이
 성공한 뒤 apply가 실패하면 `TemplateManifestApplyError`가 실패한 template과 이미
 완료된 결과를 제공하므로 명시적으로 재시도하거나 rollback할 수 있습니다.
@@ -410,6 +416,9 @@ listmonk-cli templates create --name "Campaign HTML" --body "<p>Hello</p>"
 listmonk-cli templates update --id 3 --body "<p>Updated</p>"
 listmonk-cli templates delete --id 3 --confirm
 listmonk-cli templates set-default --id 3
+listmonk-cli templates reconcile --manifest-file ./templates.json --confirm
+listmonk-cli templates reconcile --manifest-file ./templates.json \
+  --no-dry-run --confirm
 
 listmonk-cli media list --page 1 --per-page 20
 listmonk-cli media get --id 9
@@ -465,7 +474,7 @@ Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제�
 자격 증명을 노출하지 않으면서 런타임 정보와 실제 Listmonk health probe
 결과를 함께 제공합니다.
 
-102개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+103개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -474,7 +483,7 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-61개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 나머지 41개는
+61개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 나머지 42개는
 generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계의
 커밋된 snapshot을 브릿지로 사용하며 명시적으로 `experimental`입니다.
 따라서 upstream API 변경은 먼저 generated transport와 handwritten adapter에서
@@ -515,7 +524,7 @@ projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설
 저장된 오류의 값 대신 존재 여부만 반환합니다.
 `control.status`의 runtime readiness 계약과 신규 subsystem·집계·분석 조회는
 더 성숙할 때까지 experimental로 유지합니다. 나머지 experimental
-descriptor는 62개입니다.
+descriptor는 63개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run` 네 가지 타입드 플레이북을
@@ -528,11 +537,11 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 102개 전체, API 경계 규칙, 41개 governed runtime bridge, 40개
-stable compatibility baseline과 spec-to-runtime 직접 graph edge 306개를
+Operation 103개 전체, API 경계 규칙, 42개 governed runtime bridge, 40개
+stable compatibility baseline과 spec-to-runtime 직접 graph edge 309개를
 검증합니다.
 
-41개 bridge Operation 중 하나의 정규화 Zod 경계가 바뀌면 workspace를
+42개 bridge Operation 중 하나의 정규화 Zod 경계가 바뀌면 workspace를
 빌드한 뒤 `bun run operations:specs:runtime-contracts:generate`를 실행하고,
 커밋될 snapshot diff를 검토한 다음 Spec 산출물을 다시 생성하세요. 일반
 CLI/MCP 시작은 runtime contract와 snapshot이 다르면 계속 fail-closed로

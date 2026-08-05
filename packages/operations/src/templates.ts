@@ -87,6 +87,23 @@ const templateManifestSchema = z
 		}
 	});
 
+const templateManifestOperationInputSchema = templateManifestSchema.safeExtend({
+	templates: z.array(createTemplateInputSchema).min(1).max(500),
+	dry_run: z.boolean().default(true),
+});
+
+const templateReconcileSummarySchema = z.object({
+	name: z.string(),
+	action: z.enum(["create", "update", "unchanged"]),
+	applied: z.boolean(),
+});
+
+const templateManifestOperationOutputSchema = z.object({
+	schema_version: z.literal(1),
+	dry_run: z.boolean(),
+	results: z.array(templateReconcileSummarySchema),
+});
+
 export type TemplateDesiredState = z.input<typeof createTemplateInputSchema>;
 export type TemplateManifest = z.input<typeof templateManifestSchema>;
 
@@ -107,6 +124,14 @@ export interface TemplateManifestReconcileResult {
 	apply: boolean;
 	results: TemplateReconcileResult[];
 }
+
+export type TemplateManifestOperationInput = z.input<
+	typeof templateManifestOperationInputSchema
+>;
+
+export type TemplateManifestOperationResult = z.output<
+	typeof templateManifestOperationOutputSchema
+>;
 
 export class TemplateManifestApplyError extends Error {
 	public readonly failedTemplate: string;
@@ -466,6 +491,30 @@ export async function reconcileTemplateManifest(
 	return { schema_version: 1, apply: true, results };
 }
 
+/** Execute manifest reconciliation through the normalized operation boundary. */
+export async function executeTemplateManifestReconcile(
+	context: TemplateOperationContext,
+	input: z.output<typeof templateManifestOperationInputSchema>,
+): Promise<TemplateManifestOperationResult> {
+	const result = await reconcileTemplateManifest(
+		context,
+		{
+			schema_version: input.schema_version,
+			templates: input.templates,
+		},
+		{ apply: !input.dry_run },
+	);
+	return {
+		schema_version: result.schema_version,
+		dry_run: input.dry_run,
+		results: result.results.map(({ name, action, applied }) => ({
+			name,
+			action,
+			applied,
+		})),
+	};
+}
+
 async function listTemplatesForReconcile(
 	client: Pick<ListmonkClient, "template">,
 ): Promise<Template[]> {
@@ -609,6 +658,27 @@ export const setDefaultTemplateOperation = defineOperation({
 	execute: setDefaultTemplate,
 });
 
+export const reconcileTemplateManifestOperation = defineOperation({
+	id: "templates.reconcile",
+	title: "Reconcile template manifest",
+	description:
+		"Plan or apply a versioned template manifest against exact-name Listmonk templates",
+	inputSchema: templateManifestOperationInputSchema,
+	outputSchema: templateManifestOperationOutputSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: true,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
+	mcp: {
+		name: "listmonk_reconcile_template_manifest",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindBridgedOperationSpec("templates.reconcile"),
+	execute: executeTemplateManifestReconcile,
+});
+
 export async function invokeGetTemplatesOperation(
 	context: TemplateOperationContext,
 	input: unknown,
@@ -738,6 +808,30 @@ export async function invokeSetDefaultTemplateOperation(
 	);
 }
 
+export async function invokeReconcileTemplateManifestOperation(
+	context: TemplateOperationContext,
+	input: unknown,
+): Promise<TemplateManifestOperationResult> {
+	const parsedInput = parseOperationInput(
+		reconcileTemplateManifestOperation.inputSchema,
+		input,
+	);
+	let output: TemplateManifestOperationResult;
+	try {
+		output = await executeTemplateManifestReconcile(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			reconcileTemplateManifestOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		reconcileTemplateManifestOperation.id,
+		reconcileTemplateManifestOperation.outputSchema,
+		output,
+	);
+}
+
 export const templateOperations = [
 	getTemplatesOperation,
 	getTemplateOperation,
@@ -745,6 +839,7 @@ export const templateOperations = [
 	updateTemplateOperation,
 	deleteTemplateOperation,
 	setDefaultTemplateOperation,
+	reconcileTemplateManifestOperation,
 ] as const;
 
 export const templateOperationCatalog = defineOperationCatalog({
@@ -806,6 +901,11 @@ export async function invokeTemplateOperationByMcpName(
 			return {
 				operation: setDefaultTemplateOperation,
 				output: await invokeSetDefaultTemplateOperation(context, input),
+			};
+		case reconcileTemplateManifestOperation.mcp.name:
+			return {
+				operation: reconcileTemplateManifestOperation,
+				output: await invokeReconcileTemplateManifestOperation(context, input),
 			};
 		default:
 			return undefined;

@@ -22434,6 +22434,176 @@
           "The target, intended side effect, or required confirmation has not been verified."
         ],
         "prerequisites": [
+          "templates.list"
+        ],
+        "related": [
+          "ops.templates.registry-sync"
+        ],
+        "retryGuidance": "Retry identical transient failures with bounded backoff.",
+        "useWhen": [
+          "Plan or apply a versioned template manifest against exact-name Listmonk templates"
+        ],
+        "verifyWith": [
+          "templates.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {},
+          "dialect": "openapi-3.1",
+          "schema": {
+            "properties": {
+              "dry_run": {
+                "default": true,
+                "type": "boolean"
+              },
+              "schema_version": {
+                "const": 1,
+                "type": "number"
+              },
+              "templates": {
+                "items": {
+                  "properties": {
+                    "body": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "body_source": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "subject": {
+                      "default": "",
+                      "type": "string"
+                    },
+                    "type": {
+                      "default": "campaign",
+                      "enum": [
+                        "campaign",
+                        "campaign_visual",
+                        "tx"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "body"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 500,
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "templates"
+            ],
+            "type": "object"
+          },
+          "source": "runtime-operation",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {},
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "type": "boolean"
+              },
+              "results": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "action": {
+                      "enum": [
+                        "create",
+                        "update",
+                        "unchanged"
+                      ],
+                      "type": "string"
+                    },
+                    "applied": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "action",
+                    "applied"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "schema_version": {
+                "const": 1,
+                "type": "number"
+              }
+            },
+            "required": [
+              "schema_version",
+              "dry_run",
+              "results"
+            ],
+            "type": "object"
+          },
+          "source": "runtime-operation",
+          "stage": "normalized"
+        }
+      },
+      "description": "Plan or apply a versioned template manifest against exact-name Listmonk templates",
+      "effects": [
+        {
+          "kind": "write",
+          "preview": true,
+          "resource": "template",
+          "reversible": false
+        }
+      ],
+      "id": "templates.reconcile",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+          "executorNode": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function",
+          "invokerNode": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable"
+        },
+        "mcpName": "listmonk_reconcile_template_manifest",
+        "openWorld": true
+      },
+      "resource": "template",
+      "retry": {
+        "kind": "safe",
+        "reason": "The shared operation contract declares identical retries idempotent."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Reconcile template manifest",
+      "verb": "reconcile"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The target, intended side effect, or required confirmation has not been verified."
+        ],
+        "prerequisites": [
           "media.get"
         ],
         "related": [],

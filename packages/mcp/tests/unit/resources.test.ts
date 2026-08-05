@@ -44,6 +44,25 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 		expect(templatesTools.map((tool) => tool.name)).toContain(
 			"listmonk_update_template",
 		);
+		const reconcileTemplateTool = templatesTools.find(
+			(tool) => tool.name === "listmonk_reconcile_template_manifest",
+		);
+		expect(reconcileTemplateTool?.annotations).toMatchObject({
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: true,
+		});
+		expect(reconcileTemplateTool?.inputSchema.required).toEqual(
+			expect.arrayContaining(["schema_version", "templates", "confirm"]),
+		);
+		expect(reconcileTemplateTool?.inputSchema.properties?.dry_run).toMatchObject({
+			type: "boolean",
+			default: true,
+		});
+		expect(reconcileTemplateTool?.inputSchema.properties?.templates).toMatchObject({
+			type: "array",
+			maxItems: 500,
+		});
 		const setDefaultTemplateTool = templatesTools.find(
 			(tool) => tool.name === "listmonk_set_default_template",
 		);
@@ -149,6 +168,37 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 		expect(result.isError).toBeFalsy();
 		expect(result.structuredContent).toEqual({ id: 12, set_default: true });
 		expect(result.content[0]?.text).toBe("Default template set successfully");
+	});
+
+	test("routes bounded template manifest plans through the shared operation", async () => {
+		const client = {
+			template: {
+				list: async () => ({ data: { results: [], total: 0 } }),
+			},
+		} as unknown as ListmonkClient;
+
+		const result = await handleTemplatesTools(
+			request("listmonk_reconcile_template_manifest", {
+				schema_version: 1,
+				templates: [
+					{ name: "Sign-in code", type: "tx", body: "<p>OTP</p>" },
+				],
+				dry_run: true,
+			}),
+			client,
+		);
+
+		expect(result.isError).toBeFalsy();
+		expect(result.structuredContent).toEqual({
+			schema_version: 1,
+			dry_run: true,
+			results: [
+				{ name: "Sign-in code", action: "create", applied: false },
+			],
+		});
+		expect(JSON.parse(result.content[0]?.text ?? "null")).toEqual(
+			result.structuredContent,
+		);
 	});
 
 	test("routes media reads through the shared operation result adapter", async () => {
