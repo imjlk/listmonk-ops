@@ -14,6 +14,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_TIMEOUT_MS = 2_147_483_647;
 const MAX_RECIPIENT_BYTES = 254;
 const MAX_SUBJECT_BYTES = 256;
+const MAX_ACKNOWLEDGEMENT_BYTES = 64 * 1024;
 const MAX_TRANSACTIONAL_BODY_BYTES = 64 * 1024;
 const MAX_TRANSACTIONAL_DATA_DEPTH = 32;
 const MAX_TRANSACTIONAL_DATA_NODES = 2_048;
@@ -525,7 +526,8 @@ function normalizeRuntimeResponseBody(
 			return new Response(null, { status: response.status });
 		}
 		try {
-			return new Response(await response.text(), { status: response.status });
+			const body = await readBoundedAcknowledgementBody(response);
+			return new Response(body ?? "{", { status: response.status });
 		} catch {
 			if (request instanceof Request && request.signal.aborted) {
 				throw abortReason(request.signal);
@@ -535,6 +537,27 @@ function normalizeRuntimeResponseBody(
 			return new Response("{", { status: response.status });
 		}
 	}) as typeof globalThis.fetch;
+}
+
+async function readBoundedAcknowledgementBody(
+	response: Response,
+): Promise<string | undefined> {
+	if (response.body === null) return "";
+
+	const reader = response.body.getReader();
+	const decoder = new TextDecoder();
+	let byteLength = 0;
+	let text = "";
+	while (true) {
+		const chunk = await reader.read();
+		if (chunk.done) return text + decoder.decode();
+		byteLength += chunk.value.byteLength;
+		if (byteLength > MAX_ACKNOWLEDGEMENT_BYTES) {
+			void reader.cancel().catch(() => undefined);
+			return undefined;
+		}
+		text += decoder.decode(chunk.value, { stream: true });
+	}
 }
 
 function createTransactionalAbortContext(

@@ -577,6 +577,45 @@ describe("Workers-compatible Listmonk runtime", () => {
 		expect(String(error)).not.toContain("private success body");
 	});
 
+	test("bounds successful acknowledgement bodies before parsing", async () => {
+		let cancelled = false;
+		const chunk = new TextEncoder().encode("x".repeat(40_000));
+		const fetch = mock(
+			async () =>
+				new Response(
+					new ReadableStream({
+						cancel() {
+							cancelled = true;
+						},
+						start(controller) {
+							controller.enqueue(chunk);
+							controller.enqueue(chunk);
+						},
+					}),
+					{ status: 200 },
+				),
+		);
+		const client = createListmonkRuntimeClient({
+			baseUrl: "https://mail.example.com",
+			username: "runtime",
+			accessToken: "test-token",
+			fetch,
+		});
+
+		const error = await sendExternalTransactionalEmail({
+			client,
+			recipient: "private@example.com",
+			templateId: 42,
+		}).catch((cause: unknown) => cause);
+
+		expect(error).toMatchObject({
+			code: "request_failed",
+			reason: "response_parse_failed",
+			status: 200,
+		});
+		expect(cancelled).toBe(true);
+	});
+
 	test("distinguishes an abort without retrying the request", async () => {
 		const fetch = mock(async () => Response.json({ data: true }));
 		const client = createListmonkRuntimeClient({

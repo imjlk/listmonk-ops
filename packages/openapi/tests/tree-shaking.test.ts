@@ -81,4 +81,22 @@ describe("OpenAPI consumer tree-shaking", () => {
 		// Worker entrypoint while retaining only the transactional endpoint.
 		expect(Buffer.byteLength(bundle)).toBeLessThan(20_000);
 	});
+
+	test("exposes the same bounded helper through the built runtime subpath", async () => {
+		const runtime = await import("@listmonk-ops/openapi/runtime");
+		expect(Object.keys(runtime).sort()).toEqual([
+			"ListmonkRuntimeError",
+			"createListmonkRuntimeClient",
+			"createListmonkTokenAuthorization",
+			"normalizeListmonkApiBaseUrl",
+			"sendExternalTransactionalEmail",
+		]);
+
+		const bundle = await bundleConsumer(`
+			import { createListmonkRuntimeClient, sendExternalTransactionalEmail } from "@listmonk-ops/openapi/runtime";
+			globalThis.__treeShakingProbe = { createListmonkRuntimeClient, sendExternalTransactionalEmail };
+		`);
+		expect(generatedEndpointUrls(bundle)).toEqual(["/tx"]);
+		expect(Buffer.byteLength(bundle)).toBeLessThan(20_000);
+	});
 });
