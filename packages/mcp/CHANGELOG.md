@@ -1,5 +1,15 @@
 # @listmonk-ops/mcp
 
+## 0.10.0 — 2026-08-05
+
+### Added
+
+- [8a85420](https://github.com/imjlk/listmonk-ops/commit/8a854206e7b49bb952845561d6b2f678bb3d6d88) Expose versioned template manifest reconciliation through the shared CLI and MCP operation boundary with bounded dry-run planning, explicit confirmation, and parity coverage. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.5.3, automation@0.4.2, openapi@0.6.0, operations@0.11.0
+
 ## 0.9.1 — 2026-08-02
 
 ### Patch changes
