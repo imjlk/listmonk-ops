@@ -532,7 +532,10 @@ function normalizeRuntimeResponseBody(
 	fetchImplementation: typeof globalThis.fetch,
 ): typeof globalThis.fetch {
 	return (async (request, init) => {
-		const response = await fetchImplementation(request, init);
+		const response = await fetchImplementation(request, {
+			...init,
+			redirect: "error",
+		});
 		if (!response.ok) {
 			void response.body?.cancel().catch(() => undefined);
 			return new Response(null, { status: response.status });
@@ -541,7 +544,10 @@ function normalizeRuntimeResponseBody(
 			return new Response(null, { status: response.status });
 		}
 		try {
-			const body = await readBoundedAcknowledgementBody(response);
+			const body = await readBoundedAcknowledgementBody(
+				response,
+				request instanceof Request ? request.signal : undefined,
+			);
 			return new Response(body ?? "{", { status: response.status });
 		} catch {
 			if (request instanceof Request && request.signal.aborted) {
@@ -556,17 +562,36 @@ function normalizeRuntimeResponseBody(
 
 async function readBoundedAcknowledgementBody(
 	response: Response,
+	signal: AbortSignal | undefined,
 ): Promise<string | undefined> {
 	if (response.body === null) return "";
 
 	const reader = response.body.getReader();
 	const decoder = new TextDecoder();
+	let removeAbortListener: (() => void) | undefined;
+	const interruption =
+		signal === undefined
+			? undefined
+			: new Promise<never>((_resolve, reject) => {
+					const onAbort = () => reject(abortReason(signal));
+					if (signal.aborted) {
+						onAbort();
+						return;
+					}
+					signal.addEventListener("abort", onAbort, { once: true });
+					removeAbortListener = () =>
+						signal.removeEventListener("abort", onAbort);
+				});
 	let byteLength = 0;
 	let text = "";
 	let drained = false;
 	try {
 		while (true) {
-			const chunk = await reader.read();
+			const pendingRead = reader.read();
+			const chunk =
+				interruption === undefined
+					? await pendingRead
+					: await Promise.race([pendingRead, interruption]);
 			if (chunk.done) {
 				drained = true;
 				return text + decoder.decode();
@@ -576,18 +601,30 @@ async function readBoundedAcknowledgementBody(
 			text += decoder.decode(chunk.value, { stream: true });
 		}
 	} finally {
+		try {
+			removeAbortListener?.();
+		} catch {
+			// Cleanup must not replace the bounded acknowledgement outcome.
+		}
 		if (!drained) {
 			try {
-				void reader.cancel().catch(() => undefined);
+				void reader
+					.cancel()
+					.catch(() => undefined)
+					.then(() => releaseReaderLock(reader));
 			} catch {
 				// Cleanup must not replace an unreadable acknowledgement outcome.
 			}
 		}
-		try {
-			reader.releaseLock();
-		} catch {
-			// A non-standard stream must not escape the bounded error surface.
-		}
+		releaseReaderLock(reader);
+	}
+}
+
+function releaseReaderLock(reader: ReadableStreamDefaultReader<Uint8Array>): void {
+	try {
+		reader.releaseLock();
+	} catch {
+		// A pending or non-standard stream must not escape the error surface.
 	}
 }
 
@@ -804,8 +841,8 @@ function validateTransactionalDataStructure(
 	data: Record<string, unknown> | undefined,
 ): void {
 	if (
-		hasToJSONHook(Object.prototype, null) ||
-		hasToJSONHook(Array.prototype, Object.prototype)
+		hasToJSONHook(Object.prototype) ||
+		hasToJSONHook(Array.prototype)
 	) {
 		throw transactionalDataStructureError();
 	}
@@ -873,7 +910,7 @@ function validateTransactionalDataStructure(
 			) {
 				throw transactionalDataStructureError();
 			}
-			if (hasToJSONHook(objectValue, prototype)) {
+			if (hasToJSONHook(objectValue)) {
 				throw transactionalDataStructureError();
 			}
 			if (isArray) {
@@ -914,18 +951,23 @@ function validateTransactionalDataStructure(
 	}
 }
 
-function hasToJSONHook(value: object, prototype: object | null): boolean {
-	let descriptor = Object.getOwnPropertyDescriptor(value, "toJSON");
-	if (descriptor === undefined && prototype !== null) {
-		descriptor = Object.getOwnPropertyDescriptor(prototype, "toJSON");
-		if (descriptor === undefined && prototype !== Object.prototype) {
-			descriptor = Object.getOwnPropertyDescriptor(Object.prototype, "toJSON");
+function hasToJSONHook(value: object): boolean {
+	let current: object | null = value;
+	for (
+		let depth = 0;
+		current !== null && depth <= MAX_TRANSACTIONAL_DATA_DEPTH;
+		depth += 1
+	) {
+		const descriptor = Object.getOwnPropertyDescriptor(current, "toJSON");
+		if (
+			descriptor !== undefined &&
+			(!("value" in descriptor) || typeof descriptor.value === "function")
+		) {
+			return true;
 		}
+		current = Object.getPrototypeOf(current);
 	}
-	return (
-		descriptor !== undefined &&
-		(!("value" in descriptor) || typeof descriptor.value === "function")
-	);
+	return current !== null;
 }
 
 function transactionalDataStructureError(): ListmonkRuntimeError {

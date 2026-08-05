@@ -92,8 +92,10 @@ describe("Workers-compatible Listmonk runtime", () => {
 
 	test("sends one external message without subscriber persistence", async () => {
 		let captured: Request | undefined;
-		const fetch = mock(async (request: Request) => {
+		let capturedInit: RequestInit | undefined;
+		const fetch = mock(async (request: Request, init?: RequestInit) => {
 			captured = request;
+			capturedInit = init;
 			return Response.json({ data: true });
 		});
 		const client = createListmonkRuntimeClient({
@@ -127,6 +129,7 @@ describe("Workers-compatible Listmonk runtime", () => {
 		});
 		expect(captured?.signal.aborted).toBe(false);
 		expect(captured?.redirect).toBe("error");
+		expect(capturedInit?.redirect).toBe("error");
 	});
 
 	test("allows a single local-domain recipient for private Mailpit stacks", async () => {
@@ -440,6 +443,27 @@ describe("Workers-compatible Listmonk runtime", () => {
 				code: "invalid_message",
 			});
 		}
+		const inheritedPrototype = Object.create(Object.prototype) as object;
+		Object.defineProperty(inheritedPrototype, "toJSON", {
+			configurable: true,
+			value: () => ({ value: Number.NaN }),
+		});
+		const originalArrayPrototype = Object.getPrototypeOf(Array.prototype);
+		const inheritedHookResult = (() => {
+			Object.setPrototypeOf(Array.prototype, inheritedPrototype);
+			try {
+				return sendExternalTransactionalEmail({
+					client,
+					templateId: 42,
+					recipient: "trainer@example.com",
+				});
+			} finally {
+				Object.setPrototypeOf(Array.prototype, originalArrayPrototype);
+			}
+		})();
+		await expect(inheritedHookResult).rejects.toMatchObject({
+			code: "invalid_message",
+		});
 		expect(fetch).not.toHaveBeenCalled();
 	});
 
@@ -840,6 +864,40 @@ describe("Workers-compatible Listmonk runtime", () => {
 				timeoutMs: 20,
 			}),
 		).rejects.toMatchObject({ code: "timed_out", reason: "timed_out" });
+		expect(fetch).toHaveBeenCalledTimes(1);
+	});
+
+	test("cancels a stalled successful body when its source ignores abort", async () => {
+		let cancelled = false;
+		const body = new ReadableStream<Uint8Array>({
+			cancel() {
+				cancelled = true;
+			},
+		});
+		const fetch = mock(
+			async () =>
+				new Response(body, {
+					status: 200,
+				}),
+		);
+		const client = createListmonkRuntimeClient({
+			baseUrl: "https://mail.example.com",
+			username: "runtime",
+			accessToken: "test-token",
+			fetch,
+		});
+
+		await expect(
+			sendExternalTransactionalEmail({
+				client,
+				recipient: "trainer@example.com",
+				templateId: 42,
+				timeoutMs: 20,
+			}),
+		).rejects.toMatchObject({ code: "timed_out", reason: "timed_out" });
+		await Promise.resolve();
+		expect(cancelled).toBe(true);
+		expect(body.locked).toBe(false);
 		expect(fetch).toHaveBeenCalledTimes(1);
 	});
 
