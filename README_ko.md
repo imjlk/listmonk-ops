@@ -896,7 +896,8 @@ Dispatch 시 DNS/IP가 전역 라우팅 가능한 주소인지 다시 확인하�
 `webhooks runtime worker --confirm`을 service manager에서 실행하세요. Endpoint
 등록만으로 background daemon이 시작되지는 않습니다. Worker는 일시적인 tick
 실패를 제한된 exponential backoff로 재시도한 뒤 process supervisor가 재시작할
-수 있도록 실패합니다.
+수 있도록 실패합니다. 두 worker의 systemd, Docker Compose, 영속성, 복구 예시는
+[운영 worker 배포 가이드](docs/worker-deployment_ko.md)를 참고하세요.
 
 ## Headless 이메일 시퀀스
 

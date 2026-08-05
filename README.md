@@ -905,12 +905,14 @@ after explicit confirmation.
 Only public HTTPS endpoints without credentials, query strings, or fragments
 are accepted. Destination DNS/IP safety is rechecked against globally routable
 address ranges when dispatching, each validated address is tried in order and
-pinned for its HTTPS connection, and redirects are disabled. Run
-Use `webhooks tick` from a scheduler or run the heartbeat-tracked
+pinned for its HTTPS connection, and redirects are disabled. Use `webhooks
+tick` from a scheduler or run the heartbeat-tracked
 `webhooks runtime worker --confirm` process under a service manager. Endpoint
 management alone does not start a background daemon. The worker retries
 transient tick failures with bounded exponential backoff before failing for
-its process supervisor to restart.
+its process supervisor to restart. See the
+[production worker deployment guide](docs/worker-deployment.md) for systemd,
+Docker Compose, persistence, and recovery examples for both worker types.
 
 ## Headless Email Sequences
 
