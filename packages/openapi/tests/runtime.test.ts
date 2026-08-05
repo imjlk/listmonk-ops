@@ -34,6 +34,9 @@ describe("Workers-compatible Listmonk runtime", () => {
 			"https://mail.example.com%C2%AD.evil.test",
 			"https://mail.example.com%00.evil.test",
 			"https://mail.example.com%EF%B8%8F.evil.test",
+			"https://mail.example\u3002com.evil.test",
+			"https://mail\uff0eexample.com",
+			"https://mail\uff61example.com",
 			"https:////mail.example.com",
 			"https:////mail.example.com%E2%80%8B.evil.test",
 			"https://user\\@mail.example.com",
@@ -341,6 +344,8 @@ describe("Workers-compatible Listmonk runtime", () => {
 			{ client, templateId: 42, recipient: `${"a".repeat(250)}@x.com` },
 			{ client, templateId: 42, recipient: "trainer@exam\u200bple.com" },
 			{ client, templateId: 42, recipient: "trainer@example.com/path" },
+			{ client, templateId: 42, recipient: "train\\er@example.com" },
+			{ client, templateId: 42, recipient: "trainer\\@example.com" },
 			{ client, templateId: 42, recipient: "trainer@example..com" },
 			{ client, templateId: 42, recipient: "trainer@-example.com" },
 			{ client, templateId: 42, recipient: "trainer@example-.com" },
@@ -348,6 +353,11 @@ describe("Workers-compatible Listmonk runtime", () => {
 			{ client, templateId: 42, recipient: "trainer.@example.com" },
 			{ client, templateId: 42, recipient: "train..er@example.com" },
 			{ client, templateId: 42, recipient: `${"a".repeat(65)}@example.com` },
+			{
+				client,
+				templateId: 42,
+				recipient: `trainer@${"例".repeat(63)}.com`,
+			},
 			{
 				client,
 				templateId: 42,
@@ -493,6 +503,40 @@ describe("Workers-compatible Listmonk runtime", () => {
 			status: 503,
 		});
 		expect(String(error)).not.toContain("private@example.com");
+	});
+
+	test("rejects followed and URL-mismatched runtime responses", async () => {
+		for (const responseIdentity of [
+			{ redirected: true, url: "https://evil.example/api/tx" },
+			{ redirected: false, url: "https://mail.example.com/api/other" },
+		]) {
+			const fetch = mock(async () => {
+				const response = Response.json({ data: true });
+				Object.defineProperties(response, {
+					redirected: { value: responseIdentity.redirected },
+					url: { value: responseIdentity.url },
+				});
+				return response;
+			});
+			const client = createListmonkRuntimeClient({
+				baseUrl: "https://mail.example.com",
+				username: "runtime",
+				accessToken: "test-token",
+				fetch,
+			});
+
+			await expect(
+				sendExternalTransactionalEmail({
+					client,
+					recipient: "trainer@example.com",
+					templateId: 42,
+				}),
+			).rejects.toMatchObject({
+				code: "request_failed",
+				reason: "network_error",
+			});
+			expect(fetch).toHaveBeenCalledTimes(1);
+		}
 	});
 
 	test("does not classify an HTTP error body as a local abort", async () => {

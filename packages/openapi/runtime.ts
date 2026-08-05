@@ -7,10 +7,12 @@ import { transactWithSubscriber } from "./generated/sdk.gen";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/u;
 const EMAIL_DOMAIN_LABEL_PATTERN =
 	/^(?:[\p{L}\p{N}]|[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}])$/u;
-const UNSAFE_EMAIL_CHARACTER_PATTERN = /[",:;<>()[\]]/u;
+const UNSAFE_EMAIL_CHARACTER_PATTERN = /[\\",:;<>()[\]]/u;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\u009f]/u;
 const PRINTABLE_ASCII_PATTERN = /^[\u0020-\u007e]+$/u;
 const INVISIBLE_IDENTIFIER_PATTERN = /\p{Default_Ignorable_Code_Point}/u;
+const UNSAFE_URL_CHARACTER_PATTERN =
+	/[%\\\u0000-\u001f\u007f-\u009f\u3002\uff0e\uff61]|\p{Default_Ignorable_Code_Point}/u;
 const DEFAULT_TIMEOUT_MS = 30_000;
 // Avoid the 32-bit timer overflow behavior used by Node-compatible runtimes.
 const MAX_TIMEOUT_MS = 2_147_483_647;
@@ -126,15 +128,12 @@ export function normalizeListmonkApiBaseUrl(baseUrl: string): string {
 		);
 	}
 	if (
-		value.includes("%") ||
-		value.includes("\\") ||
-		/(?:^|\/)\.{1,2}(?:\/|[?#]|$)/u.test(value) ||
-		CONTROL_CHARACTER_PATTERN.test(value) ||
-		INVISIBLE_IDENTIFIER_PATTERN.test(value)
+		UNSAFE_URL_CHARACTER_PATTERN.test(value) ||
+		/(?:^|\/)\.{1,2}(?:\/|[?#]|$)/u.test(value)
 	) {
 		throw new ListmonkRuntimeError(
 			"invalid_configuration",
-			"Listmonk base URL must not use percent encoding, backslashes, dot segments, or control/invisible formatting characters.",
+			"Listmonk base URL contains unsupported characters or path segments.",
 		);
 	}
 	let parsed: URL;
@@ -536,6 +535,16 @@ function normalizeRuntimeResponseBody(
 			...init,
 			redirect: "error",
 		});
+		const requestUrl = request instanceof Request
+			? request.url
+			: String(request);
+		if (
+			response.redirected ||
+			(response.url !== "" && response.url !== requestUrl)
+		) {
+			void response.body?.cancel().catch(() => undefined);
+			throw new TypeError(TRANSACTIONAL_REQUEST_FAILED_MESSAGE);
+		}
 		if (!response.ok) {
 			void response.body?.cancel().catch(() => undefined);
 			return new Response(null, { status: response.status });
@@ -731,9 +740,24 @@ function hasValidEmailAddressParts(email: string): boolean {
 		return false;
 	}
 	const domain = email.slice(separatorIndex + 1);
-	return domain
-		.split(".")
-		.every((label) => EMAIL_DOMAIN_LABEL_PATTERN.test(label));
+	if (
+		!domain
+			.split(".")
+			.every((label) => EMAIL_DOMAIN_LABEL_PATTERN.test(label))
+	) {
+		return false;
+	}
+	try {
+		const encodedDomain = new URL(`https://${domain}`).hostname;
+		return (
+			encodedDomain.length <= 253 &&
+			encodedDomain
+				.split(".")
+				.every((label) => label.length > 0 && label.length <= 63)
+		);
+	} catch {
+		return false;
+	}
 }
 
 function exactNonEmpty(
