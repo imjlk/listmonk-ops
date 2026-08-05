@@ -2136,6 +2136,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "executorNode": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable"
+      },
+      "operationId": "templates.reconcile"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/media.ts#deleteMediaOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"

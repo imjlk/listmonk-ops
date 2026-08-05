@@ -18882,6 +18882,133 @@
       "stability": "experimental"
     },
     {
+      "id": "templates.reconcile",
+      "input": {
+        "components": {},
+        "dialect": "openapi-3.1",
+        "schema": {
+          "properties": {
+            "dry_run": {
+              "default": true,
+              "type": "boolean"
+            },
+            "schema_version": {
+              "const": 1,
+              "type": "number"
+            },
+            "templates": {
+              "items": {
+                "properties": {
+                  "body": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "subject": {
+                    "default": "",
+                    "type": "string"
+                  },
+                  "type": {
+                    "default": "campaign",
+                    "enum": [
+                      "campaign",
+                      "campaign_visual",
+                      "tx"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "body"
+                ],
+                "type": "object"
+              },
+              "maxItems": 500,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "schema_version",
+            "templates"
+          ],
+          "type": "object"
+        },
+        "source": "runtime-operation",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {},
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "dry_run": {
+              "type": "boolean"
+            },
+            "results": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "action": {
+                    "enum": [
+                      "create",
+                      "update",
+                      "unchanged"
+                    ],
+                    "type": "string"
+                  },
+                  "applied": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "action",
+                  "applied"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "schema_version": {
+              "const": 1,
+              "type": "number"
+            }
+          },
+          "required": [
+            "schema_version",
+            "dry_run",
+            "results"
+          ],
+          "type": "object"
+        },
+        "source": "runtime-operation",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The shared operation contract declares identical retries idempotent."
+      },
+      "since": "0.9.0",
+      "stability": "experimental"
+    },
+    {
       "id": "media.delete",
       "input": {
         "components": {},

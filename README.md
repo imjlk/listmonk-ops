@@ -113,9 +113,16 @@ for versioned template manifests. `reconcileTemplate()` and
 `ensureTemplate()` to mutate Listmonk. Exact-name duplicates fail closed, and a
 complete manifest is planned before its first mutation.
 
+The same contract is available through `listmonk-cli templates reconcile` and
+the `listmonk_reconcile_template_manifest` MCP tool. Both default to a dry run,
+cap manifests at 500 entries and 1 MiB of serialized payload, omit template
+bodies from results, and require explicit confirmation. Apply from the CLI
+with `--no-dry-run --confirm`.
+
 Listmonk does not provide a multi-template transaction. If an apply fails after
 earlier entries succeeded, `TemplateManifestApplyError` identifies the failed
-template and exposes the completed results for an explicit retry or rollback.
+template. Shared surface errors expose the completed entries as body-free
+names, actions, and apply states for an explicit retry or rollback.
 An omitted `body_source` is unmanaged because Listmonk preserves that field on
 update; provide it when the manifest should enforce visual-template source.
 
@@ -411,6 +418,9 @@ listmonk-cli templates create --name "Campaign HTML" --body "<p>Hello</p>"
 listmonk-cli templates update --id 3 --body "<p>Updated</p>"
 listmonk-cli templates delete --id 3 --confirm
 listmonk-cli templates set-default --id 3
+listmonk-cli templates reconcile --manifest-file ./templates.json --confirm
+listmonk-cli templates reconcile --manifest-file ./templates.json \
+  --no-dry-run --confirm
 
 listmonk-cli media list --page 1 --per-page 20
 listmonk-cli media get --id 9
@@ -466,7 +476,7 @@ effect-derived safety, execution requirements, and `useWhen`/`avoidWhen`
 guidance. Status adds runtime identity and a live Listmonk health probe without
 returning credentials.
 
-All 102 public shared operations now include a `spec` descriptor. Specs define
+All 103 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -476,7 +486,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 Sixty-one contracts are standalone TypeScript/Typia product contracts. The
-other 41 are explicitly `experimental` and use a committed snapshot of the
+other 42 are explicitly `experimental` and use a committed snapshot of the
 normalized shared-operation boundary—not generated Listmonk SDK types—as a
 bridge. Upstream API changes are therefore absorbed at the generated transport
 and handwritten adapter first; the product spec changes only when the
@@ -517,7 +527,7 @@ payloads; enrollment reads expose subscriber-reference and stored-error
 presence without their values.
 `control.status` remains experimental because its runtime readiness contract is
 still maturing; newer subsystem, aggregation, and analytics reads remain
-experimental. The other 62 descriptors are
+experimental. The other 63 descriptors are
 experimental.
 
 The spec publishes four typed playbooks: `campaign.safe-start`,
@@ -531,11 +541,11 @@ Operations Spec artifacts are checked in under
 after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
-also verifies all 102 shared operations, the API boundary rule, the 41 governed
-runtime bridges, the 40 stable compatibility baselines, and 306 direct
+also verifies all 103 shared operations, the API boundary rule, the 42 governed
+runtime bridges, the 40 stable compatibility baselines, and 309 direct
 spec-to-runtime graph edges.
 
-If a normalized Zod boundary for one of the 41 bridge operations changes,
+If a normalized Zod boundary for one of the 42 bridge operations changes,
 build the workspaces and run
 `bun run operations:specs:runtime-contracts:generate`, review the committed
 snapshot diff, and then regenerate the spec artifacts. Normal CLI/MCP startup

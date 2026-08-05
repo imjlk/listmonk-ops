@@ -1108,6 +1108,20 @@ Verify with: `templates.get`
 
 Retry guidance: Retry identical transient failures with bounded backoff.
 
+## Reconcile template manifest (`templates.reconcile`)
+
+Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `safe`.
+
+Use when: Plan or apply a versioned template manifest against exact-name Listmonk templates
+
+Avoid when: The target, intended side effect, or required confirmation has not been verified.
+
+Prerequisites: `templates.list`
+
+Verify with: `templates.list`
+
+Retry guidance: Retry identical transient failures with bounded backoff.
+
 ## Delete media file (`media.delete`)
 
 Contract maturity: `experimental`; effects: `delete:media`; confirmation: `required`; retry: `safe`.

@@ -21,6 +21,7 @@ import { defineOperationCatalog } from "./catalog";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
+	OperationExecutionError,
 	parseOperationInput,
 	parseOperationOutput,
 } from "./operation";
@@ -68,12 +69,33 @@ const createTemplateInputSchema = z.object({
 	body: z.string().min(1),
 });
 
+export const MAX_TEMPLATE_MANIFEST_BYTES = 1024 * 1024;
+
+function templateManifestByteLength(manifest: {
+	schema_version: 1;
+	templates: readonly z.output<typeof createTemplateInputSchema>[];
+}): number {
+	return new TextEncoder().encode(
+		JSON.stringify({
+			schema_version: manifest.schema_version,
+			templates: manifest.templates,
+		}),
+	).byteLength;
+}
+
 const templateManifestSchema = z
 	.object({
 		schema_version: z.literal(1),
 		templates: z.array(createTemplateInputSchema).min(1),
 	})
 	.superRefine((manifest, context) => {
+		if (templateManifestByteLength(manifest) > MAX_TEMPLATE_MANIFEST_BYTES) {
+			context.addIssue({
+				code: "custom",
+				message:
+					`Template manifest exceeds the ${MAX_TEMPLATE_MANIFEST_BYTES}-byte limit`,
+			});
+		}
 		const names = new Set<string>();
 		for (const [index, template] of manifest.templates.entries()) {
 			if (names.has(template.name)) {
@@ -86,6 +108,23 @@ const templateManifestSchema = z
 			names.add(template.name);
 		}
 	});
+
+const templateManifestOperationInputSchema = templateManifestSchema.safeExtend({
+	templates: z.array(createTemplateInputSchema).min(1).max(500),
+	dry_run: z.boolean().default(true),
+});
+
+const templateReconcileSummarySchema = z.object({
+	name: z.string(),
+	action: z.enum(["create", "update", "unchanged"]),
+	applied: z.boolean(),
+});
+
+const templateManifestOperationOutputSchema = z.object({
+	schema_version: z.literal(1),
+	dry_run: z.boolean(),
+	results: z.array(templateReconcileSummarySchema),
+});
 
 export type TemplateDesiredState = z.input<typeof createTemplateInputSchema>;
 export type TemplateManifest = z.input<typeof templateManifestSchema>;
@@ -108,6 +147,14 @@ export interface TemplateManifestReconcileResult {
 	results: TemplateReconcileResult[];
 }
 
+export type TemplateManifestOperationInput = z.input<
+	typeof templateManifestOperationInputSchema
+>;
+
+export type TemplateManifestOperationResult = z.output<
+	typeof templateManifestOperationOutputSchema
+>;
+
 export class TemplateManifestApplyError extends Error {
 	public readonly failedTemplate: string;
 	public readonly appliedResults: readonly TemplateReconcileResult[];
@@ -124,6 +171,30 @@ export class TemplateManifestApplyError extends Error {
 		this.name = "TemplateManifestApplyError";
 		this.failedTemplate = failedTemplate;
 		this.appliedResults = [...appliedResults];
+	}
+}
+
+/** Body-free partial apply details projected through shared surface errors. */
+export class TemplateManifestOperationApplyError extends OperationExecutionError {
+	public readonly failedTemplate: string;
+	public readonly appliedResults: readonly z.output<
+		typeof templateReconcileSummarySchema
+	>[];
+
+	public constructor(error: TemplateManifestApplyError) {
+		const appliedResults = error.appliedResults.map(
+			({ name, action, applied }) => ({ name, action, applied }),
+		);
+		super(
+			"templates.reconcile",
+			new Error(
+				`${error.message}; completed entries: ${JSON.stringify(appliedResults)}`,
+				{ cause: error },
+			),
+		);
+		this.name = "TemplateManifestOperationApplyError";
+		this.failedTemplate = error.failedTemplate;
+		this.appliedResults = appliedResults;
 	}
 }
 
@@ -466,6 +537,30 @@ export async function reconcileTemplateManifest(
 	return { schema_version: 1, apply: true, results };
 }
 
+/** Execute manifest reconciliation through the normalized operation boundary. */
+export async function executeTemplateManifestReconcile(
+	context: TemplateOperationContext,
+	input: z.output<typeof templateManifestOperationInputSchema>,
+): Promise<TemplateManifestOperationResult> {
+	const result = await reconcileTemplateManifest(
+		context,
+		{
+			schema_version: input.schema_version,
+			templates: input.templates,
+		},
+		{ apply: !input.dry_run },
+	);
+	return {
+		schema_version: result.schema_version,
+		dry_run: input.dry_run,
+		results: result.results.map(({ name, action, applied }) => ({
+			name,
+			action,
+			applied,
+		})),
+	};
+}
+
 async function listTemplatesForReconcile(
 	client: Pick<ListmonkClient, "template">,
 ): Promise<Template[]> {
@@ -609,6 +704,27 @@ export const setDefaultTemplateOperation = defineOperation({
 	execute: setDefaultTemplate,
 });
 
+export const reconcileTemplateManifestOperation = defineOperation({
+	id: "templates.reconcile",
+	title: "Reconcile template manifest",
+	description:
+		"Plan or apply a versioned template manifest against exact-name Listmonk templates",
+	inputSchema: templateManifestOperationInputSchema,
+	outputSchema: templateManifestOperationOutputSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: true,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
+	mcp: {
+		name: "listmonk_reconcile_template_manifest",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindBridgedOperationSpec("templates.reconcile"),
+	execute: executeTemplateManifestReconcile,
+});
+
 export async function invokeGetTemplatesOperation(
 	context: TemplateOperationContext,
 	input: unknown,
@@ -738,6 +854,33 @@ export async function invokeSetDefaultTemplateOperation(
 	);
 }
 
+export async function invokeReconcileTemplateManifestOperation(
+	context: TemplateOperationContext,
+	input: unknown,
+): Promise<TemplateManifestOperationResult> {
+	const parsedInput = parseOperationInput(
+		reconcileTemplateManifestOperation.inputSchema,
+		input,
+	);
+	let output: TemplateManifestOperationResult;
+	try {
+		output = await executeTemplateManifestReconcile(context, parsedInput);
+	} catch (error) {
+		if (error instanceof TemplateManifestApplyError) {
+			throw new TemplateManifestOperationApplyError(error);
+		}
+		throw normalizeOperationExecutionError(
+			reconcileTemplateManifestOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		reconcileTemplateManifestOperation.id,
+		reconcileTemplateManifestOperation.outputSchema,
+		output,
+	);
+}
+
 export const templateOperations = [
 	getTemplatesOperation,
 	getTemplateOperation,
@@ -745,6 +888,7 @@ export const templateOperations = [
 	updateTemplateOperation,
 	deleteTemplateOperation,
 	setDefaultTemplateOperation,
+	reconcileTemplateManifestOperation,
 ] as const;
 
 export const templateOperationCatalog = defineOperationCatalog({
@@ -806,6 +950,11 @@ export async function invokeTemplateOperationByMcpName(
 			return {
 				operation: setDefaultTemplateOperation,
 				output: await invokeSetDefaultTemplateOperation(context, input),
+			};
+		case reconcileTemplateManifestOperation.mcp.name:
+			return {
+				operation: reconcileTemplateManifestOperation,
+				output: await invokeReconcileTemplateManifestOperation(context, input),
 			};
 		default:
 			return undefined;
