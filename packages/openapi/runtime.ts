@@ -330,6 +330,7 @@ export async function sendExternalTransactionalEmail(
 		"invalid_message",
 	);
 	const recipientIsInvalid =
+		!recipient.isWellFormed() ||
 		utf8ByteLength(recipient) > MAX_RECIPIENT_BYTES ||
 		!EMAIL_PATTERN.test(recipient) ||
 		!hasValidEmailAddressParts(recipient) ||
@@ -540,10 +541,10 @@ function normalizeRuntimeResponseBody(
 			: String(request);
 		if (
 			response.redirected ||
-			(response.url !== "" && response.url !== requestUrl)
+			(response.url && response.url !== requestUrl)
 		) {
 			void response.body?.cancel().catch(() => undefined);
-			throw new TypeError(TRANSACTIONAL_REQUEST_FAILED_MESSAGE);
+			throw new TypeError();
 		}
 		if (!response.ok) {
 			void response.body?.cancel().catch(() => undefined);
@@ -641,6 +642,7 @@ function createTransactionalAbortContext(
 	callerSignal: AbortSignal | undefined,
 	timeoutMs: number,
 ): TransactionalAbortContext {
+	if (signalIsAborted(callerSignal)) throw transactionalAbortedError();
 	const controller = new AbortController();
 	let abortKind: TransactionalAbortKind | undefined;
 	let rejectInterruption: (reason: unknown) => void = () => undefined;
@@ -667,14 +669,10 @@ function createTransactionalAbortContext(
 			const onCallerAbort = () => {
 				abortOnce("caller", abortReason(callerSignal));
 			};
-			if (callerSignal.aborted) {
-				onCallerAbort();
-			} else {
-				callerSignal.addEventListener("abort", onCallerAbort, { once: true });
-				removeCallerAbortListener = () => {
-					callerSignal.removeEventListener("abort", onCallerAbort);
-				};
-			}
+			callerSignal.addEventListener("abort", onCallerAbort, { once: true });
+			removeCallerAbortListener = () => {
+				callerSignal.removeEventListener("abort", onCallerAbort);
+			};
 		}
 	} catch {
 		clearTimeout(timeoutHandle);
@@ -683,7 +681,6 @@ function createTransactionalAbortContext(
 			"Transactional signal could not be observed.",
 		);
 	}
-
 	return {
 		signal: controller.signal,
 		kind: () => abortKind,
@@ -751,9 +748,7 @@ function hasValidEmailAddressParts(email: string): boolean {
 		const encodedDomain = new URL(`https://${domain}`).hostname;
 		return (
 			encodedDomain.length <= 253 &&
-			encodedDomain
-				.split(".")
-				.every((label) => label.length > 0 && label.length <= 63)
+			encodedDomain.split(".").every((label) => label.length <= 63)
 		);
 	} catch {
 		return false;

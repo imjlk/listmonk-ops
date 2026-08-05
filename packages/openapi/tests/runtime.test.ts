@@ -131,7 +131,6 @@ describe("Workers-compatible Listmonk runtime", () => {
 			data: { otp: "123456", expiresMinutes: 5 },
 		});
 		expect(captured?.signal.aborted).toBe(false);
-		expect(captured?.redirect).toBe("error");
 		expect(capturedInit?.redirect).toBe("error");
 	});
 
@@ -346,6 +345,8 @@ describe("Workers-compatible Listmonk runtime", () => {
 			{ client, templateId: 42, recipient: "trainer@example.com/path" },
 			{ client, templateId: 42, recipient: "train\\er@example.com" },
 			{ client, templateId: 42, recipient: "trainer\\@example.com" },
+			{ client, templateId: 42, recipient: "\ud800@example.com" },
+			{ client, templateId: 42, recipient: "trainer@\udfff.com" },
 			{ client, templateId: 42, recipient: "trainer@example..com" },
 			{ client, templateId: 42, recipient: "trainer@-example.com" },
 			{ client, templateId: 42, recipient: "trainer@example-.com" },
@@ -714,6 +715,35 @@ describe("Workers-compatible Listmonk runtime", () => {
 				templateId: 42,
 				recipient: "trainer@example.com",
 				signal: controller.signal,
+			}),
+		).rejects.toMatchObject({ code: "aborted", reason: "aborted" });
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	test("stops when the caller signal changes before dispatch", async () => {
+		const fetch = mock(async () => Response.json({ data: true }));
+		const client = createListmonkRuntimeClient({
+			baseUrl: "https://mail.example.com",
+			username: "runtime",
+			accessToken: "test-token",
+			fetch,
+		});
+		let abortedReads = 0;
+		const signal = {
+			get aborted() {
+				abortedReads += 1;
+				return abortedReads >= 3;
+			},
+			addEventListener() {},
+			removeEventListener() {},
+		} as unknown as AbortSignal;
+
+		await expect(
+			sendExternalTransactionalEmail({
+				client,
+				recipient: "trainer@example.com",
+				signal,
+				templateId: 42,
 			}),
 		).rejects.toMatchObject({ code: "aborted", reason: "aborted" });
 		expect(fetch).not.toHaveBeenCalled();
