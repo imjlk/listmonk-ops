@@ -116,8 +116,13 @@ export function normalizeListmonkApiBaseUrl(baseUrl: string): string {
 		"Listmonk base URL",
 		"invalid_configuration",
 	);
-	const authority =
-		/^[a-z][a-z\d+.-]*:\/\/([^/?#]*)/iu.exec(value)?.[1] ?? "";
+	const authority = /^[a-z][a-z\d+.-]*:\/\/([^/?#]+)/iu.exec(value)?.[1];
+	if (authority === undefined) {
+		throw new ListmonkRuntimeError(
+			"invalid_configuration",
+			"Listmonk base URL must use a standard absolute URL authority.",
+		);
+	}
 	if (
 		authority.includes("%") ||
 		CONTROL_CHARACTER_PATTERN.test(value) ||
@@ -339,33 +344,36 @@ export async function sendExternalTransactionalEmail(
 
 	const result = await (async () => {
 		try {
-			return await transactWithSubscriber({
-				baseUrl: runtimeConfiguration.apiBaseUrl,
-				bodySerializer: serializeTransactionalBody,
-				client: runtimeConfiguration.client,
-				fetch: normalizeRuntimeResponseBody(runtimeConfiguration.fetch),
-				headers: {
-					Authorization: runtimeConfiguration.authorization,
-				},
-				// Redirects must never replay this non-idempotent body outside the
-				// validated Listmonk origin. Parse as text so malformed successful
-				// responses can be projected without losing their HTTP status.
-				redirect: "error",
-				parseAs: "text",
-				requestValidator: undefined,
-				responseStyle: "fields",
-				responseTransformer: undefined,
-				responseValidator: undefined,
-				signal: abortContext.signal,
-				throwOnError: false,
-				body: {
-					template_id: templateId,
-					subscriber_mode: "external",
-					subscriber_emails: [recipient],
-					...(subject === undefined ? {} : { subject }),
-					...(data === undefined ? {} : { data }),
-				},
-			});
+			return await Promise.race([
+				transactWithSubscriber({
+					baseUrl: runtimeConfiguration.apiBaseUrl,
+					bodySerializer: serializeTransactionalBody,
+					client: runtimeConfiguration.client,
+					fetch: normalizeRuntimeResponseBody(runtimeConfiguration.fetch),
+					headers: {
+						Authorization: runtimeConfiguration.authorization,
+					},
+					// Redirects must never replay this non-idempotent body outside the
+					// validated Listmonk origin. Parse as text so malformed successful
+					// responses can be projected without losing their HTTP status.
+					redirect: "error",
+					parseAs: "text",
+					requestValidator: undefined,
+					responseStyle: "fields",
+					responseTransformer: undefined,
+					responseValidator: undefined,
+					signal: abortContext.signal,
+					throwOnError: false,
+					body: {
+						template_id: templateId,
+						subscriber_mode: "external",
+						subscriber_emails: [recipient],
+						...(subject === undefined ? {} : { subject }),
+						...(data === undefined ? {} : { data }),
+					},
+				}),
+				abortContext.interruption,
+			]);
 		} catch (error: unknown) {
 			if (error instanceof ListmonkRuntimeError) throw error;
 			const abortError = classifyTransactionalAbortError(
@@ -493,6 +501,7 @@ type TransactionalAbortKind = "caller" | "timeout";
 interface TransactionalAbortContext {
 	readonly signal: AbortSignal;
 	readonly kind: () => TransactionalAbortKind | undefined;
+	readonly interruption: Promise<never>;
 	readonly cleanup: () => void;
 }
 
@@ -508,8 +517,9 @@ function classifyTransactionalAbortError(
 	if (kind === "caller") {
 		return transactionalAbortedError();
 	}
-	if (isTimeoutError(error)) return transactionalTimeoutError(timeoutMs);
-	if (isAbortError(error)) return transactionalAbortedError();
+	const name = safeErrorName(error);
+	if (name === "TimeoutError") return transactionalTimeoutError(timeoutMs);
+	if (name === "AbortError") return transactionalAbortedError();
 	return undefined;
 }
 
@@ -566,10 +576,16 @@ function createTransactionalAbortContext(
 ): TransactionalAbortContext {
 	const controller = new AbortController();
 	let abortKind: TransactionalAbortKind | undefined;
+	let rejectInterruption: (reason: unknown) => void = () => undefined;
+	const interruption = new Promise<never>((_resolve, reject) => {
+		rejectInterruption = reject;
+	});
+	void interruption.catch(() => undefined);
 	const abortOnce = (kind: TransactionalAbortKind, reason: unknown) => {
 		if (abortKind !== undefined) return;
 		abortKind = kind;
 		controller.abort(reason);
+		rejectInterruption(reason);
 	};
 	const timeoutHandle = setTimeout(() => {
 		abortOnce(
@@ -604,6 +620,7 @@ function createTransactionalAbortContext(
 	return {
 		signal: controller.signal,
 		kind: () => abortKind,
+		interruption,
 		cleanup: () => {
 			clearTimeout(timeoutHandle);
 			try {
@@ -634,22 +651,13 @@ function signalIsAborted(signal: AbortSignal | undefined): boolean {
 	}
 }
 
-function isAbortError(error: unknown): boolean {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"name" in error &&
-		error.name === "AbortError"
-	);
-}
-
-function isTimeoutError(error: unknown): boolean {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"name" in error &&
-		error.name === "TimeoutError"
-	);
+function safeErrorName(error: unknown): unknown {
+	if (typeof error !== "object" || error === null) return undefined;
+	try {
+		return Reflect.get(error, "name");
+	} catch {
+		return undefined;
+	}
 }
 
 function exactNonEmpty(

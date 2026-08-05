@@ -34,6 +34,8 @@ describe("Workers-compatible Listmonk runtime", () => {
 			"https://mail.example.com%C2%AD.evil.test",
 			"https://mail.example.com%00.evil.test",
 			"https://mail.example.com%EF%B8%8F.evil.test",
+			"https:////mail.example.com",
+			"https:////mail.example.com%E2%80%8B.evil.test",
 			"https://user:password@mail.example.com",
 			"https://mail.example.com?token=secret",
 			"https://mail.example.com#fragment",
@@ -687,6 +689,34 @@ describe("Workers-compatible Listmonk runtime", () => {
 		expect(fetch).toHaveBeenCalledTimes(1);
 	});
 
+	test("bounds an Error-like rejection with a throwing name accessor", async () => {
+		const unsafeError = Object.defineProperty({}, "name", {
+			get() {
+				throw new Error("private accessor detail");
+			},
+		});
+		const fetch = mock(async () => {
+			throw unsafeError;
+		});
+		const client = createListmonkRuntimeClient({
+			baseUrl: "https://mail.example.com",
+			username: "runtime",
+			accessToken: "test-token",
+			fetch,
+		});
+
+		const error = await sendExternalTransactionalEmail({
+			client,
+			recipient: "private@example.com",
+			templateId: 42,
+		}).catch((cause: unknown) => cause);
+
+		expect(error).toBeInstanceOf(ListmonkRuntimeError);
+		expect((error as ListmonkRuntimeError).code).toBe("request_failed");
+		expect((error as ListmonkRuntimeError).reason).toBe("network_error");
+		expect(String(error)).not.toContain("private accessor detail");
+	});
+
 	test("does not let signal cleanup replace an accepted send", async () => {
 		const fetch = mock(async () => Response.json({ data: true }));
 		const client = createListmonkRuntimeClient({
@@ -824,6 +854,32 @@ describe("Workers-compatible Listmonk runtime", () => {
 		).rejects.toMatchObject({ code: "timed_out", reason: "timed_out" });
 		expect(fetch).toHaveBeenCalledTimes(1);
 	});
+
+	test(
+		"returns when Fetch ignores its signal and never settles",
+		async () => {
+			const fetch = mock(
+				async () => new Promise<Response>(() => undefined),
+			);
+			const client = createListmonkRuntimeClient({
+				baseUrl: "https://mail.example.com",
+				username: "runtime",
+				accessToken: "test-token",
+				fetch,
+			});
+
+			await expect(
+				sendExternalTransactionalEmail({
+					client,
+					recipient: "trainer@example.com",
+					templateId: 42,
+					timeoutMs: 20,
+				}),
+			).rejects.toMatchObject({ code: "timed_out", reason: "timed_out" });
+			expect(fetch).toHaveBeenCalledTimes(1);
+		},
+		500,
+	);
 
 	test("treats a missing acknowledgement as a request failure", async () => {
 		const fetch = mock(async () => Response.json({}));
