@@ -128,6 +128,7 @@ export function normalizeListmonkApiBaseUrl(baseUrl: string): string {
 		);
 	}
 	if (
+		!value.isWellFormed() ||
 		UNSAFE_URL_CHARACTER_PATTERN.test(value) ||
 		/(?:^|\/)\.{1,2}(?:\/|[?#]|$)/u.test(value)
 	) {
@@ -349,6 +350,12 @@ export async function sendExternalTransactionalEmail(
 
 	const result = await (async () => {
 		try {
+			const preflightAbortError = classifyTransactionalAbortError(
+				undefined,
+				abortContext,
+				timeoutMs,
+			);
+			if (preflightAbortError !== undefined) throw preflightAbortError;
 			return await Promise.race([
 				transactWithSubscriber({
 					baseUrl: runtimeConfiguration.apiBaseUrl,
@@ -891,6 +898,9 @@ function validateTransactionalDataStructure(
 				throw transactionalDataStructureError();
 			}
 			if (typeof current.value === "string") {
+				if (!current.value.isWellFormed()) {
+					throw transactionalDataStructureError();
+				}
 				textUnits += current.value.length;
 				if (textUnits > MAX_TRANSACTIONAL_TEXT_UNITS) {
 					throw transactionalDataStructureError();
@@ -950,6 +960,7 @@ function validateTransactionalDataStructure(
 			}
 			for (const key of Reflect.ownKeys(objectValue)) {
 				if (typeof key !== "string") throw transactionalDataStructureError();
+				if (!key.isWellFormed()) throw transactionalDataStructureError();
 				const descriptor = Object.getOwnPropertyDescriptor(objectValue, key);
 				if (descriptor?.enumerable !== true) {
 					throw transactionalDataStructureError();
@@ -1021,6 +1032,7 @@ function optionalSubjectValue(
 	// addr-spec remains valid here. JSON transport plus the control-character
 	// guard prevents header injection without rejecting normal subject lines.
 	if (
+		!normalized.isWellFormed() ||
 		CONTROL_CHARACTER_PATTERN.test(normalized) ||
 		INVISIBLE_IDENTIFIER_PATTERN.test(normalized)
 	) {

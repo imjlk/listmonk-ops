@@ -42,6 +42,7 @@ describe("Workers-compatible Listmonk runtime", () => {
 			"https://user\\@mail.example.com",
 			"https://edge.example.com/listmonk/%2e%2e/private",
 			"https://edge.example.com/listmonk/../private",
+			"https://edge.example.com/list\ud800monk",
 			"https://user:password@mail.example.com",
 			"https://mail.example.com?token=secret",
 			"https://mail.example.com#fragment",
@@ -375,6 +376,12 @@ describe("Workers-compatible Listmonk runtime", () => {
 				client,
 				templateId: 42,
 				recipient: "trainer@example.com",
+				subject: "Your sign-in\ud800code",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
 				subject: "x".repeat(257),
 			},
 		]) {
@@ -419,6 +426,8 @@ describe("Workers-compatible Listmonk runtime", () => {
 			{ value: Number.NaN },
 			{ value: Number.POSITIVE_INFINITY },
 			{ value: 1n },
+			{ value: "\ud800" },
+			{ ["\udfff"]: "value" },
 			{ items: sparse },
 			{ items: withExtraProperty },
 			{ payload: withToJSON },
@@ -735,6 +744,33 @@ describe("Workers-compatible Listmonk runtime", () => {
 				return abortedReads >= 3;
 			},
 			addEventListener() {},
+			removeEventListener() {},
+		} as unknown as AbortSignal;
+
+		await expect(
+			sendExternalTransactionalEmail({
+				client,
+				recipient: "trainer@example.com",
+				signal,
+				templateId: 42,
+			}),
+		).rejects.toMatchObject({ code: "aborted", reason: "aborted" });
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	test("stops when signal subscription aborts synchronously", async () => {
+		const fetch = mock(async () => Response.json({ data: true }));
+		const client = createListmonkRuntimeClient({
+			baseUrl: "https://mail.example.com",
+			username: "runtime",
+			accessToken: "test-token",
+			fetch,
+		});
+		const signal = {
+			aborted: false,
+			addEventListener(_type: string, listener: EventListener) {
+				listener(new Event("abort"));
+			},
 			removeEventListener() {},
 		} as unknown as AbortSignal;
 
