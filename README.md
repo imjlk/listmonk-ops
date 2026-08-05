@@ -115,12 +115,14 @@ complete manifest is planned before its first mutation.
 
 The same contract is available through `listmonk-cli templates reconcile` and
 the `listmonk_reconcile_template_manifest` MCP tool. Both default to a dry run,
-cap manifests at 500 entries, omit template bodies from results, and require
-explicit confirmation. Apply from the CLI with `--no-dry-run --confirm`.
+cap manifests at 500 entries and 1 MiB of serialized payload, omit template
+bodies from results, and require explicit confirmation. Apply from the CLI
+with `--no-dry-run --confirm`.
 
 Listmonk does not provide a multi-template transaction. If an apply fails after
 earlier entries succeeded, `TemplateManifestApplyError` identifies the failed
-template and exposes the completed results for an explicit retry or rollback.
+template. Shared surface errors expose the completed entries as body-free
+names, actions, and apply states for an explicit retry or rollback.
 An omitted `body_source` is unmanaged because Listmonk preserves that field on
 update; provide it when the manifest should enforce visual-template source.
 

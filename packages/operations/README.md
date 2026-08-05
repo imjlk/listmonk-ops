@@ -24,8 +24,8 @@ failed template and the entries completed before the failure.
 An omitted `body_source` remains unmanaged to match Listmonk's preserve-on-
 update behavior; specify it to enforce visual-template source.
 `templates.reconcile` publishes the same behavior to CLI and MCP with a
-500-entry bound, default dry run, explicit confirmation, and a body-free
-summary result.
+500-entry and 1 MiB serialized-payload bound, default dry run, explicit
+confirmation, and body-free success and partial-failure summaries.
 
 User-role provisioning follows the same explicit-apply model through
 `reconcileUserRole`, `reconcileUserRoleManifest`, and `ensureUserRole`. Desired

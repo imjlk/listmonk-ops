@@ -116,13 +116,14 @@ export LISTMONK_OPS_PROVIDER_CONFIG="$HOME/.listmonk-ops/providers.json"
 
 같은 계약을 `listmonk-cli templates reconcile`과
 `listmonk_reconcile_template_manifest` MCP 도구에서도 사용할 수 있습니다.
-두 표면 모두 기본값은 dry run이며 manifest를 500개 항목으로 제한하고 결과에서
-template body를 제외하며 명시적 확인을 요구합니다. CLI 실제 적용에는
-`--no-dry-run --confirm`을 사용합니다.
+두 표면 모두 기본값은 dry run이며 manifest를 500개 항목과 직렬화 payload
+1 MiB로 제한하고 결과에서 template body를 제외하며 명시적 확인을 요구합니다.
+CLI 실제 적용에는 `--no-dry-run --confirm`을 사용합니다.
 
 Listmonk는 여러 template을 묶는 transaction을 제공하지 않습니다. 앞선 항목이
 성공한 뒤 apply가 실패하면 `TemplateManifestApplyError`가 실패한 template과 이미
-완료된 결과를 제공하므로 명시적으로 재시도하거나 rollback할 수 있습니다.
+완료된 결과를 제공합니다. Shared surface 오류는 완료된 항목의 이름, action,
+적용 상태만 body 없이 노출하므로 명시적으로 재시도하거나 rollback할 수 있습니다.
 `body_source`를 생략하면 Listmonk update가 기존 값을 유지하므로 해당 필드는 관리
 대상에서 제외됩니다. Visual template source를 강제하려면 값을 명시하세요.
 

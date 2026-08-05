@@ -30,12 +30,14 @@ import {
 	invokeUpdateCampaignOperation,
 	invokeUpdateSubscriberOperation,
 	invokeUpdateTemplateOperation,
+	MAX_TEMPLATE_MANIFEST_BYTES,
 	subscriberOperations,
 	mediaOperations,
 	ensureTemplate,
 	reconcileTemplate,
 	reconcileTemplateManifest,
 	TemplateManifestApplyError,
+	TemplateManifestOperationApplyError,
 	templateOperations,
 	OperationInputError,
 } from "../src";
@@ -366,7 +368,62 @@ describe("shared CRUD resource operations", () => {
 				},
 			),
 		).rejects.toBeInstanceOf(OperationInputError);
+		await expect(
+			invokeReconcileTemplateManifestOperation(
+				templateContext({
+					list: list as TemplateClient["template"]["list"],
+				}),
+				{
+					schema_version: 1,
+					templates: [
+						{
+							name: "Oversized template",
+							body: "x".repeat(MAX_TEMPLATE_MANIFEST_BYTES),
+						},
+					],
+				},
+			),
+		).rejects.toThrow(/byte limit/i);
 		expect(list).not.toHaveBeenCalled();
+	});
+
+	test("projects body-free partial apply details through shared surfaces", async () => {
+		const list = mock(async () => ({ data: { results: [], total: 0 } }));
+		const create = mock(async ({ body }: { body: Record<string, unknown> }) => {
+			if (body.name === "Password reset code") {
+				throw new Error("remote create failed");
+			}
+			return { data: { id: 20, ...body } };
+		});
+		let failure: unknown;
+		try {
+			await invokeReconcileTemplateManifestOperation(
+				templateContext({
+					list: list as TemplateClient["template"]["list"],
+					create: create as TemplateClient["template"]["create"],
+				}),
+				{
+					schema_version: 1,
+					templates: [
+						{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+						{ name: "Password reset code", type: "tx", body: "<p>Reset</p>" },
+					],
+					dry_run: false,
+				},
+			);
+		} catch (error) {
+			failure = error;
+		}
+
+		expect(failure).toBeInstanceOf(TemplateManifestOperationApplyError);
+		const operationError = failure as TemplateManifestOperationApplyError;
+		expect(operationError.failedTemplate).toBe("Password reset code");
+		expect(operationError.appliedResults).toEqual([
+			{ name: "Account sign-in code", action: "create", applied: true },
+		]);
+		expect(operationError.message).toContain("Account sign-in code");
+		expect(operationError.message).not.toContain("<p>OTP</p>");
+		expect(operationError.message).not.toContain("<p>Reset</p>");
 	});
 
 	test("fails closed when exact-name template reconciliation is ambiguous", async () => {

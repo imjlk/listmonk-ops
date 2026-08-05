@@ -21,6 +21,7 @@ import { defineOperationCatalog } from "./catalog";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
+	OperationExecutionError,
 	parseOperationInput,
 	parseOperationOutput,
 } from "./operation";
@@ -68,12 +69,33 @@ const createTemplateInputSchema = z.object({
 	body: z.string().min(1),
 });
 
+export const MAX_TEMPLATE_MANIFEST_BYTES = 1024 * 1024;
+
+function templateManifestByteLength(manifest: {
+	schema_version: 1;
+	templates: readonly z.output<typeof createTemplateInputSchema>[];
+}): number {
+	return new TextEncoder().encode(
+		JSON.stringify({
+			schema_version: manifest.schema_version,
+			templates: manifest.templates,
+		}),
+	).byteLength;
+}
+
 const templateManifestSchema = z
 	.object({
 		schema_version: z.literal(1),
 		templates: z.array(createTemplateInputSchema).min(1),
 	})
 	.superRefine((manifest, context) => {
+		if (templateManifestByteLength(manifest) > MAX_TEMPLATE_MANIFEST_BYTES) {
+			context.addIssue({
+				code: "custom",
+				message:
+					`Template manifest exceeds the ${MAX_TEMPLATE_MANIFEST_BYTES}-byte limit`,
+			});
+		}
 		const names = new Set<string>();
 		for (const [index, template] of manifest.templates.entries()) {
 			if (names.has(template.name)) {
@@ -149,6 +171,30 @@ export class TemplateManifestApplyError extends Error {
 		this.name = "TemplateManifestApplyError";
 		this.failedTemplate = failedTemplate;
 		this.appliedResults = [...appliedResults];
+	}
+}
+
+/** Body-free partial apply details projected through shared surface errors. */
+export class TemplateManifestOperationApplyError extends OperationExecutionError {
+	public readonly failedTemplate: string;
+	public readonly appliedResults: readonly z.output<
+		typeof templateReconcileSummarySchema
+	>[];
+
+	public constructor(error: TemplateManifestApplyError) {
+		const appliedResults = error.appliedResults.map(
+			({ name, action, applied }) => ({ name, action, applied }),
+		);
+		super(
+			"templates.reconcile",
+			new Error(
+				`${error.message}; completed entries: ${JSON.stringify(appliedResults)}`,
+				{ cause: error },
+			),
+		);
+		this.name = "TemplateManifestOperationApplyError";
+		this.failedTemplate = error.failedTemplate;
+		this.appliedResults = appliedResults;
 	}
 }
 
@@ -820,6 +866,9 @@ export async function invokeReconcileTemplateManifestOperation(
 	try {
 		output = await executeTemplateManifestReconcile(context, parsedInput);
 	} catch (error) {
+		if (error instanceof TemplateManifestApplyError) {
+			throw new TemplateManifestOperationApplyError(error);
+		}
 		throw normalizeOperationExecutionError(
 			reconcileTemplateManifestOperation.id,
 			error,

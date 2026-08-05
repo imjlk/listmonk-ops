@@ -9,6 +9,7 @@ import {
 	invokeReconcileTemplateManifestOperation,
 	invokeSetDefaultTemplateOperation,
 	invokeUpdateTemplateOperation,
+	MAX_TEMPLATE_MANIFEST_BYTES,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
 import { z } from "zod";
@@ -46,8 +47,6 @@ export interface CreateTemplateInput {
 }
 
 export type UpdateTemplateInput = Partial<CreateTemplateInput> & { id: number };
-
-const MAX_TEMPLATE_MANIFEST_BYTES = 1024 * 1024;
 
 export function createTemplateCommandError(context: string, error: unknown): Error {
 	if (error instanceof OperationExecutionError) return error;

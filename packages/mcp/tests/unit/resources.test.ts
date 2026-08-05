@@ -14,6 +14,7 @@ import {
 } from "../../src/handlers/templates.js";
 import { handleMediaTools, mediaTools } from "../../src/handlers/media.js";
 import type { CallToolRequest } from "../../src/types/mcp.js";
+import { MAX_TEMPLATE_MANIFEST_BYTES } from "@listmonk-ops/operations";
 
 function request(
 	name: string,
@@ -199,6 +200,46 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 		expect(JSON.parse(result.content[0]?.text ?? "null")).toEqual(
 			result.structuredContent,
 		);
+	});
+
+	test("rejects oversized manifests and reports body-free partial apply details", async () => {
+		const list = async () => ({ data: { results: [], total: 0 } });
+		const oversized = await handleTemplatesTools(
+			request("listmonk_reconcile_template_manifest", {
+				schema_version: 1,
+				templates: [
+					{
+						name: "Oversized template",
+						body: "x".repeat(MAX_TEMPLATE_MANIFEST_BYTES),
+					},
+				],
+			}),
+			{ template: { list } } as unknown as ListmonkClient,
+		);
+		expect(oversized.isError).toBe(true);
+		expect(oversized.content[0]?.text).toContain("byte limit");
+
+		const create = async ({ body }: { body: Record<string, unknown> }) => {
+			if (body.name === "Password reset code") {
+				throw new Error("remote create failed");
+			}
+			return { data: { id: 20, ...body } };
+		};
+		const partial = await handleTemplatesTools(
+			request("listmonk_reconcile_template_manifest", {
+				schema_version: 1,
+				templates: [
+					{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+					{ name: "Password reset code", type: "tx", body: "<p>Reset</p>" },
+				],
+				dry_run: false,
+			}),
+			{ template: { list, create } } as unknown as ListmonkClient,
+		);
+		expect(partial.isError).toBe(true);
+		expect(partial.content[0]?.text).toContain("Account sign-in code");
+		expect(partial.content[0]?.text).not.toContain("<p>OTP</p>");
+		expect(partial.content[0]?.text).not.toContain("<p>Reset</p>");
 	});
 
 	test("routes media reads through the shared operation result adapter", async () => {

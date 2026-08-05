@@ -94,9 +94,10 @@ existing behavior until they are migrated.
 ### Templates
 
 - `listmonk_reconcile_template_manifest` - Plan or apply up to 500 exact-name
-  templates from a versioned manifest. `dry_run` defaults to `true`; pass
-  `dry_run: false` and `confirm: true` to apply. Results omit template bodies
-  and expose only names, actions, and apply state.
+  templates from a versioned manifest whose serialized payload is at most
+  1 MiB. `dry_run` defaults to `true`; pass `dry_run: false` and `confirm: true`
+  to apply. Results omit template bodies and expose only names, actions, and
+  apply state.
 
 ### Media
 
