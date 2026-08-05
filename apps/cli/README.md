@@ -59,8 +59,8 @@ The CLI records metadata-only audit events for shared writes in
 `LISTMONK_OPS_AUDIT_STORE` to use a different local path.
 
 Versioned template manifests use the same normalized operation as MCP. The
-command plans by default, accepts at most 500 entries from a JSON file, and
-returns only template names, actions, and apply state:
+command plans by default, accepts at most 500 entries from a JSON file up to
+1 MiB, and returns only template names, actions, and apply state:
 
 ```bash
 listmonk-cli templates reconcile --manifest-file ./templates.json --confirm
