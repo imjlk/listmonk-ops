@@ -73,7 +73,7 @@ ExecStart=/usr/local/bin/listmonk-cli sequences worker --interval-ms 5000 --limi
 Restart=on-failure
 RestartSec=5s
 KillSignal=SIGTERM
-TimeoutStopSec=30s
+TimeoutStopSec=180s
 NoNewPrivileges=true
 
 [Install]
@@ -99,7 +99,7 @@ ExecStart=/usr/local/bin/listmonk-cli webhooks runtime worker --interval-ms 5000
 Restart=on-failure
 RestartSec=5s
 KillSignal=SIGTERM
-TimeoutStopSec=30s
+TimeoutStopSec=180s
 NoNewPrivileges=true
 
 [Install]
@@ -116,9 +116,11 @@ sudo systemctl enable --now listmonk-webhook-worker.service
 
 ## Docker Compose
 
-아래 예시는 Bun과 배포된 CLI 버전을 모두 고정합니다. 공개되지 않은 project
-image에 의존하지 않도록 `bunx`를 사용했습니다. Registry 접근 없이 시작해야 하는
-환경에서는 같은 고정 버전 package를 내부 image에 미리 포함하세요.
+아래 예시는 Bun과 배포된 CLI 버전을 모두 고정하고, 앞의 file-store path를 named
+volume에 영속화합니다. PostgreSQL을 선택한 경우 이 volume은 사용되지 않아도
+문제가 없습니다. 공개되지 않은 project image에 의존하지 않도록 `bunx`를
+사용했습니다. Registry 접근 없이 시작해야 하는 환경에서는 같은 고정 버전
+package를 내부 image에 미리 포함하세요.
 
 ```yaml
 services:
@@ -127,6 +129,8 @@ services:
     init: true
     restart: unless-stopped
     env_file: .env.workers
+    volumes:
+      - sequence-state:/var/lib/listmonk-ops
     entrypoint:
       - bunx
       - --bun
@@ -137,13 +141,15 @@ services:
       - --interval-ms
       - "5000"
       - --confirm
-    stop_grace_period: 30s
+    stop_grace_period: 180s
 
   webhook-worker:
     image: oven/bun:1.3.10
     init: true
     restart: unless-stopped
     env_file: .env.workers
+    volumes:
+      - webhook-state:/var/lib/listmonk-ops
     entrypoint:
       - bunx
       - --bun
@@ -155,12 +161,27 @@ services:
       - --interval-ms
       - "5000"
       - --confirm
-    stop_grace_period: 30s
+    stop_grace_period: 180s
+
+volumes:
+  sequence-state:
+  webhook-state:
 ```
 
-Compose 실행 전에 `LISTMONK_OPS_CLI_VERSION`을 정확한 release 버전으로
-설정합니다. `LISTMONK_API_URL`과 database hostname은 container에서 접근할 수
-있어야 합니다. `localhost`는 worker container 자체를 가리킵니다.
+Compose 변수 치환은 service의 `env_file` 항목을 읽지 않습니다. CLI 버전은
+shell, project `.env` 또는 Compose의 `--env-file` option으로 전달하는 파일에
+설정합니다.
+
+```dotenv
+# .env
+LISTMONK_OPS_CLI_VERSION=<exact-released-version>
+```
+
+Runtime 변수는 `.env.workers`에 둡니다. `LISTMONK_API_URL`과 database hostname은
+container에서 접근할 수 있어야 합니다. `localhost`는 worker container 자체를
+가리킵니다. 180초 stop budget은 sequence 발송이 마무리될 시간을 확보하고,
+concurrency 5에서 최대 30초가 걸리는 webhook delivery 25건을 다섯 차례 처리한
+뒤 최종 worker 상태를 저장할 시간을 제공합니다.
 
 ## Readiness와 복구
 

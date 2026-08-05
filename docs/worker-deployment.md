@@ -71,7 +71,7 @@ ExecStart=/usr/local/bin/listmonk-cli sequences worker --interval-ms 5000 --limi
 Restart=on-failure
 RestartSec=5s
 KillSignal=SIGTERM
-TimeoutStopSec=30s
+TimeoutStopSec=180s
 NoNewPrivileges=true
 
 [Install]
@@ -97,7 +97,7 @@ ExecStart=/usr/local/bin/listmonk-cli webhooks runtime worker --interval-ms 5000
 Restart=on-failure
 RestartSec=5s
 KillSignal=SIGTERM
-TimeoutStopSec=30s
+TimeoutStopSec=180s
 NoNewPrivileges=true
 
 [Install]
@@ -114,10 +114,12 @@ sudo systemctl enable --now listmonk-webhook-worker.service
 
 ## Docker Compose
 
-The example below pins both Bun and the published CLI version. `bunx` was
-chosen so the example does not depend on an unpublished project image. For an
-environment that must start without registry access, bake the same pinned
-package into an internal image instead.
+The example below pins both Bun and the published CLI version, and persists the
+file-store paths from the earlier example in named volumes. The volumes are
+harmless when PostgreSQL is selected. `bunx` was chosen so the example does not
+depend on an unpublished project image. For an environment that must start
+without registry access, bake the same pinned package into an internal image
+instead.
 
 ```yaml
 services:
@@ -126,6 +128,8 @@ services:
     init: true
     restart: unless-stopped
     env_file: .env.workers
+    volumes:
+      - sequence-state:/var/lib/listmonk-ops
     entrypoint:
       - bunx
       - --bun
@@ -136,13 +140,15 @@ services:
       - --interval-ms
       - "5000"
       - --confirm
-    stop_grace_period: 30s
+    stop_grace_period: 180s
 
   webhook-worker:
     image: oven/bun:1.3.10
     init: true
     restart: unless-stopped
     env_file: .env.workers
+    volumes:
+      - webhook-state:/var/lib/listmonk-ops
     entrypoint:
       - bunx
       - --bun
@@ -154,12 +160,27 @@ services:
       - --interval-ms
       - "5000"
       - --confirm
-    stop_grace_period: 30s
+    stop_grace_period: 180s
+
+volumes:
+  sequence-state:
+  webhook-state:
 ```
 
-Set `LISTMONK_OPS_CLI_VERSION` to an exact released version before running
-Compose. `LISTMONK_API_URL` and database hostnames must be reachable from the
-container; `localhost` refers to the worker container itself.
+Compose interpolation does not read service `env_file` entries. Set the CLI
+version in the shell, the project `.env`, or a file passed through Compose's
+`--env-file` option, for example:
+
+```dotenv
+# .env
+LISTMONK_OPS_CLI_VERSION=<exact-released-version>
+```
+
+Keep runtime variables in `.env.workers`. `LISTMONK_API_URL` and database
+hostnames must be reachable from the container; `localhost` refers to the
+worker container itself. The 180-second stop budget leaves sequence sends time
+to settle and allows a webhook batch of 25 deliveries to finish five 30-second
+timeout waves at concurrency 5 before persisting final worker status.
 
 ## Readiness and recovery
 
