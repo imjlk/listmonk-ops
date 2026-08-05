@@ -188,9 +188,23 @@ container에서 접근할 수 있어야 합니다. `localhost`는 worker contain
 concurrency 5에서 최대 30초가 걸리는 webhook delivery 25건을 다섯 차례 처리한
 뒤 최종 worker 상태를 저장할 시간을 제공합니다.
 
+File-store 모드에서는 host의 `/var/lib/listmonk-ops` 경로와 Docker가 관리하는
+volume이 같은 storage가 아닙니다. 동일한 volume을 mount하도록 기존 service를
+통해 one-shot CLI read를 실행합니다.
+
+```bash
+docker compose run --rm sequence-worker sequences status
+docker compose run --rm webhook-worker webhooks runtime status
+```
+
+Host CLI, MCP server 또는 다른 장기 실행 프로세스가 worker 상태를 공유하거나
+수정해야 하면 PostgreSQL을 사용하세요. 이름만 같은 host path를 Compose
+volume으로 간주해 연결하면 안 됩니다.
+
 ## Readiness와 복구
 
-Worker와 동일한 환경에서 status 명령을 실행합니다.
+Worker와 동일한 환경 및 영속성 대상에서 status 명령을 실행합니다. Compose에서는
+위 one-shot 명령을 사용할 수 있습니다.
 
 ```bash
 listmonk-cli sequences status

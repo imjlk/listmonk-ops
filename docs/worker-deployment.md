@@ -187,9 +187,23 @@ worker container itself. The 180-second stop budget leaves sequence sends time
 to settle and allows a webhook batch of 25 deliveries to finish five 30-second
 timeout waves at concurrency 5 before persisting final worker status.
 
+In file-store mode, a host path named `/var/lib/listmonk-ops` is not the same
+storage as the Docker-managed volumes. Run one-shot CLI reads through the
+existing services so they mount the matching volume:
+
+```bash
+docker compose run --rm sequence-worker sequences status
+docker compose run --rm webhook-worker webhooks runtime status
+```
+
+Use PostgreSQL instead when a host CLI, MCP server, or another long-lived
+process must share or mutate worker state. Do not point those processes at a
+lookalike host path and assume it is the Compose volume.
+
 ## Readiness and recovery
 
-Run status commands with the same environment as the workers:
+Run status commands with the same environment and persistence target as the
+workers (or use the Compose one-shot commands above):
 
 ```bash
 listmonk-cli sequences status
