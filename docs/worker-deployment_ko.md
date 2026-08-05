@@ -45,8 +45,13 @@ LISTMONK_OPS_WEBHOOK_SECRET=<random-secret>
 
 ```dotenv
 LISTMONK_OPS_SEQUENCE_STORE=/var/lib/listmonk-ops/sequences.json
+LISTMONK_OPS_TRANSACTIONAL_STORE=/var/lib/listmonk-ops/transactional.json
 LISTMONK_OPS_WEBHOOK_STORE=/var/lib/listmonk-ops/outbound-webhooks.json
 ```
+
+Transactional store는 sequence 발송 claim과 결과를 기록합니다. 재시작 후
+`ambiguous` 또는 완료된 발송이 새 claim으로 처리되지 않도록 sequence store와
+같은 durable filesystem에 두세요.
 
 ## systemd
 

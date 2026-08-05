@@ -43,8 +43,13 @@ paths under a directory writable by the service account:
 
 ```dotenv
 LISTMONK_OPS_SEQUENCE_STORE=/var/lib/listmonk-ops/sequences.json
+LISTMONK_OPS_TRANSACTIONAL_STORE=/var/lib/listmonk-ops/transactional.json
 LISTMONK_OPS_WEBHOOK_STORE=/var/lib/listmonk-ops/outbound-webhooks.json
 ```
+
+The transactional store records sequence send claims and outcomes. Keep it on
+the same durable filesystem as the sequence store so a restart cannot turn an
+ambiguous or completed send into a new claim.
 
 ## systemd
 
