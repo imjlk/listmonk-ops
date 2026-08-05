@@ -5,6 +5,8 @@ import { transactWithSubscriber } from "./generated/sdk.gen";
 // Local domains such as `trainer@mailpit` are intentionally supported for
 // private deployments and the repository's Mailpit test environment.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/u;
+const EMAIL_DOMAIN_LABEL_PATTERN =
+	/^(?:[\p{L}\p{N}]|[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}])$/u;
 const UNSAFE_EMAIL_CHARACTER_PATTERN = /[",:;<>()[\]]/u;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\u009f]/u;
 const PRINTABLE_ASCII_PATTERN = /^[\u0020-\u007e]+$/u;
@@ -124,13 +126,15 @@ export function normalizeListmonkApiBaseUrl(baseUrl: string): string {
 		);
 	}
 	if (
-		authority.includes("%") ||
+		value.includes("%") ||
+		value.includes("\\") ||
+		/(?:^|\/)\.{1,2}(?:\/|[?#]|$)/u.test(value) ||
 		CONTROL_CHARACTER_PATTERN.test(value) ||
 		INVISIBLE_IDENTIFIER_PATTERN.test(value)
 	) {
 		throw new ListmonkRuntimeError(
 			"invalid_configuration",
-			"Listmonk base URL must not use authority percent encoding or contain control/invisible formatting characters.",
+			"Listmonk base URL must not use percent encoding, backslashes, dot segments, or control/invisible formatting characters.",
 		);
 	}
 	let parsed: URL;
@@ -329,6 +333,7 @@ export async function sendExternalTransactionalEmail(
 	const recipientIsInvalid =
 		utf8ByteLength(recipient) > MAX_RECIPIENT_BYTES ||
 		!EMAIL_PATTERN.test(recipient) ||
+		!hasValidEmailAddressParts(recipient) ||
 		UNSAFE_EMAIL_CHARACTER_PATTERN.test(recipient) ||
 		CONTROL_CHARACTER_PATTERN.test(recipient) ||
 		INVISIBLE_IDENTIFIER_PATTERN.test(recipient);
@@ -658,6 +663,24 @@ function safeErrorName(error: unknown): unknown {
 	} catch {
 		return undefined;
 	}
+}
+
+function hasValidEmailAddressParts(email: string): boolean {
+	const separatorIndex = email.lastIndexOf("@");
+	if (separatorIndex <= 0 || separatorIndex === email.length - 1) return false;
+	const localPart = email.slice(0, separatorIndex);
+	if (
+		utf8ByteLength(localPart) > 64 ||
+		localPart.startsWith(".") ||
+		localPart.endsWith(".") ||
+		localPart.includes("..")
+	) {
+		return false;
+	}
+	const domain = email.slice(separatorIndex + 1);
+	return domain
+		.split(".")
+		.every((label) => EMAIL_DOMAIN_LABEL_PATTERN.test(label));
 }
 
 function exactNonEmpty(

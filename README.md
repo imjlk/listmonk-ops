@@ -150,7 +150,10 @@ subjects at 256 UTF-8 bytes, caps the successfully serialized transactional body
 at 64 KiB, snapshots and bounds template data to 2,048 nodes and 32 nesting
 levels, and projects remote failures to bounded errors. It rejects sparse or
 extended arrays, callable/accessor serialization hooks, and HTTP redirects
-before they can transform or replay a validated non-idempotent request.
+before they can transform or replay a validated non-idempotent request. Runtime
+base URLs also reject percent encoding, backslashes, and dot segments before URL
+parsing; recipient domains use DNS-style labels with single-label local domains
+retained for private Mailpit deployments.
 
 The package root no longer exports the generated SDK as a `rawSdk` namespace,
 because that namespace forced bundlers to retain every generated endpoint.

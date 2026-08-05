@@ -151,6 +151,9 @@ body는 64 KiB로 제한합니다. Template data는 최대 2,048개 node와 32�
 제한하고 원격 오류를 제한된 오류 코드와 상태로 투영합니다. Template data를
 snapshot한 뒤 검증하며, 비멱등 요청이 달라지거나 다른 origin으로 재전송되지
 않도록 sparse/확장 array, callable/accessor 직렬화 hook, HTTP redirect를 거부합니다.
+Runtime base URL은 URL 파싱 전에 percent encoding, backslash, dot segment를
+거부합니다. 수신자 domain은 DNS label 규칙을 검증하되 private Mailpit 배포를 위한
+single-label local domain은 허용합니다.
 
 패키지 root에서는 더 이상 생성 SDK를 `rawSdk` namespace로 export하지 않습니다.
 이 namespace가 bundler로 하여금 모든 생성 endpoint를 유지하게 했기 때문입니다.

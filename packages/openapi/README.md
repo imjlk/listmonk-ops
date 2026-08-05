@@ -172,9 +172,9 @@ const result = await getLists({
 
 Workers-compatible transactional consumers can use the dedicated runtime
 entrypoint. It normalizes the API URL, creates the token authorization header,
-requires HTTPS, rejects percent-encoded URL authorities, keeps the generated SDK
-client behind an opaque frozen handle, and sends to one external address without
-creating a Listmonk subscriber:
+requires HTTPS, rejects percent encoding, backslashes, and dot segments in base
+URLs, keeps the generated SDK client behind an opaque frozen handle, and sends
+to one external address without creating a Listmonk subscriber:
 
 ```ts
 import {
@@ -199,6 +199,7 @@ await sendExternalTransactionalEmail({
 ```
 
 The helper fixes `subscriber_mode` to `external`, accepts exactly one recipient,
+validates DNS-style domain labels while preserving single-label local domains,
 limits the recipient address to 254 UTF-8 bytes, and requires Listmonk's
 explicit `data: true` acknowledgement. Subjects are limited to 256 UTF-8 bytes,
 and the complete request body must serialize successfully within 64 KiB.
