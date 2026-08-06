@@ -65,6 +65,7 @@ const userRoleDesiredStateSchema = z.object({
 	name: z.string().trim().min(1).max(120),
 	permissions: z
 		.array(userPermissionSchema)
+		.max(LISTMONK_USER_PERMISSIONS.length)
 		.transform((permissions) => [...new Set(permissions)].sort()),
 });
 

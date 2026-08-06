@@ -239,6 +239,38 @@ describe("User-role manifest CLI and MCP parity", () => {
 					{ name: roleName, action: "unchanged", applied: false },
 				],
 			});
+
+			// Exercise the CLI apply path with a narrowed permission set so the
+			// parity test covers both adapter apply paths, not just MCP. The CLI
+			// update should report a single changed role.
+			const narrowedManifestPath = join(stateDirectory, "roles-narrowed.json");
+			const narrowedManifest = {
+				schema_version: 1 as const,
+				roles: [
+					{
+						name: roleName,
+						permissions: ["templates:get"] as const,
+					},
+				],
+			};
+			await writeFile(
+				narrowedManifestPath,
+				JSON.stringify(narrowedManifest),
+				"utf8",
+			);
+			const cliApplied = parseCliManifestOutput(
+				runCliReconcileUserRoleManifest(narrowedManifestPath, {
+					confirm: true,
+					dryRun: false,
+				}),
+			);
+			expect(cliApplied).toEqual({
+				schema_version: 1,
+				dry_run: false,
+				results: [
+					{ name: roleName, action: "update", applied: true },
+				],
+			});
 		} finally {
 			try {
 				// Re-resolve the role by name during cleanup so a failed

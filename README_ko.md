@@ -490,7 +490,7 @@ Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제�
 자격 증명을 노출하지 않으면서 런타임 정보와 실제 Listmonk health probe
 결과를 함께 제공합니다.
 
-103개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+104개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -553,7 +553,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 103개 전체, API 경계 규칙, 42개 governed runtime bridge, 40개
+Operation 104개 전체, API 경계 규칙, 42개 governed runtime bridge, 40개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 309개를
 검증합니다.
 
