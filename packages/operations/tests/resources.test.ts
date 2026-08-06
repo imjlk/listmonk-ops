@@ -504,6 +504,11 @@ describe("shared CRUD resource operations", () => {
 		expect(campaignOperations[4]?.safety.destructiveHint).toBe(true);
 		expect(
 			templateOperations.find(
+				(operation) => operation.id === "templates.delete",
+			)?.safety.idempotentHint,
+		).toBe(false);
+		expect(
+			templateOperations.find(
 				(operation) => operation.id === "templates.set-default",
 			)?.safety,
 		).toEqual({

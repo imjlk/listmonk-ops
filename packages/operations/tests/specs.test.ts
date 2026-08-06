@@ -34,8 +34,12 @@ import {
 	subscriberBlocklistOperationSpec,
 	subscribersListOperationSpec,
 	subscriberResource,
+	templatesCreateOperationSpec,
+	templatesDeleteOperationSpec,
 	templatesListOperationSpec,
 	templatesReconcileOperationSpec,
+	templatesSetDefaultOperationSpec,
+	templatesUpdateOperationSpec,
 	transactionalSendOperationSpec,
 	webhookDispatchOperationSpec,
 	webhookDeliveryListOperationSpec,
@@ -50,6 +54,7 @@ import { assertTypeScriptContractCompatibility } from "../src/specs/schema-compa
 import type { NormalizedContractSchema } from "../src/specs/json";
 import type { PolicyForEffects } from "../src/specs/policy";
 import { stableValue } from "../src/specs/stable-json.js";
+import { updateTemplateOperation } from "../src/templates";
 
 type IsNever<Value> = [Value] extends [never] ? true : false;
 const conflictingPreviewDryRunIsNever: IsNever<
@@ -251,6 +256,71 @@ describe("email operations specification", () => {
 				idempotent: true,
 			},
 		});
+		const templateCrudSpecs = [
+			templatesCreateOperationSpec,
+			templatesUpdateOperationSpec,
+			templatesDeleteOperationSpec,
+			templatesSetDefaultOperationSpec,
+		] as const;
+		expect(templateCrudSpecs.map(({ id }) => id)).toEqual([
+			"templates.create",
+			"templates.update",
+			"templates.delete",
+			"templates.set-default",
+		]);
+		expect(
+			templateCrudSpecs.every(
+				(operation) =>
+					operation.stability === "experimental" &&
+					operation.contract.input.source === "typescript" &&
+					operation.contract.output.source === "typescript",
+			),
+		).toBe(true);
+		const runtimeBridgeIds = new Set<string>(runtimeOperationContractIds);
+		expect(
+			templateCrudSpecs.every(
+				(operation) => !runtimeBridgeIds.has(operation.id),
+			),
+		).toBe(true);
+		expect(templatesCreateOperationSpec.retry.kind).toBe("unsafe");
+		expect(templatesDeleteOperationSpec.policy.confirmation).toBe("required");
+		expect(templatesDeleteOperationSpec.retry).toEqual({
+			kind: "reconcile",
+			reconcileWith: "templates.list",
+			idempotent: false,
+			reason:
+				"After an ambiguous delete, inspect templates.list before repeating the irreversible request.",
+		});
+		const updateInputContract = templatesUpdateOperationSpec.contract.input;
+		expect(updateInputContract.schema["oneOf"]).toBeUndefined();
+		expect(updateInputContract.schema["anyOf"]).toHaveLength(5);
+		const updateInputComponents = updateInputContract.components["schemas"] as
+			| Readonly<Record<string, Readonly<Record<string, unknown>>>>
+			| undefined;
+		expect(updateInputComponents?.["TemplateUpdateInput"]?.["oneOf"]).toBe(
+			undefined,
+		);
+		expect(updateInputComponents?.["TemplateUpdateInput"]?.["anyOf"]).toHaveLength(
+			5,
+		);
+		expect(updateTemplateOperation.inputSchema.safeParse({ id: 42 }).success).toBe(
+			false,
+		);
+		expect(
+			updateTemplateOperation.inputSchema.safeParse({ name: "Renamed" }).success,
+		).toBe(false);
+		for (const changes of [
+			{ name: "Renamed" },
+			{ type: "tx" },
+			{ subject: "" },
+			{ body_source: "" },
+			{ body: "<p>Updated</p>" },
+		] as const) {
+			expect(
+				updateTemplateOperation.inputSchema.safeParse({ id: 42, ...changes })
+					.success,
+			).toBe(true);
+		}
 		expect(
 			emailOperationsSpec.operations
 				.filter((operation) =>

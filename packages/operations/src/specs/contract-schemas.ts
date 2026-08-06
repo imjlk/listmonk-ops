@@ -17,6 +17,10 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	campaignCollectionOutputContract: NormalizedContractSchema;
 	campaignStatsOutputContract: NormalizedContractSchema;
 	templateRecordContract: NormalizedContractSchema;
+	templateCreateInputContract: NormalizedContractSchema;
+	templateUpdateInputContract: NormalizedContractSchema;
+	templateDeleteOutputContract: NormalizedContractSchema;
+	templateSetDefaultOutputContract: NormalizedContractSchema;
 	templateListInputContract: NormalizedContractSchema;
 	templateCollectionOutputContract: NormalizedContractSchema;
 	mediaRecordContract: NormalizedContractSchema;
@@ -131,6 +135,12 @@ export const campaignCollectionOutputContract =
 export const campaignStatsOutputContract =
 	contracts.campaignStatsOutputContract;
 export const templateRecordContract = contracts.templateRecordContract;
+export const templateCreateInputContract = contracts.templateCreateInputContract;
+export const templateUpdateInputContract = contracts.templateUpdateInputContract;
+export const templateDeleteOutputContract =
+	contracts.templateDeleteOutputContract;
+export const templateSetDefaultOutputContract =
+	contracts.templateSetDefaultOutputContract;
 export const templateListInputContract = contracts.templateListInputContract;
 export const templateCollectionOutputContract =
 	contracts.templateCollectionOutputContract;

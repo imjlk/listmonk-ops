@@ -19415,6 +19415,935 @@
     {
       "agent": {
         "avoidWhen": [
+          "An existing template should be converged by exact name; use templates.reconcile instead."
+        ],
+        "prerequisites": [],
+        "related": [
+          "templates.reconcile"
+        ],
+        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect templates.list for the intended name first.",
+        "useWhen": [
+          "A new Listmonk template must be created."
+        ],
+        "verifyWith": [
+          "templates.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "TemplateCreateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "description": "Omitted values default to an empty subject at the runtime boundary.",
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Omitted values default to `\"campaign\"` at the runtime boundary.",
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "body"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "body_source": {
+                "type": "string"
+              },
+              "name": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "subject": {
+                "description": "Omitted values default to an empty subject at the runtime boundary.",
+                "type": "string"
+              },
+              "type": {
+                "description": "Omitted values default to `\"campaign\"` at the runtime boundary.",
+                "oneOf": [
+                  {
+                    "const": "campaign"
+                  },
+                  {
+                    "const": "campaign_visual"
+                  },
+                  {
+                    "const": "tx"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "body"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "is_default": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "body": {
+                "type": "string"
+              },
+              "body_source": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "is_default": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Create a template in Listmonk",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": true
+        }
+      ],
+      "id": "templates.create",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesCreateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesCreateOperationSpec:variable",
+          "executorNode": "packages/operations/src/templates.ts#createTemplate:function",
+          "invokerNode": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/templates.ts#createTemplateOperation:variable"
+        },
+        "mcpName": "listmonk_create_template",
+        "openWorld": true
+      },
+      "resource": "template",
+      "retry": {
+        "kind": "unsafe",
+        "reason": "A transport failure can be ambiguous after Listmonk creates the template; inspect templates.list before retrying."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Create template",
+      "verb": "create"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The template ID is unknown or a versioned exact-name manifest should be reconciled."
+        ],
+        "prerequisites": [
+          "templates.get"
+        ],
+        "related": [
+          "templates.reconcile",
+          "ops.templates.registry-sync"
+        ],
+        "retryGuidance": "Retry identical transient failures with bounded backoff, then verify with templates.get.",
+        "useWhen": [
+          "A known template must be updated by numeric ID."
+        ],
+        "verifyWith": [
+          "templates.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInputTemplateUpdateFields__type": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o1": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o2": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "subject"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o3": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "body_source"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o4": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "body"
+                ],
+                "type": "object"
+              },
+              "TemplateUpdateInput": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o2"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o3"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
+                  }
+                ],
+                "description": "Update a positive template ID with at least one mutable field."
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o1"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o2"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o3"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
+              }
+            ],
+            "description": "Update a positive template ID with at least one mutable field."
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "is_default": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "body": {
+                "type": "string"
+              },
+              "body_source": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "is_default": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Update a template in Listmonk",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": true
+        }
+      ],
+      "id": "templates.update",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesUpdateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesUpdateOperationSpec:variable",
+          "executorNode": "packages/operations/src/templates.ts#updateTemplate:function",
+          "invokerNode": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/templates.ts#updateTemplateOperation:variable"
+        },
+        "mcpName": "listmonk_update_template",
+        "openWorld": true
+      },
+      "resource": "template",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same requested template fields converges on the same representation."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Update template",
+      "verb": "update"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The template ID or destructive confirmation has not been verified."
+        ],
+        "prerequisites": [
+          "templates.get"
+        ],
+        "related": [],
+        "retryGuidance": "After an ambiguous failure, verify absence with templates.list before retrying.",
+        "useWhen": [
+          "A verified template must be permanently deleted."
+        ],
+        "verifyWith": [
+          "templates.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateDeleteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "deleted"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "deleted": {
+                "type": "boolean"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id",
+              "deleted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Delete a template from Listmonk",
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "template",
+          "reversible": false
+        }
+      ],
+      "id": "templates.delete",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesDeleteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesDeleteOperationSpec:variable",
+          "executorNode": "packages/operations/src/templates.ts#deleteTemplate:function",
+          "invokerNode": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/templates.ts#deleteTemplateOperation:variable"
+        },
+        "mcpName": "listmonk_delete_template",
+        "openWorld": true
+      },
+      "resource": "template",
+      "retry": {
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "After an ambiguous delete, inspect templates.list before repeating the irreversible request.",
+        "reconcileWith": "templates.list"
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Delete template",
+      "verb": "delete"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The template ID has not been verified."
+        ],
+        "prerequisites": [
+          "templates.get"
+        ],
+        "related": [
+          "templates.reconcile"
+        ],
+        "retryGuidance": "Retry identical transient failures with bounded backoff, then verify with templates.get.",
+        "useWhen": [
+          "A verified template should become the Listmonk default."
+        ],
+        "verifyWith": [
+          "templates.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateSetDefaultOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "set_default": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "id",
+                  "set_default"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "set_default": {
+                "const": true
+              }
+            },
+            "required": [
+              "id",
+              "set_default"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Set a template as the Listmonk default",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": true
+        }
+      ],
+      "id": "templates.set-default",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesSetDefaultOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesSetDefaultOperationSpec:variable",
+          "executorNode": "packages/operations/src/templates.ts#setDefaultTemplate:function",
+          "invokerNode": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable"
+        },
+        "mcpName": "listmonk_set_default_template",
+        "openWorld": true
+      },
+      "resource": "template",
+      "retry": {
+        "kind": "safe",
+        "reason": "Setting the same template as default repeatedly converges on the same selection."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Set default template",
+      "verb": "set-default"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "The target, intended side effect, or required confirmation has not been verified."
         ],
         "prerequisites": [],
@@ -22172,512 +23101,6 @@
       "stability": "experimental",
       "title": "Clone campaign",
       "verb": "clone"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [],
-        "related": [],
-        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.",
-        "useWhen": [
-          "Create a template in Listmonk"
-        ],
-        "verifyWith": [
-          "templates.list"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "body": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "body_source": {
-                "type": "string"
-              },
-              "name": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "subject": {
-                "default": "",
-                "type": "string"
-              },
-              "type": {
-                "default": "campaign",
-                "enum": [
-                  "campaign",
-                  "campaign_visual",
-                  "tx"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "name",
-              "body"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": {},
-            "properties": {
-              "body": {
-                "type": "string"
-              },
-              "body_source": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "created_at": {
-                "type": "string"
-              },
-              "id": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              },
-              "is_default": {
-                "type": "boolean"
-              },
-              "name": {
-                "type": "string"
-              },
-              "subject": {
-                "type": "string"
-              },
-              "type": {
-                "type": "string"
-              },
-              "updated_at": {
-                "type": "string"
-              }
-            },
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Create a template in Listmonk",
-      "effects": [
-        {
-          "kind": "write",
-          "resource": "template",
-          "reversible": true
-        }
-      ],
-      "id": "templates.create",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/operations/src/templates.ts#createTemplate:function",
-          "invokerNode": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/templates.ts#createTemplateOperation:variable"
-        },
-        "mcpName": "listmonk_create_template",
-        "openWorld": true
-      },
-      "resource": "template",
-      "retry": {
-        "kind": "unsafe",
-        "reason": "The shared operation may create, deliver, or advance state before an ambiguous failure."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Create template",
-      "verb": "create"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [
-          "templates.get"
-        ],
-        "related": [
-          "ops.templates.registry-sync"
-        ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
-        "useWhen": [
-          "Update a template in Listmonk"
-        ],
-        "verifyWith": [
-          "templates.get"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "body": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "body_source": {
-                "type": "string"
-              },
-              "id": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              },
-              "name": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "subject": {
-                "type": "string"
-              },
-              "type": {
-                "enum": [
-                  "campaign",
-                  "campaign_visual",
-                  "tx"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "id"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": {},
-            "properties": {
-              "body": {
-                "type": "string"
-              },
-              "body_source": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "created_at": {
-                "type": "string"
-              },
-              "id": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              },
-              "is_default": {
-                "type": "boolean"
-              },
-              "name": {
-                "type": "string"
-              },
-              "subject": {
-                "type": "string"
-              },
-              "type": {
-                "type": "string"
-              },
-              "updated_at": {
-                "type": "string"
-              }
-            },
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Update a template in Listmonk",
-      "effects": [
-        {
-          "kind": "write",
-          "resource": "template",
-          "reversible": true
-        }
-      ],
-      "id": "templates.update",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/operations/src/templates.ts#updateTemplate:function",
-          "invokerNode": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/templates.ts#updateTemplateOperation:variable"
-        },
-        "mcpName": "listmonk_update_template",
-        "openWorld": true
-      },
-      "resource": "template",
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Update template",
-      "verb": "update"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [
-          "templates.get"
-        ],
-        "related": [],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
-        "useWhen": [
-          "Delete a template from Listmonk"
-        ],
-        "verifyWith": [
-          "templates.list"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "id": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              }
-            },
-            "required": [
-              "id"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "deleted": {
-                "type": "boolean"
-              },
-              "id": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              }
-            },
-            "required": [
-              "id",
-              "deleted"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Delete a template from Listmonk",
-      "effects": [
-        {
-          "kind": "delete",
-          "resource": "template",
-          "reversible": false
-        }
-      ],
-      "id": "templates.delete",
-      "policy": {
-        "audit": "required",
-        "confirmation": "required",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/operations/src/templates.ts#deleteTemplate:function",
-          "invokerNode": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/templates.ts#deleteTemplateOperation:variable"
-        },
-        "mcpName": "listmonk_delete_template",
-        "openWorld": true
-      },
-      "resource": "template",
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Delete template",
-      "verb": "delete"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [
-          "templates.get"
-        ],
-        "related": [],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
-        "useWhen": [
-          "Set a template as the Listmonk default"
-        ],
-        "verifyWith": [
-          "templates.get"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "id": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              }
-            },
-            "required": [
-              "id"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "id": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              },
-              "set_default": {
-                "const": true,
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "id",
-              "set_default"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Set a template as the Listmonk default",
-      "effects": [
-        {
-          "kind": "write",
-          "resource": "template",
-          "reversible": true
-        }
-      ],
-      "id": "templates.set-default",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/operations/src/templates.ts#setDefaultTemplate:function",
-          "invokerNode": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable"
-        },
-        "mcpName": "listmonk_set_default_template",
-        "openWorld": true
-      },
-      "resource": "template",
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Set default template",
-      "verb": "set-default"
     },
     {
       "agent": {

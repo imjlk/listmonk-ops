@@ -8,9 +8,25 @@ import {
 	listOperationCatalog,
 	listOperationCatalogSummaries,
 	listOperations,
+	templateOperationCatalog,
 } from "../src";
 
 describe("operation catalog", () => {
+	test("composes standalone template CRUD contracts with the runtime boundary", () => {
+		const catalog = composeOperationCatalogs([templateOperationCatalog]);
+		for (const operationId of [
+			"templates.create",
+			"templates.update",
+			"templates.delete",
+			"templates.set-default",
+		]) {
+			expect(
+				getOperationCatalogEntryById(catalog, operationId)?.operation.spec
+					?.contract.input.source,
+			).toBe("typescript");
+		}
+	});
+
 	test("composes stable discovery summaries for shared operation families", () => {
 		const catalog = composeOperationCatalogs([
 			listOperationCatalog,

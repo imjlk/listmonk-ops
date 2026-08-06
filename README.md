@@ -500,8 +500,8 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-Sixty-three contracts are standalone TypeScript/Typia product contracts. The
-other 41 are explicitly `experimental` and use a committed snapshot of the
+Sixty-seven contracts are standalone TypeScript/Typia product contracts. The
+other 37 are explicitly `experimental` and use a committed snapshot of the
 normalized shared-operation boundary—not generated Listmonk SDK types—as a
 bridge. Upstream API changes are therefore absorbed at the generated transport
 and handwritten adapter first; the product spec changes only when the
@@ -559,11 +559,11 @@ Operations Spec artifacts are checked in under
 after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
-also verifies all 104 shared operations, the API boundary rule, the 41 governed
+also verifies all 104 shared operations, the API boundary rule, the 37 governed
 runtime bridges, the 44 stable compatibility baselines, and 312 direct
 spec-to-runtime graph edges.
 
-If a normalized Zod boundary for one of the 41 bridge operations changes,
+If a normalized Zod boundary for one of the 37 bridge operations changes,
 build the workspaces and run
 `bun run operations:specs:runtime-contracts:generate`, review the committed
 snapshot diff, and then regenerate the spec artifacts. Normal CLI/MCP startup
