@@ -13053,7 +13053,7 @@
         "reason": "Pausing an already paused sequence is a no-op."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "state": {
         "allowNoopFromTarget": true,
         "from": [
@@ -13302,7 +13302,7 @@
         "reason": "Resuming an active sequence is a no-op."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "state": {
         "allowNoopFromTarget": true,
         "from": [

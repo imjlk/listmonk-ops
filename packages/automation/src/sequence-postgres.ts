@@ -737,6 +737,12 @@ export function createPostgresSequenceRepository(
 					throw new SequenceNotFoundError("definition", id);
 				}
 				const previous = toDefinition(definitionRow);
+				// Short-circuit when the definition is already in the target
+				// status so a pause/resume retry is a true no-op and does not
+				// advance updatedAt, matching the spec's allowNoopFromTarget.
+				if (previous.status === status) {
+					return previous;
+				}
 				const updated = parseSequenceDefinition({
 					...previous,
 					status,

@@ -550,7 +550,7 @@ Retry guidance: Retrying the same enrollment read is safe.
 
 ## Pause sequence (`sequences.pause`)
 
-Contract maturity: `experimental`; effects: `write:sequence`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:sequence`; confirmation: `never`; retry: `safe`.
 
 Use when: Sequence execution must stop claiming new due enrollments.
 
@@ -564,7 +564,7 @@ Retry guidance: Retrying the same pause is safe.
 
 ## Resume sequence (`sequences.resume`)
 
-Contract maturity: `experimental`; effects: `write:sequence`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:sequence`; confirmation: `never`; retry: `safe`.
 
 Use when: A reviewed paused sequence may continue processing.
 

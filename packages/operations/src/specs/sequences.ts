@@ -378,7 +378,7 @@ export const sequencePauseOperationSpec = defineOperationSpec({
 		openWorld: false,
 		graph: graphNodes("pause"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -414,7 +414,7 @@ export const sequenceResumeOperationSpec = defineOperationSpec({
 		openWorld: false,
 		graph: graphNodes("resume"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
