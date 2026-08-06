@@ -1429,12 +1429,12 @@ export type ListmonkUserPermission =
 	| "settings:manage"
 	| "settings:maintain";
 
-/** Name of a Listmonk user role. Must not match the protected Super Admin. */
+/** Name of a Listmonk user role. Runtime protection is based on role ID. */
 export type UserRoleName = NonEmptyString & tags.MaxLength<120>;
 
 export interface UserRoleDesiredState {
 	name: UserRoleName;
-	permissions: ListmonkUserPermission[] & tags.MinItems<0> & tags.MaxItems<30>;
+	permissions: ListmonkUserPermission[] & tags.MaxItems<30>;
 }
 
 export interface UserRoleManifestReconcileInput {

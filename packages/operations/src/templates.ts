@@ -72,6 +72,7 @@ const createTemplateInputSchema = z.object({
 });
 
 export const MAX_TEMPLATE_MANIFEST_BYTES = 1024 * 1024;
+const TEMPLATE_MANIFEST_OPERATION_ID = "templates.reconcile";
 
 function templateManifestByteLength(manifest: {
 	schema_version: 1;
@@ -211,7 +212,7 @@ export class TemplateManifestOperationApplyError extends OperationExecutionError
 		// Listmonk error body or other credential-adjacent metadata through a
 		// nested cause chain; only the bounded apply message is preserved.
 		super(
-			"templates.reconcile",
+			TEMPLATE_MANIFEST_OPERATION_ID,
 			new Error(
 				`${error.message}; completed entries: ${JSON.stringify(appliedResults)}`,
 			),
@@ -220,6 +221,38 @@ export class TemplateManifestOperationApplyError extends OperationExecutionError
 		this.failedTemplate = error.failedTemplate;
 		this.appliedResults = appliedResults;
 	}
+}
+
+function parseTemplateManifestOperationInput(
+	input: unknown,
+): z.output<typeof templateManifestOperationInputSchema> {
+	// Enforce the serialized-payload cap on the untransformed input before Zod
+	// normalizes it. Only the transport-only dry_run control is excluded so the
+	// documented 1 MiB limit still rejects unknown oversized fields that Zod
+	// would otherwise strip.
+	const { dry_run: _excludedDryRun, ...measuredInput } =
+		typeof input === "object" && input !== null && !Array.isArray(input)
+			? (input as Record<string, unknown>)
+			: {};
+	const rawByteLength = new TextEncoder().encode(
+		JSON.stringify(measuredInput),
+	).byteLength;
+	if (rawByteLength > MAX_TEMPLATE_MANIFEST_BYTES) {
+		throw new OperationInputError(
+			`Template manifest exceeds the ${MAX_TEMPLATE_MANIFEST_BYTES}-byte limit`,
+		);
+	}
+	return parseOperationInput(templateManifestOperationInputSchema, input);
+}
+
+function normalizeTemplateManifestOperationError(error: unknown) {
+	if (error instanceof TemplateManifestApplyError) {
+		return new TemplateManifestOperationApplyError(error);
+	}
+	return normalizeOperationExecutionError(
+		TEMPLATE_MANIFEST_OPERATION_ID,
+		error,
+	);
 }
 
 const updateTemplateInputSchema = z
@@ -725,7 +758,7 @@ export const setDefaultTemplateOperation = defineOperation({
 });
 
 export const reconcileTemplateManifestOperation = defineOperation({
-	id: "templates.reconcile",
+	id: TEMPLATE_MANIFEST_OPERATION_ID,
 	title: "Reconcile template manifest",
 	description:
 		"Plan or apply a versioned template manifest against exact-name Listmonk templates",
@@ -742,6 +775,8 @@ export const reconcileTemplateManifestOperation = defineOperation({
 		legacySuccessText: jsonResourceValue,
 	},
 	spec: bindTemplatesReconcileOperationSpec(),
+	parseInput: parseTemplateManifestOperationInput,
+	normalizeError: normalizeTemplateManifestOperationError,
 	execute: executeTemplateManifestReconcile,
 });
 
@@ -878,37 +913,12 @@ export async function invokeReconcileTemplateManifestOperation(
 	context: TemplateOperationContext,
 	input: unknown,
 ): Promise<TemplateManifestOperationResult> {
-	// Enforce the serialized-payload cap on the untransformed input before Zod
-	// normalizes it. Only the transport-only dry_run control is excluded so the
-	// documented 1 MiB limit still rejects unknown oversized fields that Zod
-	// would otherwise strip.
-	const { dry_run: _excludedDryRun, ...measuredInput } =
-		typeof input === "object" && input !== null && !Array.isArray(input)
-			? (input as Record<string, unknown>)
-			: {};
-	const rawByteLength = new TextEncoder().encode(
-		JSON.stringify(measuredInput),
-	).byteLength;
-	if (rawByteLength > MAX_TEMPLATE_MANIFEST_BYTES) {
-		throw new OperationInputError(
-			`Template manifest exceeds the ${MAX_TEMPLATE_MANIFEST_BYTES}-byte limit`,
-		);
-	}
-	const parsedInput = parseOperationInput(
-		reconcileTemplateManifestOperation.inputSchema,
-		input,
-	);
+	const parsedInput = parseTemplateManifestOperationInput(input);
 	let output: TemplateManifestOperationResult;
 	try {
 		output = await executeTemplateManifestReconcile(context, parsedInput);
 	} catch (error) {
-		if (error instanceof TemplateManifestApplyError) {
-			throw new TemplateManifestOperationApplyError(error);
-		}
-		throw normalizeOperationExecutionError(
-			reconcileTemplateManifestOperation.id,
-			error,
-		);
+		throw normalizeTemplateManifestOperationError(error);
 	}
 	return parseOperationOutput(
 		reconcileTemplateManifestOperation.id,

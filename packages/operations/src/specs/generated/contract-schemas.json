@@ -9577,7 +9577,6 @@
                 "$ref": "#/components/schemas/ListmonkUserPermission"
               },
               "maxItems": 30,
-              "minItems": 0,
               "type": "array"
             }
           },
@@ -9613,7 +9612,7 @@
           "type": "object"
         },
         "UserRoleName": {
-          "description": "Name of a Listmonk user role. Must not match the protected Super Admin.",
+          "description": "Name of a Listmonk user role. Runtime protection is based on role ID.",
           "maxLength": 120,
           "minLength": 1,
           "type": "string"
@@ -9676,7 +9675,7 @@
           "type": "object"
         },
         "UserRoleName": {
-          "description": "Name of a Listmonk user role. Must not match the protected Super Admin.",
+          "description": "Name of a Listmonk user role. Runtime protection is based on role ID.",
           "maxLength": 120,
           "minLength": 1,
           "type": "string"

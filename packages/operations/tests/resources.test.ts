@@ -32,7 +32,10 @@ import {
 	invokeUpdateSubscriberOperation,
 	invokeUpdateTemplateOperation,
 	MAX_TEMPLATE_MANIFEST_BYTES,
+	MAX_USER_ROLE_MANIFEST_BYTES,
 	MAX_USER_ROLE_MANIFEST_ROLES,
+	reconcileTemplateManifestOperation,
+	reconcileUserRoleManifestOperation,
 	subscriberOperations,
 	mediaOperations,
 	ensureTemplate,
@@ -366,11 +369,12 @@ describe("shared CRUD resource operations", () => {
 
 	test("rejects oversized shared template manifests before remote reads", async () => {
 		const list = mock(async () => ({ data: { results: [], total: 0 } }));
+		const context = templateContext({
+			list: list as TemplateClient["template"]["list"],
+		});
 		await expect(
 			invokeReconcileTemplateManifestOperation(
-				templateContext({
-					list: list as TemplateClient["template"]["list"],
-				}),
+				context,
 				{
 					schema_version: 1,
 					templates: Array.from({ length: 501 }, (_, index) => ({
@@ -382,9 +386,7 @@ describe("shared CRUD resource operations", () => {
 		).rejects.toBeInstanceOf(OperationInputError);
 		await expect(
 			invokeReconcileTemplateManifestOperation(
-				templateContext({
-					list: list as TemplateClient["template"]["list"],
-				}),
+				context,
 				{
 					schema_version: 1,
 					templates: [
@@ -396,6 +398,20 @@ describe("shared CRUD resource operations", () => {
 				},
 			),
 		).rejects.toThrow(/byte limit/i);
+		const oversizedUnknownInput = {
+			schema_version: 1,
+			templates: [{ name: "Bounded template", body: "<p>Body</p>" }],
+			unknown: "x".repeat(MAX_TEMPLATE_MANIFEST_BYTES),
+		};
+		await expect(
+			invokeReconcileTemplateManifestOperation(context, oversizedUnknownInput),
+		).rejects.toBeInstanceOf(OperationInputError);
+		await expect(
+			reconcileTemplateManifestOperation.invoke(
+				context,
+				oversizedUnknownInput,
+			),
+		).rejects.toBeInstanceOf(OperationInputError);
 		expect(list).not.toHaveBeenCalled();
 	});
 
@@ -407,22 +423,21 @@ describe("shared CRUD resource operations", () => {
 			}
 			return { data: { id: 20, ...body } };
 		});
+		const context = templateContext({
+			list: list as TemplateClient["template"]["list"],
+			create: create as TemplateClient["template"]["create"],
+		});
+		const input = {
+			schema_version: 1,
+			templates: [
+				{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
+				{ name: "Password reset code", type: "tx", body: "<p>Reset</p>" },
+			],
+			dry_run: false,
+		};
 		let failure: unknown;
 		try {
-			await invokeReconcileTemplateManifestOperation(
-				templateContext({
-					list: list as TemplateClient["template"]["list"],
-					create: create as TemplateClient["template"]["create"],
-				}),
-				{
-					schema_version: 1,
-					templates: [
-						{ name: "Account sign-in code", type: "tx", body: "<p>OTP</p>" },
-						{ name: "Password reset code", type: "tx", body: "<p>Reset</p>" },
-					],
-					dry_run: false,
-				},
-			);
+			await invokeReconcileTemplateManifestOperation(context, input);
 		} catch (error) {
 			failure = error;
 		}
@@ -436,6 +451,18 @@ describe("shared CRUD resource operations", () => {
 		expect(operationError.message).toContain("Account sign-in code");
 		expect(operationError.message).not.toContain("<p>OTP</p>");
 		expect(operationError.message).not.toContain("<p>Reset</p>");
+
+		let genericFailure: unknown;
+		try {
+			await reconcileTemplateManifestOperation.invoke(context, input);
+		} catch (error) {
+			genericFailure = error;
+		}
+		expect(genericFailure).toBeInstanceOf(TemplateManifestOperationApplyError);
+		const genericError = genericFailure as TemplateManifestOperationApplyError;
+		expect(genericError.failedTemplate).toBe(operationError.failedTemplate);
+		expect(genericError.appliedResults).toEqual(operationError.appliedResults);
+		expect(genericError.message).toBe(operationError.message);
 	});
 
 	test("fails closed when exact-name template reconciliation is ambiguous", async () => {
@@ -1474,10 +1501,20 @@ describe("user role manifest reconciliation", () => {
 			),
 		).rejects.toThrow(/role limit|<=500 items/i);
 
-		// The 1 MiB byte-length guard lives on the manifest schema's
-		// superRefine alongside the duplicate-name check; a manifest this
-		// large cannot be built within the role/name/permission bounds, so the
-		// byte guard is verified by the parallel template manifest test.
+		const context = userRoleContext({
+			list: list as UserRoleClient["userRole"]["list"],
+		});
+		const oversizedUnknownInput = {
+			schema_version: 1,
+			roles: [{ name: "Bounded role", permissions: ["tx:send"] }],
+			unknown: "x".repeat(MAX_USER_ROLE_MANIFEST_BYTES),
+		};
+		await expect(
+			invokeReconcileUserRoleManifestOperation(context, oversizedUnknownInput),
+		).rejects.toBeInstanceOf(OperationInputError);
+		await expect(
+			reconcileUserRoleManifestOperation.invoke(context, oversizedUnknownInput),
+		).rejects.toBeInstanceOf(OperationInputError);
 		expect(list).not.toHaveBeenCalled();
 	});
 
@@ -1527,28 +1564,27 @@ describe("user role manifest reconciliation", () => {
 				return { data: { id: 12, type: "user", ...body } };
 			},
 		);
+		const context = userRoleContext({
+			list: list as UserRoleClient["userRole"]["list"],
+			create: create as UserRoleClient["userRole"]["create"],
+		});
+		const input = {
+			schema_version: 1,
+			roles: [
+				{
+					name: "Transactional runtime",
+					permissions: ["tx:send"],
+				},
+				{
+					name: "Password reset runtime",
+					permissions: ["tx:send"],
+				},
+			],
+			dry_run: false,
+		};
 		let failure: unknown;
 		try {
-			await invokeReconcileUserRoleManifestOperation(
-				userRoleContext({
-					list: list as UserRoleClient["userRole"]["list"],
-					create: create as UserRoleClient["userRole"]["create"],
-				}),
-				{
-					schema_version: 1,
-					roles: [
-						{
-							name: "Transactional runtime",
-							permissions: ["tx:send"],
-						},
-						{
-							name: "Password reset runtime",
-							permissions: ["tx:send"],
-						},
-					],
-					dry_run: false,
-				},
-			);
+			await invokeReconcileUserRoleManifestOperation(context, input);
 		} catch (error) {
 			failure = error;
 		}
@@ -1572,6 +1608,18 @@ describe("user role manifest reconciliation", () => {
 		);
 		expect(serializedResults).not.toContain('"id":');
 		expect(serializedResults).not.toContain("permissions");
+
+		let genericFailure: unknown;
+		try {
+			await reconcileUserRoleManifestOperation.invoke(context, input);
+		} catch (error) {
+			genericFailure = error;
+		}
+		expect(genericFailure).toBeInstanceOf(UserRoleManifestOperationApplyError);
+		const genericError = genericFailure as UserRoleManifestOperationApplyError;
+		expect(genericError.failedRole).toBe(operationError.failedRole);
+		expect(genericError.appliedResults).toEqual(operationError.appliedResults);
+		expect(genericError.message).toBe(operationError.message);
 	});
 
 	test("exposes the user-role operation through the MCP name dispatcher", () => {

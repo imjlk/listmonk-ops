@@ -71,6 +71,7 @@ const userRoleDesiredStateSchema = z.object({
 
 export const MAX_USER_ROLE_MANIFEST_BYTES = 1024 * 1024;
 export const MAX_USER_ROLE_MANIFEST_ROLES = 500;
+const USER_ROLE_MANIFEST_OPERATION_ID = "user-roles.reconcile";
 
 function userRoleManifestByteLength(manifest: {
 	schema_version: 1;
@@ -236,7 +237,7 @@ export class UserRoleManifestOperationApplyError extends OperationExecutionError
 		// Listmonk error body or other credential-adjacent metadata through a
 		// nested cause chain; only the bounded apply message is preserved.
 		super(
-			"user-roles.reconcile",
+			USER_ROLE_MANIFEST_OPERATION_ID,
 			new Error(
 				`${error.message}; completed entries: ${JSON.stringify(appliedResults)}`,
 			),
@@ -245,6 +246,38 @@ export class UserRoleManifestOperationApplyError extends OperationExecutionError
 		this.failedRole = error.failedRole;
 		this.appliedResults = appliedResults;
 	}
+}
+
+function parseUserRoleManifestOperationInput(
+	input: unknown,
+): z.output<typeof userRoleManifestOperationInputSchema> {
+	// Enforce the serialized-payload cap on the untransformed input before Zod
+	// trims names and deduplicates permissions. Only the transport-only dry_run
+	// control is excluded so the documented 1 MiB limit still rejects unknown
+	// oversized fields that Zod would otherwise strip.
+	const { dry_run: _excludedDryRun, ...measuredInput } =
+		typeof input === "object" && input !== null && !Array.isArray(input)
+			? (input as Record<string, unknown>)
+			: {};
+	const rawByteLength = new TextEncoder().encode(
+		JSON.stringify(measuredInput),
+	).byteLength;
+	if (rawByteLength > MAX_USER_ROLE_MANIFEST_BYTES) {
+		throw new OperationInputError(
+			`User role manifest exceeds the ${MAX_USER_ROLE_MANIFEST_BYTES}-byte limit`,
+		);
+	}
+	return parseOperationInput(userRoleManifestOperationInputSchema, input);
+}
+
+function normalizeUserRoleManifestOperationError(error: unknown) {
+	if (error instanceof UserRoleManifestApplyError) {
+		return new UserRoleManifestOperationApplyError(error);
+	}
+	return normalizeOperationExecutionError(
+		USER_ROLE_MANIFEST_OPERATION_ID,
+		error,
+	);
 }
 
 function permissionsMatch(
@@ -426,7 +459,7 @@ export async function executeUserRoleManifestReconcile(
 }
 
 export const reconcileUserRoleManifestOperation = defineOperation({
-	id: "user-roles.reconcile",
+	id: USER_ROLE_MANIFEST_OPERATION_ID,
 	title: "Reconcile user-role manifest",
 	description:
 		"Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles",
@@ -443,6 +476,8 @@ export const reconcileUserRoleManifestOperation = defineOperation({
 		legacySuccessText: jsonResourceValue,
 	},
 	spec: bindUserRoleReconcileOperationSpec(),
+	parseInput: parseUserRoleManifestOperationInput,
+	normalizeError: normalizeUserRoleManifestOperationError,
 	execute: executeUserRoleManifestReconcile,
 });
 
@@ -450,37 +485,12 @@ export async function invokeReconcileUserRoleManifestOperation(
 	context: UserRoleOperationContext,
 	input: unknown,
 ): Promise<UserRoleManifestOperationResult> {
-	// Enforce the serialized-payload cap on the untransformed input before Zod
-	// trims names and deduplicates permissions. Only the transport-only dry_run
-	// control is excluded so the documented 1 MiB limit still rejects unknown
-	// oversized fields that Zod would otherwise strip.
-	const { dry_run: _excludedDryRun, ...measuredInput } =
-		typeof input === "object" && input !== null && !Array.isArray(input)
-			? (input as Record<string, unknown>)
-			: {};
-	const rawByteLength = new TextEncoder().encode(
-		JSON.stringify(measuredInput),
-	).byteLength;
-	if (rawByteLength > MAX_USER_ROLE_MANIFEST_BYTES) {
-		throw new OperationInputError(
-			`User role manifest exceeds the ${MAX_USER_ROLE_MANIFEST_BYTES}-byte limit`,
-		);
-	}
-	const parsedInput = parseOperationInput(
-		reconcileUserRoleManifestOperation.inputSchema,
-		input,
-	);
+	const parsedInput = parseUserRoleManifestOperationInput(input);
 	let output: UserRoleManifestOperationResult;
 	try {
 		output = await executeUserRoleManifestReconcile(context, parsedInput);
 	} catch (error) {
-		if (error instanceof UserRoleManifestApplyError) {
-			throw new UserRoleManifestOperationApplyError(error);
-		}
-		throw normalizeOperationExecutionError(
-			reconcileUserRoleManifestOperation.id,
-			error,
-		);
+		throw normalizeUserRoleManifestOperationError(error);
 	}
 	return parseOperationOutput(
 		reconcileUserRoleManifestOperation.id,
