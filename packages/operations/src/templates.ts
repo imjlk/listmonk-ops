@@ -64,7 +64,7 @@ const templateListInputSchema = z.object({
 });
 
 const createTemplateInputSchema = z.object({
-	name: z.string().trim().min(1).max(120),
+	name: z.string().trim().min(1),
 	type: templateTypeSchema.default("campaign"),
 	subject: z.string().optional().default(""),
 	body_source: z.string().optional(),
@@ -111,8 +111,15 @@ const templateManifestSchema = z
 		}
 	});
 
+// Manifest entries are constrained to the 120-character name bound declared
+// by the standalone contract. The shared createTemplateInputSchema stays
+// unbounded so templates.create/update keep accepting longer Listmonk names.
+const templateManifestEntrySchema = createTemplateInputSchema.extend({
+	name: z.string().trim().min(1).max(120),
+});
+
 const templateManifestOperationInputSchema = templateManifestSchema.safeExtend({
-	templates: z.array(createTemplateInputSchema).min(1).max(500),
+	templates: z.array(templateManifestEntrySchema).min(1).max(500),
 	dry_run: z.boolean().default(true),
 });
 
