@@ -22,6 +22,7 @@ import {
 	invokeGetTemplatesOperation,
 	invokePauseCampaignOperation,
 	invokeReconcileTemplateManifestOperation,
+	invokeReconcileUserRoleManifestOperation,
 	invokeRemoveSubscribersFromListsOperation,
 	invokeScheduleCampaignOperation,
 	invokeSetDefaultTemplateOperation,
@@ -31,6 +32,7 @@ import {
 	invokeUpdateSubscriberOperation,
 	invokeUpdateTemplateOperation,
 	MAX_TEMPLATE_MANIFEST_BYTES,
+	MAX_USER_ROLE_MANIFEST_ROLES,
 	subscriberOperations,
 	mediaOperations,
 	ensureTemplate,
@@ -39,6 +41,9 @@ import {
 	TemplateManifestApplyError,
 	TemplateManifestOperationApplyError,
 	templateOperations,
+	UserRoleManifestApplyError,
+	UserRoleManifestOperationApplyError,
+	userRoleOperations,
 	OperationInputError,
 } from "../src";
 
@@ -46,6 +51,7 @@ type CampaignClient = Pick<ListmonkClient, "campaign">;
 type SubscriberClient = Pick<ListmonkClient, "subscriber">;
 type TemplateClient = Pick<ListmonkClient, "template">;
 type MediaClient = Pick<ListmonkClient, "media">;
+type UserRoleClient = Pick<ListmonkClient, "userRole">;
 
 function campaignContext(
 	methods: Partial<CampaignClient["campaign"]>,
@@ -63,6 +69,12 @@ function templateContext(
 	methods: Partial<TemplateClient["template"]>,
 ): { client: TemplateClient } {
 	return { client: { template: methods } as TemplateClient };
+}
+
+function userRoleContext(
+	methods: Partial<UserRoleClient["userRole"]>,
+): { client: UserRoleClient } {
+	return { client: { userRole: methods } as UserRoleClient };
 }
 
 function mediaContext(methods: Partial<MediaClient["media"]>): {
@@ -1388,5 +1400,187 @@ describe("shared CRUD resource operations", () => {
 		);
 
 		expect(upload).not.toHaveBeenCalled();
+	});
+});
+
+describe("user role manifest reconciliation", () => {
+	test("normalizes a user-role manifest for shared surfaces", async () => {
+		const list = mock(async () => ({
+			data: { results: [], total: 0, per_page: 0, page: 1 },
+		}));
+		const output = await invokeReconcileUserRoleManifestOperation(
+			userRoleContext({
+				list: list as UserRoleClient["userRole"]["list"],
+			}),
+			{
+				schema_version: 1,
+				roles: [
+					{
+						name: "Transactional runtime",
+						permissions: ["subscribers:manage", "tx:send"],
+					},
+				],
+			},
+		);
+
+		expect(output).toEqual({
+			schema_version: 1,
+			dry_run: true,
+			results: [
+				{
+					name: "Transactional runtime",
+					action: "create",
+					applied: false,
+				},
+			],
+		});
+		expect(list).toHaveBeenCalledTimes(1);
+	});
+
+	test("rejects duplicate names and oversized manifests before remote reads", async () => {
+		const list = mock(async () => ({
+			data: { results: [], total: 0, per_page: 0, page: 1 },
+		}));
+		await expect(
+			invokeReconcileUserRoleManifestOperation(
+				userRoleContext({
+					list: list as UserRoleClient["userRole"]["list"],
+				}),
+				{
+					schema_version: 1,
+					roles: [
+						{ name: "Duplicate", permissions: ["tx:send"] },
+						{ name: "Duplicate", permissions: ["tx:send"] },
+					],
+				},
+			),
+		).rejects.toBeInstanceOf(OperationInputError);
+
+		await expect(
+			invokeReconcileUserRoleManifestOperation(
+				userRoleContext({
+					list: list as UserRoleClient["userRole"]["list"],
+				}),
+				{
+					schema_version: 1,
+					roles: Array.from(
+						{ length: MAX_USER_ROLE_MANIFEST_ROLES + 1 },
+						(_, index) => ({
+							name: `Role ${index}`,
+							permissions: ["tx:send"],
+						}),
+					),
+				},
+			),
+		).rejects.toThrow(/role limit|<=500 items/i);
+
+		// The 1 MiB byte-length guard lives on the manifest schema's
+		// superRefine alongside the duplicate-name check; a manifest this
+		// large cannot be built within the role/name/permission bounds, so the
+		// byte guard is verified by the parallel template manifest test.
+		expect(list).not.toHaveBeenCalled();
+	});
+
+	test("refuses to manage the protected Super Admin role", async () => {
+		const list = mock(async () => ({
+			data: {
+				results: [
+					{
+						id: 1,
+						type: "user",
+						name: "Super Admin",
+						permissions: ["*"],
+					},
+				],
+				total: 1,
+				per_page: 1,
+				page: 1,
+			},
+		}));
+		await expect(
+			invokeReconcileUserRoleManifestOperation(
+				userRoleContext({
+					list: list as UserRoleClient["userRole"]["list"],
+				}),
+				{
+					schema_version: 1,
+					roles: [
+						{
+							name: "Super Admin",
+							permissions: ["settings:maintain"],
+						},
+					],
+				},
+			),
+		).rejects.toThrow(/Super Admin/);
+	});
+
+	test("projects body-free partial apply details through shared surfaces", async () => {
+		const list = mock(async () => ({
+			data: { results: [], total: 0, per_page: 0, page: 1 },
+		}));
+		const create = mock(
+			async ({ body }: { body: { name: string; permissions: string[] } }) => {
+				if (body.name === "Password reset runtime") {
+					throw new Error("remote create failed");
+				}
+				return { data: { id: 12, type: "user", ...body } };
+			},
+		);
+		let failure: unknown;
+		try {
+			await invokeReconcileUserRoleManifestOperation(
+				userRoleContext({
+					list: list as UserRoleClient["userRole"]["list"],
+					create: create as UserRoleClient["userRole"]["create"],
+				}),
+				{
+					schema_version: 1,
+					roles: [
+						{
+							name: "Transactional runtime",
+							permissions: ["tx:send"],
+						},
+						{
+							name: "Password reset runtime",
+							permissions: ["tx:send"],
+						},
+					],
+					dry_run: false,
+				},
+			);
+		} catch (error) {
+			failure = error;
+		}
+		expect(failure).toBeInstanceOf(UserRoleManifestOperationApplyError);
+		const operationError = failure as UserRoleManifestOperationApplyError;
+		expect(operationError.failedRole).toBe("Password reset runtime");
+		expect(operationError.appliedResults).toEqual([
+			expect.objectContaining({
+				name: "Transactional runtime",
+				action: "create",
+				applied: true,
+			}),
+		]);
+		// The projected error must not echo the remote error body, role IDs,
+		// or permission values from the failed remote call. Check the
+		// non-enumerable message and the enumerable appliedResults directly
+		// because JSON.stringify only serializes enumerable own properties.
+		expect(operationError.message).not.toContain("remote create failed");
+		const serializedResults = JSON.stringify(
+			operationError.appliedResults,
+		);
+		expect(serializedResults).not.toContain('"id":');
+		expect(serializedResults).not.toContain("permissions");
+	});
+
+	test("exposes the user-role operation through the MCP name dispatcher", () => {
+		expect(userRoleOperations).toHaveLength(1);
+		const [operation] = userRoleOperations;
+		if (!operation) throw new Error("expected a user-role operation");
+		expect(operation.id).toBe("user-roles.reconcile");
+		expect(operation.mcp.name).toBe("listmonk_reconcile_user_role_manifest");
+		expect(operation.safety.destructiveHint).toBe(true);
+		expect(operation.safety.idempotentHint).toBe(true);
 	});
 });

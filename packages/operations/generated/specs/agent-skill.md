@@ -1444,6 +1444,20 @@ Verify with: none
 
 Retry guidance: Retry identical transient failures with bounded backoff.
 
+## Reconcile user-role manifest (`user-roles.reconcile`)
+
+Contract maturity: `experimental`; effects: `write:user-role`; confirmation: `required`; retry: `reconcile`.
+
+Use when: A versioned least-privilege user-role manifest must be planned or applied.
+
+Avoid when: A single role should be inspected without a full manifest. The protected Super Admin role is the intended target.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Re-run reconcile in dry-run mode after a partial apply to verify the remaining desired state before applying again.
+
 # Typed playbooks
 
 ## `campaign.safe-start` — Safely start a campaign

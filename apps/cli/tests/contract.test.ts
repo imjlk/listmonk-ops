@@ -223,7 +223,7 @@ describe("CLI contract", () => {
 		expect(describe.output).toContain('"confirmation": "required"');
 		expect(playbooks.output).toContain('"campaign.safe-start"');
 		expect(capabilities.output).toContain('"schema_version": "2.0.0"');
-		expect(capabilities.output).toContain('"described_operations": 103');
+		expect(capabilities.output).toContain('"described_operations": 104');
 		expect(capabilities.output).toContain('"migration_operations": 0');
 		expect(prime.output).toContain('"recommended_operations"');
 	});
@@ -251,6 +251,7 @@ describe("CLI contract", () => {
 		const pause = runCli(["campaigns", "pause", "--help"]);
 		const cancel = runCli(["campaigns", "cancel", "--help"]);
 		const templateReconcile = runCli(["templates", "reconcile", "--help"]);
+		const userRoleReconcile = runCli(["user-roles", "reconcile", "--help"]);
 
 		expect(group.exitCode).toBe(0);
 		expect(group.output).toContain("list");
@@ -263,6 +264,8 @@ describe("CLI contract", () => {
 		expect(cancel.output).toContain("--expected-updated-at");
 		expect(templateReconcile.output).toContain("--manifest-file");
 		expect(templateReconcile.output).toContain("--dry-run");
+		expect(userRoleReconcile.output).toContain("--manifest-file");
+		expect(userRoleReconcile.output).toContain("--dry-run");
 	});
 
 	test("exposes list pagination flags", () => {

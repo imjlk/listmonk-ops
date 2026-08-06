@@ -13,6 +13,10 @@ import {
 	templatesTools,
 } from "../../src/handlers/templates.js";
 import { handleMediaTools, mediaTools } from "../../src/handlers/media.js";
+import {
+	handleUserRolesTools,
+	userRolesTools,
+} from "../../src/handlers/user-roles.js";
 import type { CallToolRequest } from "../../src/types/mcp.js";
 import { MAX_TEMPLATE_MANIFEST_BYTES } from "@listmonk-ops/operations";
 
@@ -274,5 +278,97 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 		expect(JSON.parse(result.content[0]?.text ?? "null")).toEqual(
 			result.structuredContent,
 		);
+	});
+});
+
+describe("user-role operation adapter", () => {
+	test("publishes the reconcile tool with destructive and bounded metadata", () => {
+		const reconcileUserRoleTool = userRolesTools.find(
+			(tool) => tool.name === "listmonk_reconcile_user_role_manifest",
+		);
+		expect(reconcileUserRoleTool?.annotations).toMatchObject({
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: true,
+		});
+		expect(reconcileUserRoleTool?.inputSchema.required).toEqual(
+			expect.arrayContaining(["schema_version", "roles", "confirm"]),
+		);
+		expect(
+			reconcileUserRoleTool?.inputSchema.properties?.dry_run,
+		).toMatchObject({
+			type: "boolean",
+			default: true,
+		});
+		expect(
+			reconcileUserRoleTool?.inputSchema.properties?.roles,
+		).toMatchObject({
+			type: "array",
+			maxItems: 500,
+		});
+	});
+
+	test("routes bounded user-role manifest plans through the shared operation", async () => {
+		const client = {
+			userRole: {
+				list: async () => ({
+					data: { results: [], total: 0, per_page: 0, page: 1 },
+				}),
+			},
+		} as unknown as ListmonkClient;
+
+		const result = await handleUserRolesTools(
+			request("listmonk_reconcile_user_role_manifest", {
+				schema_version: 1,
+				roles: [
+					{
+						name: "Transactional runtime",
+						permissions: ["subscribers:manage", "tx:send"],
+					},
+				],
+				dry_run: true,
+			}),
+			client,
+		);
+
+		expect(result.isError).toBeFalsy();
+		expect(result.structuredContent).toEqual({
+			schema_version: 1,
+			dry_run: true,
+			results: [
+				{
+					name: "Transactional runtime",
+					action: "create",
+					applied: false,
+				},
+			],
+		});
+		expect(JSON.parse(result.content[0]?.text ?? "null")).toEqual(
+			result.structuredContent,
+		);
+	});
+
+	test("rejects over-capacity manifests before any remote read", async () => {
+		const client = {
+			userRole: {
+				list: async () => ({
+					data: { results: [], total: 0, per_page: 0, page: 1 },
+				}),
+			},
+		} as unknown as ListmonkClient;
+
+		const result = await handleUserRolesTools(
+			request("listmonk_reconcile_user_role_manifest", {
+				schema_version: 1,
+				roles: Array.from({ length: 501 }, (_, index) => ({
+					name: `Role ${index}`,
+					permissions: ["tx:send"],
+				})),
+			}),
+			client,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0]?.text ?? "").toMatch(/role limit|<=500 items/i);
 	});
 });

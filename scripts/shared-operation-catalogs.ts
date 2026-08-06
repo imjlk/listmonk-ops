@@ -12,6 +12,7 @@ import {
 	subscriberOperationCatalog,
 	templateOperationCatalog,
 	transactionalOperationCatalog,
+	userRoleOperationCatalog,
 } from "../packages/operations/src";
 
 /**
@@ -33,4 +34,5 @@ export const sharedOperationCatalogs: readonly OperationCatalog[] = [
 	webhookOperationCatalog,
 	sequenceOperationCatalog,
 	providerOperationCatalog,
+	userRoleOperationCatalog,
 ];

@@ -1392,3 +1392,73 @@ export interface WebhookCircuitResetOutput {
 	circuit_state: "closed";
 	consecutive_failures: 0;
 }
+
+/**
+ * Exact granular permission names exposed by Listmonk 6.2. Keep this literal
+ * list in sync with LISTMONK_USER_PERMISSIONS in src/user-roles.ts.
+ */
+export type ListmonkUserPermission =
+	| "lists:get_all"
+	| "lists:manage_all"
+	| "list:manage"
+	| "list:get"
+	| "subscribers:get"
+	| "subscribers:get_all"
+	| "subscribers:manage"
+	| "subscribers:import"
+	| "subscribers:sql_query"
+	| "tx:send"
+	| "campaigns:get"
+	| "campaigns:get_all"
+	| "campaigns:get_analytics"
+	| "campaigns:manage"
+	| "campaigns:manage_all"
+	| "campaigns:send"
+	| "bounces:get"
+	| "bounces:manage"
+	| "webhooks:post_bounce"
+	| "media:get"
+	| "media:manage"
+	| "templates:get"
+	| "templates:manage"
+	| "users:get"
+	| "users:manage"
+	| "roles:get"
+	| "roles:manage"
+	| "settings:get"
+	| "settings:manage"
+	| "settings:maintain";
+
+/** Name of a Listmonk user role. Must not match the protected Super Admin. */
+export type UserRoleName = NonEmptyString & tags.MaxLength<120>;
+
+export interface UserRoleDesiredState {
+	name: UserRoleName;
+	permissions: ListmonkUserPermission[] & tags.MinItems<0> & tags.MaxItems<30>;
+}
+
+export interface UserRoleManifestReconcileInput {
+	schema_version: 1;
+	roles: UserRoleDesiredState[] &
+		tags.MinItems<1> &
+		tags.MaxItems<500>;
+	/**
+	 * Plan only when true; apply when false. Optional on input and defaults to
+	 * a safe dry run (true), matching the runtime Zod schema's `.default(true)`.
+	 */
+	dry_run?: boolean;
+}
+
+export type UserRoleReconcileAction = "create" | "update" | "unchanged";
+
+export interface UserRoleReconcileSummary {
+	name: UserRoleName;
+	action: UserRoleReconcileAction;
+	applied: boolean;
+}
+
+export interface UserRoleManifestReconcileOutput {
+	schema_version: 1;
+	dry_run: boolean;
+	results: UserRoleReconcileSummary[];
+}

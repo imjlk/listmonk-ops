@@ -18,7 +18,7 @@ A Model Context Protocol (MCP) server for Listmonk, built with Hono. This server
 - `listmonk_list_operations` - Read-only catalog of typed contracts shared by
   the CLI and MCP server. Pass an optional exact `family` filter (`lists`,
   `subscribers`, `campaigns`, `templates`, `media`, `transactional`, `ops`,
-  `abtest`, `discovery`, `webhooks`, `sequences`, or `providers`) to discover operation schemas, safety hints, and
+  `abtest`, `discovery`, `webhooks`, `sequences`, `providers`, or `user-roles`) to discover operation schemas, safety hints, and
   execution policy.
 - `listmonk_schema_search` - Search operation contracts and agent guidance by
   intent, family, resource, or verb.
@@ -98,6 +98,15 @@ existing behavior until they are migrated.
   1 MiB. `dry_run` defaults to `true`; pass `dry_run: false` and `confirm: true`
   to apply. Results omit template bodies and expose only names, actions, and
   apply state.
+
+### User Roles
+
+- `listmonk_reconcile_user_role_manifest` - Plan or apply up to 500 exact-name
+  least-privilege user roles from a versioned manifest whose serialized payload
+  is at most 1 MiB. `dry_run` defaults to `true`; pass `dry_run: false` and
+  `confirm: true` to apply. Results omit role IDs and permission values and
+  expose only names, actions, and apply state. The protected Super Admin role
+  (ID 1) is never managed.
 
 ### Media
 

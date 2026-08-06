@@ -35,9 +35,12 @@ entire manifest is planned before its first write, partial apply results remain
 observable, and the reserved Super Admin role (ID 1) is never managed. Generic
 presets separate transactional subscriber delivery from template provisioning;
 the control-plane credential performing reconciliation must separately hold
-`roles:get` and `roles:manage`.
+`roles:get` and `roles:manage`. `user-roles.reconcile` publishes the same
+behavior to CLI and MCP with a 500-role and 1 MiB serialized-payload bound,
+default dry run, explicit confirmation, and body-free success and
+partial-failure summaries.
 
-All 103 public shared operations attach an
+All 104 public shared operations attach an
 `@listmonk-ops/operations/specs` descriptor. The operation definition validates
 runtime identity, safety hints, MCP metadata, and normalized input/output
 contracts against the declaration, while catalog summaries expose a detached
@@ -54,7 +57,7 @@ Listmonk OpenAPI transport
   -> operation spec (resource, effect, policy, retry, agent context)
 ```
 
-Sixty-one contracts are authored as TypeScript types and projected with Typia.
+Sixty-two contracts are authored as TypeScript types and projected with Typia.
 The remaining 42 operations use a committed
 `runtime-operation` bridge snapshot of the normalized executor boundary while
 their standalone product types are developed. Runtime bridges are always
@@ -99,7 +102,7 @@ stable-contract change.
 When a normalized shared-operation Zod boundary changes, build the workspaces,
 run `bun run operations:specs:runtime-contracts:generate` from the repository
 root, review the snapshot diff, and regenerate the spec artifacts. The final
-root build loads all 103 runtime operations and rejects any bridge drift.
+root build loads all 104 runtime operations and rejects any bridge drift.
 
 The main package exports a `discoveryOperationCatalog` with shared named
 invokers for `specs.search`, `specs.describe`, `playbooks.list`,

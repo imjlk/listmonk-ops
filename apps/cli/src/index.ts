@@ -26,6 +26,7 @@ import sequencesCommand from "./commands/sequences";
 import subscribersCommand from "./commands/subscribers";
 import templatesCommand from "./commands/templates";
 import txCommand from "./commands/tx";
+import userRolesCommand from "./commands/user-roles";
 import webhooksCommand from "./commands/webhooks";
 import { prepareCliArgv } from "./lib/command";
 
@@ -49,6 +50,7 @@ const subCommands = {
 	subscribers: subscribersCommand,
 	templates: templatesCommand,
 	tx: txCommand,
+	"user-roles": userRolesCommand,
 	abtest: abtestCommand,
 	ops: opsCommand,
 	operations: operationsCommand,

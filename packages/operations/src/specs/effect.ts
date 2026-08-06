@@ -13,7 +13,8 @@ export type OperationResourceKind =
 	| "playbook"
 	| "control"
 	| "operation"
-	| "webhook";
+	| "webhook"
+	| "user-role";
 
 export type OperationEffect =
 	| ReadEffect

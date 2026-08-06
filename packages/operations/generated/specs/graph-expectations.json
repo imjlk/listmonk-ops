@@ -2780,6 +2780,33 @@
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#exportAbTestAssignmentOperation:variable"
       },
       "operationId": "abtest.export-assignment"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/user-roles.ts#reconcileUserRoleManifestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/user-roles.ts#userRoleReconcileOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/user-roles.ts#invokeReconcileUserRoleManifestOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/user-roles.ts#executeUserRoleManifestReconcile:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/user-roles.ts#userRoleReconcileOperationSpec:variable",
+        "executorNode": "packages/operations/src/user-roles.ts#executeUserRoleManifestReconcile:function",
+        "invokerNode": "packages/operations/src/user-roles.ts#invokeReconcileUserRoleManifestOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/user-roles.ts#reconcileUserRoleManifestOperation:variable"
+      },
+      "operationId": "user-roles.reconcile"
     }
   ],
   "schemaVersion": "2.0.0"

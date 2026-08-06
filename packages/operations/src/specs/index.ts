@@ -23,4 +23,5 @@ export * from "./runtime-contracts";
 export * from "./runtime-contract-ids";
 export * from "./schema";
 export * from "./sequences";
+export * from "./user-roles";
 export * from "./webhooks";

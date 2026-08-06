@@ -64,6 +64,17 @@ export const operationCoverageContracts: readonly OperationCoverageContract[] = 
 			"packages/operations/src/templates.ts#invokeTemplateOperationByMcpName:function",
 	},
 	{
+		family: "user roles",
+		registry:
+			"packages/operations/src/user-roles.ts#userRoleOperations:variable",
+		testAnchor:
+			"scripts/shared-operation-coverage.ts#assertUserRoleOperationsPublished:function",
+		mcpHandler:
+			"packages/mcp/src/handlers/user-roles.ts#handleUserRolesTools:function",
+		dispatcher:
+			"packages/operations/src/user-roles.ts#invokeUserRoleOperationByMcpName:function",
+	},
+	{
 		family: "media",
 		registry: "packages/operations/src/media.ts#mediaOperations:variable",
 		testAnchor:

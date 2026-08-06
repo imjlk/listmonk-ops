@@ -20,6 +20,7 @@ import {
 	handleTransactionalTools,
 	transactionalTools,
 } from "./transactional.js";
+import { handleUserRolesTools, userRolesTools } from "./user-roles.js";
 import { handleWebhookTools, webhookTools } from "./webhooks.js";
 
 export * from "./abtest.js";
@@ -36,6 +37,7 @@ export * from "./sequences.js";
 export * from "./subscribers.js";
 export * from "./templates.js";
 export * from "./transactional.js";
+export * from "./user-roles.js";
 export * from "./webhooks.js";
 
 export const allTools: readonly MCPTool[] = [
@@ -54,6 +56,7 @@ export const allTools: readonly MCPTool[] = [
 	...transactionalTools,
 	...abtestTools,
 	...webhookTools,
+	...userRolesTools,
 ];
 
 function createToolNameSet(tools: readonly MCPTool[]): ReadonlySet<string> {
@@ -75,6 +78,7 @@ export const toolNameSets = {
 	subscribers: createToolNameSet(subscribersTools),
 	templates: createToolNameSet(templatesTools),
 	transactional: createToolNameSet(transactionalTools),
+	userRoles: createToolNameSet(userRolesTools),
 	webhooks: createToolNameSet(webhookTools),
 } as const;
 
@@ -99,6 +103,7 @@ export const toolRegistrations: readonly ToolRegistration[] = [
 	{ tools: transactionalTools, handler: handleTransactionalTools },
 	{ tools: abtestTools, handler: handleAbTestTools },
 	{ tools: webhookTools, handler: handleWebhookTools },
+	{ tools: userRolesTools, handler: handleUserRolesTools },
 ];
 
 export function assertUniqueToolNames(
