@@ -11110,8 +11110,8 @@
         "kind": "safe",
         "reason": "Pausing an already paused sequence is a no-op."
       },
-      "since": "0.9.0",
-      "stability": "experimental"
+      "since": "0.12.0",
+      "stability": "stable"
     },
     {
       "id": "sequences.resume",
@@ -11307,8 +11307,8 @@
         "kind": "safe",
         "reason": "Resuming an active sequence is a no-op."
       },
-      "since": "0.9.0",
-      "stability": "experimental"
+      "since": "0.12.0",
+      "stability": "stable"
     },
     {
       "id": "sequences.tick",
