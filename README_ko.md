@@ -507,7 +507,7 @@ generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계�
 변경합니다. 정적 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면
 거부합니다.
 
-검토를 마친 핵심 43개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 44개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -534,15 +534,16 @@ projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설
 여부만 반환하고, delivery projection은 subject와 저장된 오류의 값 대신 존재
 여부만 반환합니다. 이번 릴리즈에서는 redaction을 적용한
 `sequences.list`, `sequences.get`, `sequences.enrollments.list`,
-`sequences.enrollments.get`도 새로 승격해 stable baseline을 36개에서 43개로
+`sequences.enrollments.get`도 새로 승격해 stable baseline을 36개에서 40개로
 늘렸습니다. Sequence revision은 임의 step payload 대신 step 수, step type과
 결정적 content fingerprint를 반환하고, enrollment 조회는 subscriber reference와
 저장된 오류의 값 대신 존재 여부만 반환합니다.
 `control.status`의 runtime readiness 계약과 신규 subsystem·집계·분석 조회는
 더 성숙할 때까지 experimental로 유지합니다. 이후 release에서 `sequences.pause`와
 `sequences.resume`(reversible no-op write), `webhooks.circuit.reset`(idempotent
-circuit breaker reset)을 승격해 stable baseline을 43개로 늘렸습니다. 나머지
-experimental descriptor는 61개입니다.
+circuit breaker reset)을 승격해 stable baseline을 43개로 늘렸습니다. 이제
+standalone `templates.reconcile` manifest 계약도 stable로 승격해 baseline은
+44개가 되었고, 나머지 experimental descriptor는 60개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run` 네 가지 타입드 플레이북을
@@ -555,8 +556,8 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 41개 governed runtime bridge, 43개
-stable compatibility baseline과 spec-to-runtime 직접 graph edge 309개를
+Operation 104개 전체, API 경계 규칙, 41개 governed runtime bridge, 44개
+stable compatibility baseline과 spec-to-runtime 직접 graph edge 312개를
 검증합니다.
 
 41개 bridge Operation 중 하나의 정규화 Zod 경계가 바뀌면 workspace를

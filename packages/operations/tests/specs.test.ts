@@ -35,6 +35,7 @@ import {
 	subscribersListOperationSpec,
 	subscriberResource,
 	templatesListOperationSpec,
+	templatesReconcileOperationSpec,
 	transactionalSendOperationSpec,
 	webhookDispatchOperationSpec,
 	webhookDeliveryListOperationSpec,
@@ -100,7 +101,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(43);
+		).toHaveLength(44);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -233,6 +234,23 @@ describe("email operations specification", () => {
 		expect(
 			templatesListOperationSpec.contract.input.schema.required,
 		).toEqual([]);
+		expect(templatesReconcileOperationSpec).toMatchObject({
+			stability: "stable",
+			contract: {
+				input: { source: "typescript" },
+				output: { source: "typescript" },
+			},
+			policy: {
+				confirmation: "required",
+				audit: "required",
+				dryRun: true,
+			},
+			retry: {
+				kind: "reconcile",
+				reconcileWith: "templates.reconcile",
+				idempotent: true,
+			},
+		});
 		expect(
 			emailOperationsSpec.operations
 				.filter((operation) =>

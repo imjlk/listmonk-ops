@@ -508,7 +508,7 @@ and handwritten adapter first; the product spec changes only when the
 normalized operation contract or email-operation meaning changes. Static
 governance rejects OpenAPI/generated SDK imports from `src/specs`.
 
-Thirty-three reviewed core operations are `stable`: the existing
+Forty-four reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -545,7 +545,8 @@ still maturing; newer subsystem, aggregation, and analytics reads remain
 experimental. Subsequent releases promoted `sequences.pause` and
 `sequences.resume` (reversible no-op writes) and `webhooks.circuit.reset`
 (idempotent circuit breaker reset), bringing the stable baseline to 43. The
-remaining 61 descriptors are experimental.
+standalone `templates.reconcile` manifest contract is now also stable, bringing
+the baseline to 44. The remaining 60 descriptors are experimental.
 
 The spec publishes four typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, and `abtest.safe-run`.
@@ -559,7 +560,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 41 governed
-runtime bridges, the 43 stable compatibility baselines, and 309 direct
+runtime bridges, the 44 stable compatibility baselines, and 312 direct
 spec-to-runtime graph edges.
 
 If a normalized Zod boundary for one of the 41 bridge operations changes,

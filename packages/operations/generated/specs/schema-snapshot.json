@@ -16566,7 +16566,7 @@
         "reconcileWith": "templates.reconcile"
       },
       "since": "0.12.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "lists.create",

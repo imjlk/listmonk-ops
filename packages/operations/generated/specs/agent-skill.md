@@ -858,7 +858,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Reconcile template manifest (`templates.reconcile`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `write:template`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A versioned template manifest must be planned or applied.
 

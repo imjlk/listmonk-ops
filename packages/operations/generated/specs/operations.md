@@ -750,7 +750,7 @@ Plan or apply a versioned template manifest against exact-name Listmonk template
 - Effects: `write:template`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.12.0`
+- Stability: `stable` since `0.12.0`
 
 ## `lists.create`
 

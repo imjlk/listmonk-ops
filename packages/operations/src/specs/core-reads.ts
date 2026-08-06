@@ -471,7 +471,7 @@ export const templatesReconcileOperationSpec = defineOperationSpec({
 				"packages/operations/src/templates.ts#executeTemplateManifestReconcile:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.12.0",
 });
 
@@ -585,13 +585,16 @@ export const coreReadOperationSpecs = [
 ] as const;
 
 /**
- * Standalone TypeScript-contract specs that are not yet stable. They live in
- * this module alongside their resource neighbors but are tracked separately
- * from `coreReadOperationSpecs` so the stable-read invariant stays intact.
+ * Standalone TypeScript-contract specs that live alongside their resource
+ * neighbors but are tracked separately so the read-only invariant on
+ * `coreReadOperationSpecs` stays intact.
  */
-export const experimentalStandaloneOperationSpecs = [
+export const standaloneOperationSpecs = [
 	templatesReconcileOperationSpec,
 ] as const;
+
+/** @deprecated Use `standaloneOperationSpecs`. */
+export const experimentalStandaloneOperationSpecs = standaloneOperationSpecs;
 
 export function bindListsListOperationSpec(): typeof listsListOperationSpec {
 	return listsListOperationSpec;
