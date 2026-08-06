@@ -30,6 +30,7 @@ import {
 } from "./resources";
 import { defineEmailOperationsSpec } from "./schema";
 import { sequenceOperationSpecs, sequenceResource } from "./sequences";
+import { userRoleOperationSpecs, userRoleResource } from "./user-roles";
 import {
 	experimentResource,
 	operationResource,
@@ -47,6 +48,7 @@ export const operationSpecs = [
 	...providerOperationSpecs,
 	...coreReadOperationSpecs,
 	...bridgedOperationSpecs,
+	...userRoleOperationSpecs,
 ] as const;
 
 export const emailOperationsSpec =
@@ -71,6 +73,7 @@ export const emailOperationsSpec =
 			templateResource,
 			mediaResource,
 			audienceResource,
+			userRoleResource,
 		],
 		operations: operationSpecs,
 		events: outboundWebhookEventSpecs,

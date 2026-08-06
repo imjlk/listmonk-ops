@@ -1,6 +1,15 @@
 import type { ListmonkClient, UserRole } from "@listmonk-ops/openapi";
+import { bindUserRoleReconcileOperationSpec } from "./specs";
 import { z } from "zod";
-import { unwrapResourceResponse } from "./resource-helpers";
+import { jsonResourceValue, unwrapResourceResponse } from "./resource-helpers";
+import { defineOperationCatalog } from "./catalog";
+import {
+	defineOperation,
+	normalizeOperationExecutionError,
+	OperationExecutionError,
+	parseOperationInput,
+	parseOperationOutput,
+} from "./operation";
 
 /** Exact granular permission names exposed by Listmonk 6.2. */
 export const LISTMONK_USER_PERMISSIONS = [
@@ -57,12 +66,40 @@ const userRoleDesiredStateSchema = z.object({
 		.array(userPermissionSchema)
 		.transform((permissions) => [...new Set(permissions)].sort()),
 });
+
+export const MAX_USER_ROLE_MANIFEST_BYTES = 1024 * 1024;
+export const MAX_USER_ROLE_MANIFEST_ROLES = 500;
+
+function userRoleManifestByteLength(manifest: {
+	schema_version: 1;
+	roles: readonly z.output<typeof userRoleDesiredStateSchema>[];
+}): number {
+	return new TextEncoder().encode(
+		JSON.stringify({
+			schema_version: manifest.schema_version,
+			roles: manifest.roles,
+		}),
+	).byteLength;
+}
+
 const userRoleManifestSchema = z
 	.object({
 		schema_version: z.literal(1),
 		roles: z.array(userRoleDesiredStateSchema).min(1),
 	})
 	.superRefine((manifest, context) => {
+		if (userRoleManifestByteLength(manifest) > MAX_USER_ROLE_MANIFEST_BYTES) {
+			context.addIssue({
+				code: "custom",
+				message: `User role manifest exceeds the ${MAX_USER_ROLE_MANIFEST_BYTES}-byte limit`,
+			});
+		}
+		if (manifest.roles.length > MAX_USER_ROLE_MANIFEST_ROLES) {
+			context.addIssue({
+				code: "custom",
+				message: `User role manifest exceeds the ${MAX_USER_ROLE_MANIFEST_ROLES}-role limit`,
+			});
+		}
 		const names = new Set<string>();
 		for (const [index, role] of manifest.roles.entries()) {
 			if (names.has(role.name)) {
@@ -83,6 +120,31 @@ const userRoleSchema = z.looseObject({
 	name: z.string().min(1),
 	permissions: z.array(z.string()),
 });
+
+const userRoleManifestOperationInputSchema = userRoleManifestSchema.safeExtend({
+	roles: z.array(userRoleDesiredStateSchema).min(1).max(500),
+	dry_run: z.boolean().default(true),
+});
+
+const userRoleReconcileSummarySchema = z.object({
+	name: z.string().min(1).max(120),
+	action: z.enum(["create", "update", "unchanged"]),
+	applied: z.boolean(),
+});
+
+const userRoleManifestOperationOutputSchema = z.object({
+	schema_version: z.literal(1),
+	dry_run: z.boolean(),
+	results: z.array(userRoleReconcileSummarySchema),
+});
+
+export type UserRoleManifestOperationInput = z.input<
+	typeof userRoleManifestOperationInputSchema
+>;
+
+export type UserRoleManifestOperationResult = z.output<
+	typeof userRoleManifestOperationOutputSchema
+>;
 
 type NormalizedUserRoleDesiredState = z.output<
 	typeof userRoleDesiredStateSchema
@@ -137,6 +199,34 @@ export class UserRoleManifestApplyError extends Error {
 		this.name = "UserRoleManifestApplyError";
 		this.failedRole = failedRole;
 		this.appliedResults = [...appliedResults];
+	}
+}
+
+/**
+ * Body-free partial apply details projected through the shared surface. The
+ * remote error body, role IDs, and permission values are intentionally dropped
+ * so a manifest apply failure cannot leak credential-adjacent metadata.
+ */
+export class UserRoleManifestOperationApplyError extends OperationExecutionError {
+	public readonly failedRole: string;
+	public readonly appliedResults: readonly z.output<
+		typeof userRoleReconcileSummarySchema
+	>[];
+
+	public constructor(error: UserRoleManifestApplyError) {
+		const appliedResults = error.appliedResults.map(
+			({ name, action, applied }) => ({ name, action, applied }),
+		);
+		super(
+			"user-roles.reconcile",
+			new Error(
+				`${error.message}; completed entries: ${JSON.stringify(appliedResults)}`,
+				{ cause: error.cause },
+			),
+		);
+		this.name = "UserRoleManifestOperationApplyError";
+		this.failedRole = error.failedRole;
+		this.appliedResults = appliedResults;
 	}
 }
 
@@ -296,4 +386,108 @@ export async function reconcileUserRoleManifest(
 		}
 	}
 	return { schema_version: 1, apply: true, results };
+}
+
+/** Execute manifest reconciliation through the normalized operation boundary. */
+export async function executeUserRoleManifestReconcile(
+	context: UserRoleOperationContext,
+	input: z.output<typeof userRoleManifestOperationInputSchema>,
+): Promise<UserRoleManifestOperationResult> {
+	const result = await reconcileUserRoleManifest(
+		context,
+		{
+			schema_version: input.schema_version,
+			roles: input.roles,
+		},
+		{ apply: !input.dry_run },
+	);
+	return {
+		schema_version: result.schema_version,
+		dry_run: input.dry_run,
+		results: result.results.map(({ name, action, applied }) => ({
+			name,
+			action,
+			applied,
+		})),
+	};
+}
+
+export const reconcileUserRoleManifestOperation = defineOperation({
+	id: "user-roles.reconcile",
+	title: "Reconcile user-role manifest",
+	description:
+		"Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles",
+	inputSchema: userRoleManifestOperationInputSchema,
+	outputSchema: userRoleManifestOperationOutputSchema,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: true,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
+	mcp: {
+		name: "listmonk_reconcile_user_role_manifest",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindUserRoleReconcileOperationSpec(),
+	execute: executeUserRoleManifestReconcile,
+});
+
+export async function invokeReconcileUserRoleManifestOperation(
+	context: UserRoleOperationContext,
+	input: unknown,
+): Promise<UserRoleManifestOperationResult> {
+	const parsedInput = parseOperationInput(
+		reconcileUserRoleManifestOperation.inputSchema,
+		input,
+	);
+	let output: UserRoleManifestOperationResult;
+	try {
+		output = await executeUserRoleManifestReconcile(context, parsedInput);
+	} catch (error) {
+		if (error instanceof UserRoleManifestApplyError) {
+			throw new UserRoleManifestOperationApplyError(error);
+		}
+		throw normalizeOperationExecutionError(
+			reconcileUserRoleManifestOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		reconcileUserRoleManifestOperation.id,
+		reconcileUserRoleManifestOperation.outputSchema,
+		output,
+	);
+}
+
+export const userRoleOperations = [reconcileUserRoleManifestOperation] as const;
+
+export const userRoleOperationCatalog = defineOperationCatalog({
+	id: "user-roles",
+	title: "User roles",
+	operations: userRoleOperations,
+	specMigrationExemptions: [],
+});
+
+export type UserRoleOperation = (typeof userRoleOperations)[number];
+
+export interface UserRoleOperationInvocation {
+	operation: UserRoleOperation;
+	output: Record<string, unknown>;
+}
+
+export async function invokeUserRoleOperationByMcpName(
+	context: UserRoleOperationContext,
+	name: string,
+	input: unknown,
+): Promise<UserRoleOperationInvocation | undefined> {
+	switch (name) {
+		case reconcileUserRoleManifestOperation.mcp.name:
+			return {
+				operation: reconcileUserRoleManifestOperation,
+				output: await invokeReconcileUserRoleManifestOperation(context, input),
+			};
+		default:
+			return undefined;
+	}
 }

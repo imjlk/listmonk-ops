@@ -106,6 +106,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	webhookDlqReplayOutputContract: NormalizedContractSchema;
 	webhookCircuitResetInputContract: NormalizedContractSchema;
 	webhookCircuitResetOutputContract: NormalizedContractSchema;
+	userRoleManifestReconcileInputContract: NormalizedContractSchema;
+	userRoleManifestReconcileOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
@@ -271,3 +273,7 @@ export const webhookCircuitResetInputContract =
 	contracts.webhookCircuitResetInputContract;
 export const webhookCircuitResetOutputContract =
 	contracts.webhookCircuitResetOutputContract;
+export const userRoleManifestReconcileInputContract =
+	contracts.userRoleManifestReconcileInputContract;
+export const userRoleManifestReconcileOutputContract =
+	contracts.userRoleManifestReconcileOutputContract;

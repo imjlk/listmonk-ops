@@ -29754,6 +29754,337 @@
       "stability": "experimental",
       "title": "Export A/B test assignment manifest",
       "verb": "export-assignment"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "A single role should be inspected without a full manifest.",
+          "The protected Super Admin role is the intended target."
+        ],
+        "prerequisites": [],
+        "related": [],
+        "retryGuidance": "Re-run reconcile in dry-run mode after a partial apply to verify the remaining desired state before applying again.",
+        "useWhen": [
+          "A versioned least-privilege user-role manifest must be planned or applied."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ListmonkUserPermission": {
+                "description": "Exact granular permission names exposed by Listmonk 6.2. Keep this literal\nlist in sync with LISTMONK_USER_PERMISSIONS in src/user-roles.ts.",
+                "oneOf": [
+                  {
+                    "const": "bounces:get"
+                  },
+                  {
+                    "const": "bounces:manage"
+                  },
+                  {
+                    "const": "campaigns:get"
+                  },
+                  {
+                    "const": "campaigns:get_all"
+                  },
+                  {
+                    "const": "campaigns:get_analytics"
+                  },
+                  {
+                    "const": "campaigns:manage"
+                  },
+                  {
+                    "const": "campaigns:manage_all"
+                  },
+                  {
+                    "const": "campaigns:send"
+                  },
+                  {
+                    "const": "list:get"
+                  },
+                  {
+                    "const": "list:manage"
+                  },
+                  {
+                    "const": "lists:get_all"
+                  },
+                  {
+                    "const": "lists:manage_all"
+                  },
+                  {
+                    "const": "media:get"
+                  },
+                  {
+                    "const": "media:manage"
+                  },
+                  {
+                    "const": "roles:get"
+                  },
+                  {
+                    "const": "roles:manage"
+                  },
+                  {
+                    "const": "settings:get"
+                  },
+                  {
+                    "const": "settings:maintain"
+                  },
+                  {
+                    "const": "settings:manage"
+                  },
+                  {
+                    "const": "subscribers:get"
+                  },
+                  {
+                    "const": "subscribers:get_all"
+                  },
+                  {
+                    "const": "subscribers:import"
+                  },
+                  {
+                    "const": "subscribers:manage"
+                  },
+                  {
+                    "const": "subscribers:sql_query"
+                  },
+                  {
+                    "const": "templates:get"
+                  },
+                  {
+                    "const": "templates:manage"
+                  },
+                  {
+                    "const": "tx:send"
+                  },
+                  {
+                    "const": "users:get"
+                  },
+                  {
+                    "const": "users:manage"
+                  },
+                  {
+                    "const": "webhooks:post_bounce"
+                  }
+                ]
+              },
+              "UserRoleDesiredState": {
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "$ref": "#/components/schemas/UserRoleName"
+                  },
+                  "permissions": {
+                    "items": {
+                      "$ref": "#/components/schemas/ListmonkUserPermission"
+                    },
+                    "maxItems": 30,
+                    "minItems": 0,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "name",
+                  "permissions"
+                ],
+                "type": "object"
+              },
+              "UserRoleManifestReconcileInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "description": "Plan only when false; apply when true. Defaults to a safe dry run.",
+                    "type": "boolean"
+                  },
+                  "roles": {
+                    "items": {
+                      "$ref": "#/components/schemas/UserRoleDesiredState"
+                    },
+                    "maxItems": 500,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "schema_version": {
+                    "const": 1
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "roles",
+                  "dry_run"
+                ],
+                "type": "object"
+              },
+              "UserRoleName": {
+                "description": "Name of a Listmonk user role. Must not match the protected Super Admin.",
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "description": "Plan only when false; apply when true. Defaults to a safe dry run.",
+                "type": "boolean"
+              },
+              "roles": {
+                "items": {
+                  "$ref": "#/components/schemas/UserRoleDesiredState"
+                },
+                "maxItems": 500,
+                "minItems": 1,
+                "type": "array"
+              },
+              "schema_version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "schema_version",
+              "roles",
+              "dry_run"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "UserRoleManifestReconcileOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/UserRoleReconcileSummary"
+                    },
+                    "type": "array"
+                  },
+                  "schema_version": {
+                    "const": 1
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "dry_run",
+                  "results"
+                ],
+                "type": "object"
+              },
+              "UserRoleName": {
+                "description": "Name of a Listmonk user role. Must not match the protected Super Admin.",
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              "UserRoleReconcileAction": {
+                "oneOf": [
+                  {
+                    "const": "create"
+                  },
+                  {
+                    "const": "unchanged"
+                  },
+                  {
+                    "const": "update"
+                  }
+                ]
+              },
+              "UserRoleReconcileSummary": {
+                "additionalProperties": false,
+                "properties": {
+                  "action": {
+                    "$ref": "#/components/schemas/UserRoleReconcileAction"
+                  },
+                  "applied": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/UserRoleName"
+                  }
+                },
+                "required": [
+                  "name",
+                  "action",
+                  "applied"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "type": "boolean"
+              },
+              "results": {
+                "items": {
+                  "$ref": "#/components/schemas/UserRoleReconcileSummary"
+                },
+                "type": "array"
+              },
+              "schema_version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "schema_version",
+              "dry_run",
+              "results"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles",
+      "effects": [
+        {
+          "kind": "write",
+          "preview": true,
+          "resource": "user-role",
+          "reversible": false
+        }
+      ],
+      "id": "user-roles.reconcile",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/user-roles.ts#userRoleReconcileOperationSpec:variable",
+          "executorNode": "packages/operations/src/user-roles.ts#executeUserRoleManifestReconcile:function",
+          "invokerNode": "packages/operations/src/user-roles.ts#invokeReconcileUserRoleManifestOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/user-roles.ts#reconcileUserRoleManifestOperation:variable"
+        },
+        "mcpName": "listmonk_reconcile_user_role_manifest",
+        "openWorld": true
+      },
+      "resource": "user-role",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Manifest apply is plan-then-apply; re-running reconcile re-plans the full desired state and converges on the manifest, but a partial remote failure must be inspected before retrying.",
+        "reconcileWith": "user-roles.reconcile"
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Reconcile user-role manifest",
+      "verb": "reconcile"
     }
   ],
   "playbooks": [
@@ -30597,6 +30928,26 @@
         "suppressed": [
           "current"
         ]
+      }
+    },
+    {
+      "id": "user-role",
+      "states": [
+        "active",
+        "protected",
+        "deleted"
+      ],
+      "terminalStates": [
+        "protected",
+        "deleted"
+      ],
+      "title": "User role",
+      "transitions": {
+        "active": [
+          "deleted"
+        ],
+        "deleted": [],
+        "protected": []
       }
     }
   ],

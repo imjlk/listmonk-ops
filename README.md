@@ -140,6 +140,17 @@ role endpoints that are absent from its upstream OpenAPI document.
 are restricted to the Listmonk 6.2 vocabulary, exact-name duplicates fail
 closed, and the reserved Super Admin role (ID 1) is never managed.
 
+The same contract is available through `listmonk-cli user-roles reconcile` and
+the `listmonk_reconcile_user_role_manifest` MCP tool. Both default to a dry run,
+cap manifests at 500 roles and 1 MiB of serialized payload, omit role IDs and
+permission values from results, and require explicit confirmation. Apply from
+the CLI with `--no-dry-run --confirm`.
+
+Listmonk does not provide a multi-role transaction. If an apply fails after
+earlier entries succeeded, `UserRoleManifestApplyError` identifies the failed
+role. Shared surface errors expose the completed entries as body-free names,
+actions, and apply states for an explicit retry or rollback.
+
 Two generic permission presets cover common separation-of-duty boundaries:
 transactional subscriber delivery uses only `tx:send` and
 `subscribers:manage`, while template provisioning uses only `templates:get`
@@ -420,6 +431,10 @@ listmonk-cli templates delete --id 3 --confirm
 listmonk-cli templates set-default --id 3
 listmonk-cli templates reconcile --manifest-file ./templates.json --confirm
 listmonk-cli templates reconcile --manifest-file ./templates.json \
+  --no-dry-run --confirm
+
+listmonk-cli user-roles reconcile --manifest-file ./roles.json --confirm
+listmonk-cli user-roles reconcile --manifest-file ./roles.json \
   --no-dry-run --confirm
 
 listmonk-cli media list --page 1 --per-page 20

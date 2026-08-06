@@ -1244,3 +1244,15 @@ Export the subscriber assignment manifest for a test with deterministic provisio
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
+
+## `user-roles.reconcile`
+
+Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles
+
+- Resource / verb: `user-role.reconcile`
+- MCP tool: `listmonk_reconcile_user_role_manifest`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:user-role`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.9.0`

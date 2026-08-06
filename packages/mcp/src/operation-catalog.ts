@@ -15,6 +15,7 @@ import {
 	subscriberOperationCatalog,
 	templateOperationCatalog,
 	transactionalOperationCatalog,
+	userRoleOperationCatalog,
 } from "@listmonk-ops/operations";
 
 export const mcpOperationCatalog = composeOperationCatalogs([
@@ -30,6 +31,7 @@ export const mcpOperationCatalog = composeOperationCatalogs([
 	webhookOperationCatalog,
 	sequenceOperationCatalog,
 	providerOperationCatalog,
+	userRoleOperationCatalog,
 ]);
 
 export function listMcpOperationCatalogSummaries(

@@ -141,6 +141,17 @@ Enhanced client는 upstream OpenAPI 문서에 없는 Listmonk 6.2 role endpoint�
 Listmonk 6.2 vocabulary로 제한하며, 정확한 이름 중복은 실패하고 예약된 Super
 Admin role(ID 1)은 절대 관리하지 않습니다.
 
+같은 계약을 `listmonk-cli user-roles reconcile` CLI 명령과
+`listmonk_reconcile_user_role_manifest` MCP tool로 사용할 수 있습니다. 둘 다
+기본적으로 dry-run이며, manifest를 500 role과 1 MiB 직렬화 페이로드로
+제한하고 결과에서 role ID와 권한 값을 생략하며 명시적 확인을 요구합니다. CLI에서
+`--no-dry-run --confirm`으로 적용합니다.
+
+Listmonk는 다중 role 트랜잭션을 제공하지 않습니다. Apply가 일부 entry 성공 후
+실패하면 `UserRoleManifestApplyError`가 실패한 role을 식별합니다. Shared surface
+오류는 완료된 entry를 body가 없는 이름/작업/적용 상태로 노출하여 명시적 재시도
+또는 롤백에 사용합니다.
+
 일반적인 역할 분리를 위한 preset도 제공합니다. Transactional subscriber 전송
 runtime에는 `tx:send`와 `subscribers:manage`만, template provisioning에는
 `templates:get`과 `templates:manage`만 부여합니다. Role reconcile을 실행하는
@@ -419,6 +430,10 @@ listmonk-cli templates delete --id 3 --confirm
 listmonk-cli templates set-default --id 3
 listmonk-cli templates reconcile --manifest-file ./templates.json --confirm
 listmonk-cli templates reconcile --manifest-file ./templates.json \
+  --no-dry-run --confirm
+
+listmonk-cli user-roles reconcile --manifest-file ./roles.json --confirm
+listmonk-cli user-roles reconcile --manifest-file ./roles.json \
   --no-dry-run --confirm
 
 listmonk-cli media list --page 1 --per-page 20

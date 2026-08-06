@@ -186,3 +186,15 @@ Transitions:
 - `current` → `drifted`, `suppressed`
 - `drifted` → `current`, `suppressed`
 - `suppressed` → `current`
+
+## `user-role` — User role
+
+States: `active`, `protected`, `deleted`.
+
+Terminal states: `protected`, `deleted`.
+
+Transitions:
+
+- `active` → `deleted`
+- `protected` → none
+- `deleted` → none

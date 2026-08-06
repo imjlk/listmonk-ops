@@ -36,6 +36,7 @@ import {
 	handleSubscribersTools,
 	handleTemplatesTools,
 	handleTransactionalTools,
+	handleUserRolesTools,
 	createWebhookToolsHandler,
 	createSequenceToolsHandler,
 	isListsToolName,
@@ -562,6 +563,8 @@ export class ListmonkMCPServer {
 				result = await this.webhookHandler(operationRequest, this.client);
 			} else if (toolNameSets.sequences.has(name)) {
 				result = await this.sequenceHandler(operationRequest, this.client);
+			} else if (toolNameSets.userRoles.has(name)) {
+				result = await handleUserRolesTools(operationRequest, this.client);
 			} else {
 				result = createErrorResult(`No handler found for tool: ${name}`);
 			}

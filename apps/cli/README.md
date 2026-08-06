@@ -73,6 +73,21 @@ duplicates fail closed and the complete manifest is planned before the first
 write. Listmonk does not provide a multi-template transaction, so retry the
 same desired state after inspecting any partial failure.
 
+Versioned user-role manifests use the same normalized 1 MiB payload limit and
+500-role cap. The command plans by default, never manages the protected Super
+Admin role (ID 1), and returns only role names, actions, and apply state:
+
+```bash
+listmonk-cli user-roles reconcile --manifest-file ./roles.json --confirm
+listmonk-cli user-roles reconcile --manifest-file ./roles.json \
+  --no-dry-run --confirm
+```
+
+The manifest root is `{ "schema_version": 1, "roles": [...] }`, where each role
+declares an exact `name` and a `permissions` array from the Listmonk 6.2
+vocabulary. The credential running role reconciliation needs `roles:get` plus
+`roles:manage` and must be separate from the runtime delivery role.
+
 The `webhooks` command group manages signed outbound event endpoints and the
 shared durable outbox:
 

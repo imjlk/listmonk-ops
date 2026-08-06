@@ -27,6 +27,8 @@ import { mediaOperations } from "../packages/operations/src/media";
 import { subscriberOperations } from "../packages/operations/src/subscribers";
 import { templateOperations } from "../packages/operations/src/templates";
 import { transactionalOperations } from "../packages/operations/src/transactional";
+import { userRoleOperations } from "../packages/operations/src/user-roles";
+import { userRolesTools } from "../packages/mcp/src/handlers/user-roles";
 import type { MCPTool } from "../packages/mcp/src/types/mcp";
 
 export type SharedOperation =
@@ -41,6 +43,7 @@ export type SharedOperation =
 	| (typeof subscriberOperations)[number]
 	| (typeof templateOperations)[number]
 	| (typeof transactionalOperations)[number]
+	| (typeof userRoleOperations)[number]
 	| (typeof webhookOperations)[number];
 
 const safetyKeys = [
@@ -234,5 +237,13 @@ export function assertProviderOperationsPublished(): void {
 		"provider and deliverability diagnostics",
 		providerOperations,
 		providerTools,
+	);
+}
+
+export function assertUserRoleOperationsPublished(): void {
+	assertOperationFamilyPublished(
+		"user roles",
+		userRoleOperations,
+		userRolesTools,
 	);
 }
