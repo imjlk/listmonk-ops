@@ -119,18 +119,25 @@ async function listLocalUserRoles(): Promise<UserRoleRecord[]> {
 	return data?.results ?? [];
 }
 
-async function deleteLocalUserRole(id: number): Promise<void> {
+/**
+ * Listmonk 6.2 does not expose a DELETE for user roles, so the e2e cleanup
+ * neutralizes the role by dropping it to a no-access role. Test isolation is
+ * additionally guaranteed by the unique `buildTestName` prefix.
+ */
+async function neutralizeLocalUserRole(id: number): Promise<void> {
 	const response = await fetch(roleApiUrl(`/roles/users/${id}`), {
-		method: "DELETE",
+		method: "PUT",
 		headers: {
 			Authorization: `Basic ${btoa(
 				`${TEST_CONFIG.username}:${resolveCliE2eCredential(TEST_CONFIG)}`,
 			)}`,
+			"Content-Type": "application/json",
 		},
+		body: JSON.stringify({ name: `cleaned-up-${id}`, permissions: [] }),
 	});
 	if (!response.ok) {
 		throw new Error(
-			`Failed to delete user role ${id}: ${response.status} ${await response.text()}`,
+			`Failed to neutralize user role ${id}: ${response.status} ${await response.text()}`,
 		);
 	}
 }
@@ -234,7 +241,7 @@ describe("User-role manifest CLI and MCP parity", () => {
 		} finally {
 			try {
 				if (createdRoleId !== undefined) {
-					await deleteLocalUserRole(createdRoleId);
+					await neutralizeLocalUserRole(createdRoleId);
 				}
 			} finally {
 				await rm(stateDirectory, { recursive: true, force: true });
