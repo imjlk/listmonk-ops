@@ -13,6 +13,8 @@ import {
 	runSequenceWorker,
 } from "../src/sequence-engine";
 import {
+	invokeSequencePauseOperation,
+	invokeSequenceResumeOperation,
 	invokeSequenceStatusOperation,
 	invokeSequenceValidateOperation,
 	sequenceOperationCatalog,
@@ -142,6 +144,64 @@ describe("sequence definitions and file persistence", () => {
 				),
 			),
 		).rejects.toBeInstanceOf(SequenceConflictError);
+	});
+
+	test("keeps repeated pause and resume operations as true no-ops", async () => {
+		const { repository } = await createStores();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "status retries",
+					steps: [{ id: "stop", type: "stop" }],
+				},
+				new Date("2026-08-01T09:00:00.000Z"),
+			),
+		);
+		const paused = await invokeSequencePauseOperation(
+			{
+				repository,
+				now: () => new Date("2026-08-01T10:00:00.000Z"),
+			},
+			{ id: definition.id },
+		);
+		const pausedAgain = await invokeSequencePauseOperation(
+			{
+				repository,
+				now: () => new Date("2026-08-01T11:00:00.000Z"),
+			},
+			{ id: definition.id },
+		);
+
+		expect(paused.sequence).toMatchObject({
+			status: "paused",
+			updated_at: "2026-08-01T10:00:00.000Z",
+		});
+		expect(pausedAgain).toEqual(paused);
+
+		const resumed = await invokeSequenceResumeOperation(
+			{
+				repository,
+				now: () => new Date("2026-08-01T12:00:00.000Z"),
+			},
+			{ id: definition.id },
+		);
+		const resumedAgain = await invokeSequenceResumeOperation(
+			{
+				repository,
+				now: () => new Date("2026-08-01T13:00:00.000Z"),
+			},
+			{ id: definition.id },
+		);
+
+		expect(resumed.sequence).toMatchObject({
+			status: "active",
+			updated_at: "2026-08-01T12:00:00.000Z",
+		});
+		expect(resumedAgain).toEqual(resumed);
+		expect(await repository.getDefinition(definition.id)).toMatchObject({
+			status: "active",
+			updatedAt: "2026-08-01T12:00:00.000Z",
+		});
 	});
 
 	test("validates condition targets through the shared operation", async () => {

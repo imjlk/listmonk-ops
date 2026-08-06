@@ -9,6 +9,8 @@ import {
 	invokeSequenceEnrollmentListOperation,
 	invokeSequenceGetOperation,
 	invokeSequenceListOperation,
+	invokeSequencePauseOperation,
+	invokeSequenceResumeOperation,
 } from "../src/sequence-operations";
 import { createPostgresSequenceRepository } from "../src/sequence-postgres";
 import {
@@ -152,6 +154,55 @@ describe("Postgres sequence repository", () => {
 					await file.createEnrollment(enrollment);
 					await database.createEnrollment(enrollment);
 				}
+
+				const statusId = ids[0]!;
+				const pausedAt = new Date("2026-07-29T02:00:00.000Z");
+				const repeatedPauseAt = new Date("2026-07-29T03:00:00.000Z");
+				const filePaused = await invokeSequencePauseOperation(
+					{ repository: file, now: () => pausedAt },
+					{ id: statusId },
+				);
+				const databasePaused = await invokeSequencePauseOperation(
+					{ repository: database, now: () => pausedAt },
+					{ id: statusId },
+				);
+				expect(databasePaused).toEqual(filePaused);
+				expect(
+					await invokeSequencePauseOperation(
+						{ repository: file, now: () => repeatedPauseAt },
+						{ id: statusId },
+					),
+				).toEqual(filePaused);
+				expect(
+					await invokeSequencePauseOperation(
+						{ repository: database, now: () => repeatedPauseAt },
+						{ id: statusId },
+					),
+				).toEqual(databasePaused);
+
+				const resumedAt = new Date("2026-07-29T04:00:00.000Z");
+				const repeatedResumeAt = new Date("2026-07-29T05:00:00.000Z");
+				const fileResumed = await invokeSequenceResumeOperation(
+					{ repository: file, now: () => resumedAt },
+					{ id: statusId },
+				);
+				const databaseResumed = await invokeSequenceResumeOperation(
+					{ repository: database, now: () => resumedAt },
+					{ id: statusId },
+				);
+				expect(databaseResumed).toEqual(fileResumed);
+				expect(
+					await invokeSequenceResumeOperation(
+						{ repository: file, now: () => repeatedResumeAt },
+						{ id: statusId },
+					),
+				).toEqual(fileResumed);
+				expect(
+					await invokeSequenceResumeOperation(
+						{ repository: database, now: () => repeatedResumeAt },
+						{ id: statusId },
+					),
+				).toEqual(databaseResumed);
 
 				const fileList = await invokeSequenceListOperation(
 					{ repository: file },
