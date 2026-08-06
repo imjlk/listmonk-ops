@@ -69,8 +69,12 @@ import type {
 	SubscriberListRecord,
 	SubscriberRecord,
 	TemplateCollectionOutput,
+	TemplateCreateInput,
+	TemplateDeleteOutput,
 	TemplateListInput,
 	TemplateRecord,
+	TemplateSetDefaultOutput,
+	TemplateUpdateInput,
 	TransactionalSendInput,
 	TransactionalSendOutput,
 	WebhookCreateInput,
@@ -145,6 +149,63 @@ function contractSchema(generated: {
 	};
 }
 
+function objectRecord(
+	value: unknown,
+	label: string,
+): Readonly<Record<string, unknown>> {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new TypeError(`Typia generated non-object ${label}`);
+	}
+	return value as Readonly<Record<string, unknown>>;
+}
+
+function inclusiveUnionSchema(
+	schema: Readonly<Record<string, unknown>>,
+	label: string,
+): Readonly<Record<string, unknown>> {
+	const branches = schema["oneOf"];
+	if (!Array.isArray(branches) || branches.length === 0) {
+		throw new TypeError(`Typia generated ${label} without oneOf branches`);
+	}
+	const normalized = { ...schema };
+	delete normalized["oneOf"];
+	return { ...normalized, anyOf: branches };
+}
+
+/**
+ * Typia projects TypeScript unions as JSON Schema `oneOf`. At-least-one-field
+ * update unions overlap when callers provide multiple fields, so their JSON
+ * Schema projection must use inclusive `anyOf` semantics instead.
+ */
+function inclusiveUnionContractSchema(
+	generated: { schema: unknown; components: unknown },
+	componentName: string,
+): NormalizedContractSchema {
+	const contract = contractSchema(generated);
+	const schemas = objectRecord(
+		contract.components["schemas"],
+		"contract components.schemas",
+	);
+	const component = objectRecord(
+		schemas[componentName],
+		`contract component ${componentName}`,
+	);
+	return {
+		...contract,
+		schema: inclusiveUnionSchema(contract.schema, "contract schema"),
+		components: {
+			...contract.components,
+			schemas: {
+				...schemas,
+				[componentName]: inclusiveUnionSchema(
+					component,
+					`contract component ${componentName}`,
+				),
+			},
+		},
+	};
+}
+
 // Keep this map aligned with the normalized contract types above and the
 // typed accessors in ../src/specs/contract-schemas.ts.
 const contracts = {
@@ -181,6 +242,19 @@ const contracts = {
 		typia.json.schema<CampaignStatsOutput>(),
 	),
 	templateRecordContract: contractSchema(typia.json.schema<TemplateRecord>()),
+	templateCreateInputContract: contractSchema(
+		typia.json.schema<TemplateCreateInput>(),
+	),
+	templateUpdateInputContract: inclusiveUnionContractSchema(
+		typia.json.schema<TemplateUpdateInput>(),
+		"TemplateUpdateInput",
+	),
+	templateDeleteOutputContract: contractSchema(
+		typia.json.schema<TemplateDeleteOutput>(),
+	),
+	templateSetDefaultOutputContract: contractSchema(
+		typia.json.schema<TemplateSetDefaultOutput>(),
+	),
 	templateListInputContract: contractSchema(
 		typia.json.schema<TemplateListInput>(),
 	),

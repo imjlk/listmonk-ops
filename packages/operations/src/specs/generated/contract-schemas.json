@@ -8893,6 +8893,139 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "templateCreateInputContract": {
+    "components": {
+      "schemas": {
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "TemplateCreateInput": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "body_source": {
+              "type": "string"
+            },
+            "name": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "subject": {
+              "description": "Omitted values default to an empty subject at the runtime boundary.",
+              "type": "string"
+            },
+            "type": {
+              "description": "Omitted values default to `\"campaign\"` at the runtime boundary.",
+              "oneOf": [
+                {
+                  "const": "campaign"
+                },
+                {
+                  "const": "campaign_visual"
+                },
+                {
+                  "const": "tx"
+                }
+              ]
+            }
+          },
+          "required": [
+            "name",
+            "body"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "body_source": {
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "subject": {
+          "description": "Omitted values default to an empty subject at the runtime boundary.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Omitted values default to `\"campaign\"` at the runtime boundary.",
+          "oneOf": [
+            {
+              "const": "campaign"
+            },
+            {
+              "const": "campaign_visual"
+            },
+            {
+              "const": "tx"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "body"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templateDeleteOutputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplateDeleteOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "deleted": {
+              "type": "boolean"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "id",
+            "deleted"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [
+        "id",
+        "deleted"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "templateListInputContract": {
     "components": {
       "schemas": {
@@ -9227,6 +9360,307 @@
       },
       "required": [],
       "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templateSetDefaultOutputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplateSetDefaultOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "set_default": {
+              "const": true
+            }
+          },
+          "required": [
+            "id",
+            "set_default"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "set_default": {
+          "const": true
+        }
+      },
+      "required": [
+        "id",
+        "set_default"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templateUpdateInputContract": {
+    "components": {
+      "schemas": {
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceIdInputTemplateUpdateFields__type": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "body_source": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "name": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "campaign"
+                },
+                {
+                  "const": "campaign_visual"
+                },
+                {
+                  "const": "tx"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "type": "object"
+        },
+        "ResourceIdInputTemplateUpdateFields__type-o1": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "body_source": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "name": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "campaign"
+                },
+                {
+                  "const": "campaign_visual"
+                },
+                {
+                  "const": "tx"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "type"
+          ],
+          "type": "object"
+        },
+        "ResourceIdInputTemplateUpdateFields__type-o2": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "body_source": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "name": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "campaign"
+                },
+                {
+                  "const": "campaign_visual"
+                },
+                {
+                  "const": "tx"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "subject"
+          ],
+          "type": "object"
+        },
+        "ResourceIdInputTemplateUpdateFields__type-o3": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "body_source": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "name": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "campaign"
+                },
+                {
+                  "const": "campaign_visual"
+                },
+                {
+                  "const": "tx"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "body_source"
+          ],
+          "type": "object"
+        },
+        "ResourceIdInputTemplateUpdateFields__type-o4": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "body_source": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "name": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "campaign"
+                },
+                {
+                  "const": "campaign_visual"
+                },
+                {
+                  "const": "tx"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "body"
+          ],
+          "type": "object"
+        },
+        "TemplateUpdateInput": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type"
+            },
+            {
+              "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o1"
+            },
+            {
+              "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o2"
+            },
+            {
+              "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o3"
+            },
+            {
+              "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
+            }
+          ],
+          "description": "Update a positive template ID with at least one mutable field."
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type"
+        },
+        {
+          "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o1"
+        },
+        {
+          "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o2"
+        },
+        {
+          "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o3"
+        },
+        {
+          "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
+        }
+      ],
+      "description": "Update a positive template ID with at least one mutable field."
     },
     "source": "typescript",
     "stage": "normalized"

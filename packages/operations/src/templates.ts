@@ -1,9 +1,12 @@
 import type { ListmonkClient, Template } from "@listmonk-ops/openapi";
 import {
-	bindBridgedOperationSpec,
+	bindTemplatesCreateOperationSpec,
+	bindTemplatesDeleteOperationSpec,
 	bindTemplatesGetOperationSpec,
 	bindTemplatesListOperationSpec,
 	bindTemplatesReconcileOperationSpec,
+	bindTemplatesSetDefaultOperationSpec,
+	bindTemplatesUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
 import {
@@ -708,7 +711,7 @@ export const createTemplateOperation = defineOperation({
 		name: "listmonk_create_template",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("templates.create"),
+	spec: bindTemplatesCreateOperationSpec(),
 	execute: createTemplate,
 });
 
@@ -723,7 +726,7 @@ export const updateTemplateOperation = defineOperation({
 		name: "listmonk_update_template",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("templates.update"),
+	spec: bindTemplatesUpdateOperationSpec(),
 	execute: updateTemplate,
 });
 
@@ -733,12 +736,12 @@ export const deleteTemplateOperation = defineOperation({
 	description: "Delete a template from Listmonk",
 	inputSchema: templateIdInputSchema,
 	outputSchema: deleteTemplateOutputSchema,
-	safety: deleteResourceSafety,
+	safety: { ...deleteResourceSafety, idempotentHint: false },
 	mcp: {
 		name: "listmonk_delete_template",
 		legacySuccessText: "Template deleted successfully",
 	},
-	spec: bindBridgedOperationSpec("templates.delete"),
+	spec: bindTemplatesDeleteOperationSpec(),
 	execute: deleteTemplate,
 });
 
@@ -753,7 +756,7 @@ export const setDefaultTemplateOperation = defineOperation({
 		name: "listmonk_set_default_template",
 		legacySuccessText: "Default template set successfully",
 	},
-	spec: bindBridgedOperationSpec("templates.set-default"),
+	spec: bindTemplatesSetDefaultOperationSpec(),
 	execute: setDefaultTemplate,
 });
 

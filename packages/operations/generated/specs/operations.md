@@ -752,6 +752,54 @@ Plan or apply a versioned template manifest against exact-name Listmonk template
 - Retry: `reconcile`
 - Stability: `stable` since `0.12.0`
 
+## `templates.create`
+
+Create a template in Listmonk
+
+- Resource / verb: `template.create`
+- MCP tool: `listmonk_create_template`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:template`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.9.0`
+
+## `templates.update`
+
+Update a template in Listmonk
+
+- Resource / verb: `template.update`
+- MCP tool: `listmonk_update_template`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:template`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
+## `templates.delete`
+
+Delete a template from Listmonk
+
+- Resource / verb: `template.delete`
+- MCP tool: `listmonk_delete_template`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `delete:template`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.9.0`
+
+## `templates.set-default`
+
+Set a template as the Listmonk default
+
+- Resource / verb: `template.set-default`
+- MCP tool: `listmonk_set_default_template`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:template`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
 ## `lists.create`
 
 Create a new subscriber list
@@ -919,54 +967,6 @@ Create a new campaign by copying the body, lists, template, and metadata of an e
 - Effects: `write:campaign`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
-
-## `templates.create`
-
-Create a template in Listmonk
-
-- Resource / verb: `template.create`
-- MCP tool: `listmonk_create_template`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:template`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
-
-## `templates.update`
-
-Update a template in Listmonk
-
-- Resource / verb: `template.update`
-- MCP tool: `listmonk_update_template`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:template`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `templates.delete`
-
-Delete a template from Listmonk
-
-- Resource / verb: `template.delete`
-- MCP tool: `listmonk_delete_template`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `delete:template`
-- Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `templates.set-default`
-
-Set a template as the Listmonk default
-
-- Resource / verb: `template.set-default`
-- MCP tool: `listmonk_set_default_template`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:template`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
 ## `media.delete`

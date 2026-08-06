@@ -210,6 +210,46 @@ export interface TemplateRecord {
 	[key: string]: unknown;
 }
 
+export type TemplateType = "campaign" | "campaign_visual" | "tx";
+
+export interface TemplateCreateInput {
+	name: NonEmptyString;
+	/** Omitted values default to `"campaign"` at the runtime boundary. */
+	type?: TemplateType | undefined;
+	/** Omitted values default to an empty subject at the runtime boundary. */
+	subject?: string | undefined;
+	body_source?: string | undefined;
+	body: NonEmptyString;
+}
+
+interface TemplateUpdateFields {
+	name?: NonEmptyString | undefined;
+	type?: TemplateType | undefined;
+	subject?: string | undefined;
+	body_source?: string | undefined;
+	body?: NonEmptyString | undefined;
+}
+
+/** Update a positive template ID with at least one mutable field. */
+export type TemplateUpdateInput = ResourceIdInput &
+	(
+		| (TemplateUpdateFields & { name: NonEmptyString })
+		| (TemplateUpdateFields & { type: TemplateType })
+		| (TemplateUpdateFields & { subject: string })
+		| (TemplateUpdateFields & { body_source: string })
+		| (TemplateUpdateFields & { body: NonEmptyString })
+	);
+
+export interface TemplateDeleteOutput {
+	id: ResourceId;
+	deleted: boolean;
+}
+
+export interface TemplateSetDefaultOutput {
+	id: ResourceId;
+	set_default: true;
+}
+
 export interface TemplateListInput {
 	/** One-based result page. Omitted values use the shared operation default. */
 	page?: PositiveInteger | undefined;
@@ -1463,7 +1503,7 @@ export interface UserRoleManifestReconcileOutput {
 	results: UserRoleReconcileSummary[];
 }
 
-export type TemplateManifestType = "campaign" | "campaign_visual" | "tx";
+export type TemplateManifestType = TemplateType;
 
 export interface TemplateManifestEntry {
 	name: NonEmptyString & tags.MaxLength<120>;

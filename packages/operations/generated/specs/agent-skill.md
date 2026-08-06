@@ -870,6 +870,62 @@ Verify with: `templates.list`
 
 Retry guidance: Re-run reconcile in dry-run mode after a partial apply to verify the remaining desired state before applying again.
 
+## Create template (`templates.create`)
+
+Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `unsafe`.
+
+Use when: A new Listmonk template must be created.
+
+Avoid when: An existing template should be converged by exact name; use templates.reconcile instead.
+
+Prerequisites: none
+
+Verify with: `templates.list`
+
+Retry guidance: Do not automatically retry an ambiguous failure; inspect templates.list for the intended name first.
+
+## Update template (`templates.update`)
+
+Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `safe`.
+
+Use when: A known template must be updated by numeric ID.
+
+Avoid when: The template ID is unknown or a versioned exact-name manifest should be reconciled.
+
+Prerequisites: `templates.get`
+
+Verify with: `templates.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff, then verify with templates.get.
+
+## Delete template (`templates.delete`)
+
+Contract maturity: `experimental`; effects: `delete:template`; confirmation: `required`; retry: `reconcile`.
+
+Use when: A verified template must be permanently deleted.
+
+Avoid when: The template ID or destructive confirmation has not been verified.
+
+Prerequisites: `templates.get`
+
+Verify with: `templates.list`
+
+Retry guidance: After an ambiguous failure, verify absence with templates.list before retrying.
+
+## Set default template (`templates.set-default`)
+
+Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `safe`.
+
+Use when: A verified template should become the Listmonk default.
+
+Avoid when: The template ID has not been verified.
+
+Prerequisites: `templates.get`
+
+Verify with: `templates.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff, then verify with templates.get.
+
 ## Create subscriber list (`lists.create`)
 
 Contract maturity: `experimental`; effects: `write:list`; confirmation: `never`; retry: `unsafe`.
@@ -1065,62 +1121,6 @@ Prerequisites: `campaigns.get`
 Verify with: `campaigns.list`
 
 Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
-
-## Create template (`templates.create`)
-
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `unsafe`.
-
-Use when: Create a template in Listmonk
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: none
-
-Verify with: `templates.list`
-
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
-
-## Update template (`templates.update`)
-
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `safe`.
-
-Use when: Update a template in Listmonk
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `templates.get`
-
-Verify with: `templates.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Delete template (`templates.delete`)
-
-Contract maturity: `experimental`; effects: `delete:template`; confirmation: `required`; retry: `safe`.
-
-Use when: Delete a template from Listmonk
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `templates.get`
-
-Verify with: `templates.list`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Set default template (`templates.set-default`)
-
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `safe`.
-
-Use when: Set a template as the Listmonk default
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `templates.get`
-
-Verify with: `templates.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## Delete media file (`media.delete`)
 
