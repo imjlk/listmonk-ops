@@ -24,7 +24,6 @@ export const runtimeOperationContractIds = [
 	"templates.update",
 	"templates.delete",
 	"templates.set-default",
-	"templates.reconcile",
 	"media.delete",
 	"media.upload",
 	"ops.campaign.deliverability-guard",
