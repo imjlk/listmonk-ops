@@ -22,6 +22,10 @@ export const userRoleResource = defineOperationResourceSpec({
 const userRoleRuntimeFile = "packages/operations/src/user-roles.ts";
 const userRoleSpecFile = "packages/operations/src/specs/user-roles.ts";
 
+// The descriptor/binding nodes are derived from the verb (matching the
+// sequences.ts pattern), but the runtime symbols follow the existing
+// `reconcileUserRoleManifest*` naming in user-roles.ts and so are pinned here.
+// Extend this helper if additional user-role operations are added.
 function graphNodes(name: string) {
 	const title = name[0]?.toUpperCase() + name.slice(1);
 	return {

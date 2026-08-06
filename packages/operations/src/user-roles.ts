@@ -203,6 +203,21 @@ export class UserRoleManifestApplyError extends Error {
 }
 
 /**
+ * Project a reconcile result into the body-free summary shape exposed through
+ * the shared surface. Role IDs, permission values, and any remote error body
+ * are intentionally dropped so a manifest apply cannot leak credential-adjacent
+ * metadata through either success or partial-failure paths.
+ */
+function toUserRoleReconcileSummary(result: {
+	name: string;
+	action: "create" | "update" | "unchanged";
+	applied: boolean;
+}): z.output<typeof userRoleReconcileSummarySchema> {
+	const { name, action, applied } = result;
+	return { name, action, applied };
+}
+
+/**
  * Body-free partial apply details projected through the shared surface. The
  * remote error body, role IDs, and permission values are intentionally dropped
  * so a manifest apply failure cannot leak credential-adjacent metadata.
@@ -214,9 +229,7 @@ export class UserRoleManifestOperationApplyError extends OperationExecutionError
 	>[];
 
 	public constructor(error: UserRoleManifestApplyError) {
-		const appliedResults = error.appliedResults.map(
-			({ name, action, applied }) => ({ name, action, applied }),
-		);
+		const appliedResults = error.appliedResults.map(toUserRoleReconcileSummary);
 		super(
 			"user-roles.reconcile",
 			new Error(
@@ -404,11 +417,7 @@ export async function executeUserRoleManifestReconcile(
 	return {
 		schema_version: result.schema_version,
 		dry_run: input.dry_run,
-		results: result.results.map(({ name, action, applied }) => ({
-			name,
-			action,
-			applied,
-		})),
+		results: result.results.map(toUserRoleReconcileSummary),
 	};
 }
 
