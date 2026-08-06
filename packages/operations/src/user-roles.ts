@@ -451,11 +451,15 @@ export async function invokeReconcileUserRoleManifestOperation(
 	input: unknown,
 ): Promise<UserRoleManifestOperationResult> {
 	// Enforce the serialized-payload cap on the untransformed input before Zod
-	// trims names and deduplicates permissions, so MCP and CLI boundaries apply
-	// the same byte limit regardless of how lossy normalization shrinks the
-	// payload afterwards.
+	// trims names and deduplicates permissions. Only the transport-only dry_run
+	// control is excluded so the documented 1 MiB limit still rejects unknown
+	// oversized fields that Zod would otherwise strip.
+	const { dry_run: _excludedDryRun, ...measuredInput } =
+		typeof input === "object" && input !== null && !Array.isArray(input)
+			? (input as Record<string, unknown>)
+			: {};
 	const rawByteLength = new TextEncoder().encode(
-		JSON.stringify(input),
+		JSON.stringify(measuredInput),
 	).byteLength;
 	if (rawByteLength > MAX_USER_ROLE_MANIFEST_BYTES) {
 		throw new OperationInputError(

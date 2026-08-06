@@ -1472,7 +1472,13 @@ export interface TemplateManifestEntry {
 	 * the runtime Zod schema's `.default("campaign")`.
 	 */
 	type?: TemplateManifestType;
-	subject?: string & tags.MaxLength<500>;
+	/**
+	 * Email subject. Optional on input and defaults to `""`, matching the
+	 * runtime Zod schema's `.optional().default("")`. Reconciliation of an
+	 * existing template with an omitted subject clears it rather than preserving
+	 * the prior value.
+	 */
+	subject?: string;
 	body_source?: string;
 	body: NonEmptyString & tags.MaxLength<1048576>;
 }

@@ -19201,7 +19201,7 @@
                     "type": "string"
                   },
                   "subject": {
-                    "maxLength": 500,
+                    "description": "Email subject. Optional on input and defaults to `\"\"`, matching the\nruntime Zod schema's `.optional().default(\"\")`. Reconciliation of an\nexisting template with an omitted subject clears it rather than preserving\nthe prior value.",
                     "type": "string"
                   },
                   "type": {

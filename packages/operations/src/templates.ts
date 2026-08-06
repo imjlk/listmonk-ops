@@ -879,10 +879,15 @@ export async function invokeReconcileTemplateManifestOperation(
 	input: unknown,
 ): Promise<TemplateManifestOperationResult> {
 	// Enforce the serialized-payload cap on the untransformed input before Zod
-	// normalizes it, so MCP and CLI boundaries apply the same byte limit
-	// regardless of how lossy normalization shrinks the payload afterwards.
+	// normalizes it. Only the transport-only dry_run control is excluded so the
+	// documented 1 MiB limit still rejects unknown oversized fields that Zod
+	// would otherwise strip.
+	const { dry_run: _excludedDryRun, ...measuredInput } =
+		typeof input === "object" && input !== null && !Array.isArray(input)
+			? (input as Record<string, unknown>)
+			: {};
 	const rawByteLength = new TextEncoder().encode(
-		JSON.stringify(input),
+		JSON.stringify(measuredInput),
 	).byteLength;
 	if (rawByteLength > MAX_TEMPLATE_MANIFEST_BYTES) {
 		throw new OperationInputError(
