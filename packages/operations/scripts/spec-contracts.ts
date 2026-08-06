@@ -1443,8 +1443,8 @@ export interface UserRoleManifestReconcileInput {
 		tags.MinItems<1> &
 		tags.MaxItems<500>;
 	/**
-	 * Plan only when false; apply when true. Optional on input and defaults to
-	 * a safe dry run, matching the runtime Zod schema's `.default(true)`.
+	 * Plan only when true; apply when false. Optional on input and defaults to
+	 * a safe dry run (true), matching the runtime Zod schema's `.default(true)`.
 	 */
 	dry_run?: boolean;
 }

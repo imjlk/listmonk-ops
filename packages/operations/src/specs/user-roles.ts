@@ -8,15 +8,16 @@ import { defineOperationResourceSpec } from "./resource";
 export const userRoleResource = defineOperationResourceSpec({
 	id: "user-role",
 	title: "User role",
-	// "protected" models Listmonk Super Admin (id 1), which reconcile refuses
-	// to manage. Reconcile only ever moves roles between active and deleted.
-	states: ["active", "protected", "deleted"],
+	// Listmonk 6.2 exposes only list/create/update for user roles; there is no
+	// DELETE endpoint. "protected" models the Super Admin role (id 1), which
+	// reconcile refuses to manage. Reconcile only creates or updates roles, so
+	// the only managed runtime state is "active".
+	states: ["active", "protected"],
 	transitions: {
-		active: ["deleted"],
+		active: [],
 		protected: [],
-		deleted: [],
 	},
-	terminalStates: ["protected", "deleted"],
+	terminalStates: ["protected"],
 });
 
 const userRoleRuntimeFile = "packages/operations/src/user-roles.ts";
@@ -87,7 +88,7 @@ export const userRoleReconcileOperationSpec = defineOperationSpec({
 		graph: graphNodes("Reconcile"),
 	},
 	stability: "experimental",
-	since: "0.9.0",
+	since: "0.12.0",
 });
 
 export function bindUserRoleReconcileOperationSpec(): typeof userRoleReconcileOperationSpec {

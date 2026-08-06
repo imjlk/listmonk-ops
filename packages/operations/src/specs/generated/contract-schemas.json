@@ -9401,7 +9401,7 @@
           "additionalProperties": false,
           "properties": {
             "dry_run": {
-              "description": "Plan only when false; apply when true. Optional on input and defaults to\na safe dry run, matching the runtime Zod schema's `.default(true)`.",
+              "description": "Plan only when true; apply when false. Optional on input and defaults to\na safe dry run (true), matching the runtime Zod schema's `.default(true)`.",
               "type": "boolean"
             },
             "roles": {
@@ -9435,7 +9435,7 @@
       "additionalProperties": false,
       "properties": {
         "dry_run": {
-          "description": "Plan only when false; apply when true. Optional on input and defaults to\na safe dry run, matching the runtime Zod schema's `.default(true)`.",
+          "description": "Plan only when true; apply when false. Optional on input and defaults to\na safe dry run (true), matching the runtime Zod schema's `.default(true)`.",
           "type": "boolean"
         },
         "roles": {

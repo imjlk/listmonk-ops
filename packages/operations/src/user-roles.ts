@@ -7,6 +7,7 @@ import {
 	defineOperation,
 	normalizeOperationExecutionError,
 	OperationExecutionError,
+	OperationInputError,
 	parseOperationInput,
 	parseOperationOutput,
 } from "./operation";
@@ -230,11 +231,13 @@ export class UserRoleManifestOperationApplyError extends OperationExecutionError
 
 	public constructor(error: UserRoleManifestApplyError) {
 		const appliedResults = error.appliedResults.map(toUserRoleReconcileSummary);
+		// Drop the raw remote cause so the projected error cannot leak the
+		// Listmonk error body or other credential-adjacent metadata through a
+		// nested cause chain; only the bounded apply message is preserved.
 		super(
 			"user-roles.reconcile",
 			new Error(
 				`${error.message}; completed entries: ${JSON.stringify(appliedResults)}`,
-				{ cause: error.cause },
 			),
 		);
 		this.name = "UserRoleManifestOperationApplyError";
@@ -446,6 +449,18 @@ export async function invokeReconcileUserRoleManifestOperation(
 	context: UserRoleOperationContext,
 	input: unknown,
 ): Promise<UserRoleManifestOperationResult> {
+	// Enforce the serialized-payload cap on the untransformed input before Zod
+	// trims names and deduplicates permissions, so MCP and CLI boundaries apply
+	// the same byte limit regardless of how lossy normalization shrinks the
+	// payload afterwards.
+	const rawByteLength = new TextEncoder().encode(
+		JSON.stringify(input),
+	).byteLength;
+	if (rawByteLength > MAX_USER_ROLE_MANIFEST_BYTES) {
+		throw new OperationInputError(
+			`User role manifest exceeds the ${MAX_USER_ROLE_MANIFEST_BYTES}-byte limit`,
+		);
+	}
 	const parsedInput = parseOperationInput(
 		reconcileUserRoleManifestOperation.inputSchema,
 		input,

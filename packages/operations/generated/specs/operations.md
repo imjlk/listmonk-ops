@@ -1255,4 +1255,4 @@ Plan or apply a versioned least-privilege user-role manifest against exact-name 
 - Effects: `write:user-role`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.9.0`
+- Stability: `experimental` since `0.12.0`

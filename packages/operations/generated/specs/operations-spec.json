@@ -29893,7 +29893,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "dry_run": {
-                    "description": "Plan only when false; apply when true. Optional on input and defaults to\na safe dry run, matching the runtime Zod schema's `.default(true)`.",
+                    "description": "Plan only when true; apply when false. Optional on input and defaults to\na safe dry run (true), matching the runtime Zod schema's `.default(true)`.",
                     "type": "boolean"
                   },
                   "roles": {
@@ -29927,7 +29927,7 @@
             "additionalProperties": false,
             "properties": {
               "dry_run": {
-                "description": "Plan only when false; apply when true. Optional on input and defaults to\na safe dry run, matching the runtime Zod schema's `.default(true)`.",
+                "description": "Plan only when true; apply when false. Optional on input and defaults to\na safe dry run (true), matching the runtime Zod schema's `.default(true)`.",
                 "type": "boolean"
               },
               "roles": {
@@ -30079,7 +30079,7 @@
         "reason": "Manifest apply is plan-then-apply; re-running reconcile re-plans the full desired state and converges on the manifest, but a partial remote failure must be inspected before retrying.",
         "reconcileWith": "user-roles.reconcile"
       },
-      "since": "0.9.0",
+      "since": "0.12.0",
       "stability": "experimental",
       "title": "Reconcile user-role manifest",
       "verb": "reconcile"
@@ -30932,19 +30932,14 @@
       "id": "user-role",
       "states": [
         "active",
-        "protected",
-        "deleted"
+        "protected"
       ],
       "terminalStates": [
-        "protected",
-        "deleted"
+        "protected"
       ],
       "title": "User role",
       "transitions": {
-        "active": [
-          "deleted"
-        ],
-        "deleted": [],
+        "active": [],
         "protected": []
       }
     }

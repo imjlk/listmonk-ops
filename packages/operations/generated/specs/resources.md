@@ -189,12 +189,11 @@ Transitions:
 
 ## `user-role` — User role
 
-States: `active`, `protected`, `deleted`.
+States: `active`, `protected`.
 
-Terminal states: `protected`, `deleted`.
+Terminal states: `protected`.
 
 Transitions:
 
-- `active` → `deleted`
+- `active` → none
 - `protected` → none
-- `deleted` → none

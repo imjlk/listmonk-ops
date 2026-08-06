@@ -98,13 +98,16 @@ function roleApiUrl(path: string): string {
 	return `${base}${path}`;
 }
 
+// Mirror the test client's auth scheme: a token authorization header when an
+// API token is configured, falling back to basic auth with the password.
+function roleAuthHeader(): string {
+	const credential = resolveCliE2eCredential(TEST_CONFIG);
+	return `token ${TEST_CONFIG.username}:${credential}`;
+}
+
 async function listLocalUserRoles(): Promise<UserRoleRecord[]> {
 	const response = await fetch(roleApiUrl("/roles/users"), {
-		headers: {
-			Authorization: `Basic ${btoa(
-				`${TEST_CONFIG.username}:${resolveCliE2eCredential(TEST_CONFIG)}`,
-			)}`,
-		},
+		headers: { Authorization: roleAuthHeader() },
 	});
 	if (!response.ok) {
 		throw new Error(
@@ -128,9 +131,7 @@ async function neutralizeLocalUserRole(id: number): Promise<void> {
 	const response = await fetch(roleApiUrl(`/roles/users/${id}`), {
 		method: "PUT",
 		headers: {
-			Authorization: `Basic ${btoa(
-				`${TEST_CONFIG.username}:${resolveCliE2eCredential(TEST_CONFIG)}`,
-			)}`,
+			Authorization: roleAuthHeader(),
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({ name: `cleaned-up-${id}`, permissions: [] }),
@@ -240,8 +241,15 @@ describe("User-role manifest CLI and MCP parity", () => {
 			});
 		} finally {
 			try {
-				if (createdRoleId !== undefined) {
-					await neutralizeLocalUserRole(createdRoleId);
+				// Re-resolve the role by name during cleanup so a failed
+				// assertion between apply and cleanup cannot leak a role into
+				// the shared stack when createdRoleId was never assigned.
+				const roles = await listLocalUserRoles();
+				const stale =
+					createdRoleId ??
+					roles.find((role) => role.name === roleName)?.id;
+				if (stale !== undefined) {
+					await neutralizeLocalUserRole(stale);
 				}
 			} finally {
 				await rm(stateDirectory, { recursive: true, force: true });
