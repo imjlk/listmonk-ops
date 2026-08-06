@@ -1051,7 +1051,7 @@ export const webhookReconcileOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: false,
-		idempotentHint: true,
+		idempotentHint: false,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_webhooks_reconcile" },
