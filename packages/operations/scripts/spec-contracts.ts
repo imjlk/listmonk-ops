@@ -1442,8 +1442,11 @@ export interface UserRoleManifestReconcileInput {
 	roles: UserRoleDesiredState[] &
 		tags.MinItems<1> &
 		tags.MaxItems<500>;
-	/** Plan only when false; apply when true. Defaults to a safe dry run. */
-	dry_run: boolean;
+	/**
+	 * Plan only when false; apply when true. Optional on input and defaults to
+	 * a safe dry run, matching the runtime Zod schema's `.default(true)`.
+	 */
+	dry_run?: boolean;
 }
 
 export type UserRoleReconcileAction = "create" | "update" | "unchanged";

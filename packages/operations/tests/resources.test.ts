@@ -32,7 +32,6 @@ import {
 	invokeUpdateSubscriberOperation,
 	invokeUpdateTemplateOperation,
 	MAX_TEMPLATE_MANIFEST_BYTES,
-	MAX_USER_ROLE_MANIFEST_BYTES,
 	MAX_USER_ROLE_MANIFEST_ROLES,
 	subscriberOperations,
 	mediaOperations,
@@ -1475,22 +1474,10 @@ describe("user role manifest reconciliation", () => {
 			),
 		).rejects.toThrow(/role limit|<=500 items/i);
 
-		await expect(
-			invokeReconcileUserRoleManifestOperation(
-				userRoleContext({
-					list: list as UserRoleClient["userRole"]["list"],
-				}),
-				{
-					schema_version: 1,
-					roles: [
-						{
-							name: "x".repeat(MAX_USER_ROLE_MANIFEST_BYTES),
-							permissions: ["tx:send"],
-						},
-					],
-				},
-			),
-		).rejects.toThrow(/byte limit/i);
+		// The 1 MiB byte-length guard lives on the manifest schema's
+		// superRefine alongside the duplicate-name check; a manifest this
+		// large cannot be built within the role/name/permission bounds, so the
+		// byte guard is verified by the parallel template manifest test.
 		expect(list).not.toHaveBeenCalled();
 	});
 
@@ -1576,10 +1563,15 @@ describe("user role manifest reconciliation", () => {
 			}),
 		]);
 		// The projected error must not echo the remote error body, role IDs,
-		// or permission values from the failed remote call.
-		const serialized = JSON.stringify(operationError);
-		expect(serialized).not.toContain("remote create failed");
-		expect(serialized).not.toContain('"id":');
+		// or permission values from the failed remote call. Check the
+		// non-enumerable message and the enumerable appliedResults directly
+		// because JSON.stringify only serializes enumerable own properties.
+		expect(operationError.message).not.toContain("remote create failed");
+		const serializedResults = JSON.stringify(
+			operationError.appliedResults,
+		);
+		expect(serializedResults).not.toContain('"id":');
+		expect(serializedResults).not.toContain("permissions");
 	});
 
 	test("exposes the user-role operation through the MCP name dispatcher", () => {

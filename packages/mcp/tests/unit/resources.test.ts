@@ -18,10 +18,7 @@ import {
 	userRolesTools,
 } from "../../src/handlers/user-roles.js";
 import type { CallToolRequest } from "../../src/types/mcp.js";
-import {
-	MAX_TEMPLATE_MANIFEST_BYTES,
-	MAX_USER_ROLE_MANIFEST_BYTES,
-} from "@listmonk-ops/operations";
+import { MAX_TEMPLATE_MANIFEST_BYTES } from "@listmonk-ops/operations";
 
 function request(
 	name: string,
@@ -351,7 +348,7 @@ describe("user-role operation adapter", () => {
 		);
 	});
 
-	test("rejects oversized manifests before any remote read", async () => {
+	test("rejects over-capacity manifests before any remote read", async () => {
 		const client = {
 			userRole: {
 				list: async () => ({
@@ -363,17 +360,15 @@ describe("user-role operation adapter", () => {
 		const result = await handleUserRolesTools(
 			request("listmonk_reconcile_user_role_manifest", {
 				schema_version: 1,
-				roles: [
-					{
-						name: "x".repeat(MAX_USER_ROLE_MANIFEST_BYTES),
-						permissions: ["tx:send"],
-					},
-				],
+				roles: Array.from({ length: 501 }, (_, index) => ({
+					name: `Role ${index}`,
+					permissions: ["tx:send"],
+				})),
 			}),
 			client,
 		);
 
 		expect(result.isError).toBe(true);
-		expect(result.content[0]?.text ?? "").toMatch(/byte limit/i);
+		expect(result.content[0]?.text ?? "").toMatch(/role limit|<=500 items/i);
 	});
 });

@@ -91,8 +91,15 @@ function parseCliManifestOutput(result: CliResult): UserRoleManifestResult {
 	return JSON.parse(result.stdout.slice(jsonStart)) as UserRoleManifestResult;
 }
 
+function roleApiUrl(path: string): string {
+	// TEST_CONFIG.baseUrl already ends with the Listmonk `/api` segment, so the
+	// role endpoints live directly under it (e.g. `${baseUrl}/roles/users`).
+	const base = TEST_CONFIG.baseUrl.replace(/\/+$/, "");
+	return `${base}${path}`;
+}
+
 async function listLocalUserRoles(): Promise<UserRoleRecord[]> {
-	const response = await fetch(`${TEST_CONFIG.baseUrl}/api/roles/users`, {
+	const response = await fetch(roleApiUrl("/roles/users"), {
 		headers: {
 			Authorization: `Basic ${btoa(
 				`${TEST_CONFIG.username}:${resolveCliE2eCredential(TEST_CONFIG)}`,
@@ -111,17 +118,14 @@ async function listLocalUserRoles(): Promise<UserRoleRecord[]> {
 }
 
 async function deleteLocalUserRole(id: number): Promise<void> {
-	const response = await fetch(
-		`${TEST_CONFIG.baseUrl}/api/roles/users/${id}`,
-		{
-			method: "DELETE",
-			headers: {
-				Authorization: `Basic ${btoa(
-					`${TEST_CONFIG.username}:${resolveCliE2eCredential(TEST_CONFIG)}`,
-				)}`,
-			},
+	const response = await fetch(roleApiUrl(`/roles/users/${id}`), {
+		method: "DELETE",
+		headers: {
+			Authorization: `Basic ${btoa(
+				`${TEST_CONFIG.username}:${resolveCliE2eCredential(TEST_CONFIG)}`,
+			)}`,
 		},
-	);
+	});
 	if (!response.ok) {
 		throw new Error(
 			`Failed to delete user role ${id}: ${response.status} ${await response.text()}`,

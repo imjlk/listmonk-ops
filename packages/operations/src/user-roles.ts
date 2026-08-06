@@ -61,7 +61,7 @@ function isProtectedUserRoleId(id: number): boolean {
 
 const userPermissionSchema = z.enum(LISTMONK_USER_PERMISSIONS);
 const userRoleDesiredStateSchema = z.object({
-	name: z.string().trim().min(1),
+	name: z.string().trim().min(1).max(120),
 	permissions: z
 		.array(userPermissionSchema)
 		.transform((permissions) => [...new Set(permissions)].sort()),
