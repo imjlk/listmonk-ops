@@ -1273,25 +1273,47 @@ export function createPostgresOutboundWebhookRepository(
 
 		async resetEndpointCircuit(endpointId, _now) {
 			await ensureInitialized();
-			const rows = await sql<EndpointRow[]>`
-				UPDATE listmonk_ops.webhook_endpoints
-				SET
-					consecutive_failures = 0,
-					circuit_state = 'closed',
-					circuit_opened_at = NULL,
-					circuit_open_until = NULL
-				WHERE id = ${endpointId}
-				RETURNING
-					id, name, url, secret_ref, event_filters, enabled,
-					timeout_ms, max_attempts, circuit_failure_threshold,
-					circuit_cooldown_ms, consecutive_failures, circuit_state,
-					circuit_opened_at, circuit_open_until, last_failure_at,
-					last_success_at, created_at, updated_at
-			`;
-			if (!rows[0]) {
-				throw new OutboundWebhookNotFoundError("endpoint", endpointId);
-			}
-			return toEndpointRuntime(rows[0]);
+			// Run the conditional UPDATE and the existence-check SELECT inside
+			// a single transaction so a concurrent delivery completion cannot
+			// change the circuit state between the two statements and turn a
+			// successful no-op reset into an intermittent failure.
+			return sql.begin(async (transaction) => {
+				const updated = await transaction<EndpointRow[]>`
+					UPDATE listmonk_ops.webhook_endpoints
+					SET
+						consecutive_failures = 0,
+						circuit_state = 'closed',
+						circuit_opened_at = NULL,
+						circuit_open_until = NULL
+					WHERE id = ${endpointId}
+					  AND NOT (circuit_state = 'closed' AND consecutive_failures = 0)
+					RETURNING
+						id, name, url, secret_ref, event_filters, enabled,
+						timeout_ms, max_attempts, circuit_failure_threshold,
+						circuit_cooldown_ms, consecutive_failures, circuit_state,
+						circuit_opened_at, circuit_open_until, last_failure_at,
+						last_success_at, created_at, updated_at
+				`;
+				if (updated[0]) {
+					return toEndpointRuntime(updated[0]);
+				}
+				// No row was updated: either the endpoint does not exist, or it
+				// was already in the target state. Fetch under the same lock.
+				const current = await transaction<EndpointRow[]>`
+					SELECT
+						id, name, url, secret_ref, event_filters, enabled,
+						timeout_ms, max_attempts, circuit_failure_threshold,
+						circuit_cooldown_ms, consecutive_failures, circuit_state,
+						circuit_opened_at, circuit_open_until, last_failure_at,
+						last_success_at, created_at, updated_at
+					FROM listmonk_ops.webhook_endpoints
+					WHERE id = ${endpointId}
+				`;
+				if (!current[0]) {
+					throw new OutboundWebhookNotFoundError("endpoint", endpointId);
+				}
+				return toEndpointRuntime(current[0]);
+			});
 		},
 
 		async close() {

@@ -364,7 +364,7 @@ Close one endpoint circuit after the operator has corrected its failure.
 - Effects: `write:webhook`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `sequences.validate`
 

@@ -1121,7 +1121,7 @@ export const webhookCircuitResetOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookCircuitResetOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
