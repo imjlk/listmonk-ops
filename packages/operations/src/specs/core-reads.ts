@@ -13,6 +13,8 @@ import {
 	subscriberRecordContract,
 	templateCollectionOutputContract,
 	templateListInputContract,
+	templateManifestReconcileInputContract,
+	templateManifestReconcileOutputContract,
 	templateRecordContract,
 } from "./contract-schemas";
 import { defineOperationSpec } from "./operation";
@@ -410,6 +412,69 @@ export const templatesGetOperationSpec = defineOperationSpec({
 	since: "0.9.0",
 });
 
+export const templatesReconcileOperationSpec = defineOperationSpec({
+	id: "templates.reconcile",
+	resource: "template",
+	verb: "reconcile",
+	title: "Reconcile template manifest",
+	description:
+		"Plan or apply a versioned template manifest against exact-name Listmonk templates",
+	contract: {
+		input: templateManifestReconcileInputContract,
+		output: templateManifestReconcileOutputContract,
+	},
+	effects: [
+		{
+			kind: "write",
+			resource: "template",
+			reversible: false,
+			preview: true,
+		},
+	],
+	policy: {
+		confirmation: "required",
+		audit: "required",
+		dryRun: true,
+	},
+	retry: {
+		kind: "reconcile",
+		reconcileWith: "templates.reconcile",
+		idempotent: true,
+		reason: "Manifest apply is plan-then-apply; re-running reconcile re-plans the full desired state and converges on the manifest, but a partial remote failure must be inspected before retrying.",
+	},
+	agent: {
+		useWhen: [
+			"A versioned template manifest must be planned or applied.",
+		],
+		avoidWhen: [
+			"A single template should be inspected without a full manifest.",
+		],
+		prerequisites: ["templates.list"],
+		verifyWith: ["templates.list"],
+		related: ["ops.templates.registry-sync"],
+		retryGuidance:
+			"Re-run reconcile in dry-run mode after a partial apply to verify the remaining desired state before applying again.",
+	},
+	projection: {
+		mcpName: "listmonk_reconcile_template_manifest",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/core-reads.ts#templatesReconcileOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/core-reads.ts#bindTemplatesReconcileOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable",
+			invokerNode:
+				"packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
+			executorNode:
+				"packages/operations/src/templates.ts#executeTemplateManifestReconcile:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.12.0",
+});
+
 export const mediaListOperationSpec = defineOperationSpec({
 	id: "media.list",
 	resource: "media",
@@ -519,6 +584,15 @@ export const coreReadOperationSpecs = [
 	mediaGetOperationSpec,
 ] as const;
 
+/**
+ * Standalone TypeScript-contract specs that are not yet stable. They live in
+ * this module alongside their resource neighbors but are tracked separately
+ * from `coreReadOperationSpecs` so the stable-read invariant stays intact.
+ */
+export const experimentalStandaloneOperationSpecs = [
+	templatesReconcileOperationSpec,
+] as const;
+
 export function bindListsListOperationSpec(): typeof listsListOperationSpec {
 	return listsListOperationSpec;
 }
@@ -549,6 +623,10 @@ export function bindTemplatesListOperationSpec(): typeof templatesListOperationS
 
 export function bindTemplatesGetOperationSpec(): typeof templatesGetOperationSpec {
 	return templatesGetOperationSpec;
+}
+
+export function bindTemplatesReconcileOperationSpec(): typeof templatesReconcileOperationSpec {
+	return templatesReconcileOperationSpec;
 }
 
 export function bindMediaListOperationSpec(): typeof mediaListOperationSpec {

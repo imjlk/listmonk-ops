@@ -16361,6 +16361,211 @@
       "stability": "stable"
     },
     {
+      "id": "templates.reconcile",
+      "input": {
+        "components": {
+          "schemas": {
+            "TemplateManifestEntry": {
+              "additionalProperties": false,
+              "properties": {
+                "body": {
+                  "maxLength": 1048576,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "body_source": {
+                  "type": "string"
+                },
+                "name": {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "subject": {
+                  "maxLength": 500,
+                  "type": "string"
+                },
+                "type": {
+                  "oneOf": [
+                    {
+                      "const": "campaign"
+                    },
+                    {
+                      "const": "campaign_visual"
+                    },
+                    {
+                      "const": "tx"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "body"
+              ],
+              "type": "object"
+            },
+            "TemplateManifestReconcileInput": {
+              "additionalProperties": false,
+              "properties": {
+                "dry_run": {
+                  "description": "Plan only when true; apply when false. Optional on input and defaults to\na safe dry run (true), matching the runtime Zod schema's `.default(true)`.",
+                  "type": "boolean"
+                },
+                "schema_version": {
+                  "const": 1
+                },
+                "templates": {
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateManifestEntry"
+                  },
+                  "maxItems": 500,
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "schema_version",
+                "templates"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "dry_run": {
+              "description": "Plan only when true; apply when false. Optional on input and defaults to\na safe dry run (true), matching the runtime Zod schema's `.default(true)`.",
+              "type": "boolean"
+            },
+            "schema_version": {
+              "const": 1
+            },
+            "templates": {
+              "items": {
+                "$ref": "#/components/schemas/TemplateManifestEntry"
+              },
+              "maxItems": 500,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "schema_version",
+            "templates"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "TemplateManifestReconcileOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "dry_run": {
+                  "type": "boolean"
+                },
+                "results": {
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateReconcileSummary"
+                  },
+                  "type": "array"
+                },
+                "schema_version": {
+                  "const": 1
+                }
+              },
+              "required": [
+                "schema_version",
+                "dry_run",
+                "results"
+              ],
+              "type": "object"
+            },
+            "TemplateReconcileAction": {
+              "oneOf": [
+                {
+                  "const": "create"
+                },
+                {
+                  "const": "unchanged"
+                },
+                {
+                  "const": "update"
+                }
+              ]
+            },
+            "TemplateReconcileSummary": {
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "$ref": "#/components/schemas/TemplateReconcileAction"
+                },
+                "applied": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "action",
+                "applied"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "dry_run": {
+              "type": "boolean"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/TemplateReconcileSummary"
+              },
+              "type": "array"
+            },
+            "schema_version": {
+              "const": 1
+            }
+          },
+          "required": [
+            "schema_version",
+            "dry_run",
+            "results"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Manifest apply is plan-then-apply; re-running reconcile re-plans the full desired state and converges on the manifest, but a partial remote failure must be inspected before retrying.",
+        "reconcileWith": "templates.reconcile"
+      },
+      "since": "0.12.0",
+      "stability": "experimental"
+    },
+    {
       "id": "lists.create",
       "input": {
         "components": {},
@@ -18873,133 +19078,6 @@
         "audit": "required",
         "confirmation": "never",
         "dryRun": false
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
-      "id": "templates.reconcile",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "dry_run": {
-              "default": true,
-              "type": "boolean"
-            },
-            "schema_version": {
-              "const": 1,
-              "type": "number"
-            },
-            "templates": {
-              "items": {
-                "properties": {
-                  "body": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "body_source": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "subject": {
-                    "default": "",
-                    "type": "string"
-                  },
-                  "type": {
-                    "default": "campaign",
-                    "enum": [
-                      "campaign",
-                      "campaign_visual",
-                      "tx"
-                    ],
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "name",
-                  "body"
-                ],
-                "type": "object"
-              },
-              "maxItems": 500,
-              "minItems": 1,
-              "type": "array"
-            }
-          },
-          "required": [
-            "schema_version",
-            "templates"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": false,
-          "properties": {
-            "dry_run": {
-              "type": "boolean"
-            },
-            "results": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "action": {
-                    "enum": [
-                      "create",
-                      "update",
-                      "unchanged"
-                    ],
-                    "type": "string"
-                  },
-                  "applied": {
-                    "type": "boolean"
-                  },
-                  "name": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "name",
-                  "action",
-                  "applied"
-                ],
-                "type": "object"
-              },
-              "type": "array"
-            },
-            "schema_version": {
-              "const": 1,
-              "type": "number"
-            }
-          },
-          "required": [
-            "schema_version",
-            "dry_run",
-            "results"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "required",
-        "confirmation": "required",
-        "dryRun": true
       },
       "retry": {
         "kind": "safe",

@@ -1462,3 +1462,39 @@ export interface UserRoleManifestReconcileOutput {
 	dry_run: boolean;
 	results: UserRoleReconcileSummary[];
 }
+
+export type TemplateManifestType = "campaign" | "campaign_visual" | "tx";
+
+export interface TemplateManifestEntry {
+	name: NonEmptyString & tags.MaxLength<120>;
+	type?: TemplateManifestType;
+	subject?: string & tags.MaxLength<500>;
+	body_source?: string;
+	body: NonEmptyString & tags.MaxLength<1048576>;
+}
+
+export interface TemplateManifestReconcileInput {
+	schema_version: 1;
+	templates: TemplateManifestEntry[] &
+		tags.MinItems<1> &
+		tags.MaxItems<500>;
+	/**
+	 * Plan only when true; apply when false. Optional on input and defaults to
+	 * a safe dry run (true), matching the runtime Zod schema's `.default(true)`.
+	 */
+	dry_run?: boolean;
+}
+
+export type TemplateReconcileAction = "create" | "update" | "unchanged";
+
+export interface TemplateReconcileSummary {
+	name: NonEmptyString & tags.MaxLength<120>;
+	action: TemplateReconcileAction;
+	applied: boolean;
+}
+
+export interface TemplateManifestReconcileOutput {
+	schema_version: 1;
+	dry_run: boolean;
+	results: TemplateReconcileSummary[];
+}

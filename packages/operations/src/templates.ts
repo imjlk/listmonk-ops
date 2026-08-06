@@ -3,6 +3,7 @@ import {
 	bindBridgedOperationSpec,
 	bindTemplatesGetOperationSpec,
 	bindTemplatesListOperationSpec,
+	bindTemplatesReconcileOperationSpec,
 } from "./specs";
 import { z } from "zod";
 import {
@@ -22,6 +23,7 @@ import {
 	defineOperation,
 	normalizeOperationExecutionError,
 	OperationExecutionError,
+	OperationInputError,
 	parseOperationInput,
 	parseOperationOutput,
 } from "./operation";
@@ -115,7 +117,7 @@ const templateManifestOperationInputSchema = templateManifestSchema.safeExtend({
 });
 
 const templateReconcileSummarySchema = z.object({
-	name: z.string(),
+	name: z.string().min(1).max(120),
 	action: z.enum(["create", "update", "unchanged"]),
 	applied: z.boolean(),
 });
@@ -174,6 +176,21 @@ export class TemplateManifestApplyError extends Error {
 	}
 }
 
+/**
+ * Project a reconcile result into the body-free summary shape exposed through
+ * the shared surface. Template bodies, IDs, and any remote error body are
+ * intentionally dropped so a manifest apply cannot leak credential-adjacent
+ * metadata through either success or partial-failure paths.
+ */
+function toTemplateReconcileSummary(result: {
+	name: string;
+	action: "create" | "update" | "unchanged";
+	applied: boolean;
+}): z.output<typeof templateReconcileSummarySchema> {
+	const { name, action, applied } = result;
+	return { name, action, applied };
+}
+
 /** Body-free partial apply details projected through shared surface errors. */
 export class TemplateManifestOperationApplyError extends OperationExecutionError {
 	public readonly failedTemplate: string;
@@ -182,14 +199,14 @@ export class TemplateManifestOperationApplyError extends OperationExecutionError
 	>[];
 
 	public constructor(error: TemplateManifestApplyError) {
-		const appliedResults = error.appliedResults.map(
-			({ name, action, applied }) => ({ name, action, applied }),
-		);
+		const appliedResults = error.appliedResults.map(toTemplateReconcileSummary);
+		// Drop the raw remote cause so the projected error cannot leak the
+		// Listmonk error body or other credential-adjacent metadata through a
+		// nested cause chain; only the bounded apply message is preserved.
 		super(
 			"templates.reconcile",
 			new Error(
 				`${error.message}; completed entries: ${JSON.stringify(appliedResults)}`,
-				{ cause: error },
 			),
 		);
 		this.name = "TemplateManifestOperationApplyError";
@@ -553,11 +570,7 @@ export async function executeTemplateManifestReconcile(
 	return {
 		schema_version: result.schema_version,
 		dry_run: input.dry_run,
-		results: result.results.map(({ name, action, applied }) => ({
-			name,
-			action,
-			applied,
-		})),
+		results: result.results.map(toTemplateReconcileSummary),
 	};
 }
 
@@ -721,7 +734,7 @@ export const reconcileTemplateManifestOperation = defineOperation({
 		name: "listmonk_reconcile_template_manifest",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("templates.reconcile"),
+	spec: bindTemplatesReconcileOperationSpec(),
 	execute: executeTemplateManifestReconcile,
 });
 
@@ -858,6 +871,17 @@ export async function invokeReconcileTemplateManifestOperation(
 	context: TemplateOperationContext,
 	input: unknown,
 ): Promise<TemplateManifestOperationResult> {
+	// Enforce the serialized-payload cap on the untransformed input before Zod
+	// normalizes it, so MCP and CLI boundaries apply the same byte limit
+	// regardless of how lossy normalization shrinks the payload afterwards.
+	const rawByteLength = new TextEncoder().encode(
+		JSON.stringify(input),
+	).byteLength;
+	if (rawByteLength > MAX_TEMPLATE_MANIFEST_BYTES) {
+		throw new OperationInputError(
+			`Template manifest exceeds the ${MAX_TEMPLATE_MANIFEST_BYTES}-byte limit`,
+		);
+	}
 	const parsedInput = parseOperationInput(
 		reconcileTemplateManifestOperation.inputSchema,
 		input,

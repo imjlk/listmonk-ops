@@ -856,6 +856,20 @@ Verify with: none
 
 Retry guidance: Retry transient read failures with bounded backoff.
 
+## Reconcile template manifest (`templates.reconcile`)
+
+Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `reconcile`.
+
+Use when: A versioned template manifest must be planned or applied.
+
+Avoid when: A single template should be inspected without a full manifest.
+
+Prerequisites: `templates.list`
+
+Verify with: `templates.list`
+
+Retry guidance: Re-run reconcile in dry-run mode after a partial apply to verify the remaining desired state before applying again.
+
 ## Create subscriber list (`lists.create`)
 
 Contract maturity: `experimental`; effects: `write:list`; confirmation: `never`; retry: `unsafe`.
@@ -1105,20 +1119,6 @@ Avoid when: The target, intended side effect, or required confirmation has not b
 Prerequisites: `templates.get`
 
 Verify with: `templates.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Reconcile template manifest (`templates.reconcile`)
-
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `safe`.
-
-Use when: Plan or apply a versioned template manifest against exact-name Listmonk templates
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `templates.list`
-
-Verify with: `templates.list`
 
 Retry guidance: Retry identical transient failures with bounded backoff.
 

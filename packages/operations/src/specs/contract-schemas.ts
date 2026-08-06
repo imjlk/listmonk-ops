@@ -108,6 +108,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	webhookCircuitResetOutputContract: NormalizedContractSchema;
 	userRoleManifestReconcileInputContract: NormalizedContractSchema;
 	userRoleManifestReconcileOutputContract: NormalizedContractSchema;
+	templateManifestReconcileInputContract: NormalizedContractSchema;
+	templateManifestReconcileOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
@@ -277,3 +279,7 @@ export const userRoleManifestReconcileInputContract =
 	contracts.userRoleManifestReconcileInputContract;
 export const userRoleManifestReconcileOutputContract =
 	contracts.userRoleManifestReconcileOutputContract;
+export const templateManifestReconcileInputContract =
+	contracts.templateManifestReconcileInputContract;
+export const templateManifestReconcileOutputContract =
+	contracts.templateManifestReconcileOutputContract;

@@ -107,6 +107,8 @@ import type {
 	WebhookUpdateOutput,
 	UserRoleManifestReconcileInput,
 	UserRoleManifestReconcileOutput,
+	TemplateManifestReconcileInput,
+	TemplateManifestReconcileOutput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import { stableValue } from "../src/specs/stable-json.js";
@@ -441,6 +443,12 @@ const contracts = {
 	),
 	userRoleManifestReconcileOutputContract: contractSchema(
 		typia.json.schema<UserRoleManifestReconcileOutput>(),
+	),
+	templateManifestReconcileInputContract: contractSchema(
+		typia.json.schema<TemplateManifestReconcileInput>(),
+	),
+	templateManifestReconcileOutputContract: contractSchema(
+		typia.json.schema<TemplateManifestReconcileOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 
