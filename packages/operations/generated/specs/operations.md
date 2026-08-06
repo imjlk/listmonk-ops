@@ -484,7 +484,7 @@ Pause new enrollment execution while preserving durable enrollment state.
 - Effects: `write:sequence`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.12.0`
+- Stability: `stable` since `0.9.0`
 - State: `active -> paused` (target-state no-op allowed)
 
 ## `sequences.resume`
@@ -497,7 +497,7 @@ Resume claiming due enrollments for a paused sequence.
 - Effects: `write:sequence`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `stable` since `0.12.0`
+- Stability: `stable` since `0.9.0`
 - State: `paused -> active` (target-state no-op allowed)
 
 ## `sequences.tick`

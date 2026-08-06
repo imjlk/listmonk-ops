@@ -11110,7 +11110,7 @@
         "kind": "safe",
         "reason": "Pausing an already paused sequence is a no-op."
       },
-      "since": "0.12.0",
+      "since": "0.9.0",
       "stability": "stable"
     },
     {
@@ -11307,7 +11307,7 @@
         "kind": "safe",
         "reason": "Resuming an active sequence is a no-op."
       },
-      "since": "0.12.0",
+      "since": "0.9.0",
       "stability": "stable"
     },
     {

@@ -657,6 +657,12 @@ export function createFileSequenceRepository(
 		async setDefinitionStatus(id, status, now) {
 			return updateJsonFileStore(store, (current) => {
 				const previous = getFileDefinition(current, id);
+				// Short-circuit when the definition is already in the target
+				// status so a pause/resume retry is a true no-op and does not
+				// advance updatedAt, matching the spec's allowNoopFromTarget.
+				if (previous.status === status) {
+					return commitJsonFileStoreUpdate(current, previous);
+				}
 				const updated = parseSequenceDefinition({
 					...previous,
 					status,

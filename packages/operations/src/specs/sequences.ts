@@ -379,7 +379,7 @@ export const sequencePauseOperationSpec = defineOperationSpec({
 		graph: graphNodes("pause"),
 	},
 	stability: "stable",
-	since: "0.12.0",
+	since: "0.9.0",
 });
 
 export const sequenceResumeOperationSpec = defineOperationSpec({
@@ -415,7 +415,7 @@ export const sequenceResumeOperationSpec = defineOperationSpec({
 		graph: graphNodes("resume"),
 	},
 	stability: "stable",
-	since: "0.12.0",
+	since: "0.9.0",
 });
 
 export const sequenceTickOperationSpec = defineOperationSpec({
