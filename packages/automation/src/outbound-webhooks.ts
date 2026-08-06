@@ -1984,14 +1984,22 @@ export async function resetOutboundWebhookEndpointCircuit(
 		}
 		// Short-circuit when the circuit is already closed with zero failures
 		// so a reset retry is a true no-op, matching the spec's idempotent claim.
+		// An endpoint with no runtime record has never delivered, which the rest
+		// of the circuit logic treats as the default closed/zero state.
 		const existing = current.endpointRuntime.find(
 			(candidate) => candidate.endpointId === endpointId,
 		);
 		if (
-			existing?.circuitState === "closed" &&
-			existing.consecutiveFailures === 0
+			existing === undefined ||
+			(existing.circuitState === "closed" &&
+				existing.consecutiveFailures === 0)
 		) {
-			return commitJsonFileStoreUpdate(current, existing);
+			const defaultRuntime = endpointRuntimeSchema.parse({
+				endpointId,
+				consecutiveFailures: 0,
+				circuitState: "closed",
+			});
+			return commitJsonFileStoreUpdate(current, defaultRuntime);
 		}
 		const runtime = endpointRuntimeSchema.parse({
 			endpointId,

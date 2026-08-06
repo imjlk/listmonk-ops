@@ -539,8 +539,10 @@ projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설
 결정적 content fingerprint를 반환하고, enrollment 조회는 subscriber reference와
 저장된 오류의 값 대신 존재 여부만 반환합니다.
 `control.status`의 runtime readiness 계약과 신규 subsystem·집계·분석 조회는
-더 성숙할 때까지 experimental로 유지합니다. 나머지 experimental
-descriptor는 63개입니다.
+더 성숙할 때까지 experimental로 유지합니다. 이후 release에서 `sequences.pause`와
+`sequences.resume`(reversible no-op write), `webhooks.circuit.reset`(idempotent
+circuit breaker reset)을 승격해 stable baseline을 43개로 늘렸습니다. 나머지
+experimental descriptor는 61개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run` 네 가지 타입드 플레이북을

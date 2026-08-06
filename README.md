@@ -542,8 +542,10 @@ payloads; enrollment reads expose subscriber-reference and stored-error
 presence without their values.
 `control.status` remains experimental because its runtime readiness contract is
 still maturing; newer subsystem, aggregation, and analytics reads remain
-experimental. The other 63 descriptors are
-experimental.
+experimental. Subsequent releases promoted `sequences.pause` and
+`sequences.resume` (reversible no-op writes) and `webhooks.circuit.reset`
+(idempotent circuit breaker reset), bringing the stable baseline to 43. The
+remaining 61 descriptors are experimental.
 
 The spec publishes four typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, and `abtest.safe-run`.
