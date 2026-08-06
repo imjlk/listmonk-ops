@@ -900,7 +900,10 @@ endpoint/delivery 테이블, transaction enqueue 중복 제거, `FOR UPDATE SKIP
 LOCKED` claim, lease token fencing을 사용합니다. Postgres schema는 advisory
 lock으로 보호되는 순차 migration으로 갱신합니다. `webhooks tick`은 만료 lease를
 먼저 복구한 뒤 제한된 batch를 dispatch합니다. `webhooks reconcile`은 기본적으로
-복구 내용을 preview하고 `--no-dry-run`으로 적용합니다. `webhooks prune`은 기본
+복구 내용을 preview하고 `--no-dry-run`으로 적용합니다. Reconciliation은 호출당
+limit으로 batch 처리되므로, ambiguous retry가 순수 no-op가 아니라 다음 만료
+delivery batch를 처리할 수 있습니다. 재시도 전 dry-run으로 남은 backlog를 확인하세요.
+`webhooks prune`은 기본
 dry-run이며 오래된 terminal
 history를 명시적으로 확인한 경우에만 삭제합니다.
 
