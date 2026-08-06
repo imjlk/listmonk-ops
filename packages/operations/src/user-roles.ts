@@ -450,23 +450,16 @@ export async function invokeReconcileUserRoleManifestOperation(
 	context: UserRoleOperationContext,
 	input: unknown,
 ): Promise<UserRoleManifestOperationResult> {
-	// Enforce the serialized-payload cap on the untransformed manifest fields
-	// (schema_version and roles) before Zod trims names and deduplicates
-	// permissions. Transport-only controls such as dry_run are excluded so the
-	// documented 1 MiB limit matches the manifest content, not the surrounding
-	// operation envelope.
-	const inputRecord =
+	// Enforce the serialized-payload cap on the untransformed input before Zod
+	// trims names and deduplicates permissions. Only the transport-only dry_run
+	// control is excluded so the documented 1 MiB limit still rejects unknown
+	// oversized fields that Zod would otherwise strip.
+	const { dry_run: _excludedDryRun, ...measuredInput } =
 		typeof input === "object" && input !== null && !Array.isArray(input)
 			? (input as Record<string, unknown>)
-			: undefined;
-	const manifestFields = inputRecord
-		? {
-				schema_version: inputRecord.schema_version,
-				roles: inputRecord.roles,
-			}
-		: input;
+			: {};
 	const rawByteLength = new TextEncoder().encode(
-		JSON.stringify(manifestFields),
+		JSON.stringify(measuredInput),
 	).byteLength;
 	if (rawByteLength > MAX_USER_ROLE_MANIFEST_BYTES) {
 		throw new OperationInputError(
