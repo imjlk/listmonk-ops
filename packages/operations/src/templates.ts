@@ -878,11 +878,22 @@ export async function invokeReconcileTemplateManifestOperation(
 	context: TemplateOperationContext,
 	input: unknown,
 ): Promise<TemplateManifestOperationResult> {
-	// Enforce the serialized-payload cap on the untransformed input before Zod
-	// normalizes it, so MCP and CLI boundaries apply the same byte limit
-	// regardless of how lossy normalization shrinks the payload afterwards.
+	// Enforce the serialized-payload cap on the untransformed manifest fields
+	// (schema_version and templates) before Zod normalizes them. Transport-only
+	// controls such as dry_run are excluded so the documented 1 MiB limit matches
+	// the manifest content, not the surrounding operation envelope.
+	const inputRecord =
+		typeof input === "object" && input !== null && !Array.isArray(input)
+			? (input as Record<string, unknown>)
+			: undefined;
+	const manifestFields = inputRecord
+		? {
+				schema_version: inputRecord.schema_version,
+				templates: inputRecord.templates,
+			}
+		: input;
 	const rawByteLength = new TextEncoder().encode(
-		JSON.stringify(input),
+		JSON.stringify(manifestFields),
 	).byteLength;
 	if (rawByteLength > MAX_TEMPLATE_MANIFEST_BYTES) {
 		throw new OperationInputError(
