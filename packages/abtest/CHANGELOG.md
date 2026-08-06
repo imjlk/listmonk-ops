@@ -1,5 +1,11 @@
 # @listmonk-ops/abtest
 
+## 0.5.4 — 2026-08-06
+
+### Patch changes
+
+- Updated dependencies: operations@0.12.0
+
 ## 0.5.3 — 2026-08-05
 
 ### Patch changes

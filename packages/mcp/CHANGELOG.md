@@ -1,5 +1,15 @@
 # @listmonk-ops/mcp
 
+## 0.11.0 — 2026-08-06
+
+### Added
+
+- [a3a91be](https://github.com/imjlk/listmonk-ops/commit/a3a91bebe01fc2ce05d3a29cbe3a4d050577ebfd) Expose versioned least-privilege user-role manifest reconciliation through the shared CLI and MCP operation boundary with a standalone TypeScript/Typia contract, bounded dry-run planning, explicit confirmation, body-free partial-apply projection, and CLI/MCP parity coverage. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.5.4, automation@0.5.0, operations@0.12.0
+
 ## 0.10.0 — 2026-08-05
 
 ### Added

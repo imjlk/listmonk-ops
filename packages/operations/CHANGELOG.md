@@ -1,5 +1,25 @@
 # @listmonk-ops/operations
 
+## 0.12.0 — 2026-08-06
+
+### Minor changes
+
+- [26d6689](https://github.com/imjlk/listmonk-ops/commit/26d6689c1a85dda55eae733bf46ad34d63254ab8) Correct the retry semantics on `webhooks.reconcile`: the operation was described as a safe idempotent no-op, but reconciliation is bounded by a per-call limit and an ambiguous retry can select and mutate the next batch of expired deliveries. Switch retry to `kind: "reconcile"` with `idempotent: false`, align the runtime operation's `idempotentHint`, and update the agent retry guidance to verify the remaining backlog in dry-run mode before retrying. The operation stays `experimental` pending a request-level idempotency guarantee. Both operations and automation are released together because the runtime adapter's safety hint and the spec must stay in sync at module initialization. — Thanks @imjlk!
+- [3bc460b](https://github.com/imjlk/listmonk-ops/commit/3bc460ba9d77a59c40ef7a11e999bd77d13863f8) Promote the standalone `templates.reconcile` manifest operation contract to stable after its bounded input validation, typed partial-apply errors, destructive confirmation policy, and named/generic invocation paths were aligned. — Thanks @imjlk!
+- [4296c76](https://github.com/imjlk/listmonk-ops/commit/4296c76ff1ef0ceeee9ee536f1d04bb2dbc0916c) Promote `sequences.pause` and `sequences.resume` from `experimental` to `stable`. Both operations are reversible writes, treat an already-paused or already-active sequence as a no-op without advancing `updatedAt`, retry safely across the file and PostgreSQL backends, and project the same redacted sequence definition contract that the stable sequence reads already use. The stable TypeScript contract count rises from 40 to 42. — Thanks @imjlk!
+- [b620e60](https://github.com/imjlk/listmonk-ops/commit/b620e60f9576a3a5f66e5707c9e3bb9d1d2db212) Promote `webhooks.circuit.reset` from `experimental` to `stable`. Short-circuit both the file and Postgres repositories so resetting an already-closed circuit with zero failures is a true no-op that does not replace the runtime record, matching the spec's idempotent retry claim. Preserve file-backed success and failure history across reset results, and lock the Postgres endpoint row before deciding whether reset is a no-op so concurrent delivery completion cannot invalidate the returned state. The stable TypeScript contract count rises from 42 to 43. — Thanks @imjlk!
+
+### Patch changes
+
+- [8397df8](https://github.com/imjlk/listmonk-ops/commit/8397df8d30198218ad780c7198414608a0c99337) Migrate `templates.create`, `templates.update`, `templates.delete`, and `templates.set-default` from runtime bridge snapshots to standalone TypeScript/Typia product contracts while preserving their experimental maturity, runtime validation, safety policy, and retry semantics. — Thanks @imjlk!
+- [844f5bf](https://github.com/imjlk/listmonk-ops/commit/844f5bf8b09946515d6d014320bbe41bee424cbc) Address Codex review follow-ups on the templates.reconcile standalone contract: drop the subject MaxLength<500> bound and document the empty-string default, and exclude transport-only controls (dry_run) from the raw manifest byte cap so the documented 1 MiB limit measures manifest content. The same byte-cap fix is applied to user-roles.reconcile for consistency. — Thanks @imjlk!
+- [49fb030](https://github.com/imjlk/listmonk-ops/commit/49fb0306805e7fa8f3ae6fd8e14aeb575659ae3e) Migrate the `templates.reconcile` operation spec from a runtime-operation bridge to a standalone TypeScript/Typia product contract, reducing the runtime bridge count from 42 to 41. The manifest reconciliation contract (1 MiB/500 template bounds, dry-run default, body-free partial-apply projection, explicit confirmation) is preserved, and the apply-error projection no longer retains the raw remote cause. — Thanks @imjlk!
+- [97bd6b9](https://github.com/imjlk/listmonk-ops/commit/97bd6b99d120b232fb97a8ddadcff08162d4c36d) Keep generic and named template and user-role manifest invocation paths consistent. Both paths now enforce the raw 1 MiB payload limit before remote reads and preserve body-free typed partial-apply errors. — Thanks @imjlk!
+
+### Added
+
+- [a3a91be](https://github.com/imjlk/listmonk-ops/commit/a3a91bebe01fc2ce05d3a29cbe3a4d050577ebfd) Expose versioned least-privilege user-role manifest reconciliation through the shared CLI and MCP operation boundary with a standalone TypeScript/Typia contract, bounded dry-run planning, explicit confirmation, body-free partial-apply projection, and CLI/MCP parity coverage. — Thanks @imjlk!
+
 ## 0.11.0 — 2026-08-05
 
 ### Added
