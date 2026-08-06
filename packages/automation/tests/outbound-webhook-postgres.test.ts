@@ -424,6 +424,16 @@ describe("Postgres outbound webhook repository", () => {
 					resolveSecret: () => "secret",
 				}),
 			).toMatchObject({ claimed: 0 });
+			const openedReset = await first.resetEndpointCircuit(
+				circuitEndpoint.id,
+				new Date("2026-07-29T00:00:03.000Z"),
+			);
+			expect(openedReset).toMatchObject({
+				endpointId: circuitEndpoint.id,
+				consecutiveFailures: 0,
+				circuitState: "closed",
+				lastFailureAt: initialAt.toISOString(),
+			});
 			expect(
 				await dispatchOutboundWebhooks({
 					store: { repository: first },
@@ -434,10 +444,23 @@ describe("Postgres outbound webhook repository", () => {
 					resolveSecret: () => "secret",
 				}),
 			).toMatchObject({ claimed: 1, succeeded: 1 });
-			await first.resetEndpointCircuit(
+			const closedReset = await first.resetEndpointCircuit(
 				circuitEndpoint.id,
 				new Date("2026-07-30T00:00:00.000Z"),
 			);
+			expect(closedReset).toMatchObject({
+				endpointId: circuitEndpoint.id,
+				consecutiveFailures: 0,
+				circuitState: "closed",
+				lastFailureAt: initialAt.toISOString(),
+				lastSuccessAt: initialAt.toISOString(),
+			});
+			expect(
+				await first.resetEndpointCircuit(
+					circuitEndpoint.id,
+					new Date("2026-07-31T00:00:00.000Z"),
+				),
+			).toEqual(closedReset);
 			expect(await first.getEndpoint(circuitEndpoint.id)).toMatchObject({
 				updatedAt: circuitEndpoint.updatedAt,
 			});

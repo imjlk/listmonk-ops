@@ -1994,6 +1994,9 @@ export async function resetOutboundWebhookEndpointCircuit(
 			(existing.circuitState === "closed" &&
 				existing.consecutiveFailures === 0)
 		) {
+			if (existing !== undefined) {
+				return commitJsonFileStoreUpdate(current, existing);
+			}
 			const defaultRuntime = endpointRuntimeSchema.parse({
 				endpointId,
 				consecutiveFailures: 0,
@@ -2001,8 +2004,13 @@ export async function resetOutboundWebhookEndpointCircuit(
 			});
 			return commitJsonFileStoreUpdate(current, defaultRuntime);
 		}
+		const {
+			circuitOpenedAt: _circuitOpenedAt,
+			circuitOpenUntil: _circuitOpenUntil,
+			...runtimeHistory
+		} = existing;
 		const runtime = endpointRuntimeSchema.parse({
-			endpointId,
+			...runtimeHistory,
 			consecutiveFailures: 0,
 			circuitState: "closed",
 		});

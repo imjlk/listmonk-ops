@@ -16,6 +16,7 @@ import {
 	redactOutboundWebhookData,
 	recordOperationAuditWithLifecycle,
 	replayOutboundWebhookDeadLetters,
+	resetOutboundWebhookEndpointCircuit,
 	retryOutboundWebhookDelivery,
 	signOutboundWebhookPayload,
 	updateOutboundWebhookEndpoint,
@@ -131,6 +132,61 @@ describe("outbound webhook endpoint registry", () => {
 				secretRef: "AWS_SECRET_ACCESS_KEY",
 			}),
 		).rejects.toThrow("LISTMONK_OPS_WEBHOOK_SECRET");
+	});
+
+	test("preserves file runtime history and makes repeated circuit resets no-ops", async () => {
+		const path = await createStorePath();
+		const endpoint = await createEndpoint(path, {
+			circuitFailureThreshold: 1,
+		});
+		const failureAt = new Date("2026-08-07T00:00:00.000Z");
+		const event = await enqueueOutboundWebhookEvent(
+			{
+				type: "operation.failed",
+				source: "operation",
+				data: {},
+			},
+			{ path, now: failureAt },
+		);
+		await dispatchOutboundWebhooks({
+			store: { path },
+			deliveryIds: event.deliveryIds,
+			now: failureAt,
+			fetcher: async () => new Response(null, { status: 500 }),
+			resolveSecret: () => "secret",
+		});
+
+		const reset = await resetOutboundWebhookEndpointCircuit(endpoint.id, {
+			path,
+			now: new Date("2026-08-07T00:01:00.000Z"),
+		});
+		expect(reset).toMatchObject({
+			endpointId: endpoint.id,
+			consecutiveFailures: 0,
+			circuitState: "closed",
+			lastFailureAt: failureAt.toISOString(),
+		});
+		expect(reset).not.toHaveProperty("circuitOpenedAt");
+		expect(reset).not.toHaveProperty("circuitOpenUntil");
+		expect(
+			await resetOutboundWebhookEndpointCircuit(endpoint.id, {
+				path,
+				now: new Date("2026-08-07T00:02:00.000Z"),
+			}),
+		).toEqual(reset);
+
+		const fresh = await createEndpoint(path, {
+			name: "fresh",
+			url: "https://1.1.1.1/hooks/fresh",
+			secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_FRESH",
+		});
+		expect(
+			await resetOutboundWebhookEndpointCircuit(fresh.id, { path }),
+		).toEqual({
+			endpointId: fresh.id,
+			consecutiveFailures: 0,
+			circuitState: "closed",
+		});
 	});
 });
 

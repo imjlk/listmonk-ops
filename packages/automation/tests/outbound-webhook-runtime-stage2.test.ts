@@ -251,15 +251,22 @@ describe("outbound webhook runtime stage 2", () => {
 		const initial = JSON.parse(await readFile(path, "utf8")) as {
 			workers: { heartbeatAt: string }[];
 		};
-		await new Promise((resolve) => setTimeout(resolve, 350));
-		const refreshed = JSON.parse(await readFile(path, "utf8")) as {
-			workers: { heartbeatAt: string }[];
-		};
-		expect(Date.parse(refreshed.workers[0]!.heartbeatAt)).toBeGreaterThan(
-			Date.parse(initial.workers[0]!.heartbeatAt),
-		);
-		releaseReconcile();
-		await running;
+		const initialHeartbeatAt = Date.parse(initial.workers[0]!.heartbeatAt);
+		let refreshedHeartbeatAt = initialHeartbeatAt;
+		const deadline = Date.now() + 2_000;
+		try {
+			while (refreshedHeartbeatAt <= initialHeartbeatAt && Date.now() < deadline) {
+				await new Promise((resolve) => setTimeout(resolve, 25));
+				const refreshed = JSON.parse(await readFile(path, "utf8")) as {
+					workers: { heartbeatAt: string }[];
+				};
+				refreshedHeartbeatAt = Date.parse(refreshed.workers[0]!.heartbeatAt);
+			}
+			expect(refreshedHeartbeatAt).toBeGreaterThan(initialHeartbeatAt);
+		} finally {
+			releaseReconcile();
+			await running;
+		}
 	});
 
 	test("backs off and recovers from a transient tick failure", async () => {
