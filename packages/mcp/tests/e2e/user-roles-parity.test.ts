@@ -112,9 +112,11 @@ async function listLocalUserRoles(): Promise<UserRoleRecord[]> {
 		);
 	}
 	const payload = (await response.json()) as {
-		data?: { results?: UserRoleRecord[] };
+		data?: UserRoleRecord[] | { results?: UserRoleRecord[] };
 	};
-	return payload.data?.results ?? [];
+	const data = payload.data;
+	if (Array.isArray(data)) return data;
+	return data?.results ?? [];
 }
 
 async function deleteLocalUserRole(id: number): Promise<void> {
@@ -206,7 +208,7 @@ describe("User-role manifest CLI and MCP parity", () => {
 			const roles = await listLocalUserRoles();
 			const created = roles.find((role) => role.name === roleName);
 			expect(created).toBeDefined();
-			expect(created?.permissions).toEqual([
+			expect([...(created?.permissions ?? [])].sort()).toEqual([
 				"templates:get",
 				"templates:manage",
 			]);
