@@ -64,7 +64,7 @@ const templateListInputSchema = z.object({
 });
 
 const createTemplateInputSchema = z.object({
-	name: z.string().trim().min(1),
+	name: z.string().trim().min(1).max(120),
 	type: templateTypeSchema.default("campaign"),
 	subject: z.string().optional().default(""),
 	body_source: z.string().optional(),
