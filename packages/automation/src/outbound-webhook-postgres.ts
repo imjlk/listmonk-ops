@@ -1273,7 +1273,10 @@ export function createPostgresOutboundWebhookRepository(
 
 		async resetEndpointCircuit(endpointId, _now) {
 			await ensureInitialized();
-			const rows = await sql<EndpointRow[]>`
+			// Update only rows that are not already closed-and-zero so a reset
+			// retry is a true no-op. If the row already matches (no UPDATE),
+			// fall back to a SELECT to return the current state.
+			const updated = await sql<EndpointRow[]>`
 				UPDATE listmonk_ops.webhook_endpoints
 				SET
 					consecutive_failures = 0,
@@ -1281,6 +1284,7 @@ export function createPostgresOutboundWebhookRepository(
 					circuit_opened_at = NULL,
 					circuit_open_until = NULL
 				WHERE id = ${endpointId}
+				  AND NOT (circuit_state = 'closed' AND consecutive_failures = 0)
 				RETURNING
 					id, name, url, secret_ref, event_filters, enabled,
 					timeout_ms, max_attempts, circuit_failure_threshold,
@@ -1288,10 +1292,25 @@ export function createPostgresOutboundWebhookRepository(
 					circuit_opened_at, circuit_open_until, last_failure_at,
 					last_success_at, created_at, updated_at
 			`;
-			if (!rows[0]) {
+			if (updated[0]) {
+				return toEndpointRuntime(updated[0]);
+			}
+			// No row was updated: either the endpoint does not exist, or it was
+			// already in the target state. Fetch the current row to distinguish.
+			const current = await sql<EndpointRow[]>`
+				SELECT
+					id, name, url, secret_ref, event_filters, enabled,
+					timeout_ms, max_attempts, circuit_failure_threshold,
+					circuit_cooldown_ms, consecutive_failures, circuit_state,
+					circuit_opened_at, circuit_open_until, last_failure_at,
+					last_success_at, created_at, updated_at
+				FROM listmonk_ops.webhook_endpoints
+				WHERE id = ${endpointId}
+			`;
+			if (!current[0]) {
 				throw new OutboundWebhookNotFoundError("endpoint", endpointId);
 			}
-			return toEndpointRuntime(rows[0]);
+			return toEndpointRuntime(current[0]);
 		},
 
 		async close() {

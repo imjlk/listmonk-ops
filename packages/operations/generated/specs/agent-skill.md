@@ -410,7 +410,7 @@ Retry guidance: Run dry_run first and list dead letters after an ambiguous repla
 
 ## Reset outbound webhook circuit breaker (`webhooks.circuit.reset`)
 
-Contract maturity: `experimental`; effects: `write:webhook`; confirmation: `required`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:webhook`; confirmation: `required`; retry: `safe`.
 
 Use when: An endpoint failure has been fixed and delivery may resume.
 

@@ -4944,6 +4944,120 @@
         "input": {
           "components": {
             "schemas": {
+              "Uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "WebhookCircuitResetInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/Uuid"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "Uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "WebhookCircuitResetOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "circuit_state": {
+                    "const": "closed"
+                  },
+                  "consecutive_failures": {
+                    "const": 0
+                  },
+                  "endpoint_id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  }
+                },
+                "required": [
+                  "endpoint_id",
+                  "circuit_state",
+                  "consecutive_failures"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "circuit_state": {
+                "const": "closed"
+              },
+              "consecutive_failures": {
+                "const": 0
+              },
+              "endpoint_id": {
+                "$ref": "#/components/schemas/Uuid"
+              }
+            },
+            "required": [
+              "endpoint_id",
+              "circuit_state",
+              "consecutive_failures"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "webhook",
+          "reversible": false
+        }
+      ],
+      "id": "webhooks.circuit.reset",
+      "mcpName": "listmonk_webhooks_circuit_reset",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "webhook",
+      "retry": {
+        "kind": "safe",
+        "reason": "Resetting an already closed circuit is an idempotent no-op."
+      },
+      "verb": "reset"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "IsoDateTime": {
                 "format": "date-time",
                 "type": "string"

@@ -8535,7 +8535,7 @@
         "reason": "Resetting an already closed circuit is an idempotent no-op."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "sequences.validate",

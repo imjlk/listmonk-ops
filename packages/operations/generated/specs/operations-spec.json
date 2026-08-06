@@ -10067,7 +10067,7 @@
         "reason": "Resetting an already closed circuit is an idempotent no-op."
       },
       "since": "0.8.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Reset outbound webhook circuit breaker",
       "verb": "reset"
     },

@@ -1982,6 +1982,17 @@ export async function resetOutboundWebhookEndpointCircuit(
 		if (!current.endpoints.some((endpoint) => endpoint.id === endpointId)) {
 			throw new OutboundWebhookNotFoundError("endpoint", endpointId);
 		}
+		// Short-circuit when the circuit is already closed with zero failures
+		// so a reset retry is a true no-op, matching the spec's idempotent claim.
+		const existing = current.endpointRuntime.find(
+			(candidate) => candidate.endpointId === endpointId,
+		);
+		if (
+			existing?.circuitState === "closed" &&
+			existing.consecutiveFailures === 0
+		) {
+			return commitJsonFileStoreUpdate(current, existing);
+		}
 		const runtime = endpointRuntimeSchema.parse({
 			endpointId,
 			consecutiveFailures: 0,
