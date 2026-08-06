@@ -194,6 +194,8 @@ export function defineOperation<
 	description: string;
 	inputSchema: InputSchema;
 	outputSchema: OutputSchema;
+	parseInput?(input: unknown): z.output<InputSchema>;
+	normalizeError?(error: unknown): OperationError;
 	safety: OperationSafety;
 	mcp: OperationMcpMetadata;
 	execute(
@@ -243,13 +245,17 @@ export function defineOperation<
 			? {}
 			: { specMigration: config.specMigration }),
 		async invoke(context, input) {
-			const parsedInput = parseOperationInput(config.inputSchema, input);
+			const parsedInput = config.parseInput
+				? config.parseInput(input)
+				: parseOperationInput(config.inputSchema, input);
 
 			let output: z.output<OutputSchema>;
 			try {
 				output = await config.execute(context, parsedInput);
 			} catch (error) {
-				throw normalizeOperationExecutionError(config.id, error);
+				throw config.normalizeError
+					? config.normalizeError(error)
+					: normalizeOperationExecutionError(config.id, error);
 			}
 			return parseOperationOutput(config.id, config.outputSchema, output);
 		},
