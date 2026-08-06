@@ -91,6 +91,11 @@ jobs:
           LISTMONK_OPS_TEST_WEBHOOK_DATABASE_URL: postgres://listmonk:listmonk@127.0.0.1:15432/listmonk
         run: bun test packages/automation/tests/outbound-webhook-postgres.test.ts
 
+      - name: Run Postgres sequence runtime integration
+        env:
+          LISTMONK_OPS_TEST_SEQUENCE_DATABASE_URL: postgres://listmonk:listmonk@127.0.0.1:15432/listmonk
+        run: bun test packages/automation/tests/sequence-postgres.test.ts
+
       - name: Run MCP E2E tests
         env:
           LISTMONK_OPS_WEBHOOK_DATABASE_URL: postgres://listmonk:listmonk@127.0.0.1:15432/listmonk
