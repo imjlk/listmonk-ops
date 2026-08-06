@@ -19205,6 +19205,7 @@
                     "type": "string"
                   },
                   "type": {
+                    "description": "Template type. Optional on input and defaults to `\"campaign\"`, matching\nthe runtime Zod schema's `.default(\"campaign\")`.",
                     "oneOf": [
                       {
                         "const": "campaign"

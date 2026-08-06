@@ -1467,6 +1467,10 @@ export type TemplateManifestType = "campaign" | "campaign_visual" | "tx";
 
 export interface TemplateManifestEntry {
 	name: NonEmptyString & tags.MaxLength<120>;
+	/**
+	 * Template type. Optional on input and defaults to `"campaign"`, matching
+	 * the runtime Zod schema's `.default("campaign")`.
+	 */
 	type?: TemplateManifestType;
 	subject?: string & tags.MaxLength<500>;
 	body_source?: string;
