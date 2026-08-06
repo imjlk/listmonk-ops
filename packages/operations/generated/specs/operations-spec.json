@@ -19408,7 +19408,7 @@
         "reconcileWith": "templates.reconcile"
       },
       "since": "0.12.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Reconcile template manifest",
       "verb": "reconcile"
     },
