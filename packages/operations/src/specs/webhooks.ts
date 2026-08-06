@@ -749,9 +749,11 @@ export const webhookReconcileOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "never", audit: "required", dryRun: true },
 	retry: {
-		kind: "safe",
+		kind: "reconcile",
+		reconcileWith: "webhooks.reconcile",
+		idempotent: false,
 		reason:
-			"Only expired leases are recovered and repeating reconciliation is an idempotent no-op.",
+			"Reconciliation is bounded by a per-call limit. When more expired deliveries exist than the limit, an ambiguous retry selects and mutates the next batch rather than being a pure no-op; re-run in dry-run mode to verify the remaining backlog before retrying.",
 	},
 	agent: {
 		useWhen: [
@@ -761,7 +763,7 @@ export const webhookReconcileOperationSpec = defineOperationSpec({
 		prerequisites: ["webhooks.delivery.list"],
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.tick", "webhooks.dispatch"],
-		retryGuidance: "Repeating reconciliation is safe after an ambiguous result.",
+		retryGuidance: "Re-run in dry-run mode after an ambiguous result to verify whether more expired deliveries remain before retrying.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_reconcile",

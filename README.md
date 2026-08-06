@@ -913,7 +913,10 @@ transactional enqueue deduplication, `FOR UPDATE SKIP LOCKED` claims, and
 lease-token fencing. Ordered, advisory-lock-protected migrations upgrade the
 runtime schema. `webhooks tick` first reconciles expired leases and then
 dispatches a bounded batch. `webhooks reconcile` previews recovery by default
-and applies it with `--no-dry-run`, while
+and applies it with `--no-dry-run`. Reconciliation is bounded by a per-call
+limit, so an ambiguous retry can process the next batch of expired deliveries
+rather than being a pure no-op; re-run in dry-run mode to verify the remaining
+backlog before retrying. In contrast,
 `webhooks prune` defaults to a dry run and only deletes old terminal history
 after explicit confirmation.
 

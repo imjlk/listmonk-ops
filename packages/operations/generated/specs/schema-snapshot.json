@@ -6751,8 +6751,10 @@
         "dryRun": true
       },
       "retry": {
-        "kind": "safe",
-        "reason": "Only expired leases are recovered and repeating reconciliation is an idempotent no-op."
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "Reconciliation is bounded by a per-call limit. When more expired deliveries exist than the limit, an ambiguous retry selects and mutates the next batch rather than being a pure no-op; re-run in dry-run mode to verify the remaining backlog before retrying.",
+        "reconcileWith": "webhooks.reconcile"
       },
       "since": "0.8.0",
       "stability": "experimental"

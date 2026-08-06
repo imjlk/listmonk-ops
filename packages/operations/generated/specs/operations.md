@@ -279,7 +279,7 @@ Recover expired worker leases and exhaust deliveries whose endpoint is missing o
 - Contract source: input `typescript`, output `typescript`
 - Effects: `maintenance:recover:recoverable`
 - Policy: confirmation `never`, audit `required`, dry-run `true`
-- Retry: `safe`
+- Retry: `reconcile`
 - Stability: `experimental` since `0.8.0`
 
 ## `webhooks.prune`

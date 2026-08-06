@@ -312,7 +312,7 @@ Retry guidance: Inspect the delivery status after an ambiguous result before req
 
 ## Reconcile outbound webhook leases (`webhooks.reconcile`)
 
-Contract maturity: `experimental`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `safe`.
+Contract maturity: `experimental`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `reconcile`.
 
 Use when: A worker may have crashed with deliveries left in the delivering state.
 
@@ -322,7 +322,7 @@ Prerequisites: `webhooks.delivery.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Repeating reconciliation is safe after an ambiguous result.
+Retry guidance: Re-run in dry-run mode after an ambiguous result to verify whether more expired deliveries remain before retrying.
 
 ## Prune outbound webhook delivery history (`webhooks.prune`)
 
