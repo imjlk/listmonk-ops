@@ -8,6 +8,7 @@ import {
 	listOperationCatalog,
 	listOperationCatalogSummaries,
 	listOperations,
+	subscriberOperations,
 	templateOperationCatalog,
 } from "../src";
 
@@ -171,18 +172,21 @@ describe("operation catalog", () => {
 	});
 
 	test("enforces runtime contracts when a consumer composes catalogs", () => {
-		const createListOperation = listOperations.find(
-			(operation) => operation.id === "lists.create",
+		const createSubscriberOperation = subscriberOperations.find(
+			(operation) => operation.id === "subscribers.create",
 		);
-		if (!createListOperation || createListOperation.spec === undefined) {
-			throw new Error("expected a bridged list operation");
+		if (
+			!createSubscriberOperation ||
+			createSubscriberOperation.spec === undefined
+		) {
+			throw new Error("expected a bridged subscriber operation");
 		}
 		const driftedCatalog = defineOperationCatalog({
-			id: "drifted-list",
-			title: "Drifted list",
+			id: "drifted-subscriber",
+			title: "Drifted subscriber",
 			operations: [
 				{
-					...createListOperation,
+					...createSubscriberOperation,
 					inputJsonSchema: { type: "object", properties: {} },
 				},
 			],

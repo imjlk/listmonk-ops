@@ -72,13 +72,13 @@ describe("agent discovery operations", () => {
 		});
 
 		const bridged = await invokeSpecDescribeOperation(context, {
-			operation: "lists.create",
+			operation: "subscribers.create",
 		});
 		expect(bridged.operation).toMatchObject({
 			coverage: "described",
 			stability: "experimental",
 			spec: {
-				resource: "list",
+				resource: "subscriber",
 				contract: {
 					input: { source: "runtime-operation" },
 					output: { source: "runtime-operation" },

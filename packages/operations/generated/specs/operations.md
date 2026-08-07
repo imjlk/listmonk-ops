@@ -806,7 +806,7 @@ Create a new subscriber list
 
 - Resource / verb: `list.create`
 - MCP tool: `listmonk_create_list`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `write:list`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `unsafe`
@@ -818,9 +818,9 @@ Update an existing subscriber list
 
 - Resource / verb: `list.update`
 - MCP tool: `listmonk_update_list`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `write:list`
-- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
@@ -830,10 +830,10 @@ Delete a subscriber list
 
 - Resource / verb: `list.delete`
 - MCP tool: `listmonk_delete_list`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `delete:list`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `safe`
+- Retry: `reconcile`
 - Stability: `experimental` since `0.9.0`
 
 ## `subscribers.create`

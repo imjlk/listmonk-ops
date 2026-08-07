@@ -1,8 +1,10 @@
 import type { List, ListmonkClient } from "@listmonk-ops/openapi";
 import {
-	bindBridgedOperationSpec,
+	bindListsCreateOperationSpec,
+	bindListsDeleteOperationSpec,
 	bindListsGetOperationSpec,
 	bindListsListOperationSpec,
+	bindListsUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
@@ -316,7 +318,7 @@ export const createListOperation = defineOperation({
 		openWorldHint: true,
 	},
 	mcp: { name: "listmonk_create_list" },
-	spec: bindBridgedOperationSpec("lists.create"),
+	spec: bindListsCreateOperationSpec(),
 	execute: createSubscriberList,
 });
 
@@ -328,7 +330,7 @@ export const updateListOperation = defineOperation({
 	outputSchema: subscriberListSchema,
 	safety: {
 		readOnlyHint: false,
-		destructiveHint: true,
+		destructiveHint: false,
 		idempotentHint: true,
 		openWorldHint: true,
 	},
@@ -336,7 +338,7 @@ export const updateListOperation = defineOperation({
 		name: "listmonk_update_list",
 		legacySuccessText: "List updated successfully",
 	},
-	spec: bindBridgedOperationSpec("lists.update"),
+	spec: bindListsUpdateOperationSpec(),
 	execute: updateSubscriberList,
 });
 
@@ -356,7 +358,7 @@ export const deleteListOperation = defineOperation({
 		name: "listmonk_delete_list",
 		legacySuccessText: "List deleted successfully",
 	},
-	spec: bindBridgedOperationSpec("lists.delete"),
+	spec: bindListsDeleteOperationSpec(),
 	execute: deleteSubscriberList,
 });
 
