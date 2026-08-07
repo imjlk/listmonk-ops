@@ -57,8 +57,8 @@ Listmonk OpenAPI transport
   -> operation spec (resource, effect, policy, retry, agent context)
 ```
 
-Ninety-one contracts are authored as TypeScript types and projected with Typia.
-The remaining 13 operations use a committed
+All 104 contracts are authored as TypeScript types and projected with Typia.
+All 104 operations now have use a committed
 `runtime-operation` bridge snapshot of the normalized executor boundary while
 their standalone product types are developed. Runtime bridges are always
 `experimental`; they never import `@listmonk-ops/openapi` or generated SDK

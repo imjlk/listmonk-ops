@@ -1,4 +1,4 @@
-import { bridgedOperationSpecsById } from "./bridged";
+import { abTestGetOperationSpec, abTestRunOperationSpec } from "./core-reads";
 import {
 	opsTemplateRegistrySyncOperationSpec,
 	opsTemplateRegistryHistoryOperationSpec,
@@ -245,7 +245,7 @@ export const abTestSafeRunPlaybook = defineOperationPlaybook({
 	steps: [
 		{
 			id: "inspect",
-			operation: bridgedOperationSpecsById["abtest.get"].id,
+			operation: abTestGetOperationSpec.id,
 			approval: "none",
 			description: "Inspect current experiment status and gates.",
 			dependsOn: [],
@@ -258,7 +258,7 @@ export const abTestSafeRunPlaybook = defineOperationPlaybook({
 		},
 		{
 			id: "run",
-			operation: bridgedOperationSpecsById["abtest.run"].id,
+			operation: abTestRunOperationSpec.id,
 			approval: "human",
 			description:
 				"Advance exactly one lifecycle step after explicit approval.",
@@ -292,7 +292,7 @@ export const abTestSafeRunPlaybook = defineOperationPlaybook({
 		},
 		{
 			id: "verify",
-			operation: bridgedOperationSpecsById["abtest.get"].id,
+			operation: abTestGetOperationSpec.id,
 			approval: "none",
 			description: "Read persisted experiment state after the action.",
 			dependsOn: ["run"],
@@ -304,5 +304,5 @@ export const abTestSafeRunPlaybook = defineOperationPlaybook({
 			],
 		},
 	],
-	recoveryOperation: bridgedOperationSpecsById["abtest.get"].id,
+	recoveryOperation: abTestGetOperationSpec.id,
 });

@@ -6,7 +6,21 @@ import {
 	parseOperationInput,
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
-import { bindBridgedOperationSpec } from "@listmonk-ops/operations/specs";
+import {
+	bindAbTestAnalyzeOperationSpec,
+	bindAbTestCreateOperationSpec,
+	bindAbTestDeleteOperationSpec,
+	bindAbTestDeployWinnerOperationSpec,
+	bindAbTestExportAssignmentOperationSpec,
+	bindAbTestGetOperationSpec,
+	bindAbTestLaunchOperationSpec,
+	bindAbTestListOperationSpec,
+	bindAbTestReconcileOperationSpec,
+	bindAbTestRecommendSampleSizeOperationSpec,
+	bindAbTestRunOperationSpec,
+	bindAbTestStopOperationSpec,
+	bindAbTestTickOperationSpec,
+} from "@listmonk-ops/operations/specs";
 import { z } from "zod";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { AbTestNotFoundError } from "./errors";
@@ -44,7 +58,7 @@ const numericIntegerInputSchema = z.union([
 const numericPercentageSchema = z.coerce
 	.number()
 	.finite()
-	.gt(0)
+	.min(0)
 	.lte(100);
 const optionalNumberSchema = z.preprocess(
 	(value) => (value === null || value === "" ? undefined : value),
@@ -105,7 +119,7 @@ const abTestSchema = z.object({
 	testGroupPercentage: z.number().finite(),
 	testGroupSize: z.number().finite().nonnegative(),
 	holdoutGroupSize: z.number().finite().nonnegative(),
-	confidenceThreshold: z.number().finite().gt(0).lte(1),
+	confidenceThreshold: z.number().finite().min(0).lte(1),
 	autoDeployWinner: z.boolean(),
 	campaignMappings: z.array(
 		z.object({
@@ -304,15 +318,15 @@ const createAbTestInputSchema = z.object({
 	variants: z.array(createVariantInputSchema).min(2).max(3),
 	testing_mode: z.enum(["holdout", "full-split"]).optional(),
 	test_group_percentage: optionalNumberSchema.pipe(
-		z.number().gt(0).lte(100).optional(),
+		z.number().min(0).lte(100).optional(),
 	),
 	confidence_threshold: optionalNumberSchema.pipe(
-		z.number().gt(0).lt(1).optional(),
+		z.number().min(0).lt(1).optional(),
 	),
 	minimum_sample_size: optionalNumberSchema.pipe(
 		z.number().int().positive().optional(),
 	),
-	duration_hours: optionalNumberSchema.pipe(z.number().gt(0).optional()),
+	duration_hours: optionalNumberSchema.pipe(z.number().min(0).optional()),
 	launch_at: z.string().datetime().optional(),
 	auto_launch: optionalBooleanSchema,
 	auto_deploy_winner: optionalBooleanSchema,
@@ -349,7 +363,7 @@ const createAbTestInputSchema = z.object({
 				experiment_family_key: z
 					.string()
 					.regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/),
-				attribution_window_hours: z.number().finite().positive(),
+				attribution_window_hours: z.number().finite().min(0),
 				exclusion_window_hours: z.number().finite().nonnegative(),
 			}),
 		})
@@ -406,7 +420,7 @@ const recommendSampleSizeInputSchema = z.object({
 	test_group_percentage: z.coerce
 		.number()
 		.finite()
-		.gt(0)
+		.min(0)
 		.lte(100),
 	variant_count: z.coerce.number().int().min(2).max(3).default(2),
 });
@@ -740,8 +754,6 @@ const readSafety = {
 
 const createSafety = {
 	readOnlyHint: false,
-	// `auto_launch` can start the backing campaigns as part of creation, so the
-	// static MCP annotation must cover that potentially destructive input path.
 	destructiveHint: true,
 	idempotentHint: false,
 	openWorldHint: true,
@@ -777,14 +789,14 @@ export const listAbTestsOperation = defineOperation({
 		name: "listmonk_abtest_list",
 		legacySuccessText: (output) => jsonValue(output["tests"]),
 	},
-	spec: bindBridgedOperationSpec("abtest.list"),
+	spec: bindAbTestListOperationSpec(),
 	execute: executeListAbTestsOperation,
 });
 
 export const getAbTestOperation = defineOperation({
 	id: "abtest.get",
 	title: "Get A/B test",
-	description: "Get persisted A/B test details",
+	description: "Get a specific A/B test by ID",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
 	safety: readSafety,
@@ -792,7 +804,7 @@ export const getAbTestOperation = defineOperation({
 		name: "listmonk_abtest_get",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
-	spec: bindBridgedOperationSpec("abtest.get"),
+	spec: bindAbTestGetOperationSpec(),
 	execute: executeGetAbTestOperation,
 });
 
@@ -800,7 +812,7 @@ export const createAbTestOperation = defineOperation({
 	id: "abtest.create",
 	title: "Create A/B test",
 	description:
-		"Create and persist an A/B test; auto-launch can start its campaigns",
+		"Create a new A/B test with variants and configuration",
 	inputSchema: createAbTestInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
 	safety: createSafety,
@@ -808,14 +820,14 @@ export const createAbTestOperation = defineOperation({
 		name: "listmonk_abtest_create",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
-	spec: bindBridgedOperationSpec("abtest.create"),
+	spec: bindAbTestCreateOperationSpec(),
 	execute: executeCreateAbTestOperation,
 });
 
 export const analyzeAbTestOperation = defineOperation({
 	id: "abtest.analyze",
 	title: "Analyze A/B test",
-	description: "Analyze persisted A/B test statistical results",
+	description: "Analyze A/B test results and produce statistical recommendations",
 	inputSchema: analyzeAbTestInputSchema,
 	outputSchema: z.object({ analysis: testAnalysisSchema }),
 	safety: readSafety,
@@ -823,22 +835,22 @@ export const analyzeAbTestOperation = defineOperation({
 		name: "listmonk_abtest_analyze",
 		legacySuccessText: (output) => jsonValue(output["analysis"]),
 	},
-	spec: bindBridgedOperationSpec("abtest.analyze"),
+	spec: bindAbTestAnalyzeOperationSpec(),
 	execute: executeAnalyzeAbTestOperation,
 });
 
 export const launchAbTestOperation = defineOperation({
 	id: "abtest.launch",
 	title: "Launch A/B test",
-	description: "Launch a draft A/B test",
+	description: "Launch a draft A/B test into the testing status",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
-	safety: destructiveNonIdempotentSafety,
+	safety: destructiveSafety,
 	mcp: {
 		name: "listmonk_abtest_launch",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
-	spec: bindBridgedOperationSpec("abtest.launch"),
+	spec: bindAbTestLaunchOperationSpec(),
 	execute: executeLaunchAbTestOperation,
 });
 
@@ -846,15 +858,15 @@ export const stopAbTestOperation = defineOperation({
 	id: "abtest.stop",
 	title: "Stop A/B test",
 	description:
-		"Stop an A/B test and clean up its non-terminal Listmonk campaigns and temporary lists",
+		"Stop a running A/B test and transition to a terminal status",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
-	safety: destructiveNonIdempotentSafety,
+	safety: destructiveSafety,
 	mcp: {
 		name: "listmonk_abtest_stop",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
-	spec: bindBridgedOperationSpec("abtest.stop"),
+	spec: bindAbTestStopOperationSpec(),
 	execute: executeStopAbTestOperation,
 });
 
@@ -862,7 +874,7 @@ export const deleteAbTestOperation = defineOperation({
 	id: "abtest.delete",
 	title: "Delete A/B test",
 	description:
-		"Delete an A/B test and clean up non-terminal Listmonk campaigns and temporary lists before removing persisted state",
+		"Delete a persisted A/B test",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ deleted: z.boolean() }),
 	safety: destructiveSafety,
@@ -870,14 +882,14 @@ export const deleteAbTestOperation = defineOperation({
 		name: "listmonk_abtest_delete",
 		legacySuccessText: (output) => jsonValue(output),
 	},
-	spec: bindBridgedOperationSpec("abtest.delete"),
+	spec: bindAbTestDeleteOperationSpec(),
 	execute: executeDeleteAbTestOperation,
 });
 
 export const recommendAbTestSampleSizeOperation = defineOperation({
 	id: "abtest.recommend-sample-size",
 	title: "Recommend A/B test sample size",
-	description: "Get statistical recommendations for test-group sample size",
+	description: "Recommend a sample size and test group percentage for an upcoming A/B test",
 	inputSchema: recommendSampleSizeInputSchema,
 	outputSchema: z.object({ recommendation: testValidationSchema }),
 	safety: readSafety,
@@ -885,7 +897,7 @@ export const recommendAbTestSampleSizeOperation = defineOperation({
 		name: "listmonk_abtest_recommend_sample_size",
 		legacySuccessText: (output) => jsonValue(output["recommendation"]),
 	},
-	spec: bindBridgedOperationSpec("abtest.recommend-sample-size"),
+	spec: bindAbTestRecommendSampleSizeOperationSpec(),
 	execute: executeRecommendAbTestSampleSizeOperation,
 });
 
@@ -900,7 +912,7 @@ export const deployAbTestWinnerOperation = defineOperation({
 		name: "listmonk_abtest_deploy_winner",
 		legacySuccessText: (output) => jsonValue(output),
 	},
-	spec: bindBridgedOperationSpec("abtest.deploy-winner"),
+	spec: bindAbTestDeployWinnerOperationSpec(),
 	execute: executeDeployAbTestWinnerOperation,
 });
 
@@ -918,9 +930,9 @@ const reconcileResultSchema = z.object({
 
 export const runAbTestOperation = defineOperation({
 	id: "abtest.run",
-	title: "Run A/B test step",
+	title: "Run A/B test",
 	description:
-		"Advance a single A/B test one lifecycle step based on its current status",
+		"Advance an A/B test by one lifecycle step (launch, analyze, or deploy winner)",
 	inputSchema: runAbTestInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
 	safety: destructiveNonIdempotentSafety,
@@ -928,7 +940,7 @@ export const runAbTestOperation = defineOperation({
 		name: "listmonk_abtest_run",
 		legacySuccessText: (output) => jsonValue(output["test"]),
 	},
-	spec: bindBridgedOperationSpec("abtest.run"),
+	spec: bindAbTestRunOperationSpec(),
 	execute: executeRunAbTestOperation,
 });
 
@@ -936,7 +948,7 @@ export const tickAbTestsOperation = defineOperation({
 	id: "abtest.tick",
 	title: "Tick A/B tests",
 	description:
-		"Advance every non-terminal A/B test one lifecycle step and report the actions taken",
+		"Advance all non-terminal A/B tests by one step",
 	inputSchema: tickAbTestsInputSchema,
 	outputSchema: z.object({
 		processed: z.number().int().nonnegative(),
@@ -947,7 +959,7 @@ export const tickAbTestsOperation = defineOperation({
 		name: "listmonk_abtest_tick",
 		legacySuccessText: (output) => jsonValue(output),
 	},
-	spec: bindBridgedOperationSpec("abtest.tick"),
+	spec: bindAbTestTickOperationSpec(),
 	execute: executeTickAbTestsOperation,
 });
 
@@ -955,7 +967,7 @@ export const reconcileAbTestOperation = defineOperation({
 	id: "abtest.reconcile",
 	title: "Reconcile A/B test state",
 	description:
-		"Reconcile persisted A/B test state against expected lifecycle state; repairs are destructive when enabled",
+		"Reconcile persisted A/B test state against expected lifecycle state",
 	inputSchema: reconcileAbTestInputSchema,
 	outputSchema: z.object({
 		reconciled: z.number().int().nonnegative(),
@@ -963,12 +975,12 @@ export const reconcileAbTestOperation = defineOperation({
 	}),
 	// Reconcile is read-only by default but becomes destructive when `repair`
 	// is requested, so the static annotation must cover the destructive path.
-	safety: destructiveSafety,
+	safety: destructiveNonIdempotentSafety,
 	mcp: {
 		name: "listmonk_abtest_reconcile",
 		legacySuccessText: (output) => jsonValue(output),
 	},
-	spec: bindBridgedOperationSpec("abtest.reconcile"),
+	spec: bindAbTestReconcileOperationSpec(),
 	execute: executeReconcileAbTestOperation,
 });
 
@@ -976,7 +988,7 @@ export const exportAbTestAssignmentOperation = defineOperation({
 	id: "abtest.export-assignment",
 	title: "Export A/B test assignment manifest",
 	description:
-		"Export the subscriber assignment manifest for a test with deterministic provisioning. Contains subscriber group assignments (no email/PII).",
+		"Export the subscriber assignment manifest for a test with deterministic provisioning",
 	inputSchema: exportAssignmentInputSchema,
 	outputSchema: z.object({
 		manifest: z.unknown(),
@@ -991,7 +1003,7 @@ export const exportAbTestAssignmentOperation = defineOperation({
 		name: "listmonk_abtest_export_assignment",
 		legacySuccessText: (output) => jsonValue(output),
 	},
-	spec: bindBridgedOperationSpec("abtest.export-assignment"),
+	spec: bindAbTestExportAssignmentOperationSpec(),
 	execute: executeExportAbTestAssignmentOperation,
 });
 

@@ -1266,183 +1266,183 @@ Retry guidance: Inspect ops.templates.registry-history before retrying an ambigu
 
 Contract maturity: `experimental`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
 
-Use when: List persisted A/B tests, optionally filtered by status
+Use when: A/B tests must be discovered or enumerated.
 
-Avoid when: A mutation or workflow transition is required instead of inspection.
+Avoid when: A specific test ID is already known.
 
 Prerequisites: none
 
 Verify with: none
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Get A/B test (`abtest.get`)
 
 Contract maturity: `experimental`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
 
-Use when: Get persisted A/B test details
+Use when: A specific A/B test must be inspected by ID.
 
-Avoid when: A mutation or workflow transition is required instead of inspection.
+Avoid when: The test ID is unknown.
 
 Prerequisites: none
 
 Verify with: none
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Create A/B test (`abtest.create`)
 
-Contract maturity: `experimental`; effects: `write:experiment, write:campaign, write:list, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
 
-Use when: Create and persist an A/B test; auto-launch can start its campaigns
+Use when: A new A/B test must be created.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: An existing test should be updated.
 
 Prerequisites: none
 
 Verify with: `abtest.get`
 
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
+Retry guidance: Inspect abtest.list before retrying an ambiguous create.
 
 ## Analyze A/B test (`abtest.analyze`)
 
 Contract maturity: `experimental`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
 
-Use when: Analyze persisted A/B test statistical results
+Use when: A/B test results must be statistically evaluated.
 
-Avoid when: A mutation or workflow transition is required instead of inspection.
+Avoid when: The test has not started or has insufficient data.
 
 Prerequisites: `abtest.get`
 
 Verify with: none
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry is safe; the analysis is read-only.
 
 ## Launch A/B test (`abtest.launch`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment`; confirmation: `required`; retry: `safe`.
 
-Use when: Launch a draft A/B test
+Use when: A draft A/B test is ready to go live.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `abtest.get`, `ops.campaign.preflight`
-
-Verify with: `abtest.get`
-
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
-
-## Stop A/B test (`abtest.stop`)
-
-Contract maturity: `experimental`; effects: `write:experiment, delete:campaign, delete:list`; confirmation: `required`; retry: `unsafe`.
-
-Use when: Stop an A/B test and clean up its non-terminal Listmonk campaigns and temporary lists
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: The test has validation errors.
 
 Prerequisites: `abtest.get`
 
 Verify with: `abtest.get`
 
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
+Retry guidance: Retry is safe; launching an already-launched test is a no-op.
+
+## Stop A/B test (`abtest.stop`)
+
+Contract maturity: `experimental`; effects: `write:experiment`; confirmation: `required`; retry: `safe`.
+
+Use when: A running A/B test must be stopped.
+
+Avoid when: The test has already reached a terminal status.
+
+Prerequisites: `abtest.get`
+
+Verify with: `abtest.get`
+
+Retry guidance: Retry is safe; stopping an already-stopped test is a no-op.
 
 ## Delete A/B test (`abtest.delete`)
 
-Contract maturity: `experimental`; effects: `delete:experiment, delete:campaign, delete:list`; confirmation: `required`; retry: `safe`.
+Contract maturity: `experimental`; effects: `delete:experiment, delete:campaign, delete:list`; confirmation: `required`; retry: `reconcile`.
 
-Use when: Delete an A/B test and clean up non-terminal Listmonk campaigns and temporary lists before removing persisted state
+Use when: An A/B test must be permanently removed.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: The test is still running.
 
 Prerequisites: `abtest.get`
 
 Verify with: `abtest.list`
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Verify the test is gone with abtest.list before retrying.
 
 ## Recommend A/B test sample size (`abtest.recommend-sample-size`)
 
 Contract maturity: `experimental`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
 
-Use when: Get statistical recommendations for test-group sample size
+Use when: A sample size recommendation is needed before creating a test.
 
-Avoid when: A mutation or workflow transition is required instead of inspection.
+Avoid when: The list sizes are unknown.
 
-Prerequisites: none
+Prerequisites: `lists.list`
 
 Verify with: none
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry is safe; the recommendation is read-only.
 
 ## Deploy A/B test winner (`abtest.deploy-winner`)
 
-Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
 
-Use when: Deploy a statistically significant winner to the holdout group
+Use when: A winning variant must be deployed to the holdout group.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: No statistically significant winner has been identified.
 
-Prerequisites: `abtest.get`, `abtest.analyze`
+Prerequisites: `abtest.analyze`
 
 Verify with: `abtest.get`
 
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
+Retry guidance: Retry is safe; deploying an already-deployed winner is a no-op.
 
-## Run A/B test step (`abtest.run`)
+## Run A/B test (`abtest.run`)
 
-Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
 
-Use when: Advance a single A/B test one lifecycle step based on its current status
+Use when: An A/B test must run through its lifecycle without manual steps.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: The test requires manual review between stages.
 
 Prerequisites: `abtest.get`
 
 Verify with: `abtest.get`
 
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
+Retry guidance: Inspect abtest.get before retrying an ambiguous run.
 
 ## Tick A/B tests (`abtest.tick`)
 
-Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
 
-Use when: Advance every non-terminal A/B test one lifecycle step and report the actions taken
+Use when: Non-terminal A/B tests must be advanced by one lifecycle step.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: No tests are in a non-terminal status.
 
 Prerequisites: `abtest.list`
 
 Verify with: `abtest.list`
 
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
+Retry guidance: Inspect abtest.list before retrying an ambiguous tick.
 
 ## Reconcile A/B test state (`abtest.reconcile`)
 
-Contract maturity: `experimental`; effects: `maintenance:resolve:destructive`; confirmation: `required`; retry: `safe`.
+Contract maturity: `experimental`; effects: `write:experiment`; confirmation: `required`; retry: `unsafe`.
 
-Use when: Reconcile persisted A/B test state against expected lifecycle state; repairs are destructive when enabled
+Use when: Persisted A/B test state must be checked or repaired.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: No drift is suspected.
 
-Prerequisites: `abtest.get`
+Prerequisites: `abtest.list`
 
-Verify with: `abtest.get`
+Verify with: `abtest.list`
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Inspect abtest.list before retrying an ambiguous reconcile.
 
 ## Export A/B test assignment manifest (`abtest.export-assignment`)
 
 Contract maturity: `experimental`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
 
-Use when: Export the subscriber assignment manifest for a test with deterministic provisioning. Contains subscriber group assignments (no email/PII).
+Use when: A deterministic assignment manifest must be exported.
 
-Avoid when: A mutation or workflow transition is required instead of inspection.
+Avoid when: The test was not provisioned with deterministic assignments.
 
 Prerequisites: `abtest.get`
 
 Verify with: none
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry is safe; the export is read-only.
 
 ## Reconcile user-role manifest (`user-roles.reconcile`)
 

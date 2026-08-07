@@ -1095,95 +1095,95 @@ List persisted A/B tests, optionally filtered by status
 
 - Resource / verb: `experiment.list`
 - MCP tool: `listmonk_abtest_list`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `read:experiment`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.get`
 
-Get persisted A/B test details
+Get a specific A/B test by ID
 
 - Resource / verb: `experiment.get`
 - MCP tool: `listmonk_abtest_get`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `read:experiment`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.create`
 
-Create and persist an A/B test; auto-launch can start its campaigns
+Create a new A/B test with variants and configuration
 
 - Resource / verb: `experiment.create`
 - MCP tool: `listmonk_abtest_create`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, write:campaign, write:list, delivery:bulk:scheduled`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:experiment, write:campaign, delivery:bulk:scheduled`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.analyze`
 
-Analyze persisted A/B test statistical results
+Analyze A/B test results and produce statistical recommendations
 
 - Resource / verb: `experiment.analyze`
 - MCP tool: `listmonk_abtest_analyze`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `read:experiment`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.launch`
 
-Launch a draft A/B test
+Launch a draft A/B test into the testing status
 
 - Resource / verb: `experiment.launch`
 - MCP tool: `listmonk_abtest_launch`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, delivery:bulk:scheduled`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:experiment`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.stop`
 
-Stop an A/B test and clean up its non-terminal Listmonk campaigns and temporary lists
+Stop a running A/B test and transition to a terminal status
 
 - Resource / verb: `experiment.stop`
 - MCP tool: `listmonk_abtest_stop`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, delete:campaign, delete:list`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:experiment`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `safe`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.delete`
 
-Delete an A/B test and clean up non-terminal Listmonk campaigns and temporary lists before removing persisted state
+Delete a persisted A/B test
 
 - Resource / verb: `experiment.delete`
 - MCP tool: `listmonk_abtest_delete`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `delete:experiment, delete:campaign, delete:list`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.recommend-sample-size`
 
-Get statistical recommendations for test-group sample size
+Recommend a sample size and test group percentage for an upcoming A/B test
 
 - Resource / verb: `experiment.recommend-sample-size`
 - MCP tool: `listmonk_abtest_recommend_sample_size`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `read:experiment`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.deploy-winner`
 
@@ -1191,59 +1191,59 @@ Deploy a statistically significant winner to the holdout group
 
 - Resource / verb: `experiment.deploy-winner`
 - MCP tool: `listmonk_abtest_deploy_winner`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, write:campaign, delivery:bulk:immediate`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:experiment, delivery:bulk:immediate`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.run`
 
-Advance a single A/B test one lifecycle step based on its current status
+Advance an A/B test by one lifecycle step (launch, analyze, or deploy winner)
 
 - Resource / verb: `experiment.run`
 - MCP tool: `listmonk_abtest_run`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, write:campaign, delivery:bulk:immediate`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:experiment, delivery:bulk:immediate`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.tick`
 
-Advance every non-terminal A/B test one lifecycle step and report the actions taken
+Advance all non-terminal A/B tests by one step
 
 - Resource / verb: `experiment.tick`
 - MCP tool: `listmonk_abtest_tick`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:experiment, write:campaign, delivery:bulk:immediate`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:experiment, delivery:bulk:immediate`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.reconcile`
 
-Reconcile persisted A/B test state against expected lifecycle state; repairs are destructive when enabled
+Reconcile persisted A/B test state against expected lifecycle state
 
 - Resource / verb: `experiment.reconcile`
 - MCP tool: `listmonk_abtest_reconcile`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `maintenance:resolve:destructive`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:experiment`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.10.0`
 
 ## `abtest.export-assignment`
 
-Export the subscriber assignment manifest for a test with deterministic provisioning. Contains subscriber group assignments (no email/PII).
+Export the subscriber assignment manifest for a test with deterministic provisioning
 
 - Resource / verb: `experiment.export-assignment`
 - MCP tool: `listmonk_abtest_export_assignment`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `read:experiment`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `experimental` since `0.10.0`
 
 ## `user-roles.reconcile`
 

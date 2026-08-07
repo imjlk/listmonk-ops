@@ -145,6 +145,24 @@ import type {
 	TemplateIdInput,
 	TemplatePromoteInput,
 	TemplatePromoteOutput,
+	AbTestListInput,
+	AbTestListOutput,
+	AbTestIdInput,
+	AbTestGetOutput,
+	AbTestCreateInput,
+	AbTestAnalyzeInput,
+	AbTestAnalysisOutput,
+	AbTestRunInput,
+	AbTestTickInput,
+	AbTestTickOutput,
+	AbTestReconcileInput,
+	AbTestReconcileOutput,
+	AbTestRecommendSampleSizeInput,
+	AbTestRecommendOutput,
+	AbTestExportAssignmentInput,
+	AbTestExportOutput,
+	AbTestDeleteOutput,
+	AbTestDeployWinnerOutput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import { stableValue } from "../src/specs/stable-json.js";
@@ -648,6 +666,50 @@ const contracts = {
 	),
 	templatePromoteOutputContract: contractSchema(
 		typia.json.schema<TemplatePromoteOutput>(),
+	),
+	abTestListInputContract: contractSchema(typia.json.schema<AbTestListInput>()),
+	abTestListOutputContract: contractSchema(
+		typia.json.schema<AbTestListOutput>(),
+	),
+	abTestIdInputContract: contractSchema(typia.json.schema<AbTestIdInput>()),
+	abTestGetOutputContract: contractSchema(typia.json.schema<AbTestGetOutput>()),
+	abTestCreateInputContract: contractSchema(
+		typia.json.schema<AbTestCreateInput>(),
+	),
+	abTestAnalyzeInputContract: contractSchema(
+		typia.json.schema<AbTestAnalyzeInput>(),
+	),
+	abTestAnalysisOutputContract: contractSchema(
+		typia.json.schema<AbTestAnalysisOutput>(),
+	),
+	abTestRunInputContract: contractSchema(typia.json.schema<AbTestRunInput>()),
+	abTestTickInputContract: contractSchema(typia.json.schema<AbTestTickInput>()),
+	abTestTickOutputContract: contractSchema(
+		typia.json.schema<AbTestTickOutput>(),
+	),
+	abTestReconcileInputContract: contractSchema(
+		typia.json.schema<AbTestReconcileInput>(),
+	),
+	abTestReconcileOutputContract: contractSchema(
+		typia.json.schema<AbTestReconcileOutput>(),
+	),
+	abTestRecommendSampleSizeInputContract: contractSchema(
+		typia.json.schema<AbTestRecommendSampleSizeInput>(),
+	),
+	abTestRecommendOutputContract: contractSchema(
+		typia.json.schema<AbTestRecommendOutput>(),
+	),
+	abTestExportAssignmentInputContract: contractSchema(
+		typia.json.schema<AbTestExportAssignmentInput>(),
+	),
+	abTestExportOutputContract: contractSchema(
+		typia.json.schema<AbTestExportOutput>(),
+	),
+	abTestDeleteOutputContract: contractSchema(
+		typia.json.schema<AbTestDeleteOutput>(),
+	),
+	abTestDeployWinnerOutputContract: contractSchema(
+		typia.json.schema<AbTestDeployWinnerOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

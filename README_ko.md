@@ -499,7 +499,7 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-91개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 나머지 13개는
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 더 이상 bridge가 없습니다.
 generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계의
 커밋된 snapshot을 브릿지로 사용하며 명시적으로 `experimental`입니다.
 따라서 upstream API 변경은 먼저 generated transport와 handwritten adapter에서
@@ -556,11 +556,11 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 13개 governed runtime bridge, 46개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 46개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 312개를
 검증합니다.
 
-24개 bridge Operation 중 하나의 정규화 Zod 경계가 바뀌면 workspace를
+더 이상 bridge Operation이 없으므로 이 단락은 참고용으로 남깁니다. workspace를
 빌드한 뒤 `bun run operations:specs:runtime-contracts:generate`를 실행하고,
 커밋될 snapshot diff를 검토한 다음 Spec 산출물을 다시 생성하세요. 일반
 CLI/MCP 시작은 runtime contract와 snapshot이 다르면 계속 fail-closed로

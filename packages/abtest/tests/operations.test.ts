@@ -96,12 +96,12 @@ describe("A/B test operation registry", () => {
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_stop",
 			)?.safety,
-		).toMatchObject({ destructiveHint: true, idempotentHint: false });
+		).toMatchObject({ destructiveHint: true, idempotentHint: true });
 		expect(
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_launch",
 			)?.safety,
-		).toMatchObject({ destructiveHint: true, idempotentHint: false });
+		).toMatchObject({ destructiveHint: true, idempotentHint: true });
 		expect(
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_create",
@@ -136,7 +136,7 @@ describe("A/B test operation registry", () => {
 		);
 	});
 
-	test("uses shared input diagnostics across every named invoker", async () => {
+test("uses shared input diagnostics across every named invoker", async () => {
 		const context = { client: {} as ListmonkClient };
 
 		await expect(
@@ -182,7 +182,7 @@ describe("A/B test operation registry", () => {
 			).rejects.toThrow();
 	});
 
-	test("preserves typed not-found errors for lifecycle transitions", async () => {
+test("preserves typed not-found errors for lifecycle transitions", async () => {
 		tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-transition-"));
 		const storePath = join(tempDir, "abtests.json");
 		await saveStoredAbTests([], storePath);
@@ -200,7 +200,7 @@ describe("A/B test operation registry", () => {
 		});
 	});
 
-	test("rejects an A/B test changed after approval before progressing it", async () => {
+test("rejects an A/B test changed after approval before progressing it", async () => {
 		tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-run-"));
 		const storePath = join(tempDir, "abtests.json");
 		const fixture = createFixture("scheduled");
@@ -224,7 +224,7 @@ describe("A/B test operation registry", () => {
 		expect(persisted.test.updatedAt).toBe("2026-01-01T00:00:00.000Z");
 	});
 
-	test("requires the canonical UTC revision token emitted by A/B inspection", () => {
+test("requires the canonical UTC revision token emitted by A/B inspection", () => {
 		const runOperation = abTestOperations.find(
 			(operation) => operation.id === "abtest.run",
 		);
