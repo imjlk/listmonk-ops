@@ -2028,6 +2028,60 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/campaigns.ts#pauseCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindCampaignsPauseOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindCampaignsPauseOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#campaignsPauseOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#pauseCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsPauseOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsPauseOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#pauseCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#pauseCampaignOperation:variable"
+      },
+      "operationId": "campaigns.pause"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindCampaignsCloneOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindCampaignsCloneOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#campaignsCloneOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#cloneCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsCloneOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsCloneOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#cloneCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable"
+      },
+      "operationId": "campaigns.clone"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/media.ts#deleteMediaOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/core-reads.ts#bindMediaDeleteOperationSpec:function"
@@ -2159,60 +2213,6 @@
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable"
       },
       "operationId": "subscribers.unblocklist"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/campaigns.ts#pauseCampaignOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/campaigns.ts#pauseCampaign:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/operations/src/campaigns.ts#pauseCampaign:function",
-        "invokerNode": "packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#pauseCampaignOperation:variable"
-      },
-      "operationId": "campaigns.pause"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/campaigns.ts#cloneCampaign:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/operations/src/campaigns.ts#cloneCampaign:function",
-        "invokerNode": "packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable"
-      },
-      "operationId": "campaigns.clone"
     },
     {
       "edges": [

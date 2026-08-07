@@ -9,8 +9,6 @@ export const runtimeOperationContractIds = [
 	"subscribers.add-to-lists",
 	"subscribers.remove-from-lists",
 	"subscribers.unblocklist",
-	"campaigns.pause",
-	"campaigns.clone",
 	"ops.campaign.deliverability-guard",
 	"ops.subscribers.hygiene",
 	"ops.segments.drift",
