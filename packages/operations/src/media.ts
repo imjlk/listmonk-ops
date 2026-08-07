@@ -1,8 +1,9 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
-	bindBridgedOperationSpec,
+	bindMediaDeleteOperationSpec,
 	bindMediaGetOperationSpec,
 	bindMediaListOperationSpec,
+	bindMediaUploadOperationSpec,
 } from "./specs";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
@@ -462,7 +463,7 @@ export const deleteMediaOperation = defineOperation({
 		name: "listmonk_delete_media",
 		legacySuccessText: "Media file deleted successfully",
 	},
-	spec: bindBridgedOperationSpec("media.delete"),
+	spec: bindMediaDeleteOperationSpec(),
 	execute: deleteMediaFile,
 });
 
@@ -478,7 +479,7 @@ export const uploadMediaOperation = defineOperation({
 		name: "listmonk_upload_media",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("media.upload"),
+	spec: bindMediaUploadOperationSpec(),
 	execute: uploadMediaFile,
 });
 

@@ -908,6 +908,30 @@ Delete a campaign from Listmonk
 - Retry: `reconcile`
 - Stability: `experimental` since `0.9.0`
 
+## `media.delete`
+
+Delete an uploaded media file from Listmonk
+
+- Resource / verb: `media.delete`
+- MCP tool: `listmonk_delete_media`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `delete:media`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.9.0`
+
+## `media.upload`
+
+Upload a media file to Listmonk from base64-encoded contents. Validates an allowlist of MIME types and a 10 MiB size cap before sending.
+
+- Resource / verb: `media.upload`
+- MCP tool: `listmonk_upload_media`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:media`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.9.0`
+
 ## `subscribers.add-to-lists`
 
 Add a batch of subscribers to one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.
@@ -965,30 +989,6 @@ Create a new campaign by copying the body, lists, template, and metadata of an e
 - MCP tool: `listmonk_clone_campaign`
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `write:campaign`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
-
-## `media.delete`
-
-Delete an uploaded media file from Listmonk
-
-- Resource / verb: `media.delete`
-- MCP tool: `listmonk_delete_media`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `delete:media`
-- Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `media.upload`
-
-Upload a media file to Listmonk from base64-encoded contents. Validates an allowlist of MIME types and a 10 MiB size cap before sending.
-
-- Resource / verb: `media.upload`
-- MCP tool: `listmonk_upload_media`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:media`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`

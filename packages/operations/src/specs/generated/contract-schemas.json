@@ -7567,6 +7567,90 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "mediaDeleteInputContract": {
+    "components": {
+      "schemas": {
+        "MediaDeleteInput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "mediaDeleteOutputContract": {
+    "components": {
+      "schemas": {
+        "MediaDeleteOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "deleted": {
+              "type": "boolean"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "id",
+            "deleted"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [
+        "id",
+        "deleted"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "mediaRecordContract": {
     "components": {
       "schemas": {
@@ -7660,6 +7744,73 @@
         }
       },
       "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "mediaUploadInputContract": {
+    "components": {
+      "schemas": {
+        "MediaUploadInput": {
+          "additionalProperties": false,
+          "properties": {
+            "base64": {
+              "description": "Base64-encoded file contents. Max length matches the runtime 10 MiB decoded cap plus padding/slack.",
+              "maxLength": 14981014,
+              "minLength": 1,
+              "type": "string"
+            },
+            "content_type": {
+              "description": "Optional MIME content type. When omitted, the operation infers it from the filename.",
+              "maxLength": 127,
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
+            },
+            "filename": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "base64",
+            "filename"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "base64": {
+          "description": "Base64-encoded file contents. Max length matches the runtime 10 MiB decoded cap plus padding/slack.",
+          "maxLength": 14981014,
+          "minLength": 1,
+          "type": "string"
+        },
+        "content_type": {
+          "description": "Optional MIME content type. When omitted, the operation infers it from the filename.",
+          "maxLength": 127,
+          "minLength": 1,
+          "pattern": "^\\s*\\S[\\s\\S]*$",
+          "type": "string"
+        },
+        "filename": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^\\s*\\S[\\s\\S]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "base64",
+        "filename"
+      ],
       "type": "object"
     },
     "source": "typescript",

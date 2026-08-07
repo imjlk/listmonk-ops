@@ -2028,6 +2028,60 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/media.ts#deleteMediaOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindMediaDeleteOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindMediaDeleteOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#mediaDeleteOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/media.ts#deleteMediaFile:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindMediaDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#mediaDeleteOperationSpec:variable",
+        "executorNode": "packages/operations/src/media.ts#deleteMediaFile:function",
+        "invokerNode": "packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/media.ts#deleteMediaOperation:variable"
+      },
+      "operationId": "media.delete"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/media.ts#uploadMediaOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindMediaUploadOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindMediaUploadOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#mediaUploadOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/media.ts#uploadMediaFile:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindMediaUploadOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#mediaUploadOperationSpec:variable",
+        "executorNode": "packages/operations/src/media.ts#uploadMediaFile:function",
+        "invokerNode": "packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/media.ts#uploadMediaOperation:variable"
+      },
+      "operationId": "media.upload"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
@@ -2159,60 +2213,6 @@
         "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable"
       },
       "operationId": "campaigns.clone"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/media.ts#deleteMediaOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/media.ts#deleteMediaFile:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/operations/src/media.ts#deleteMediaFile:function",
-        "invokerNode": "packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/media.ts#deleteMediaOperation:variable"
-      },
-      "operationId": "media.delete"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/media.ts#uploadMediaOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/operations/src/media.ts#invokeUploadMediaOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/media.ts#uploadMediaFile:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/operations/src/media.ts#uploadMediaFile:function",
-        "invokerNode": "packages/operations/src/media.ts#invokeUploadMediaOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/media.ts#uploadMediaOperation:variable"
-      },
-      "operationId": "media.upload"
     },
     {
       "edges": [
