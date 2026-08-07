@@ -7,7 +7,7 @@
 	},
 	"files": [
 		"scripts/generate-spec-contracts.ts",
-		"scripts/spec-contracts.ts"
+		"scripts/spec-contracts/index.ts"
 	],
 	"exclude": ["node_modules", "dist", "type-tests"]
 }
