@@ -128,6 +128,7 @@ import type {
 	MediaUploadInput,
 	MediaDeleteInput,
 	MediaDeleteOutput,
+	CampaignCloneInput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import { stableValue } from "../src/specs/stable-json.js";
@@ -582,6 +583,9 @@ const contracts = {
 	),
 	mediaDeleteOutputContract: contractSchema(
 		typia.json.schema<MediaDeleteOutput>(),
+	),
+	campaignCloneInputContract: contractSchema(
+		typia.json.schema<CampaignCloneInput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

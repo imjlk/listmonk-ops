@@ -908,6 +908,31 @@ Delete a campaign from Listmonk
 - Retry: `reconcile`
 - Stability: `experimental` since `0.9.0`
 
+## `campaigns.pause`
+
+Transition a campaign into the paused status. Validates the current status allows the transition.
+
+- Resource / verb: `campaign.pause`
+- MCP tool: `listmonk_pause_campaign`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:campaign`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+- State: `running -> paused` (target-state no-op allowed)
+
+## `campaigns.clone`
+
+Create a new campaign by copying the body, lists, template, and metadata of an existing campaign under a new name. The clone starts in draft status.
+
+- Resource / verb: `campaign.clone`
+- MCP tool: `listmonk_clone_campaign`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:campaign`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.9.0`
+
 ## `media.delete`
 
 Delete an uploaded media file from Listmonk
@@ -966,31 +991,6 @@ Remove a batch of subscribers from the blocklist. Processes subscribers in chunk
 - Effects: `write:subscriber`
 - Policy: confirmation `never`, audit `required`, dry-run `true`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `campaigns.pause`
-
-Transition a campaign into the paused status. Validates the current status allows the transition.
-
-- Resource / verb: `campaign.pause`
-- MCP tool: `listmonk_pause_campaign`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:campaign`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-- State: `running -> paused` (target-state no-op allowed)
-
-## `campaigns.clone`
-
-Create a new campaign by copying the body, lists, template, and metadata of an existing campaign under a new name. The clone starts in draft status.
-
-- Resource / verb: `campaign.clone`
-- MCP tool: `listmonk_clone_campaign`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:campaign`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
 
 ## `ops.campaign.deliverability-guard`

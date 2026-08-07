@@ -1052,6 +1052,34 @@ Verify with: `campaigns.list`
 
 Retry guidance: Verify the campaign is gone with campaigns.list before retrying.
 
+## Pause campaign (`campaigns.pause`)
+
+Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
+
+Use when: A running campaign must be paused.
+
+Avoid when: The campaign is already paused or in a terminal status.
+
+Prerequisites: `campaigns.get`
+
+Verify with: `campaigns.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff, then verify with campaigns.get.
+
+## Clone campaign (`campaigns.clone`)
+
+Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `unsafe`.
+
+Use when: A new campaign should reuse an existing campaign's content.
+
+Avoid when: A brand-new campaign should be created from scratch.
+
+Prerequisites: `campaigns.get`
+
+Verify with: `campaigns.list`
+
+Retry guidance: Inspect campaigns.list before retrying an ambiguous clone.
+
 ## Delete media file (`media.delete`)
 
 Contract maturity: `experimental`; effects: `delete:media`; confirmation: `required`; retry: `reconcile`.
@@ -1121,34 +1149,6 @@ Prerequisites: `subscribers.get`
 Verify with: `subscribers.get`
 
 Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Pause campaign (`campaigns.pause`)
-
-Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
-
-Use when: Transition a campaign into the paused status. Validates the current status allows the transition.
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `campaigns.get`
-
-Verify with: `campaigns.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Clone campaign (`campaigns.clone`)
-
-Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `unsafe`.
-
-Use when: Create a new campaign by copying the body, lists, template, and metadata of an existing campaign under a new name. The clone starts in draft status.
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `campaigns.get`
-
-Verify with: `campaigns.list`
-
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
 
 ## Evaluate deliverability guard (`ops.campaign.deliverability-guard`)
 

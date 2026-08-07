@@ -1,4 +1,55 @@
 {
+  "campaignCloneInputContract": {
+    "components": {
+      "schemas": {
+        "CampaignCloneInput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "name": {
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TrimmedNonEmptyString": {
+          "minLength": 1,
+          "pattern": "^\\s*\\S[\\s\\S]*$",
+          "type": "string"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "name": {
+          "$ref": "#/components/schemas/TrimmedNonEmptyString"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "campaignCollectionOutputContract": {
     "components": {
       "schemas": {

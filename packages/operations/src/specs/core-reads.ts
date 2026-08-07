@@ -1,9 +1,12 @@
 import {
 	campaignCollectionOutputContract,
+	campaignCloneInputContract,
 	campaignCreateInputContract,
 	campaignDeleteInputContract,
 	campaignDeleteOutputContract,
 	campaignGetOutputContract,
+	campaignLifecycleInputContract,
+	campaignLifecycleOutputContract,
 	campaignListInputContract,
 	campaignStatsOutputContract,
 	campaignUpdateInputContract,
@@ -750,6 +753,105 @@ export const campaignsDeleteOperationSpec = defineOperationSpec({
 	since: "0.9.0",
 });
 
+export const campaignsPauseOperationSpec = defineOperationSpec({
+	id: "campaigns.pause",
+	resource: "campaign",
+	verb: "pause",
+	title: "Pause campaign",
+	description:
+		"Transition a campaign into the paused status. Validates the current status allows the transition.",
+	contract: {
+		input: campaignLifecycleInputContract,
+		output: campaignLifecycleOutputContract,
+	},
+	effects: [{ kind: "write", resource: "campaign", reversible: true }],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason:
+			"Reapplying the same pause transition converges on the same paused state.",
+	},
+	state: {
+		resource: "campaign",
+		from: ["running"],
+		to: "paused",
+		allowNoopFromTarget: true,
+	},
+	agent: {
+		useWhen: ["A running campaign must be paused."],
+		avoidWhen: ["The campaign is already paused or in a terminal status."],
+		prerequisites: ["campaigns.get"],
+		verifyWith: ["campaigns.get"],
+		related: ["campaigns.start", "campaigns.cancel"],
+		retryGuidance:
+			"Retry identical transient failures with bounded backoff, then verify with campaigns.get.",
+	},
+	projection: {
+		mcpName: "listmonk_pause_campaign",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/core-reads.ts#campaignsPauseOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/core-reads.ts#bindCampaignsPauseOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/campaigns.ts#pauseCampaignOperation:variable",
+			invokerNode:
+				"packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
+			executorNode:
+				"packages/operations/src/campaigns.ts#pauseCampaign:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.9.0",
+});
+
+export const campaignsCloneOperationSpec = defineOperationSpec({
+	id: "campaigns.clone",
+	resource: "campaign",
+	verb: "clone",
+	title: "Clone campaign",
+	description:
+		"Create a new campaign by copying the body, lists, template, and metadata of an existing campaign under a new name. The clone starts in draft status.",
+	contract: {
+		input: campaignCloneInputContract,
+		output: campaignGetOutputContract,
+	},
+	effects: [{ kind: "write", resource: "campaign", reversible: true }],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "unsafe",
+		reason:
+			"A retry may create another cloned campaign unless the original clone ID is known.",
+	},
+	agent: {
+		useWhen: ["A new campaign should reuse an existing campaign's content."],
+		avoidWhen: ["A brand-new campaign should be created from scratch."],
+		prerequisites: ["campaigns.get"],
+		verifyWith: ["campaigns.list"],
+		related: ["campaigns.create"],
+		retryGuidance: "Inspect campaigns.list before retrying an ambiguous clone.",
+	},
+	projection: {
+		mcpName: "listmonk_clone_campaign",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/core-reads.ts#campaignsCloneOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/core-reads.ts#bindCampaignsCloneOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/campaigns.ts#cloneCampaignOperation:variable",
+			invokerNode:
+				"packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
+			executorNode:
+				"packages/operations/src/campaigns.ts#cloneCampaign:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.9.0",
+});
+
 export const templatesListOperationSpec = defineOperationSpec({
 	id: "templates.list",
 	resource: "template",
@@ -1343,6 +1445,8 @@ export const standaloneOperationSpecs = [
 	campaignsCreateOperationSpec,
 	campaignsUpdateOperationSpec,
 	campaignsDeleteOperationSpec,
+	campaignsPauseOperationSpec,
+	campaignsCloneOperationSpec,
 	mediaDeleteOperationSpec,
 	mediaUploadOperationSpec,
 ] as const;
@@ -1408,6 +1512,14 @@ export function bindCampaignsUpdateOperationSpec(): typeof campaignsUpdateOperat
 
 export function bindCampaignsDeleteOperationSpec(): typeof campaignsDeleteOperationSpec {
 	return campaignsDeleteOperationSpec;
+}
+
+export function bindCampaignsPauseOperationSpec(): typeof campaignsPauseOperationSpec {
+	return campaignsPauseOperationSpec;
+}
+
+export function bindCampaignsCloneOperationSpec(): typeof campaignsCloneOperationSpec {
+	return campaignsCloneOperationSpec;
 }
 
 export function bindTemplatesListOperationSpec(): typeof templatesListOperationSpec {

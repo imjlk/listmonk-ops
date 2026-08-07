@@ -1,13 +1,14 @@
 import type { Campaign, ListmonkClient } from "@listmonk-ops/openapi";
 import {
-	bindBridgedOperationSpec,
 	bindCampaignCancelOperationSpec,
 	bindCampaignGetOperationSpec,
 	bindCampaignScheduleOperationSpec,
 	bindCampaignStartOperationSpec,
+	bindCampaignsCloneOperationSpec,
 	bindCampaignsCreateOperationSpec,
 	bindCampaignsDeleteOperationSpec,
 	bindCampaignsListOperationSpec,
+	bindCampaignsPauseOperationSpec,
 	bindCampaignsStatsOperationSpec,
 	bindCampaignsUpdateOperationSpec,
 } from "./specs";
@@ -932,7 +933,7 @@ export const pauseCampaignOperation = defineOperation({
 		name: "listmonk_pause_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("campaigns.pause"),
+	spec: bindCampaignsPauseOperationSpec(),
 	execute: pauseCampaign,
 });
 
@@ -964,7 +965,7 @@ export const cloneCampaignOperation = defineOperation({
 		name: "listmonk_clone_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("campaigns.clone"),
+	spec: bindCampaignsCloneOperationSpec(),
 	execute: cloneCampaign,
 });
 

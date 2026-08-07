@@ -1761,3 +1761,8 @@ export interface MediaDeleteOutput {
 	id: ResourceId;
 	deleted: boolean;
 }
+
+export interface CampaignCloneInput {
+	id: ResourceId;
+	name: TrimmedNonEmptyString;
+}

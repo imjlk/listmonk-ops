@@ -26890,6 +26890,668 @@
     {
       "agent": {
         "avoidWhen": [
+          "The campaign is already paused or in a terminal status."
+        ],
+        "prerequisites": [
+          "campaigns.get"
+        ],
+        "related": [
+          "campaigns.start",
+          "campaigns.cancel"
+        ],
+        "retryGuidance": "Retry identical transient failures with bounded backoff, then verify with campaigns.get.",
+        "useWhen": [
+          "A running campaign must be paused."
+        ],
+        "verifyWith": [
+          "campaigns.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignLifecycleInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "expected_updated_at": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Campaign updated_at observed by the preflight that approved this transition."
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Listmonk campaign ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_updated_at": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Campaign updated_at observed by the preflight that approved this transition."
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Listmonk campaign ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignLifecycleOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "status"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Transition a campaign into the paused status. Validates the current status allows the transition.",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": true
+        }
+      ],
+      "id": "campaigns.pause",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsPauseOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsPauseOperationSpec:variable",
+          "executorNode": "packages/operations/src/campaigns.ts#pauseCampaign:function",
+          "invokerNode": "packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#pauseCampaignOperation:variable"
+        },
+        "mcpName": "listmonk_pause_campaign",
+        "openWorld": true
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same pause transition converges on the same paused state."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "state": {
+        "allowNoopFromTarget": true,
+        "from": [
+          "running"
+        ],
+        "resource": "campaign",
+        "to": "paused"
+      },
+      "title": "Pause campaign",
+      "verb": "pause"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "A brand-new campaign should be created from scratch."
+        ],
+        "prerequisites": [
+          "campaigns.get"
+        ],
+        "related": [
+          "campaigns.create"
+        ],
+        "retryGuidance": "Inspect campaigns.list before retrying an ambiguous clone.",
+        "useWhen": [
+          "A new campaign should reuse an existing campaign's content."
+        ],
+        "verifyWith": [
+          "campaigns.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignCloneInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TrimmedNonEmptyString": {
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "name": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignGetOutput": {
+                "additionalProperties": {},
+                "properties": {
+                  "altbody": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "body": {
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "bounces": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "clicks": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "from_email": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "sent": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "started_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "to_send": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "type": "string"
+                  },
+                  "views": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "altbody": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "archive": {
+                "type": "boolean"
+              },
+              "body": {
+                "type": "string"
+              },
+              "body_source": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "bounces": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "clicks": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "content_type": {
+                "oneOf": [
+                  {
+                    "const": "html"
+                  },
+                  {
+                    "const": "markdown"
+                  },
+                  {
+                    "const": "plain"
+                  },
+                  {
+                    "const": "richtext"
+                  },
+                  {
+                    "const": "visual"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "from_email": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "lists": {
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "media": {
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "messenger": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "send_at": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "sent": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "started_at": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "tags": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "template_id": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                ]
+              },
+              "to_send": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "type": {
+                "oneOf": [
+                  {
+                    "const": "optin"
+                  },
+                  {
+                    "const": "regular"
+                  }
+                ]
+              },
+              "updated_at": {
+                "type": "string"
+              },
+              "uuid": {
+                "type": "string"
+              },
+              "views": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Create a new campaign by copying the body, lists, template, and metadata of an existing campaign under a new name. The clone starts in draft status.",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": true
+        }
+      ],
+      "id": "campaigns.clone",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsCloneOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsCloneOperationSpec:variable",
+          "executorNode": "packages/operations/src/campaigns.ts#cloneCampaign:function",
+          "invokerNode": "packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable"
+        },
+        "mcpName": "listmonk_clone_campaign",
+        "openWorld": true
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "unsafe",
+        "reason": "A retry may create another cloned campaign unless the original clone ID is known."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Clone campaign",
+      "verb": "clone"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "The media file is referenced by a campaign or template."
         ],
         "prerequisites": [
@@ -27714,406 +28376,6 @@
       "stability": "experimental",
       "title": "Unblocklist subscribers",
       "verb": "unblocklist"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [
-          "campaigns.get"
-        ],
-        "related": [
-          "campaigns.start",
-          "campaigns.cancel"
-        ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
-        "useWhen": [
-          "Transition a campaign into the paused status. Validates the current status allows the transition."
-        ],
-        "verifyWith": [
-          "campaigns.get"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "expected_updated_at": {
-                "description": "Campaign updated_at observed by the preflight that approved this transition",
-                "minLength": 1,
-                "type": "string"
-              },
-              "id": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              }
-            },
-            "required": [
-              "id"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "id": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              },
-              "status": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "status"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Transition a campaign into the paused status. Validates the current status allows the transition.",
-      "effects": [
-        {
-          "kind": "write",
-          "resource": "campaign",
-          "reversible": true
-        }
-      ],
-      "id": "campaigns.pause",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/operations/src/campaigns.ts#pauseCampaign:function",
-          "invokerNode": "packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#pauseCampaignOperation:variable"
-        },
-        "mcpName": "listmonk_pause_campaign",
-        "openWorld": true
-      },
-      "resource": "campaign",
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "state": {
-        "allowNoopFromTarget": true,
-        "from": [
-          "running"
-        ],
-        "resource": "campaign",
-        "to": "paused"
-      },
-      "title": "Pause campaign",
-      "verb": "pause"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [
-          "campaigns.get"
-        ],
-        "related": [
-          "campaigns.create"
-        ],
-        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.",
-        "useWhen": [
-          "Create a new campaign by copying the body, lists, template, and metadata of an existing campaign under a new name. The clone starts in draft status."
-        ],
-        "verifyWith": [
-          "campaigns.list"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "id": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              },
-              "name": {
-                "description": "Name to assign to the cloned campaign",
-                "minLength": 1,
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "name"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": {},
-            "properties": {
-              "altbody": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "archive": {
-                "type": "boolean"
-              },
-              "body": {
-                "type": "string"
-              },
-              "body_source": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "bounces": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "clicks": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "content_type": {
-                "enum": [
-                  "richtext",
-                  "html",
-                  "markdown",
-                  "plain",
-                  "visual"
-                ],
-                "type": "string"
-              },
-              "created_at": {
-                "type": "string"
-              },
-              "from_email": {
-                "type": "string"
-              },
-              "id": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              },
-              "lists": {
-                "items": {
-                  "additionalProperties": {},
-                  "properties": {},
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              "media": {
-                "items": {
-                  "additionalProperties": {},
-                  "properties": {},
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              "messenger": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "send_at": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "sent": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "started_at": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "status": {
-                "type": "string"
-              },
-              "subject": {
-                "type": "string"
-              },
-              "tags": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "template_id": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "to_send": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "type": {
-                "enum": [
-                  "regular",
-                  "optin"
-                ],
-                "type": "string"
-              },
-              "updated_at": {
-                "type": "string"
-              },
-              "uuid": {
-                "type": "string"
-              },
-              "views": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Create a new campaign by copying the body, lists, template, and metadata of an existing campaign under a new name. The clone starts in draft status.",
-      "effects": [
-        {
-          "kind": "write",
-          "resource": "campaign",
-          "reversible": true
-        }
-      ],
-      "id": "campaigns.clone",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/operations/src/campaigns.ts#cloneCampaign:function",
-          "invokerNode": "packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable"
-        },
-        "mcpName": "listmonk_clone_campaign",
-        "openWorld": true
-      },
-      "resource": "campaign",
-      "retry": {
-        "kind": "unsafe",
-        "reason": "The shared operation may create, deliver, or advance state before an ambiguous failure."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Clone campaign",
-      "verb": "clone"
     },
     {
       "agent": {
