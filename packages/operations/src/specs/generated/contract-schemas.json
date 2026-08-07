@@ -12643,7 +12643,7 @@
             },
             "max_items": {
               "$ref": "#/components/schemas/PositiveInteger",
-              "description": "Maximum items per chunk. Defaults to 10000."
+              "description": "Maximum total subscriber IDs processed. Defaults to 10000."
             },
             "subscriber_ids": {
               "items": {
@@ -12674,7 +12674,7 @@
         },
         "max_items": {
           "$ref": "#/components/schemas/PositiveInteger",
-          "description": "Maximum items per chunk. Defaults to 10000."
+          "description": "Maximum total subscriber IDs processed. Defaults to 10000."
         },
         "subscriber_ids": {
           "items": {
@@ -12725,7 +12725,7 @@
             },
             "max_items": {
               "$ref": "#/components/schemas/PositiveInteger",
-              "description": "Maximum items per chunk. Defaults to 10000."
+              "description": "Maximum total subscriber IDs processed. Defaults to 10000."
             },
             "subscriber_ids": {
               "items": {
@@ -12764,7 +12764,7 @@
         },
         "max_items": {
           "$ref": "#/components/schemas/PositiveInteger",
-          "description": "Maximum items per chunk. Defaults to 10000."
+          "description": "Maximum total subscriber IDs processed. Defaults to 10000."
         },
         "subscriber_ids": {
           "items": {

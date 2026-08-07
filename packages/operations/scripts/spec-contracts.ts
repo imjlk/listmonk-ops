@@ -1772,7 +1772,7 @@ export interface SubscriberBulkListsInput {
 	list_ids: ResourceId[] & tags.MinItems<1>;
 	/** Plan only when true. Defaults to false. */
 	dry_run?: boolean;
-	/** Maximum items per chunk. Defaults to 10000. */
+	/** Maximum total subscriber IDs processed. Defaults to 10000. */
 	max_items?: PositiveInteger;
 	/** Continue processing after a chunk failure. Defaults to false. */
 	continue_on_error?: boolean;
@@ -1782,7 +1782,7 @@ export interface SubscriberBulkBlocklistInput {
 	subscriber_ids: ResourceId[] & tags.MinItems<1>;
 	/** Plan only when true. Defaults to false. */
 	dry_run?: boolean;
-	/** Maximum items per chunk. Defaults to 10000. */
+	/** Maximum total subscriber IDs processed. Defaults to 10000. */
 	max_items?: PositiveInteger;
 	/** Continue processing after a chunk failure. Defaults to false. */
 	continue_on_error?: boolean;
