@@ -972,43 +972,43 @@ Retry guidance: Verify the list is gone with lists.list before retrying.
 
 Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `unsafe`.
 
-Use when: Create a subscriber in Listmonk
+Use when: A new subscriber must be created.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: An existing subscriber should be updated instead.
 
 Prerequisites: none
 
 Verify with: `subscribers.list`
 
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
+Retry guidance: Inspect subscribers.list before retrying an ambiguous create.
 
 ## Update subscriber (`subscribers.update`)
 
 Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
 
-Use when: Update a subscriber in Listmonk
+Use when: A known subscriber must be updated by numeric ID.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: The subscriber ID is unknown.
 
 Prerequisites: `subscribers.get`
 
 Verify with: `subscribers.get`
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry identical transient failures with bounded backoff, then verify with subscribers.get.
 
 ## Delete subscriber (`subscribers.delete`)
 
-Contract maturity: `experimental`; effects: `delete:subscriber`; confirmation: `required`; retry: `safe`.
+Contract maturity: `experimental`; effects: `delete:subscriber`; confirmation: `required`; retry: `reconcile`.
 
-Use when: Delete a subscriber from Listmonk
+Use when: A subscriber must be permanently removed.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: The subscriber should be blocklisted instead.
 
 Prerequisites: `subscribers.get`
 
 Verify with: `subscribers.list`
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Verify the subscriber is gone with subscribers.list before retrying.
 
 ## Add subscribers to lists (`subscribers.add-to-lists`)
 

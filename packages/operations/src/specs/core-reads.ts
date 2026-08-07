@@ -11,10 +11,14 @@ import {
 	paginationInputContract,
 	resourceIdInputContract,
 	subscriberCollectionOutputContract,
+	subscriberCreateInputContract,
+	subscriberDeleteInputContract,
+	subscriberDeleteOutputContract,
 	subscriberListCollectionOutputContract,
 	subscriberListInputContract,
 	subscriberListRecordContract,
 	subscriberRecordContract,
+	subscriberUpdateInputContract,
 	templateCollectionOutputContract,
 	templateCreateInputContract,
 	templateDeleteOutputContract,
@@ -358,6 +362,146 @@ export const subscribersGetOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
+	since: "0.9.0",
+});
+
+export const subscribersCreateOperationSpec = defineOperationSpec({
+	id: "subscribers.create",
+	resource: "subscriber",
+	verb: "create",
+	title: "Create subscriber",
+	description: "Create a subscriber in Listmonk",
+	contract: {
+		input: subscriberCreateInputContract,
+		output: subscriberRecordContract,
+	},
+	effects: [{ kind: "write", resource: "subscriber", reversible: true }],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "unsafe",
+		reason:
+			"A retry may create another subscriber unless the original email or ID is known.",
+	},
+	agent: {
+		useWhen: ["A new subscriber must be created."],
+		avoidWhen: ["An existing subscriber should be updated instead."],
+		prerequisites: [],
+		verifyWith: ["subscribers.list"],
+		related: ["subscribers.update", "subscribers.delete"],
+		retryGuidance:
+			"Inspect subscribers.list before retrying an ambiguous create.",
+	},
+	projection: {
+		mcpName: "listmonk_create_subscriber",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/core-reads.ts#subscribersCreateOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/core-reads.ts#bindSubscribersCreateOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#createSubscriberOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeCreateSubscriberOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#createSubscriber:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.9.0",
+});
+
+export const subscribersUpdateOperationSpec = defineOperationSpec({
+	id: "subscribers.update",
+	resource: "subscriber",
+	verb: "update",
+	title: "Update subscriber",
+	description: "Update a subscriber in Listmonk",
+	contract: {
+		input: subscriberUpdateInputContract,
+		output: subscriberRecordContract,
+	},
+	effects: [{ kind: "write", resource: "subscriber", reversible: true }],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason:
+			"Reapplying the same requested subscriber fields converges on the same representation.",
+	},
+	agent: {
+		useWhen: ["A known subscriber must be updated by numeric ID."],
+		avoidWhen: ["The subscriber ID is unknown."],
+		prerequisites: ["subscribers.get"],
+		verifyWith: ["subscribers.get"],
+		related: ["subscribers.delete"],
+		retryGuidance:
+			"Retry identical transient failures with bounded backoff, then verify with subscribers.get.",
+	},
+	projection: {
+		mcpName: "listmonk_update_subscriber",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/core-reads.ts#subscribersUpdateOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/core-reads.ts#bindSubscribersUpdateOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#updateSubscriberOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeUpdateSubscriberOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#updateSubscriber:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.9.0",
+});
+
+export const subscribersDeleteOperationSpec = defineOperationSpec({
+	id: "subscribers.delete",
+	resource: "subscriber",
+	verb: "delete",
+	title: "Delete subscriber",
+	description: "Delete a subscriber from Listmonk",
+	contract: {
+		input: subscriberDeleteInputContract,
+		output: subscriberDeleteOutputContract,
+	},
+	effects: [{ kind: "delete", resource: "subscriber", reversible: false }],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
+	retry: {
+		kind: "reconcile",
+		reconcileWith: "subscribers.list",
+		idempotent: true,
+		reason:
+			"Deleting an already-deleted subscriber is a no-op; verify with subscribers.list after an ambiguous result.",
+	},
+	agent: {
+		useWhen: ["A subscriber must be permanently removed."],
+		avoidWhen: ["The subscriber should be blocklisted instead."],
+		prerequisites: ["subscribers.get"],
+		verifyWith: ["subscribers.list"],
+		related: ["subscribers.update"],
+		retryGuidance:
+			"Verify the subscriber is gone with subscribers.list before retrying.",
+	},
+	projection: {
+		mcpName: "listmonk_delete_subscriber",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/core-reads.ts#subscribersDeleteOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/core-reads.ts#bindSubscribersDeleteOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#deleteSubscriberOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeDeleteSubscriberOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#deleteSubscriber:function",
+		},
+	},
+	stability: "experimental",
 	since: "0.9.0",
 });
 
@@ -952,6 +1096,9 @@ export const standaloneOperationSpecs = [
 	listsCreateOperationSpec,
 	listsUpdateOperationSpec,
 	listsDeleteOperationSpec,
+	subscribersCreateOperationSpec,
+	subscribersUpdateOperationSpec,
+	subscribersDeleteOperationSpec,
 ] as const;
 
 /** @deprecated Use `standaloneOperationSpecs`. */
@@ -983,6 +1130,18 @@ export function bindSubscribersListOperationSpec(): typeof subscribersListOperat
 
 export function bindSubscribersGetOperationSpec(): typeof subscribersGetOperationSpec {
 	return subscribersGetOperationSpec;
+}
+
+export function bindSubscribersCreateOperationSpec(): typeof subscribersCreateOperationSpec {
+	return subscribersCreateOperationSpec;
+}
+
+export function bindSubscribersUpdateOperationSpec(): typeof subscribersUpdateOperationSpec {
+	return subscribersUpdateOperationSpec;
+}
+
+export function bindSubscribersDeleteOperationSpec(): typeof subscribersDeleteOperationSpec {
+	return subscribersDeleteOperationSpec;
 }
 
 export function bindCampaignsListOperationSpec(): typeof campaignsListOperationSpec {

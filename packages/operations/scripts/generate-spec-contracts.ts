@@ -117,6 +117,10 @@ import type {
 	ListUpdateInput,
 	ListDeleteInput,
 	ListDeleteOutput,
+	SubscriberCreateInput,
+	SubscriberUpdateInput,
+	SubscriberDeleteInput,
+	SubscriberDeleteOutput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import { stableValue } from "../src/specs/stable-json.js";
@@ -533,6 +537,18 @@ const contracts = {
 	listDeleteInputContract: contractSchema(typia.json.schema<ListDeleteInput>()),
 	listDeleteOutputContract: contractSchema(
 		typia.json.schema<ListDeleteOutput>(),
+	),
+	subscriberCreateInputContract: contractSchema(
+		typia.json.schema<SubscriberCreateInput>(),
+	),
+	subscriberUpdateInputContract: contractSchema(
+		typia.json.schema<SubscriberUpdateInput>(),
+	),
+	subscriberDeleteInputContract: contractSchema(
+		typia.json.schema<SubscriberDeleteInput>(),
+	),
+	subscriberDeleteOutputContract: contractSchema(
+		typia.json.schema<SubscriberDeleteOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

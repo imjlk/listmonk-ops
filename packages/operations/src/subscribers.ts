@@ -2,8 +2,11 @@ import type { ListmonkClient, Subscriber } from "@listmonk-ops/openapi";
 import {
 	bindBridgedOperationSpec,
 	bindSubscriberBlocklistOperationSpec,
+	bindSubscribersCreateOperationSpec,
+	bindSubscribersDeleteOperationSpec,
 	bindSubscribersGetOperationSpec,
 	bindSubscribersListOperationSpec,
+	bindSubscribersUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
 import {
@@ -478,7 +481,7 @@ export const createSubscriberOperation = defineOperation({
 		name: "listmonk_create_subscriber",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("subscribers.create"),
+	spec: bindSubscribersCreateOperationSpec(),
 	execute: createSubscriber,
 });
 
@@ -493,7 +496,7 @@ export const updateSubscriberOperation = defineOperation({
 		name: "listmonk_update_subscriber",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("subscribers.update"),
+	spec: bindSubscribersUpdateOperationSpec(),
 	execute: updateSubscriber,
 });
 
@@ -508,7 +511,7 @@ export const deleteSubscriberOperation = defineOperation({
 		name: "listmonk_delete_subscriber",
 		legacySuccessText: "Subscriber deleted successfully",
 	},
-	spec: bindBridgedOperationSpec("subscribers.delete"),
+	spec: bindSubscribersDeleteOperationSpec(),
 	execute: deleteSubscriber,
 });
 

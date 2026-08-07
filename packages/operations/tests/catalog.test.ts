@@ -172,21 +172,21 @@ describe("operation catalog", () => {
 	});
 
 	test("enforces runtime contracts when a consumer composes catalogs", () => {
-		const createSubscriberOperation = subscriberOperations.find(
-			(operation) => operation.id === "subscribers.create",
+		const addSubscribersToListsOperation = subscriberOperations.find(
+			(operation) => operation.id === "subscribers.add-to-lists",
 		);
 		if (
-			!createSubscriberOperation ||
-			createSubscriberOperation.spec === undefined
+			!addSubscribersToListsOperation ||
+			addSubscribersToListsOperation.spec === undefined
 		) {
-			throw new Error("expected a bridged subscriber operation");
+			throw new Error("expected a bridged subscriber list operation");
 		}
 		const driftedCatalog = defineOperationCatalog({
-			id: "drifted-subscriber",
-			title: "Drifted subscriber",
+			id: "drifted-subscriber-list",
+			title: "Drifted subscriber list",
 			operations: [
 				{
-					...createSubscriberOperation,
+					...addSubscribersToListsOperation,
 					inputJsonSchema: { type: "object", properties: {} },
 				},
 			],

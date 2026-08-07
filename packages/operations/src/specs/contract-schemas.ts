@@ -118,6 +118,10 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	listUpdateInputContract: NormalizedContractSchema;
 	listDeleteInputContract: NormalizedContractSchema;
 	listDeleteOutputContract: NormalizedContractSchema;
+	subscriberCreateInputContract: NormalizedContractSchema;
+	subscriberUpdateInputContract: NormalizedContractSchema;
+	subscriberDeleteInputContract: NormalizedContractSchema;
+	subscriberDeleteOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
@@ -301,3 +305,11 @@ export const listCreateInputContract = contracts.listCreateInputContract;
 export const listUpdateInputContract = contracts.listUpdateInputContract;
 export const listDeleteInputContract = contracts.listDeleteInputContract;
 export const listDeleteOutputContract = contracts.listDeleteOutputContract;
+export const subscriberCreateInputContract =
+	contracts.subscriberCreateInputContract;
+export const subscriberUpdateInputContract =
+	contracts.subscriberUpdateInputContract;
+export const subscriberDeleteInputContract =
+	contracts.subscriberDeleteInputContract;
+export const subscriberDeleteOutputContract =
+	contracts.subscriberDeleteOutputContract;

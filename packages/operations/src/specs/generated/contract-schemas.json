@@ -8823,6 +8823,212 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "subscriberCreateInputContract": {
+    "components": {
+      "schemas": {
+        "EmailAddress": {
+          "format": "email",
+          "type": "string"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberCreateInput": {
+          "additionalProperties": false,
+          "properties": {
+            "attribs": {
+              "$ref": "#/components/schemas/Recordstringunknown",
+              "description": "Optional, defaults to `{}`."
+            },
+            "email": {
+              "$ref": "#/components/schemas/EmailAddress"
+            },
+            "list_uuids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "lists": {
+              "description": "Optional, defaults to `[]`.",
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "name": {
+              "description": "Optional, defaults to `\"\"`.",
+              "type": "string"
+            },
+            "preconfirm_subscriptions": {
+              "type": "boolean"
+            },
+            "status": {
+              "description": "Optional, defaults to `\"enabled\"`.",
+              "oneOf": [
+                {
+                  "const": "blocklisted"
+                },
+                {
+                  "const": "disabled"
+                },
+                {
+                  "const": "enabled"
+                }
+              ]
+            }
+          },
+          "required": [
+            "email"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "attribs": {
+          "$ref": "#/components/schemas/Recordstringunknown",
+          "description": "Optional, defaults to `{}`."
+        },
+        "email": {
+          "$ref": "#/components/schemas/EmailAddress"
+        },
+        "list_uuids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "lists": {
+          "description": "Optional, defaults to `[]`.",
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "type": "array"
+        },
+        "name": {
+          "description": "Optional, defaults to `\"\"`.",
+          "type": "string"
+        },
+        "preconfirm_subscriptions": {
+          "type": "boolean"
+        },
+        "status": {
+          "description": "Optional, defaults to `\"enabled\"`.",
+          "oneOf": [
+            {
+              "const": "blocklisted"
+            },
+            {
+              "const": "disabled"
+            },
+            {
+              "const": "enabled"
+            }
+          ]
+        }
+      },
+      "required": [
+        "email"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberDeleteInputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberDeleteInput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberDeleteOutputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberDeleteOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "deleted": {
+              "type": "boolean"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "id",
+            "deleted"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [
+        "id",
+        "deleted"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "subscriberListCollectionOutputContract": {
     "components": {
       "schemas": {
@@ -9258,6 +9464,436 @@
       },
       "required": [],
       "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberUpdateInputContract": {
+    "components": {
+      "schemas": {
+        "EmailAddress": {
+          "format": "email",
+          "type": "string"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceIdInputSubscriberUpdateFields__type": {
+          "additionalProperties": false,
+          "properties": {
+            "attribs": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "email": {
+              "format": "email",
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "list_uuids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "name": {
+              "type": "string"
+            },
+            "preconfirm_subscriptions": {
+              "type": "boolean"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "blocklisted"
+                },
+                {
+                  "const": "disabled"
+                },
+                {
+                  "const": "enabled"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "email"
+          ],
+          "type": "object"
+        },
+        "ResourceIdInputSubscriberUpdateFields__type-o1": {
+          "additionalProperties": false,
+          "properties": {
+            "attribs": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "email": {
+              "$ref": "#/components/schemas/EmailAddress"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "list_uuids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "name": {
+              "type": "string"
+            },
+            "preconfirm_subscriptions": {
+              "type": "boolean"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "blocklisted"
+                },
+                {
+                  "const": "disabled"
+                },
+                {
+                  "const": "enabled"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "type": "object"
+        },
+        "ResourceIdInputSubscriberUpdateFields__type-o2": {
+          "additionalProperties": false,
+          "properties": {
+            "attribs": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "email": {
+              "$ref": "#/components/schemas/EmailAddress"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "list_uuids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "name": {
+              "type": "string"
+            },
+            "preconfirm_subscriptions": {
+              "type": "boolean"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "blocklisted"
+                },
+                {
+                  "const": "disabled"
+                },
+                {
+                  "const": "enabled"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "status"
+          ],
+          "type": "object"
+        },
+        "ResourceIdInputSubscriberUpdateFields__type-o3": {
+          "additionalProperties": false,
+          "properties": {
+            "attribs": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "email": {
+              "$ref": "#/components/schemas/EmailAddress"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "list_uuids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "name": {
+              "type": "string"
+            },
+            "preconfirm_subscriptions": {
+              "type": "boolean"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "blocklisted"
+                },
+                {
+                  "const": "disabled"
+                },
+                {
+                  "const": "enabled"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "lists"
+          ],
+          "type": "object"
+        },
+        "ResourceIdInputSubscriberUpdateFields__type-o4": {
+          "additionalProperties": false,
+          "properties": {
+            "attribs": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "email": {
+              "$ref": "#/components/schemas/EmailAddress"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "list_uuids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "name": {
+              "type": "string"
+            },
+            "preconfirm_subscriptions": {
+              "type": "boolean"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "blocklisted"
+                },
+                {
+                  "const": "disabled"
+                },
+                {
+                  "const": "enabled"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "list_uuids"
+          ],
+          "type": "object"
+        },
+        "ResourceIdInputSubscriberUpdateFields__type-o5": {
+          "additionalProperties": false,
+          "properties": {
+            "attribs": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "email": {
+              "$ref": "#/components/schemas/EmailAddress"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "list_uuids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "name": {
+              "type": "string"
+            },
+            "preconfirm_subscriptions": {
+              "type": "boolean"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "blocklisted"
+                },
+                {
+                  "const": "disabled"
+                },
+                {
+                  "const": "enabled"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "preconfirm_subscriptions"
+          ],
+          "type": "object"
+        },
+        "ResourceIdInputSubscriberUpdateFields__type-o6": {
+          "additionalProperties": false,
+          "properties": {
+            "attribs": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "email": {
+              "$ref": "#/components/schemas/EmailAddress"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Positive Listmonk resource ID."
+            },
+            "list_uuids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "name": {
+              "type": "string"
+            },
+            "preconfirm_subscriptions": {
+              "type": "boolean"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "blocklisted"
+                },
+                {
+                  "const": "disabled"
+                },
+                {
+                  "const": "enabled"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "attribs"
+          ],
+          "type": "object"
+        },
+        "SubscriberUpdateInput": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type"
+            },
+            {
+              "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o1"
+            },
+            {
+              "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o2"
+            },
+            {
+              "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o3"
+            },
+            {
+              "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o4"
+            },
+            {
+              "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o5"
+            },
+            {
+              "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o6"
+            }
+          ]
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "oneOf": [
+        {
+          "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type"
+        },
+        {
+          "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o1"
+        },
+        {
+          "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o2"
+        },
+        {
+          "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o3"
+        },
+        {
+          "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o4"
+        },
+        {
+          "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o5"
+        },
+        {
+          "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o6"
+        }
+      ]
     },
     "source": "typescript",
     "stage": "normalized"

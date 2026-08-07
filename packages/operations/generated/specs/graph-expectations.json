@@ -1868,12 +1868,12 @@
         {
           "from": "packages/operations/src/subscribers.ts#createSubscriberOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersCreateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersCreateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#subscribersCreateOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/subscribers.ts#invokeCreateSubscriberOperation:function",
@@ -1882,8 +1882,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersCreateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersCreateOperationSpec:variable",
         "executorNode": "packages/operations/src/subscribers.ts#createSubscriber:function",
         "invokerNode": "packages/operations/src/subscribers.ts#invokeCreateSubscriberOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#createSubscriberOperation:variable"
@@ -1895,12 +1895,12 @@
         {
           "from": "packages/operations/src/subscribers.ts#updateSubscriberOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersUpdateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersUpdateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#subscribersUpdateOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/subscribers.ts#invokeUpdateSubscriberOperation:function",
@@ -1909,8 +1909,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersUpdateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersUpdateOperationSpec:variable",
         "executorNode": "packages/operations/src/subscribers.ts#updateSubscriber:function",
         "invokerNode": "packages/operations/src/subscribers.ts#invokeUpdateSubscriberOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#updateSubscriberOperation:variable"
@@ -1922,12 +1922,12 @@
         {
           "from": "packages/operations/src/subscribers.ts#deleteSubscriberOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersDeleteOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersDeleteOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#subscribersDeleteOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/subscribers.ts#invokeDeleteSubscriberOperation:function",
@@ -1936,8 +1936,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersDeleteOperationSpec:variable",
         "executorNode": "packages/operations/src/subscribers.ts#deleteSubscriber:function",
         "invokerNode": "packages/operations/src/subscribers.ts#invokeDeleteSubscriberOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#deleteSubscriberOperation:variable"

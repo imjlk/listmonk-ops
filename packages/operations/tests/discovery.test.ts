@@ -72,7 +72,7 @@ describe("agent discovery operations", () => {
 		});
 
 		const bridged = await invokeSpecDescribeOperation(context, {
-			operation: "subscribers.create",
+			operation: "subscribers.add-to-lists",
 		});
 		expect(bridged.operation).toMatchObject({
 			coverage: "described",
