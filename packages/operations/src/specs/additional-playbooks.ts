@@ -1,5 +1,10 @@
 import { bridgedOperationSpecsById } from "./bridged";
-import { templatesGetOperationSpec } from "./core-reads";
+import {
+	opsTemplateRegistrySyncOperationSpec,
+	opsTemplateRegistryHistoryOperationSpec,
+	opsTemplateRegistryPromoteOperationSpec,
+	templatesGetOperationSpec,
+} from "./core-reads";
 import {
 	campaignGetOperationSpec,
 	campaignScheduleOperationSpec,
@@ -148,7 +153,7 @@ export const templateSafePromotePlaybook = defineOperationPlaybook({
 		{
 			id: "capture-remote",
 			operation:
-				bridgedOperationSpecsById["ops.templates.registry-sync"].id,
+				opsTemplateRegistrySyncOperationSpec.id,
 			approval: "none",
 			description:
 				"Capture the current Listmonk template and its canonical content hash.",
@@ -170,7 +175,7 @@ export const templateSafePromotePlaybook = defineOperationPlaybook({
 		{
 			id: "inspect-history",
 			operation:
-				bridgedOperationSpecsById["ops.templates.registry-history"].id,
+				opsTemplateRegistryHistoryOperationSpec.id,
 			approval: "none",
 			description: "Inspect stored template versions.",
 			dependsOn: ["capture-remote"],
@@ -184,7 +189,7 @@ export const templateSafePromotePlaybook = defineOperationPlaybook({
 		{
 			id: "promote",
 			operation:
-				bridgedOperationSpecsById["ops.templates.registry-promote"].id,
+				opsTemplateRegistryPromoteOperationSpec.id,
 			approval: "human",
 			description: "Promote the selected version after explicit approval.",
 			dependsOn: ["inspect-history"],

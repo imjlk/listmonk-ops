@@ -6,12 +6,6 @@ import type { OperationId } from "./retry";
  * a standalone TypeScript/Typia product-domain contract.
  */
 export const runtimeOperationContractIds = [
-	"ops.campaign.deliverability-guard",
-	"ops.subscribers.hygiene",
-	"ops.templates.registry-sync",
-	"ops.templates.registry-history",
-	"ops.templates.registry-promote",
-	"ops.templates.registry-rollback",
 	"abtest.list",
 	"abtest.get",
 	"abtest.create",

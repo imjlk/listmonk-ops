@@ -6110,13 +6110,11 @@
           "properties": {
             "bounce_threshold": {
               "description": "Maximum allowed bounce rate. Defaults to 0.05.",
-              "maximum": 1,
               "minimum": 0,
               "type": "number"
             },
             "click_threshold": {
               "description": "Minimum required click rate. Defaults to 0.01.",
-              "maximum": 1,
               "minimum": 0,
               "type": "number"
             },
@@ -6126,7 +6124,6 @@
             },
             "open_threshold": {
               "description": "Minimum required open rate. Defaults to 0.08.",
-              "maximum": 1,
               "minimum": 0,
               "type": "number"
             }
@@ -6147,13 +6144,11 @@
       "properties": {
         "bounce_threshold": {
           "description": "Maximum allowed bounce rate. Defaults to 0.05.",
-          "maximum": 1,
           "minimum": 0,
           "type": "number"
         },
         "click_threshold": {
           "description": "Minimum required click rate. Defaults to 0.01.",
-          "maximum": 1,
           "minimum": 0,
           "type": "number"
         },
@@ -6163,7 +6158,6 @@
         },
         "open_threshold": {
           "description": "Minimum required open rate. Defaults to 0.08.",
-          "maximum": 1,
           "minimum": 0,
           "type": "number"
         }
@@ -7276,6 +7270,283 @@
         "webhook",
         "dns",
         "checks"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "deliverabilityGuardInputContract": {
+    "components": {
+      "schemas": {
+        "DeliverabilityGuardInput": {
+          "additionalProperties": false,
+          "properties": {
+            "bounce_threshold": {
+              "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+              "minimum": 0,
+              "type": "number"
+            },
+            "campaign_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "click_threshold": {
+              "description": "Minimum required click rate. Defaults to 0.01.",
+              "minimum": 0,
+              "type": "number"
+            },
+            "minimum_sent": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Minimum sent count before engagement breaches are evaluated. Defaults to 100."
+            },
+            "open_threshold": {
+              "description": "Minimum required open rate. Defaults to 0.08.",
+              "minimum": 0,
+              "type": "number"
+            },
+            "pause_on_breach": {
+              "description": "Pause a running or scheduled campaign when breached. Defaults to false.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "campaign_id"
+          ],
+          "type": "object"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "bounce_threshold": {
+          "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+          "minimum": 0,
+          "type": "number"
+        },
+        "campaign_id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "click_threshold": {
+          "description": "Minimum required click rate. Defaults to 0.01.",
+          "minimum": 0,
+          "type": "number"
+        },
+        "minimum_sent": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Minimum sent count before engagement breaches are evaluated. Defaults to 100."
+        },
+        "open_threshold": {
+          "description": "Minimum required open rate. Defaults to 0.08.",
+          "minimum": 0,
+          "type": "number"
+        },
+        "pause_on_breach": {
+          "description": "Pause a running or scheduled campaign when breached. Defaults to false.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "campaign_id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "deliverabilityGuardOutputContract": {
+    "components": {
+      "schemas": {
+        "DeliverabilityGuardMetrics": {
+          "additionalProperties": false,
+          "properties": {
+            "bounceRate": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "bounces": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "clickRate": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "clicks": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "openRate": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "sent": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "toSend": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "views": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "sent",
+            "toSend",
+            "views",
+            "clicks",
+            "bounces",
+            "bounceRate",
+            "openRate",
+            "clickRate"
+          ],
+          "type": "object"
+        },
+        "DeliverabilityGuardOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "breaches": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "campaignId": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "campaignName": {
+              "type": "string"
+            },
+            "checkedAt": {
+              "type": "string"
+            },
+            "metrics": {
+              "$ref": "#/components/schemas/DeliverabilityGuardMetrics"
+            },
+            "paused": {
+              "type": "boolean"
+            },
+            "status": {
+              "type": "string"
+            },
+            "thresholds": {
+              "additionalProperties": false,
+              "properties": {
+                "bounceRate": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "clickRate": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "openRate": {
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "bounceRate",
+                "openRate",
+                "clickRate"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "campaignId",
+            "campaignName",
+            "status",
+            "checkedAt",
+            "metrics",
+            "thresholds",
+            "breaches",
+            "paused"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "breaches": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "campaignId": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "campaignName": {
+          "type": "string"
+        },
+        "checkedAt": {
+          "type": "string"
+        },
+        "metrics": {
+          "$ref": "#/components/schemas/DeliverabilityGuardMetrics"
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "thresholds": {
+          "additionalProperties": false,
+          "properties": {
+            "bounceRate": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "clickRate": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "openRate": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "bounceRate",
+            "openRate",
+            "clickRate"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "campaignId",
+        "campaignName",
+        "status",
+        "checkedAt",
+        "metrics",
+        "thresholds",
+        "breaches",
+        "paused"
       ],
       "type": "object"
     },
@@ -13668,6 +13939,278 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "subscriberHygieneInputContract": {
+    "components": {
+      "schemas": {
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberHygieneInput": {
+          "additionalProperties": false,
+          "properties": {
+            "blocklist": {
+              "description": "Blocklist sunset candidates. Defaults to false.",
+              "type": "boolean"
+            },
+            "dry_run": {
+              "description": "Preview candidates without mutating subscribers. Defaults to true.",
+              "type": "boolean"
+            },
+            "inactivity_days": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Inactive threshold in days. Defaults to 90."
+            },
+            "max_subscribers": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Maximum candidates to process. Defaults to 500."
+            },
+            "mode": {
+              "description": "Hygiene mode. Defaults to \"winback\".",
+              "oneOf": [
+                {
+                  "const": "sunset"
+                },
+                {
+                  "const": "winback"
+                }
+              ]
+            },
+            "source_list_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "target_list_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "blocklist": {
+          "description": "Blocklist sunset candidates. Defaults to false.",
+          "type": "boolean"
+        },
+        "dry_run": {
+          "description": "Preview candidates without mutating subscribers. Defaults to true.",
+          "type": "boolean"
+        },
+        "inactivity_days": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Inactive threshold in days. Defaults to 90."
+        },
+        "max_subscribers": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Maximum candidates to process. Defaults to 500."
+        },
+        "mode": {
+          "description": "Hygiene mode. Defaults to \"winback\".",
+          "oneOf": [
+            {
+              "const": "sunset"
+            },
+            {
+              "const": "winback"
+            }
+          ]
+        },
+        "source_list_ids": {
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "type": "array"
+        },
+        "target_list_id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberHygieneOutputContract": {
+    "components": {
+      "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberHygieneMode": {
+          "oneOf": [
+            {
+              "const": "sunset"
+            },
+            {
+              "const": "winback"
+            }
+          ]
+        },
+        "SubscriberHygieneOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "blocklist": {
+              "type": "boolean"
+            },
+            "candidateSubscribers": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "cutoffAt": {
+              "type": "string"
+            },
+            "dryRun": {
+              "type": "boolean"
+            },
+            "errors": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "mode": {
+              "$ref": "#/components/schemas/SubscriberHygieneMode"
+            },
+            "processedSubscribers": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "sample": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "emailMasked": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "emailMasked"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "skippedDueToLimit": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "targetListId": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "totalSubscribersScanned": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "mode",
+            "cutoffAt",
+            "dryRun",
+            "totalSubscribersScanned",
+            "candidateSubscribers",
+            "processedSubscribers",
+            "skippedDueToLimit",
+            "blocklist",
+            "sample",
+            "errors"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "blocklist": {
+          "type": "boolean"
+        },
+        "candidateSubscribers": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        },
+        "cutoffAt": {
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "$ref": "#/components/schemas/SubscriberHygieneMode"
+        },
+        "processedSubscribers": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        },
+        "sample": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "emailMasked": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "emailMasked"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "skippedDueToLimit": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        },
+        "targetListId": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "totalSubscribersScanned": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        }
+      },
+      "required": [
+        "mode",
+        "cutoffAt",
+        "dryRun",
+        "totalSubscribersScanned",
+        "candidateSubscribers",
+        "processedSubscribers",
+        "skippedDueToLimit",
+        "blocklist",
+        "sample",
+        "errors"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "subscriberListCollectionOutputContract": {
     "components": {
       "schemas": {
@@ -14779,6 +15322,44 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "templateIdInputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplateIdInput": {
+          "additionalProperties": false,
+          "properties": {
+            "template_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "template_id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "template_id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [
+        "template_id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "templateListInputContract": {
     "components": {
       "schemas": {
@@ -15021,6 +15602,140 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "templatePromoteInputContract": {
+    "components": {
+      "schemas": {
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplatePromoteInput": {
+          "additionalProperties": false,
+          "properties": {
+            "expected_remote_hash": {
+              "type": "string"
+            },
+            "force": {
+              "description": "Override hash mismatch check. Defaults to false.",
+              "type": "boolean"
+            },
+            "template_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "version_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "template_id",
+            "version_id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_remote_hash": {
+          "type": "string"
+        },
+        "force": {
+          "description": "Override hash mismatch check. Defaults to false.",
+          "type": "boolean"
+        },
+        "template_id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "version_id": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        }
+      },
+      "required": [
+        "template_id",
+        "version_id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templatePromoteOutputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplatePromoteOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "activeVersionId": {
+              "type": "string"
+            },
+            "promotedAt": {
+              "type": "string"
+            },
+            "templateId": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "templateName": {
+              "type": "string"
+            },
+            "versionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "templateId",
+            "templateName",
+            "versionId",
+            "activeVersionId",
+            "promotedAt"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "activeVersionId": {
+          "type": "string"
+        },
+        "promotedAt": {
+          "type": "string"
+        },
+        "templateId": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "templateName": {
+          "type": "string"
+        },
+        "versionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "templateId",
+        "templateName",
+        "versionId",
+        "activeVersionId",
+        "promotedAt"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "templateRecordContract": {
     "components": {
       "schemas": {
@@ -15112,6 +15827,314 @@
         }
       },
       "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templateRegistryHistoryOutputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplateRegistryHistoryOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "activeVersionId": {
+              "type": "string"
+            },
+            "templateId": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "templateName": {
+              "type": "string"
+            },
+            "versions": {
+              "items": {
+                "$ref": "#/components/schemas/TemplateRegistryVersion"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "templateId",
+            "templateName",
+            "versions"
+          ],
+          "type": "object"
+        },
+        "TemplateRegistryVersion": {
+          "additionalProperties": false,
+          "properties": {
+            "capturedAt": {
+              "type": "string"
+            },
+            "hash": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string"
+            },
+            "snapshot": {
+              "additionalProperties": false,
+              "properties": {
+                "body": {
+                  "type": "string"
+                },
+                "bodySource": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "type",
+                "subject",
+                "body"
+              ],
+              "type": "object"
+            },
+            "versionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "versionId",
+            "capturedAt",
+            "hash",
+            "snapshot"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "activeVersionId": {
+          "type": "string"
+        },
+        "templateId": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "templateName": {
+          "type": "string"
+        },
+        "versions": {
+          "items": {
+            "$ref": "#/components/schemas/TemplateRegistryVersion"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "templateId",
+        "templateName",
+        "versions"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templateRegistrySyncInputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplateRegistrySyncInput": {
+          "additionalProperties": false,
+          "properties": {
+            "note": {
+              "type": "string"
+            },
+            "template_id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "template_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "note": {
+          "type": "string"
+        },
+        "template_id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "template_ids": {
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templateRegistrySyncOutputContract": {
+    "components": {
+      "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplateRegistrySyncOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "capturedAt": {
+              "type": "string"
+            },
+            "createdVersions": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "errors": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "templates": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "changed": {
+                    "type": "boolean"
+                  },
+                  "hash": {
+                    "type": "string"
+                  },
+                  "templateId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "templateName": {
+                    "type": "string"
+                  },
+                  "versionId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "templateId",
+                  "templateName",
+                  "changed",
+                  "hash"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "unchangedTemplates": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "capturedAt",
+            "createdVersions",
+            "unchangedTemplates",
+            "errors",
+            "templates"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "capturedAt": {
+          "type": "string"
+        },
+        "createdVersions": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        },
+        "errors": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "templates": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "changed": {
+                "type": "boolean"
+              },
+              "hash": {
+                "type": "string"
+              },
+              "templateId": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "templateName": {
+                "type": "string"
+              },
+              "versionId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "templateId",
+              "templateName",
+              "changed",
+              "hash"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "unchangedTemplates": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        }
+      },
+      "required": [
+        "capturedAt",
+        "createdVersions",
+        "unchangedTemplates",
+        "errors",
+        "templates"
+      ],
       "type": "object"
     },
     "source": "typescript",

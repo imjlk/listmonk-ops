@@ -1023,9 +1023,9 @@ Evaluate campaign deliverability metrics and optionally pause a breached campaig
 
 - Resource / verb: `campaign.deliverability-guard`
 - MCP tool: `listmonk_ops_deliverability_guard`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `read:campaign, write:campaign`
-- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
@@ -1035,10 +1035,10 @@ Run the winback or sunset subscriber hygiene workflow
 
 - Resource / verb: `subscriber.hygiene`
 - MCP tool: `listmonk_ops_subscriber_hygiene`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `write:subscriber, suppression:audience`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
-- Retry: `unsafe`
+- Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
 ## `ops.templates.registry-sync`
@@ -1047,7 +1047,7 @@ Capture Listmonk templates in the local version registry
 
 - Resource / verb: `template.registry-sync`
 - MCP tool: `listmonk_ops_template_registry_sync`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `write:template`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
@@ -1055,11 +1055,11 @@ Capture Listmonk templates in the local version registry
 
 ## `ops.templates.registry-history`
 
-Read stored template versions from the local registry
+Show the stored version history for a template
 
 - Resource / verb: `template.registry-history`
 - MCP tool: `listmonk_ops_template_registry_history`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `read:template`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
@@ -1067,14 +1067,14 @@ Read stored template versions from the local registry
 
 ## `ops.templates.registry-promote`
 
-Promote a stored template version to active Listmonk content
+Promote a stored template version back to Listmonk
 
 - Resource / verb: `template.registry-promote`
 - MCP tool: `listmonk_ops_template_registry_promote`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `write:template`
-- Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
 ## `ops.templates.registry-rollback`
@@ -1083,9 +1083,9 @@ Rollback a Listmonk template to its previous stored version
 
 - Resource / verb: `template.registry-rollback`
 - MCP tool: `listmonk_ops_template_registry_rollback`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `write:template`
-- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
 

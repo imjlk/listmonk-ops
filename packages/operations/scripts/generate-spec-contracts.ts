@@ -135,6 +135,16 @@ import type {
 	SegmentDriftOutput,
 	DailyDigestInput,
 	DailyDigestOutput,
+	DeliverabilityGuardInput,
+	DeliverabilityGuardOutput,
+	SubscriberHygieneInput,
+	SubscriberHygieneOutput,
+	TemplateRegistrySyncInput,
+	TemplateRegistrySyncOutput,
+	TemplateRegistryHistoryOutput,
+	TemplateIdInput,
+	TemplatePromoteInput,
+	TemplatePromoteOutput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import { stableValue } from "../src/specs/stable-json.js";
@@ -610,6 +620,34 @@ const contracts = {
 	),
 	dailyDigestOutputContract: contractSchema(
 		typia.json.schema<DailyDigestOutput>(),
+	),
+	deliverabilityGuardInputContract: contractSchema(
+		typia.json.schema<DeliverabilityGuardInput>(),
+	),
+	deliverabilityGuardOutputContract: contractSchema(
+		typia.json.schema<DeliverabilityGuardOutput>(),
+	),
+	subscriberHygieneInputContract: contractSchema(
+		typia.json.schema<SubscriberHygieneInput>(),
+	),
+	subscriberHygieneOutputContract: contractSchema(
+		typia.json.schema<SubscriberHygieneOutput>(),
+	),
+	templateRegistrySyncInputContract: contractSchema(
+		typia.json.schema<TemplateRegistrySyncInput>(),
+	),
+	templateRegistrySyncOutputContract: contractSchema(
+		typia.json.schema<TemplateRegistrySyncOutput>(),
+	),
+	templateRegistryHistoryOutputContract: contractSchema(
+		typia.json.schema<TemplateRegistryHistoryOutput>(),
+	),
+	templateIdInputContract: contractSchema(typia.json.schema<TemplateIdInput>()),
+	templatePromoteInputContract: contractSchema(
+		typia.json.schema<TemplatePromoteInput>(),
+	),
+	templatePromoteOutputContract: contractSchema(
+		typia.json.schema<TemplatePromoteOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

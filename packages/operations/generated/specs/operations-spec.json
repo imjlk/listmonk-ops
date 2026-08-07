@@ -28853,13 +28853,11 @@
                 "properties": {
                   "bounce_threshold": {
                     "description": "Maximum allowed bounce rate. Defaults to 0.05.",
-                    "maximum": 1,
                     "minimum": 0,
                     "type": "number"
                   },
                   "click_threshold": {
                     "description": "Minimum required click rate. Defaults to 0.01.",
-                    "maximum": 1,
                     "minimum": 0,
                     "type": "number"
                   },
@@ -28869,7 +28867,6 @@
                   },
                   "open_threshold": {
                     "description": "Minimum required open rate. Defaults to 0.08.",
-                    "maximum": 1,
                     "minimum": 0,
                     "type": "number"
                   }
@@ -28890,13 +28887,11 @@
             "properties": {
               "bounce_threshold": {
                 "description": "Maximum allowed bounce rate. Defaults to 0.05.",
-                "maximum": 1,
                 "minimum": 0,
                 "type": "number"
               },
               "click_threshold": {
                 "description": "Minimum required click rate. Defaults to 0.01.",
-                "maximum": 1,
                 "minimum": 0,
                 "type": "number"
               },
@@ -28906,7 +28901,6 @@
               },
               "open_threshold": {
                 "description": "Minimum required open rate. Defaults to 0.08.",
-                "maximum": 1,
                 "minimum": 0,
                 "type": "number"
               }
@@ -29158,53 +29152,99 @@
     {
       "agent": {
         "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
+          "The campaign has not started sending yet."
         ],
-        "prerequisites": [
-          "campaigns.get",
-          "campaigns.stats"
-        ],
+        "prerequisites": [],
         "related": [
-          "campaigns.pause",
           "ops.digest.daily"
         ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
+        "retryGuidance": "Retry is safe; the guard re-reads current metrics.",
         "useWhen": [
-          "Evaluate campaign deliverability metrics and optionally pause a breached campaign"
+          "Campaign deliverability metrics must be evaluated against thresholds."
         ],
         "verifyWith": [
-          "campaigns.get",
-          "campaigns.stats"
+          "campaigns.get"
         ]
       },
       "contract": {
         "input": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "DeliverabilityGuardInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "bounce_threshold": {
+                    "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "campaign_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "click_threshold": {
+                    "description": "Minimum required click rate. Defaults to 0.01.",
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "minimum_sent": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Minimum sent count before engagement breaches are evaluated. Defaults to 100."
+                  },
+                  "open_threshold": {
+                    "description": "Minimum required open rate. Defaults to 0.08.",
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "pause_on_breach": {
+                    "description": "Pause a running or scheduled campaign when breached. Defaults to false.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "campaign_id"
+                ],
+                "type": "object"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
+            "additionalProperties": false,
             "properties": {
               "bounce_threshold": {
-                "description": "Maximum allowed bounce rate",
+                "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+                "minimum": 0,
                 "type": "number"
               },
               "campaign_id": {
-                "description": "Campaign ID",
-                "type": "number"
+                "$ref": "#/components/schemas/ResourceId"
               },
               "click_threshold": {
-                "description": "Minimum required click rate",
+                "description": "Minimum required click rate. Defaults to 0.01.",
+                "minimum": 0,
                 "type": "number"
               },
               "minimum_sent": {
-                "description": "Minimum sent count before engagement breaches are evaluated",
-                "type": "number"
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Minimum sent count before engagement breaches are evaluated. Defaults to 100."
               },
               "open_threshold": {
-                "description": "Minimum required open rate",
+                "description": "Minimum required open rate. Defaults to 0.08.",
+                "minimum": 0,
                 "type": "number"
               },
               "pause_on_breach": {
-                "description": "Pause a running or scheduled campaign when breached",
+                "description": "Pause a running or scheduled campaign when breached. Defaults to false.",
                 "type": "boolean"
               }
             },
@@ -29213,33 +29253,13 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         },
         "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "breaches": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "campaignId": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              },
-              "campaignName": {
-                "type": "string"
-              },
-              "checkedAt": {
-                "type": "string"
-              },
-              "metrics": {
+          "components": {
+            "schemas": {
+              "DeliverabilityGuardMetrics": {
                 "additionalProperties": false,
                 "properties": {
                   "bounceRate": {
@@ -29287,6 +29307,98 @@
                 ],
                 "type": "object"
               },
+              "DeliverabilityGuardOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "breaches": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "campaignId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "campaignName": {
+                    "type": "string"
+                  },
+                  "checkedAt": {
+                    "type": "string"
+                  },
+                  "metrics": {
+                    "$ref": "#/components/schemas/DeliverabilityGuardMetrics"
+                  },
+                  "paused": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "thresholds": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bounceRate": {
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      "clickRate": {
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      "openRate": {
+                        "minimum": 0,
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "bounceRate",
+                      "openRate",
+                      "clickRate"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "campaignId",
+                  "campaignName",
+                  "status",
+                  "checkedAt",
+                  "metrics",
+                  "thresholds",
+                  "breaches",
+                  "paused"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "breaches": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "campaignId": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "campaignName": {
+                "type": "string"
+              },
+              "checkedAt": {
+                "type": "string"
+              },
+              "metrics": {
+                "$ref": "#/components/schemas/DeliverabilityGuardMetrics"
+              },
               "paused": {
                 "type": "boolean"
               },
@@ -29329,7 +29441,7 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         }
       },
@@ -29342,19 +29454,19 @@
         {
           "kind": "write",
           "resource": "campaign",
-          "reversible": false
+          "reversible": true
         }
       ],
       "id": "ops.campaign.deliverability-guard",
       "policy": {
         "audit": "required",
-        "confirmation": "required",
+        "confirmation": "never",
         "dryRun": false
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsDeliverabilityGuardOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsDeliverabilityGuardOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeDeliverabilityGuardOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeDeliverabilityGuardOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#deliverabilityGuardOperation:variable"
@@ -29365,7 +29477,7 @@
       "resource": "campaign",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
+        "reason": "Re-evaluating the same metrics converges on the same result; pause is only applied once."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -29375,18 +29487,15 @@
     {
       "agent": {
         "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
+          "No subscriber inactivity baseline has been established."
         ],
         "prerequisites": [
           "subscribers.list"
         ],
-        "related": [
-          "subscribers.blocklist",
-          "subscribers.add-to-lists"
-        ],
-        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.",
+        "related": [],
+        "retryGuidance": "Retry with bounded backoff; the workflow is idempotent for the same candidate set.",
         "useWhen": [
-          "Run the winback or sunset subscriber hygiene workflow"
+          "Inactive subscribers must be identified for winback or sunset workflows."
         ],
         "verifyWith": [
           "subscribers.list"
@@ -29394,53 +29503,204 @@
       },
       "contract": {
         "input": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberHygieneInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "blocklist": {
+                    "description": "Blocklist sunset candidates. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "description": "Preview candidates without mutating subscribers. Defaults to true.",
+                    "type": "boolean"
+                  },
+                  "inactivity_days": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Inactive threshold in days. Defaults to 90."
+                  },
+                  "max_subscribers": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Maximum candidates to process. Defaults to 500."
+                  },
+                  "mode": {
+                    "description": "Hygiene mode. Defaults to \"winback\".",
+                    "oneOf": [
+                      {
+                        "const": "sunset"
+                      },
+                      {
+                        "const": "winback"
+                      }
+                    ]
+                  },
+                  "source_list_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "target_list_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
+            "additionalProperties": false,
             "properties": {
               "blocklist": {
-                "description": "Blocklist sunset candidates",
+                "description": "Blocklist sunset candidates. Defaults to false.",
                 "type": "boolean"
               },
               "dry_run": {
-                "description": "Preview candidates without mutating subscribers",
+                "description": "Preview candidates without mutating subscribers. Defaults to true.",
                 "type": "boolean"
               },
               "inactivity_days": {
-                "description": "Inactive threshold in days",
-                "type": "number"
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Inactive threshold in days. Defaults to 90."
               },
               "max_subscribers": {
-                "description": "Maximum candidates to process",
-                "type": "number"
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Maximum candidates to process. Defaults to 500."
               },
               "mode": {
-                "default": "winback",
-                "enum": [
-                  "winback",
-                  "sunset"
-                ],
-                "type": "string"
+                "description": "Hygiene mode. Defaults to \"winback\".",
+                "oneOf": [
+                  {
+                    "const": "sunset"
+                  },
+                  {
+                    "const": "winback"
+                  }
+                ]
               },
               "source_list_ids": {
-                "description": "Optional source list IDs",
                 "items": {
-                  "type": "number"
+                  "$ref": "#/components/schemas/ResourceId"
                 },
                 "type": "array"
               },
               "target_list_id": {
-                "description": "Target list ID for subscriber tagging",
-                "type": "number"
+                "$ref": "#/components/schemas/ResourceId"
               }
             },
+            "required": [],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         },
         "output": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberHygieneMode": {
+                "oneOf": [
+                  {
+                    "const": "sunset"
+                  },
+                  {
+                    "const": "winback"
+                  }
+                ]
+              },
+              "SubscriberHygieneOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "blocklist": {
+                    "type": "boolean"
+                  },
+                  "candidateSubscribers": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "cutoffAt": {
+                    "type": "string"
+                  },
+                  "dryRun": {
+                    "type": "boolean"
+                  },
+                  "errors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "mode": {
+                    "$ref": "#/components/schemas/SubscriberHygieneMode"
+                  },
+                  "processedSubscribers": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "sample": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "emailMasked": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "emailMasked"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "skippedDueToLimit": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "targetListId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "totalSubscribersScanned": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "mode",
+                  "cutoffAt",
+                  "dryRun",
+                  "totalSubscribersScanned",
+                  "candidateSubscribers",
+                  "processedSubscribers",
+                  "skippedDueToLimit",
+                  "blocklist",
+                  "sample",
+                  "errors"
+                ],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
             "additionalProperties": false,
@@ -29449,9 +29709,7 @@
                 "type": "boolean"
               },
               "candidateSubscribers": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
+                "$ref": "#/components/schemas/NonNegativeInteger"
               },
               "cutoffAt": {
                 "type": "string"
@@ -29466,16 +29724,10 @@
                 "type": "array"
               },
               "mode": {
-                "enum": [
-                  "winback",
-                  "sunset"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/SubscriberHygieneMode"
               },
               "processedSubscribers": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
+                "$ref": "#/components/schemas/NonNegativeInteger"
               },
               "sample": {
                 "items": {
@@ -29496,19 +29748,13 @@
                 "type": "array"
               },
               "skippedDueToLimit": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
+                "$ref": "#/components/schemas/NonNegativeInteger"
               },
               "targetListId": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
+                "$ref": "#/components/schemas/ResourceId"
               },
               "totalSubscribersScanned": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
+                "$ref": "#/components/schemas/NonNegativeInteger"
               }
             },
             "required": [
@@ -29525,7 +29771,7 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         }
       },
@@ -29553,8 +29799,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsSubscriberHygieneOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsSubscriberHygieneOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeSubscriberHygieneOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeSubscriberHygieneOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#subscriberHygieneOperation:variable"
@@ -29564,8 +29810,8 @@
       },
       "resource": "subscriber",
       "retry": {
-        "kind": "unsafe",
-        "reason": "The shared operation may create, deliver, or advance state before an ambiguous failure."
+        "kind": "safe",
+        "reason": "Reapplying the same hygiene action converges on the same subscriber state."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -29575,15 +29821,18 @@
     {
       "agent": {
         "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
+          "No templates have changed since the last sync."
         ],
         "prerequisites": [
           "templates.list"
         ],
-        "related": [],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
+        "related": [
+          "ops.templates.registry-promote",
+          "ops.templates.registry-rollback"
+        ],
+        "retryGuidance": "Retry is safe; unchanged templates are skipped.",
         "useWhen": [
-          "Capture Listmonk templates in the local version registry"
+          "Listmonk templates must be captured into the local version registry."
         ],
         "verifyWith": [
           "ops.templates.registry-history"
@@ -29591,33 +29840,130 @@
       },
       "contract": {
         "input": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRegistrySyncInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "note": {
+                    "type": "string"
+                  },
+                  "template_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "template_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
+            "additionalProperties": false,
             "properties": {
               "note": {
-                "description": "Snapshot note",
                 "type": "string"
               },
               "template_id": {
-                "description": "Optional single template ID to sync",
-                "type": "number"
+                "$ref": "#/components/schemas/ResourceId"
               },
               "template_ids": {
-                "description": "Optional template IDs to sync",
                 "items": {
-                  "type": "number"
+                  "$ref": "#/components/schemas/ResourceId"
                 },
                 "type": "array"
               }
             },
+            "required": [],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         },
         "output": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRegistrySyncOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "capturedAt": {
+                    "type": "string"
+                  },
+                  "createdVersions": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "errors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "templates": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "changed": {
+                          "type": "boolean"
+                        },
+                        "hash": {
+                          "type": "string"
+                        },
+                        "templateId": {
+                          "$ref": "#/components/schemas/ResourceId"
+                        },
+                        "templateName": {
+                          "type": "string"
+                        },
+                        "versionId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "templateId",
+                        "templateName",
+                        "changed",
+                        "hash"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "unchangedTemplates": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "capturedAt",
+                  "createdVersions",
+                  "unchangedTemplates",
+                  "errors",
+                  "templates"
+                ],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
             "additionalProperties": false,
@@ -29626,9 +29972,7 @@
                 "type": "string"
               },
               "createdVersions": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
+                "$ref": "#/components/schemas/NonNegativeInteger"
               },
               "errors": {
                 "items": {
@@ -29647,9 +29991,7 @@
                       "type": "string"
                     },
                     "templateId": {
-                      "exclusiveMinimum": 0,
-                      "maximum": 9007199254740991,
-                      "type": "integer"
+                      "$ref": "#/components/schemas/ResourceId"
                     },
                     "templateName": {
                       "type": "string"
@@ -29669,9 +30011,7 @@
                 "type": "array"
               },
               "unchangedTemplates": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
+                "$ref": "#/components/schemas/NonNegativeInteger"
               }
             },
             "required": [
@@ -29683,7 +30023,7 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         }
       },
@@ -29703,8 +30043,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistrySyncOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistrySyncOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistrySyncOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistrySyncOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistrySyncOperation:variable"
@@ -29715,7 +30055,7 @@
       "resource": "template",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
+        "reason": "Re-syncing captures the same templates; no duplicate versions are created for unchanged content."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -29725,28 +30065,50 @@
     {
       "agent": {
         "avoidWhen": [
-          "A mutation or workflow transition is required instead of inspection."
+          "The template has not been synced into the registry."
         ],
-        "prerequisites": [],
+        "prerequisites": [
+          "ops.templates.registry-sync"
+        ],
         "related": [
           "ops.templates.registry-promote",
           "ops.templates.registry-rollback"
         ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
+        "retryGuidance": "Retry transient read failures with bounded backoff.",
         "useWhen": [
-          "Read stored template versions from the local registry"
+          "A template's stored version history must be inspected."
         ],
         "verifyWith": []
       },
       "contract": {
         "input": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "template_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "template_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
+            "additionalProperties": false,
             "properties": {
               "template_id": {
-                "description": "Template ID",
-                "type": "number"
+                "$ref": "#/components/schemas/ResourceId"
               }
             },
             "required": [
@@ -29754,11 +30116,100 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         },
         "output": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRegistryHistoryOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "activeVersionId": {
+                    "type": "string"
+                  },
+                  "templateId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "templateName": {
+                    "type": "string"
+                  },
+                  "versions": {
+                    "items": {
+                      "$ref": "#/components/schemas/TemplateRegistryVersion"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "templateId",
+                  "templateName",
+                  "versions"
+                ],
+                "type": "object"
+              },
+              "TemplateRegistryVersion": {
+                "additionalProperties": false,
+                "properties": {
+                  "capturedAt": {
+                    "type": "string"
+                  },
+                  "hash": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "snapshot": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "body": {
+                        "type": "string"
+                      },
+                      "bodySource": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "$ref": "#/components/schemas/ResourceId"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "type",
+                      "subject",
+                      "body"
+                    ],
+                    "type": "object"
+                  },
+                  "versionId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "versionId",
+                  "capturedAt",
+                  "hash",
+                  "snapshot"
+                ],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
             "additionalProperties": false,
@@ -29767,70 +30218,14 @@
                 "type": "string"
               },
               "templateId": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
+                "$ref": "#/components/schemas/ResourceId"
               },
               "templateName": {
                 "type": "string"
               },
               "versions": {
                 "items": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "capturedAt": {
-                      "type": "string"
-                    },
-                    "hash": {
-                      "type": "string"
-                    },
-                    "note": {
-                      "type": "string"
-                    },
-                    "snapshot": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "body": {
-                          "type": "string"
-                        },
-                        "bodySource": {
-                          "type": "string"
-                        },
-                        "id": {
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991,
-                          "type": "integer"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "subject": {
-                          "type": "string"
-                        },
-                        "type": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "type",
-                        "subject",
-                        "body"
-                      ],
-                      "type": "object"
-                    },
-                    "versionId": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "versionId",
-                    "capturedAt",
-                    "hash",
-                    "snapshot"
-                  ],
-                  "type": "object"
+                  "$ref": "#/components/schemas/TemplateRegistryVersion"
                 },
                 "type": "array"
               }
@@ -29842,11 +30237,11 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         }
       },
-      "description": "Read stored template versions from the local registry",
+      "description": "Show the stored version history for a template",
       "effects": [
         {
           "kind": "read",
@@ -29861,68 +30256,99 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryHistoryOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryHistoryOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryHistoryOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryHistoryOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryHistoryOperation:variable"
         },
         "mcpName": "listmonk_ops_template_registry_history",
-        "openWorld": true
+        "openWorld": false
       },
       "resource": "template",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
+        "reason": "The operation only reads the local version registry."
       },
       "since": "0.9.0",
       "stability": "experimental",
-      "title": "Read template registry history",
+      "title": "Show template version history",
       "verb": "registry-history"
     },
     {
       "agent": {
         "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
+          "The target version is already the active remote template."
         ],
         "prerequisites": [
-          "ops.templates.registry-history",
-          "templates.get"
+          "ops.templates.registry-history"
         ],
         "related": [
+          "ops.templates.registry-sync",
           "ops.templates.registry-rollback"
         ],
-        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.",
+        "retryGuidance": "Retry is safe; the promotion is idempotent for the same version content.",
         "useWhen": [
-          "Promote a stored template version to active Listmonk content"
+          "A previously captured template version must be restored to Listmonk."
         ],
         "verifyWith": [
-          "templates.get",
-          "ops.templates.registry-history"
+          "templates.get"
         ]
       },
       "contract": {
         "input": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplatePromoteInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "expected_remote_hash": {
+                    "type": "string"
+                  },
+                  "force": {
+                    "description": "Override hash mismatch check. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "template_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "version_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "template_id",
+                  "version_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
+            "additionalProperties": false,
             "properties": {
               "expected_remote_hash": {
-                "description": "Expected remote template hash for optimistic concurrency",
                 "type": "string"
               },
               "force": {
-                "description": "Override hash mismatch check",
+                "description": "Override hash mismatch check. Defaults to false.",
                 "type": "boolean"
               },
               "template_id": {
-                "description": "Template ID",
-                "type": "number"
+                "$ref": "#/components/schemas/ResourceId"
               },
               "version_id": {
-                "description": "Stored version ID",
-                "minLength": 1,
-                "type": "string"
+                "$ref": "#/components/schemas/NonEmptyString"
               }
             },
             "required": [
@@ -29931,11 +30357,47 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         },
         "output": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplatePromoteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "activeVersionId": {
+                    "type": "string"
+                  },
+                  "promotedAt": {
+                    "type": "string"
+                  },
+                  "templateId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "templateName": {
+                    "type": "string"
+                  },
+                  "versionId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "templateId",
+                  "templateName",
+                  "versionId",
+                  "activeVersionId",
+                  "promotedAt"
+                ],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
             "additionalProperties": false,
@@ -29947,9 +30409,7 @@
                 "type": "string"
               },
               "templateId": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
+                "$ref": "#/components/schemas/ResourceId"
               },
               "templateName": {
                 "type": "string"
@@ -29967,28 +30427,28 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         }
       },
-      "description": "Promote a stored template version to active Listmonk content",
+      "description": "Promote a stored template version back to Listmonk",
       "effects": [
         {
           "kind": "write",
           "resource": "template",
-          "reversible": false
+          "reversible": true
         }
       ],
       "id": "ops.templates.registry-promote",
       "policy": {
         "audit": "required",
-        "confirmation": "required",
+        "confirmation": "never",
         "dryRun": false
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryPromoteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryPromoteOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryPromoteOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryPromoteOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryPromoteOperation:variable"
@@ -29998,8 +30458,8 @@
       },
       "resource": "template",
       "retry": {
-        "kind": "unsafe",
-        "reason": "The shared operation may create, deliver, or advance state before an ambiguous failure."
+        "kind": "safe",
+        "reason": "Reapplying the same promotion converges on the same remote template content."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -30009,33 +30469,52 @@
     {
       "agent": {
         "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
+          "No previous version exists in the registry."
         ],
         "prerequisites": [
-          "ops.templates.registry-history",
-          "templates.get"
+          "ops.templates.registry-history"
         ],
         "related": [
+          "ops.templates.registry-sync",
           "ops.templates.registry-promote"
         ],
-        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.",
+        "retryGuidance": "Inspect ops.templates.registry-history before retrying an ambiguous rollback.",
         "useWhen": [
-          "Rollback a Listmonk template to its previous stored version"
+          "A template must be reverted to its previous stored version."
         ],
         "verifyWith": [
-          "templates.get",
-          "ops.templates.registry-history"
+          "templates.get"
         ]
       },
       "contract": {
         "input": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "template_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "template_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
+            "additionalProperties": false,
             "properties": {
               "template_id": {
-                "description": "Template ID",
-                "type": "number"
+                "$ref": "#/components/schemas/ResourceId"
               }
             },
             "required": [
@@ -30043,11 +30522,47 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         },
         "output": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplatePromoteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "activeVersionId": {
+                    "type": "string"
+                  },
+                  "promotedAt": {
+                    "type": "string"
+                  },
+                  "templateId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "templateName": {
+                    "type": "string"
+                  },
+                  "versionId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "templateId",
+                  "templateName",
+                  "versionId",
+                  "activeVersionId",
+                  "promotedAt"
+                ],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
             "additionalProperties": false,
@@ -30059,9 +30574,7 @@
                 "type": "string"
               },
               "templateId": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
+                "$ref": "#/components/schemas/ResourceId"
               },
               "templateName": {
                 "type": "string"
@@ -30079,7 +30592,7 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         }
       },
@@ -30088,19 +30601,19 @@
         {
           "kind": "write",
           "resource": "template",
-          "reversible": false
+          "reversible": true
         }
       ],
       "id": "ops.templates.registry-rollback",
       "policy": {
         "audit": "required",
-        "confirmation": "required",
+        "confirmation": "never",
         "dryRun": false
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryRollbackOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryRollbackOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryRollbackOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryRollbackOperation:variable"
@@ -30111,7 +30624,7 @@
       "resource": "template",
       "retry": {
         "kind": "unsafe",
-        "reason": "The shared operation may create, deliver, or advance state before an ambiguous failure."
+        "reason": "A retry may roll back to a different version if the registry was updated between calls."
       },
       "since": "0.9.0",
       "stability": "experimental",

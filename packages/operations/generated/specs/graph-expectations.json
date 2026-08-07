@@ -2273,12 +2273,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#deliverabilityGuardOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindOpsDeliverabilityGuardOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindOpsDeliverabilityGuardOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#opsDeliverabilityGuardOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeDeliverabilityGuardOperation:function",
@@ -2287,8 +2287,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsDeliverabilityGuardOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsDeliverabilityGuardOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeDeliverabilityGuardOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeDeliverabilityGuardOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#deliverabilityGuardOperation:variable"
@@ -2300,12 +2300,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#subscriberHygieneOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindOpsSubscriberHygieneOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindOpsSubscriberHygieneOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#opsSubscriberHygieneOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeSubscriberHygieneOperation:function",
@@ -2314,8 +2314,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsSubscriberHygieneOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsSubscriberHygieneOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeSubscriberHygieneOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeSubscriberHygieneOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#subscriberHygieneOperation:variable"
@@ -2327,12 +2327,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#templateRegistrySyncOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistrySyncOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistrySyncOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistrySyncOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistrySyncOperation:function",
@@ -2341,8 +2341,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistrySyncOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistrySyncOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistrySyncOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistrySyncOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistrySyncOperation:variable"
@@ -2354,12 +2354,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#templateRegistryHistoryOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryHistoryOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryHistoryOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryHistoryOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryHistoryOperation:function",
@@ -2368,8 +2368,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryHistoryOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryHistoryOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryHistoryOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryHistoryOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryHistoryOperation:variable"
@@ -2381,12 +2381,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#templateRegistryPromoteOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryPromoteOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryPromoteOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryPromoteOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryPromoteOperation:function",
@@ -2395,8 +2395,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryPromoteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryPromoteOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryPromoteOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryPromoteOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryPromoteOperation:variable"
@@ -2408,12 +2408,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#templateRegistryRollbackOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryRollbackOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryRollbackOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryRollbackOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryRollbackOperation:function",
@@ -2422,8 +2422,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryRollbackOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryRollbackOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryRollbackOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryRollbackOperation:variable"

@@ -408,7 +408,7 @@ describe("email operations specification", () => {
 			},
 		]);
 		expect(
-			bridgedOperationSpecsById["ops.subscribers.hygiene"].effects,
+			emailOperationsSpec.operations.find((o) => o.id === "ops.subscribers.hygiene")?.effects,
 		).toEqual([
 			{
 				kind: "write",
@@ -465,7 +465,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.map((op) => [op.id, op]),
 		);
 		for (const operationId of [
-			"ops.subscribers.hygiene",
+			"subscribers.add-to-lists",
 			"subscribers.remove-from-lists",
 			"subscribers.unblocklist",
 			"abtest.tick",
@@ -478,7 +478,7 @@ describe("email operations specification", () => {
 			operationsById.get("ops.segments.drift")?.policy.dryRun,
 		).toBe(false);
 		expect(
-			bridgedOperationSpecsById["ops.templates.registry-promote"]?.retry,
+			bridgedOperationSpecsById["abtest.deploy-winner"]?.retry,
 		).toMatchObject({ kind: "unsafe" });
 
 		const createSpec = bridgedOperationSpecsById["abtest.create"];
@@ -1583,14 +1583,14 @@ describe("email operations specification", () => {
 	});
 
 	test("keeps runtime bridges experimental and rejects normalized contract drift", () => {
-		const bridged = bridgedOperationSpecsById["ops.subscribers.hygiene"];
+		const bridged = bridgedOperationSpecsById["abtest.list"];
 		expect(() =>
 			defineOperationSpec({
 				...bridged,
 				stability: "stable",
 			}),
 		).toThrow(
-			"Stable operation spec ops.subscribers.hygiene must use TypeScript-authored input and output contracts",
+			"Stable operation spec abtest.list must use TypeScript-authored input and output contracts",
 		);
 		expect(() =>
 			assertRuntimeOperationContracts(bridged, {
@@ -1598,7 +1598,7 @@ describe("email operations specification", () => {
 				output: bridged.contract.output.schema,
 			}),
 		).toThrow(
-			"Runtime operation ops.subscribers.hygiene input contract drifted from its committed operation spec bridge",
+			"Runtime operation abtest.list input contract drifted from its committed operation spec bridge",
 		);
 
 		expect(() =>
@@ -1607,7 +1607,7 @@ describe("email operations specification", () => {
 				output: bridged.contract.output.schema,
 			}),
 		).toThrow(
-			"Runtime operation ops.subscribers.hygiene input contract drifted from its committed operation spec bridge",
+			"Runtime operation abtest.list input contract drifted from its committed operation spec bridge",
 		);
 	});
 });
