@@ -1156,13 +1156,13 @@ Contract maturity: `experimental`; effects: `maintenance:recover:recoverable`; c
 
 Use when: Subscriber list sizes must be monitored for unexpected drift.
 
-Avoid when: The baseline has not been established.
+Avoid when: No subscriber lists exist to monitor.
 
 Prerequisites: `lists.list`
 
 Verify with: `lists.list`
 
-Retry guidance: Re-run after verifying the previous snapshot was captured.
+Retry guidance: Verify the previous snapshot was committed before retrying; a duplicate sample double-weights the same count.
 
 ## Generate daily operations digest (`ops.digest.daily`)
 

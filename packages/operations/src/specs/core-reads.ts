@@ -1605,11 +1605,11 @@ export const opsSegmentDriftOperationSpec = defineOperationSpec({
 	},
 	agent: {
 		useWhen: ["Subscriber list sizes must be monitored for unexpected drift."],
-		avoidWhen: ["The baseline has not been established."],
+		avoidWhen: ["No subscriber lists exist to monitor."],
 		prerequisites: ["lists.list"],
 		verifyWith: ["lists.list"],
 		related: [],
-		retryGuidance: "Re-run after verifying the previous snapshot was captured.",
+		retryGuidance: "Verify the previous snapshot was committed before retrying; a duplicate sample double-weights the same count.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_segment_drift",
