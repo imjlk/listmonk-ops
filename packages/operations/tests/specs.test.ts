@@ -106,7 +106,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(44);
+		).toHaveLength(46);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -271,11 +271,14 @@ describe("email operations specification", () => {
 		expect(
 			templateCrudSpecs.every(
 				(operation) =>
-					operation.stability === "experimental" &&
 					operation.contract.input.source === "typescript" &&
 					operation.contract.output.source === "typescript",
 			),
 		).toBe(true);
+		expect(templatesCreateOperationSpec.stability).toBe("experimental");
+		expect(templatesDeleteOperationSpec.stability).toBe("experimental");
+		expect(templatesUpdateOperationSpec.stability).toBe("stable");
+		expect(templatesSetDefaultOperationSpec.stability).toBe("stable");
 		const runtimeBridgeIds = new Set<string>(runtimeOperationContractIds);
 		expect(
 			templateCrudSpecs.every(

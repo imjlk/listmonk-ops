@@ -11694,6 +11694,491 @@
         "reconcileWith": "templates.reconcile"
       },
       "verb": "reconcile"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInputTemplateUpdateFields__type": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o1": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o2": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "subject"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o3": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "body_source"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o4": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "body"
+                ],
+                "type": "object"
+              },
+              "TemplateUpdateInput": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o2"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o3"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
+                  }
+                ],
+                "description": "Update a positive template ID with at least one mutable field."
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o1"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o2"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o3"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
+              }
+            ],
+            "description": "Update a positive template ID with at least one mutable field."
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "is_default": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "body": {
+                "type": "string"
+              },
+              "body_source": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "is_default": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": true
+        }
+      ],
+      "id": "templates.update",
+      "mcpName": "listmonk_update_template",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "template",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same requested template fields converges on the same representation."
+      },
+      "verb": "update"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateSetDefaultOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "set_default": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "id",
+                  "set_default"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "set_default": {
+                "const": true
+              }
+            },
+            "required": [
+              "id",
+              "set_default"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": true
+        }
+      ],
+      "id": "templates.set-default",
+      "mcpName": "listmonk_set_default_template",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "template",
+      "retry": {
+        "kind": "safe",
+        "reason": "Setting the same template as default repeatedly converges on the same selection."
+      },
+      "verb": "set-default"
     }
   ]
 }

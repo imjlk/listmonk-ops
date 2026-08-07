@@ -774,7 +774,7 @@ Update a template in Listmonk
 - Effects: `write:template`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `templates.delete`
 
@@ -798,7 +798,7 @@ Set a template as the Listmonk default
 - Effects: `write:template`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `lists.create`
 

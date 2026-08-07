@@ -516,7 +516,7 @@ export const templatesUpdateOperationSpec = defineOperationSpec({
 				"packages/operations/src/templates.ts#updateTemplate:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -620,7 +620,7 @@ export const templatesSetDefaultOperationSpec = defineOperationSpec({
 				"packages/operations/src/templates.ts#setDefaultTemplate:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
