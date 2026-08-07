@@ -507,7 +507,7 @@ generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계�
 변경합니다. 정적 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면
 거부합니다.
 
-검토를 마친 핵심 44개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 46개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,

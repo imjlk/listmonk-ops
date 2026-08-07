@@ -20053,7 +20053,7 @@
         "reason": "Reapplying the same requested template fields converges on the same representation."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Update template",
       "verb": "update"
     },
@@ -20337,7 +20337,7 @@
         "reason": "Setting the same template as default repeatedly converges on the same selection."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Set default template",
       "verb": "set-default"
     },

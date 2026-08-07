@@ -886,7 +886,7 @@ Retry guidance: Do not automatically retry an ambiguous failure; inspect templat
 
 ## Update template (`templates.update`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:template`; confirmation: `never`; retry: `safe`.
 
 Use when: A known template must be updated by numeric ID.
 
@@ -914,7 +914,7 @@ Retry guidance: After an ambiguous failure, verify absence with templates.list b
 
 ## Set default template (`templates.set-default`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:template`; confirmation: `never`; retry: `safe`.
 
 Use when: A verified template should become the Listmonk default.
 

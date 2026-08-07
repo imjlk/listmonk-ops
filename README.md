@@ -508,7 +508,7 @@ and handwritten adapter first; the product spec changes only when the
 normalized operation contract or email-operation meaning changes. Static
 governance rejects OpenAPI/generated SDK imports from `src/specs`.
 
-Forty-four reviewed core operations are `stable`: the existing
+Forty-six reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -560,7 +560,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 37 governed
-runtime bridges, the 44 stable compatibility baselines, and 312 direct
+runtime bridges, the 46 stable compatibility baselines, and 312 direct
 spec-to-runtime graph edges.
 
 If a normalized Zod boundary for one of the 37 bridge operations changes,
