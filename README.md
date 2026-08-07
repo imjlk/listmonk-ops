@@ -563,7 +563,7 @@ also verifies all 104 shared operations, the API boundary rule, the 37 governed
 runtime bridges, the 46 stable compatibility baselines, and 312 direct
 spec-to-runtime graph edges.
 
-If a normalized Zod boundary for one of the 37 bridge operations changes,
+If a normalized Zod boundary for one of the 34 bridge operations changes,
 build the workspaces and run
 `bun run operations:specs:runtime-contracts:generate`, review the committed
 snapshot diff, and then regenerate the spec artifacts. Normal CLI/MCP startup

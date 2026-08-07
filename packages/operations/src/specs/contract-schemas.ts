@@ -114,6 +114,10 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	userRoleManifestReconcileOutputContract: NormalizedContractSchema;
 	templateManifestReconcileInputContract: NormalizedContractSchema;
 	templateManifestReconcileOutputContract: NormalizedContractSchema;
+	listCreateInputContract: NormalizedContractSchema;
+	listUpdateInputContract: NormalizedContractSchema;
+	listDeleteInputContract: NormalizedContractSchema;
+	listDeleteOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
@@ -293,3 +297,7 @@ export const templateManifestReconcileInputContract =
 	contracts.templateManifestReconcileInputContract;
 export const templateManifestReconcileOutputContract =
 	contracts.templateManifestReconcileOutputContract;
+export const listCreateInputContract = contracts.listCreateInputContract;
+export const listUpdateInputContract = contracts.listUpdateInputContract;
+export const listDeleteInputContract = contracts.listDeleteInputContract;
+export const listDeleteOutputContract = contracts.listDeleteOutputContract;

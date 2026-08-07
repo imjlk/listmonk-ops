@@ -58,7 +58,7 @@ Listmonk OpenAPI transport
 ```
 
 Sixty-seven contracts are authored as TypeScript types and projected with Typia.
-The remaining 37 operations use a committed
+The remaining 34 operations use a committed
 `runtime-operation` bridge snapshot of the normalized executor boundary while
 their standalone product types are developed. Runtime bridges are always
 `experimental`; they never import `@listmonk-ops/openapi` or generated SDK

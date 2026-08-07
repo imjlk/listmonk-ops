@@ -930,43 +930,43 @@ Retry guidance: Retry identical transient failures with bounded backoff, then ve
 
 Contract maturity: `experimental`; effects: `write:list`; confirmation: `never`; retry: `unsafe`.
 
-Use when: Create a new subscriber list
+Use when: A new subscriber list must be created.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: An existing list should be updated instead.
 
 Prerequisites: none
 
 Verify with: `lists.list`
 
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
+Retry guidance: Inspect lists.list before retrying an ambiguous create.
 
 ## Update subscriber list (`lists.update`)
 
-Contract maturity: `experimental`; effects: `write:list`; confirmation: `required`; retry: `safe`.
+Contract maturity: `experimental`; effects: `write:list`; confirmation: `never`; retry: `safe`.
 
-Use when: Update an existing subscriber list
+Use when: A known subscriber list must be updated by numeric ID.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: The list ID is unknown.
 
 Prerequisites: `lists.get`
 
 Verify with: `lists.get`
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry identical transient failures with bounded backoff, then verify with lists.get.
 
 ## Delete subscriber list (`lists.delete`)
 
-Contract maturity: `experimental`; effects: `delete:list`; confirmation: `required`; retry: `safe`.
+Contract maturity: `experimental`; effects: `delete:list`; confirmation: `required`; retry: `reconcile`.
 
-Use when: Delete a subscriber list
+Use when: A subscriber list must be permanently removed.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: The list still has active subscribers or campaigns.
 
 Prerequisites: `lists.get`
 
 Verify with: `lists.list`
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Verify the list is gone with lists.list before retrying.
 
 ## Create subscriber (`subscribers.create`)
 

@@ -556,11 +556,11 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 37개 governed runtime bridge, 44개
+Operation 104개 전체, API 경계 규칙, 34개 governed runtime bridge, 46개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 312개를
 검증합니다.
 
-37개 bridge Operation 중 하나의 정규화 Zod 경계가 바뀌면 workspace를
+34개 bridge Operation 중 하나의 정규화 Zod 경계가 바뀌면 workspace를
 빌드한 뒤 `bun run operations:specs:runtime-contracts:generate`를 실행하고,
 커밋될 snapshot diff를 검토한 다음 Spec 산출물을 다시 생성하세요. 일반
 CLI/MCP 시작은 runtime contract와 snapshot이 다르면 계속 fail-closed로

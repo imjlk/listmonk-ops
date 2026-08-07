@@ -113,6 +113,10 @@ import type {
 	UserRoleManifestReconcileOutput,
 	TemplateManifestReconcileInput,
 	TemplateManifestReconcileOutput,
+	ListCreateInput,
+	ListUpdateInput,
+	ListDeleteInput,
+	ListDeleteOutput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import { stableValue } from "../src/specs/stable-json.js";
@@ -523,6 +527,12 @@ const contracts = {
 	),
 	templateManifestReconcileOutputContract: contractSchema(
 		typia.json.schema<TemplateManifestReconcileOutput>(),
+	),
+	listCreateInputContract: contractSchema(typia.json.schema<ListCreateInput>()),
+	listUpdateInputContract: contractSchema(typia.json.schema<ListUpdateInput>()),
+	listDeleteInputContract: contractSchema(typia.json.schema<ListDeleteInput>()),
+	listDeleteOutputContract: contractSchema(
+		typia.json.schema<ListDeleteOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

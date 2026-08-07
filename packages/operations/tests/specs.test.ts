@@ -1580,14 +1580,14 @@ describe("email operations specification", () => {
 	});
 
 	test("keeps runtime bridges experimental and rejects normalized contract drift", () => {
-		const bridged = bridgedOperationSpecsById["lists.create"];
+		const bridged = bridgedOperationSpecsById["subscribers.create"];
 		expect(() =>
 			defineOperationSpec({
 				...bridged,
 				stability: "stable",
 			}),
 		).toThrow(
-			"Stable operation spec lists.create must use TypeScript-authored input and output contracts",
+			"Stable operation spec subscribers.create must use TypeScript-authored input and output contracts",
 		);
 		expect(() =>
 			assertRuntimeOperationContracts(bridged, {
@@ -1595,7 +1595,7 @@ describe("email operations specification", () => {
 				output: bridged.contract.output.schema,
 			}),
 		).toThrow(
-			"Runtime operation lists.create input contract drifted from its committed operation spec bridge",
+			"Runtime operation subscribers.create input contract drifted from its committed operation spec bridge",
 		);
 
 		expect(() =>
@@ -1604,7 +1604,7 @@ describe("email operations specification", () => {
 				output: bridged.contract.output.schema,
 			}),
 		).toThrow(
-			"Runtime operation lists.create input contract drifted from its committed operation spec bridge",
+			"Runtime operation subscribers.create input contract drifted from its committed operation spec bridge",
 		);
 	});
 });

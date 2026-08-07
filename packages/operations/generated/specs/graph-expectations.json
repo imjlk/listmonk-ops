@@ -1787,12 +1787,12 @@
         {
           "from": "packages/operations/src/lists.ts#createListOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindListsCreateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindListsCreateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#listsCreateOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/lists.ts#invokeCreateListOperation:function",
@@ -1801,8 +1801,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsCreateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsCreateOperationSpec:variable",
         "executorNode": "packages/operations/src/lists.ts#createSubscriberList:function",
         "invokerNode": "packages/operations/src/lists.ts#invokeCreateListOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/lists.ts#createListOperation:variable"
@@ -1814,12 +1814,12 @@
         {
           "from": "packages/operations/src/lists.ts#updateListOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindListsUpdateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindListsUpdateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#listsUpdateOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/lists.ts#invokeUpdateListOperation:function",
@@ -1828,8 +1828,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsUpdateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsUpdateOperationSpec:variable",
         "executorNode": "packages/operations/src/lists.ts#updateSubscriberList:function",
         "invokerNode": "packages/operations/src/lists.ts#invokeUpdateListOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/lists.ts#updateListOperation:variable"
@@ -1841,12 +1841,12 @@
         {
           "from": "packages/operations/src/lists.ts#deleteListOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindListsDeleteOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindListsDeleteOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#listsDeleteOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/lists.ts#invokeDeleteListOperation:function",
@@ -1855,8 +1855,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsDeleteOperationSpec:variable",
         "executorNode": "packages/operations/src/lists.ts#deleteSubscriberList:function",
         "invokerNode": "packages/operations/src/lists.ts#invokeDeleteListOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/lists.ts#deleteListOperation:variable"

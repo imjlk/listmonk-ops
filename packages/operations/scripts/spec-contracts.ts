@@ -1548,3 +1548,41 @@ export interface TemplateManifestReconcileOutput {
 	dry_run: boolean;
 	results: TemplateReconcileSummary[];
 }
+
+export type ListVisibility = "public" | "private";
+export type ListOptin = "single" | "double";
+
+export interface ListCreateInput {
+	name: NonEmptyString & tags.MaxLength<120>;
+	/**
+	 * List visibility. Optional on input and defaults to `"private"`, matching
+	 * the runtime Zod schema's `.default("private")`.
+	 */
+	type?: ListVisibility;
+	/**
+	 * Opt-in type. Optional on input and defaults to `"single"`, matching
+	 * the runtime Zod schema's `.default("single")`.
+	 */
+	optin?: ListOptin;
+	/** Optional description, defaults to `""`. */
+	description?: string;
+	tags?: string[];
+}
+
+export interface ListUpdateInput {
+	id: ResourceId;
+	name?: NonEmptyString & tags.MaxLength<120>;
+	type?: ListVisibility;
+	optin?: ListOptin;
+	description?: string;
+	tags?: string[];
+}
+
+export interface ListDeleteInput {
+	id: ResourceId;
+}
+
+export interface ListDeleteOutput {
+	id: ResourceId;
+	deleted: boolean;
+}

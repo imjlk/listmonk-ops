@@ -20344,16 +20344,16 @@
     {
       "agent": {
         "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
+          "An existing list should be updated instead."
         ],
         "prerequisites": [],
         "related": [
           "lists.update",
           "lists.delete"
         ],
-        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.",
+        "retryGuidance": "Inspect lists.list before retrying an ambiguous create.",
         "useWhen": [
-          "Create a new subscriber list"
+          "A new subscriber list must be created."
         ],
         "verifyWith": [
           "lists.list"
@@ -20361,45 +20361,96 @@
       },
       "contract": {
         "input": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ListCreateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "description": "Optional description, defaults to `\"\"`.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "optin": {
+                    "description": "Opt-in type. Optional on input and defaults to `\"single\"`, matching\nthe runtime Zod schema's `.default(\"single\")`.",
+                    "oneOf": [
+                      {
+                        "const": "double"
+                      },
+                      {
+                        "const": "single"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "description": "List visibility. Optional on input and defaults to `\"private\"`, matching\nthe runtime Zod schema's `.default(\"private\")`.",
+                    "oneOf": [
+                      {
+                        "const": "private"
+                      },
+                      {
+                        "const": "public"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
+            "additionalProperties": false,
             "properties": {
               "description": {
-                "default": "",
-                "description": "List description",
+                "description": "Optional description, defaults to `\"\"`.",
                 "type": "string"
               },
               "name": {
-                "description": "List name",
+                "maxLength": 120,
                 "minLength": 1,
                 "type": "string"
               },
               "optin": {
-                "default": "single",
-                "description": "Opt-in type",
-                "enum": [
-                  "single",
-                  "double"
-                ],
-                "type": "string"
+                "description": "Opt-in type. Optional on input and defaults to `\"single\"`, matching\nthe runtime Zod schema's `.default(\"single\")`.",
+                "oneOf": [
+                  {
+                    "const": "double"
+                  },
+                  {
+                    "const": "single"
+                  }
+                ]
               },
               "tags": {
-                "default": [],
-                "description": "List tags",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "type": {
-                "default": "private",
-                "description": "List visibility",
-                "enum": [
-                  "public",
-                  "private"
-                ],
-                "type": "string"
+                "description": "List visibility. Optional on input and defaults to `\"private\"`, matching\nthe runtime Zod schema's `.default(\"private\")`.",
+                "oneOf": [
+                  {
+                    "const": "private"
+                  },
+                  {
+                    "const": "public"
+                  }
+                ]
               }
             },
             "required": [
@@ -20407,11 +20458,59 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         },
         "output": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberListRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "optin": {
+                    "type": "string"
+                  },
+                  "subscriber_count": {
+                    "type": "number"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
             "additionalProperties": {},
@@ -20423,9 +20522,7 @@
                 "type": "string"
               },
               "id": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
+                "$ref": "#/components/schemas/ResourceId"
               },
               "name": {
                 "type": "string"
@@ -20452,9 +20549,10 @@
                 "type": "string"
               }
             },
+            "required": [],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         }
       },
@@ -20474,8 +20572,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsCreateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsCreateOperationSpec:variable",
           "executorNode": "packages/operations/src/lists.ts#createSubscriberList:function",
           "invokerNode": "packages/operations/src/lists.ts#invokeCreateListOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/lists.ts#createListOperation:variable"
@@ -20486,7 +20584,7 @@
       "resource": "list",
       "retry": {
         "kind": "unsafe",
-        "reason": "The shared operation may create, deliver, or advance state before an ambiguous failure."
+        "reason": "A retry may create another list unless the original ID is known."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -20496,7 +20594,7 @@
     {
       "agent": {
         "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
+          "The list ID is unknown."
         ],
         "prerequisites": [
           "lists.get"
@@ -20504,9 +20602,9 @@
         "related": [
           "lists.delete"
         ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
+        "retryGuidance": "Retry identical transient failures with bounded backoff, then verify with lists.get.",
         "useWhen": [
-          "Update an existing subscriber list"
+          "A known subscriber list must be updated by numeric ID."
         ],
         "verifyWith": [
           "lists.get"
@@ -20514,55 +20612,101 @@
       },
       "contract": {
         "input": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ListUpdateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "optin": {
+                    "oneOf": [
+                      {
+                        "const": "double"
+                      },
+                      {
+                        "const": "single"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "private"
+                      },
+                      {
+                        "const": "public"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
+            "additionalProperties": false,
             "properties": {
               "description": {
-                "description": "List description",
                 "type": "string"
               },
               "id": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Subscriber list ID"
+                "$ref": "#/components/schemas/ResourceId"
               },
               "name": {
-                "description": "List name",
+                "maxLength": 120,
                 "minLength": 1,
                 "type": "string"
               },
               "optin": {
-                "description": "Opt-in type",
-                "enum": [
-                  "single",
-                  "double"
-                ],
-                "type": "string"
+                "oneOf": [
+                  {
+                    "const": "double"
+                  },
+                  {
+                    "const": "single"
+                  }
+                ]
               },
               "tags": {
-                "description": "List tags",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "type": {
-                "description": "List visibility",
-                "enum": [
-                  "public",
-                  "private"
-                ],
-                "type": "string"
+                "oneOf": [
+                  {
+                    "const": "private"
+                  },
+                  {
+                    "const": "public"
+                  }
+                ]
               }
             },
             "required": [
@@ -20570,11 +20714,59 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         },
         "output": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberListRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "optin": {
+                    "type": "string"
+                  },
+                  "subscriber_count": {
+                    "type": "number"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
             "additionalProperties": {},
@@ -20586,9 +20778,7 @@
                 "type": "string"
               },
               "id": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
+                "$ref": "#/components/schemas/ResourceId"
               },
               "name": {
                 "type": "string"
@@ -20615,9 +20805,10 @@
                 "type": "string"
               }
             },
+            "required": [],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         }
       },
@@ -20626,19 +20817,19 @@
         {
           "kind": "write",
           "resource": "list",
-          "reversible": false
+          "reversible": true
         }
       ],
       "id": "lists.update",
       "policy": {
         "audit": "required",
-        "confirmation": "required",
+        "confirmation": "never",
         "dryRun": false
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsUpdateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsUpdateOperationSpec:variable",
           "executorNode": "packages/operations/src/lists.ts#updateSubscriberList:function",
           "invokerNode": "packages/operations/src/lists.ts#invokeUpdateListOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/lists.ts#updateListOperation:variable"
@@ -20649,7 +20840,7 @@
       "resource": "list",
       "retry": {
         "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
+        "reason": "Reapplying the same requested list fields converges on the same representation."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -20659,15 +20850,17 @@
     {
       "agent": {
         "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
+          "The list still has active subscribers or campaigns."
         ],
         "prerequisites": [
           "lists.get"
         ],
-        "related": [],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
+        "related": [
+          "lists.update"
+        ],
+        "retryGuidance": "Verify the list is gone with lists.list before retrying.",
         "useWhen": [
-          "Delete a subscriber list"
+          "A subscriber list must be permanently removed."
         ],
         "verifyWith": [
           "lists.list"
@@ -20675,23 +20868,33 @@
       },
       "contract": {
         "input": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ListDeleteInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
+            "additionalProperties": false,
             "properties": {
               "id": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Subscriber list ID"
+                "$ref": "#/components/schemas/ResourceId"
               }
             },
             "required": [
@@ -20699,11 +20902,35 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         },
         "output": {
-          "components": {},
+          "components": {
+            "schemas": {
+              "ListDeleteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "deleted"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
           "dialect": "openapi-3.1",
           "schema": {
             "additionalProperties": false,
@@ -20712,9 +20939,7 @@
                 "type": "boolean"
               },
               "id": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
+                "$ref": "#/components/schemas/ResourceId"
               }
             },
             "required": [
@@ -20723,7 +20948,7 @@
             ],
             "type": "object"
           },
-          "source": "runtime-operation",
+          "source": "typescript",
           "stage": "normalized"
         }
       },
@@ -20743,8 +20968,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsDeleteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsDeleteOperationSpec:variable",
           "executorNode": "packages/operations/src/lists.ts#deleteSubscriberList:function",
           "invokerNode": "packages/operations/src/lists.ts#invokeDeleteListOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/lists.ts#deleteListOperation:variable"
@@ -20754,8 +20979,10 @@
       },
       "resource": "list",
       "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Deleting an already-deleted list is a no-op; verify with lists.list after an ambiguous result.",
+        "reconcileWith": "lists.list"
       },
       "since": "0.9.0",
       "stability": "experimental",

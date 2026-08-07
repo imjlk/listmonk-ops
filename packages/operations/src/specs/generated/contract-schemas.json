@@ -3208,6 +3208,297 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "listCreateInputContract": {
+    "components": {
+      "schemas": {
+        "ListCreateInput": {
+          "additionalProperties": false,
+          "properties": {
+            "description": {
+              "description": "Optional description, defaults to `\"\"`.",
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            "optin": {
+              "description": "Opt-in type. Optional on input and defaults to `\"single\"`, matching\nthe runtime Zod schema's `.default(\"single\")`.",
+              "oneOf": [
+                {
+                  "const": "double"
+                },
+                {
+                  "const": "single"
+                }
+              ]
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": {
+              "description": "List visibility. Optional on input and defaults to `\"private\"`, matching\nthe runtime Zod schema's `.default(\"private\")`.",
+              "oneOf": [
+                {
+                  "const": "private"
+                },
+                {
+                  "const": "public"
+                }
+              ]
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "description": "Optional description, defaults to `\"\"`.",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "optin": {
+          "description": "Opt-in type. Optional on input and defaults to `\"single\"`, matching\nthe runtime Zod schema's `.default(\"single\")`.",
+          "oneOf": [
+            {
+              "const": "double"
+            },
+            {
+              "const": "single"
+            }
+          ]
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "description": "List visibility. Optional on input and defaults to `\"private\"`, matching\nthe runtime Zod schema's `.default(\"private\")`.",
+          "oneOf": [
+            {
+              "const": "private"
+            },
+            {
+              "const": "public"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "listDeleteInputContract": {
+    "components": {
+      "schemas": {
+        "ListDeleteInput": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "listDeleteOutputContract": {
+    "components": {
+      "schemas": {
+        "ListDeleteOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "deleted": {
+              "type": "boolean"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "id",
+            "deleted"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [
+        "id",
+        "deleted"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "listUpdateInputContract": {
+    "components": {
+      "schemas": {
+        "ListUpdateInput": {
+          "additionalProperties": false,
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "name": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            "optin": {
+              "oneOf": [
+                {
+                  "const": "double"
+                },
+                {
+                  "const": "single"
+                }
+              ]
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "private"
+                },
+                {
+                  "const": "public"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        },
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "optin": {
+          "oneOf": [
+            {
+              "const": "double"
+            },
+            {
+              "const": "single"
+            }
+          ]
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "oneOf": [
+            {
+              "const": "private"
+            },
+            {
+              "const": "public"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "mediaCollectionOutputContract": {
     "components": {
       "schemas": {

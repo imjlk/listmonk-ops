@@ -6,9 +6,6 @@ import type { OperationId } from "./retry";
  * a standalone TypeScript/Typia product-domain contract.
  */
 export const runtimeOperationContractIds = [
-	"lists.create",
-	"lists.update",
-	"lists.delete",
 	"subscribers.create",
 	"subscribers.update",
 	"subscribers.delete",
