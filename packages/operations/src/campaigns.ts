@@ -5,8 +5,11 @@ import {
 	bindCampaignGetOperationSpec,
 	bindCampaignScheduleOperationSpec,
 	bindCampaignStartOperationSpec,
+	bindCampaignsCreateOperationSpec,
+	bindCampaignsDeleteOperationSpec,
 	bindCampaignsListOperationSpec,
 	bindCampaignsStatsOperationSpec,
+	bindCampaignsUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
 import {
@@ -851,7 +854,7 @@ export const createCampaignOperation = defineOperation({
 		name: "listmonk_create_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("campaigns.create"),
+	spec: bindCampaignsCreateOperationSpec(),
 	execute: createCampaign,
 });
 
@@ -866,7 +869,7 @@ export const updateCampaignOperation = defineOperation({
 		name: "listmonk_update_campaign",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("campaigns.update"),
+	spec: bindCampaignsUpdateOperationSpec(),
 	execute: updateCampaign,
 });
 
@@ -881,7 +884,7 @@ export const deleteCampaignOperation = defineOperation({
 		name: "listmonk_delete_campaign",
 		legacySuccessText: "Campaign deleted successfully",
 	},
-	spec: bindBridgedOperationSpec("campaigns.delete"),
+	spec: bindCampaignsDeleteOperationSpec(),
 	execute: deleteCampaign,
 });
 

@@ -121,6 +121,10 @@ import type {
 	SubscriberUpdateInput,
 	SubscriberDeleteInput,
 	SubscriberDeleteOutput,
+	CampaignCreateInput,
+	CampaignUpdateInput,
+	CampaignDeleteInput,
+	CampaignDeleteOutput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import { stableValue } from "../src/specs/stable-json.js";
@@ -553,6 +557,19 @@ const contracts = {
 	),
 	subscriberDeleteOutputContract: contractSchema(
 		typia.json.schema<SubscriberDeleteOutput>(),
+	),
+	campaignCreateInputContract: contractSchema(
+		typia.json.schema<CampaignCreateInput>(),
+	),
+	campaignUpdateInputContract: inclusiveUnionContractSchema(
+		typia.json.schema<CampaignUpdateInput>(),
+		"CampaignUpdateInput",
+	),
+	campaignDeleteInputContract: contractSchema(
+		typia.json.schema<CampaignDeleteInput>(),
+	),
+	campaignDeleteOutputContract: contractSchema(
+		typia.json.schema<CampaignDeleteOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

@@ -1947,6 +1947,87 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/campaigns.ts#createCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindCampaignsCreateOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindCampaignsCreateOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#campaignsCreateOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeCreateCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#createCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsCreateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsCreateOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#createCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeCreateCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#createCampaignOperation:variable"
+      },
+      "operationId": "campaigns.create"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#updateCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindCampaignsUpdateOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindCampaignsUpdateOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#campaignsUpdateOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeUpdateCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#updateCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsUpdateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsUpdateOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#updateCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeUpdateCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#updateCampaignOperation:variable"
+      },
+      "operationId": "campaigns.update"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#deleteCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindCampaignsDeleteOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindCampaignsDeleteOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#campaignsDeleteOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#deleteCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsDeleteOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#deleteCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#deleteCampaignOperation:variable"
+      },
+      "operationId": "campaigns.delete"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
@@ -2024,87 +2105,6 @@
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable"
       },
       "operationId": "subscribers.unblocklist"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/campaigns.ts#createCampaignOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/operations/src/campaigns.ts#invokeCreateCampaignOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/campaigns.ts#createCampaign:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/operations/src/campaigns.ts#createCampaign:function",
-        "invokerNode": "packages/operations/src/campaigns.ts#invokeCreateCampaignOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#createCampaignOperation:variable"
-      },
-      "operationId": "campaigns.create"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/campaigns.ts#updateCampaignOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/operations/src/campaigns.ts#invokeUpdateCampaignOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/campaigns.ts#updateCampaign:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/operations/src/campaigns.ts#updateCampaign:function",
-        "invokerNode": "packages/operations/src/campaigns.ts#invokeUpdateCampaignOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#updateCampaignOperation:variable"
-      },
-      "operationId": "campaigns.update"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/campaigns.ts#deleteCampaignOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/campaigns.ts#deleteCampaign:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/operations/src/campaigns.ts#deleteCampaign:function",
-        "invokerNode": "packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#deleteCampaignOperation:variable"
-      },
-      "operationId": "campaigns.delete"
     },
     {
       "edges": [

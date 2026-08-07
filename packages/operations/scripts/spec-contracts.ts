@@ -27,6 +27,8 @@ export type PrimeRecommendationLimit = number &
 	tags.Maximum<20>;
 
 export type NonEmptyString = string & tags.MinLength<1>;
+export type TrimmedNonEmptyString = NonEmptyString &
+	tags.Pattern<"^\\s*\\S[\\s\\S]*$">;
 export type CampaignSendAt = string &
 	tags.Pattern<typeof CAMPAIGN_SEND_AT_PATTERN_SOURCE>;
 export type EmailAddress = string & tags.Format<"email">;
@@ -1640,6 +1642,105 @@ export interface SubscriberDeleteInput {
 }
 
 export interface SubscriberDeleteOutput {
+	id: ResourceId;
+	deleted: boolean;
+}
+
+export type CampaignType = "regular" | "optin";
+export type CampaignContentType = "richtext" | "html" | "markdown" | "plain" | "visual";
+
+export interface CampaignBodyFields {
+	name: TrimmedNonEmptyString;
+	subject: TrimmedNonEmptyString;
+	from_email: TrimmedNonEmptyString;
+	body: TrimmedNonEmptyString;
+	body_source?: string | null;
+	altbody?: string;
+	/**
+	 * Campaign type. Optional on input and defaults to `"regular"`, matching
+	 * the runtime Zod schema's `.default("regular")`.
+	 */
+	type?: CampaignType;
+	template_id: ResourceId | null;
+	lists: ResourceId[] & tags.MinItems<1>;
+	tags?: string[];
+	/**
+	 * Messenger. Optional on input and defaults to `"email"`, matching the
+	 * runtime Zod schema's `.default("email")`.
+	 */
+	messenger?: TrimmedNonEmptyString;
+	/**
+	 * Content type. Optional on input and defaults to `"html"`, matching the
+	 * runtime Zod schema's `.default("html")`.
+	 */
+	content_type?: CampaignContentType;
+	send_at?: string | null;
+	headers?: Record<string, string>[];
+	attribs?: Record<string, unknown>;
+	archive?: boolean;
+	archive_slug?: string | null;
+	archive_template_id?: ResourceId | null;
+	archive_meta?: Record<string, unknown>;
+	media?: ResourceId[];
+	subscribers?: string[];
+}
+
+export interface CampaignCreateInput extends CampaignBodyFields {}
+
+export interface CampaignUpdateFields {
+	name?: TrimmedNonEmptyString;
+	subject?: TrimmedNonEmptyString;
+	from_email?: TrimmedNonEmptyString;
+	body?: TrimmedNonEmptyString;
+	body_source?: string | null;
+	altbody?: string;
+	type?: CampaignType;
+	template_id?: ResourceId | null;
+	lists?: ResourceId[] & tags.MinItems<1>;
+	tags?: string[];
+	messenger?: TrimmedNonEmptyString;
+	content_type?: CampaignContentType;
+	send_at?: string | null;
+	headers?: Record<string, string>[];
+	attribs?: Record<string, unknown>;
+	archive?: boolean;
+	archive_slug?: string | null;
+	archive_template_id?: ResourceId | null;
+	archive_meta?: Record<string, unknown>;
+	media?: ResourceId[];
+	subscribers?: string[];
+}
+
+export type CampaignUpdateInput = ResourceIdInput &
+	(
+		| (CampaignUpdateFields & { name: TrimmedNonEmptyString })
+		| (CampaignUpdateFields & { subject: TrimmedNonEmptyString })
+		| (CampaignUpdateFields & { from_email: TrimmedNonEmptyString })
+		| (CampaignUpdateFields & { body: TrimmedNonEmptyString })
+		| (CampaignUpdateFields & { body_source: string | null })
+		| (CampaignUpdateFields & { altbody: string })
+		| (CampaignUpdateFields & { type: CampaignType })
+		| (CampaignUpdateFields & { template_id: ResourceId | null })
+		| (CampaignUpdateFields & { lists: ResourceId[] & tags.MinItems<1> })
+		| (CampaignUpdateFields & { tags: string[] })
+		| (CampaignUpdateFields & { messenger: TrimmedNonEmptyString })
+		| (CampaignUpdateFields & { content_type: CampaignContentType })
+		| (CampaignUpdateFields & { send_at: string | null })
+		| (CampaignUpdateFields & { headers: Record<string, string>[] })
+		| (CampaignUpdateFields & { attribs: Record<string, unknown> })
+		| (CampaignUpdateFields & { archive: boolean })
+		| (CampaignUpdateFields & { archive_slug: string | null })
+		| (CampaignUpdateFields & { archive_template_id: ResourceId | null })
+		| (CampaignUpdateFields & { archive_meta: Record<string, unknown> })
+		| (CampaignUpdateFields & { media: ResourceId[] })
+		| (CampaignUpdateFields & { subscribers: string[] })
+	);
+
+export interface CampaignDeleteInput {
+	id: ResourceId;
+}
+
+export interface CampaignDeleteOutput {
 	id: ResourceId;
 	deleted: boolean;
 }
