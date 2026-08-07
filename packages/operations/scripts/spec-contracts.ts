@@ -1597,3 +1597,49 @@ export interface ListDeleteOutput {
 	id: ResourceId;
 	deleted: boolean;
 }
+
+export type SubscriberStatus = "enabled" | "disabled" | "blocklisted";
+
+export interface SubscriberCreateInput {
+	email: EmailAddress;
+	/** Optional, defaults to `""`. */
+	name?: string;
+	/** Optional, defaults to `"enabled"`. */
+	status?: SubscriberStatus;
+	/** Optional, defaults to `[]`. */
+	lists?: ResourceId[];
+	list_uuids?: string[];
+	preconfirm_subscriptions?: boolean;
+	/** Optional, defaults to `{}`. */
+	attribs?: Record<string, unknown>;
+}
+
+export interface SubscriberUpdateFields {
+	email?: EmailAddress;
+	name?: string;
+	status?: SubscriberStatus;
+	lists?: ResourceId[];
+	list_uuids?: string[];
+	preconfirm_subscriptions?: boolean;
+	attribs?: Record<string, unknown>;
+}
+
+export type SubscriberUpdateInput = ResourceIdInput &
+	(
+		| (SubscriberUpdateFields & { email: EmailAddress })
+		| (SubscriberUpdateFields & { name: string })
+		| (SubscriberUpdateFields & { status: SubscriberStatus })
+		| (SubscriberUpdateFields & { lists: ResourceId[] })
+		| (SubscriberUpdateFields & { list_uuids: string[] })
+		| (SubscriberUpdateFields & { preconfirm_subscriptions: boolean })
+		| (SubscriberUpdateFields & { attribs: Record<string, unknown> })
+	);
+
+export interface SubscriberDeleteInput {
+	id: ResourceId;
+}
+
+export interface SubscriberDeleteOutput {
+	id: ResourceId;
+	deleted: boolean;
+}

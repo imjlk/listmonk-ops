@@ -842,7 +842,7 @@ Create a subscriber in Listmonk
 
 - Resource / verb: `subscriber.create`
 - MCP tool: `listmonk_create_subscriber`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `write:subscriber`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `unsafe`
@@ -854,7 +854,7 @@ Update a subscriber in Listmonk
 
 - Resource / verb: `subscriber.update`
 - MCP tool: `listmonk_update_subscriber`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `write:subscriber`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
@@ -866,10 +866,10 @@ Delete a subscriber from Listmonk
 
 - Resource / verb: `subscriber.delete`
 - MCP tool: `listmonk_delete_subscriber`
-- Contract source: input `runtime-operation`, output `runtime-operation`
+- Contract source: input `typescript`, output `typescript`
 - Effects: `delete:subscriber`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `safe`
+- Retry: `reconcile`
 - Stability: `experimental` since `0.9.0`
 
 ## `subscribers.add-to-lists`
