@@ -17345,9 +17345,7 @@
                   "type": "string"
                 },
                 "name": {
-                  "maxLength": 120,
-                  "minLength": 1,
-                  "type": "string"
+                  "$ref": "#/components/schemas/ListName"
                 },
                 "optin": {
                   "description": "Opt-in type. Optional on input and defaults to `\"single\"`, matching\nthe runtime Zod schema's `.default(\"single\")`.",
@@ -17382,6 +17380,12 @@
                 "name"
               ],
               "type": "object"
+            },
+            "ListName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
             }
           }
         },
@@ -17394,9 +17398,7 @@
               "type": "string"
             },
             "name": {
-              "maxLength": 120,
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/components/schemas/ListName"
             },
             "optin": {
               "description": "Opt-in type. Optional on input and defaults to `\"single\"`, matching\nthe runtime Zod schema's `.default(\"single\")`.",
@@ -17546,18 +17548,50 @@
       "input": {
         "components": {
           "schemas": {
+            "ListName": {
+              "maxLength": 120,
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
+            },
             "ListUpdateInput": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o1"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o2"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o3"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o4"
+                }
+              ]
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceIdInputListUpdateFields__type": {
               "additionalProperties": false,
               "properties": {
                 "description": {
                   "type": "string"
                 },
                 "id": {
-                  "$ref": "#/components/schemas/ResourceId"
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Positive Listmonk resource ID."
                 },
                 "name": {
                   "maxLength": 120,
                   "minLength": 1,
+                  "pattern": "^\\s*\\S[\\s\\S]*$",
                   "type": "string"
                 },
                 "optin": {
@@ -17588,63 +17622,216 @@
                 }
               },
               "required": [
-                "id"
+                "id",
+                "name"
               ],
               "type": "object"
             },
-            "ResourceId": {
-              "maximum": 9007199254740991,
-              "minimum": 1,
-              "type": "integer"
+            "ResourceIdInputListUpdateFields__type-o1": {
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Positive Listmonk resource ID."
+                },
+                "name": {
+                  "$ref": "#/components/schemas/ListName"
+                },
+                "optin": {
+                  "oneOf": [
+                    {
+                      "const": "double"
+                    },
+                    {
+                      "const": "single"
+                    }
+                  ]
+                },
+                "tags": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "oneOf": [
+                    {
+                      "const": "private"
+                    },
+                    {
+                      "const": "public"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "type"
+              ],
+              "type": "object"
+            },
+            "ResourceIdInputListUpdateFields__type-o2": {
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Positive Listmonk resource ID."
+                },
+                "name": {
+                  "$ref": "#/components/schemas/ListName"
+                },
+                "optin": {
+                  "oneOf": [
+                    {
+                      "const": "double"
+                    },
+                    {
+                      "const": "single"
+                    }
+                  ]
+                },
+                "tags": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "oneOf": [
+                    {
+                      "const": "private"
+                    },
+                    {
+                      "const": "public"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "optin"
+              ],
+              "type": "object"
+            },
+            "ResourceIdInputListUpdateFields__type-o3": {
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Positive Listmonk resource ID."
+                },
+                "name": {
+                  "$ref": "#/components/schemas/ListName"
+                },
+                "optin": {
+                  "oneOf": [
+                    {
+                      "const": "double"
+                    },
+                    {
+                      "const": "single"
+                    }
+                  ]
+                },
+                "tags": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "oneOf": [
+                    {
+                      "const": "private"
+                    },
+                    {
+                      "const": "public"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "description"
+              ],
+              "type": "object"
+            },
+            "ResourceIdInputListUpdateFields__type-o4": {
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Positive Listmonk resource ID."
+                },
+                "name": {
+                  "$ref": "#/components/schemas/ListName"
+                },
+                "optin": {
+                  "oneOf": [
+                    {
+                      "const": "double"
+                    },
+                    {
+                      "const": "single"
+                    }
+                  ]
+                },
+                "tags": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "oneOf": [
+                    {
+                      "const": "private"
+                    },
+                    {
+                      "const": "public"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "tags"
+              ],
+              "type": "object"
             }
           }
         },
         "dialect": "openapi-3.1",
         "schema": {
-          "additionalProperties": false,
-          "properties": {
-            "description": {
-              "type": "string"
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type"
             },
-            "id": {
-              "$ref": "#/components/schemas/ResourceId"
+            {
+              "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o1"
             },
-            "name": {
-              "maxLength": 120,
-              "minLength": 1,
-              "type": "string"
+            {
+              "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o2"
             },
-            "optin": {
-              "oneOf": [
-                {
-                  "const": "double"
-                },
-                {
-                  "const": "single"
-                }
-              ]
+            {
+              "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o3"
             },
-            "tags": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "type": {
-              "oneOf": [
-                {
-                  "const": "private"
-                },
-                {
-                  "const": "public"
-                }
-              ]
+            {
+              "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o4"
             }
-          },
-          "required": [
-            "id"
-          ],
-          "type": "object"
+          ]
         },
         "source": "typescript",
         "stage": "normalized"

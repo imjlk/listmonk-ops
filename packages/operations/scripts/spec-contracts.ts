@@ -1551,9 +1551,12 @@ export interface TemplateManifestReconcileOutput {
 
 export type ListVisibility = "public" | "private";
 export type ListOptin = "single" | "double";
+export type ListName = NonEmptyString &
+	tags.MaxLength<120> &
+	tags.Pattern<"^\\s*\\S[\\s\\S]*$">;
 
 export interface ListCreateInput {
-	name: NonEmptyString & tags.MaxLength<120>;
+	name: ListName;
 	/**
 	 * List visibility. Optional on input and defaults to `"private"`, matching
 	 * the runtime Zod schema's `.default("private")`.
@@ -1569,14 +1572,22 @@ export interface ListCreateInput {
 	tags?: string[];
 }
 
-export interface ListUpdateInput {
-	id: ResourceId;
-	name?: NonEmptyString & tags.MaxLength<120>;
+export interface ListUpdateFields {
+	name?: ListName;
 	type?: ListVisibility;
 	optin?: ListOptin;
 	description?: string;
 	tags?: string[];
 }
+
+export type ListUpdateInput = ResourceIdInput &
+	(
+		| (ListUpdateFields & { name: ListName })
+		| (ListUpdateFields & { type: ListVisibility })
+		| (ListUpdateFields & { optin: ListOptin })
+		| (ListUpdateFields & { description: string })
+		| (ListUpdateFields & { tags: string[] })
+	);
 
 export interface ListDeleteInput {
 	id: ResourceId;

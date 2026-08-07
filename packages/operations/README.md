@@ -57,7 +57,7 @@ Listmonk OpenAPI transport
   -> operation spec (resource, effect, policy, retry, agent context)
 ```
 
-Sixty-seven contracts are authored as TypeScript types and projected with Typia.
+Seventy contracts are authored as TypeScript types and projected with Typia.
 The remaining 34 operations use a committed
 `runtime-operation` bridge snapshot of the normalized executor boundary while
 their standalone product types are developed. Runtime bridges are always

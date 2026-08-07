@@ -499,7 +499,7 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-67개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 나머지 37개는
+70개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 나머지 34개는
 generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계의
 커밋된 snapshot을 브릿지로 사용하며 명시적으로 `experimental`입니다.
 따라서 upstream API 변경은 먼저 generated transport와 handwritten adapter에서
