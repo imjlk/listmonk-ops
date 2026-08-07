@@ -2435,12 +2435,12 @@
         {
           "from": "packages/abtest/src/operations.ts#listAbTestsOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestListOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestListOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestListOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeListAbTestsOperation:function",
@@ -2449,8 +2449,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestListOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestListOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeListAbTestsOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeListAbTestsOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#listAbTestsOperation:variable"
@@ -2462,12 +2462,12 @@
         {
           "from": "packages/abtest/src/operations.ts#getAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestGetOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestGetOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestGetOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeGetAbTestOperation:function",
@@ -2476,8 +2476,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestGetOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestGetOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeGetAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeGetAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#getAbTestOperation:variable"
@@ -2489,12 +2489,12 @@
         {
           "from": "packages/abtest/src/operations.ts#createAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestCreateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestCreateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestCreateOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeCreateAbTestOperation:function",
@@ -2503,8 +2503,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestCreateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestCreateOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeCreateAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeCreateAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#createAbTestOperation:variable"
@@ -2516,12 +2516,12 @@
         {
           "from": "packages/abtest/src/operations.ts#analyzeAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestAnalyzeOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestAnalyzeOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestAnalyzeOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeAnalyzeAbTestOperation:function",
@@ -2530,8 +2530,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestAnalyzeOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestAnalyzeOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeAnalyzeAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeAnalyzeAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#analyzeAbTestOperation:variable"
@@ -2543,12 +2543,12 @@
         {
           "from": "packages/abtest/src/operations.ts#launchAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestLaunchOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestLaunchOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestLaunchOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeLaunchAbTestOperation:function",
@@ -2557,8 +2557,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestLaunchOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestLaunchOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeLaunchAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeLaunchAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#launchAbTestOperation:variable"
@@ -2570,12 +2570,12 @@
         {
           "from": "packages/abtest/src/operations.ts#stopAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestStopOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestStopOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestStopOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeStopAbTestOperation:function",
@@ -2584,8 +2584,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestStopOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestStopOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeStopAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeStopAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#stopAbTestOperation:variable"
@@ -2597,12 +2597,12 @@
         {
           "from": "packages/abtest/src/operations.ts#deleteAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestDeleteOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestDeleteOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestDeleteOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeDeleteAbTestOperation:function",
@@ -2611,8 +2611,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestDeleteOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeDeleteAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeDeleteAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#deleteAbTestOperation:variable"
@@ -2624,12 +2624,12 @@
         {
           "from": "packages/abtest/src/operations.ts#recommendAbTestSampleSizeOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestRecommendSampleSizeOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestRecommendSampleSizeOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestRecommendSampleSizeOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeRecommendAbTestSampleSizeOperation:function",
@@ -2638,8 +2638,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestRecommendSampleSizeOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestRecommendSampleSizeOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeRecommendAbTestSampleSizeOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeRecommendAbTestSampleSizeOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#recommendAbTestSampleSizeOperation:variable"
@@ -2651,12 +2651,12 @@
         {
           "from": "packages/abtest/src/operations.ts#deployAbTestWinnerOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestDeployWinnerOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestDeployWinnerOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestDeployWinnerOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeDeployAbTestWinnerOperation:function",
@@ -2665,8 +2665,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestDeployWinnerOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestDeployWinnerOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeDeployAbTestWinnerOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeDeployAbTestWinnerOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#deployAbTestWinnerOperation:variable"
@@ -2678,12 +2678,12 @@
         {
           "from": "packages/abtest/src/operations.ts#runAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestRunOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestRunOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestRunOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeRunAbTestOperation:function",
@@ -2692,8 +2692,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestRunOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestRunOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeRunAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeRunAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#runAbTestOperation:variable"
@@ -2705,12 +2705,12 @@
         {
           "from": "packages/abtest/src/operations.ts#tickAbTestsOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestTickOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestTickOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestTickOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeTickAbTestsOperation:function",
@@ -2719,8 +2719,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestTickOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestTickOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeTickAbTestsOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeTickAbTestsOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#tickAbTestsOperation:variable"
@@ -2732,12 +2732,12 @@
         {
           "from": "packages/abtest/src/operations.ts#reconcileAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestReconcileOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestReconcileOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestReconcileOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeReconcileAbTestOperation:function",
@@ -2746,8 +2746,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestReconcileOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestReconcileOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeReconcileAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeReconcileAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#reconcileAbTestOperation:variable"
@@ -2759,12 +2759,12 @@
         {
           "from": "packages/abtest/src/operations.ts#exportAbTestAssignmentOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
+          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestExportAssignmentOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
+          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestExportAssignmentOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
+          "to": "packages/operations/src/specs/core-reads.ts#abTestExportAssignmentOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeExportAbTestAssignmentOperation:function",
@@ -2773,8 +2773,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestExportAssignmentOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestExportAssignmentOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeExportAbTestAssignmentOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeExportAbTestAssignmentOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#exportAbTestAssignmentOperation:variable"

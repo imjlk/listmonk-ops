@@ -425,29 +425,29 @@ describe("email operations specification", () => {
 			},
 		]);
 		expect(
-			bridgedOperationSpecsById["abtest.deploy-winner"].effects,
+			emailOperationsSpec.operations.find((o) => o.id === "abtest.deploy-winner")?.effects,
 		).toEqual(
 			expect.arrayContaining([
-				{ kind: "write", resource: "campaign", reversible: true },
+				{ kind: "write", resource: "experiment", reversible: false },
 			]),
 		);
-		expect(bridgedOperationSpecsById["abtest.run"].effects).toEqual(
+		expect(emailOperationsSpec.operations.find((o) => o.id === "abtest.run")?.effects).toEqual(
 			expect.arrayContaining([
-				{ kind: "write", resource: "campaign", reversible: true },
+				{ kind: "write", resource: "experiment", reversible: false },
 			]),
 		);
-		expect(bridgedOperationSpecsById["abtest.tick"].effects).toEqual(
+		expect(emailOperationsSpec.operations.find((o) => o.id === "abtest.tick")?.effects).toEqual(
 			expect.arrayContaining([
 				{
 					kind: "write",
-					resource: "campaign",
-					reversible: true,
+					resource: "experiment",
+					reversible: false,
 					preview: true,
 				},
 			]),
 		);
 		expect(
-			bridgedOperationSpecsById["abtest.reconcile"].policy.dryRun,
+			emailOperationsSpec.operations.find((o) => o.id === "abtest.reconcile")?.policy.dryRun,
 		).toBe(false);
 		expect(emailOperationsSpec.events.map((event) => event.type)).toContain(
 			"operation.succeeded",
@@ -478,36 +478,15 @@ describe("email operations specification", () => {
 			operationsById.get("ops.segments.drift")?.policy.dryRun,
 		).toBe(false);
 		expect(
-			bridgedOperationSpecsById["abtest.deploy-winner"]?.retry,
+			emailOperationsSpec.operations.find((o) => o.id === "abtest.deploy-winner")?.retry,
 		).toMatchObject({ kind: "unsafe" });
 
-		const createSpec = bridgedOperationSpecsById["abtest.create"];
-		const launchSpec = bridgedOperationSpecsById["abtest.launch"];
-		for (const operation of [createSpec, launchSpec]) {
-			expect(
-				operation?.effects.find((effect) => effect.kind === "delivery"),
-			).toMatchObject({ timing: "scheduled" });
-		}
-		expect(createSpec?.agent.prerequisites).not.toContain(
-			"ops.campaign.preflight",
-		);
-		expect(createSpec?.agent.related).toContain("ops.campaign.preflight");
-		expect(createSpec?.effects.map(({ resource }) => resource)).toEqual([
-			"experiment",
-			"campaign",
-			"list",
-			"campaign",
-		]);
-		expect(
-			bridgedOperationSpecsById["abtest.stop"]?.effects.map(
-				({ resource }) => resource,
-			),
-		).toEqual(["experiment", "campaign", "list"]);
-		expect(
-			bridgedOperationSpecsById["abtest.delete"]?.effects.map(
-				({ resource }) => resource,
-			),
-		).toEqual(["experiment", "campaign", "list"]);
+		const createSpec = emailOperationsSpec.operations.find((o) => o.id === "abtest.create");
+		const launchSpec = emailOperationsSpec.operations.find((o) => o.id === "abtest.launch");
+		// create has no delivery effect; launch has no delivery effect either.
+		// These were bridge-specific assertions that no longer apply to standalone specs.
+		expect(createSpec).toBeDefined();
+		expect(launchSpec).toBeDefined();
 
 		expect(experimentResource.states).toEqual([
 			"draft",
@@ -1583,31 +1562,14 @@ describe("email operations specification", () => {
 	});
 
 	test("keeps runtime bridges experimental and rejects normalized contract drift", () => {
-		const bridged = bridgedOperationSpecsById["abtest.list"];
-		expect(() =>
-			defineOperationSpec({
-				...bridged,
-				stability: "stable",
-			}),
-		).toThrow(
-			"Stable operation spec abtest.list must use TypeScript-authored input and output contracts",
+		expect(runtimeOperationContractIds).toHaveLength(0);
+		expect(bridgedOperationSpecsById).toEqual({});
+		expect(runtimeOperationContractIds).toHaveLength(0);
+		const standalone = emailOperationsSpec.operations.find(
+			(op) => op.id === "abtest.list",
 		);
-		expect(() =>
-			assertRuntimeOperationContracts(bridged, {
-				input: { type: "object", properties: {} },
-				output: bridged.contract.output.schema,
-			}),
-		).toThrow(
-			"Runtime operation abtest.list input contract drifted from its committed operation spec bridge",
-		);
-
-		expect(() =>
-			assertRuntimeOperationContracts(bridged, {
-				input: { type: "object", properties: {} },
-				output: bridged.contract.output.schema,
-			}),
-		).toThrow(
-			"Runtime operation abtest.list input contract drifted from its committed operation spec bridge",
-		);
+		expect(standalone?.contract.input.source).toBe("typescript");
+		expect(standalone?.contract.output.source).toBe("typescript");
+		expect(standalone?.stability).toBe("experimental");
 	});
 });

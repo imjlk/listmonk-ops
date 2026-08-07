@@ -146,6 +146,24 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	templateIdInputContract: NormalizedContractSchema;
 	templatePromoteInputContract: NormalizedContractSchema;
 	templatePromoteOutputContract: NormalizedContractSchema;
+	abTestListInputContract: NormalizedContractSchema;
+	abTestListOutputContract: NormalizedContractSchema;
+	abTestIdInputContract: NormalizedContractSchema;
+	abTestGetOutputContract: NormalizedContractSchema;
+	abTestCreateInputContract: NormalizedContractSchema;
+	abTestAnalyzeInputContract: NormalizedContractSchema;
+	abTestAnalysisOutputContract: NormalizedContractSchema;
+	abTestRunInputContract: NormalizedContractSchema;
+	abTestTickInputContract: NormalizedContractSchema;
+	abTestTickOutputContract: NormalizedContractSchema;
+	abTestReconcileInputContract: NormalizedContractSchema;
+	abTestReconcileOutputContract: NormalizedContractSchema;
+	abTestRecommendSampleSizeInputContract: NormalizedContractSchema;
+	abTestRecommendOutputContract: NormalizedContractSchema;
+	abTestExportAssignmentInputContract: NormalizedContractSchema;
+	abTestExportOutputContract: NormalizedContractSchema;
+	abTestDeleteOutputContract: NormalizedContractSchema;
+	abTestDeployWinnerOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
@@ -377,3 +395,21 @@ export const templatePromoteInputContract =
 	contracts.templatePromoteInputContract;
 export const templatePromoteOutputContract =
 	contracts.templatePromoteOutputContract;
+export const abTestListInputContract = contracts.abTestListInputContract;
+export const abTestListOutputContract = contracts.abTestListOutputContract;
+export const abTestIdInputContract = contracts.abTestIdInputContract;
+export const abTestGetOutputContract = contracts.abTestGetOutputContract;
+export const abTestCreateInputContract = contracts.abTestCreateInputContract;
+export const abTestAnalyzeInputContract = contracts.abTestAnalyzeInputContract;
+export const abTestAnalysisOutputContract = contracts.abTestAnalysisOutputContract;
+export const abTestRunInputContract = contracts.abTestRunInputContract;
+export const abTestTickInputContract = contracts.abTestTickInputContract;
+export const abTestTickOutputContract = contracts.abTestTickOutputContract;
+export const abTestReconcileInputContract = contracts.abTestReconcileInputContract;
+export const abTestReconcileOutputContract = contracts.abTestReconcileOutputContract;
+export const abTestRecommendSampleSizeInputContract = contracts.abTestRecommendSampleSizeInputContract;
+export const abTestRecommendOutputContract = contracts.abTestRecommendOutputContract;
+export const abTestExportAssignmentInputContract = contracts.abTestExportAssignmentInputContract;
+export const abTestExportOutputContract = contracts.abTestExportOutputContract;
+export const abTestDeleteOutputContract = contracts.abTestDeleteOutputContract;
+export const abTestDeployWinnerOutputContract = contracts.abTestDeployWinnerOutputContract;

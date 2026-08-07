@@ -1,4 +1,2390 @@
 {
+  "abTestAnalysisOutputContract": {
+    "components": {
+      "schemas": {
+        "AbTestAnalysis": {
+          "additionalProperties": false,
+          "properties": {
+            "analysis": {
+              "$ref": "#/components/schemas/AbTestStatisticalAnalysis"
+            },
+            "recommendations": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestTestResults"
+              },
+              "type": "array"
+            },
+            "testId": {
+              "type": "string"
+            },
+            "winner": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/AbTestVariant"
+                }
+              ]
+            }
+          },
+          "required": [
+            "testId",
+            "results",
+            "analysis",
+            "winner",
+            "recommendations"
+          ],
+          "type": "object"
+        },
+        "AbTestAnalysisOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "analysis": {
+              "$ref": "#/components/schemas/AbTestAnalysis"
+            }
+          },
+          "required": [
+            "analysis"
+          ],
+          "type": "object"
+        },
+        "AbTestContentOverrides": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "sendTime": {
+              "type": "string"
+            },
+            "senderEmail": {
+              "type": "string"
+            },
+            "senderName": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "AbTestStatisticalAnalysis": {
+          "additionalProperties": false,
+          "properties": {
+            "confidenceLevel": {
+              "type": "number"
+            },
+            "correctedPValue": {
+              "type": "number"
+            },
+            "fixedHorizonReasonCodes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "holmCorrected": {
+              "type": "boolean"
+            },
+            "isSignificant": {
+              "type": "boolean"
+            },
+            "pValue": {
+              "type": "number"
+            },
+            "sampleSize": {
+              "type": "number"
+            },
+            "srmPValue": {
+              "type": "number"
+            },
+            "srmPassed": {
+              "type": "boolean"
+            },
+            "zScore": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "zScore",
+            "pValue",
+            "isSignificant",
+            "confidenceLevel",
+            "sampleSize"
+          ],
+          "type": "object"
+        },
+        "AbTestTestResults": {
+          "additionalProperties": false,
+          "properties": {
+            "clickRate": {
+              "type": "number"
+            },
+            "clicks": {
+              "type": "number"
+            },
+            "conversionRate": {
+              "type": "number"
+            },
+            "conversions": {
+              "type": "number"
+            },
+            "openRate": {
+              "type": "number"
+            },
+            "opens": {
+              "type": "number"
+            },
+            "revenue": {
+              "type": "number"
+            },
+            "sampleSize": {
+              "type": "number"
+            },
+            "variantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "variantId",
+            "sampleSize",
+            "opens",
+            "clicks",
+            "conversions",
+            "openRate",
+            "clickRate",
+            "conversionRate"
+          ],
+          "type": "object"
+        },
+        "AbTestVariant": {
+          "additionalProperties": false,
+          "properties": {
+            "contentOverrides": {
+              "$ref": "#/components/schemas/AbTestContentOverrides"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "percentage": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "percentage",
+            "contentOverrides"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "analysis": {
+          "$ref": "#/components/schemas/AbTestAnalysis"
+        }
+      },
+      "required": [
+        "analysis"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestAnalyzeInputContract": {
+    "components": {
+      "schemas": {
+        "AbTestAnalyzeInput": {
+          "additionalProperties": false,
+          "properties": {
+            "include_recommendations": {
+              "type": "boolean"
+            },
+            "test_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "test_id"
+          ],
+          "type": "object"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "include_recommendations": {
+          "type": "boolean"
+        },
+        "test_id": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        }
+      },
+      "required": [
+        "test_id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestCreateInputContract": {
+    "components": {
+      "schemas": {
+        "AbTestCreateInput": {
+          "additionalProperties": false,
+          "properties": {
+            "auto_deploy_winner": {
+              "type": "boolean"
+            },
+            "auto_launch": {
+              "type": "boolean"
+            },
+            "campaign_id": {
+              "type": "string"
+            },
+            "confidence_threshold": {
+              "type": "number"
+            },
+            "description": {
+              "type": "string"
+            },
+            "duration_hours": {
+              "type": "number"
+            },
+            "enable_stratification": {
+              "type": "boolean"
+            },
+            "hypothesis": {
+              "additionalProperties": false,
+              "properties": {
+                "expected_lift": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "relative"
+                        },
+                        "value": {
+                          "minimum": 0,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "value"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "absolute"
+                        },
+                        "unit": {
+                          "oneOf": [
+                            {
+                              "const": "currency_per_recipient"
+                            },
+                            {
+                              "const": "percentage_point"
+                            }
+                          ]
+                        },
+                        "value": {
+                          "minimum": 0,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "value",
+                        "unit"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "experiment_scope": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "attribution_window_hours": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "channel": {
+                      "const": "email"
+                    },
+                    "exclusion_window_hours": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "experiment_family_key": {
+                      "minLength": 1,
+                      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "channel",
+                    "experiment_family_key",
+                    "attribution_window_hours",
+                    "exclusion_window_hours"
+                  ],
+                  "type": "object"
+                },
+                "hypothesis": {
+                  "$ref": "#/components/schemas/NonEmptyString"
+                },
+                "objective": {
+                  "$ref": "#/components/schemas/NonEmptyString"
+                },
+                "owner": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "display_name": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "$ref": "#/components/schemas/NonEmptyString"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "type": "object"
+                },
+                "primary_metric": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "direction": {
+                      "oneOf": [
+                        {
+                          "const": "maximize"
+                        },
+                        {
+                          "const": "minimize"
+                        }
+                      ]
+                    },
+                    "type": {
+                      "oneOf": [
+                        {
+                          "const": "click_rate"
+                        },
+                        {
+                          "const": "conversion_rate"
+                        },
+                        {
+                          "const": "revenue_per_recipient"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "direction"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "objective",
+                "hypothesis",
+                "primary_metric",
+                "expected_lift",
+                "owner",
+                "experiment_scope"
+              ],
+              "type": "object"
+            },
+            "ignore_sample_size_warnings": {
+              "type": "boolean"
+            },
+            "launch_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "minimum_sample_size": {
+              "type": "number"
+            },
+            "name": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "test_group_percentage": {
+              "type": "number"
+            },
+            "testing_mode": {
+              "oneOf": [
+                {
+                  "const": "full-split"
+                },
+                {
+                  "const": "holdout"
+                }
+              ]
+            },
+            "variants": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestCreateVariantInput"
+              },
+              "maxItems": 3,
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "name",
+            "lists",
+            "variants",
+            "test_group_percentage",
+            "confidence_threshold",
+            "minimum_sample_size",
+            "duration_hours",
+            "auto_launch",
+            "auto_deploy_winner",
+            "ignore_sample_size_warnings",
+            "enable_stratification"
+          ],
+          "type": "object"
+        },
+        "AbTestCreateVariantInput": {
+          "additionalProperties": false,
+          "properties": {
+            "campaign_config": {
+              "additionalProperties": false,
+              "properties": {
+                "body": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "template_id": {
+                  "$ref": "#/components/schemas/ResourceId"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "name": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "percentage": {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "name",
+            "percentage",
+            "campaign_config"
+          ],
+          "type": "object"
+        },
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "auto_deploy_winner": {
+          "type": "boolean"
+        },
+        "auto_launch": {
+          "type": "boolean"
+        },
+        "campaign_id": {
+          "type": "string"
+        },
+        "confidence_threshold": {
+          "type": "number"
+        },
+        "description": {
+          "type": "string"
+        },
+        "duration_hours": {
+          "type": "number"
+        },
+        "enable_stratification": {
+          "type": "boolean"
+        },
+        "hypothesis": {
+          "additionalProperties": false,
+          "properties": {
+            "expected_lift": {
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "const": "relative"
+                    },
+                    "value": {
+                      "minimum": 0,
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "value"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "const": "absolute"
+                    },
+                    "unit": {
+                      "oneOf": [
+                        {
+                          "const": "currency_per_recipient"
+                        },
+                        {
+                          "const": "percentage_point"
+                        }
+                      ]
+                    },
+                    "value": {
+                      "minimum": 0,
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "value",
+                    "unit"
+                  ],
+                  "type": "object"
+                }
+              ]
+            },
+            "experiment_scope": {
+              "additionalProperties": false,
+              "properties": {
+                "attribution_window_hours": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "channel": {
+                  "const": "email"
+                },
+                "exclusion_window_hours": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "experiment_family_key": {
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "channel",
+                "experiment_family_key",
+                "attribution_window_hours",
+                "exclusion_window_hours"
+              ],
+              "type": "object"
+            },
+            "hypothesis": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "objective": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            },
+            "owner": {
+              "additionalProperties": false,
+              "properties": {
+                "display_name": {
+                  "type": "string"
+                },
+                "id": {
+                  "$ref": "#/components/schemas/NonEmptyString"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            },
+            "primary_metric": {
+              "additionalProperties": false,
+              "properties": {
+                "direction": {
+                  "oneOf": [
+                    {
+                      "const": "maximize"
+                    },
+                    {
+                      "const": "minimize"
+                    }
+                  ]
+                },
+                "type": {
+                  "oneOf": [
+                    {
+                      "const": "click_rate"
+                    },
+                    {
+                      "const": "conversion_rate"
+                    },
+                    {
+                      "const": "revenue_per_recipient"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "type",
+                "direction"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "objective",
+            "hypothesis",
+            "primary_metric",
+            "expected_lift",
+            "owner",
+            "experiment_scope"
+          ],
+          "type": "object"
+        },
+        "ignore_sample_size_warnings": {
+          "type": "boolean"
+        },
+        "launch_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "lists": {
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "minimum_sample_size": {
+          "type": "number"
+        },
+        "name": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        },
+        "test_group_percentage": {
+          "type": "number"
+        },
+        "testing_mode": {
+          "oneOf": [
+            {
+              "const": "full-split"
+            },
+            {
+              "const": "holdout"
+            }
+          ]
+        },
+        "variants": {
+          "items": {
+            "$ref": "#/components/schemas/AbTestCreateVariantInput"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "lists",
+        "variants",
+        "test_group_percentage",
+        "confidence_threshold",
+        "minimum_sample_size",
+        "duration_hours",
+        "auto_launch",
+        "auto_deploy_winner",
+        "ignore_sample_size_warnings",
+        "enable_stratification"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestDeleteOutputContract": {
+    "components": {
+      "schemas": {
+        "AbTestDeleteOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "deleted": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "deleted"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestDeployWinnerOutputContract": {
+    "components": {
+      "schemas": {
+        "AbTestDeployWinnerOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "deployed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "deployed"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "deployed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deployed"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestExportAssignmentInputContract": {
+    "components": {
+      "schemas": {
+        "AbTestExportAssignmentInput": {
+          "additionalProperties": false,
+          "properties": {
+            "confirm": {
+              "type": "boolean"
+            },
+            "test_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "test_id",
+            "confirm"
+          ],
+          "type": "object"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "type": "boolean"
+        },
+        "test_id": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        }
+      },
+      "required": [
+        "test_id",
+        "confirm"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestExportOutputContract": {
+    "components": {
+      "schemas": {
+        "AbTestExportOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "manifest": {}
+          },
+          "required": [
+            "manifest"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "manifest": {}
+      },
+      "required": [
+        "manifest"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestGetOutputContract": {
+    "components": {
+      "schemas": {
+        "AbTestBaseConfig": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "lists": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "template_id": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "subject",
+            "body",
+            "lists"
+          ],
+          "type": "object"
+        },
+        "AbTestCampaignMapping": {
+          "additionalProperties": false,
+          "properties": {
+            "campaignId": {
+              "type": "number"
+            },
+            "variantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "variantId",
+            "campaignId"
+          ],
+          "type": "object"
+        },
+        "AbTestContentOverrides": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "sendTime": {
+              "type": "string"
+            },
+            "senderEmail": {
+              "type": "string"
+            },
+            "senderName": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "AbTestGetOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "test": {
+              "$ref": "#/components/schemas/AbTestRecord"
+            }
+          },
+          "required": [
+            "test"
+          ],
+          "type": "object"
+        },
+        "AbTestListMapping": {
+          "additionalProperties": false,
+          "properties": {
+            "listId": {
+              "type": "number"
+            },
+            "variantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "variantId",
+            "listId"
+          ],
+          "type": "object"
+        },
+        "AbTestMetric": {
+          "additionalProperties": false,
+          "properties": {
+            "config": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/components/schemas/AbTestMetricType"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "type"
+          ],
+          "type": "object"
+        },
+        "AbTestMetricType": {
+          "oneOf": [
+            {
+              "const": "click_rate"
+            },
+            {
+              "const": "conversion"
+            },
+            {
+              "const": "custom"
+            },
+            {
+              "const": "open_rate"
+            },
+            {
+              "const": "revenue"
+            }
+          ]
+        },
+        "AbTestRecord": {
+          "additionalProperties": false,
+          "properties": {
+            "assignmentManifest": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "assignmentProvenance": {
+              "type": "string"
+            },
+            "assignmentSeed": {
+              "type": "string"
+            },
+            "audienceSnapshot": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "autoDeployWinner": {
+              "type": "boolean"
+            },
+            "baseConfig": {
+              "$ref": "#/components/schemas/AbTestBaseConfig"
+            },
+            "campaignId": {
+              "type": "string"
+            },
+            "campaignMappings": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestCampaignMapping"
+              },
+              "type": "array"
+            },
+            "confidenceThreshold": {
+              "type": "number"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "durationHours": {
+              "type": "number"
+            },
+            "endsAt": {
+              "type": "string"
+            },
+            "holdoutGroupSize": {
+              "type": "number"
+            },
+            "holdoutListId": {
+              "type": "number"
+            },
+            "hypothesis": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "id": {
+              "type": "string"
+            },
+            "launchAt": {
+              "type": "string"
+            },
+            "metrics": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestMetric"
+              },
+              "type": "array"
+            },
+            "minimumTestSampleSize": {
+              "type": "number"
+            },
+            "name": {
+              "type": "string"
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/components/schemas/AbTestStatus"
+            },
+            "stratification": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "testGroupPercentage": {
+              "type": "number"
+            },
+            "testGroupSize": {
+              "type": "number"
+            },
+            "testListMappings": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestListMapping"
+              },
+              "type": "array"
+            },
+            "testingMode": {
+              "$ref": "#/components/schemas/AbTestTestingMode"
+            },
+            "updatedAt": {
+              "type": "string"
+            },
+            "variants": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestVariant"
+              },
+              "type": "array"
+            },
+            "winnerCampaignId": {
+              "type": "number"
+            },
+            "winnerVariantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "campaignId",
+            "variants",
+            "status",
+            "metrics",
+            "createdAt",
+            "updatedAt",
+            "baseConfig",
+            "testingMode",
+            "testGroupPercentage",
+            "testGroupSize",
+            "holdoutGroupSize",
+            "confidenceThreshold",
+            "autoDeployWinner",
+            "campaignMappings",
+            "testListMappings"
+          ],
+          "type": "object"
+        },
+        "AbTestStatus": {
+          "oneOf": [
+            {
+              "const": "analyzing"
+            },
+            {
+              "const": "cancelled"
+            },
+            {
+              "const": "cancelling"
+            },
+            {
+              "const": "completed"
+            },
+            {
+              "const": "deploying"
+            },
+            {
+              "const": "draft"
+            },
+            {
+              "const": "failed"
+            },
+            {
+              "const": "inconclusive"
+            },
+            {
+              "const": "running"
+            },
+            {
+              "const": "scheduled"
+            },
+            {
+              "const": "testing"
+            }
+          ]
+        },
+        "AbTestTestingMode": {
+          "oneOf": [
+            {
+              "const": "full-split"
+            },
+            {
+              "const": "holdout"
+            }
+          ]
+        },
+        "AbTestVariant": {
+          "additionalProperties": false,
+          "properties": {
+            "contentOverrides": {
+              "$ref": "#/components/schemas/AbTestContentOverrides"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "percentage": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "percentage",
+            "contentOverrides"
+          ],
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "test": {
+          "$ref": "#/components/schemas/AbTestRecord"
+        }
+      },
+      "required": [
+        "test"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestIdInputContract": {
+    "components": {
+      "schemas": {
+        "AbTestIdInput": {
+          "additionalProperties": false,
+          "properties": {
+            "test_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "test_id"
+          ],
+          "type": "object"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "test_id": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        }
+      },
+      "required": [
+        "test_id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestListInputContract": {
+    "components": {
+      "schemas": {
+        "AbTestListInput": {
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "oneOf": [
+                {
+                  "const": "analyzing"
+                },
+                {
+                  "const": "cancelled"
+                },
+                {
+                  "const": "cancelling"
+                },
+                {
+                  "const": "completed"
+                },
+                {
+                  "const": "deploying"
+                },
+                {
+                  "const": "draft"
+                },
+                {
+                  "const": "failed"
+                },
+                {
+                  "const": "inconclusive"
+                },
+                {
+                  "const": "running"
+                },
+                {
+                  "const": "scheduled"
+                },
+                {
+                  "const": "testing"
+                }
+              ]
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "oneOf": [
+            {
+              "const": "analyzing"
+            },
+            {
+              "const": "cancelled"
+            },
+            {
+              "const": "cancelling"
+            },
+            {
+              "const": "completed"
+            },
+            {
+              "const": "deploying"
+            },
+            {
+              "const": "draft"
+            },
+            {
+              "const": "failed"
+            },
+            {
+              "const": "inconclusive"
+            },
+            {
+              "const": "running"
+            },
+            {
+              "const": "scheduled"
+            },
+            {
+              "const": "testing"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestListOutputContract": {
+    "components": {
+      "schemas": {
+        "AbTestBaseConfig": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "lists": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "template_id": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "subject",
+            "body",
+            "lists"
+          ],
+          "type": "object"
+        },
+        "AbTestCampaignMapping": {
+          "additionalProperties": false,
+          "properties": {
+            "campaignId": {
+              "type": "number"
+            },
+            "variantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "variantId",
+            "campaignId"
+          ],
+          "type": "object"
+        },
+        "AbTestContentOverrides": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "sendTime": {
+              "type": "string"
+            },
+            "senderEmail": {
+              "type": "string"
+            },
+            "senderName": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "AbTestListMapping": {
+          "additionalProperties": false,
+          "properties": {
+            "listId": {
+              "type": "number"
+            },
+            "variantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "variantId",
+            "listId"
+          ],
+          "type": "object"
+        },
+        "AbTestListOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "tests": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestRecord"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "tests"
+          ],
+          "type": "object"
+        },
+        "AbTestMetric": {
+          "additionalProperties": false,
+          "properties": {
+            "config": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/components/schemas/AbTestMetricType"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "type"
+          ],
+          "type": "object"
+        },
+        "AbTestMetricType": {
+          "oneOf": [
+            {
+              "const": "click_rate"
+            },
+            {
+              "const": "conversion"
+            },
+            {
+              "const": "custom"
+            },
+            {
+              "const": "open_rate"
+            },
+            {
+              "const": "revenue"
+            }
+          ]
+        },
+        "AbTestRecord": {
+          "additionalProperties": false,
+          "properties": {
+            "assignmentManifest": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "assignmentProvenance": {
+              "type": "string"
+            },
+            "assignmentSeed": {
+              "type": "string"
+            },
+            "audienceSnapshot": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "autoDeployWinner": {
+              "type": "boolean"
+            },
+            "baseConfig": {
+              "$ref": "#/components/schemas/AbTestBaseConfig"
+            },
+            "campaignId": {
+              "type": "string"
+            },
+            "campaignMappings": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestCampaignMapping"
+              },
+              "type": "array"
+            },
+            "confidenceThreshold": {
+              "type": "number"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "durationHours": {
+              "type": "number"
+            },
+            "endsAt": {
+              "type": "string"
+            },
+            "holdoutGroupSize": {
+              "type": "number"
+            },
+            "holdoutListId": {
+              "type": "number"
+            },
+            "hypothesis": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "id": {
+              "type": "string"
+            },
+            "launchAt": {
+              "type": "string"
+            },
+            "metrics": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestMetric"
+              },
+              "type": "array"
+            },
+            "minimumTestSampleSize": {
+              "type": "number"
+            },
+            "name": {
+              "type": "string"
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/components/schemas/AbTestStatus"
+            },
+            "stratification": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "testGroupPercentage": {
+              "type": "number"
+            },
+            "testGroupSize": {
+              "type": "number"
+            },
+            "testListMappings": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestListMapping"
+              },
+              "type": "array"
+            },
+            "testingMode": {
+              "$ref": "#/components/schemas/AbTestTestingMode"
+            },
+            "updatedAt": {
+              "type": "string"
+            },
+            "variants": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestVariant"
+              },
+              "type": "array"
+            },
+            "winnerCampaignId": {
+              "type": "number"
+            },
+            "winnerVariantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "campaignId",
+            "variants",
+            "status",
+            "metrics",
+            "createdAt",
+            "updatedAt",
+            "baseConfig",
+            "testingMode",
+            "testGroupPercentage",
+            "testGroupSize",
+            "holdoutGroupSize",
+            "confidenceThreshold",
+            "autoDeployWinner",
+            "campaignMappings",
+            "testListMappings"
+          ],
+          "type": "object"
+        },
+        "AbTestStatus": {
+          "oneOf": [
+            {
+              "const": "analyzing"
+            },
+            {
+              "const": "cancelled"
+            },
+            {
+              "const": "cancelling"
+            },
+            {
+              "const": "completed"
+            },
+            {
+              "const": "deploying"
+            },
+            {
+              "const": "draft"
+            },
+            {
+              "const": "failed"
+            },
+            {
+              "const": "inconclusive"
+            },
+            {
+              "const": "running"
+            },
+            {
+              "const": "scheduled"
+            },
+            {
+              "const": "testing"
+            }
+          ]
+        },
+        "AbTestTestingMode": {
+          "oneOf": [
+            {
+              "const": "full-split"
+            },
+            {
+              "const": "holdout"
+            }
+          ]
+        },
+        "AbTestVariant": {
+          "additionalProperties": false,
+          "properties": {
+            "contentOverrides": {
+              "$ref": "#/components/schemas/AbTestContentOverrides"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "percentage": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "percentage",
+            "contentOverrides"
+          ],
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "tests": {
+          "items": {
+            "$ref": "#/components/schemas/AbTestRecord"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "tests"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestRecommendOutputContract": {
+    "components": {
+      "schemas": {
+        "AbTestRecommendOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "recommendation": {
+              "$ref": "#/components/schemas/AbTestValidation"
+            }
+          },
+          "required": [
+            "recommendation"
+          ],
+          "type": "object"
+        },
+        "AbTestSampleSizeRecommendation": {
+          "additionalProperties": false,
+          "properties": {
+            "currentTestPercentage": {
+              "type": "number"
+            },
+            "expectedSamplePerVariant": {
+              "type": "number"
+            },
+            "minimumSamplePerVariant": {
+              "type": "number"
+            },
+            "minimumTestPercentage": {
+              "type": "number"
+            },
+            "recommendations": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "recommendedTestPercentage": {
+              "type": "number"
+            },
+            "statisticalPower": {
+              "type": "number"
+            },
+            "totalSubscribers": {
+              "type": "number"
+            },
+            "warnings": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "totalSubscribers",
+            "recommendedTestPercentage",
+            "minimumTestPercentage",
+            "currentTestPercentage",
+            "expectedSamplePerVariant",
+            "minimumSamplePerVariant",
+            "statisticalPower",
+            "warnings",
+            "recommendations"
+          ],
+          "type": "object"
+        },
+        "AbTestValidation": {
+          "additionalProperties": false,
+          "properties": {
+            "errors": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "isValid": {
+              "type": "boolean"
+            },
+            "sampleSizeRecommendation": {
+              "$ref": "#/components/schemas/AbTestSampleSizeRecommendation"
+            },
+            "warnings": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "isValid",
+            "warnings",
+            "errors"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "recommendation": {
+          "$ref": "#/components/schemas/AbTestValidation"
+        }
+      },
+      "required": [
+        "recommendation"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestRecommendSampleSizeInputContract": {
+    "components": {
+      "schemas": {
+        "AbTestRecommendSampleSizeInput": {
+          "additionalProperties": false,
+          "properties": {
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "test_group_percentage": {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            "variant_count": {
+              "maximum": 3,
+              "minimum": 2,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "lists",
+            "test_group_percentage"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "lists": {
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "test_group_percentage": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        "variant_count": {
+          "maximum": 3,
+          "minimum": 2,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "lists",
+        "test_group_percentage"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestReconcileInputContract": {
+    "components": {
+      "schemas": {
+        "AbTestReconcileInput": {
+          "additionalProperties": false,
+          "properties": {
+            "all": {
+              "type": "boolean"
+            },
+            "confirm": {
+              "type": "boolean"
+            },
+            "repair": {
+              "type": "boolean"
+            },
+            "test_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "all",
+            "repair",
+            "confirm"
+          ],
+          "type": "object"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "type": "boolean"
+        },
+        "confirm": {
+          "type": "boolean"
+        },
+        "repair": {
+          "type": "boolean"
+        },
+        "test_id": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        }
+      },
+      "required": [
+        "all",
+        "repair",
+        "confirm"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestReconcileOutputContract": {
+    "components": {
+      "schemas": {
+        "AbTestReconcileOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "reconciled": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestReconcileResult"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "reconciled",
+            "results"
+          ],
+          "type": "object"
+        },
+        "AbTestReconcileResult": {
+          "additionalProperties": false,
+          "properties": {
+            "drift": {
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/components/schemas/AbTestStatus"
+            },
+            "test_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "test_id",
+            "status",
+            "drift"
+          ],
+          "type": "object"
+        },
+        "AbTestStatus": {
+          "oneOf": [
+            {
+              "const": "analyzing"
+            },
+            {
+              "const": "cancelled"
+            },
+            {
+              "const": "cancelling"
+            },
+            {
+              "const": "completed"
+            },
+            {
+              "const": "deploying"
+            },
+            {
+              "const": "draft"
+            },
+            {
+              "const": "failed"
+            },
+            {
+              "const": "inconclusive"
+            },
+            {
+              "const": "running"
+            },
+            {
+              "const": "scheduled"
+            },
+            {
+              "const": "testing"
+            }
+          ]
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "reconciled": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/components/schemas/AbTestReconcileResult"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "reconciled",
+        "results"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestRunInputContract": {
+    "components": {
+      "schemas": {
+        "AbTestRunInput": {
+          "additionalProperties": false,
+          "properties": {
+            "confirm": {
+              "type": "boolean"
+            },
+            "expected_status": {
+              "oneOf": [
+                {
+                  "const": "analyzing"
+                },
+                {
+                  "const": "cancelled"
+                },
+                {
+                  "const": "cancelling"
+                },
+                {
+                  "const": "completed"
+                },
+                {
+                  "const": "deploying"
+                },
+                {
+                  "const": "draft"
+                },
+                {
+                  "const": "failed"
+                },
+                {
+                  "const": "inconclusive"
+                },
+                {
+                  "const": "running"
+                },
+                {
+                  "const": "scheduled"
+                },
+                {
+                  "const": "testing"
+                }
+              ]
+            },
+            "expected_updated_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "test_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "test_id",
+            "confirm"
+          ],
+          "type": "object"
+        },
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "type": "boolean"
+        },
+        "expected_status": {
+          "oneOf": [
+            {
+              "const": "analyzing"
+            },
+            {
+              "const": "cancelled"
+            },
+            {
+              "const": "cancelling"
+            },
+            {
+              "const": "completed"
+            },
+            {
+              "const": "deploying"
+            },
+            {
+              "const": "draft"
+            },
+            {
+              "const": "failed"
+            },
+            {
+              "const": "inconclusive"
+            },
+            {
+              "const": "running"
+            },
+            {
+              "const": "scheduled"
+            },
+            {
+              "const": "testing"
+            }
+          ]
+        },
+        "expected_updated_at": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
+        "test_id": {
+          "$ref": "#/components/schemas/NonEmptyString"
+        }
+      },
+      "required": [
+        "test_id",
+        "confirm"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestTickInputContract": {
+    "components": {
+      "schemas": {
+        "AbTestTickInput": {
+          "additionalProperties": false,
+          "properties": {
+            "confirm": {
+              "type": "boolean"
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "confirm",
+            "dry_run"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "confirm",
+        "dry_run"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestTickOutputContract": {
+    "components": {
+      "schemas": {
+        "AbTestStatus": {
+          "oneOf": [
+            {
+              "const": "analyzing"
+            },
+            {
+              "const": "cancelled"
+            },
+            {
+              "const": "cancelling"
+            },
+            {
+              "const": "completed"
+            },
+            {
+              "const": "deploying"
+            },
+            {
+              "const": "draft"
+            },
+            {
+              "const": "failed"
+            },
+            {
+              "const": "inconclusive"
+            },
+            {
+              "const": "running"
+            },
+            {
+              "const": "scheduled"
+            },
+            {
+              "const": "testing"
+            }
+          ]
+        },
+        "AbTestTickOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "processed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "results": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestTickResult"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "processed",
+            "results"
+          ],
+          "type": "object"
+        },
+        "AbTestTickResult": {
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/components/schemas/AbTestStatus"
+            },
+            "test_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "test_id",
+            "status",
+            "action"
+          ],
+          "type": "object"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "processed": {
+          "$ref": "#/components/schemas/NonNegativeInteger"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/components/schemas/AbTestTickResult"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "processed",
+        "results"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "campaignCloneInputContract": {
     "components": {
       "schemas": {
