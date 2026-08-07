@@ -461,13 +461,16 @@ describe("email operations specification", () => {
 	});
 
 	test("models runtime preview capabilities and experiment lifecycle effects", () => {
+		const operationsById = new Map(
+			emailOperationsSpec.operations.map((op) => [op.id, op]),
+		);
 		for (const operationId of [
-			"subscribers.add-to-lists",
+			"ops.subscribers.hygiene",
 			"subscribers.remove-from-lists",
 			"subscribers.unblocklist",
 			"abtest.tick",
 		]) {
-			expect(bridgedOperationSpecsById[operationId]?.policy.dryRun).toBe(
+			expect(operationsById.get(operationId)?.policy.dryRun).toBe(
 				true,
 			);
 		}
@@ -1580,14 +1583,14 @@ describe("email operations specification", () => {
 	});
 
 	test("keeps runtime bridges experimental and rejects normalized contract drift", () => {
-		const bridged = bridgedOperationSpecsById["subscribers.add-to-lists"];
+		const bridged = bridgedOperationSpecsById["ops.subscribers.hygiene"];
 		expect(() =>
 			defineOperationSpec({
 				...bridged,
 				stability: "stable",
 			}),
 		).toThrow(
-			"Stable operation spec subscribers.add-to-lists must use TypeScript-authored input and output contracts",
+			"Stable operation spec ops.subscribers.hygiene must use TypeScript-authored input and output contracts",
 		);
 		expect(() =>
 			assertRuntimeOperationContracts(bridged, {
@@ -1595,7 +1598,7 @@ describe("email operations specification", () => {
 				output: bridged.contract.output.schema,
 			}),
 		).toThrow(
-			"Runtime operation subscribers.add-to-lists input contract drifted from its committed operation spec bridge",
+			"Runtime operation ops.subscribers.hygiene input contract drifted from its committed operation spec bridge",
 		);
 
 		expect(() =>
@@ -1604,7 +1607,7 @@ describe("email operations specification", () => {
 				output: bridged.contract.output.schema,
 			}),
 		).toThrow(
-			"Runtime operation subscribers.add-to-lists input contract drifted from its committed operation spec bridge",
+			"Runtime operation ops.subscribers.hygiene input contract drifted from its committed operation spec bridge",
 		);
 	});
 });

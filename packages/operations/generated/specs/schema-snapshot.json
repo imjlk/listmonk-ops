@@ -18907,6 +18907,509 @@
       "stability": "experimental"
     },
     {
+      "id": "subscribers.add-to-lists",
+      "input": {
+        "components": {
+          "schemas": {
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "SubscriberBulkListsInput": {
+              "additionalProperties": false,
+              "properties": {
+                "continue_on_error": {
+                  "description": "Continue processing after a chunk failure. Defaults to false.",
+                  "type": "boolean"
+                },
+                "dry_run": {
+                  "description": "Plan only when true. Defaults to false.",
+                  "type": "boolean"
+                },
+                "list_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "max_items": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "Maximum items per chunk. Defaults to 10000."
+                },
+                "subscriber_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "subscriber_ids",
+                "list_ids"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "continue_on_error": {
+              "description": "Continue processing after a chunk failure. Defaults to false.",
+              "type": "boolean"
+            },
+            "dry_run": {
+              "description": "Plan only when true. Defaults to false.",
+              "type": "boolean"
+            },
+            "list_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "max_items": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Maximum items per chunk. Defaults to 10000."
+            },
+            "subscriber_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "subscriber_ids",
+            "list_ids"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "SubscriberBulkOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "errors": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "failed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "processed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "succeeded": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "processed",
+                "succeeded",
+                "failed",
+                "errors"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "errors": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "failed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "processed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "succeeded": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "processed",
+            "succeeded",
+            "failed",
+            "errors"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": true
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same add-to-lists action converges on the same membership state."
+      },
+      "since": "0.9.0",
+      "stability": "experimental"
+    },
+    {
+      "id": "subscribers.remove-from-lists",
+      "input": {
+        "components": {
+          "schemas": {
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "SubscriberBulkListsInput": {
+              "additionalProperties": false,
+              "properties": {
+                "continue_on_error": {
+                  "description": "Continue processing after a chunk failure. Defaults to false.",
+                  "type": "boolean"
+                },
+                "dry_run": {
+                  "description": "Plan only when true. Defaults to false.",
+                  "type": "boolean"
+                },
+                "list_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "max_items": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "Maximum items per chunk. Defaults to 10000."
+                },
+                "subscriber_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "subscriber_ids",
+                "list_ids"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "continue_on_error": {
+              "description": "Continue processing after a chunk failure. Defaults to false.",
+              "type": "boolean"
+            },
+            "dry_run": {
+              "description": "Plan only when true. Defaults to false.",
+              "type": "boolean"
+            },
+            "list_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "max_items": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Maximum items per chunk. Defaults to 10000."
+            },
+            "subscriber_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "subscriber_ids",
+            "list_ids"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "SubscriberBulkOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "errors": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "failed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "processed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "succeeded": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "processed",
+                "succeeded",
+                "failed",
+                "errors"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "errors": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "failed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "processed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "succeeded": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "processed",
+            "succeeded",
+            "failed",
+            "errors"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same remove-from-lists action converges on the same membership state."
+      },
+      "since": "0.9.0",
+      "stability": "experimental"
+    },
+    {
+      "id": "subscribers.unblocklist",
+      "input": {
+        "components": {
+          "schemas": {
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "SubscriberBulkBlocklistInput": {
+              "additionalProperties": false,
+              "properties": {
+                "continue_on_error": {
+                  "description": "Continue processing after a chunk failure. Defaults to false.",
+                  "type": "boolean"
+                },
+                "dry_run": {
+                  "description": "Plan only when true. Defaults to false.",
+                  "type": "boolean"
+                },
+                "max_items": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "Maximum items per chunk. Defaults to 10000."
+                },
+                "subscriber_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "subscriber_ids"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "continue_on_error": {
+              "description": "Continue processing after a chunk failure. Defaults to false.",
+              "type": "boolean"
+            },
+            "dry_run": {
+              "description": "Plan only when true. Defaults to false.",
+              "type": "boolean"
+            },
+            "max_items": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Maximum items per chunk. Defaults to 10000."
+            },
+            "subscriber_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "subscriber_ids"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "SubscriberBulkOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "errors": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "failed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "processed": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "succeeded": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "processed",
+                "succeeded",
+                "failed",
+                "errors"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "errors": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "failed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "processed": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "succeeded": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "processed",
+            "succeeded",
+            "failed",
+            "errors"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": true
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same unblocklist action converges on the same state."
+      },
+      "since": "0.9.0",
+      "stability": "experimental"
+    },
+    {
       "id": "campaigns.create",
       "input": {
         "components": {
@@ -24347,341 +24850,6 @@
       "retry": {
         "kind": "unsafe",
         "reason": "A retry may upload another file unless the original media ID is known."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
-      "id": "subscribers.add-to-lists",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "continue_on_error": {
-              "default": false,
-              "type": "boolean"
-            },
-            "dry_run": {
-              "default": false,
-              "type": "boolean"
-            },
-            "list_ids": {
-              "items": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              },
-              "minItems": 1,
-              "type": "array"
-            },
-            "max_items": {
-              "default": 10000,
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            },
-            "subscriber_ids": {
-              "items": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              },
-              "minItems": 1,
-              "type": "array"
-            }
-          },
-          "required": [
-            "subscriber_ids",
-            "list_ids"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": false,
-          "properties": {
-            "errors": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "failed": {
-              "maximum": 9007199254740991,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "processed": {
-              "maximum": 9007199254740991,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "succeeded": {
-              "maximum": 9007199254740991,
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          "required": [
-            "processed",
-            "succeeded",
-            "failed",
-            "errors"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": true
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
-      "id": "subscribers.remove-from-lists",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "continue_on_error": {
-              "default": false,
-              "type": "boolean"
-            },
-            "dry_run": {
-              "default": false,
-              "type": "boolean"
-            },
-            "list_ids": {
-              "items": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              },
-              "minItems": 1,
-              "type": "array"
-            },
-            "max_items": {
-              "default": 10000,
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            },
-            "subscriber_ids": {
-              "items": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              },
-              "minItems": 1,
-              "type": "array"
-            }
-          },
-          "required": [
-            "subscriber_ids",
-            "list_ids"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": false,
-          "properties": {
-            "errors": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "failed": {
-              "maximum": 9007199254740991,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "processed": {
-              "maximum": 9007199254740991,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "succeeded": {
-              "maximum": 9007199254740991,
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          "required": [
-            "processed",
-            "succeeded",
-            "failed",
-            "errors"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "required",
-        "confirmation": "required",
-        "dryRun": true
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental"
-    },
-    {
-      "id": "subscribers.unblocklist",
-      "input": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "properties": {
-            "continue_on_error": {
-              "default": false,
-              "type": "boolean"
-            },
-            "dry_run": {
-              "default": false,
-              "type": "boolean"
-            },
-            "max_items": {
-              "default": 10000,
-              "exclusiveMinimum": 0,
-              "maximum": 9007199254740991,
-              "type": "integer"
-            },
-            "subscriber_ids": {
-              "items": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              },
-              "minItems": 1,
-              "type": "array"
-            }
-          },
-          "required": [
-            "subscriber_ids"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "output": {
-        "components": {},
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": false,
-          "properties": {
-            "errors": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "failed": {
-              "maximum": 9007199254740991,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "processed": {
-              "maximum": 9007199254740991,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "succeeded": {
-              "maximum": 9007199254740991,
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          "required": [
-            "processed",
-            "succeeded",
-            "failed",
-            "errors"
-          ],
-          "type": "object"
-        },
-        "source": "runtime-operation",
-        "stage": "normalized"
-      },
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": true
-      },
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
       },
       "since": "0.9.0",
       "stability": "experimental"

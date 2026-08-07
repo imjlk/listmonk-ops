@@ -71,21 +71,21 @@ describe("agent discovery operations", () => {
 			stability: "stable",
 		});
 
-		const bridged = await invokeSpecDescribeOperation(context, {
-			operation: "subscribers.add-to-lists",
+		const standalone = await invokeSpecDescribeOperation(context, {
+			operation: "listmonk_create_subscriber",
 		});
-		expect(bridged.operation).toMatchObject({
+		expect(standalone.operation).toMatchObject({
 			coverage: "described",
 			stability: "experimental",
 			spec: {
 				resource: "subscriber",
 				contract: {
-					input: { source: "runtime-operation" },
-					output: { source: "runtime-operation" },
+					input: { source: "typescript" },
+					output: { source: "typescript" },
 				},
 			},
 		});
-		expect(bridged.operation).not.toHaveProperty("migration");
+		expect(standalone.operation).not.toHaveProperty("migration");
 
 		await expect(
 			invokeSpecDescribeOperation(context, { operation: "missing.operation" }),

@@ -1766,3 +1766,31 @@ export interface CampaignCloneInput {
 	id: ResourceId;
 	name: TrimmedNonEmptyString;
 }
+
+export interface SubscriberBulkListsInput {
+	subscriber_ids: ResourceId[] & tags.MinItems<1>;
+	list_ids: ResourceId[] & tags.MinItems<1>;
+	/** Plan only when true. Defaults to false. */
+	dry_run?: boolean;
+	/** Maximum items per chunk. Defaults to 10000. */
+	max_items?: PositiveInteger;
+	/** Continue processing after a chunk failure. Defaults to false. */
+	continue_on_error?: boolean;
+}
+
+export interface SubscriberBulkBlocklistInput {
+	subscriber_ids: ResourceId[] & tags.MinItems<1>;
+	/** Plan only when true. Defaults to false. */
+	dry_run?: boolean;
+	/** Maximum items per chunk. Defaults to 10000. */
+	max_items?: PositiveInteger;
+	/** Continue processing after a chunk failure. Defaults to false. */
+	continue_on_error?: boolean;
+}
+
+export interface SubscriberBulkOutput {
+	processed: NonNegativeInteger;
+	succeeded: NonNegativeInteger;
+	failed: NonNegativeInteger;
+	errors: string[];
+}

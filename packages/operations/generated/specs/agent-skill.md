@@ -1010,6 +1010,48 @@ Verify with: `subscribers.list`
 
 Retry guidance: Verify the subscriber is gone with subscribers.list before retrying.
 
+## Add subscribers to lists (`subscribers.add-to-lists`)
+
+Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
+
+Use when: Subscribers must be added to one or more lists in bulk.
+
+Avoid when: The subscribers or lists are not known.
+
+Prerequisites: `subscribers.get`, `lists.get`
+
+Verify with: `subscribers.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff.
+
+## Remove subscribers from lists (`subscribers.remove-from-lists`)
+
+Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `required`; retry: `safe`.
+
+Use when: Subscribers must be removed from one or more lists in bulk.
+
+Avoid when: The subscribers or lists are not known.
+
+Prerequisites: `subscribers.get`, `lists.get`
+
+Verify with: `subscribers.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff.
+
+## Unblocklist subscribers (`subscribers.unblocklist`)
+
+Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
+
+Use when: Subscribers must be removed from the blocklist in bulk.
+
+Avoid when: The subscriber IDs are not known.
+
+Prerequisites: `subscribers.get`
+
+Verify with: `subscribers.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff.
+
 ## Create campaign (`campaigns.create`)
 
 Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `unsafe`.
@@ -1107,48 +1149,6 @@ Prerequisites: none
 Verify with: `media.list`
 
 Retry guidance: Inspect media.list before retrying an ambiguous upload.
-
-## Add subscribers to lists (`subscribers.add-to-lists`)
-
-Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
-
-Use when: Add a batch of subscribers to one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `subscribers.get`, `lists.get`
-
-Verify with: `subscribers.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Remove subscribers from lists (`subscribers.remove-from-lists`)
-
-Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `required`; retry: `safe`.
-
-Use when: Remove a batch of subscribers from one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-adding subscribers does not guarantee their previous per-list subscription state is reconstructed.
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `subscribers.get`, `lists.get`
-
-Verify with: `subscribers.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Unblocklist subscribers (`subscribers.unblocklist`)
-
-Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
-
-Use when: Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `subscribers.get`
-
-Verify with: `subscribers.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## Evaluate deliverability guard (`ops.campaign.deliverability-guard`)
 

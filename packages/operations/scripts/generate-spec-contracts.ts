@@ -129,6 +129,8 @@ import type {
 	MediaDeleteInput,
 	MediaDeleteOutput,
 	CampaignCloneInput,
+	SubscriberBulkListsInput,
+	SubscriberBulkBlocklistInput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import { stableValue } from "../src/specs/stable-json.js";
@@ -586,6 +588,12 @@ const contracts = {
 	),
 	campaignCloneInputContract: contractSchema(
 		typia.json.schema<CampaignCloneInput>(),
+	),
+	subscriberBulkListsInputContract: contractSchema(
+		typia.json.schema<SubscriberBulkListsInput>(),
+	),
+	subscriberBulkBlocklistInputContract: contractSchema(
+		typia.json.schema<SubscriberBulkBlocklistInput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

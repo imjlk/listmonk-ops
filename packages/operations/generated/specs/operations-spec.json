@@ -22168,6 +22168,640 @@
     {
       "agent": {
         "avoidWhen": [
+          "The subscribers or lists are not known."
+        ],
+        "prerequisites": [
+          "subscribers.get",
+          "lists.get"
+        ],
+        "related": [
+          "subscribers.remove-from-lists"
+        ],
+        "retryGuidance": "Retry identical transient failures with bounded backoff.",
+        "useWhen": [
+          "Subscribers must be added to one or more lists in bulk."
+        ],
+        "verifyWith": [
+          "subscribers.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberBulkListsInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "continue_on_error": {
+                    "description": "Continue processing after a chunk failure. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "description": "Plan only when true. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "list_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "max_items": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Maximum items per chunk. Defaults to 10000."
+                  },
+                  "subscriber_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "subscriber_ids",
+                  "list_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "continue_on_error": {
+                "description": "Continue processing after a chunk failure. Defaults to false.",
+                "type": "boolean"
+              },
+              "dry_run": {
+                "description": "Plan only when true. Defaults to false.",
+                "type": "boolean"
+              },
+              "list_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "max_items": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Maximum items per chunk. Defaults to 10000."
+              },
+              "subscriber_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "subscriber_ids",
+              "list_ids"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "SubscriberBulkOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "errors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "processed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "processed",
+                  "succeeded",
+                  "failed",
+                  "errors"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "errors": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "failed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "processed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "succeeded": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "processed",
+              "succeeded",
+              "failed",
+              "errors"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Add a batch of subscribers to one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+      "effects": [
+        {
+          "kind": "write",
+          "preview": true,
+          "resource": "subscriber",
+          "reversible": true
+        }
+      ],
+      "id": "subscribers.add-to-lists",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": true
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersAddToListsOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersAddToListsOperationSpec:variable",
+          "executorNode": "packages/operations/src/subscribers.ts#addSubscribersToLists:function",
+          "invokerNode": "packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable"
+        },
+        "mcpName": "listmonk_add_subscribers_to_lists",
+        "openWorld": true
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same add-to-lists action converges on the same membership state."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Add subscribers to lists",
+      "verb": "add-to-lists"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The subscribers or lists are not known."
+        ],
+        "prerequisites": [
+          "subscribers.get",
+          "lists.get"
+        ],
+        "related": [
+          "subscribers.add-to-lists"
+        ],
+        "retryGuidance": "Retry identical transient failures with bounded backoff.",
+        "useWhen": [
+          "Subscribers must be removed from one or more lists in bulk."
+        ],
+        "verifyWith": [
+          "subscribers.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberBulkListsInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "continue_on_error": {
+                    "description": "Continue processing after a chunk failure. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "description": "Plan only when true. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "list_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "max_items": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Maximum items per chunk. Defaults to 10000."
+                  },
+                  "subscriber_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "subscriber_ids",
+                  "list_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "continue_on_error": {
+                "description": "Continue processing after a chunk failure. Defaults to false.",
+                "type": "boolean"
+              },
+              "dry_run": {
+                "description": "Plan only when true. Defaults to false.",
+                "type": "boolean"
+              },
+              "list_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "max_items": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Maximum items per chunk. Defaults to 10000."
+              },
+              "subscriber_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "subscriber_ids",
+              "list_ids"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "SubscriberBulkOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "errors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "processed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "processed",
+                  "succeeded",
+                  "failed",
+                  "errors"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "errors": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "failed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "processed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "succeeded": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "processed",
+              "succeeded",
+              "failed",
+              "errors"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Remove a batch of subscribers from one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-adding subscribers does not guarantee their previous per-list subscription state is reconstructed.",
+      "effects": [
+        {
+          "kind": "write",
+          "preview": true,
+          "resource": "subscriber",
+          "reversible": false
+        }
+      ],
+      "id": "subscribers.remove-from-lists",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersRemoveFromListsOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersRemoveFromListsOperationSpec:variable",
+          "executorNode": "packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
+          "invokerNode": "packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable"
+        },
+        "mcpName": "listmonk_remove_subscribers_from_lists",
+        "openWorld": true
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same remove-from-lists action converges on the same membership state."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Remove subscribers from lists",
+      "verb": "remove-from-lists"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The subscriber IDs are not known."
+        ],
+        "prerequisites": [
+          "subscribers.get"
+        ],
+        "related": [
+          "subscribers.blocklist"
+        ],
+        "retryGuidance": "Retry identical transient failures with bounded backoff.",
+        "useWhen": [
+          "Subscribers must be removed from the blocklist in bulk."
+        ],
+        "verifyWith": [
+          "subscribers.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberBulkBlocklistInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "continue_on_error": {
+                    "description": "Continue processing after a chunk failure. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "description": "Plan only when true. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "max_items": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Maximum items per chunk. Defaults to 10000."
+                  },
+                  "subscriber_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "subscriber_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "continue_on_error": {
+                "description": "Continue processing after a chunk failure. Defaults to false.",
+                "type": "boolean"
+              },
+              "dry_run": {
+                "description": "Plan only when true. Defaults to false.",
+                "type": "boolean"
+              },
+              "max_items": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Maximum items per chunk. Defaults to 10000."
+              },
+              "subscriber_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "subscriber_ids"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "SubscriberBulkOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "errors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "processed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "processed",
+                  "succeeded",
+                  "failed",
+                  "errors"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "errors": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "failed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "processed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "succeeded": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "processed",
+              "succeeded",
+              "failed",
+              "errors"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+      "effects": [
+        {
+          "kind": "write",
+          "preview": true,
+          "resource": "subscriber",
+          "reversible": true
+        }
+      ],
+      "id": "subscribers.unblocklist",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": true
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersUnblocklistOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersUnblocklistOperationSpec:variable",
+          "executorNode": "packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
+          "invokerNode": "packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable"
+        },
+        "mcpName": "listmonk_unblocklist_subscribers",
+        "openWorld": true
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same unblocklist action converges on the same state."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Unblocklist subscribers",
+      "verb": "unblocklist"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "An existing campaign should be cloned or updated instead."
         ],
         "prerequisites": [],
@@ -27910,472 +28544,6 @@
       "stability": "experimental",
       "title": "Upload media file",
       "verb": "upload"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [
-          "subscribers.get",
-          "lists.get"
-        ],
-        "related": [
-          "subscribers.remove-from-lists"
-        ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
-        "useWhen": [
-          "Add a batch of subscribers to one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error."
-        ],
-        "verifyWith": [
-          "subscribers.get"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "continue_on_error": {
-                "default": false,
-                "type": "boolean"
-              },
-              "dry_run": {
-                "default": false,
-                "type": "boolean"
-              },
-              "list_ids": {
-                "items": {
-                  "anyOf": [
-                    {
-                      "exclusiveMinimum": 0,
-                      "maximum": 9007199254740991,
-                      "type": "integer"
-                    },
-                    {
-                      "pattern": "^[1-9][0-9]*$",
-                      "type": "string"
-                    }
-                  ],
-                  "description": "Listmonk resource ID"
-                },
-                "minItems": 1,
-                "type": "array"
-              },
-              "max_items": {
-                "default": 10000,
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              },
-              "subscriber_ids": {
-                "items": {
-                  "anyOf": [
-                    {
-                      "exclusiveMinimum": 0,
-                      "maximum": 9007199254740991,
-                      "type": "integer"
-                    },
-                    {
-                      "pattern": "^[1-9][0-9]*$",
-                      "type": "string"
-                    }
-                  ],
-                  "description": "Listmonk resource ID"
-                },
-                "minItems": 1,
-                "type": "array"
-              }
-            },
-            "required": [
-              "subscriber_ids",
-              "list_ids"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "errors": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "failed": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
-              },
-              "processed": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
-              },
-              "succeeded": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
-              }
-            },
-            "required": [
-              "processed",
-              "succeeded",
-              "failed",
-              "errors"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Add a batch of subscribers to one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
-      "effects": [
-        {
-          "kind": "write",
-          "preview": true,
-          "resource": "subscriber",
-          "reversible": true
-        }
-      ],
-      "id": "subscribers.add-to-lists",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": true
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/operations/src/subscribers.ts#addSubscribersToLists:function",
-          "invokerNode": "packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable"
-        },
-        "mcpName": "listmonk_add_subscribers_to_lists",
-        "openWorld": true
-      },
-      "resource": "subscriber",
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Add subscribers to lists",
-      "verb": "add-to-lists"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [
-          "subscribers.get",
-          "lists.get"
-        ],
-        "related": [
-          "subscribers.add-to-lists"
-        ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
-        "useWhen": [
-          "Remove a batch of subscribers from one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-adding subscribers does not guarantee their previous per-list subscription state is reconstructed."
-        ],
-        "verifyWith": [
-          "subscribers.get"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "continue_on_error": {
-                "default": false,
-                "type": "boolean"
-              },
-              "dry_run": {
-                "default": false,
-                "type": "boolean"
-              },
-              "list_ids": {
-                "items": {
-                  "anyOf": [
-                    {
-                      "exclusiveMinimum": 0,
-                      "maximum": 9007199254740991,
-                      "type": "integer"
-                    },
-                    {
-                      "pattern": "^[1-9][0-9]*$",
-                      "type": "string"
-                    }
-                  ],
-                  "description": "Listmonk resource ID"
-                },
-                "minItems": 1,
-                "type": "array"
-              },
-              "max_items": {
-                "default": 10000,
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              },
-              "subscriber_ids": {
-                "items": {
-                  "anyOf": [
-                    {
-                      "exclusiveMinimum": 0,
-                      "maximum": 9007199254740991,
-                      "type": "integer"
-                    },
-                    {
-                      "pattern": "^[1-9][0-9]*$",
-                      "type": "string"
-                    }
-                  ],
-                  "description": "Listmonk resource ID"
-                },
-                "minItems": 1,
-                "type": "array"
-              }
-            },
-            "required": [
-              "subscriber_ids",
-              "list_ids"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "errors": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "failed": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
-              },
-              "processed": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
-              },
-              "succeeded": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
-              }
-            },
-            "required": [
-              "processed",
-              "succeeded",
-              "failed",
-              "errors"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Remove a batch of subscribers from one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-adding subscribers does not guarantee their previous per-list subscription state is reconstructed.",
-      "effects": [
-        {
-          "kind": "write",
-          "preview": true,
-          "resource": "subscriber",
-          "reversible": false
-        }
-      ],
-      "id": "subscribers.remove-from-lists",
-      "policy": {
-        "audit": "required",
-        "confirmation": "required",
-        "dryRun": true
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
-          "invokerNode": "packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable"
-        },
-        "mcpName": "listmonk_remove_subscribers_from_lists",
-        "openWorld": true
-      },
-      "resource": "subscriber",
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Remove subscribers from lists",
-      "verb": "remove-from-lists"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [
-          "subscribers.get"
-        ],
-        "related": [
-          "subscribers.blocklist"
-        ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
-        "useWhen": [
-          "Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error."
-        ],
-        "verifyWith": [
-          "subscribers.get"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "continue_on_error": {
-                "default": false,
-                "type": "boolean"
-              },
-              "dry_run": {
-                "default": false,
-                "type": "boolean"
-              },
-              "max_items": {
-                "default": 10000,
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              },
-              "subscriber_ids": {
-                "items": {
-                  "anyOf": [
-                    {
-                      "exclusiveMinimum": 0,
-                      "maximum": 9007199254740991,
-                      "type": "integer"
-                    },
-                    {
-                      "pattern": "^[1-9][0-9]*$",
-                      "type": "string"
-                    }
-                  ],
-                  "description": "Listmonk resource ID"
-                },
-                "minItems": 1,
-                "type": "array"
-              }
-            },
-            "required": [
-              "subscriber_ids"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "errors": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "failed": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
-              },
-              "processed": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
-              },
-              "succeeded": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
-              }
-            },
-            "required": [
-              "processed",
-              "succeeded",
-              "failed",
-              "errors"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
-      "effects": [
-        {
-          "kind": "write",
-          "preview": true,
-          "resource": "subscriber",
-          "reversible": true
-        }
-      ],
-      "id": "subscribers.unblocklist",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": true
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
-          "invokerNode": "packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable"
-        },
-        "mcpName": "listmonk_unblocklist_subscribers",
-        "openWorld": true
-      },
-      "resource": "subscriber",
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Unblocklist subscribers",
-      "verb": "unblocklist"
     },
     {
       "agent": {
