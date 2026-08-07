@@ -3405,7 +3405,7 @@
           "type": "string"
         },
         "ListUpdateInput": {
-          "oneOf": [
+          "anyOf": [
             {
               "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type"
             },
@@ -3665,7 +3665,7 @@
     },
     "dialect": "openapi-3.1",
     "schema": {
-      "oneOf": [
+      "anyOf": [
         {
           "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type"
         },
@@ -9843,7 +9843,7 @@
           "type": "object"
         },
         "SubscriberUpdateInput": {
-          "oneOf": [
+          "anyOf": [
             {
               "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type"
             },
@@ -9871,7 +9871,7 @@
     },
     "dialect": "openapi-3.1",
     "schema": {
-      "oneOf": [
+      "anyOf": [
         {
           "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type"
         },

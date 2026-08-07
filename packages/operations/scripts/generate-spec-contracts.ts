@@ -533,7 +533,10 @@ const contracts = {
 		typia.json.schema<TemplateManifestReconcileOutput>(),
 	),
 	listCreateInputContract: contractSchema(typia.json.schema<ListCreateInput>()),
-	listUpdateInputContract: contractSchema(typia.json.schema<ListUpdateInput>()),
+	listUpdateInputContract: inclusiveUnionContractSchema(
+		typia.json.schema<ListUpdateInput>(),
+		"ListUpdateInput",
+	),
 	listDeleteInputContract: contractSchema(typia.json.schema<ListDeleteInput>()),
 	listDeleteOutputContract: contractSchema(
 		typia.json.schema<ListDeleteOutput>(),
@@ -541,8 +544,9 @@ const contracts = {
 	subscriberCreateInputContract: contractSchema(
 		typia.json.schema<SubscriberCreateInput>(),
 	),
-	subscriberUpdateInputContract: contractSchema(
+	subscriberUpdateInputContract: inclusiveUnionContractSchema(
 		typia.json.schema<SubscriberUpdateInput>(),
+		"SubscriberUpdateInput",
 	),
 	subscriberDeleteInputContract: contractSchema(
 		typia.json.schema<SubscriberDeleteInput>(),
