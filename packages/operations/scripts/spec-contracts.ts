@@ -1643,3 +1643,102 @@ export interface SubscriberDeleteOutput {
 	id: ResourceId;
 	deleted: boolean;
 }
+
+export type CampaignType = "regular" | "optin";
+export type CampaignContentType = "richtext" | "html" | "markdown" | "plain" | "visual";
+
+export interface CampaignBodyFields {
+	name: NonEmptyString;
+	subject: NonEmptyString;
+	from_email: NonEmptyString;
+	body: NonEmptyString;
+	body_source?: string | null;
+	altbody?: string;
+	/**
+	 * Campaign type. Optional on input and defaults to `"regular"`, matching
+	 * the runtime Zod schema's `.default("regular")`.
+	 */
+	type?: CampaignType;
+	template_id: ResourceId | null;
+	lists: ResourceId[] & tags.MinItems<1>;
+	tags?: string[];
+	/**
+	 * Messenger. Optional on input and defaults to `"email"`, matching the
+	 * runtime Zod schema's `.default("email")`.
+	 */
+	messenger?: NonEmptyString;
+	/**
+	 * Content type. Optional on input and defaults to `"html"`, matching the
+	 * runtime Zod schema's `.default("html")`.
+	 */
+	content_type?: CampaignContentType;
+	send_at?: string | null;
+	headers?: Record<string, string>[];
+	attribs?: Record<string, unknown>;
+	archive?: boolean;
+	archive_slug?: string | null;
+	archive_template_id?: ResourceId | null;
+	archive_meta?: Record<string, unknown>;
+	media?: ResourceId[];
+	subscribers?: string[];
+}
+
+export interface CampaignCreateInput extends CampaignBodyFields {}
+
+export interface CampaignUpdateFields {
+	name?: NonEmptyString;
+	subject?: NonEmptyString;
+	from_email?: NonEmptyString;
+	body?: NonEmptyString;
+	body_source?: string | null;
+	altbody?: string;
+	type?: CampaignType;
+	template_id?: ResourceId | null;
+	lists?: ResourceId[] & tags.MinItems<1>;
+	tags?: string[];
+	messenger?: NonEmptyString;
+	content_type?: CampaignContentType;
+	send_at?: string | null;
+	headers?: Record<string, string>[];
+	attribs?: Record<string, unknown>;
+	archive?: boolean;
+	archive_slug?: string | null;
+	archive_template_id?: ResourceId | null;
+	archive_meta?: Record<string, unknown>;
+	media?: ResourceId[];
+	subscribers?: string[];
+}
+
+export type CampaignUpdateInput = ResourceIdInput &
+	(
+		| (CampaignUpdateFields & { name: NonEmptyString })
+		| (CampaignUpdateFields & { subject: NonEmptyString })
+		| (CampaignUpdateFields & { from_email: NonEmptyString })
+		| (CampaignUpdateFields & { body: NonEmptyString })
+		| (CampaignUpdateFields & { body_source: string | null })
+		| (CampaignUpdateFields & { altbody: string })
+		| (CampaignUpdateFields & { type: CampaignType })
+		| (CampaignUpdateFields & { template_id: ResourceId | null })
+		| (CampaignUpdateFields & { lists: ResourceId[] & tags.MinItems<1> })
+		| (CampaignUpdateFields & { tags: string[] })
+		| (CampaignUpdateFields & { messenger: NonEmptyString })
+		| (CampaignUpdateFields & { content_type: CampaignContentType })
+		| (CampaignUpdateFields & { send_at: string | null })
+		| (CampaignUpdateFields & { headers: Record<string, string>[] })
+		| (CampaignUpdateFields & { attribs: Record<string, unknown> })
+		| (CampaignUpdateFields & { archive: boolean })
+		| (CampaignUpdateFields & { archive_slug: string | null })
+		| (CampaignUpdateFields & { archive_template_id: ResourceId | null })
+		| (CampaignUpdateFields & { archive_meta: Record<string, unknown> })
+		| (CampaignUpdateFields & { media: ResourceId[] })
+		| (CampaignUpdateFields & { subscribers: string[] })
+	);
+
+export interface CampaignDeleteInput {
+	id: ResourceId;
+}
+
+export interface CampaignDeleteOutput {
+	id: ResourceId;
+	deleted: boolean;
+}

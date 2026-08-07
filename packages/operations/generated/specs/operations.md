@@ -872,6 +872,42 @@ Delete a subscriber from Listmonk
 - Retry: `reconcile`
 - Stability: `experimental` since `0.9.0`
 
+## `campaigns.create`
+
+Create a campaign in Listmonk
+
+- Resource / verb: `campaign.create`
+- MCP tool: `listmonk_create_campaign`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:campaign`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.9.0`
+
+## `campaigns.update`
+
+Update a campaign in Listmonk
+
+- Resource / verb: `campaign.update`
+- MCP tool: `listmonk_update_campaign`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:campaign`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
+## `campaigns.delete`
+
+Delete a campaign from Listmonk
+
+- Resource / verb: `campaign.delete`
+- MCP tool: `listmonk_delete_campaign`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `delete:campaign`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.9.0`
+
 ## `subscribers.add-to-lists`
 
 Add a batch of subscribers to one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.
@@ -905,42 +941,6 @@ Remove a batch of subscribers from the blocklist. Processes subscribers in chunk
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `write:subscriber`
 - Policy: confirmation `never`, audit `required`, dry-run `true`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `campaigns.create`
-
-Create a campaign in Listmonk
-
-- Resource / verb: `campaign.create`
-- MCP tool: `listmonk_create_campaign`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:campaign`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
-
-## `campaigns.update`
-
-Update a campaign in Listmonk
-
-- Resource / verb: `campaign.update`
-- MCP tool: `listmonk_update_campaign`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:campaign`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `campaigns.delete`
-
-Delete a campaign from Listmonk
-
-- Resource / verb: `campaign.delete`
-- MCP tool: `listmonk_delete_campaign`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `delete:campaign`
-- Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 

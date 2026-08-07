@@ -1010,6 +1010,48 @@ Verify with: `subscribers.list`
 
 Retry guidance: Verify the subscriber is gone with subscribers.list before retrying.
 
+## Create campaign (`campaigns.create`)
+
+Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `unsafe`.
+
+Use when: A new campaign must be created.
+
+Avoid when: An existing campaign should be cloned or updated instead.
+
+Prerequisites: none
+
+Verify with: `campaigns.list`
+
+Retry guidance: Inspect campaigns.list before retrying an ambiguous create.
+
+## Update campaign (`campaigns.update`)
+
+Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
+
+Use when: A known campaign must be updated by numeric ID.
+
+Avoid when: The campaign ID is unknown.
+
+Prerequisites: `campaigns.get`
+
+Verify with: `campaigns.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff, then verify with campaigns.get.
+
+## Delete campaign (`campaigns.delete`)
+
+Contract maturity: `experimental`; effects: `delete:campaign`; confirmation: `required`; retry: `reconcile`.
+
+Use when: A campaign must be permanently removed.
+
+Avoid when: The campaign is running or scheduled.
+
+Prerequisites: `campaigns.get`
+
+Verify with: `campaigns.list`
+
+Retry guidance: Verify the campaign is gone with campaigns.list before retrying.
+
 ## Add subscribers to lists (`subscribers.add-to-lists`)
 
 Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
@@ -1049,48 +1091,6 @@ Avoid when: The target, intended side effect, or required confirmation has not b
 Prerequisites: `subscribers.get`
 
 Verify with: `subscribers.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Create campaign (`campaigns.create`)
-
-Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `unsafe`.
-
-Use when: Create a campaign in Listmonk
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: none
-
-Verify with: `campaigns.list`
-
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
-
-## Update campaign (`campaigns.update`)
-
-Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
-
-Use when: Update a campaign in Listmonk
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `campaigns.get`
-
-Verify with: `campaigns.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Delete campaign (`campaigns.delete`)
-
-Contract maturity: `experimental`; effects: `delete:campaign`; confirmation: `required`; retry: `safe`.
-
-Use when: Delete a campaign from Listmonk
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `campaigns.get`
-
-Verify with: `campaigns.list`
 
 Retry guidance: Retry identical transient failures with bounded backoff.
 
