@@ -11,8 +11,6 @@ export const runtimeOperationContractIds = [
 	"subscribers.unblocklist",
 	"campaigns.pause",
 	"campaigns.clone",
-	"media.delete",
-	"media.upload",
 	"ops.campaign.deliverability-guard",
 	"ops.subscribers.hygiene",
 	"ops.segments.drift",

@@ -1744,3 +1744,20 @@ export interface CampaignDeleteOutput {
 	id: ResourceId;
 	deleted: boolean;
 }
+
+export interface MediaUploadInput {
+	/** Base64-encoded file contents. Max length matches the runtime 10 MiB decoded cap plus padding/slack. */
+	base64: NonEmptyString & tags.MaxLength<14981014>;
+	filename: TrimmedNonEmptyString & tags.MaxLength<255>;
+	/** Optional MIME content type. When omitted, the operation infers it from the filename. */
+	content_type?: TrimmedNonEmptyString & tags.MaxLength<127>;
+}
+
+export interface MediaDeleteInput {
+	id: ResourceId;
+}
+
+export interface MediaDeleteOutput {
+	id: ResourceId;
+	deleted: boolean;
+}

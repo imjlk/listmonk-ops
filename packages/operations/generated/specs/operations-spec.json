@@ -26890,6 +26890,368 @@
     {
       "agent": {
         "avoidWhen": [
+          "The media file is referenced by a campaign or template."
+        ],
+        "prerequisites": [
+          "media.get"
+        ],
+        "related": [
+          "media.get",
+          "media.upload"
+        ],
+        "retryGuidance": "Verify the file is gone with media.list before retrying.",
+        "useWhen": [
+          "A media file must be permanently removed."
+        ],
+        "verifyWith": [
+          "media.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "MediaDeleteInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "MediaDeleteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "deleted"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "deleted": {
+                "type": "boolean"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id",
+              "deleted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Delete an uploaded media file from Listmonk",
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "media",
+          "reversible": false
+        }
+      ],
+      "id": "media.delete",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindMediaDeleteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#mediaDeleteOperationSpec:variable",
+          "executorNode": "packages/operations/src/media.ts#deleteMediaFile:function",
+          "invokerNode": "packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/media.ts#deleteMediaOperation:variable"
+        },
+        "mcpName": "listmonk_delete_media",
+        "openWorld": true
+      },
+      "resource": "media",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Deleting an already-deleted media file is a no-op; verify with media.list after an ambiguous result.",
+        "reconcileWith": "media.list"
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Delete media file",
+      "verb": "delete"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "An existing media file should be referenced instead."
+        ],
+        "prerequisites": [],
+        "related": [
+          "media.delete"
+        ],
+        "retryGuidance": "Inspect media.list before retrying an ambiguous upload.",
+        "useWhen": [
+          "A new media file must be uploaded."
+        ],
+        "verifyWith": [
+          "media.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "MediaUploadInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "base64": {
+                    "description": "Base64-encoded file contents. Max length matches the runtime 10 MiB decoded cap plus padding/slack.",
+                    "maxLength": 14981014,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "content_type": {
+                    "description": "Optional MIME content type. When omitted, the operation infers it from the filename.",
+                    "maxLength": 127,
+                    "minLength": 1,
+                    "pattern": "^\\s*\\S[\\s\\S]*$",
+                    "type": "string"
+                  },
+                  "filename": {
+                    "maxLength": 255,
+                    "minLength": 1,
+                    "pattern": "^\\s*\\S[\\s\\S]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "base64",
+                  "filename"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "base64": {
+                "description": "Base64-encoded file contents. Max length matches the runtime 10 MiB decoded cap plus padding/slack.",
+                "maxLength": 14981014,
+                "minLength": 1,
+                "type": "string"
+              },
+              "content_type": {
+                "description": "Optional MIME content type. When omitted, the operation infers it from the filename.",
+                "maxLength": 127,
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              },
+              "filename": {
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "base64",
+              "filename"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "MediaRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "filename": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "thumb_uri": {
+                    "type": "string"
+                  },
+                  "thumb_url": {
+                    "type": "string"
+                  },
+                  "uri": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "content_type": {
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "filename": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "meta": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "thumb_uri": {
+                "type": "string"
+              },
+              "thumb_url": {
+                "type": "string"
+              },
+              "uri": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "uuid": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Upload a media file to Listmonk from base64-encoded contents. Validates an allowlist of MIME types and a 10 MiB size cap before sending.",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "media",
+          "reversible": true
+        }
+      ],
+      "id": "media.upload",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindMediaUploadOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#mediaUploadOperationSpec:variable",
+          "executorNode": "packages/operations/src/media.ts#uploadMediaFile:function",
+          "invokerNode": "packages/operations/src/media.ts#invokeUploadMediaOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/media.ts#uploadMediaOperation:variable"
+        },
+        "mcpName": "listmonk_upload_media",
+        "openWorld": true
+      },
+      "resource": "media",
+      "retry": {
+        "kind": "unsafe",
+        "reason": "A retry may upload another file unless the original media ID is known."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Upload media file",
+      "verb": "upload"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "The target, intended side effect, or required confirmation has not been verified."
         ],
         "prerequisites": [
@@ -27752,243 +28114,6 @@
       "stability": "experimental",
       "title": "Clone campaign",
       "verb": "clone"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [
-          "media.get"
-        ],
-        "related": [],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
-        "useWhen": [
-          "Delete an uploaded media file from Listmonk"
-        ],
-        "verifyWith": [
-          "media.list"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "id": {
-                "anyOf": [
-                  {
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991,
-                    "type": "integer"
-                  },
-                  {
-                    "pattern": "^[1-9][0-9]*$",
-                    "type": "string"
-                  }
-                ],
-                "description": "Listmonk resource ID"
-              }
-            },
-            "required": [
-              "id"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "deleted": {
-                "type": "boolean"
-              },
-              "id": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              }
-            },
-            "required": [
-              "id",
-              "deleted"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Delete an uploaded media file from Listmonk",
-      "effects": [
-        {
-          "kind": "delete",
-          "resource": "media",
-          "reversible": false
-        }
-      ],
-      "id": "media.delete",
-      "policy": {
-        "audit": "required",
-        "confirmation": "required",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/operations/src/media.ts#deleteMediaFile:function",
-          "invokerNode": "packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/media.ts#deleteMediaOperation:variable"
-        },
-        "mcpName": "listmonk_delete_media",
-        "openWorld": true
-      },
-      "resource": "media",
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Delete media file",
-      "verb": "delete"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [],
-        "related": [],
-        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.",
-        "useWhen": [
-          "Upload a media file to Listmonk from base64-encoded contents. Validates an allowlist of MIME types and a 10 MiB size cap before sending."
-        ],
-        "verifyWith": [
-          "media.list"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "base64": {
-                "description": "Base64-encoded file contents (RFC 4648)",
-                "minLength": 1,
-                "type": "string"
-              },
-              "content_type": {
-                "description": "MIME content type. When omitted, the operation infers it from the filename and still applies the allowlist.",
-                "minLength": 1,
-                "type": "string"
-              },
-              "filename": {
-                "description": "Filename to register with Listmonk",
-                "minLength": 1,
-                "type": "string"
-              }
-            },
-            "required": [
-              "base64",
-              "filename"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": {},
-            "properties": {
-              "content_type": {
-                "type": "string"
-              },
-              "created_at": {
-                "type": "string"
-              },
-              "filename": {
-                "type": "string"
-              },
-              "id": {
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991,
-                "type": "integer"
-              },
-              "meta": {
-                "additionalProperties": {},
-                "properties": {},
-                "type": "object"
-              },
-              "provider": {
-                "type": "string"
-              },
-              "thumb_uri": {
-                "type": "string"
-              },
-              "thumb_url": {
-                "type": "string"
-              },
-              "uri": {
-                "type": "string"
-              },
-              "url": {
-                "type": "string"
-              },
-              "uuid": {
-                "type": "string"
-              }
-            },
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Upload a media file to Listmonk from base64-encoded contents. Validates an allowlist of MIME types and a 10 MiB size cap before sending.",
-      "effects": [
-        {
-          "kind": "write",
-          "resource": "media",
-          "reversible": true
-        }
-      ],
-      "id": "media.upload",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/operations/src/media.ts#uploadMediaFile:function",
-          "invokerNode": "packages/operations/src/media.ts#invokeUploadMediaOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/media.ts#uploadMediaOperation:variable"
-        },
-        "mcpName": "listmonk_upload_media",
-        "openWorld": true
-      },
-      "resource": "media",
-      "retry": {
-        "kind": "unsafe",
-        "reason": "The shared operation may create, deliver, or advance state before an ambiguous failure."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Upload media file",
-      "verb": "upload"
     },
     {
       "agent": {

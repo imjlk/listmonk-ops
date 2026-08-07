@@ -1052,6 +1052,34 @@ Verify with: `campaigns.list`
 
 Retry guidance: Verify the campaign is gone with campaigns.list before retrying.
 
+## Delete media file (`media.delete`)
+
+Contract maturity: `experimental`; effects: `delete:media`; confirmation: `required`; retry: `reconcile`.
+
+Use when: A media file must be permanently removed.
+
+Avoid when: The media file is referenced by a campaign or template.
+
+Prerequisites: `media.get`
+
+Verify with: `media.list`
+
+Retry guidance: Verify the file is gone with media.list before retrying.
+
+## Upload media file (`media.upload`)
+
+Contract maturity: `experimental`; effects: `write:media`; confirmation: `never`; retry: `unsafe`.
+
+Use when: A new media file must be uploaded.
+
+Avoid when: An existing media file should be referenced instead.
+
+Prerequisites: none
+
+Verify with: `media.list`
+
+Retry guidance: Inspect media.list before retrying an ambiguous upload.
+
 ## Add subscribers to lists (`subscribers.add-to-lists`)
 
 Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
@@ -1119,34 +1147,6 @@ Avoid when: The target, intended side effect, or required confirmation has not b
 Prerequisites: `campaigns.get`
 
 Verify with: `campaigns.list`
-
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
-
-## Delete media file (`media.delete`)
-
-Contract maturity: `experimental`; effects: `delete:media`; confirmation: `required`; retry: `safe`.
-
-Use when: Delete an uploaded media file from Listmonk
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `media.get`
-
-Verify with: `media.list`
-
-Retry guidance: Retry identical transient failures with bounded backoff.
-
-## Upload media file (`media.upload`)
-
-Contract maturity: `experimental`; effects: `write:media`; confirmation: `never`; retry: `unsafe`.
-
-Use when: Upload a media file to Listmonk from base64-encoded contents. Validates an allowlist of MIME types and a 10 MiB size cap before sending.
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: none
-
-Verify with: `media.list`
 
 Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
 
