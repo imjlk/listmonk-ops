@@ -12617,6 +12617,172 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "subscriberBulkBlocklistInputContract": {
+    "components": {
+      "schemas": {
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberBulkBlocklistInput": {
+          "additionalProperties": false,
+          "properties": {
+            "continue_on_error": {
+              "description": "Continue processing after a chunk failure. Defaults to false.",
+              "type": "boolean"
+            },
+            "dry_run": {
+              "description": "Plan only when true. Defaults to false.",
+              "type": "boolean"
+            },
+            "max_items": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+            },
+            "subscriber_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "subscriber_ids"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "continue_on_error": {
+          "description": "Continue processing after a chunk failure. Defaults to false.",
+          "type": "boolean"
+        },
+        "dry_run": {
+          "description": "Plan only when true. Defaults to false.",
+          "type": "boolean"
+        },
+        "max_items": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+        },
+        "subscriber_ids": {
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "subscriber_ids"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "subscriberBulkListsInputContract": {
+    "components": {
+      "schemas": {
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberBulkListsInput": {
+          "additionalProperties": false,
+          "properties": {
+            "continue_on_error": {
+              "description": "Continue processing after a chunk failure. Defaults to false.",
+              "type": "boolean"
+            },
+            "dry_run": {
+              "description": "Plan only when true. Defaults to false.",
+              "type": "boolean"
+            },
+            "list_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "max_items": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+            },
+            "subscriber_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "subscriber_ids",
+            "list_ids"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "continue_on_error": {
+          "description": "Continue processing after a chunk failure. Defaults to false.",
+          "type": "boolean"
+        },
+        "dry_run": {
+          "description": "Plan only when true. Defaults to false.",
+          "type": "boolean"
+        },
+        "list_ids": {
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "max_items": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+        },
+        "subscriber_ids": {
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "subscriber_ids",
+        "list_ids"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "subscriberBulkOutputContract": {
     "components": {
       "schemas": {

@@ -1,11 +1,13 @@
 import type { ListmonkClient, Subscriber } from "@listmonk-ops/openapi";
 import {
-	bindBridgedOperationSpec,
 	bindSubscriberBlocklistOperationSpec,
+	bindSubscribersAddToListsOperationSpec,
 	bindSubscribersCreateOperationSpec,
 	bindSubscribersDeleteOperationSpec,
 	bindSubscribersGetOperationSpec,
 	bindSubscribersListOperationSpec,
+	bindSubscribersRemoveFromListsOperationSpec,
+	bindSubscribersUnblocklistOperationSpec,
 	bindSubscribersUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
@@ -527,7 +529,7 @@ export const addSubscribersToListsOperation = defineOperation({
 		name: "listmonk_add_subscribers_to_lists",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("subscribers.add-to-lists"),
+	spec: bindSubscribersAddToListsOperationSpec(),
 	execute: addSubscribersToLists,
 });
 
@@ -543,7 +545,7 @@ export const removeSubscribersFromListsOperation = defineOperation({
 		name: "listmonk_remove_subscribers_from_lists",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("subscribers.remove-from-lists"),
+	spec: bindSubscribersRemoveFromListsOperationSpec(),
 	execute: removeSubscribersFromLists,
 });
 
@@ -575,7 +577,7 @@ export const unblocklistSubscribersOperation = defineOperation({
 		name: "listmonk_unblocklist_subscribers",
 		legacySuccessText: jsonResourceValue,
 	},
-	spec: bindBridgedOperationSpec("subscribers.unblocklist"),
+	spec: bindSubscribersUnblocklistOperationSpec(),
 	execute: unblocklistSubscribers,
 });
 

@@ -1947,6 +1947,87 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersAddToListsOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersAddToListsOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#subscribersAddToListsOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#addSubscribersToLists:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersAddToListsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersAddToListsOperationSpec:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#addSubscribersToLists:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable"
+      },
+      "operationId": "subscribers.add-to-lists"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersRemoveFromListsOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersRemoveFromListsOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#subscribersRemoveFromListsOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#removeSubscribersFromLists:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersRemoveFromListsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersRemoveFromListsOperationSpec:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable"
+      },
+      "operationId": "subscribers.remove-from-lists"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersUnblocklistOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersUnblocklistOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#subscribersUnblocklistOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/subscribers.ts#unblocklistSubscribers:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersUnblocklistOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersUnblocklistOperationSpec:variable",
+        "executorNode": "packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
+        "invokerNode": "packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable"
+      },
+      "operationId": "subscribers.unblocklist"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/campaigns.ts#createCampaignOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/core-reads.ts#bindCampaignsCreateOperationSpec:function"
@@ -2132,87 +2213,6 @@
         "runtimeDefinitionNode": "packages/operations/src/media.ts#uploadMediaOperation:variable"
       },
       "operationId": "media.upload"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/subscribers.ts#addSubscribersToLists:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/operations/src/subscribers.ts#addSubscribersToLists:function",
-        "invokerNode": "packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable"
-      },
-      "operationId": "subscribers.add-to-lists"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/subscribers.ts#removeSubscribersFromLists:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
-        "invokerNode": "packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable"
-      },
-      "operationId": "subscribers.remove-from-lists"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/subscribers.ts#unblocklistSubscribers:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
-        "invokerNode": "packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable"
-      },
-      "operationId": "subscribers.unblocklist"
     },
     {
       "edges": [

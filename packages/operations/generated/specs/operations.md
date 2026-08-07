@@ -872,6 +872,42 @@ Delete a subscriber from Listmonk
 - Retry: `reconcile`
 - Stability: `experimental` since `0.9.0`
 
+## `subscribers.add-to-lists`
+
+Add a batch of subscribers to one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.
+
+- Resource / verb: `subscriber.add-to-lists`
+- MCP tool: `listmonk_add_subscribers_to_lists`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:subscriber`
+- Policy: confirmation `never`, audit `required`, dry-run `true`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
+## `subscribers.remove-from-lists`
+
+Remove a batch of subscribers from one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-adding subscribers does not guarantee their previous per-list subscription state is reconstructed.
+
+- Resource / verb: `subscriber.remove-from-lists`
+- MCP tool: `listmonk_remove_subscribers_from_lists`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:subscriber`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
+## `subscribers.unblocklist`
+
+Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.
+
+- Resource / verb: `subscriber.unblocklist`
+- MCP tool: `listmonk_unblocklist_subscribers`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `write:subscriber`
+- Policy: confirmation `never`, audit `required`, dry-run `true`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
 ## `campaigns.create`
 
 Create a campaign in Listmonk
@@ -955,42 +991,6 @@ Upload a media file to Listmonk from base64-encoded contents. Validates an allow
 - Effects: `write:media`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
-
-## `subscribers.add-to-lists`
-
-Add a batch of subscribers to one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.
-
-- Resource / verb: `subscriber.add-to-lists`
-- MCP tool: `listmonk_add_subscribers_to_lists`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:subscriber`
-- Policy: confirmation `never`, audit `required`, dry-run `true`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `subscribers.remove-from-lists`
-
-Remove a batch of subscribers from one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-adding subscribers does not guarantee their previous per-list subscription state is reconstructed.
-
-- Resource / verb: `subscriber.remove-from-lists`
-- MCP tool: `listmonk_remove_subscribers_from_lists`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:subscriber`
-- Policy: confirmation `required`, audit `required`, dry-run `true`
-- Retry: `safe`
-- Stability: `experimental` since `0.9.0`
-
-## `subscribers.unblocklist`
-
-Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.
-
-- Resource / verb: `subscriber.unblocklist`
-- MCP tool: `listmonk_unblocklist_subscribers`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `write:subscriber`
-- Policy: confirmation `never`, audit `required`, dry-run `true`
-- Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
 ## `ops.campaign.deliverability-guard`

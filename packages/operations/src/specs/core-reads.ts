@@ -29,6 +29,9 @@ import {
 	subscriberListInputContract,
 	subscriberListRecordContract,
 	subscriberRecordContract,
+	subscriberBulkBlocklistInputContract,
+	subscriberBulkListsInputContract,
+	subscriberBulkOutputContract,
 	subscriberUpdateInputContract,
 	templateCollectionOutputContract,
 	templateCreateInputContract,
@@ -510,6 +513,165 @@ export const subscribersDeleteOperationSpec = defineOperationSpec({
 				"packages/operations/src/subscribers.ts#invokeDeleteSubscriberOperation:function",
 			executorNode:
 				"packages/operations/src/subscribers.ts#deleteSubscriber:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.9.0",
+});
+
+export const subscribersAddToListsOperationSpec = defineOperationSpec({
+	id: "subscribers.add-to-lists",
+	resource: "subscriber",
+	verb: "add-to-lists",
+	title: "Add subscribers to lists",
+	description:
+		"Add a batch of subscribers to one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+	contract: {
+		input: subscriberBulkListsInputContract,
+		output: subscriberBulkOutputContract,
+	},
+	effects: [
+		{
+			kind: "write",
+			resource: "subscriber",
+			reversible: true,
+			preview: true,
+		},
+	],
+	policy: { confirmation: "never", audit: "required", dryRun: true },
+	retry: {
+		kind: "safe",
+		reason:
+			"Reapplying the same add-to-lists action converges on the same membership state.",
+	},
+	agent: {
+		useWhen: ["Subscribers must be added to one or more lists in bulk."],
+		avoidWhen: ["The subscribers or lists are not known."],
+		prerequisites: ["subscribers.get", "lists.get"],
+		verifyWith: ["subscribers.get"],
+		related: ["subscribers.remove-from-lists"],
+		retryGuidance: "Retry identical transient failures with bounded backoff.",
+	},
+	projection: {
+		mcpName: "listmonk_add_subscribers_to_lists",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/core-reads.ts#subscribersAddToListsOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/core-reads.ts#bindSubscribersAddToListsOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#addSubscribersToLists:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.9.0",
+});
+
+export const subscribersRemoveFromListsOperationSpec = defineOperationSpec({
+	id: "subscribers.remove-from-lists",
+	resource: "subscriber",
+	verb: "remove-from-lists",
+	title: "Remove subscribers from lists",
+	description:
+		"Remove a batch of subscribers from one or more lists. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error. Destructive because re-adding subscribers does not guarantee their previous per-list subscription state is reconstructed.",
+	contract: {
+		input: subscriberBulkListsInputContract,
+		output: subscriberBulkOutputContract,
+	},
+	effects: [
+		{
+			kind: "write",
+			resource: "subscriber",
+			reversible: false,
+			preview: true,
+		},
+	],
+	policy: { confirmation: "required", audit: "required", dryRun: true },
+	retry: {
+		kind: "safe",
+		reason:
+			"Reapplying the same remove-from-lists action converges on the same membership state.",
+	},
+	agent: {
+		useWhen: ["Subscribers must be removed from one or more lists in bulk."],
+		avoidWhen: ["The subscribers or lists are not known."],
+		prerequisites: ["subscribers.get", "lists.get"],
+		verifyWith: ["subscribers.get"],
+		related: ["subscribers.add-to-lists"],
+		retryGuidance: "Retry identical transient failures with bounded backoff.",
+	},
+	projection: {
+		mcpName: "listmonk_remove_subscribers_from_lists",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/core-reads.ts#subscribersRemoveFromListsOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/core-reads.ts#bindSubscribersRemoveFromListsOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.9.0",
+});
+
+export const subscribersUnblocklistOperationSpec = defineOperationSpec({
+	id: "subscribers.unblocklist",
+	resource: "subscriber",
+	verb: "unblocklist",
+	title: "Unblocklist subscribers",
+	description:
+		"Remove a batch of subscribers from the blocklist. Processes subscribers in chunks and supports dry-run, max-items cap, and continue-on-error.",
+	contract: {
+		input: subscriberBulkBlocklistInputContract,
+		output: subscriberBulkOutputContract,
+	},
+	effects: [
+		{
+			kind: "write",
+			resource: "subscriber",
+			reversible: true,
+			preview: true,
+		},
+	],
+	policy: { confirmation: "never", audit: "required", dryRun: true },
+	retry: {
+		kind: "safe",
+		reason:
+			"Reapplying the same unblocklist action converges on the same state.",
+	},
+	agent: {
+		useWhen: ["Subscribers must be removed from the blocklist in bulk."],
+		avoidWhen: ["The subscriber IDs are not known."],
+		prerequisites: ["subscribers.get"],
+		verifyWith: ["subscribers.get"],
+		related: ["subscribers.blocklist"],
+		retryGuidance: "Retry identical transient failures with bounded backoff.",
+	},
+	projection: {
+		mcpName: "listmonk_unblocklist_subscribers",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/core-reads.ts#subscribersUnblocklistOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/core-reads.ts#bindSubscribersUnblocklistOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable",
+			invokerNode:
+				"packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
+			executorNode:
+				"packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
 		},
 	},
 	stability: "experimental",
@@ -1442,6 +1604,9 @@ export const standaloneOperationSpecs = [
 	subscribersCreateOperationSpec,
 	subscribersUpdateOperationSpec,
 	subscribersDeleteOperationSpec,
+	subscribersAddToListsOperationSpec,
+	subscribersRemoveFromListsOperationSpec,
+	subscribersUnblocklistOperationSpec,
 	campaignsCreateOperationSpec,
 	campaignsUpdateOperationSpec,
 	campaignsDeleteOperationSpec,
@@ -1492,6 +1657,18 @@ export function bindSubscribersUpdateOperationSpec(): typeof subscribersUpdateOp
 
 export function bindSubscribersDeleteOperationSpec(): typeof subscribersDeleteOperationSpec {
 	return subscribersDeleteOperationSpec;
+}
+
+export function bindSubscribersAddToListsOperationSpec(): typeof subscribersAddToListsOperationSpec {
+	return subscribersAddToListsOperationSpec;
+}
+
+export function bindSubscribersRemoveFromListsOperationSpec(): typeof subscribersRemoveFromListsOperationSpec {
+	return subscribersRemoveFromListsOperationSpec;
+}
+
+export function bindSubscribersUnblocklistOperationSpec(): typeof subscribersUnblocklistOperationSpec {
+	return subscribersUnblocklistOperationSpec;
 }
 
 export function bindCampaignsListOperationSpec(): typeof campaignsListOperationSpec {
