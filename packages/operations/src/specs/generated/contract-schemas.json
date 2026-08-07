@@ -297,7 +297,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -330,7 +330,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -352,11 +352,11 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString",
+              "$ref": "#/components/schemas/TrimmedNonEmptyString",
               "description": "Messenger. Optional on input and defaults to `\"email\"`, matching the\nruntime Zod schema's `.default(\"email\")`."
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -369,7 +369,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -415,10 +415,6 @@
           ],
           "type": "object"
         },
-        "NonEmptyString": {
-          "minLength": 1,
-          "type": "string"
-        },
         "Recordstringstring": {
           "additionalProperties": {
             "type": "string"
@@ -433,6 +429,11 @@
           "maximum": 9007199254740991,
           "minimum": 1,
           "type": "integer"
+        },
+        "TrimmedNonEmptyString": {
+          "minLength": 1,
+          "pattern": "^\\s*\\S[\\s\\S]*$",
+          "type": "string"
         }
       }
     },
@@ -473,7 +474,7 @@
           "$ref": "#/components/schemas/Recordstringunknown"
         },
         "body": {
-          "$ref": "#/components/schemas/NonEmptyString"
+          "$ref": "#/components/schemas/TrimmedNonEmptyString"
         },
         "body_source": {
           "oneOf": [
@@ -506,7 +507,7 @@
           ]
         },
         "from_email": {
-          "$ref": "#/components/schemas/NonEmptyString"
+          "$ref": "#/components/schemas/TrimmedNonEmptyString"
         },
         "headers": {
           "items": {
@@ -528,11 +529,11 @@
           "type": "array"
         },
         "messenger": {
-          "$ref": "#/components/schemas/NonEmptyString",
+          "$ref": "#/components/schemas/TrimmedNonEmptyString",
           "description": "Messenger. Optional on input and defaults to `\"email\"`, matching the\nruntime Zod schema's `.default(\"email\")`."
         },
         "name": {
-          "$ref": "#/components/schemas/NonEmptyString"
+          "$ref": "#/components/schemas/TrimmedNonEmptyString"
         },
         "send_at": {
           "oneOf": [
@@ -545,7 +546,7 @@
           ]
         },
         "subject": {
-          "$ref": "#/components/schemas/NonEmptyString"
+          "$ref": "#/components/schemas/TrimmedNonEmptyString"
         },
         "subscribers": {
           "items": {
@@ -2005,10 +2006,6 @@
             }
           ]
         },
-        "NonEmptyString": {
-          "minLength": 1,
-          "type": "string"
-        },
         "Recordstringstring": {
           "additionalProperties": {
             "type": "string"
@@ -2060,7 +2057,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -2092,7 +2089,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -2118,10 +2115,11 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
               "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
               "type": "string"
             },
             "send_at": {
@@ -2135,7 +2133,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -2212,7 +2210,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -2244,7 +2242,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -2270,10 +2268,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -2287,6 +2285,7 @@
             },
             "subject": {
               "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
               "type": "string"
             },
             "subscribers": {
@@ -2364,7 +2363,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -2396,7 +2395,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -2423,10 +2422,11 @@
             },
             "messenger": {
               "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
               "type": "string"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -2439,7 +2439,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -2516,7 +2516,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -2548,7 +2548,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -2574,10 +2574,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -2590,7 +2590,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -2667,7 +2667,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -2699,7 +2699,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -2725,10 +2725,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -2741,7 +2741,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -2818,7 +2818,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -2850,7 +2850,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -2876,10 +2876,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -2892,7 +2892,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -2969,7 +2969,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -3001,7 +3001,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -3027,10 +3027,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -3043,7 +3043,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -3120,7 +3120,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -3152,7 +3152,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -3178,10 +3178,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -3194,7 +3194,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -3271,7 +3271,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -3303,7 +3303,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -3329,10 +3329,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -3345,7 +3345,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -3424,7 +3424,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -3456,7 +3456,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -3482,10 +3482,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -3498,7 +3498,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -3575,7 +3575,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -3607,7 +3607,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -3633,10 +3633,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -3649,7 +3649,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -3726,7 +3726,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -3758,7 +3758,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -3784,10 +3784,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -3800,7 +3800,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -3877,7 +3877,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -3910,6 +3910,7 @@
             },
             "from_email": {
               "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
               "type": "string"
             },
             "headers": {
@@ -3936,10 +3937,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -3952,7 +3953,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -4029,7 +4030,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -4061,7 +4062,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -4087,10 +4088,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -4103,7 +4104,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -4181,6 +4182,7 @@
             },
             "body": {
               "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
               "type": "string"
             },
             "body_source": {
@@ -4213,7 +4215,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -4239,10 +4241,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -4255,7 +4257,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -4332,7 +4334,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -4364,7 +4366,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -4390,10 +4392,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -4406,7 +4408,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -4483,7 +4485,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -4515,7 +4517,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -4541,10 +4543,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -4557,7 +4559,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -4634,7 +4636,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -4666,7 +4668,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -4692,10 +4694,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -4708,7 +4710,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -4785,7 +4787,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -4817,7 +4819,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -4843,10 +4845,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -4859,7 +4861,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -4938,7 +4940,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -4970,7 +4972,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -4996,10 +4998,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -5012,7 +5014,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -5089,7 +5091,7 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "body": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "body_source": {
               "oneOf": [
@@ -5121,7 +5123,7 @@
               ]
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "headers": {
               "items": {
@@ -5147,10 +5149,10 @@
               "type": "array"
             },
             "messenger": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "name": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "send_at": {
               "oneOf": [
@@ -5163,7 +5165,7 @@
               ]
             },
             "subject": {
-              "$ref": "#/components/schemas/NonEmptyString"
+              "$ref": "#/components/schemas/TrimmedNonEmptyString"
             },
             "subscribers": {
               "items": {
@@ -5203,6 +5205,11 @@
             "tags"
           ],
           "type": "object"
+        },
+        "TrimmedNonEmptyString": {
+          "minLength": 1,
+          "pattern": "^\\s*\\S[\\s\\S]*$",
+          "type": "string"
         }
       }
     },
