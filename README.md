@@ -559,7 +559,7 @@ Operations Spec artifacts are checked in under
 after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
-also verifies all 104 shared operations, the API boundary rule, the 28 governed
+also verifies all 104 shared operations, the API boundary rule, the 26 governed
 runtime bridges, the 46 stable compatibility baselines, and 312 direct
 spec-to-runtime graph edges.
 
