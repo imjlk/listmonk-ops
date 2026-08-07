@@ -132,6 +132,10 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	campaignCloneInputContract: NormalizedContractSchema;
 	subscriberBulkListsInputContract: NormalizedContractSchema;
 	subscriberBulkBlocklistInputContract: NormalizedContractSchema;
+	segmentDriftInputContract: NormalizedContractSchema;
+	segmentDriftOutputContract: NormalizedContractSchema;
+	dailyDigestInputContract: NormalizedContractSchema;
+	dailyDigestOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
@@ -340,3 +344,7 @@ export const subscriberBulkListsInputContract =
 	contracts.subscriberBulkListsInputContract;
 export const subscriberBulkBlocklistInputContract =
 	contracts.subscriberBulkBlocklistInputContract;
+export const segmentDriftInputContract = contracts.segmentDriftInputContract;
+export const segmentDriftOutputContract = contracts.segmentDriftOutputContract;
+export const dailyDigestInputContract = contracts.dailyDigestInputContract;
+export const dailyDigestOutputContract = contracts.dailyDigestOutputContract;

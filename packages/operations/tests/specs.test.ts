@@ -475,7 +475,7 @@ describe("email operations specification", () => {
 			);
 		}
 		expect(
-			bridgedOperationSpecsById["ops.segments.drift"]?.policy.dryRun,
+			operationsById.get("ops.segments.drift")?.policy.dryRun,
 		).toBe(false);
 		expect(
 			bridgedOperationSpecsById["ops.templates.registry-promote"]?.retry,

@@ -6102,6 +6102,281 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "dailyDigestInputContract": {
+    "components": {
+      "schemas": {
+        "DailyDigestInput": {
+          "additionalProperties": false,
+          "properties": {
+            "bounce_threshold": {
+              "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "click_threshold": {
+              "description": "Minimum required click rate. Defaults to 0.01.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "hours": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Digest window in hours. Defaults to 24."
+            },
+            "open_threshold": {
+              "description": "Minimum required open rate. Defaults to 0.08.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "bounce_threshold": {
+          "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "click_threshold": {
+          "description": "Minimum required click rate. Defaults to 0.01.",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "hours": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Digest window in hours. Defaults to 24."
+        },
+        "open_threshold": {
+          "description": "Minimum required open rate. Defaults to 0.08.",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "dailyDigestOutputContract": {
+    "components": {
+      "schemas": {
+        "DailyDigestCampaignBreach": {
+          "additionalProperties": false,
+          "properties": {
+            "breaches": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "campaignId": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "campaignName": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "campaignId",
+            "campaignName",
+            "breaches"
+          ],
+          "type": "object"
+        },
+        "DailyDigestMetrics": {
+          "additionalProperties": false,
+          "properties": {
+            "bouncesInWindow": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "campaigns": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "campaignsCreatedInWindow": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "clicks": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "lists": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "runningCampaigns": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "sent": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "subscriberStatus": {
+              "$ref": "#/components/schemas/RecordstringNonNegativeInteger"
+            },
+            "subscribers": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "views": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "lists",
+            "subscribers",
+            "subscriberStatus",
+            "campaigns",
+            "runningCampaigns",
+            "campaignsCreatedInWindow",
+            "sent",
+            "views",
+            "clicks",
+            "bouncesInWindow"
+          ],
+          "type": "object"
+        },
+        "DailyDigestOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "generatedAt": {
+              "type": "string"
+            },
+            "markdown": {
+              "type": "string"
+            },
+            "metrics": {
+              "$ref": "#/components/schemas/DailyDigestMetrics"
+            },
+            "risk": {
+              "$ref": "#/components/schemas/DailyDigestRisk"
+            },
+            "window": {
+              "$ref": "#/components/schemas/DailyDigestWindow"
+            }
+          },
+          "required": [
+            "generatedAt",
+            "window",
+            "metrics",
+            "risk",
+            "markdown"
+          ],
+          "type": "object"
+        },
+        "DailyDigestRisk": {
+          "additionalProperties": false,
+          "properties": {
+            "campaignBreaches": {
+              "items": {
+                "$ref": "#/components/schemas/DailyDigestCampaignBreach"
+              },
+              "type": "array"
+            },
+            "campaignsEligible": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "campaignsEvaluated": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "campaignBreaches",
+            "campaignsEligible",
+            "campaignsEvaluated",
+            "truncated"
+          ],
+          "type": "object"
+        },
+        "DailyDigestWindow": {
+          "additionalProperties": false,
+          "properties": {
+            "from": {
+              "type": "string"
+            },
+            "hours": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "to": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "hours",
+            "from",
+            "to"
+          ],
+          "type": "object"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "RecordstringNonNegativeInteger": {
+          "additionalProperties": {
+            "$ref": "#/components/schemas/NonNegativeInteger"
+          },
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "generatedAt": {
+          "type": "string"
+        },
+        "markdown": {
+          "type": "string"
+        },
+        "metrics": {
+          "$ref": "#/components/schemas/DailyDigestMetrics"
+        },
+        "risk": {
+          "$ref": "#/components/schemas/DailyDigestRisk"
+        },
+        "window": {
+          "$ref": "#/components/schemas/DailyDigestWindow"
+        }
+      },
+      "required": [
+        "generatedAt",
+        "window",
+        "metrics",
+        "risk",
+        "markdown"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "deliverabilityDnsCheckOutputContract": {
     "components": {
       "schemas": {
@@ -9579,6 +9854,233 @@
       },
       "required": [
         "id"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "segmentDriftInputContract": {
+    "components": {
+      "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SegmentDriftInput": {
+          "additionalProperties": false,
+          "properties": {
+            "baseline_mode": {
+              "description": "How to compute the alert baseline. Defaults to \"previous\".",
+              "oneOf": [
+                {
+                  "const": "lookback-mean"
+                },
+                {
+                  "const": "lookback-median"
+                },
+                {
+                  "const": "previous"
+                }
+              ]
+            },
+            "list_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "lookback_days": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "Baseline lookback window in days. Defaults to 14."
+            },
+            "min_absolute_change": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Minimum absolute subscriber delta for an alert. Defaults to 50."
+            },
+            "threshold": {
+              "description": "Relative drift threshold. Defaults to 0.2.",
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_mode": {
+          "description": "How to compute the alert baseline. Defaults to \"previous\".",
+          "oneOf": [
+            {
+              "const": "lookback-mean"
+            },
+            {
+              "const": "lookback-median"
+            },
+            {
+              "const": "previous"
+            }
+          ]
+        },
+        "list_ids": {
+          "items": {
+            "$ref": "#/components/schemas/ResourceId"
+          },
+          "type": "array"
+        },
+        "lookback_days": {
+          "$ref": "#/components/schemas/PositiveInteger",
+          "description": "Baseline lookback window in days. Defaults to 14."
+        },
+        "min_absolute_change": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Minimum absolute subscriber delta for an alert. Defaults to 50."
+        },
+        "threshold": {
+          "description": "Relative drift threshold. Defaults to 0.2.",
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "segmentDriftOutputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SegmentDriftComparison": {
+          "additionalProperties": false,
+          "properties": {
+            "alert": {
+              "type": "boolean"
+            },
+            "baselineCount": {
+              "type": "number"
+            },
+            "currentCount": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "delta": {
+              "type": "number"
+            },
+            "deltaRate": {
+              "type": "number"
+            },
+            "listId": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "listName": {
+              "type": "string"
+            },
+            "previousCount": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "listId",
+            "listName",
+            "currentCount",
+            "alert"
+          ],
+          "type": "object"
+        },
+        "SegmentDriftOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "alerts": {
+              "items": {
+                "$ref": "#/components/schemas/SegmentDriftComparison"
+              },
+              "type": "array"
+            },
+            "capturedAt": {
+              "type": "string"
+            },
+            "comparisons": {
+              "items": {
+                "$ref": "#/components/schemas/SegmentDriftComparison"
+              },
+              "type": "array"
+            },
+            "minAbsoluteChange": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "threshold": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "capturedAt",
+            "threshold",
+            "minAbsoluteChange",
+            "comparisons",
+            "alerts"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "alerts": {
+          "items": {
+            "$ref": "#/components/schemas/SegmentDriftComparison"
+          },
+          "type": "array"
+        },
+        "capturedAt": {
+          "type": "string"
+        },
+        "comparisons": {
+          "items": {
+            "$ref": "#/components/schemas/SegmentDriftComparison"
+          },
+          "type": "array"
+        },
+        "minAbsoluteChange": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "threshold": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "capturedAt",
+        "threshold",
+        "minAbsoluteChange",
+        "comparisons",
+        "alerts"
       ],
       "type": "object"
     },

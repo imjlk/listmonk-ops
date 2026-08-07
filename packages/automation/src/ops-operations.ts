@@ -32,6 +32,8 @@ import {
 } from "@listmonk-ops/operations";
 import {
 	bindBridgedOperationSpec,
+	bindOpsDailyDigestOperationSpec,
+	bindOpsSegmentDriftOperationSpec,
 	bindCampaignPreflightOperationSpec,
 } from "@listmonk-ops/operations/specs";
 
@@ -544,7 +546,7 @@ export const segmentDriftOperation = defineOperation({
 	outputSchema: segmentDriftOutputSchema,
 	safety: nonIdempotentLocalWriteSafety,
 	mcp: { name: "listmonk_ops_segment_drift" },
-	spec: bindBridgedOperationSpec("ops.segments.drift"),
+	spec: bindOpsSegmentDriftOperationSpec(),
 	execute: executeSegmentDriftOperation,
 });
 
@@ -604,7 +606,7 @@ export const dailyDigestOperation = defineOperation({
 	outputSchema: dailyDigestOutputSchema,
 	safety: readSafety,
 	mcp: { name: "listmonk_ops_daily_digest" },
-	spec: bindBridgedOperationSpec("ops.digest.daily"),
+	spec: bindOpsDailyDigestOperationSpec(),
 	execute: executeDailyDigestOperation,
 });
 
