@@ -31,8 +31,13 @@ import {
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
 import {
-	bindBridgedOperationSpec,
 	bindOpsDailyDigestOperationSpec,
+	bindOpsDeliverabilityGuardOperationSpec,
+	bindOpsSubscriberHygieneOperationSpec,
+	bindOpsTemplateRegistrySyncOperationSpec,
+	bindOpsTemplateRegistryHistoryOperationSpec,
+	bindOpsTemplateRegistryPromoteOperationSpec,
+	bindOpsTemplateRegistryRollbackOperationSpec,
 	bindOpsSegmentDriftOperationSpec,
 	bindCampaignPreflightOperationSpec,
 } from "@listmonk-ops/operations/specs";
@@ -515,9 +520,14 @@ export const deliverabilityGuardOperation = defineOperation({
 		"Evaluate campaign deliverability metrics and optionally pause a breached campaign",
 	inputSchema: deliverabilityGuardInputSchema,
 	outputSchema: deliverabilityGuardOutputSchema,
-	safety: mutationSafety,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
 	mcp: { name: "listmonk_ops_deliverability_guard" },
-	spec: bindBridgedOperationSpec("ops.campaign.deliverability-guard"),
+	spec: bindOpsDeliverabilityGuardOperationSpec(),
 	execute: executeDeliverabilityGuardOperation,
 });
 
@@ -534,7 +544,7 @@ export const subscriberHygieneOperation = defineOperation({
 		openWorldHint: true,
 	},
 	mcp: { name: "listmonk_ops_subscriber_hygiene" },
-	spec: bindBridgedOperationSpec("ops.subscribers.hygiene"),
+	spec: bindOpsSubscriberHygieneOperationSpec(),
 	execute: executeSubscriberHygieneOperation,
 });
 
@@ -558,31 +568,41 @@ export const templateRegistrySyncOperation = defineOperation({
 	outputSchema: templateRegistrySyncOutputSchema,
 	safety: localWriteSafety,
 	mcp: { name: "listmonk_ops_template_registry_sync" },
-	spec: bindBridgedOperationSpec("ops.templates.registry-sync"),
+	spec: bindOpsTemplateRegistrySyncOperationSpec(),
 	execute: executeTemplateRegistrySyncOperation,
 });
 
 export const templateRegistryHistoryOperation = defineOperation({
 	id: "ops.templates.registry-history",
-	title: "Read template registry history",
-	description: "Read stored template versions from the local registry",
+	title: "Show template version history",
+	description: "Show the stored version history for a template",
 	inputSchema: templateIdInputSchema,
 	outputSchema: templateRegistryHistoryOutputSchema,
-	safety: readSafety,
+	safety: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
 	mcp: { name: "listmonk_ops_template_registry_history" },
-	spec: bindBridgedOperationSpec("ops.templates.registry-history"),
+	spec: bindOpsTemplateRegistryHistoryOperationSpec(),
 	execute: executeTemplateRegistryHistoryOperation,
 });
 
 export const templateRegistryPromoteOperation = defineOperation({
 	id: "ops.templates.registry-promote",
 	title: "Promote template version",
-	description: "Promote a stored template version to active Listmonk content",
+	description: "Promote a stored template version back to Listmonk",
 	inputSchema: templatePromoteInputSchema,
 	outputSchema: templatePromoteOutputSchema,
-	safety: nonIdempotentMutationSafety,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: true,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
 	mcp: { name: "listmonk_ops_template_registry_promote" },
-	spec: bindBridgedOperationSpec("ops.templates.registry-promote"),
+	spec: bindOpsTemplateRegistryPromoteOperationSpec(),
 	execute: executeTemplateRegistryPromoteOperation,
 });
 
@@ -592,9 +612,14 @@ export const templateRegistryRollbackOperation = defineOperation({
 	description: "Rollback a Listmonk template to its previous stored version",
 	inputSchema: templateIdInputSchema,
 	outputSchema: templatePromoteOutputSchema,
-	safety: nonIdempotentMutationSafety,
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: true,
+		idempotentHint: false,
+		openWorldHint: true,
+	},
 	mcp: { name: "listmonk_ops_template_registry_rollback" },
-	spec: bindBridgedOperationSpec("ops.templates.registry-rollback"),
+	spec: bindOpsTemplateRegistryRollbackOperationSpec(),
 	execute: executeTemplateRegistryRollbackOperation,
 });
 

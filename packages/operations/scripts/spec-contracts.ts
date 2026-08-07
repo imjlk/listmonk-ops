@@ -1837,11 +1837,11 @@ export interface DailyDigestInput {
 	/** Digest window in hours. Defaults to 24. */
 	hours?: PositiveInteger;
 	/** Maximum allowed bounce rate. Defaults to 0.05. */
-	bounce_threshold?: number & tags.Type<"float"> & tags.Minimum<0> & tags.Maximum<1>;
+	bounce_threshold?: number & tags.Type<"float"> & tags.Minimum<0>;
 	/** Minimum required open rate. Defaults to 0.08. */
-	open_threshold?: number & tags.Type<"float"> & tags.Minimum<0> & tags.Maximum<1>;
+	open_threshold?: number & tags.Type<"float"> & tags.Minimum<0>;
 	/** Minimum required click rate. Defaults to 0.01. */
-	click_threshold?: number & tags.Type<"float"> & tags.Minimum<0> & tags.Maximum<1>;
+	click_threshold?: number & tags.Type<"float"> & tags.Minimum<0>;
 }
 
 export interface DailyDigestWindow {
@@ -1882,4 +1882,141 @@ export interface DailyDigestOutput {
 	metrics: DailyDigestMetrics;
 	risk: DailyDigestRisk;
 	markdown: string;
+}
+
+// ===== Remaining ops workflow contracts =====
+
+export interface DeliverabilityGuardInput {
+	campaign_id: ResourceId;
+	/** Maximum allowed bounce rate. Defaults to 0.05. */
+	bounce_threshold?: number & tags.Type<"float"> & tags.Minimum<0>;
+	/** Minimum required open rate. Defaults to 0.08. */
+	open_threshold?: number & tags.Type<"float"> & tags.Minimum<0>;
+	/** Minimum required click rate. Defaults to 0.01. */
+	click_threshold?: number & tags.Type<"float"> & tags.Minimum<0>;
+	/** Minimum sent count before engagement breaches are evaluated. Defaults to 100. */
+	minimum_sent?: PositiveInteger;
+	/** Pause a running or scheduled campaign when breached. Defaults to false. */
+	pause_on_breach?: boolean;
+}
+
+export interface DeliverabilityGuardMetrics {
+	sent: number & tags.Type<"float"> & tags.Minimum<0>;
+	toSend: number & tags.Type<"float"> & tags.Minimum<0>;
+	views: number & tags.Type<"float"> & tags.Minimum<0>;
+	clicks: number & tags.Type<"float"> & tags.Minimum<0>;
+	bounces: number & tags.Type<"float"> & tags.Minimum<0>;
+	bounceRate: number & tags.Type<"float"> & tags.Minimum<0>;
+	openRate: number & tags.Type<"float"> & tags.Minimum<0>;
+	clickRate: number & tags.Type<"float"> & tags.Minimum<0>;
+}
+
+export interface DeliverabilityGuardOutput {
+	campaignId: ResourceId;
+	campaignName: string;
+	status: string;
+	checkedAt: string;
+	metrics: DeliverabilityGuardMetrics;
+	thresholds: {
+		bounceRate: number & tags.Type<"float"> & tags.Minimum<0>;
+		openRate: number & tags.Type<"float"> & tags.Minimum<0>;
+		clickRate: number & tags.Type<"float"> & tags.Minimum<0>;
+	};
+	breaches: string[];
+	paused: boolean;
+}
+
+export type SubscriberHygieneMode = "winback" | "sunset";
+
+export interface SubscriberHygieneInput {
+	/** Hygiene mode. Defaults to "winback". */
+	mode?: SubscriberHygieneMode;
+	/** Inactive threshold in days. Defaults to 90. */
+	inactivity_days?: PositiveInteger;
+	source_list_ids?: ResourceId[];
+	target_list_id?: ResourceId;
+	/** Blocklist sunset candidates. Defaults to false. */
+	blocklist?: boolean;
+	/** Preview candidates without mutating subscribers. Defaults to true. */
+	dry_run?: boolean;
+	/** Maximum candidates to process. Defaults to 500. */
+	max_subscribers?: PositiveInteger;
+}
+
+export interface SubscriberHygieneOutput {
+	mode: SubscriberHygieneMode;
+	cutoffAt: string;
+	dryRun: boolean;
+	totalSubscribersScanned: NonNegativeInteger;
+	candidateSubscribers: NonNegativeInteger;
+	processedSubscribers: NonNegativeInteger;
+	skippedDueToLimit: NonNegativeInteger;
+	targetListId?: ResourceId;
+	blocklist: boolean;
+	sample: Array<{
+		emailMasked: string;
+		updated_at?: string;
+	}>;
+	errors: string[];
+}
+
+export interface TemplateRegistrySyncInput {
+	template_id?: ResourceId;
+	template_ids?: ResourceId[];
+	note?: string;
+}
+
+export interface TemplateRegistrySyncOutput {
+	capturedAt: string;
+	createdVersions: NonNegativeInteger;
+	unchangedTemplates: NonNegativeInteger;
+	errors: string[];
+	templates: Array<{
+		templateId: ResourceId;
+		templateName: string;
+		versionId?: string;
+		changed: boolean;
+		hash: string;
+	}>;
+}
+
+export interface TemplateRegistryVersion {
+	versionId: string;
+	capturedAt: string;
+	hash: string;
+	note?: string;
+	snapshot: {
+		id: ResourceId;
+		name: string;
+		type: string;
+		subject: string;
+		body: string;
+		bodySource?: string;
+	};
+}
+
+export interface TemplateRegistryHistoryOutput {
+	templateId: ResourceId;
+	templateName: string;
+	activeVersionId?: string;
+	versions: TemplateRegistryVersion[];
+}
+
+export interface TemplateIdInput {
+	template_id: ResourceId;
+}
+
+export interface TemplatePromoteInput extends TemplateIdInput {
+	version_id: NonEmptyString;
+	expected_remote_hash?: string;
+	/** Override hash mismatch check. Defaults to false. */
+	force?: boolean;
+}
+
+export interface TemplatePromoteOutput {
+	templateId: ResourceId;
+	templateName: string;
+	versionId: string;
+	activeVersionId: string;
+	promotedAt: string;
 }

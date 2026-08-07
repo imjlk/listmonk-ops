@@ -136,6 +136,16 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	segmentDriftOutputContract: NormalizedContractSchema;
 	dailyDigestInputContract: NormalizedContractSchema;
 	dailyDigestOutputContract: NormalizedContractSchema;
+	deliverabilityGuardInputContract: NormalizedContractSchema;
+	deliverabilityGuardOutputContract: NormalizedContractSchema;
+	subscriberHygieneInputContract: NormalizedContractSchema;
+	subscriberHygieneOutputContract: NormalizedContractSchema;
+	templateRegistrySyncInputContract: NormalizedContractSchema;
+	templateRegistrySyncOutputContract: NormalizedContractSchema;
+	templateRegistryHistoryOutputContract: NormalizedContractSchema;
+	templateIdInputContract: NormalizedContractSchema;
+	templatePromoteInputContract: NormalizedContractSchema;
+	templatePromoteOutputContract: NormalizedContractSchema;
 }>;
 
 export const campaignGetInputContract = contracts.campaignGetInputContract;
@@ -348,3 +358,22 @@ export const segmentDriftInputContract = contracts.segmentDriftInputContract;
 export const segmentDriftOutputContract = contracts.segmentDriftOutputContract;
 export const dailyDigestInputContract = contracts.dailyDigestInputContract;
 export const dailyDigestOutputContract = contracts.dailyDigestOutputContract;
+export const deliverabilityGuardInputContract =
+	contracts.deliverabilityGuardInputContract;
+export const deliverabilityGuardOutputContract =
+	contracts.deliverabilityGuardOutputContract;
+export const subscriberHygieneInputContract =
+	contracts.subscriberHygieneInputContract;
+export const subscriberHygieneOutputContract =
+	contracts.subscriberHygieneOutputContract;
+export const templateRegistrySyncInputContract =
+	contracts.templateRegistrySyncInputContract;
+export const templateRegistrySyncOutputContract =
+	contracts.templateRegistrySyncOutputContract;
+export const templateRegistryHistoryOutputContract =
+	contracts.templateRegistryHistoryOutputContract;
+export const templateIdInputContract = contracts.templateIdInputContract;
+export const templatePromoteInputContract =
+	contracts.templatePromoteInputContract;
+export const templatePromoteOutputContract =
+	contracts.templatePromoteOutputContract;

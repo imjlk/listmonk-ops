@@ -1180,87 +1180,87 @@ Retry guidance: Retry is safe; the digest is read-only.
 
 ## Evaluate deliverability guard (`ops.campaign.deliverability-guard`)
 
-Contract maturity: `experimental`; effects: `read:campaign, write:campaign`; confirmation: `required`; retry: `safe`.
+Contract maturity: `experimental`; effects: `read:campaign, write:campaign`; confirmation: `never`; retry: `safe`.
 
-Use when: Evaluate campaign deliverability metrics and optionally pause a breached campaign
+Use when: Campaign deliverability metrics must be evaluated against thresholds.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: The campaign has not started sending yet.
 
-Prerequisites: `campaigns.get`, `campaigns.stats`
+Prerequisites: none
 
-Verify with: `campaigns.get`, `campaigns.stats`
+Verify with: `campaigns.get`
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry is safe; the guard re-reads current metrics.
 
 ## Run subscriber hygiene (`ops.subscribers.hygiene`)
 
 Contract maturity: `experimental`; effects: `write:subscriber, suppression:audience`; confirmation: `required`; retry: `unsafe`.
 
-Use when: Run the winback or sunset subscriber hygiene workflow
+Use when: Inactive subscribers must be identified for winback or sunset workflows.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: No subscriber inactivity baseline has been established.
 
 Prerequisites: `subscribers.list`
 
 Verify with: `subscribers.list`
 
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
+Retry guidance: Retry with bounded backoff; the workflow is idempotent for the same candidate set.
 
 ## Sync template registry (`ops.templates.registry-sync`)
 
 Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `safe`.
 
-Use when: Capture Listmonk templates in the local version registry
+Use when: Listmonk templates must be captured into the local version registry.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: No templates have changed since the last sync.
 
 Prerequisites: `templates.list`
 
 Verify with: `ops.templates.registry-history`
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry is safe; unchanged templates are skipped.
 
-## Read template registry history (`ops.templates.registry-history`)
+## Show template version history (`ops.templates.registry-history`)
 
 Contract maturity: `experimental`; effects: `read:template`; confirmation: `never`; retry: `safe`.
 
-Use when: Read stored template versions from the local registry
+Use when: A template's stored version history must be inspected.
 
-Avoid when: A mutation or workflow transition is required instead of inspection.
+Avoid when: The template has not been synced into the registry.
 
-Prerequisites: none
+Prerequisites: `ops.templates.registry-sync`
 
 Verify with: none
 
-Retry guidance: Retry identical transient failures with bounded backoff.
+Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Promote template version (`ops.templates.registry-promote`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `safe`.
 
-Use when: Promote a stored template version to active Listmonk content
+Use when: A previously captured template version must be restored to Listmonk.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: The target version is already the active remote template.
 
-Prerequisites: `ops.templates.registry-history`, `templates.get`
+Prerequisites: `ops.templates.registry-history`
 
-Verify with: `templates.get`, `ops.templates.registry-history`
+Verify with: `templates.get`
 
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
+Retry guidance: Retry is safe; the promotion is idempotent for the same version content.
 
 ## Rollback template version (`ops.templates.registry-rollback`)
 
 Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `unsafe`.
 
-Use when: Rollback a Listmonk template to its previous stored version
+Use when: A template must be reverted to its previous stored version.
 
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
+Avoid when: No previous version exists in the registry.
 
-Prerequisites: `ops.templates.registry-history`, `templates.get`
+Prerequisites: `ops.templates.registry-history`
 
-Verify with: `templates.get`, `ops.templates.registry-history`
+Verify with: `templates.get`
 
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
+Retry guidance: Inspect ops.templates.registry-history before retrying an ambiguous rollback.
 
 ## List A/B tests (`abtest.list`)
 
