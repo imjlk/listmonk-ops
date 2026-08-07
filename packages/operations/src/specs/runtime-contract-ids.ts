@@ -8,12 +8,10 @@ import type { OperationId } from "./retry";
 export const runtimeOperationContractIds = [
 	"ops.campaign.deliverability-guard",
 	"ops.subscribers.hygiene",
-	"ops.segments.drift",
 	"ops.templates.registry-sync",
 	"ops.templates.registry-history",
 	"ops.templates.registry-promote",
 	"ops.templates.registry-rollback",
-	"ops.digest.daily",
 	"abtest.list",
 	"abtest.get",
 	"abtest.create",

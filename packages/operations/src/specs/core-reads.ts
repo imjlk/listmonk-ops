@@ -10,6 +10,10 @@ import {
 	campaignListInputContract,
 	campaignStatsOutputContract,
 	campaignUpdateInputContract,
+	dailyDigestInputContract,
+	dailyDigestOutputContract,
+	segmentDriftInputContract,
+	segmentDriftOutputContract,
 	listCreateInputContract,
 	listDeleteInputContract,
 	listDeleteOutputContract,
@@ -1574,6 +1578,108 @@ export const mediaUploadOperationSpec = defineOperationSpec({
 	since: "0.9.0",
 });
 
+export const opsSegmentDriftOperationSpec = defineOperationSpec({
+	id: "ops.segments.drift",
+	resource: "audience",
+	verb: "drift",
+	title: "Detect segment drift",
+	description: "Snapshot list sizes and detect subscriber-count drift",
+	contract: {
+		input: segmentDriftInputContract,
+		output: segmentDriftOutputContract,
+	},
+	effects: [
+		{
+			kind: "maintenance",
+			resource: "audience",
+			action: "recover",
+			destructive: false,
+			preview: false,
+		},
+	],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "unsafe",
+		reason:
+			"Each drift snapshot captures a point-in-time count; an ambiguous retry captures a different snapshot.",
+	},
+	agent: {
+		useWhen: ["Subscriber list sizes must be monitored for unexpected drift."],
+		avoidWhen: ["No subscriber lists exist to monitor."],
+		prerequisites: ["lists.list"],
+		verifyWith: ["lists.list"],
+		related: [],
+		retryGuidance: "Verify the previous snapshot was committed before retrying; a duplicate sample double-weights the same count.",
+	},
+	projection: {
+		mcpName: "listmonk_ops_segment_drift",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/core-reads.ts#opsSegmentDriftOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/core-reads.ts#bindOpsSegmentDriftOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/automation/src/ops-operations.ts#segmentDriftOperation:variable",
+			invokerNode:
+				"packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
+			executorNode:
+				"packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.9.0",
+});
+
+export const opsDailyDigestOperationSpec = defineOperationSpec({
+	id: "ops.digest.daily",
+	resource: "control",
+	verb: "daily",
+	title: "Generate daily operations digest",
+	description:
+		"Generate a metrics and deliverability summary for an operations window",
+	contract: {
+		input: dailyDigestInputContract,
+		output: dailyDigestOutputContract,
+	},
+	effects: [{ kind: "read", resource: "control" }],
+	policy: { confirmation: "never", audit: "optional", dryRun: false },
+	retry: {
+		kind: "safe",
+		reason:
+			"The digest is a read-only summary; re-running produces an equivalent snapshot.",
+	},
+	agent: {
+		useWhen: ["An operations digest must be generated for a time window."],
+		avoidWhen: ["The time window has no campaign or subscriber activity."],
+		prerequisites: [],
+		verifyWith: [],
+		related: [
+			"ops.campaign.deliverability-guard",
+			"ops.segments.drift",
+		],
+		retryGuidance: "Retry is safe; the digest is read-only.",
+	},
+	projection: {
+		mcpName: "listmonk_ops_daily_digest",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/core-reads.ts#opsDailyDigestOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/core-reads.ts#bindOpsDailyDigestOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/automation/src/ops-operations.ts#dailyDigestOperation:variable",
+			invokerNode:
+				"packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
+			executorNode:
+				"packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.9.0",
+});
+
 export const coreReadOperationSpecs = [
 	listsListOperationSpec,
 	listsGetOperationSpec,
@@ -1614,6 +1720,8 @@ export const standaloneOperationSpecs = [
 	campaignsCloneOperationSpec,
 	mediaDeleteOperationSpec,
 	mediaUploadOperationSpec,
+	opsSegmentDriftOperationSpec,
+	opsDailyDigestOperationSpec,
 ] as const;
 
 /** @deprecated Use `standaloneOperationSpecs`. */
@@ -1741,4 +1849,12 @@ export function bindMediaDeleteOperationSpec(): typeof mediaDeleteOperationSpec 
 
 export function bindMediaUploadOperationSpec(): typeof mediaUploadOperationSpec {
 	return mediaUploadOperationSpec;
+}
+
+export function bindOpsSegmentDriftOperationSpec(): typeof opsSegmentDriftOperationSpec {
+	return opsSegmentDriftOperationSpec;
+}
+
+export function bindOpsDailyDigestOperationSpec(): typeof opsDailyDigestOperationSpec {
+	return opsDailyDigestOperationSpec;
 }

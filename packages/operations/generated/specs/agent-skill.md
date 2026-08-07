@@ -1150,6 +1150,34 @@ Verify with: `media.list`
 
 Retry guidance: Inspect media.list before retrying an ambiguous upload.
 
+## Detect segment drift (`ops.segments.drift`)
+
+Contract maturity: `experimental`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `unsafe`.
+
+Use when: Subscriber list sizes must be monitored for unexpected drift.
+
+Avoid when: No subscriber lists exist to monitor.
+
+Prerequisites: `lists.list`
+
+Verify with: `lists.list`
+
+Retry guidance: Verify the previous snapshot was committed before retrying; a duplicate sample double-weights the same count.
+
+## Generate daily operations digest (`ops.digest.daily`)
+
+Contract maturity: `experimental`; effects: `read:control`; confirmation: `never`; retry: `safe`.
+
+Use when: An operations digest must be generated for a time window.
+
+Avoid when: The time window has no campaign or subscriber activity.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry is safe; the digest is read-only.
+
 ## Evaluate deliverability guard (`ops.campaign.deliverability-guard`)
 
 Contract maturity: `experimental`; effects: `read:campaign, write:campaign`; confirmation: `required`; retry: `safe`.
@@ -1175,20 +1203,6 @@ Avoid when: The target, intended side effect, or required confirmation has not b
 Prerequisites: `subscribers.list`
 
 Verify with: `subscribers.list`
-
-Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
-
-## Detect segment drift (`ops.segments.drift`)
-
-Contract maturity: `experimental`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `unsafe`.
-
-Use when: Snapshot list sizes and detect subscriber-count drift
-
-Avoid when: The target, intended side effect, or required confirmation has not been verified.
-
-Prerequisites: `lists.list`
-
-Verify with: `lists.list`
 
 Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
 
@@ -1247,20 +1261,6 @@ Prerequisites: `ops.templates.registry-history`, `templates.get`
 Verify with: `templates.get`, `ops.templates.registry-history`
 
 Retry guidance: Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.
-
-## Generate daily operations digest (`ops.digest.daily`)
-
-Contract maturity: `experimental`; effects: `read:control`; confirmation: `never`; retry: `safe`.
-
-Use when: Generate a metrics and deliverability summary for an operations window
-
-Avoid when: A mutation or workflow transition is required instead of inspection.
-
-Prerequisites: none
-
-Verify with: none
-
-Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## List A/B tests (`abtest.list`)
 

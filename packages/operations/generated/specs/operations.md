@@ -993,6 +993,30 @@ Upload a media file to Listmonk from base64-encoded contents. Validates an allow
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
 
+## `ops.segments.drift`
+
+Snapshot list sizes and detect subscriber-count drift
+
+- Resource / verb: `audience.drift`
+- MCP tool: `listmonk_ops_segment_drift`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `maintenance:recover:recoverable`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.9.0`
+
+## `ops.digest.daily`
+
+Generate a metrics and deliverability summary for an operations window
+
+- Resource / verb: `control.daily`
+- MCP tool: `listmonk_ops_daily_digest`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:control`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.9.0`
+
 ## `ops.campaign.deliverability-guard`
 
 Evaluate campaign deliverability metrics and optionally pause a breached campaign
@@ -1014,18 +1038,6 @@ Run the winback or sunset subscriber hygiene workflow
 - Contract source: input `runtime-operation`, output `runtime-operation`
 - Effects: `write:subscriber, suppression:audience`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
-
-## `ops.segments.drift`
-
-Snapshot list sizes and detect subscriber-count drift
-
-- Resource / verb: `audience.drift`
-- MCP tool: `listmonk_ops_segment_drift`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `maintenance:recover:recoverable`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
 
@@ -1075,18 +1087,6 @@ Rollback a Listmonk template to its previous stored version
 - Effects: `write:template`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
-
-## `ops.digest.daily`
-
-Generate a metrics and deliverability summary for an operations window
-
-- Resource / verb: `control.daily`
-- MCP tool: `listmonk_ops_daily_digest`
-- Contract source: input `runtime-operation`, output `runtime-operation`
-- Effects: `read:control`
-- Policy: confirmation `never`, audit `optional`, dry-run `false`
-- Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
 ## `abtest.list`

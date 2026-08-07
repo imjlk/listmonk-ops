@@ -28548,6 +28548,616 @@
     {
       "agent": {
         "avoidWhen": [
+          "No subscriber lists exist to monitor."
+        ],
+        "prerequisites": [
+          "lists.list"
+        ],
+        "related": [],
+        "retryGuidance": "Verify the previous snapshot was committed before retrying; a duplicate sample double-weights the same count.",
+        "useWhen": [
+          "Subscriber list sizes must be monitored for unexpected drift."
+        ],
+        "verifyWith": [
+          "lists.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SegmentDriftInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "baseline_mode": {
+                    "description": "How to compute the alert baseline. Defaults to \"previous\".",
+                    "oneOf": [
+                      {
+                        "const": "lookback-mean"
+                      },
+                      {
+                        "const": "lookback-median"
+                      },
+                      {
+                        "const": "previous"
+                      }
+                    ]
+                  },
+                  "list_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "lookback_days": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Baseline lookback window in days. Defaults to 14."
+                  },
+                  "min_absolute_change": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Minimum absolute subscriber delta for an alert. Defaults to 50."
+                  },
+                  "threshold": {
+                    "description": "Relative drift threshold. Defaults to 0.2.",
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "baseline_mode": {
+                "description": "How to compute the alert baseline. Defaults to \"previous\".",
+                "oneOf": [
+                  {
+                    "const": "lookback-mean"
+                  },
+                  {
+                    "const": "lookback-median"
+                  },
+                  {
+                    "const": "previous"
+                  }
+                ]
+              },
+              "list_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "type": "array"
+              },
+              "lookback_days": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Baseline lookback window in days. Defaults to 14."
+              },
+              "min_absolute_change": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Minimum absolute subscriber delta for an alert. Defaults to 50."
+              },
+              "threshold": {
+                "description": "Relative drift threshold. Defaults to 0.2.",
+                "minimum": 0,
+                "type": "number"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SegmentDriftComparison": {
+                "additionalProperties": false,
+                "properties": {
+                  "alert": {
+                    "type": "boolean"
+                  },
+                  "baselineCount": {
+                    "type": "number"
+                  },
+                  "currentCount": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "delta": {
+                    "type": "number"
+                  },
+                  "deltaRate": {
+                    "type": "number"
+                  },
+                  "listId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "listName": {
+                    "type": "string"
+                  },
+                  "previousCount": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "listId",
+                  "listName",
+                  "currentCount",
+                  "alert"
+                ],
+                "type": "object"
+              },
+              "SegmentDriftOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "alerts": {
+                    "items": {
+                      "$ref": "#/components/schemas/SegmentDriftComparison"
+                    },
+                    "type": "array"
+                  },
+                  "capturedAt": {
+                    "type": "string"
+                  },
+                  "comparisons": {
+                    "items": {
+                      "$ref": "#/components/schemas/SegmentDriftComparison"
+                    },
+                    "type": "array"
+                  },
+                  "minAbsoluteChange": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "threshold": {
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "capturedAt",
+                  "threshold",
+                  "minAbsoluteChange",
+                  "comparisons",
+                  "alerts"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "alerts": {
+                "items": {
+                  "$ref": "#/components/schemas/SegmentDriftComparison"
+                },
+                "type": "array"
+              },
+              "capturedAt": {
+                "type": "string"
+              },
+              "comparisons": {
+                "items": {
+                  "$ref": "#/components/schemas/SegmentDriftComparison"
+                },
+                "type": "array"
+              },
+              "minAbsoluteChange": {
+                "minimum": 0,
+                "type": "number"
+              },
+              "threshold": {
+                "minimum": 0,
+                "type": "number"
+              }
+            },
+            "required": [
+              "capturedAt",
+              "threshold",
+              "minAbsoluteChange",
+              "comparisons",
+              "alerts"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Snapshot list sizes and detect subscriber-count drift",
+      "effects": [
+        {
+          "action": "recover",
+          "destructive": false,
+          "kind": "maintenance",
+          "preview": false,
+          "resource": "audience"
+        }
+      ],
+      "id": "ops.segments.drift",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsSegmentDriftOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsSegmentDriftOperationSpec:variable",
+          "executorNode": "packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function",
+          "invokerNode": "packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
+          "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable"
+        },
+        "mcpName": "listmonk_ops_segment_drift",
+        "openWorld": true
+      },
+      "resource": "audience",
+      "retry": {
+        "kind": "unsafe",
+        "reason": "Each drift snapshot captures a point-in-time count; an ambiguous retry captures a different snapshot."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Detect segment drift",
+      "verb": "drift"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The time window has no campaign or subscriber activity."
+        ],
+        "prerequisites": [],
+        "related": [
+          "ops.campaign.deliverability-guard",
+          "ops.segments.drift"
+        ],
+        "retryGuidance": "Retry is safe; the digest is read-only.",
+        "useWhen": [
+          "An operations digest must be generated for a time window."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "DailyDigestInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "bounce_threshold": {
+                    "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+                    "maximum": 1,
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "click_threshold": {
+                    "description": "Minimum required click rate. Defaults to 0.01.",
+                    "maximum": 1,
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "hours": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Digest window in hours. Defaults to 24."
+                  },
+                  "open_threshold": {
+                    "description": "Minimum required open rate. Defaults to 0.08.",
+                    "maximum": 1,
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "bounce_threshold": {
+                "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              "click_threshold": {
+                "description": "Minimum required click rate. Defaults to 0.01.",
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              "hours": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Digest window in hours. Defaults to 24."
+              },
+              "open_threshold": {
+                "description": "Minimum required open rate. Defaults to 0.08.",
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "DailyDigestCampaignBreach": {
+                "additionalProperties": false,
+                "properties": {
+                  "breaches": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "campaignId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "campaignName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "campaignId",
+                  "campaignName",
+                  "breaches"
+                ],
+                "type": "object"
+              },
+              "DailyDigestMetrics": {
+                "additionalProperties": false,
+                "properties": {
+                  "bouncesInWindow": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "campaigns": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "campaignsCreatedInWindow": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "clicks": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "lists": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "runningCampaigns": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "sent": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "subscriberStatus": {
+                    "$ref": "#/components/schemas/RecordstringNonNegativeInteger"
+                  },
+                  "subscribers": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "views": {
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "lists",
+                  "subscribers",
+                  "subscriberStatus",
+                  "campaigns",
+                  "runningCampaigns",
+                  "campaignsCreatedInWindow",
+                  "sent",
+                  "views",
+                  "clicks",
+                  "bouncesInWindow"
+                ],
+                "type": "object"
+              },
+              "DailyDigestOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "generatedAt": {
+                    "type": "string"
+                  },
+                  "markdown": {
+                    "type": "string"
+                  },
+                  "metrics": {
+                    "$ref": "#/components/schemas/DailyDigestMetrics"
+                  },
+                  "risk": {
+                    "$ref": "#/components/schemas/DailyDigestRisk"
+                  },
+                  "window": {
+                    "$ref": "#/components/schemas/DailyDigestWindow"
+                  }
+                },
+                "required": [
+                  "generatedAt",
+                  "window",
+                  "metrics",
+                  "risk",
+                  "markdown"
+                ],
+                "type": "object"
+              },
+              "DailyDigestRisk": {
+                "additionalProperties": false,
+                "properties": {
+                  "campaignBreaches": {
+                    "items": {
+                      "$ref": "#/components/schemas/DailyDigestCampaignBreach"
+                    },
+                    "type": "array"
+                  },
+                  "campaignsEligible": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "campaignsEvaluated": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "truncated": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "campaignBreaches",
+                  "campaignsEligible",
+                  "campaignsEvaluated",
+                  "truncated"
+                ],
+                "type": "object"
+              },
+              "DailyDigestWindow": {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "hours": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "hours",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "RecordstringNonNegativeInteger": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "generatedAt": {
+                "type": "string"
+              },
+              "markdown": {
+                "type": "string"
+              },
+              "metrics": {
+                "$ref": "#/components/schemas/DailyDigestMetrics"
+              },
+              "risk": {
+                "$ref": "#/components/schemas/DailyDigestRisk"
+              },
+              "window": {
+                "$ref": "#/components/schemas/DailyDigestWindow"
+              }
+            },
+            "required": [
+              "generatedAt",
+              "window",
+              "metrics",
+              "risk",
+              "markdown"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Generate a metrics and deliverability summary for an operations window",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "control"
+        }
+      ],
+      "id": "ops.digest.daily",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsDailyDigestOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsDailyDigestOperationSpec:variable",
+          "executorNode": "packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function",
+          "invokerNode": "packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
+          "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#dailyDigestOperation:variable"
+        },
+        "mcpName": "listmonk_ops_daily_digest",
+        "openWorld": true
+      },
+      "resource": "control",
+      "retry": {
+        "kind": "safe",
+        "reason": "The digest is a read-only summary; re-running produces an equivalent snapshot."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Generate daily operations digest",
+      "verb": "daily"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "The target, intended side effect, or required confirmation has not been verified."
         ],
         "prerequisites": [
@@ -28961,220 +29571,6 @@
       "stability": "experimental",
       "title": "Run subscriber hygiene",
       "verb": "hygiene"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The target, intended side effect, or required confirmation has not been verified."
-        ],
-        "prerequisites": [
-          "lists.list"
-        ],
-        "related": [],
-        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect the target resource or reconcile first.",
-        "useWhen": [
-          "Snapshot list sizes and detect subscriber-count drift"
-        ],
-        "verifyWith": [
-          "lists.list"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "baseline_mode": {
-                "default": "previous",
-                "description": "How to compute the alert baseline",
-                "enum": [
-                  "previous",
-                  "lookback-mean",
-                  "lookback-median"
-                ],
-                "type": "string"
-              },
-              "list_ids": {
-                "description": "Optional list IDs to monitor",
-                "items": {
-                  "type": "number"
-                },
-                "type": "array"
-              },
-              "lookback_days": {
-                "description": "Baseline lookback window in days",
-                "type": "number"
-              },
-              "min_absolute_change": {
-                "description": "Minimum absolute subscriber delta for an alert",
-                "type": "number"
-              },
-              "threshold": {
-                "description": "Relative drift threshold",
-                "type": "number"
-              }
-            },
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "alerts": {
-                "items": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "alert": {
-                      "type": "boolean"
-                    },
-                    "baselineCount": {
-                      "minimum": 0,
-                      "type": "number"
-                    },
-                    "currentCount": {
-                      "minimum": 0,
-                      "type": "number"
-                    },
-                    "delta": {
-                      "type": "number"
-                    },
-                    "deltaRate": {
-                      "type": "number"
-                    },
-                    "listId": {
-                      "exclusiveMinimum": 0,
-                      "maximum": 9007199254740991,
-                      "type": "integer"
-                    },
-                    "listName": {
-                      "type": "string"
-                    },
-                    "previousCount": {
-                      "minimum": 0,
-                      "type": "number"
-                    }
-                  },
-                  "required": [
-                    "listId",
-                    "listName",
-                    "currentCount",
-                    "alert"
-                  ],
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              "capturedAt": {
-                "type": "string"
-              },
-              "comparisons": {
-                "items": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "alert": {
-                      "type": "boolean"
-                    },
-                    "baselineCount": {
-                      "minimum": 0,
-                      "type": "number"
-                    },
-                    "currentCount": {
-                      "minimum": 0,
-                      "type": "number"
-                    },
-                    "delta": {
-                      "type": "number"
-                    },
-                    "deltaRate": {
-                      "type": "number"
-                    },
-                    "listId": {
-                      "exclusiveMinimum": 0,
-                      "maximum": 9007199254740991,
-                      "type": "integer"
-                    },
-                    "listName": {
-                      "type": "string"
-                    },
-                    "previousCount": {
-                      "minimum": 0,
-                      "type": "number"
-                    }
-                  },
-                  "required": [
-                    "listId",
-                    "listName",
-                    "currentCount",
-                    "alert"
-                  ],
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              "minAbsoluteChange": {
-                "minimum": 0,
-                "type": "number"
-              },
-              "threshold": {
-                "minimum": 0,
-                "type": "number"
-              }
-            },
-            "required": [
-              "capturedAt",
-              "threshold",
-              "minAbsoluteChange",
-              "comparisons",
-              "alerts"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Snapshot list sizes and detect subscriber-count drift",
-      "effects": [
-        {
-          "action": "recover",
-          "destructive": false,
-          "kind": "maintenance",
-          "preview": false,
-          "resource": "audience"
-        }
-      ],
-      "id": "ops.segments.drift",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function",
-          "invokerNode": "packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
-          "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable"
-        },
-        "mcpName": "listmonk_ops_segment_drift",
-        "openWorld": true
-      },
-      "resource": "audience",
-      "retry": {
-        "kind": "unsafe",
-        "reason": "The shared operation may create, deliver, or advance state before an ambiguous failure."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Detect segment drift",
-      "verb": "drift"
     },
     {
       "agent": {
@@ -29721,255 +30117,6 @@
       "stability": "experimental",
       "title": "Rollback template version",
       "verb": "registry-rollback"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "A mutation or workflow transition is required instead of inspection."
-        ],
-        "prerequisites": [],
-        "related": [
-          "ops.campaign.deliverability-guard",
-          "ops.segments.drift"
-        ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff.",
-        "useWhen": [
-          "Generate a metrics and deliverability summary for an operations window"
-        ],
-        "verifyWith": []
-      },
-      "contract": {
-        "input": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "properties": {
-              "bounce_threshold": {
-                "description": "Maximum allowed bounce rate",
-                "type": "number"
-              },
-              "click_threshold": {
-                "description": "Minimum required click rate",
-                "type": "number"
-              },
-              "hours": {
-                "description": "Digest window in hours",
-                "type": "number"
-              },
-              "open_threshold": {
-                "description": "Minimum required open rate",
-                "type": "number"
-              }
-            },
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {},
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "generatedAt": {
-                "type": "string"
-              },
-              "markdown": {
-                "type": "string"
-              },
-              "metrics": {
-                "additionalProperties": false,
-                "properties": {
-                  "bouncesInWindow": {
-                    "maximum": 9007199254740991,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "campaigns": {
-                    "maximum": 9007199254740991,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "campaignsCreatedInWindow": {
-                    "maximum": 9007199254740991,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "clicks": {
-                    "minimum": 0,
-                    "type": "number"
-                  },
-                  "lists": {
-                    "maximum": 9007199254740991,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "runningCampaigns": {
-                    "maximum": 9007199254740991,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "sent": {
-                    "minimum": 0,
-                    "type": "number"
-                  },
-                  "subscriberStatus": {
-                    "additionalProperties": {
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "propertyNames": {
-                      "type": "string"
-                    },
-                    "type": "object"
-                  },
-                  "subscribers": {
-                    "maximum": 9007199254740991,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "views": {
-                    "minimum": 0,
-                    "type": "number"
-                  }
-                },
-                "required": [
-                  "lists",
-                  "subscribers",
-                  "subscriberStatus",
-                  "campaigns",
-                  "runningCampaigns",
-                  "campaignsCreatedInWindow",
-                  "sent",
-                  "views",
-                  "clicks",
-                  "bouncesInWindow"
-                ],
-                "type": "object"
-              },
-              "risk": {
-                "additionalProperties": false,
-                "properties": {
-                  "campaignBreaches": {
-                    "items": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "breaches": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
-                        },
-                        "campaignId": {
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991,
-                          "type": "integer"
-                        },
-                        "campaignName": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "campaignId",
-                        "campaignName",
-                        "breaches"
-                      ],
-                      "type": "object"
-                    },
-                    "type": "array"
-                  },
-                  "campaignsEligible": {
-                    "maximum": 9007199254740991,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "campaignsEvaluated": {
-                    "maximum": 9007199254740991,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "truncated": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "campaignBreaches",
-                  "campaignsEligible",
-                  "campaignsEvaluated",
-                  "truncated"
-                ],
-                "type": "object"
-              },
-              "window": {
-                "additionalProperties": false,
-                "properties": {
-                  "from": {
-                    "type": "string"
-                  },
-                  "hours": {
-                    "exclusiveMinimum": 0,
-                    "type": "number"
-                  },
-                  "to": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "hours",
-                  "from",
-                  "to"
-                ],
-                "type": "object"
-              }
-            },
-            "required": [
-              "generatedAt",
-              "window",
-              "metrics",
-              "risk",
-              "markdown"
-            ],
-            "type": "object"
-          },
-          "source": "runtime-operation",
-          "stage": "normalized"
-        }
-      },
-      "description": "Generate a metrics and deliverability summary for an operations window",
-      "effects": [
-        {
-          "kind": "read",
-          "resource": "control"
-        }
-      ],
-      "id": "ops.digest.daily",
-      "policy": {
-        "audit": "optional",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-          "executorNode": "packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function",
-          "invokerNode": "packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
-          "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#dailyDigestOperation:variable"
-        },
-        "mcpName": "listmonk_ops_daily_digest",
-        "openWorld": true
-      },
-      "resource": "control",
-      "retry": {
-        "kind": "safe",
-        "reason": "The shared operation contract declares identical retries idempotent."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Generate daily operations digest",
-      "verb": "daily"
     },
     {
       "agent": {

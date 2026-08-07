@@ -131,6 +131,10 @@ import type {
 	CampaignCloneInput,
 	SubscriberBulkListsInput,
 	SubscriberBulkBlocklistInput,
+	SegmentDriftInput,
+	SegmentDriftOutput,
+	DailyDigestInput,
+	DailyDigestOutput,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import { stableValue } from "../src/specs/stable-json.js";
@@ -594,6 +598,18 @@ const contracts = {
 	),
 	subscriberBulkBlocklistInputContract: contractSchema(
 		typia.json.schema<SubscriberBulkBlocklistInput>(),
+	),
+	segmentDriftInputContract: contractSchema(
+		typia.json.schema<SegmentDriftInput>(),
+	),
+	segmentDriftOutputContract: contractSchema(
+		typia.json.schema<SegmentDriftOutput>(),
+	),
+	dailyDigestInputContract: contractSchema(
+		typia.json.schema<DailyDigestInput>(),
+	),
+	dailyDigestOutputContract: contractSchema(
+		typia.json.schema<DailyDigestOutput>(),
 	),
 } satisfies Record<string, NormalizedContractSchema>;
 

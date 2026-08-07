@@ -2217,6 +2217,60 @@
     {
       "edges": [
         {
+          "from": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindOpsSegmentDriftOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindOpsSegmentDriftOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#opsSegmentDriftOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsSegmentDriftOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsSegmentDriftOperationSpec:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable"
+      },
+      "operationId": "ops.segments.drift"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/automation/src/ops-operations.ts#dailyDigestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/core-reads.ts#bindOpsDailyDigestOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/core-reads.ts#bindOpsDailyDigestOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/core-reads.ts#opsDailyDigestOperationSpec:variable"
+        },
+        {
+          "from": "packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
+          "kind": "calls",
+          "to": "packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsDailyDigestOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsDailyDigestOperationSpec:variable",
+        "executorNode": "packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function",
+        "invokerNode": "packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
+        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#dailyDigestOperation:variable"
+      },
+      "operationId": "ops.digest.daily"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/automation/src/ops-operations.ts#deliverabilityGuardOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
@@ -2267,33 +2321,6 @@
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#subscriberHygieneOperation:variable"
       },
       "operationId": "ops.subscribers.hygiene"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
-          "kind": "calls",
-          "to": "packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function",
-        "invokerNode": "packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
-        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable"
-      },
-      "operationId": "ops.segments.drift"
     },
     {
       "edges": [
@@ -2402,33 +2429,6 @@
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryRollbackOperation:variable"
       },
       "operationId": "ops.templates.registry-rollback"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/automation/src/ops-operations.ts#dailyDigestOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable"
-        },
-        {
-          "from": "packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
-          "kind": "calls",
-          "to": "packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/bridged.ts#bindBridgedOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/bridged.ts#bridgedOperationSpecsById:variable",
-        "executorNode": "packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function",
-        "invokerNode": "packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
-        "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#dailyDigestOperation:variable"
-      },
-      "operationId": "ops.digest.daily"
     },
     {
       "edges": [
