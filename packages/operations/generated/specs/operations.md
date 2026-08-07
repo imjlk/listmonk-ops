@@ -1038,7 +1038,7 @@ Run the winback or sunset subscriber hygiene workflow
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:subscriber, suppression:audience`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
-- Retry: `safe`
+- Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
 
 ## `ops.templates.registry-sync`
@@ -1073,7 +1073,7 @@ Promote a stored template version back to Listmonk
 - MCP tool: `listmonk_ops_template_registry_promote`
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:template`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 
@@ -1085,7 +1085,7 @@ Rollback a Listmonk template to its previous stored version
 - MCP tool: `listmonk_ops_template_registry_rollback`
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:template`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `unsafe`
 - Stability: `experimental` since `0.9.0`
 

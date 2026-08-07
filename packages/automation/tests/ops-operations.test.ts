@@ -34,7 +34,7 @@ describe("automation operation registry", () => {
 		expect(campaignPreflightOperation.outputJsonSchema.type).toBe("object");
 		expect(segmentDriftOperation.safety.idempotentHint).toBe(false);
 		expect(templateRegistryRollbackOperation.safety).toMatchObject({
-			destructiveHint: false,
+			destructiveHint: true,
 			idempotentHint: false,
 		});
 	});

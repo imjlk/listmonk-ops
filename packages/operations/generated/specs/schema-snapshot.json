@@ -25949,8 +25949,8 @@
         "dryRun": true
       },
       "retry": {
-        "kind": "safe",
-        "reason": "Reapplying the same hygiene action converges on the same subscriber state."
+        "kind": "unsafe",
+        "reason": "A retry re-fetches subscribers from mutable updated_at state and may process a different batch if candidates shifted."
       },
       "since": "0.9.0",
       "stability": "experimental"
@@ -26467,7 +26467,7 @@
       },
       "policy": {
         "audit": "required",
-        "confirmation": "never",
+        "confirmation": "required",
         "dryRun": false
       },
       "retry": {
@@ -26589,7 +26589,7 @@
       },
       "policy": {
         "audit": "required",
-        "confirmation": "never",
+        "confirmation": "required",
         "dryRun": false
       },
       "retry": {

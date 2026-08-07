@@ -29810,8 +29810,8 @@
       },
       "resource": "subscriber",
       "retry": {
-        "kind": "safe",
-        "reason": "Reapplying the same hygiene action converges on the same subscriber state."
+        "kind": "unsafe",
+        "reason": "A retry re-fetches subscribers from mutable updated_at state and may process a different batch if candidates shifted."
       },
       "since": "0.9.0",
       "stability": "experimental",
@@ -30436,13 +30436,13 @@
         {
           "kind": "write",
           "resource": "template",
-          "reversible": true
+          "reversible": false
         }
       ],
       "id": "ops.templates.registry-promote",
       "policy": {
         "audit": "required",
-        "confirmation": "never",
+        "confirmation": "required",
         "dryRun": false
       },
       "projection": {
@@ -30601,13 +30601,13 @@
         {
           "kind": "write",
           "resource": "template",
-          "reversible": true
+          "reversible": false
         }
       ],
       "id": "ops.templates.registry-rollback",
       "policy": {
         "audit": "required",
-        "confirmation": "never",
+        "confirmation": "required",
         "dryRun": false
       },
       "projection": {

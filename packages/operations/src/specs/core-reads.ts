@@ -1756,8 +1756,9 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: true },
 	retry: {
-		kind: "safe",
-		reason: "Reapplying the same hygiene action converges on the same subscriber state.",
+		kind: "unsafe",
+		reason:
+			"A retry re-fetches subscribers from mutable updated_at state and may process a different batch if candidates shifted.",
 	},
 	agent: {
 		useWhen: [
@@ -1880,8 +1881,8 @@ export const opsTemplateRegistryPromoteOperationSpec = defineOperationSpec({
 		input: templatePromoteInputContract,
 		output: templatePromoteOutputContract,
 	},
-	effects: [{ kind: "write", resource: "template", reversible: true }],
-	policy: { confirmation: "never", audit: "required", dryRun: false },
+	effects: [{ kind: "write", resource: "template", reversible: false }],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
 		kind: "safe",
 		reason: "Reapplying the same promotion converges on the same remote template content.",
@@ -1921,8 +1922,8 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 		input: templateIdInputContract,
 		output: templatePromoteOutputContract,
 	},
-	effects: [{ kind: "write", resource: "template", reversible: true }],
-	policy: { confirmation: "never", audit: "required", dryRun: false },
+	effects: [{ kind: "write", resource: "template", reversible: false }],
+	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
 		kind: "unsafe",
 		reason: "A retry may roll back to a different version if the registry was updated between calls.",

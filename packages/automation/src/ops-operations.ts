@@ -540,7 +540,7 @@ export const subscriberHygieneOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: true,
+		idempotentHint: false,
 		openWorldHint: true,
 	},
 	mcp: { name: "listmonk_ops_subscriber_hygiene" },
@@ -597,7 +597,7 @@ export const templateRegistryPromoteOperation = defineOperation({
 	outputSchema: templatePromoteOutputSchema,
 	safety: {
 		readOnlyHint: false,
-		destructiveHint: false,
+		destructiveHint: true,
 		idempotentHint: true,
 		openWorldHint: true,
 	},
@@ -614,7 +614,7 @@ export const templateRegistryRollbackOperation = defineOperation({
 	outputSchema: templatePromoteOutputSchema,
 	safety: {
 		readOnlyHint: false,
-		destructiveHint: false,
+		destructiveHint: true,
 		idempotentHint: false,
 		openWorldHint: true,
 	},

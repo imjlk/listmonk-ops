@@ -1194,7 +1194,7 @@ Retry guidance: Retry is safe; the guard re-reads current metrics.
 
 ## Run subscriber hygiene (`ops.subscribers.hygiene`)
 
-Contract maturity: `experimental`; effects: `write:subscriber, suppression:audience`; confirmation: `required`; retry: `safe`.
+Contract maturity: `experimental`; effects: `write:subscriber, suppression:audience`; confirmation: `required`; retry: `unsafe`.
 
 Use when: Inactive subscribers must be identified for winback or sunset workflows.
 
@@ -1236,7 +1236,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Promote template version (`ops.templates.registry-promote`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `safe`.
+Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `safe`.
 
 Use when: A previously captured template version must be restored to Listmonk.
 
@@ -1250,7 +1250,7 @@ Retry guidance: Retry is safe; the promotion is idempotent for the same version 
 
 ## Rollback template version (`ops.templates.registry-rollback`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `unsafe`.
 
 Use when: A template must be reverted to its previous stored version.
 
