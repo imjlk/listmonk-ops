@@ -38,42 +38,60 @@ export type RetrySemantics =
 			reason: string;
 		};
 
-function unconditionalRetryIsSafe(
-	retry: UnconditionalRetrySemantics,
-): boolean {
-	return (
-		retry.kind === "safe" ||
-		(retry.kind === "reconcile" && retry.idempotent)
-	);
+function retryIsUnconditionallySafe(retry: RetrySemantics): boolean {
+	if (retry.kind !== "conditional") {
+		return retry.kind === "safe";
+	}
+	return retry.cases.every(({ semantics }) => semantics.kind === "safe");
 }
 
-function guidanceAdvertisesSafeRetry(retryGuidance: string): boolean {
-	return retryGuidance.split(/[.!?;\n]/).some((clause) => {
-		if (/\b(?:never|not|unsafe)\b/i.test(clause)) return false;
-		if (
-			/\b(?:if|when|unless|provided(?:\s+that)?|as\s+long\s+as)\b/i.test(
-				clause,
-			)
-		) {
-			return false;
-		}
-		const mentionsRetry = /\bretr(?:y|ies|ying)\b/i.test(clause);
-		const claimsSafety = /\bsafe(?:ly)?\b/i.test(clause);
-		const prescribesBackoff = /\b(?:bounded|normal)\s+backoff\b/i.test(clause);
-		return mentionsRetry && (claimsSafety || prescribesBackoff);
+const RETRY_CONDITION_STOP_WORDS = new Set(["are", "has", "have", "is"]);
+
+function normalizedWords(value: string): readonly string[] {
+	return value
+		.toLowerCase()
+		.split(/[^a-z0-9]+/)
+		.filter((word) => word.length > 0);
+}
+
+function clauseReferencesSafeRetryCase(
+	retry: RetrySemantics,
+	clause: string,
+): boolean {
+	if (retry.kind !== "conditional") return false;
+	const clauseWords = new Set(normalizedWords(clause));
+	return retry.cases.some(({ when, semantics }) => {
+		if (semantics.kind !== "safe") return false;
+		const conditionWords = normalizedWords(when).filter(
+			(word) => word.length >= 3 && !RETRY_CONDITION_STOP_WORDS.has(word),
+		);
+		return (
+			conditionWords.length > 0 &&
+			conditionWords.every((word) => clauseWords.has(word))
+		);
 	});
 }
 
-function retryIsUnconditionallySafe(retry: RetrySemantics): boolean {
-	if (retry.kind !== "conditional") {
-		return unconditionalRetryIsSafe(retry);
-	}
-	return retry.cases.every(({ semantics }) =>
-		unconditionalRetryIsSafe(semantics),
+function clauseAdvertisesSafeRetry(clause: string): boolean {
+	if (/\b(?:never|not|unsafe)\b/i.test(clause)) return false;
+	const mentionsRetry = /\bretr(?:y|ies|ying)\b/i.test(clause);
+	const claimsSafety = /\bsafe(?:ly)?\b/i.test(clause);
+	const prescribesBackoff = /\b(?:bounded|normal)\s+backoff\b/i.test(clause);
+	return mentionsRetry && (claimsSafety || prescribesBackoff);
+}
+
+function guidanceAdvertisesUnsupportedSafeRetry(
+	retry: RetrySemantics,
+	retryGuidance: string,
+): boolean {
+	return retryGuidance.split(/[.!?;\n]/).some(
+		(clause) =>
+			clauseAdvertisesSafeRetry(clause) &&
+			!clauseReferencesSafeRetryCase(retry, clause),
 	);
 }
 
-/** Reject agent guidance that advertises unconditional safety for an unsafe retry. */
+/** Reject agent guidance that advertises retry safety outside declared safe semantics. */
 export function assertRetryGuidanceMatchesSemantics(
 	operationId: string,
 	retry: RetrySemantics,
@@ -81,7 +99,7 @@ export function assertRetryGuidanceMatchesSemantics(
 ): void {
 	if (
 		retryIsUnconditionallySafe(retry) ||
-		!guidanceAdvertisesSafeRetry(retryGuidance)
+		!guidanceAdvertisesUnsupportedSafeRetry(retry, retryGuidance)
 	) {
 		return;
 	}

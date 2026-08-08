@@ -1,5 +1,6 @@
 import {
 	emailOperationsSpec,
+	highRiskOperationSpecs,
 } from "../packages/operations/src/specs";
 import type { GraphDump } from "./check-graph-architecture";
 
@@ -17,19 +18,12 @@ const operationSpecTestModule =
 	"packages/operations/tests/specs.test.ts#packages/operations/tests/specs.test.ts:module";
 const highRiskOperationSpecTestAnchor =
 	"packages/operations/tests/specs.test.ts#assertHighRiskOperationSpecContracts:function";
-const highRiskOperationSpecTestAnchors = [
-	["campaigns.start", "campaignStartOperationSpec"],
-	["campaigns.cancel", "campaignCancelOperationSpec"],
-	["transactional.send", "transactionalSendOperationSpec"],
-	["ops.campaign.preflight", "campaignPreflightOperationSpec"],
-] as const;
-
 export const highRiskOperationSpecTestEdges: readonly OperationsSpecGraphEdge[] =
-	highRiskOperationSpecTestAnchors.map(([operationId, symbol]) => ({
-		operationId,
+	highRiskOperationSpecs.map((operation) => ({
+		operationId: operation.id,
 		kind: "accesses",
 		from: highRiskOperationSpecTestAnchor,
-		to: `packages/operations/src/specs/high-risk.ts#${symbol}:variable`,
+		to: operation.projection.graph.descriptorNode,
 	}));
 
 export const highRiskOperationSpecTestCallEdge: OperationsSpecGraphEdge = {
