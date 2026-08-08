@@ -50,6 +50,13 @@ function unconditionalRetryIsSafe(
 function guidanceAdvertisesSafeRetry(retryGuidance: string): boolean {
 	return retryGuidance.split(/[.!?;\n]/).some((clause) => {
 		if (/\b(?:never|not|unsafe)\b/i.test(clause)) return false;
+		if (
+			/\b(?:if|when|unless|provided(?:\s+that)?|as\s+long\s+as)\b/i.test(
+				clause,
+			)
+		) {
+			return false;
+		}
 		const mentionsRetry = /\bretr(?:y|ies|ying)\b/i.test(clause);
 		const claimsSafety = /\bsafe(?:ly)?\b/i.test(clause);
 		const prescribesBackoff = /\b(?:bounded|normal)\s+backoff\b/i.test(clause);

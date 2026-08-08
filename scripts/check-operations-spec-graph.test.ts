@@ -43,16 +43,31 @@ describe("operations spec graph contracts", () => {
 
 	test("requires direct test anchors for every high-risk descriptor", () => {
 		expect(highRiskOperationSpecTestEdges).toHaveLength(4);
-		expect(
-			highRiskOperationSpecTestEdges.map(({ operationId, kind }) => ({
-				operationId,
-				kind,
-			})),
-		).toEqual([
-			{ operationId: "campaigns.start", kind: "accesses" },
-			{ operationId: "campaigns.cancel", kind: "accesses" },
-			{ operationId: "transactional.send", kind: "accesses" },
-			{ operationId: "ops.campaign.preflight", kind: "accesses" },
+		expect(highRiskOperationSpecTestEdges).toEqual([
+			{
+				operationId: "campaigns.start",
+				kind: "accesses",
+				from: "packages/operations/tests/specs.test.ts#assertHighRiskOperationSpecContracts:function",
+				to: "packages/operations/src/specs/high-risk.ts#campaignStartOperationSpec:variable",
+			},
+			{
+				operationId: "campaigns.cancel",
+				kind: "accesses",
+				from: "packages/operations/tests/specs.test.ts#assertHighRiskOperationSpecContracts:function",
+				to: "packages/operations/src/specs/high-risk.ts#campaignCancelOperationSpec:variable",
+			},
+			{
+				operationId: "transactional.send",
+				kind: "accesses",
+				from: "packages/operations/tests/specs.test.ts#assertHighRiskOperationSpecContracts:function",
+				to: "packages/operations/src/specs/high-risk.ts#transactionalSendOperationSpec:variable",
+			},
+			{
+				operationId: "ops.campaign.preflight",
+				kind: "accesses",
+				from: "packages/operations/tests/specs.test.ts#assertHighRiskOperationSpecContracts:function",
+				to: "packages/operations/src/specs/high-risk.ts#campaignPreflightOperationSpec:variable",
+			},
 		]);
 	});
 });

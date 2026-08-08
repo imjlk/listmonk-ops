@@ -665,6 +665,16 @@ describe("email operations specification", () => {
 				},
 			}),
 		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"Retry safely only when an idempotency_key is present; do not retry without one.",
+				},
+			}),
+		).not.toThrow();
 	});
 
 	test("derives safety requirements from operation effects", () => {
