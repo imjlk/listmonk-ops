@@ -38,6 +38,21 @@ export type RetrySemantics =
 			reason: string;
 		};
 
+const RECONCILIATION_DISQUALIFIERS = new Set([
+	"before",
+	"no",
+	"not",
+	"never",
+	"omit",
+	"omitted",
+	"optional",
+	"skipped",
+	"unless",
+	"unneeded",
+	"unnecessary",
+	"without",
+]);
+
 function retryIsUnconditionallySafe(retry: RetrySemantics): boolean {
 	if (retry.kind !== "conditional") {
 		return retry.kind === "safe";
@@ -58,6 +73,18 @@ function normalizedWords(value: string): readonly string[] {
 		);
 }
 
+function wordsMatchAt(
+	words: readonly string[],
+	sequence: readonly string[],
+	start: number,
+): boolean {
+	return sequence.every((word, offset) => words[start + offset] === word);
+}
+
+function isRetryActionWord(word: string): boolean {
+	return /^(?:retr(?:y|ies|ying)|repeat(?:s|ed|ing)?)$/.test(word);
+}
+
 function clauseReferencesSafeRetryCase(
 	retry: RetrySemantics,
 	clause: string,
@@ -76,18 +103,14 @@ function clauseReferencesSafeRetryCase(
 		) {
 			const marker = clauseWords[start - 1];
 			if (marker !== "if" && marker !== "when") continue;
-			if (
-				!conditionWords.every(
-					(word, offset) => clauseWords[start + offset] === word,
-				)
-			) {
+			if (!wordsMatchAt(clauseWords, conditionWords, start)) {
 				continue;
 			}
 
 			const remainder = clauseWords.slice(start + conditionWords.length);
 			if (remainder.length === 0) return true;
 			if (
-				/^(?:then )?retr(?:y|ies|ying) (?:is|are) safe(?:ly)?$/.test(
+				/^(?:then )?(?:retr(?:y|ies|ying)|repeat(?:s|ed|ing)?) (?:is|are) safe(?:ly)?$/.test(
 					remainder.join(" "),
 				)
 			) {
@@ -98,17 +121,84 @@ function clauseReferencesSafeRetryCase(
 	});
 }
 
+function clauseReferencesRequiredReconciliation(
+	retry: RetrySemantics,
+	clause: string,
+): boolean {
+	if (retry.kind !== "reconcile" || !retry.idempotent) return false;
+	const words = normalizedWords(expandNegationContractions(clause));
+	const actionIndex = words.findIndex(isRetryActionWord);
+	if (actionIndex === -1) return false;
+
+	const reconcileWithWords = normalizedWords(retry.reconcileWith);
+	for (let index = 0; index < words.length; index += 1) {
+		const isReconciliation = words[index]?.startsWith("reconcil") ?? false;
+		const isReconcileOperation = wordsMatchAt(words, reconcileWithWords, index);
+		if (!isReconciliation && !isReconcileOperation) continue;
+
+		const precedingWords = words.slice(Math.max(0, index - 4), index);
+		const targetLength = isReconcileOperation ? reconcileWithWords.length : 1;
+		const followingWords = words.slice(
+			index + targetLength,
+			index + targetLength + 4,
+		);
+		if (
+			precedingWords.some((word) => RECONCILIATION_DISQUALIFIERS.has(word)) ||
+			followingWords.some((word) => RECONCILIATION_DISQUALIFIERS.has(word))
+		) {
+			continue;
+		}
+		const hasPositiveSequence = precedingWords.some((word) =>
+			["after", "following", "once"].includes(word),
+		);
+		const hasInspection =
+			isReconcileOperation &&
+			precedingWords.some(
+				(word) =>
+					word.startsWith("inspect") ||
+					word.startsWith("check") ||
+					word.startsWith("read") ||
+					word.startsWith("reconcil"),
+			);
+		if (
+			hasPositiveSequence ||
+			hasInspection ||
+			(isReconciliation &&
+				["reconcile", "reconciled", "reconciling"].includes(
+					words[index] ?? "",
+				) &&
+				index < actionIndex)
+		) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function expandNegationContractions(clause: string): string {
+	return clause
+		.replace(/\bcannot\b/gi, "can not")
+		.replace(
+			/\b(is|are|was|were|do|does|did|can|could|should|would|must|has|have|had)n['’]t\b/gi,
+			"$1 not",
+		)
+		.replace(/\bwon['’]t\b/gi, "will not");
+}
+
 function clauseAdvertisesSafeRetry(clause: string): boolean {
+	const expandedClause = expandNegationContractions(clause);
 	if (
-		/\b(?:not|never)(?:\s+[a-z-]+){0,2}\s+safe\b|\bunsafe\b|\b(?:do\s+not|never)\s+(?:automatically\s+)?retr(?:y|ies|ying)\b/i.test(
-			clause,
+		/\b(?:not|never)(?:\s+[a-z-]+){0,2}\s+safe(?:ly)?\b|\bunsafe\b|\b(?:(?:do|can|could|should|would|must|will)\s+not|never)\s+(?:automatically\s+)?(?:retr(?:y|ies|ying)|repeat(?:s|ed|ing)?)\b/i.test(
+			expandedClause,
 		)
 	) {
 		return false;
 	}
-	const mentionsRetry = /\bretr(?:y|ies|ying)\b/i.test(clause);
-	const claimsSafety = /\bsafe(?:ly)?\b/i.test(clause);
-	const prescribesBackoff = /\b(?:bounded|normal)\s+backoff\b/i.test(clause);
+	const mentionsRetry =
+		/\b(?:retr(?:y|ies|ying)|repeat(?:s|ed|ing)?)\b/i.test(expandedClause);
+	const claimsSafety = /\bsafe(?:ly)?\b/i.test(expandedClause);
+	const prescribesBackoff =
+		/\b(?:bounded|normal)\s+backoff\b/i.test(expandedClause);
 	return mentionsRetry && (claimsSafety || prescribesBackoff);
 }
 
@@ -116,10 +206,11 @@ function guidanceAdvertisesUnsupportedSafeRetry(
 	retry: RetrySemantics,
 	retryGuidance: string,
 ): boolean {
-	return retryGuidance.split(/[.!?;\n]/).some(
+	return retryGuidance.split(/\.(?:\s+|$)|[!?;\n]/).some(
 		(clause) =>
 			clauseAdvertisesSafeRetry(clause) &&
-			!clauseReferencesSafeRetryCase(retry, clause),
+			!clauseReferencesSafeRetryCase(retry, clause) &&
+			!clauseReferencesRequiredReconciliation(retry, clause),
 	);
 }
 

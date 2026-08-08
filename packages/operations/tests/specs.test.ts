@@ -749,6 +749,54 @@ describe("email operations specification", () => {
 				},
 			}),
 		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"After inspecting campaigns.get, retrying the confirmed request is safe.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"Repeating this request is safe without reconciliation.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retrying isn't safe after a timeout.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"Reconciliation is optional and repeating the request is safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Repeating cannot be done safely after a timeout.",
+				},
+			}),
+		).not.toThrow();
 	});
 
 	test("derives safety requirements from operation effects", () => {
