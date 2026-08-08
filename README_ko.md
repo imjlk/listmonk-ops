@@ -499,13 +499,12 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 더 이상 bridge가 없습니다.
-generated Listmonk SDK 타입이 아니라 정규화된 shared-operation 경계의
-커밋된 snapshot을 브릿지로 사용하며 명시적으로 `experimental`입니다.
-따라서 upstream API 변경은 먼저 generated transport와 handwritten adapter에서
-흡수하며, 정규화 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을
-변경합니다. 정적 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면
-거부합니다.
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 46개는
+`stable`, 58개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
+모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
+변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
+Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
+governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
 검토를 마친 핵심 46개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
@@ -539,11 +538,10 @@ projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설
 결정적 content fingerprint를 반환하고, enrollment 조회는 subscriber reference와
 저장된 오류의 값 대신 존재 여부만 반환합니다.
 `control.status`의 runtime readiness 계약과 신규 subsystem·집계·분석 조회는
-더 성숙할 때까지 experimental로 유지합니다. 이후 release에서 `sequences.pause`와
-`sequences.resume`(reversible no-op write), `webhooks.circuit.reset`(idempotent
-circuit breaker reset)을 승격해 stable baseline을 43개로 늘렸습니다. 이제
-standalone `templates.reconcile` manifest 계약도 stable로 승격해 baseline은
-44개가 되었고, 나머지 experimental descriptor는 60개입니다.
+더 성숙할 때까지 experimental로 유지합니다. stable mutation에는
+`sequences.pause`, `sequences.resume`, `webhooks.circuit.reset`,
+`templates.update`, `templates.set-default`, `templates.reconcile`도 포함됩니다.
+현재 stable baseline은 46개이며, 나머지 experimental descriptor는 58개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run` 네 가지 타입드 플레이북을
@@ -560,11 +558,8 @@ Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 46개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 312개를
 검증합니다.
 
-더 이상 bridge Operation이 없으므로 이 단락은 참고용으로 남깁니다. workspace를
-빌드한 뒤 `bun run operations:specs:runtime-contracts:generate`를 실행하고,
-커밋될 snapshot diff를 검토한 다음 Spec 산출물을 다시 생성하세요. 일반
-CLI/MCP 시작은 runtime contract와 snapshot이 다르면 계속 fail-closed로
-동작합니다.
+104개 shared Operation은 모두 독립적인 TypeScript 계약을 사용합니다. 다시
+생성해야 할 governed runtime-bridge 입력이나 snapshot은 없습니다.
 
 Spec API는 별도 npm 패키지가 아니라 기존 operations 패키지의
 `@listmonk-ops/operations/specs` 서브패스로 배포됩니다.

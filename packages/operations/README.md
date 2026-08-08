@@ -85,8 +85,8 @@ names are protected by an explicitly accepted compatibility baseline.
 
 The same subpath exports four guarded typed playbooks
 (`campaign.safe-start`, `campaign.safe-schedule`, `template.safe-promote`, and
-`abtest.safe-run`), 15 resource state models, and 31 runtime-backed lifecycle event
-declarations. Every public shared `defineOperation()` call binds a descriptor;
+`abtest.safe-run`), 16 resource state models, and 31 runtime-backed lifecycle
+event declarations. Every public shared `defineOperation()` call binds a descriptor;
 the public migration exemption manifest is empty. Repository coverage,
 governance, compatibility, and compiler-graph gates enforce those invariants.
 

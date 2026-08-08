@@ -8,8 +8,6 @@ import {
 	templateManifestReconcileInputContract,
 	templateManifestReconcileOutputContract,
 	templateRecordContract,
-	templateListInputContract,
-	templateCollectionOutputContract,
 } from "../contract-schemas";
 
 export const templatesCreateOperationSpec = defineOperationSpec({

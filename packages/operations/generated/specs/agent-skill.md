@@ -856,6 +856,76 @@ Verify with: none
 
 Retry guidance: Retry transient read failures with bounded backoff.
 
+## Reconcile template manifest (`templates.reconcile`)
+
+Contract maturity: `stable`; effects: `write:template`; confirmation: `required`; retry: `reconcile`.
+
+Use when: A versioned template manifest must be planned or applied.
+
+Avoid when: A single template should be inspected without a full manifest.
+
+Prerequisites: `templates.list`
+
+Verify with: `templates.list`
+
+Retry guidance: Re-run reconcile in dry-run mode after a partial apply to verify the remaining desired state before applying again.
+
+## Create template (`templates.create`)
+
+Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `unsafe`.
+
+Use when: A new Listmonk template must be created.
+
+Avoid when: An existing template should be converged by exact name; use templates.reconcile instead.
+
+Prerequisites: none
+
+Verify with: `templates.list`
+
+Retry guidance: Do not automatically retry an ambiguous failure; inspect templates.list for the intended name first.
+
+## Update template (`templates.update`)
+
+Contract maturity: `stable`; effects: `write:template`; confirmation: `never`; retry: `safe`.
+
+Use when: A known template must be updated by numeric ID.
+
+Avoid when: The template ID is unknown or a versioned exact-name manifest should be reconciled.
+
+Prerequisites: `templates.get`
+
+Verify with: `templates.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff, then verify with templates.get.
+
+## Delete template (`templates.delete`)
+
+Contract maturity: `experimental`; effects: `delete:template`; confirmation: `required`; retry: `reconcile`.
+
+Use when: A verified template must be permanently deleted.
+
+Avoid when: The template ID or destructive confirmation has not been verified.
+
+Prerequisites: `templates.get`
+
+Verify with: `templates.list`
+
+Retry guidance: After an ambiguous failure, verify absence with templates.list before retrying.
+
+## Set default template (`templates.set-default`)
+
+Contract maturity: `stable`; effects: `write:template`; confirmation: `never`; retry: `safe`.
+
+Use when: A verified template should become the Listmonk default.
+
+Avoid when: The template ID has not been verified.
+
+Prerequisites: `templates.get`
+
+Verify with: `templates.get`
+
+Retry guidance: Retry identical transient failures with bounded backoff, then verify with templates.get.
+
 ## Create subscriber list (`lists.create`)
 
 Contract maturity: `experimental`; effects: `write:list`; confirmation: `never`; retry: `unsafe`.
@@ -1051,76 +1121,6 @@ Prerequisites: `campaigns.get`
 Verify with: `campaigns.list`
 
 Retry guidance: Inspect campaigns.list before retrying an ambiguous clone.
-
-## Create template (`templates.create`)
-
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `unsafe`.
-
-Use when: A new Listmonk template must be created.
-
-Avoid when: An existing template should be converged by exact name; use templates.reconcile instead.
-
-Prerequisites: none
-
-Verify with: `templates.list`
-
-Retry guidance: Do not automatically retry an ambiguous failure; inspect templates.list for the intended name first.
-
-## Update template (`templates.update`)
-
-Contract maturity: `stable`; effects: `write:template`; confirmation: `never`; retry: `safe`.
-
-Use when: A known template must be updated by numeric ID.
-
-Avoid when: The template ID is unknown or a versioned exact-name manifest should be reconciled.
-
-Prerequisites: `templates.get`
-
-Verify with: `templates.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff, then verify with templates.get.
-
-## Delete template (`templates.delete`)
-
-Contract maturity: `experimental`; effects: `delete:template`; confirmation: `required`; retry: `reconcile`.
-
-Use when: A verified template must be permanently deleted.
-
-Avoid when: The template ID or destructive confirmation has not been verified.
-
-Prerequisites: `templates.get`
-
-Verify with: `templates.list`
-
-Retry guidance: After an ambiguous failure, verify absence with templates.list before retrying.
-
-## Set default template (`templates.set-default`)
-
-Contract maturity: `stable`; effects: `write:template`; confirmation: `never`; retry: `safe`.
-
-Use when: A verified template should become the Listmonk default.
-
-Avoid when: The template ID has not been verified.
-
-Prerequisites: `templates.get`
-
-Verify with: `templates.get`
-
-Retry guidance: Retry identical transient failures with bounded backoff, then verify with templates.get.
-
-## Reconcile template manifest (`templates.reconcile`)
-
-Contract maturity: `stable`; effects: `write:template`; confirmation: `required`; retry: `reconcile`.
-
-Use when: A versioned template manifest must be planned or applied.
-
-Avoid when: A single template should be inspected without a full manifest.
-
-Prerequisites: `templates.list`
-
-Verify with: `templates.list`
-
-Retry guidance: Re-run reconcile in dry-run mode after a partial apply to verify the remaining desired state before applying again.
 
 ## Delete media file (`media.delete`)
 

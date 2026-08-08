@@ -64,6 +64,11 @@ import {
 } from "./abtest-specs";
 
 export const standaloneOperationSpecs = [
+	templatesReconcileOperationSpec,
+	templatesCreateOperationSpec,
+	templatesUpdateOperationSpec,
+	templatesDeleteOperationSpec,
+	templatesSetDefaultOperationSpec,
 	listsCreateOperationSpec,
 	listsUpdateOperationSpec,
 	listsDeleteOperationSpec,
@@ -78,11 +83,6 @@ export const standaloneOperationSpecs = [
 	campaignsDeleteOperationSpec,
 	campaignsPauseOperationSpec,
 	campaignsCloneOperationSpec,
-	templatesCreateOperationSpec,
-	templatesUpdateOperationSpec,
-	templatesDeleteOperationSpec,
-	templatesSetDefaultOperationSpec,
-	templatesReconcileOperationSpec,
 	mediaDeleteOperationSpec,
 	mediaUploadOperationSpec,
 	opsSegmentDriftOperationSpec,
