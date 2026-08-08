@@ -821,6 +821,28 @@ describe("email operations specification", () => {
 				},
 			}),
 		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retry safely, then inspect campaigns.get.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				retry: {
+					kind: "unsafe",
+					reason: "The delivery result may be ambiguous.",
+				},
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retried requests are safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
 	});
 
 	test("derives safety requirements from operation effects", () => {

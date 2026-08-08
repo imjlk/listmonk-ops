@@ -82,7 +82,7 @@ function wordsMatchAt(
 }
 
 function isRetryActionWord(word: string): boolean {
-	return /^(?:retr(?:y|ies|ying)|repeat(?:s|ed|ing)?)$/.test(word);
+	return /^(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)$/.test(word);
 }
 
 function clauseReferencesSafeRetryCase(
@@ -117,7 +117,7 @@ function clauseReferencesSafeRetryCase(
 			const remainder = clauseWords.slice(start + conditionWords.length);
 			if (remainder.length === 0) return true;
 			if (
-				/^(?:then )?(?:retr(?:y|ies|ying)|repeat(?:s|ed|ing)?) (?:is|are) safe(?:ly)?$/.test(
+				/^(?:then )?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?) (?:is|are) safe(?:ly)?$/.test(
 					remainder.join(" "),
 				)
 			) {
@@ -169,7 +169,7 @@ function clauseReferencesRequiredReconciliation(
 			);
 		if (
 			hasPositiveSequence ||
-			hasInspection ||
+			(hasInspection && index < actionIndex) ||
 			(isReconciliation &&
 				["reconcile", "reconciled", "reconciling"].includes(
 					words[index] ?? "",
@@ -195,14 +195,14 @@ function expandNegationContractions(clause: string): string {
 function clauseAdvertisesSafeRetry(clause: string): boolean {
 	const expandedClause = expandNegationContractions(clause);
 	if (
-		/\b(?:not|never)(?:\s+[a-z-]+){0,2}\s+safe(?:ly)?\b|\bunsafe\b|\b(?:(?:do|can|could|should|would|must|will)\s+not|never)\s+(?:automatically\s+)?(?:retr(?:y|ies|ying)|repeat(?:s|ed|ing)?)\b/i.test(
+		/\b(?:not|never)(?:\s+[a-z-]+){0,2}\s+safe(?:ly)?\b|\bunsafe\b|\b(?:(?:do|can|could|should|would|must|will)\s+not|never)\s+(?:automatically\s+)?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)\b/i.test(
 			expandedClause,
 		)
 	) {
 		return false;
 	}
 	const mentionsRetry =
-		/\b(?:retr(?:y|ies|ying)|repeat(?:s|ed|ing)?)\b/i.test(expandedClause);
+		/\b(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)\b/i.test(expandedClause);
 	const claimsSafety = /\bsafe(?:ly)?\b/i.test(expandedClause);
 	const prescribesBackoff =
 		/\b(?:bounded|normal)\s+backoff\b/i.test(expandedClause);
