@@ -1,5 +1,21 @@
 # @listmonk-ops/abtest
 
+## 0.6.0 — 2026-08-08
+
+### Fixed
+
+- [0015e8e](https://github.com/imjlk/listmonk-ops/commit/0015e8e824e91fda98a5f05d6443880e4bc717bf) Align A/B runtime validation, TypeScript contracts, and published JSON Schemas, and expose a typed assignment manifest. — Thanks @imjlk!
+- [2bf948b](https://github.com/imjlk/listmonk-ops/commit/2bf948baacc63e81fd83ff83e30b6e0a0deb431f) Align A/B lifecycle effects, retry semantics, descriptions, and MCP idempotency metadata with the campaign scheduling and cleanup runtime. — Thanks @imjlk!
+
+### Minor changes
+
+- [c12abb0](https://github.com/imjlk/listmonk-ops/commit/c12abb00c54378c5fb5a7f4930708cc63db91cfc) Migrate all 12 remaining A/B test operations from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts. The experimental runtime bridge count drops from 13 to 0, completing the full bridge-to-standalone migration. All 104 shared operations now use standalone TypeScript contracts authored with Typia. — Thanks @imjlk!
+
+### Patch changes
+
+- [c8a2ae2](https://github.com/imjlk/listmonk-ops/commit/c8a2ae2d5c3bd1e96b4b984ee6dfc97f60d0bb3c) Address unaddressed P1 Codex findings: add delivery effect to abtest.launch, delete effects to abtest.stop, reject zero-duration creates. Fix stale bridge documentation. — Thanks @imjlk!
+- Updated dependencies: operations@0.13.0
+
 ## 0.5.4 — 2026-08-06
 
 ### Patch changes

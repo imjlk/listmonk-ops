@@ -1,5 +1,34 @@
 # @listmonk-ops/operations
 
+## 0.13.0 — 2026-08-08
+
+### Fixed
+
+- [0015e8e](https://github.com/imjlk/listmonk-ops/commit/0015e8e824e91fda98a5f05d6443880e4bc717bf) Align A/B runtime validation, TypeScript contracts, and published JSON Schemas, and expose a typed assignment manifest. — Thanks @imjlk!
+- [96cd0c9](https://github.com/imjlk/listmonk-ops/commit/96cd0c99d697e0f661cef605dd81e6eb2f792b10) Restore deterministic standalone operation catalog ordering after the module split and correct the published spec documentation. — Thanks @imjlk!
+- [2bf948b](https://github.com/imjlk/listmonk-ops/commit/2bf948baacc63e81fd83ff83e30b6e0a0deb431f) Align A/B lifecycle effects, retry semantics, descriptions, and MCP idempotency metadata with the campaign scheduling and cleanup runtime. — Thanks @imjlk!
+- [910b58d](https://github.com/imjlk/listmonk-ops/commit/910b58d8ed67e24deeddfe58ed598cb1d0ca2889) Require confirmation for the deliverability guard's pause path, align threshold schemas, and correct subscriber hygiene retry guidance. — Thanks @imjlk!
+- [e8b29da](https://github.com/imjlk/listmonk-ops/commit/e8b29da29309417d7d9b5072dd19da7ce4376822) Harden operation spec graph, schema compatibility, and retry guidance guardrails. — Thanks @imjlk!
+
+### Minor changes
+
+- [c12abb0](https://github.com/imjlk/listmonk-ops/commit/c12abb00c54378c5fb5a7f4930708cc63db91cfc) Migrate all 12 remaining A/B test operations from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts. The experimental runtime bridge count drops from 13 to 0, completing the full bridge-to-standalone migration. All 104 shared operations now use standalone TypeScript contracts authored with Typia. — Thanks @imjlk!
+- [64aad17](https://github.com/imjlk/listmonk-ops/commit/64aad17396418af3d8c4484f59f49874be35b0ee) Migrate `campaigns.create`, `campaigns.update`, and `campaigns.delete` from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts, reducing the experimental runtime bridge count from 31 to 28. CampaignUpdateInput is modeled as an inclusive union (anyOf) requiring at least one mutable field. `campaigns.pause` and `campaigns.clone` remain bridged. — Thanks @imjlk!
+- [4724554](https://github.com/imjlk/listmonk-ops/commit/4724554ce14b3abff61ec521b6e6cb7d058846e3) Migrate all six remaining ops workflow operations (deliverability-guard, subscriber-hygiene, registry-sync, registry-history, registry-promote, registry-rollback) from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts, reducing the experimental runtime bridge count from 19 to 13. The ops workflow family is now fully standalone. — Thanks @imjlk!
+- [4cbc4c3](https://github.com/imjlk/listmonk-ops/commit/4cbc4c3634db726d939b029afbf0039200f5a92e) Migrate `ops.segments.drift` and `ops.digest.daily` from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts, reducing the experimental runtime bridge count from 21 to 19. — Thanks @imjlk!
+- [99dcae9](https://github.com/imjlk/listmonk-ops/commit/99dcae9f2cb9a9312e6955cb6b14f3277dec7232) Migrate `subscribers.add-to-lists`, `subscribers.remove-from-lists`, and `subscribers.unblocklist` from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts, reducing the experimental runtime bridge count from 24 to 21. All three operations share the existing SubscriberBulkOutput contract; add-to-lists and remove-from-lists share SubscriberBulkListsInput, while unblocklist uses SubscriberBulkBlocklistInput. — Thanks @imjlk!
+- [5b61ca2](https://github.com/imjlk/listmonk-ops/commit/5b61ca2b73bbc611e002e6b39a10e4f1d75b7f5b) Migrate `campaigns.pause` and `campaigns.clone` from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts, reducing the experimental runtime bridge count from 26 to 24. Campaigns.pause reuses the existing lifecycle contract; campaigns.clone introduces a CampaignCloneInput contract. — Thanks @imjlk!
+- [d397229](https://github.com/imjlk/listmonk-ops/commit/d3972299f0137fd96241c49bb5841a96c38d9f35) Migrate `subscribers.create`, `subscribers.update`, and `subscribers.delete` from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts, reducing the experimental runtime bridge count from 34 to 31. SubscriberUpdateInput is modeled as a union requiring at least one mutable field (matching the runtime refine), and subscriber email fields use the shared EmailAddress tag. — Thanks @imjlk!
+- [58143a7](https://github.com/imjlk/listmonk-ops/commit/58143a707c801f34f309e70e171cb59cb45b9787) Promote `templates.update` and `templates.set-default` from `experimental` to `stable`. Both operations are reversible writes whose retry semantics are already safe: update merges the current template with the requested fields before PUT, so reapplying the same fields converges on the same representation; set-default is idempotent since setting an already-default template is a server-side no-op. The stable TypeScript contract count rises from 44 to 46. — Thanks @imjlk!
+- [a56cfd8](https://github.com/imjlk/listmonk-ops/commit/a56cfd84021b70d474fe9e0cf440f86798f637cf) Migrate `lists.create`, `lists.update`, and `lists.delete` from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts, reducing the experimental runtime bridge count from 37 to 34. The list update effect is reclassified as reversible (matching templates.update) so its destructive safety hint and confirmation policy align with the standalone contract. — Thanks @imjlk!
+- [2a5edf1](https://github.com/imjlk/listmonk-ops/commit/2a5edf178c3bd97cbaa3196dbf14e65e2be356c6) Migrate `media.delete` and `media.upload` from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts, reducing the experimental runtime bridge count from 28 to 26. — Thanks @imjlk!
+
+### Patch changes
+
+- [c8a2ae2](https://github.com/imjlk/listmonk-ops/commit/c8a2ae2d5c3bd1e96b4b984ee6dfc97f60d0bb3c) Address unaddressed P1 Codex findings: add delivery effect to abtest.launch, delete effects to abtest.stop, reject zero-duration creates. Fix stale bridge documentation. — Thanks @imjlk!
+- [fdff15b](https://github.com/imjlk/listmonk-ops/commit/fdff15b2430721fc71861486eaed89ae0831fcf8) Split src/specs/core-reads.ts into domain-specific standalone-spec modules. No contract changes — only file reorganization. — Thanks @imjlk!
+- [8856302](https://github.com/imjlk/listmonk-ops/commit/8856302e6fb88de71c687de89722907a0c16316c) Split scripts/spec-contracts.ts into 14 domain-specific modules under scripts/spec-contracts/. No contract changes — only file reorganization. — Thanks @imjlk!
+
 ## 0.12.0 — 2026-08-06
 
 ### Minor changes
