@@ -227,6 +227,9 @@ listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
 
 ## CLI 바이너리 설치 (GitHub Release + curl)
 
+사전 빌드 릴리즈는 Linux x64/arm64와 Apple silicon macOS(arm64)를 지원합니다.
+Intel Mac은 지원하지 않습니다.
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash
 ```
@@ -366,7 +369,6 @@ bun run --cwd apps/cli build:bin
 bun run --cwd apps/cli build:bin:all
 # - dist/bin/listmonk-cli-linux-x64
 # - dist/bin/listmonk-cli-linux-arm64
-# - dist/bin/listmonk-cli-darwin-x64
 # - dist/bin/listmonk-cli-darwin-arm64
 ```
 

@@ -228,6 +228,9 @@ listmonk-cli ops guard --campaign-id 1 --format quiet --confirm
 
 ## CLI Binary Install (GitHub Release + curl)
 
+Prebuilt releases support Linux x64/arm64 and Apple silicon macOS (arm64).
+Intel Macs are not supported.
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash
 ```
@@ -367,7 +370,6 @@ bun run --cwd apps/cli build:bin
 bun run --cwd apps/cli build:bin:all
 # - dist/bin/listmonk-cli-linux-x64
 # - dist/bin/listmonk-cli-linux-arm64
-# - dist/bin/listmonk-cli-darwin-x64
 # - dist/bin/listmonk-cli-darwin-arm64
 ```
 
