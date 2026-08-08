@@ -42,7 +42,10 @@ function retryIsUnconditionallySafe(retry: RetrySemantics): boolean {
 	if (retry.kind !== "conditional") {
 		return retry.kind === "safe";
 	}
-	return retry.cases.every(({ semantics }) => semantics.kind === "safe");
+	return (
+		retry.cases.length > 0 &&
+		retry.cases.every(({ semantics }) => semantics.kind === "safe")
+	);
 }
 
 function normalizedWords(value: string): readonly string[] {
@@ -60,14 +63,38 @@ function clauseReferencesSafeRetryCase(
 	clause: string,
 ): boolean {
 	if (retry.kind !== "conditional") return false;
-	const normalizedClause = normalizedWords(clause).join(" ");
+	const clauseWords = normalizedWords(clause);
 	return retry.cases.some(({ when, semantics }) => {
 		if (semantics.kind !== "safe") return false;
-		const normalizedCondition = normalizedWords(when).join(" ");
-		return (
-			normalizedCondition.length > 0 &&
-			normalizedClause.includes(normalizedCondition)
-		);
+		const conditionWords = normalizedWords(when);
+		if (conditionWords.length === 0) return false;
+
+		for (
+			let start = 1;
+			start <= clauseWords.length - conditionWords.length;
+			start += 1
+		) {
+			const marker = clauseWords[start - 1];
+			if (marker !== "if" && marker !== "when") continue;
+			if (
+				!conditionWords.every(
+					(word, offset) => clauseWords[start + offset] === word,
+				)
+			) {
+				continue;
+			}
+
+			const remainder = clauseWords.slice(start + conditionWords.length);
+			if (remainder.length === 0) return true;
+			if (
+				/^(?:then )?retr(?:y|ies|ying) (?:is|are) safe(?:ly)?$/.test(
+					remainder.join(" "),
+				)
+			) {
+				return true;
+			}
+		}
+		return false;
 	});
 }
 

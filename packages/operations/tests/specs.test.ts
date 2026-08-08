@@ -640,6 +640,20 @@ describe("email operations specification", () => {
 	test("validates retry guidance against declared semantics", () => {
 		expect(() =>
 			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				retry: {
+					kind: "conditional",
+					cases: [],
+					reason: "No retry case is declared.",
+				} as unknown as typeof transactionalSendOperationSpec.retry,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance: "Retrying the request is safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
 				...campaignStartOperationSpec,
 				retry: {
 					kind: "unsafe",
@@ -648,6 +662,16 @@ describe("email operations specification", () => {
 				agent: {
 					...campaignStartOperationSpec.agent,
 					retryGuidance: "Retrying the same campaign start is safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"Retry is safe when the idempotency key is present or absent.",
 				},
 			}),
 		).toThrow("retry guidance contradicts its declared retry semantics");
