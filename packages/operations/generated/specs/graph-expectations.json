@@ -1650,149 +1650,14 @@
     {
       "edges": [
         {
-          "from": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindTemplatesReconcileOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/core-reads.ts#bindTemplatesReconcileOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#templatesReconcileOperationSpec:variable"
-        },
-        {
-          "from": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesReconcileOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesReconcileOperationSpec:variable",
-        "executorNode": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function",
-        "invokerNode": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable"
-      },
-      "operationId": "templates.reconcile"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/templates.ts#createTemplateOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindTemplatesCreateOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/core-reads.ts#bindTemplatesCreateOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#templatesCreateOperationSpec:variable"
-        },
-        {
-          "from": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/templates.ts#createTemplate:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesCreateOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesCreateOperationSpec:variable",
-        "executorNode": "packages/operations/src/templates.ts#createTemplate:function",
-        "invokerNode": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/templates.ts#createTemplateOperation:variable"
-      },
-      "operationId": "templates.create"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/templates.ts#updateTemplateOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindTemplatesUpdateOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/core-reads.ts#bindTemplatesUpdateOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#templatesUpdateOperationSpec:variable"
-        },
-        {
-          "from": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/templates.ts#updateTemplate:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesUpdateOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesUpdateOperationSpec:variable",
-        "executorNode": "packages/operations/src/templates.ts#updateTemplate:function",
-        "invokerNode": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/templates.ts#updateTemplateOperation:variable"
-      },
-      "operationId": "templates.update"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/templates.ts#deleteTemplateOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindTemplatesDeleteOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/core-reads.ts#bindTemplatesDeleteOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#templatesDeleteOperationSpec:variable"
-        },
-        {
-          "from": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/templates.ts#deleteTemplate:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesDeleteOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesDeleteOperationSpec:variable",
-        "executorNode": "packages/operations/src/templates.ts#deleteTemplate:function",
-        "invokerNode": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/templates.ts#deleteTemplateOperation:variable"
-      },
-      "operationId": "templates.delete"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindTemplatesSetDefaultOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/core-reads.ts#bindTemplatesSetDefaultOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#templatesSetDefaultOperationSpec:variable"
-        },
-        {
-          "from": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/templates.ts#setDefaultTemplate:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesSetDefaultOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesSetDefaultOperationSpec:variable",
-        "executorNode": "packages/operations/src/templates.ts#setDefaultTemplate:function",
-        "invokerNode": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable"
-      },
-      "operationId": "templates.set-default"
-    },
-    {
-      "edges": [
-        {
           "from": "packages/operations/src/lists.ts#createListOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindListsCreateOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsCreateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindListsCreateOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsCreateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#listsCreateOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/list-specs.ts#listsCreateOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/lists.ts#invokeCreateListOperation:function",
@@ -1801,8 +1666,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsCreateOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsCreateOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsCreateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#listsCreateOperationSpec:variable",
         "executorNode": "packages/operations/src/lists.ts#createSubscriberList:function",
         "invokerNode": "packages/operations/src/lists.ts#invokeCreateListOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/lists.ts#createListOperation:variable"
@@ -1814,12 +1679,12 @@
         {
           "from": "packages/operations/src/lists.ts#updateListOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindListsUpdateOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsUpdateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindListsUpdateOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsUpdateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#listsUpdateOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/list-specs.ts#listsUpdateOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/lists.ts#invokeUpdateListOperation:function",
@@ -1828,8 +1693,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsUpdateOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsUpdateOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsUpdateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#listsUpdateOperationSpec:variable",
         "executorNode": "packages/operations/src/lists.ts#updateSubscriberList:function",
         "invokerNode": "packages/operations/src/lists.ts#invokeUpdateListOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/lists.ts#updateListOperation:variable"
@@ -1841,12 +1706,12 @@
         {
           "from": "packages/operations/src/lists.ts#deleteListOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindListsDeleteOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsDeleteOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindListsDeleteOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsDeleteOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#listsDeleteOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/list-specs.ts#listsDeleteOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/lists.ts#invokeDeleteListOperation:function",
@@ -1855,8 +1720,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsDeleteOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsDeleteOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#listsDeleteOperationSpec:variable",
         "executorNode": "packages/operations/src/lists.ts#deleteSubscriberList:function",
         "invokerNode": "packages/operations/src/lists.ts#invokeDeleteListOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/lists.ts#deleteListOperation:variable"
@@ -1868,12 +1733,12 @@
         {
           "from": "packages/operations/src/subscribers.ts#createSubscriberOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersCreateOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersCreateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersCreateOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersCreateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#subscribersCreateOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersCreateOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/subscribers.ts#invokeCreateSubscriberOperation:function",
@@ -1882,8 +1747,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersCreateOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersCreateOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersCreateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersCreateOperationSpec:variable",
         "executorNode": "packages/operations/src/subscribers.ts#createSubscriber:function",
         "invokerNode": "packages/operations/src/subscribers.ts#invokeCreateSubscriberOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#createSubscriberOperation:variable"
@@ -1895,12 +1760,12 @@
         {
           "from": "packages/operations/src/subscribers.ts#updateSubscriberOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersUpdateOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUpdateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersUpdateOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUpdateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#subscribersUpdateOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersUpdateOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/subscribers.ts#invokeUpdateSubscriberOperation:function",
@@ -1909,8 +1774,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersUpdateOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersUpdateOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUpdateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersUpdateOperationSpec:variable",
         "executorNode": "packages/operations/src/subscribers.ts#updateSubscriber:function",
         "invokerNode": "packages/operations/src/subscribers.ts#invokeUpdateSubscriberOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#updateSubscriberOperation:variable"
@@ -1922,12 +1787,12 @@
         {
           "from": "packages/operations/src/subscribers.ts#deleteSubscriberOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersDeleteOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersDeleteOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersDeleteOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersDeleteOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#subscribersDeleteOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersDeleteOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/subscribers.ts#invokeDeleteSubscriberOperation:function",
@@ -1936,8 +1801,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersDeleteOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersDeleteOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersDeleteOperationSpec:variable",
         "executorNode": "packages/operations/src/subscribers.ts#deleteSubscriber:function",
         "invokerNode": "packages/operations/src/subscribers.ts#invokeDeleteSubscriberOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#deleteSubscriberOperation:variable"
@@ -1949,12 +1814,12 @@
         {
           "from": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersAddToListsOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersAddToListsOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersAddToListsOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersAddToListsOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#subscribersAddToListsOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersAddToListsOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
@@ -1963,8 +1828,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersAddToListsOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersAddToListsOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersAddToListsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersAddToListsOperationSpec:variable",
         "executorNode": "packages/operations/src/subscribers.ts#addSubscribersToLists:function",
         "invokerNode": "packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable"
@@ -1976,12 +1841,12 @@
         {
           "from": "packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersRemoveFromListsOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersRemoveFromListsOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersRemoveFromListsOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersRemoveFromListsOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#subscribersRemoveFromListsOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersRemoveFromListsOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
@@ -1990,8 +1855,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersRemoveFromListsOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersRemoveFromListsOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersRemoveFromListsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersRemoveFromListsOperationSpec:variable",
         "executorNode": "packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
         "invokerNode": "packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable"
@@ -2003,12 +1868,12 @@
         {
           "from": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindSubscribersUnblocklistOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUnblocklistOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindSubscribersUnblocklistOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUnblocklistOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#subscribersUnblocklistOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersUnblocklistOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
@@ -2017,8 +1882,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersUnblocklistOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersUnblocklistOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUnblocklistOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersUnblocklistOperationSpec:variable",
         "executorNode": "packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
         "invokerNode": "packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable"
@@ -2030,12 +1895,12 @@
         {
           "from": "packages/operations/src/campaigns.ts#createCampaignOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindCampaignsCreateOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsCreateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindCampaignsCreateOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsCreateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#campaignsCreateOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsCreateOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/campaigns.ts#invokeCreateCampaignOperation:function",
@@ -2044,8 +1909,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsCreateOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsCreateOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsCreateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsCreateOperationSpec:variable",
         "executorNode": "packages/operations/src/campaigns.ts#createCampaign:function",
         "invokerNode": "packages/operations/src/campaigns.ts#invokeCreateCampaignOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#createCampaignOperation:variable"
@@ -2057,12 +1922,12 @@
         {
           "from": "packages/operations/src/campaigns.ts#updateCampaignOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindCampaignsUpdateOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsUpdateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindCampaignsUpdateOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsUpdateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#campaignsUpdateOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsUpdateOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/campaigns.ts#invokeUpdateCampaignOperation:function",
@@ -2071,8 +1936,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsUpdateOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsUpdateOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsUpdateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsUpdateOperationSpec:variable",
         "executorNode": "packages/operations/src/campaigns.ts#updateCampaign:function",
         "invokerNode": "packages/operations/src/campaigns.ts#invokeUpdateCampaignOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#updateCampaignOperation:variable"
@@ -2084,12 +1949,12 @@
         {
           "from": "packages/operations/src/campaigns.ts#deleteCampaignOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindCampaignsDeleteOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsDeleteOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindCampaignsDeleteOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsDeleteOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#campaignsDeleteOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsDeleteOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
@@ -2098,8 +1963,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsDeleteOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsDeleteOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsDeleteOperationSpec:variable",
         "executorNode": "packages/operations/src/campaigns.ts#deleteCampaign:function",
         "invokerNode": "packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#deleteCampaignOperation:variable"
@@ -2111,12 +1976,12 @@
         {
           "from": "packages/operations/src/campaigns.ts#pauseCampaignOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindCampaignsPauseOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsPauseOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindCampaignsPauseOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsPauseOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#campaignsPauseOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsPauseOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
@@ -2125,8 +1990,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsPauseOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsPauseOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsPauseOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsPauseOperationSpec:variable",
         "executorNode": "packages/operations/src/campaigns.ts#pauseCampaign:function",
         "invokerNode": "packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#pauseCampaignOperation:variable"
@@ -2138,12 +2003,12 @@
         {
           "from": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindCampaignsCloneOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsCloneOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindCampaignsCloneOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsCloneOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#campaignsCloneOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsCloneOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
@@ -2152,8 +2017,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsCloneOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsCloneOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsCloneOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsCloneOperationSpec:variable",
         "executorNode": "packages/operations/src/campaigns.ts#cloneCampaign:function",
         "invokerNode": "packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable"
@@ -2163,14 +2028,149 @@
     {
       "edges": [
         {
-          "from": "packages/operations/src/media.ts#deleteMediaOperation:variable",
+          "from": "packages/operations/src/templates.ts#createTemplateOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindMediaDeleteOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesCreateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindMediaDeleteOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesCreateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#mediaDeleteOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesCreateOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#createTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesCreateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesCreateOperationSpec:variable",
+        "executorNode": "packages/operations/src/templates.ts#createTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#createTemplateOperation:variable"
+      },
+      "operationId": "templates.create"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#updateTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesUpdateOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesUpdateOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesUpdateOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#updateTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesUpdateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesUpdateOperationSpec:variable",
+        "executorNode": "packages/operations/src/templates.ts#updateTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#updateTemplateOperation:variable"
+      },
+      "operationId": "templates.update"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#deleteTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesDeleteOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesDeleteOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesDeleteOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#deleteTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesDeleteOperationSpec:variable",
+        "executorNode": "packages/operations/src/templates.ts#deleteTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#deleteTemplateOperation:variable"
+      },
+      "operationId": "templates.delete"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesSetDefaultOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesSetDefaultOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesSetDefaultOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#setDefaultTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesSetDefaultOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesSetDefaultOperationSpec:variable",
+        "executorNode": "packages/operations/src/templates.ts#setDefaultTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable"
+      },
+      "operationId": "templates.set-default"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesReconcileOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesReconcileOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesReconcileOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesReconcileOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesReconcileOperationSpec:variable",
+        "executorNode": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable"
+      },
+      "operationId": "templates.reconcile"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/media.ts#deleteMediaOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/media-specs.ts#bindMediaDeleteOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/media-specs.ts#bindMediaDeleteOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/media-specs.ts#mediaDeleteOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
@@ -2179,8 +2179,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindMediaDeleteOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#mediaDeleteOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/media-specs.ts#bindMediaDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/media-specs.ts#mediaDeleteOperationSpec:variable",
         "executorNode": "packages/operations/src/media.ts#deleteMediaFile:function",
         "invokerNode": "packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/media.ts#deleteMediaOperation:variable"
@@ -2192,12 +2192,12 @@
         {
           "from": "packages/operations/src/media.ts#uploadMediaOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindMediaUploadOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/media-specs.ts#bindMediaUploadOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindMediaUploadOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/media-specs.ts#bindMediaUploadOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#mediaUploadOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/media-specs.ts#mediaUploadOperationSpec:variable"
         },
         {
           "from": "packages/operations/src/media.ts#invokeUploadMediaOperation:function",
@@ -2206,8 +2206,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindMediaUploadOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#mediaUploadOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/media-specs.ts#bindMediaUploadOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/media-specs.ts#mediaUploadOperationSpec:variable",
         "executorNode": "packages/operations/src/media.ts#uploadMediaFile:function",
         "invokerNode": "packages/operations/src/media.ts#invokeUploadMediaOperation:function",
         "runtimeDefinitionNode": "packages/operations/src/media.ts#uploadMediaOperation:variable"
@@ -2219,12 +2219,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindOpsSegmentDriftOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsSegmentDriftOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindOpsSegmentDriftOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsSegmentDriftOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#opsSegmentDriftOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsSegmentDriftOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
@@ -2233,8 +2233,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsSegmentDriftOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsSegmentDriftOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsSegmentDriftOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsSegmentDriftOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable"
@@ -2246,12 +2246,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#dailyDigestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindOpsDailyDigestOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsDailyDigestOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindOpsDailyDigestOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsDailyDigestOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#opsDailyDigestOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsDailyDigestOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
@@ -2260,8 +2260,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsDailyDigestOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsDailyDigestOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsDailyDigestOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsDailyDigestOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#dailyDigestOperation:variable"
@@ -2273,12 +2273,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#deliverabilityGuardOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindOpsDeliverabilityGuardOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsDeliverabilityGuardOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindOpsDeliverabilityGuardOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsDeliverabilityGuardOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#opsDeliverabilityGuardOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsDeliverabilityGuardOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeDeliverabilityGuardOperation:function",
@@ -2287,8 +2287,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsDeliverabilityGuardOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsDeliverabilityGuardOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsDeliverabilityGuardOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsDeliverabilityGuardOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeDeliverabilityGuardOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeDeliverabilityGuardOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#deliverabilityGuardOperation:variable"
@@ -2300,12 +2300,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#subscriberHygieneOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindOpsSubscriberHygieneOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsSubscriberHygieneOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindOpsSubscriberHygieneOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsSubscriberHygieneOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#opsSubscriberHygieneOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsSubscriberHygieneOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeSubscriberHygieneOperation:function",
@@ -2314,8 +2314,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsSubscriberHygieneOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsSubscriberHygieneOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsSubscriberHygieneOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsSubscriberHygieneOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeSubscriberHygieneOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeSubscriberHygieneOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#subscriberHygieneOperation:variable"
@@ -2327,12 +2327,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#templateRegistrySyncOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistrySyncOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistrySyncOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistrySyncOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistrySyncOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistrySyncOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistrySyncOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistrySyncOperation:function",
@@ -2341,8 +2341,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistrySyncOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistrySyncOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistrySyncOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistrySyncOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistrySyncOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistrySyncOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistrySyncOperation:variable"
@@ -2354,12 +2354,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#templateRegistryHistoryOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryHistoryOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryHistoryOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryHistoryOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryHistoryOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryHistoryOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistryHistoryOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryHistoryOperation:function",
@@ -2368,8 +2368,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryHistoryOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryHistoryOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryHistoryOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistryHistoryOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryHistoryOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryHistoryOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryHistoryOperation:variable"
@@ -2381,12 +2381,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#templateRegistryPromoteOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryPromoteOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryPromoteOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryPromoteOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryPromoteOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryPromoteOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistryPromoteOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryPromoteOperation:function",
@@ -2395,8 +2395,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryPromoteOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryPromoteOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryPromoteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistryPromoteOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryPromoteOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryPromoteOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryPromoteOperation:variable"
@@ -2408,12 +2408,12 @@
         {
           "from": "packages/automation/src/ops-operations.ts#templateRegistryRollbackOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryRollbackOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryRollbackOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryRollbackOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryRollbackOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryRollbackOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistryRollbackOperationSpec:variable"
         },
         {
           "from": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryRollbackOperation:function",
@@ -2422,8 +2422,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryRollbackOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryRollbackOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryRollbackOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistryRollbackOperationSpec:variable",
         "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function",
         "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryRollbackOperation:function",
         "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryRollbackOperation:variable"
@@ -2435,12 +2435,12 @@
         {
           "from": "packages/abtest/src/operations.ts#listAbTestsOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestListOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestListOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestListOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestListOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestListOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestListOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeListAbTestsOperation:function",
@@ -2449,8 +2449,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestListOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestListOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestListOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestListOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeListAbTestsOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeListAbTestsOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#listAbTestsOperation:variable"
@@ -2462,12 +2462,12 @@
         {
           "from": "packages/abtest/src/operations.ts#getAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestGetOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestGetOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestGetOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestGetOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestGetOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestGetOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeGetAbTestOperation:function",
@@ -2476,8 +2476,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestGetOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestGetOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestGetOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestGetOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeGetAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeGetAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#getAbTestOperation:variable"
@@ -2489,12 +2489,12 @@
         {
           "from": "packages/abtest/src/operations.ts#createAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestCreateOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestCreateOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestCreateOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestCreateOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestCreateOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestCreateOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeCreateAbTestOperation:function",
@@ -2503,8 +2503,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestCreateOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestCreateOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestCreateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestCreateOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeCreateAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeCreateAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#createAbTestOperation:variable"
@@ -2516,12 +2516,12 @@
         {
           "from": "packages/abtest/src/operations.ts#analyzeAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestAnalyzeOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestAnalyzeOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestAnalyzeOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestAnalyzeOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestAnalyzeOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestAnalyzeOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeAnalyzeAbTestOperation:function",
@@ -2530,8 +2530,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestAnalyzeOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestAnalyzeOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestAnalyzeOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestAnalyzeOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeAnalyzeAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeAnalyzeAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#analyzeAbTestOperation:variable"
@@ -2543,12 +2543,12 @@
         {
           "from": "packages/abtest/src/operations.ts#launchAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestLaunchOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestLaunchOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestLaunchOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestLaunchOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestLaunchOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestLaunchOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeLaunchAbTestOperation:function",
@@ -2557,8 +2557,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestLaunchOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestLaunchOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestLaunchOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestLaunchOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeLaunchAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeLaunchAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#launchAbTestOperation:variable"
@@ -2570,12 +2570,12 @@
         {
           "from": "packages/abtest/src/operations.ts#stopAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestStopOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestStopOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestStopOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestStopOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestStopOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestStopOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeStopAbTestOperation:function",
@@ -2584,8 +2584,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestStopOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestStopOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestStopOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestStopOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeStopAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeStopAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#stopAbTestOperation:variable"
@@ -2597,12 +2597,12 @@
         {
           "from": "packages/abtest/src/operations.ts#deleteAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestDeleteOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestDeleteOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestDeleteOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestDeleteOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestDeleteOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestDeleteOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeDeleteAbTestOperation:function",
@@ -2611,8 +2611,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestDeleteOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestDeleteOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestDeleteOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeDeleteAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeDeleteAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#deleteAbTestOperation:variable"
@@ -2624,12 +2624,12 @@
         {
           "from": "packages/abtest/src/operations.ts#recommendAbTestSampleSizeOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestRecommendSampleSizeOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestRecommendSampleSizeOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestRecommendSampleSizeOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestRecommendSampleSizeOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestRecommendSampleSizeOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestRecommendSampleSizeOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeRecommendAbTestSampleSizeOperation:function",
@@ -2638,8 +2638,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestRecommendSampleSizeOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestRecommendSampleSizeOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestRecommendSampleSizeOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestRecommendSampleSizeOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeRecommendAbTestSampleSizeOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeRecommendAbTestSampleSizeOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#recommendAbTestSampleSizeOperation:variable"
@@ -2651,12 +2651,12 @@
         {
           "from": "packages/abtest/src/operations.ts#deployAbTestWinnerOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestDeployWinnerOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestDeployWinnerOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestDeployWinnerOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestDeployWinnerOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestDeployWinnerOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestDeployWinnerOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeDeployAbTestWinnerOperation:function",
@@ -2665,8 +2665,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestDeployWinnerOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestDeployWinnerOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestDeployWinnerOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestDeployWinnerOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeDeployAbTestWinnerOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeDeployAbTestWinnerOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#deployAbTestWinnerOperation:variable"
@@ -2678,12 +2678,12 @@
         {
           "from": "packages/abtest/src/operations.ts#runAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestRunOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestRunOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestRunOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestRunOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestRunOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestRunOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeRunAbTestOperation:function",
@@ -2692,8 +2692,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestRunOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestRunOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestRunOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestRunOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeRunAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeRunAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#runAbTestOperation:variable"
@@ -2705,12 +2705,12 @@
         {
           "from": "packages/abtest/src/operations.ts#tickAbTestsOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestTickOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestTickOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestTickOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestTickOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestTickOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestTickOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeTickAbTestsOperation:function",
@@ -2719,8 +2719,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestTickOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestTickOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestTickOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestTickOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeTickAbTestsOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeTickAbTestsOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#tickAbTestsOperation:variable"
@@ -2732,12 +2732,12 @@
         {
           "from": "packages/abtest/src/operations.ts#reconcileAbTestOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestReconcileOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestReconcileOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestReconcileOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestReconcileOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestReconcileOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestReconcileOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeReconcileAbTestOperation:function",
@@ -2746,8 +2746,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestReconcileOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestReconcileOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestReconcileOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestReconcileOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeReconcileAbTestOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeReconcileAbTestOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#reconcileAbTestOperation:variable"
@@ -2759,12 +2759,12 @@
         {
           "from": "packages/abtest/src/operations.ts#exportAbTestAssignmentOperation:variable",
           "kind": "calls",
-          "to": "packages/operations/src/specs/core-reads.ts#bindAbTestExportAssignmentOperationSpec:function"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestExportAssignmentOperationSpec:function"
         },
         {
-          "from": "packages/operations/src/specs/core-reads.ts#bindAbTestExportAssignmentOperationSpec:function",
+          "from": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestExportAssignmentOperationSpec:function",
           "kind": "type_ref",
-          "to": "packages/operations/src/specs/core-reads.ts#abTestExportAssignmentOperationSpec:variable"
+          "to": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestExportAssignmentOperationSpec:variable"
         },
         {
           "from": "packages/abtest/src/operations.ts#invokeExportAbTestAssignmentOperation:function",
@@ -2773,8 +2773,8 @@
         }
       ],
       "nodes": {
-        "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestExportAssignmentOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestExportAssignmentOperationSpec:variable",
+        "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestExportAssignmentOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestExportAssignmentOperationSpec:variable",
         "executorNode": "packages/abtest/src/operations.ts#executeExportAbTestAssignmentOperation:function",
         "invokerNode": "packages/abtest/src/operations.ts#invokeExportAbTestAssignmentOperation:function",
         "runtimeDefinitionNode": "packages/abtest/src/operations.ts#exportAbTestAssignmentOperation:variable"
