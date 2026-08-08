@@ -3940,7 +3940,6 @@
               "type": "integer"
             },
             "WebhookUrl": {
-              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
               "minLength": 1,
               "pattern": "^https://\\S+$",
               "type": "string"
@@ -4472,7 +4471,6 @@
               "type": "object"
             },
             "WebhookUrl": {
-              "description": "Public HTTPS webhook URL. Stateful URL parsing, credential/query rejection,\nDNS resolution, and private-address checks remain in the domain executor.\n\nTypia currently cannot combine its URI format tag with a pattern tag, so the\ncontract encodes the security-relevant HTTPS scheme while runtime validation\nenforces the complete absolute-URL policy.",
               "minLength": 1,
               "pattern": "^https://\\S+$",
               "type": "string"
@@ -16993,8 +16991,7 @@
                 {
                   "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
                 }
-              ],
-              "description": "Update a positive template ID with at least one mutable field."
+              ]
             }
           }
         },
@@ -17016,8 +17013,7 @@
             {
               "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
             }
-          ],
-          "description": "Update a positive template ID with at least one mutable field."
+          ]
         },
         "source": "typescript",
         "stage": "normalized"
@@ -30763,7 +30759,6 @@
         "components": {
           "schemas": {
             "ListmonkUserPermission": {
-              "description": "Exact granular permission names exposed by Listmonk 6.2. Keep this literal\nlist in sync with LISTMONK_USER_PERMISSIONS in src/user-roles.ts.",
               "oneOf": [
                 {
                   "const": "bounces:get"
@@ -30903,7 +30898,6 @@
               "type": "object"
             },
             "UserRoleName": {
-              "description": "Name of a Listmonk user role. Runtime protection is based on role ID.",
               "maxLength": 120,
               "minLength": 1,
               "type": "string"
@@ -30966,7 +30960,6 @@
               "type": "object"
             },
             "UserRoleName": {
-              "description": "Name of a Listmonk user role. Runtime protection is based on role ID.",
               "maxLength": 120,
               "minLength": 1,
               "type": "string"

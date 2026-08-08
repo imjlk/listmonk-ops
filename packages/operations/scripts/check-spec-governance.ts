@@ -56,7 +56,7 @@ const sourcePaths = [
 			absolute: true,
 		}),
 	)),
-	resolve(import.meta.dir, "spec-contracts.ts"),
+	...(await Array.fromAsync(new Bun.Glob("spec-contracts/**/*.ts").scan({ cwd: import.meta.dir, absolute: true }))),
 ];
 const forbiddenImport =
 	/from\s+["'][^"']*(?:@listmonk-ops\/openapi|openapi\/generated|generated\/sdk)[^"']*["']/;

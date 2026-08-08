@@ -11923,8 +11923,7 @@
                   {
                     "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
                   }
-                ],
-                "description": "Update a positive template ID with at least one mutable field."
+                ]
               }
             }
           },
@@ -11946,8 +11945,7 @@
               {
                 "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
               }
-            ],
-            "description": "Update a positive template ID with at least one mutable field."
+            ]
           },
           "source": "typescript",
           "stage": "normalized"
