@@ -797,6 +797,30 @@ describe("email operations specification", () => {
 				},
 			}),
 		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				retry: {
+					kind: "unsafe",
+					reason: "The delivery result may be ambiguous.",
+				},
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"Do not retry automatically, but retrying manually is safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"Retrying is safe when idempotency_key is absent, but when idempotency_key is present.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
 	});
 
 	test("derives safety requirements from operation effects", () => {

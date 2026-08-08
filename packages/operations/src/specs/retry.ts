@@ -103,6 +103,13 @@ function clauseReferencesSafeRetryCase(
 		) {
 			const marker = clauseWords[start - 1];
 			if (marker !== "if" && marker !== "when") continue;
+			if (
+				clauseWords
+					.slice(0, start - 1)
+					.some((word) => word === "if" || word === "when")
+			) {
+				continue;
+			}
 			if (!wordsMatchAt(clauseWords, conditionWords, start)) {
 				continue;
 			}
@@ -206,12 +213,16 @@ function guidanceAdvertisesUnsupportedSafeRetry(
 	retry: RetrySemantics,
 	retryGuidance: string,
 ): boolean {
-	return retryGuidance.split(/\.(?:\s+|$)|[!?;\n]/).some(
+	return retryGuidance
+		.split(
+			/\.(?:\s+|$)|[!?;\n]|,?\s+(?:but|however|whereas|yet)(?:,?\s+)/i,
+		)
+		.some(
 		(clause) =>
 			clauseAdvertisesSafeRetry(clause) &&
 			!clauseReferencesSafeRetryCase(retry, clause) &&
 			!clauseReferencesRequiredReconciliation(retry, clause),
-	);
+		);
 }
 
 /** Reject agent guidance that advertises retry safety outside declared safe semantics. */
