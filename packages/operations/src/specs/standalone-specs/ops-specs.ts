@@ -130,9 +130,9 @@ export const opsDeliverabilityGuardOperationSpec = defineOperationSpec({
 	},
 	effects: [
 		{ kind: "read", resource: "campaign" },
-		{ kind: "write", resource: "campaign", reversible: true },
+		{ kind: "write", resource: "campaign", reversible: false },
 	],
-	policy: { confirmation: "never", audit: "required", dryRun: false },
+	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
 		kind: "safe",
 		reason: "Re-evaluating the same metrics converges on the same result; pause is only applied once.",
@@ -196,7 +196,8 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 		prerequisites: ["subscribers.list"],
 		verifyWith: ["subscribers.list"],
 		related: [],
-		retryGuidance: "Retry with bounded backoff; the workflow is idempotent for the same candidate set.",
+		retryGuidance:
+			"Do not automatically retry an ambiguous live run. Inspect subscribers.list, rerun a dry-run preview to recompute the mutable candidate set, and explicitly confirm any follow-up execution.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_subscriber_hygiene",

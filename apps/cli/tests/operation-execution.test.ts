@@ -42,7 +42,17 @@ describe("CLI operation execution safety", () => {
 				auditRequired: true,
 				dryRunSupported: true,
 			},
-			dryRun: true,
+				dryRun: true,
+			});
+		expect(
+			getCliOperationExecution("ops.campaign.deliverability-guard", {}),
+		).toMatchObject({
+			operation: { id: "ops.campaign.deliverability-guard" },
+			policy: {
+				confirmationRequired: true,
+				auditRequired: true,
+				dryRunSupported: false,
+			},
 		});
 
 		expect(

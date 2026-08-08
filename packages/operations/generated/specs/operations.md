@@ -1025,7 +1025,7 @@ Evaluate campaign deliverability metrics and optionally pause a breached campaig
 - MCP tool: `listmonk_ops_deliverability_guard`
 - Contract source: input `typescript`, output `typescript`
 - Effects: `read:campaign, write:campaign`
-- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `safe`
 - Stability: `experimental` since `0.9.0`
 

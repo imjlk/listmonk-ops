@@ -459,8 +459,33 @@ describe("email operations specification", () => {
 				destructive: true,
 			},
 		]);
+		const deliverabilityGuardSpec = emailOperationsSpec.operations.find(
+			(operation) => operation.id === "ops.campaign.deliverability-guard",
+		);
+		expect(deliverabilityGuardSpec?.effects).toEqual([
+			{ kind: "read", resource: "campaign" },
+			{ kind: "write", resource: "campaign", reversible: false },
+		]);
+		expect(deliverabilityGuardSpec?.policy).toMatchObject({
+			confirmation: "required",
+			audit: "required",
+			dryRun: false,
+		});
 		expect(
-			emailOperationsSpec.operations.find((o) => o.id === "ops.subscribers.hygiene")?.effects,
+			deliverabilityGuardSpec?.contract.input.components?.schemas
+				?.DeliverabilityGuardInput,
+		).toMatchObject({
+			properties: {
+				bounce_threshold: { minimum: 0, maximum: 1 },
+				open_threshold: { minimum: 0, maximum: 1 },
+				click_threshold: { minimum: 0, maximum: 1 },
+			},
+		});
+		const subscriberHygieneSpec = emailOperationsSpec.operations.find(
+			(operation) => operation.id === "ops.subscribers.hygiene",
+		);
+		expect(
+			subscriberHygieneSpec?.effects,
 		).toEqual([
 			{
 				kind: "write",
@@ -476,6 +501,10 @@ describe("email operations specification", () => {
 				preview: true,
 			},
 		]);
+		expect(subscriberHygieneSpec?.retry.kind).toBe("unsafe");
+		expect(subscriberHygieneSpec?.agent.retryGuidance).toStartWith(
+			"Do not automatically retry an ambiguous live run.",
+		);
 		expect(
 			emailOperationsSpec.operations.find((o) => o.id === "abtest.deploy-winner")?.effects,
 		).toEqual(
