@@ -9,7 +9,10 @@ import {
 	type OperationPolicy,
 	type PolicyForEffects,
 } from "./policy";
-import type { RetrySemantics } from "./retry";
+import {
+	assertRetryGuidanceMatchesSemantics,
+	type RetrySemantics,
+} from "./retry";
 
 export type OperationSpecVerb =
 	| "list"
@@ -250,6 +253,11 @@ export function defineOperationSpec<
 	]) {
 		assertNonBlank(guidance, `Operation spec ${operation.id} agent guidance`);
 	}
+	assertRetryGuidanceMatchesSemantics(
+		operation.id,
+		operation.retry,
+		operation.agent.retryGuidance,
+	);
 	if (operation.retry.kind === "conditional") {
 		for (const retryCase of operation.retry.cases) {
 			assertNonBlank(

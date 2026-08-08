@@ -7,13 +7,10 @@ import {
 	assertRuntimeOperationContracts,
 	assertRuntimeOperationProjection,
 	bridgedOperationSpecsById,
-	campaignCancelOperationSpec,
 	campaignGetOperationSpec,
-	campaignPreflightOperationSpec,
 	campaignResource,
 	campaignSafeStartPlaybook,
 	campaignScheduleOperationSpec,
-	campaignStartOperationSpec,
 	catalogReadOperationSpecs,
 	coreReadOperationSpecs,
 	controlStatusOperationSpec,
@@ -45,7 +42,6 @@ import {
 	templatesReconcileOperationSpec,
 	templatesSetDefaultOperationSpec,
 	templatesUpdateOperationSpec,
-	transactionalSendOperationSpec,
 	webhookDispatchOperationSpec,
 	webhookDeliveryListOperationSpec,
 	webhookDlqListOperationSpec,
@@ -55,6 +51,12 @@ import {
 	webhookReconcileOperationSpec,
 	webhookRuntimeStatusOperationSpec,
 } from "../src/specs";
+import {
+	campaignCancelOperationSpec,
+	campaignPreflightOperationSpec,
+	campaignStartOperationSpec,
+	transactionalSendOperationSpec,
+} from "../src/specs/high-risk";
 import { assertTypeScriptContractCompatibility } from "../src/specs/schema-compatibility";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import type { PolicyForEffects } from "../src/specs/policy";
@@ -82,7 +84,57 @@ const conflictingPreviewDryRunIsNever: IsNever<
 	>["dryRun"]
 > = true;
 
+function assertOperationDescriptorIdentity(
+	operation: { readonly id: string },
+	expectedId: string,
+): void {
+	expect(operation.id).toBe(expectedId);
+}
+
+export function assertHighRiskOperationSpecContracts(): void {
+	assertOperationDescriptorIdentity(
+		campaignStartOperationSpec,
+		"campaigns.start",
+	);
+	assertOperationDescriptorIdentity(
+		campaignCancelOperationSpec,
+		"campaigns.cancel",
+	);
+	assertOperationDescriptorIdentity(
+		transactionalSendOperationSpec,
+		"transactional.send",
+	);
+	assertOperationDescriptorIdentity(
+		campaignPreflightOperationSpec,
+		"ops.campaign.preflight",
+	);
+	expect(transactionalSendOperationSpec.retry).toMatchObject({
+		kind: "conditional",
+	});
+	expect(campaignStartOperationSpec.state).toEqual({
+		resource: "campaign",
+		from: ["draft", "scheduled", "paused"],
+		to: "running",
+		allowNoopFromTarget: true,
+	});
+	expect(campaignCancelOperationSpec.state?.to).toBe("cancelled");
+	expect(campaignPreflightOperationSpec.contract.output.schema.type).toBe(
+		"object",
+	);
+	expect(
+		campaignPreflightOperationSpec.contract.output.schema.properties?.checkedAt,
+	).toEqual({ $ref: "#/components/schemas/IsoDateTime" });
+	expect(
+		campaignPreflightOperationSpec.contract.output.components?.schemas
+			?.IsoDateTime,
+	).toMatchObject({ type: "string", format: "date-time" });
+}
+
 describe("email operations specification", () => {
+	test("directly anchors high-risk operation descriptor contracts", () => {
+		assertHighRiskOperationSpecContracts();
+	});
+
 	test("normalizes contract JSON through one deterministic implementation", () => {
 		expect(
 			JSON.stringify(
@@ -416,27 +468,6 @@ describe("email operations specification", () => {
 		expect(campaignScheduleOperationSpec.agent.prerequisites).toContain(
 			"ops.campaign.preflight",
 		);
-		expect(transactionalSendOperationSpec.retry).toMatchObject({
-			kind: "conditional",
-		});
-		expect(campaignStartOperationSpec.state).toEqual({
-			resource: "campaign",
-			from: ["draft", "scheduled", "paused"],
-			to: "running",
-			allowNoopFromTarget: true,
-		});
-		expect(campaignCancelOperationSpec.state?.to).toBe("cancelled");
-		expect(
-			campaignPreflightOperationSpec.contract.output.schema.type,
-		).toBe("object");
-		expect(
-			campaignPreflightOperationSpec.contract.output.schema.properties
-				?.checkedAt,
-		).toEqual({ $ref: "#/components/schemas/IsoDateTime" });
-		expect(
-			campaignPreflightOperationSpec.contract.output.components?.schemas
-				?.IsoDateTime,
-		).toMatchObject({ type: "string", format: "date-time" });
 		expect(webhookOperationSpecs).toHaveLength(16);
 		expect(sequenceOperationSpecs).toHaveLength(14);
 		expect(providerOperationSpecs).toHaveLength(7);
@@ -604,6 +635,36 @@ describe("email operations specification", () => {
 			"failed",
 			"cancelled",
 		]);
+	});
+
+	test("rejects safe retry guidance for an unsafe operation", () => {
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				retry: {
+					kind: "unsafe",
+					reason: "The delivery result may be ambiguous.",
+				},
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retrying the same campaign start is safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				retry: {
+					kind: "unsafe",
+					reason: "The delivery result may be ambiguous.",
+				},
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"Do not automatically retry; inspect campaign state before deciding whether to repeat the request.",
+				},
+			}),
+		).not.toThrow();
 	});
 
 	test("derives safety requirements from operation effects", () => {

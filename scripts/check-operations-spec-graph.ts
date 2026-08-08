@@ -5,7 +5,7 @@ import type { GraphDump } from "./check-graph-architecture";
 
 export type OperationsSpecGraphEdge = {
 	operationId: string;
-	kind: "calls" | "type_ref";
+	kind: "accesses" | "calls" | "type_ref";
 	from: string;
 	to: string;
 };
@@ -13,7 +13,33 @@ export type OperationsSpecGraphEdge = {
 export const operationsSpecOperationCount =
 	emailOperationsSpec.operations.length;
 
-export const operationsSpecGraphEdges: readonly OperationsSpecGraphEdge[] =
+const operationSpecTestModule =
+	"packages/operations/tests/specs.test.ts#packages/operations/tests/specs.test.ts:module";
+const highRiskOperationSpecTestAnchor =
+	"packages/operations/tests/specs.test.ts#assertHighRiskOperationSpecContracts:function";
+const highRiskOperationSpecTestAnchors = [
+	["campaigns.start", "campaignStartOperationSpec"],
+	["campaigns.cancel", "campaignCancelOperationSpec"],
+	["transactional.send", "transactionalSendOperationSpec"],
+	["ops.campaign.preflight", "campaignPreflightOperationSpec"],
+] as const;
+
+export const highRiskOperationSpecTestEdges: readonly OperationsSpecGraphEdge[] =
+	highRiskOperationSpecTestAnchors.map(([operationId, symbol]) => ({
+		operationId,
+		kind: "accesses",
+		from: highRiskOperationSpecTestAnchor,
+		to: `packages/operations/src/specs/high-risk.ts#${symbol}:variable`,
+	}));
+
+export const highRiskOperationSpecTestCallEdge: OperationsSpecGraphEdge = {
+	operationId: "high-risk descriptor tests",
+	kind: "calls",
+	from: operationSpecTestModule,
+	to: highRiskOperationSpecTestAnchor,
+};
+
+const runtimeOperationSpecGraphEdges: readonly OperationsSpecGraphEdge[] =
 	emailOperationsSpec.operations.flatMap((operation) => [
 		{
 			operationId: operation.id,
@@ -34,6 +60,12 @@ export const operationsSpecGraphEdges: readonly OperationsSpecGraphEdge[] =
 			to: operation.projection.graph.executorNode,
 		},
 	]);
+
+export const operationsSpecGraphEdges: readonly OperationsSpecGraphEdge[] = [
+	...runtimeOperationSpecGraphEdges,
+	highRiskOperationSpecTestCallEdge,
+	...highRiskOperationSpecTestEdges,
+];
 
 export function assertOperationsSpecGraph(
 	graph: GraphDump,

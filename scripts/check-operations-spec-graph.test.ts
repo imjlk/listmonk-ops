@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	assertOperationsSpecGraph,
+	highRiskOperationSpecTestEdges,
 	operationsSpecGraphEdges,
 } from "./check-operations-spec-graph";
 
@@ -38,5 +39,20 @@ describe("operations spec graph contracts", () => {
 				[first],
 			),
 		).toThrow(`${first.operationId} missing ${first.kind} edge`);
+	});
+
+	test("requires direct test anchors for every high-risk descriptor", () => {
+		expect(highRiskOperationSpecTestEdges).toHaveLength(4);
+		expect(
+			highRiskOperationSpecTestEdges.map(({ operationId, kind }) => ({
+				operationId,
+				kind,
+			})),
+		).toEqual([
+			{ operationId: "campaigns.start", kind: "accesses" },
+			{ operationId: "campaigns.cancel", kind: "accesses" },
+			{ operationId: "transactional.send", kind: "accesses" },
+			{ operationId: "ops.campaign.preflight", kind: "accesses" },
+		]);
 	});
 });
