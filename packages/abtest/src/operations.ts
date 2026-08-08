@@ -842,10 +842,11 @@ export const analyzeAbTestOperation = defineOperation({
 export const launchAbTestOperation = defineOperation({
 	id: "abtest.launch",
 	title: "Launch A/B test",
-	description: "Launch a draft A/B test into the testing status",
+	description:
+		"Schedule every variant campaign for delivery and transition a draft A/B test to scheduled",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
-	safety: destructiveSafety,
+	safety: destructiveNonIdempotentSafety,
 	mcp: {
 		name: "listmonk_abtest_launch",
 		legacySuccessText: (output) => jsonValue(output["test"]),
@@ -858,10 +859,10 @@ export const stopAbTestOperation = defineOperation({
 	id: "abtest.stop",
 	title: "Stop A/B test",
 	description:
-		"Stop a running A/B test and transition to a terminal status",
+		"Stop a running or scheduled A/B test, cancel or delete its backing campaigns, clean up eligible temporary lists, and transition it to cancelled",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
-	safety: destructiveSafety,
+	safety: destructiveNonIdempotentSafety,
 	mcp: {
 		name: "listmonk_abtest_stop",
 		legacySuccessText: (output) => jsonValue(output["test"]),
@@ -874,10 +875,10 @@ export const deleteAbTestOperation = defineOperation({
 	id: "abtest.delete",
 	title: "Delete A/B test",
 	description:
-		"Delete a persisted A/B test",
+		"Delete a persisted A/B test and clean up its non-terminal backing campaigns and temporary lists",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ deleted: z.boolean() }),
-	safety: destructiveSafety,
+	safety: destructiveNonIdempotentSafety,
 	mcp: {
 		name: "listmonk_abtest_delete",
 		legacySuccessText: (output) => jsonValue(output),

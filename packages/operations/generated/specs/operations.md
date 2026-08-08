@@ -1139,31 +1139,31 @@ Analyze A/B test results and produce statistical recommendations
 
 ## `abtest.launch`
 
-Launch a draft A/B test into the testing status
+Schedule every variant campaign for delivery and transition a draft A/B test to scheduled
 
 - Resource / verb: `experiment.launch`
 - MCP tool: `listmonk_abtest_launch`
 - Contract source: input `typescript`, output `typescript`
-- Effects: `write:experiment`
+- Effects: `write:experiment, write:campaign, delivery:bulk:scheduled`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `safe`
+- Retry: `unsafe`
 - Stability: `experimental` since `0.10.0`
 
 ## `abtest.stop`
 
-Stop a running A/B test and transition to a terminal status
+Stop a running or scheduled A/B test, cancel or delete its backing campaigns, clean up eligible temporary lists, and transition it to cancelled
 
 - Resource / verb: `experiment.stop`
 - MCP tool: `listmonk_abtest_stop`
 - Contract source: input `typescript`, output `typescript`
-- Effects: `write:experiment`
+- Effects: `write:experiment, write:campaign, delete:campaign, delete:list`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `safe`
+- Retry: `unsafe`
 - Stability: `experimental` since `0.10.0`
 
 ## `abtest.delete`
 
-Delete a persisted A/B test
+Delete a persisted A/B test and clean up its non-terminal backing campaigns and temporary lists
 
 - Resource / verb: `experiment.delete`
 - MCP tool: `listmonk_abtest_delete`

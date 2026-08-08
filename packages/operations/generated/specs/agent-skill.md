@@ -1320,7 +1320,7 @@ Retry guidance: Retry is safe; the analysis is read-only.
 
 ## Launch A/B test (`abtest.launch`)
 
-Contract maturity: `experimental`; effects: `write:experiment`; confirmation: `required`; retry: `safe`.
+Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
 
 Use when: A draft A/B test is ready to go live.
 
@@ -1330,13 +1330,13 @@ Prerequisites: `abtest.get`
 
 Verify with: `abtest.get`
 
-Retry guidance: Retry is safe; launching an already-launched test is a no-op.
+Retry guidance: Inspect abtest.get and the backing Listmonk campaigns before retrying an ambiguous launch.
 
 ## Stop A/B test (`abtest.stop`)
 
-Contract maturity: `experimental`; effects: `write:experiment`; confirmation: `required`; retry: `safe`.
+Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delete:campaign, delete:list`; confirmation: `required`; retry: `unsafe`.
 
-Use when: A running A/B test must be stopped.
+Use when: A running or scheduled A/B test must be stopped.
 
 Avoid when: The test has already reached a terminal status.
 
@@ -1344,7 +1344,7 @@ Prerequisites: `abtest.get`
 
 Verify with: `abtest.get`
 
-Retry guidance: Retry is safe; stopping an already-stopped test is a no-op.
+Retry guidance: Inspect abtest.get and every backing campaign and temporary list before retrying an ambiguous stop.
 
 ## Delete A/B test (`abtest.delete`)
 
@@ -1358,7 +1358,7 @@ Prerequisites: `abtest.get`
 
 Verify with: `abtest.list`
 
-Retry guidance: Verify the test is gone with abtest.list before retrying.
+Retry guidance: Inspect abtest.list and the remaining backing campaigns and temporary lists before retrying; an ambiguous delete may have removed only some remote resources.
 
 ## Recommend A/B test sample size (`abtest.recommend-sample-size`)
 
@@ -1386,7 +1386,7 @@ Prerequisites: `abtest.analyze`
 
 Verify with: `abtest.get`
 
-Retry guidance: Retry is safe; deploying an already-deployed winner is a no-op.
+Retry guidance: Inspect abtest.get and the holdout campaign before retrying; an ambiguous deployment may already have delivered to the holdout audience.
 
 ## Run A/B test (`abtest.run`)
 
