@@ -32839,7 +32839,7 @@
           "abtest.stop",
           "abtest.run"
         ],
-        "retryGuidance": "Retry is safe; launching an already-launched test is a no-op.",
+        "retryGuidance": "Inspect abtest.get and the backing Listmonk campaigns before retrying an ambiguous launch.",
         "useWhen": [
           "A draft A/B test is ready to go live."
         ],
@@ -33246,12 +33246,23 @@
           "stage": "normalized"
         }
       },
-      "description": "Launch a draft A/B test into the testing status",
+      "description": "Schedule every variant campaign for delivery and transition a draft A/B test to scheduled",
       "effects": [
         {
           "kind": "write",
           "resource": "experiment",
           "reversible": false
+        },
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": false
+        },
+        {
+          "audience": "bulk",
+          "kind": "delivery",
+          "resource": "campaign",
+          "timing": "scheduled"
         }
       ],
       "id": "abtest.launch",
@@ -33273,8 +33284,8 @@
       },
       "resource": "experiment",
       "retry": {
-        "kind": "safe",
-        "reason": "Launching an already-testing test is a no-op."
+        "kind": "unsafe",
+        "reason": "An ambiguous launch may have scheduled variant campaigns before the persisted test status was updated; repeating it can reschedule delivery."
       },
       "since": "0.10.0",
       "stability": "experimental",
@@ -33292,9 +33303,9 @@
         "related": [
           "abtest.launch"
         ],
-        "retryGuidance": "Retry is safe; stopping an already-stopped test is a no-op.",
+        "retryGuidance": "Inspect abtest.get and every backing campaign and temporary list before retrying an ambiguous stop.",
         "useWhen": [
-          "A running A/B test must be stopped."
+          "A running or scheduled A/B test must be stopped."
         ],
         "verifyWith": [
           "abtest.get"
@@ -33699,11 +33710,26 @@
           "stage": "normalized"
         }
       },
-      "description": "Stop a running A/B test and transition to a terminal status",
+      "description": "Stop a running or scheduled A/B test, cancel or delete its backing campaigns, clean up eligible temporary lists, and transition it to cancelled",
       "effects": [
         {
           "kind": "write",
           "resource": "experiment",
+          "reversible": false
+        },
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": false
+        },
+        {
+          "kind": "delete",
+          "resource": "campaign",
+          "reversible": false
+        },
+        {
+          "kind": "delete",
+          "resource": "list",
           "reversible": false
         }
       ],
@@ -33726,8 +33752,8 @@
       },
       "resource": "experiment",
       "retry": {
-        "kind": "safe",
-        "reason": "Stopping an already-stopped test is a no-op."
+        "kind": "unsafe",
+        "reason": "A stop can partially cancel or delete remote resources before persistence is updated, and repeating a completed stop is rejected by the lifecycle guard."
       },
       "since": "0.10.0",
       "stability": "experimental",
@@ -33745,7 +33771,7 @@
         "related": [
           "abtest.stop"
         ],
-        "retryGuidance": "Verify the test is gone with abtest.list before retrying.",
+        "retryGuidance": "Inspect abtest.list and the remaining backing campaigns and temporary lists before retrying; an ambiguous delete may have removed only some remote resources.",
         "useWhen": [
           "An A/B test must be permanently removed."
         ],
@@ -33825,7 +33851,7 @@
           "stage": "normalized"
         }
       },
-      "description": "Delete a persisted A/B test",
+      "description": "Delete a persisted A/B test and clean up its non-terminal backing campaigns and temporary lists",
       "effects": [
         {
           "kind": "delete",
@@ -33862,9 +33888,9 @@
       },
       "resource": "experiment",
       "retry": {
-        "idempotent": true,
+        "idempotent": false,
         "kind": "reconcile",
-        "reason": "Deleting an already-deleted test is a no-op; verify with abtest.list after an ambiguous result.",
+        "reason": "A completed repeat is reported as not found, while an ambiguous first attempt may have removed only some remote resources; verify with abtest.list before deciding whether cleanup is still required.",
         "reconcileWith": "abtest.list"
       },
       "since": "0.10.0",
@@ -34116,7 +34142,7 @@
         "related": [
           "abtest.stop"
         ],
-        "retryGuidance": "Retry is safe; deploying an already-deployed winner is a no-op.",
+        "retryGuidance": "Inspect abtest.get and the holdout campaign before retrying; an ambiguous deployment may already have delivered to the holdout audience.",
         "useWhen": [
           "A winning variant must be deployed to the holdout group."
         ],

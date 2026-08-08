@@ -185,13 +185,24 @@ export const abTestLaunchOperationSpec = defineOperationSpec({
 	resource: "experiment",
 	verb: "launch",
 	title: "Launch A/B test",
-	description: "Launch a draft A/B test into the testing status",
+	description:
+		"Schedule every variant campaign for delivery and transition a draft A/B test to scheduled",
 	contract: { input: abTestIdInputContract, output: abTestGetOutputContract },
-	effects: [{ kind: "write", resource: "experiment", reversible: false }],
+	effects: [
+		{ kind: "write", resource: "experiment", reversible: false },
+		{ kind: "write", resource: "campaign", reversible: false },
+		{
+			kind: "delivery",
+			resource: "campaign",
+			audience: "bulk",
+			timing: "scheduled",
+		},
+	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "safe",
-		reason: "Launching an already-testing test is a no-op.",
+		kind: "unsafe",
+		reason:
+			"An ambiguous launch may have scheduled variant campaigns before the persisted test status was updated; repeating it can reschedule delivery.",
 	},
 	agent: {
 		useWhen: ["A draft A/B test is ready to go live."],
@@ -199,7 +210,8 @@ export const abTestLaunchOperationSpec = defineOperationSpec({
 		prerequisites: ["abtest.get"],
 		verifyWith: ["abtest.get"],
 		related: ["abtest.stop", "abtest.run"],
-		retryGuidance: "Retry is safe; launching an already-launched test is a no-op.",
+		retryGuidance:
+			"Inspect abtest.get and the backing Listmonk campaigns before retrying an ambiguous launch.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_launch",
@@ -221,21 +233,29 @@ export const abTestStopOperationSpec = defineOperationSpec({
 	resource: "experiment",
 	verb: "stop",
 	title: "Stop A/B test",
-	description: "Stop a running A/B test and transition to a terminal status",
+	description:
+		"Stop a running or scheduled A/B test, cancel or delete its backing campaigns, clean up eligible temporary lists, and transition it to cancelled",
 	contract: { input: abTestIdInputContract, output: abTestGetOutputContract },
-	effects: [{ kind: "write", resource: "experiment", reversible: false }],
+	effects: [
+		{ kind: "write", resource: "experiment", reversible: false },
+		{ kind: "write", resource: "campaign", reversible: false },
+		{ kind: "delete", resource: "campaign", reversible: false },
+		{ kind: "delete", resource: "list", reversible: false },
+	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "safe",
-		reason: "Stopping an already-stopped test is a no-op.",
+		kind: "unsafe",
+		reason:
+			"A stop can partially cancel or delete remote resources before persistence is updated, and repeating a completed stop is rejected by the lifecycle guard.",
 	},
 	agent: {
-		useWhen: ["A running A/B test must be stopped."],
+		useWhen: ["A running or scheduled A/B test must be stopped."],
 		avoidWhen: ["The test has already reached a terminal status."],
 		prerequisites: ["abtest.get"],
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch"],
-		retryGuidance: "Retry is safe; stopping an already-stopped test is a no-op.",
+		retryGuidance:
+			"Inspect abtest.get and every backing campaign and temporary list before retrying an ambiguous stop.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_stop",
@@ -257,7 +277,8 @@ export const abTestDeleteOperationSpec = defineOperationSpec({
 	resource: "experiment",
 	verb: "delete",
 	title: "Delete A/B test",
-	description: "Delete a persisted A/B test",
+	description:
+		"Delete a persisted A/B test and clean up its non-terminal backing campaigns and temporary lists",
 	contract: { input: abTestIdInputContract, output: abTestDeleteOutputContract },
 	effects: [
 		{ kind: "delete", resource: "experiment", reversible: false },
@@ -268,8 +289,9 @@ export const abTestDeleteOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "reconcile",
 		reconcileWith: "abtest.list",
-		idempotent: true,
-		reason: "Deleting an already-deleted test is a no-op; verify with abtest.list after an ambiguous result.",
+		idempotent: false,
+		reason:
+			"A completed repeat is reported as not found, while an ambiguous first attempt may have removed only some remote resources; verify with abtest.list before deciding whether cleanup is still required.",
 	},
 	agent: {
 		useWhen: ["An A/B test must be permanently removed."],
@@ -277,7 +299,8 @@ export const abTestDeleteOperationSpec = defineOperationSpec({
 		prerequisites: ["abtest.get"],
 		verifyWith: ["abtest.list"],
 		related: ["abtest.stop"],
-		retryGuidance: "Verify the test is gone with abtest.list before retrying.",
+		retryGuidance:
+			"Inspect abtest.list and the remaining backing campaigns and temporary lists before retrying; an ambiguous delete may have removed only some remote resources.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_delete",
@@ -363,7 +386,8 @@ export const abTestDeployWinnerOperationSpec = defineOperationSpec({
 		prerequisites: ["abtest.analyze"],
 		verifyWith: ["abtest.get"],
 		related: ["abtest.stop"],
-		retryGuidance: "Retry is safe; deploying an already-deployed winner is a no-op.",
+		retryGuidance:
+			"Inspect abtest.get and the holdout campaign before retrying; an ambiguous deployment may already have delivered to the holdout audience.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_deploy_winner",

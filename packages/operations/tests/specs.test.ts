@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+	abTestDeleteOperationSpec,
+	abTestDeployWinnerOperationSpec,
+	abTestLaunchOperationSpec,
+	abTestStopOperationSpec,
 	assertRuntimeOperationContracts,
 	assertRuntimeOperationProjection,
 	bridgedOperationSpecsById,
@@ -481,12 +485,34 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.find((o) => o.id === "abtest.deploy-winner")?.retry,
 		).toMatchObject({ kind: "unsafe" });
 
-		const createSpec = emailOperationsSpec.operations.find((o) => o.id === "abtest.create");
-		const launchSpec = emailOperationsSpec.operations.find((o) => o.id === "abtest.launch");
-		// create has no delivery effect; launch has no delivery effect either.
-		// These were bridge-specific assertions that no longer apply to standalone specs.
-		expect(createSpec).toBeDefined();
-		expect(launchSpec).toBeDefined();
+		expect(abTestLaunchOperationSpec.effects).toEqual([
+			{ kind: "write", resource: "experiment", reversible: false },
+			{ kind: "write", resource: "campaign", reversible: false },
+			{
+				kind: "delivery",
+				resource: "campaign",
+				audience: "bulk",
+				timing: "scheduled",
+			},
+		]);
+		expect(abTestLaunchOperationSpec.retry).toMatchObject({ kind: "unsafe" });
+		expect(abTestStopOperationSpec.effects).toEqual([
+			{ kind: "write", resource: "experiment", reversible: false },
+			{ kind: "write", resource: "campaign", reversible: false },
+			{ kind: "delete", resource: "campaign", reversible: false },
+			{ kind: "delete", resource: "list", reversible: false },
+		]);
+		expect(abTestStopOperationSpec.retry).toMatchObject({ kind: "unsafe" });
+		expect(abTestDeleteOperationSpec.retry).toMatchObject({
+			kind: "reconcile",
+			idempotent: false,
+		});
+		expect(abTestDeployWinnerOperationSpec.retry).toMatchObject({
+			kind: "unsafe",
+		});
+		expect(abTestDeployWinnerOperationSpec.agent.retryGuidance).not.toContain(
+			"Retry is safe",
+		);
 
 		expect(experimentResource.states).toEqual([
 			"draft",

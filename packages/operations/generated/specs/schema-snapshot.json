@@ -29035,8 +29035,8 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "safe",
-        "reason": "Launching an already-testing test is a no-op."
+        "kind": "unsafe",
+        "reason": "An ambiguous launch may have scheduled variant campaigns before the persisted test status was updated; repeating it can reschedule delivery."
       },
       "since": "0.10.0",
       "stability": "experimental"
@@ -29446,8 +29446,8 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "safe",
-        "reason": "Stopping an already-stopped test is a no-op."
+        "kind": "unsafe",
+        "reason": "A stop can partially cancel or delete remote resources before persistence is updated, and repeating a completed stop is rejected by the lifecycle guard."
       },
       "since": "0.10.0",
       "stability": "experimental"
@@ -29530,9 +29530,9 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": true,
+        "idempotent": false,
         "kind": "reconcile",
-        "reason": "Deleting an already-deleted test is a no-op; verify with abtest.list after an ambiguous result.",
+        "reason": "A completed repeat is reported as not found, while an ambiguous first attempt may have removed only some remote resources; verify with abtest.list before deciding whether cleanup is still required.",
         "reconcileWith": "abtest.list"
       },
       "since": "0.10.0",
