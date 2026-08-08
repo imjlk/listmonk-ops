@@ -19164,1182 +19164,6 @@
     {
       "agent": {
         "avoidWhen": [
-          "A single template should be inspected without a full manifest."
-        ],
-        "prerequisites": [
-          "templates.list"
-        ],
-        "related": [
-          "ops.templates.registry-sync"
-        ],
-        "retryGuidance": "Re-run reconcile in dry-run mode after a partial apply to verify the remaining desired state before applying again.",
-        "useWhen": [
-          "A versioned template manifest must be planned or applied."
-        ],
-        "verifyWith": [
-          "templates.list"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {
-            "schemas": {
-              "TemplateManifestEntry": {
-                "additionalProperties": false,
-                "properties": {
-                  "body": {
-                    "maxLength": 1048576,
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "body_source": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "maxLength": 120,
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "subject": {
-                    "description": "Email subject. Optional on input and defaults to `\"\"`, matching the\nruntime Zod schema's `.optional().default(\"\")`. Reconciliation of an\nexisting template with an omitted subject clears it rather than preserving\nthe prior value.",
-                    "type": "string"
-                  },
-                  "type": {
-                    "description": "Template type. Optional on input and defaults to `\"campaign\"`, matching\nthe runtime Zod schema's `.default(\"campaign\")`.",
-                    "oneOf": [
-                      {
-                        "const": "campaign"
-                      },
-                      {
-                        "const": "campaign_visual"
-                      },
-                      {
-                        "const": "tx"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "name",
-                  "body"
-                ],
-                "type": "object"
-              },
-              "TemplateManifestReconcileInput": {
-                "additionalProperties": false,
-                "properties": {
-                  "dry_run": {
-                    "description": "Plan only when true; apply when false. Optional on input and defaults to\na safe dry run (true), matching the runtime Zod schema's `.default(true)`.",
-                    "type": "boolean"
-                  },
-                  "schema_version": {
-                    "const": 1
-                  },
-                  "templates": {
-                    "items": {
-                      "$ref": "#/components/schemas/TemplateManifestEntry"
-                    },
-                    "maxItems": 500,
-                    "minItems": 1,
-                    "type": "array"
-                  }
-                },
-                "required": [
-                  "schema_version",
-                  "templates"
-                ],
-                "type": "object"
-              }
-            }
-          },
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "dry_run": {
-                "description": "Plan only when true; apply when false. Optional on input and defaults to\na safe dry run (true), matching the runtime Zod schema's `.default(true)`.",
-                "type": "boolean"
-              },
-              "schema_version": {
-                "const": 1
-              },
-              "templates": {
-                "items": {
-                  "$ref": "#/components/schemas/TemplateManifestEntry"
-                },
-                "maxItems": 500,
-                "minItems": 1,
-                "type": "array"
-              }
-            },
-            "required": [
-              "schema_version",
-              "templates"
-            ],
-            "type": "object"
-          },
-          "source": "typescript",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {
-            "schemas": {
-              "TemplateManifestReconcileOutput": {
-                "additionalProperties": false,
-                "properties": {
-                  "dry_run": {
-                    "type": "boolean"
-                  },
-                  "results": {
-                    "items": {
-                      "$ref": "#/components/schemas/TemplateReconcileSummary"
-                    },
-                    "type": "array"
-                  },
-                  "schema_version": {
-                    "const": 1
-                  }
-                },
-                "required": [
-                  "schema_version",
-                  "dry_run",
-                  "results"
-                ],
-                "type": "object"
-              },
-              "TemplateReconcileAction": {
-                "oneOf": [
-                  {
-                    "const": "create"
-                  },
-                  {
-                    "const": "unchanged"
-                  },
-                  {
-                    "const": "update"
-                  }
-                ]
-              },
-              "TemplateReconcileSummary": {
-                "additionalProperties": false,
-                "properties": {
-                  "action": {
-                    "$ref": "#/components/schemas/TemplateReconcileAction"
-                  },
-                  "applied": {
-                    "type": "boolean"
-                  },
-                  "name": {
-                    "maxLength": 120,
-                    "minLength": 1,
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "name",
-                  "action",
-                  "applied"
-                ],
-                "type": "object"
-              }
-            }
-          },
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "dry_run": {
-                "type": "boolean"
-              },
-              "results": {
-                "items": {
-                  "$ref": "#/components/schemas/TemplateReconcileSummary"
-                },
-                "type": "array"
-              },
-              "schema_version": {
-                "const": 1
-              }
-            },
-            "required": [
-              "schema_version",
-              "dry_run",
-              "results"
-            ],
-            "type": "object"
-          },
-          "source": "typescript",
-          "stage": "normalized"
-        }
-      },
-      "description": "Plan or apply a versioned template manifest against exact-name Listmonk templates",
-      "effects": [
-        {
-          "kind": "write",
-          "preview": true,
-          "resource": "template",
-          "reversible": false
-        }
-      ],
-      "id": "templates.reconcile",
-      "policy": {
-        "audit": "required",
-        "confirmation": "required",
-        "dryRun": true
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesReconcileOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesReconcileOperationSpec:variable",
-          "executorNode": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function",
-          "invokerNode": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable"
-        },
-        "mcpName": "listmonk_reconcile_template_manifest",
-        "openWorld": true
-      },
-      "resource": "template",
-      "retry": {
-        "idempotent": true,
-        "kind": "reconcile",
-        "reason": "Manifest apply is plan-then-apply; re-running reconcile re-plans the full desired state and converges on the manifest, but a partial remote failure must be inspected before retrying.",
-        "reconcileWith": "templates.reconcile"
-      },
-      "since": "0.12.0",
-      "stability": "stable",
-      "title": "Reconcile template manifest",
-      "verb": "reconcile"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "An existing template should be converged by exact name; use templates.reconcile instead."
-        ],
-        "prerequisites": [],
-        "related": [
-          "templates.reconcile"
-        ],
-        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect templates.list for the intended name first.",
-        "useWhen": [
-          "A new Listmonk template must be created."
-        ],
-        "verifyWith": [
-          "templates.list"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {
-            "schemas": {
-              "NonEmptyString": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "TemplateCreateInput": {
-                "additionalProperties": false,
-                "properties": {
-                  "body": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "body_source": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "subject": {
-                    "description": "Omitted values default to an empty subject at the runtime boundary.",
-                    "type": "string"
-                  },
-                  "type": {
-                    "description": "Omitted values default to `\"campaign\"` at the runtime boundary.",
-                    "oneOf": [
-                      {
-                        "const": "campaign"
-                      },
-                      {
-                        "const": "campaign_visual"
-                      },
-                      {
-                        "const": "tx"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "name",
-                  "body"
-                ],
-                "type": "object"
-              }
-            }
-          },
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "body": {
-                "$ref": "#/components/schemas/NonEmptyString"
-              },
-              "body_source": {
-                "type": "string"
-              },
-              "name": {
-                "$ref": "#/components/schemas/NonEmptyString"
-              },
-              "subject": {
-                "description": "Omitted values default to an empty subject at the runtime boundary.",
-                "type": "string"
-              },
-              "type": {
-                "description": "Omitted values default to `\"campaign\"` at the runtime boundary.",
-                "oneOf": [
-                  {
-                    "const": "campaign"
-                  },
-                  {
-                    "const": "campaign_visual"
-                  },
-                  {
-                    "const": "tx"
-                  }
-                ]
-              }
-            },
-            "required": [
-              "name",
-              "body"
-            ],
-            "type": "object"
-          },
-          "source": "typescript",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {
-            "schemas": {
-              "ResourceId": {
-                "maximum": 9007199254740991,
-                "minimum": 1,
-                "type": "integer"
-              },
-              "TemplateRecord": {
-                "additionalProperties": {},
-                "properties": {
-                  "body": {
-                    "type": "string"
-                  },
-                  "body_source": {
-                    "oneOf": [
-                      {
-                        "type": "null"
-                      },
-                      {
-                        "type": "string"
-                      }
-                    ]
-                  },
-                  "created_at": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "$ref": "#/components/schemas/ResourceId"
-                  },
-                  "is_default": {
-                    "type": "boolean"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "subject": {
-                    "type": "string"
-                  },
-                  "type": {
-                    "type": "string"
-                  },
-                  "updated_at": {
-                    "type": "string"
-                  }
-                },
-                "required": [],
-                "type": "object"
-              }
-            }
-          },
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": {},
-            "properties": {
-              "body": {
-                "type": "string"
-              },
-              "body_source": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "type": "string"
-                  }
-                ]
-              },
-              "created_at": {
-                "type": "string"
-              },
-              "id": {
-                "$ref": "#/components/schemas/ResourceId"
-              },
-              "is_default": {
-                "type": "boolean"
-              },
-              "name": {
-                "type": "string"
-              },
-              "subject": {
-                "type": "string"
-              },
-              "type": {
-                "type": "string"
-              },
-              "updated_at": {
-                "type": "string"
-              }
-            },
-            "required": [],
-            "type": "object"
-          },
-          "source": "typescript",
-          "stage": "normalized"
-        }
-      },
-      "description": "Create a template in Listmonk",
-      "effects": [
-        {
-          "kind": "write",
-          "resource": "template",
-          "reversible": true
-        }
-      ],
-      "id": "templates.create",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesCreateOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesCreateOperationSpec:variable",
-          "executorNode": "packages/operations/src/templates.ts#createTemplate:function",
-          "invokerNode": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/templates.ts#createTemplateOperation:variable"
-        },
-        "mcpName": "listmonk_create_template",
-        "openWorld": true
-      },
-      "resource": "template",
-      "retry": {
-        "kind": "unsafe",
-        "reason": "A transport failure can be ambiguous after Listmonk creates the template; inspect templates.list before retrying."
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Create template",
-      "verb": "create"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The template ID is unknown or a versioned exact-name manifest should be reconciled."
-        ],
-        "prerequisites": [
-          "templates.get"
-        ],
-        "related": [
-          "templates.reconcile",
-          "ops.templates.registry-sync"
-        ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff, then verify with templates.get.",
-        "useWhen": [
-          "A known template must be updated by numeric ID."
-        ],
-        "verifyWith": [
-          "templates.get"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {
-            "schemas": {
-              "NonEmptyString": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "ResourceId": {
-                "maximum": 9007199254740991,
-                "minimum": 1,
-                "type": "integer"
-              },
-              "ResourceIdInputTemplateUpdateFields__type": {
-                "additionalProperties": false,
-                "properties": {
-                  "body": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "body_source": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "$ref": "#/components/schemas/ResourceId",
-                    "description": "Positive Listmonk resource ID."
-                  },
-                  "name": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "subject": {
-                    "type": "string"
-                  },
-                  "type": {
-                    "oneOf": [
-                      {
-                        "const": "campaign"
-                      },
-                      {
-                        "const": "campaign_visual"
-                      },
-                      {
-                        "const": "tx"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "id",
-                  "name"
-                ],
-                "type": "object"
-              },
-              "ResourceIdInputTemplateUpdateFields__type-o1": {
-                "additionalProperties": false,
-                "properties": {
-                  "body": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "body_source": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "$ref": "#/components/schemas/ResourceId",
-                    "description": "Positive Listmonk resource ID."
-                  },
-                  "name": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "subject": {
-                    "type": "string"
-                  },
-                  "type": {
-                    "oneOf": [
-                      {
-                        "const": "campaign"
-                      },
-                      {
-                        "const": "campaign_visual"
-                      },
-                      {
-                        "const": "tx"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "id",
-                  "type"
-                ],
-                "type": "object"
-              },
-              "ResourceIdInputTemplateUpdateFields__type-o2": {
-                "additionalProperties": false,
-                "properties": {
-                  "body": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "body_source": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "$ref": "#/components/schemas/ResourceId",
-                    "description": "Positive Listmonk resource ID."
-                  },
-                  "name": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "subject": {
-                    "type": "string"
-                  },
-                  "type": {
-                    "oneOf": [
-                      {
-                        "const": "campaign"
-                      },
-                      {
-                        "const": "campaign_visual"
-                      },
-                      {
-                        "const": "tx"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "id",
-                  "subject"
-                ],
-                "type": "object"
-              },
-              "ResourceIdInputTemplateUpdateFields__type-o3": {
-                "additionalProperties": false,
-                "properties": {
-                  "body": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "body_source": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "$ref": "#/components/schemas/ResourceId",
-                    "description": "Positive Listmonk resource ID."
-                  },
-                  "name": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "subject": {
-                    "type": "string"
-                  },
-                  "type": {
-                    "oneOf": [
-                      {
-                        "const": "campaign"
-                      },
-                      {
-                        "const": "campaign_visual"
-                      },
-                      {
-                        "const": "tx"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "id",
-                  "body_source"
-                ],
-                "type": "object"
-              },
-              "ResourceIdInputTemplateUpdateFields__type-o4": {
-                "additionalProperties": false,
-                "properties": {
-                  "body": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "body_source": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "$ref": "#/components/schemas/ResourceId",
-                    "description": "Positive Listmonk resource ID."
-                  },
-                  "name": {
-                    "$ref": "#/components/schemas/NonEmptyString"
-                  },
-                  "subject": {
-                    "type": "string"
-                  },
-                  "type": {
-                    "oneOf": [
-                      {
-                        "const": "campaign"
-                      },
-                      {
-                        "const": "campaign_visual"
-                      },
-                      {
-                        "const": "tx"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "id",
-                  "body"
-                ],
-                "type": "object"
-              },
-              "TemplateUpdateInput": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type"
-                  },
-                  {
-                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o1"
-                  },
-                  {
-                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o2"
-                  },
-                  {
-                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o3"
-                  },
-                  {
-                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
-                  }
-                ]
-              }
-            }
-          },
-          "dialect": "openapi-3.1",
-          "schema": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type"
-              },
-              {
-                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o1"
-              },
-              {
-                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o2"
-              },
-              {
-                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o3"
-              },
-              {
-                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
-              }
-            ]
-          },
-          "source": "typescript",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {
-            "schemas": {
-              "ResourceId": {
-                "maximum": 9007199254740991,
-                "minimum": 1,
-                "type": "integer"
-              },
-              "TemplateRecord": {
-                "additionalProperties": {},
-                "properties": {
-                  "body": {
-                    "type": "string"
-                  },
-                  "body_source": {
-                    "oneOf": [
-                      {
-                        "type": "null"
-                      },
-                      {
-                        "type": "string"
-                      }
-                    ]
-                  },
-                  "created_at": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "$ref": "#/components/schemas/ResourceId"
-                  },
-                  "is_default": {
-                    "type": "boolean"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "subject": {
-                    "type": "string"
-                  },
-                  "type": {
-                    "type": "string"
-                  },
-                  "updated_at": {
-                    "type": "string"
-                  }
-                },
-                "required": [],
-                "type": "object"
-              }
-            }
-          },
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": {},
-            "properties": {
-              "body": {
-                "type": "string"
-              },
-              "body_source": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "type": "string"
-                  }
-                ]
-              },
-              "created_at": {
-                "type": "string"
-              },
-              "id": {
-                "$ref": "#/components/schemas/ResourceId"
-              },
-              "is_default": {
-                "type": "boolean"
-              },
-              "name": {
-                "type": "string"
-              },
-              "subject": {
-                "type": "string"
-              },
-              "type": {
-                "type": "string"
-              },
-              "updated_at": {
-                "type": "string"
-              }
-            },
-            "required": [],
-            "type": "object"
-          },
-          "source": "typescript",
-          "stage": "normalized"
-        }
-      },
-      "description": "Update a template in Listmonk",
-      "effects": [
-        {
-          "kind": "write",
-          "resource": "template",
-          "reversible": true
-        }
-      ],
-      "id": "templates.update",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesUpdateOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesUpdateOperationSpec:variable",
-          "executorNode": "packages/operations/src/templates.ts#updateTemplate:function",
-          "invokerNode": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/templates.ts#updateTemplateOperation:variable"
-        },
-        "mcpName": "listmonk_update_template",
-        "openWorld": true
-      },
-      "resource": "template",
-      "retry": {
-        "kind": "safe",
-        "reason": "Reapplying the same requested template fields converges on the same representation."
-      },
-      "since": "0.9.0",
-      "stability": "stable",
-      "title": "Update template",
-      "verb": "update"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The template ID or destructive confirmation has not been verified."
-        ],
-        "prerequisites": [
-          "templates.get"
-        ],
-        "related": [],
-        "retryGuidance": "After an ambiguous failure, verify absence with templates.list before retrying.",
-        "useWhen": [
-          "A verified template must be permanently deleted."
-        ],
-        "verifyWith": [
-          "templates.list"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {
-            "schemas": {
-              "ResourceId": {
-                "maximum": 9007199254740991,
-                "minimum": 1,
-                "type": "integer"
-              },
-              "ResourceIdInput": {
-                "additionalProperties": false,
-                "properties": {
-                  "id": {
-                    "$ref": "#/components/schemas/ResourceId",
-                    "description": "Positive Listmonk resource ID."
-                  }
-                },
-                "required": [
-                  "id"
-                ],
-                "type": "object"
-              }
-            }
-          },
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "id": {
-                "$ref": "#/components/schemas/ResourceId",
-                "description": "Positive Listmonk resource ID."
-              }
-            },
-            "required": [
-              "id"
-            ],
-            "type": "object"
-          },
-          "source": "typescript",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {
-            "schemas": {
-              "ResourceId": {
-                "maximum": 9007199254740991,
-                "minimum": 1,
-                "type": "integer"
-              },
-              "TemplateDeleteOutput": {
-                "additionalProperties": false,
-                "properties": {
-                  "deleted": {
-                    "type": "boolean"
-                  },
-                  "id": {
-                    "$ref": "#/components/schemas/ResourceId"
-                  }
-                },
-                "required": [
-                  "id",
-                  "deleted"
-                ],
-                "type": "object"
-              }
-            }
-          },
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "deleted": {
-                "type": "boolean"
-              },
-              "id": {
-                "$ref": "#/components/schemas/ResourceId"
-              }
-            },
-            "required": [
-              "id",
-              "deleted"
-            ],
-            "type": "object"
-          },
-          "source": "typescript",
-          "stage": "normalized"
-        }
-      },
-      "description": "Delete a template from Listmonk",
-      "effects": [
-        {
-          "kind": "delete",
-          "resource": "template",
-          "reversible": false
-        }
-      ],
-      "id": "templates.delete",
-      "policy": {
-        "audit": "required",
-        "confirmation": "required",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesDeleteOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesDeleteOperationSpec:variable",
-          "executorNode": "packages/operations/src/templates.ts#deleteTemplate:function",
-          "invokerNode": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/templates.ts#deleteTemplateOperation:variable"
-        },
-        "mcpName": "listmonk_delete_template",
-        "openWorld": true
-      },
-      "resource": "template",
-      "retry": {
-        "idempotent": false,
-        "kind": "reconcile",
-        "reason": "After an ambiguous delete, inspect templates.list before repeating the irreversible request.",
-        "reconcileWith": "templates.list"
-      },
-      "since": "0.9.0",
-      "stability": "experimental",
-      "title": "Delete template",
-      "verb": "delete"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
-          "The template ID has not been verified."
-        ],
-        "prerequisites": [
-          "templates.get"
-        ],
-        "related": [
-          "templates.reconcile"
-        ],
-        "retryGuidance": "Retry identical transient failures with bounded backoff, then verify with templates.get.",
-        "useWhen": [
-          "A verified template should become the Listmonk default."
-        ],
-        "verifyWith": [
-          "templates.get"
-        ]
-      },
-      "contract": {
-        "input": {
-          "components": {
-            "schemas": {
-              "ResourceId": {
-                "maximum": 9007199254740991,
-                "minimum": 1,
-                "type": "integer"
-              },
-              "ResourceIdInput": {
-                "additionalProperties": false,
-                "properties": {
-                  "id": {
-                    "$ref": "#/components/schemas/ResourceId",
-                    "description": "Positive Listmonk resource ID."
-                  }
-                },
-                "required": [
-                  "id"
-                ],
-                "type": "object"
-              }
-            }
-          },
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "id": {
-                "$ref": "#/components/schemas/ResourceId",
-                "description": "Positive Listmonk resource ID."
-              }
-            },
-            "required": [
-              "id"
-            ],
-            "type": "object"
-          },
-          "source": "typescript",
-          "stage": "normalized"
-        },
-        "output": {
-          "components": {
-            "schemas": {
-              "ResourceId": {
-                "maximum": 9007199254740991,
-                "minimum": 1,
-                "type": "integer"
-              },
-              "TemplateSetDefaultOutput": {
-                "additionalProperties": false,
-                "properties": {
-                  "id": {
-                    "$ref": "#/components/schemas/ResourceId"
-                  },
-                  "set_default": {
-                    "const": true
-                  }
-                },
-                "required": [
-                  "id",
-                  "set_default"
-                ],
-                "type": "object"
-              }
-            }
-          },
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "id": {
-                "$ref": "#/components/schemas/ResourceId"
-              },
-              "set_default": {
-                "const": true
-              }
-            },
-            "required": [
-              "id",
-              "set_default"
-            ],
-            "type": "object"
-          },
-          "source": "typescript",
-          "stage": "normalized"
-        }
-      },
-      "description": "Set a template as the Listmonk default",
-      "effects": [
-        {
-          "kind": "write",
-          "resource": "template",
-          "reversible": true
-        }
-      ],
-      "id": "templates.set-default",
-      "policy": {
-        "audit": "required",
-        "confirmation": "never",
-        "dryRun": false
-      },
-      "projection": {
-        "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindTemplatesSetDefaultOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#templatesSetDefaultOperationSpec:variable",
-          "executorNode": "packages/operations/src/templates.ts#setDefaultTemplate:function",
-          "invokerNode": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
-          "runtimeDefinitionNode": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable"
-        },
-        "mcpName": "listmonk_set_default_template",
-        "openWorld": true
-      },
-      "resource": "template",
-      "retry": {
-        "kind": "safe",
-        "reason": "Setting the same template as default repeatedly converges on the same selection."
-      },
-      "since": "0.9.0",
-      "stability": "stable",
-      "title": "Set default template",
-      "verb": "set-default"
-    },
-    {
-      "agent": {
-        "avoidWhen": [
           "An existing list should be updated instead."
         ],
         "prerequisites": [],
@@ -20570,8 +19394,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsCreateOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsCreateOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsCreateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#listsCreateOperationSpec:variable",
           "executorNode": "packages/operations/src/lists.ts#createSubscriberList:function",
           "invokerNode": "packages/operations/src/lists.ts#invokeCreateListOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/lists.ts#createListOperation:variable"
@@ -21011,8 +19835,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsUpdateOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsUpdateOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsUpdateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#listsUpdateOperationSpec:variable",
           "executorNode": "packages/operations/src/lists.ts#updateSubscriberList:function",
           "invokerNode": "packages/operations/src/lists.ts#invokeUpdateListOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/lists.ts#updateListOperation:variable"
@@ -21151,8 +19975,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindListsDeleteOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#listsDeleteOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsDeleteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/list-specs.ts#listsDeleteOperationSpec:variable",
           "executorNode": "packages/operations/src/lists.ts#deleteSubscriberList:function",
           "invokerNode": "packages/operations/src/lists.ts#invokeDeleteListOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/lists.ts#deleteListOperation:variable"
@@ -21422,8 +20246,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersCreateOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersCreateOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersCreateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersCreateOperationSpec:variable",
           "executorNode": "packages/operations/src/subscribers.ts#createSubscriber:function",
           "invokerNode": "packages/operations/src/subscribers.ts#invokeCreateSubscriberOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#createSubscriberOperation:variable"
@@ -22000,8 +20824,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersUpdateOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersUpdateOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUpdateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersUpdateOperationSpec:variable",
           "executorNode": "packages/operations/src/subscribers.ts#updateSubscriber:function",
           "invokerNode": "packages/operations/src/subscribers.ts#invokeUpdateSubscriberOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#updateSubscriberOperation:variable"
@@ -22140,8 +20964,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersDeleteOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersDeleteOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersDeleteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersDeleteOperationSpec:variable",
           "executorNode": "packages/operations/src/subscribers.ts#deleteSubscriber:function",
           "invokerNode": "packages/operations/src/subscribers.ts#invokeDeleteSubscriberOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#deleteSubscriberOperation:variable"
@@ -22359,8 +21183,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersAddToListsOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersAddToListsOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersAddToListsOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersAddToListsOperationSpec:variable",
           "executorNode": "packages/operations/src/subscribers.ts#addSubscribersToLists:function",
           "invokerNode": "packages/operations/src/subscribers.ts#invokeAddSubscribersToListsOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#addSubscribersToListsOperation:variable"
@@ -22576,8 +21400,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersRemoveFromListsOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersRemoveFromListsOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersRemoveFromListsOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersRemoveFromListsOperationSpec:variable",
           "executorNode": "packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
           "invokerNode": "packages/operations/src/subscribers.ts#invokeRemoveSubscribersFromListsOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#removeSubscribersFromListsOperation:variable"
@@ -22776,8 +21600,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindSubscribersUnblocklistOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#subscribersUnblocklistOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#bindSubscribersUnblocklistOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/subscriber-specs.ts#subscribersUnblocklistOperationSpec:variable",
           "executorNode": "packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
           "invokerNode": "packages/operations/src/subscribers.ts#invokeUnblocklistSubscribersOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/subscribers.ts#unblocklistSubscribersOperation:variable"
@@ -23560,8 +22384,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsCreateOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsCreateOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsCreateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsCreateOperationSpec:variable",
           "executorNode": "packages/operations/src/campaigns.ts#createCampaign:function",
           "invokerNode": "packages/operations/src/campaigns.ts#invokeCreateCampaignOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#createCampaignOperation:variable"
@@ -27356,8 +26180,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsUpdateOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsUpdateOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsUpdateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsUpdateOperationSpec:variable",
           "executorNode": "packages/operations/src/campaigns.ts#updateCampaign:function",
           "invokerNode": "packages/operations/src/campaigns.ts#invokeUpdateCampaignOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#updateCampaignOperation:variable"
@@ -27496,8 +26320,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsDeleteOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsDeleteOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsDeleteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsDeleteOperationSpec:variable",
           "executorNode": "packages/operations/src/campaigns.ts#deleteCampaign:function",
           "invokerNode": "packages/operations/src/campaigns.ts#invokeDeleteCampaignOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#deleteCampaignOperation:variable"
@@ -27653,8 +26477,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsPauseOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsPauseOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsPauseOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsPauseOperationSpec:variable",
           "executorNode": "packages/operations/src/campaigns.ts#pauseCampaign:function",
           "invokerNode": "packages/operations/src/campaigns.ts#invokePauseCampaignOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#pauseCampaignOperation:variable"
@@ -28160,8 +26984,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindCampaignsCloneOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#campaignsCloneOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsCloneOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsCloneOperationSpec:variable",
           "executorNode": "packages/operations/src/campaigns.ts#cloneCampaign:function",
           "invokerNode": "packages/operations/src/campaigns.ts#invokeCloneCampaignOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable"
@@ -28178,6 +27002,1182 @@
       "stability": "experimental",
       "title": "Clone campaign",
       "verb": "clone"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "An existing template should be converged by exact name; use templates.reconcile instead."
+        ],
+        "prerequisites": [],
+        "related": [
+          "templates.reconcile"
+        ],
+        "retryGuidance": "Do not automatically retry an ambiguous failure; inspect templates.list for the intended name first.",
+        "useWhen": [
+          "A new Listmonk template must be created."
+        ],
+        "verifyWith": [
+          "templates.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "TemplateCreateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "description": "Omitted values default to an empty subject at the runtime boundary.",
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Omitted values default to `\"campaign\"` at the runtime boundary.",
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "body"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "body_source": {
+                "type": "string"
+              },
+              "name": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "subject": {
+                "description": "Omitted values default to an empty subject at the runtime boundary.",
+                "type": "string"
+              },
+              "type": {
+                "description": "Omitted values default to `\"campaign\"` at the runtime boundary.",
+                "oneOf": [
+                  {
+                    "const": "campaign"
+                  },
+                  {
+                    "const": "campaign_visual"
+                  },
+                  {
+                    "const": "tx"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "body"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "is_default": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "body": {
+                "type": "string"
+              },
+              "body_source": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "is_default": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Create a template in Listmonk",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": true
+        }
+      ],
+      "id": "templates.create",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesCreateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesCreateOperationSpec:variable",
+          "executorNode": "packages/operations/src/templates.ts#createTemplate:function",
+          "invokerNode": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/templates.ts#createTemplateOperation:variable"
+        },
+        "mcpName": "listmonk_create_template",
+        "openWorld": true
+      },
+      "resource": "template",
+      "retry": {
+        "kind": "unsafe",
+        "reason": "A transport failure can be ambiguous after Listmonk creates the template; inspect templates.list before retrying."
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Create template",
+      "verb": "create"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The template ID is unknown or a versioned exact-name manifest should be reconciled."
+        ],
+        "prerequisites": [
+          "templates.get"
+        ],
+        "related": [
+          "templates.reconcile",
+          "ops.templates.registry-sync"
+        ],
+        "retryGuidance": "Retry identical transient failures with bounded backoff, then verify with templates.get.",
+        "useWhen": [
+          "A known template must be updated by numeric ID."
+        ],
+        "verifyWith": [
+          "templates.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInputTemplateUpdateFields__type": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o1": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o2": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "subject"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o3": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "body_source"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputTemplateUpdateFields__type-o4": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "body"
+                ],
+                "type": "object"
+              },
+              "TemplateUpdateInput": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o2"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o3"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
+                  }
+                ]
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o1"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o2"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o3"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputTemplateUpdateFields__type-o4"
+              }
+            ]
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "is_default": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "body": {
+                "type": "string"
+              },
+              "body_source": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "is_default": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Update a template in Listmonk",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": true
+        }
+      ],
+      "id": "templates.update",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesUpdateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesUpdateOperationSpec:variable",
+          "executorNode": "packages/operations/src/templates.ts#updateTemplate:function",
+          "invokerNode": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/templates.ts#updateTemplateOperation:variable"
+        },
+        "mcpName": "listmonk_update_template",
+        "openWorld": true
+      },
+      "resource": "template",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same requested template fields converges on the same representation."
+      },
+      "since": "0.9.0",
+      "stability": "stable",
+      "title": "Update template",
+      "verb": "update"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The template ID or destructive confirmation has not been verified."
+        ],
+        "prerequisites": [
+          "templates.get"
+        ],
+        "related": [],
+        "retryGuidance": "After an ambiguous failure, verify absence with templates.list before retrying.",
+        "useWhen": [
+          "A verified template must be permanently deleted."
+        ],
+        "verifyWith": [
+          "templates.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateDeleteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "deleted"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "deleted": {
+                "type": "boolean"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id",
+              "deleted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Delete a template from Listmonk",
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "template",
+          "reversible": false
+        }
+      ],
+      "id": "templates.delete",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesDeleteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesDeleteOperationSpec:variable",
+          "executorNode": "packages/operations/src/templates.ts#deleteTemplate:function",
+          "invokerNode": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/templates.ts#deleteTemplateOperation:variable"
+        },
+        "mcpName": "listmonk_delete_template",
+        "openWorld": true
+      },
+      "resource": "template",
+      "retry": {
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "After an ambiguous delete, inspect templates.list before repeating the irreversible request.",
+        "reconcileWith": "templates.list"
+      },
+      "since": "0.9.0",
+      "stability": "experimental",
+      "title": "Delete template",
+      "verb": "delete"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The template ID has not been verified."
+        ],
+        "prerequisites": [
+          "templates.get"
+        ],
+        "related": [
+          "templates.reconcile"
+        ],
+        "retryGuidance": "Retry identical transient failures with bounded backoff, then verify with templates.get.",
+        "useWhen": [
+          "A verified template should become the Listmonk default."
+        ],
+        "verifyWith": [
+          "templates.get"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateSetDefaultOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "set_default": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "id",
+                  "set_default"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "set_default": {
+                "const": true
+              }
+            },
+            "required": [
+              "id",
+              "set_default"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Set a template as the Listmonk default",
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": true
+        }
+      ],
+      "id": "templates.set-default",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesSetDefaultOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesSetDefaultOperationSpec:variable",
+          "executorNode": "packages/operations/src/templates.ts#setDefaultTemplate:function",
+          "invokerNode": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable"
+        },
+        "mcpName": "listmonk_set_default_template",
+        "openWorld": true
+      },
+      "resource": "template",
+      "retry": {
+        "kind": "safe",
+        "reason": "Setting the same template as default repeatedly converges on the same selection."
+      },
+      "since": "0.9.0",
+      "stability": "stable",
+      "title": "Set default template",
+      "verb": "set-default"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "A single template should be inspected without a full manifest."
+        ],
+        "prerequisites": [
+          "templates.list"
+        ],
+        "related": [
+          "ops.templates.registry-sync"
+        ],
+        "retryGuidance": "Re-run reconcile in dry-run mode after a partial apply to verify the remaining desired state before applying again.",
+        "useWhen": [
+          "A versioned template manifest must be planned or applied."
+        ],
+        "verifyWith": [
+          "templates.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "TemplateManifestEntry": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "maxLength": 1048576,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "subject": {
+                    "description": "Email subject. Optional on input and defaults to `\"\"`, matching the\nruntime Zod schema's `.optional().default(\"\")`. Reconciliation of an\nexisting template with an omitted subject clears it rather than preserving\nthe prior value.",
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Template type. Optional on input and defaults to `\"campaign\"`, matching\nthe runtime Zod schema's `.default(\"campaign\")`.",
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "body"
+                ],
+                "type": "object"
+              },
+              "TemplateManifestReconcileInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "description": "Plan only when true; apply when false. Optional on input and defaults to\na safe dry run (true), matching the runtime Zod schema's `.default(true)`.",
+                    "type": "boolean"
+                  },
+                  "schema_version": {
+                    "const": 1
+                  },
+                  "templates": {
+                    "items": {
+                      "$ref": "#/components/schemas/TemplateManifestEntry"
+                    },
+                    "maxItems": 500,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "templates"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "description": "Plan only when true; apply when false. Optional on input and defaults to\na safe dry run (true), matching the runtime Zod schema's `.default(true)`.",
+                "type": "boolean"
+              },
+              "schema_version": {
+                "const": 1
+              },
+              "templates": {
+                "items": {
+                  "$ref": "#/components/schemas/TemplateManifestEntry"
+                },
+                "maxItems": 500,
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "schema_version",
+              "templates"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "TemplateManifestReconcileOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/TemplateReconcileSummary"
+                    },
+                    "type": "array"
+                  },
+                  "schema_version": {
+                    "const": 1
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "dry_run",
+                  "results"
+                ],
+                "type": "object"
+              },
+              "TemplateReconcileAction": {
+                "oneOf": [
+                  {
+                    "const": "create"
+                  },
+                  {
+                    "const": "unchanged"
+                  },
+                  {
+                    "const": "update"
+                  }
+                ]
+              },
+              "TemplateReconcileSummary": {
+                "additionalProperties": false,
+                "properties": {
+                  "action": {
+                    "$ref": "#/components/schemas/TemplateReconcileAction"
+                  },
+                  "applied": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "action",
+                  "applied"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "type": "boolean"
+              },
+              "results": {
+                "items": {
+                  "$ref": "#/components/schemas/TemplateReconcileSummary"
+                },
+                "type": "array"
+              },
+              "schema_version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "schema_version",
+              "dry_run",
+              "results"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Plan or apply a versioned template manifest against exact-name Listmonk templates",
+      "effects": [
+        {
+          "kind": "write",
+          "preview": true,
+          "resource": "template",
+          "reversible": false
+        }
+      ],
+      "id": "templates.reconcile",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesReconcileOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesReconcileOperationSpec:variable",
+          "executorNode": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function",
+          "invokerNode": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable"
+        },
+        "mcpName": "listmonk_reconcile_template_manifest",
+        "openWorld": true
+      },
+      "resource": "template",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Manifest apply is plan-then-apply; re-running reconcile re-plans the full desired state and converges on the manifest, but a partial remote failure must be inspected before retrying.",
+        "reconcileWith": "templates.reconcile"
+      },
+      "since": "0.12.0",
+      "stability": "stable",
+      "title": "Reconcile template manifest",
+      "verb": "reconcile"
     },
     {
       "agent": {
@@ -28301,8 +28301,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindMediaDeleteOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#mediaDeleteOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/media-specs.ts#bindMediaDeleteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/media-specs.ts#mediaDeleteOperationSpec:variable",
           "executorNode": "packages/operations/src/media.ts#deleteMediaFile:function",
           "invokerNode": "packages/operations/src/media.ts#invokeDeleteMediaOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/media.ts#deleteMediaOperation:variable"
@@ -28522,8 +28522,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindMediaUploadOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#mediaUploadOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/media-specs.ts#bindMediaUploadOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/media-specs.ts#mediaUploadOperationSpec:variable",
           "executorNode": "packages/operations/src/media.ts#uploadMediaFile:function",
           "invokerNode": "packages/operations/src/media.ts#invokeUploadMediaOperation:function",
           "runtimeDefinitionNode": "packages/operations/src/media.ts#uploadMediaOperation:variable"
@@ -28805,8 +28805,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsSegmentDriftOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsSegmentDriftOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsSegmentDriftOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsSegmentDriftOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeSegmentDriftOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#segmentDriftOperation:variable"
@@ -29126,8 +29126,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsDailyDigestOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsDailyDigestOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsDailyDigestOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsDailyDigestOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeDailyDigestOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#dailyDigestOperation:variable"
@@ -29461,8 +29461,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsDeliverabilityGuardOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsDeliverabilityGuardOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsDeliverabilityGuardOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsDeliverabilityGuardOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeDeliverabilityGuardOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeDeliverabilityGuardOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#deliverabilityGuardOperation:variable"
@@ -29795,8 +29795,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsSubscriberHygieneOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsSubscriberHygieneOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsSubscriberHygieneOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsSubscriberHygieneOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeSubscriberHygieneOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeSubscriberHygieneOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#subscriberHygieneOperation:variable"
@@ -30039,8 +30039,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistrySyncOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistrySyncOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistrySyncOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistrySyncOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistrySyncOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistrySyncOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistrySyncOperation:variable"
@@ -30252,8 +30252,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryHistoryOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryHistoryOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryHistoryOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistryHistoryOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryHistoryOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryHistoryOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryHistoryOperation:variable"
@@ -30443,8 +30443,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryPromoteOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryPromoteOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryPromoteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistryPromoteOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryPromoteOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryPromoteOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryPromoteOperation:variable"
@@ -30608,8 +30608,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindOpsTemplateRegistryRollbackOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#opsTemplateRegistryRollbackOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#bindOpsTemplateRegistryRollbackOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/ops-specs.ts#opsTemplateRegistryRollbackOperationSpec:variable",
           "executorNode": "packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function",
           "invokerNode": "packages/automation/src/ops-operations.ts#invokeTemplateRegistryRollbackOperation:function",
           "runtimeDefinitionNode": "packages/automation/src/ops-operations.ts#templateRegistryRollbackOperation:variable"
@@ -31122,8 +31122,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestListOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestListOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestListOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestListOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeListAbTestsOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeListAbTestsOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#listAbTestsOperation:variable"
@@ -31570,8 +31570,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestGetOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestGetOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestGetOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestGetOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeGetAbTestOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeGetAbTestOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#getAbTestOperation:variable"
@@ -32503,8 +32503,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestCreateOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestCreateOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestCreateOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestCreateOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeCreateAbTestOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeCreateAbTestOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#createAbTestOperation:variable"
@@ -32808,8 +32808,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestAnalyzeOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestAnalyzeOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestAnalyzeOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestAnalyzeOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeAnalyzeAbTestOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeAnalyzeAbTestOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#analyzeAbTestOperation:variable"
@@ -33262,8 +33262,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestLaunchOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestLaunchOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestLaunchOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestLaunchOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeLaunchAbTestOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeLaunchAbTestOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#launchAbTestOperation:variable"
@@ -33715,8 +33715,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestStopOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestStopOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestStopOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestStopOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeStopAbTestOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeStopAbTestOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#stopAbTestOperation:variable"
@@ -33851,8 +33851,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestDeleteOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestDeleteOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestDeleteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestDeleteOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeDeleteAbTestOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeDeleteAbTestOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#deleteAbTestOperation:variable"
@@ -34086,8 +34086,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestRecommendSampleSizeOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestRecommendSampleSizeOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestRecommendSampleSizeOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestRecommendSampleSizeOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeRecommendAbTestSampleSizeOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeRecommendAbTestSampleSizeOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#recommendAbTestSampleSizeOperation:variable"
@@ -34218,8 +34218,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestDeployWinnerOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestDeployWinnerOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestDeployWinnerOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestDeployWinnerOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeDeployAbTestWinnerOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeDeployAbTestWinnerOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#deployAbTestWinnerOperation:variable"
@@ -34770,8 +34770,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestRunOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestRunOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestRunOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestRunOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeRunAbTestOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeRunAbTestOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#runAbTestOperation:variable"
@@ -34983,8 +34983,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestTickOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestTickOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestTickOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestTickOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeTickAbTestsOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeTickAbTestsOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#tickAbTestsOperation:variable"
@@ -35207,8 +35207,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestReconcileOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestReconcileOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestReconcileOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestReconcileOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeReconcileAbTestOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeReconcileAbTestOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#reconcileAbTestOperation:variable"
@@ -35332,8 +35332,8 @@
       },
       "projection": {
         "graph": {
-          "bindingNode": "packages/operations/src/specs/core-reads.ts#bindAbTestExportAssignmentOperationSpec:function",
-          "descriptorNode": "packages/operations/src/specs/core-reads.ts#abTestExportAssignmentOperationSpec:variable",
+          "bindingNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#bindAbTestExportAssignmentOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/abtest-specs.ts#abTestExportAssignmentOperationSpec:variable",
           "executorNode": "packages/abtest/src/operations.ts#executeExportAbTestAssignmentOperation:function",
           "invokerNode": "packages/abtest/src/operations.ts#invokeExportAbTestAssignmentOperation:function",
           "runtimeDefinitionNode": "packages/abtest/src/operations.ts#exportAbTestAssignmentOperation:variable"
