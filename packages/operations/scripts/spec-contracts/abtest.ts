@@ -4,6 +4,7 @@ import type {
 	NonNegativeInteger,
 	NonEmptyString,
 	IsoDateTime,
+	PositiveInteger,
 } from "./primitives";
 
 export type AbTestStatus =
@@ -67,6 +68,35 @@ export interface AbTestListMapping {
 	listId: number;
 }
 
+interface AbTestAssignmentGroupBase {
+	expectedCount: NonNegativeInteger;
+	subscriberChecksum: string;
+}
+
+export interface AbTestVariantAssignmentGroup
+	extends AbTestAssignmentGroupBase {
+	kind: "variant";
+	variantId: string;
+}
+
+export interface AbTestHoldoutAssignmentGroup
+	extends AbTestAssignmentGroupBase {
+	kind: "holdout";
+	variantId?: string;
+}
+
+export type AbTestAssignmentGroup =
+	| AbTestVariantAssignmentGroup
+	| AbTestHoldoutAssignmentGroup;
+
+export interface AbTestAssignmentManifest {
+	algorithm: "sha256-order-largest-remainder-v1";
+	seed: string;
+	audienceChecksum: string;
+	groups: AbTestAssignmentGroup[];
+	assignedCount: NonNegativeInteger;
+}
+
 export interface AbTestRecord {
 	id: string;
 	name: string;
@@ -90,7 +120,7 @@ export interface AbTestRecord {
 	winnerCampaignId?: number;
 	assignmentSeed?: string;
 	audienceSnapshot?: Record<string, unknown>;
-	assignmentManifest?: Record<string, unknown>;
+	assignmentManifest?: AbTestAssignmentManifest;
 	durationHours?: number;
 	launchAt?: string;
 	startedAt?: string;
@@ -126,14 +156,20 @@ export interface AbTestCreateInput {
 	lists: ResourceId[] & tags.MinItems<1>;
 	variants: AbTestCreateVariantInput[] & tags.MinItems<2> & tags.MaxItems<3>;
 	testing_mode?: AbTestTestingMode;
-	test_group_percentage: number;
-	confidence_threshold: number;
-	minimum_sample_size: number;
-	duration_hours: number;
+	test_group_percentage?: number &
+		tags.Type<"float"> &
+		tags.ExclusiveMinimum<0> &
+		tags.Maximum<100>;
+	confidence_threshold?: number &
+		tags.Type<"float"> &
+		tags.ExclusiveMinimum<0> &
+		tags.ExclusiveMaximum<1>;
+	minimum_sample_size?: PositiveInteger;
+	duration_hours?: number & tags.Type<"float"> & tags.ExclusiveMinimum<0>;
 	launch_at?: IsoDateTime;
-	auto_launch: boolean;
-	auto_deploy_winner: boolean;
-	ignore_sample_size_warnings: boolean;
+	auto_launch?: boolean;
+	auto_deploy_winner?: boolean;
+	ignore_sample_size_warnings?: boolean;
 	hypothesis?: {
 		objective: NonEmptyString;
 		hypothesis: NonEmptyString;
@@ -142,10 +178,13 @@ export interface AbTestCreateInput {
 			direction: "maximize" | "minimize";
 		};
 		expected_lift:
-			| { kind: "relative"; value: number & tags.Type<"float"> & tags.Minimum<0> }
+			| {
+					kind: "relative";
+					value: number & tags.Type<"float"> & tags.ExclusiveMinimum<0>;
+			  }
 			| {
 					kind: "absolute";
-					value: number & tags.Type<"float"> & tags.Minimum<0>;
+					value: number & tags.Type<"float"> & tags.ExclusiveMinimum<0>;
 					unit: "percentage_point" | "currency_per_recipient";
 				};
 		owner: {
@@ -159,7 +198,7 @@ export interface AbTestCreateInput {
 			exclusion_window_hours: number & tags.Minimum<0>;
 		};
 	};
-	enable_stratification: boolean;
+	enable_stratification?: boolean;
 }
 
 export interface AbTestAnalyzeInput extends AbTestIdInput {
@@ -170,19 +209,16 @@ export interface AbTestRunInput {
 	test_id: NonEmptyString;
 	expected_status?: AbTestStatus;
 	expected_updated_at?: IsoDateTime;
-	confirm: boolean;
 }
 
 export interface AbTestTickInput {
-	confirm: boolean;
-	dry_run: boolean;
+	dry_run?: boolean;
 }
 
 export interface AbTestReconcileInput {
 	test_id?: NonEmptyString;
-	all: boolean;
-	repair: boolean;
-	confirm: boolean;
+	all?: boolean;
+	repair?: boolean;
 }
 
 export interface AbTestRecommendSampleSizeInput {
@@ -193,7 +229,6 @@ export interface AbTestRecommendSampleSizeInput {
 
 export interface AbTestExportAssignmentInput {
 	test_id: NonEmptyString;
-	confirm: boolean;
 }
 
 export interface AbTestListOutput {
@@ -295,5 +330,5 @@ export interface AbTestReconcileOutput {
 }
 
 export interface AbTestExportOutput {
-	manifest: unknown;
+	manifest: AbTestAssignmentManifest;
 }

@@ -554,8 +554,10 @@ function isStoredAssignmentGroup(value: unknown): boolean {
 		return false;
 	}
 	return (
-		(value.kind === "variant" || value.kind === "holdout") &&
-		(value.variantId === undefined || typeof value.variantId === "string") &&
+		((value.kind === "variant" && typeof value.variantId === "string") ||
+			(value.kind === "holdout" &&
+				(value.variantId === undefined ||
+					typeof value.variantId === "string"))) &&
 		typeof value.expectedCount === "number" &&
 		Number.isInteger(value.expectedCount) &&
 		value.expectedCount >= 0 &&

@@ -243,6 +243,35 @@ describe("A/B test persistence", () => {
 		}
 	});
 
+	test("rejects a persisted variant assignment without its variant ID", async () => {
+		const storePath = await createStorePath();
+		const invalidTest = {
+			...createTest("one"),
+			assignmentManifest: {
+				algorithm: "sha256-order-largest-remainder-v1",
+				seed: "seed-1",
+				audienceChecksum: "audience-checksum",
+				groups: [
+					{
+						kind: "variant",
+						expectedCount: 1,
+						subscriberChecksum: "subscriber-checksum",
+					},
+				],
+				assignedCount: 1,
+			},
+		};
+		await writeFile(
+			storePath,
+			`${JSON.stringify({ version: 1, tests: [invalidTest] })}\n`,
+			"utf8",
+		);
+
+		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
+			"test 0 failed schema validation",
+		);
+	});
+
 	test("rejects malformed persisted hypothesis metadata", async () => {
 		const storePath = await createStorePath();
 		const validTest = createTest("one");

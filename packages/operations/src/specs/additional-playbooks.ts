@@ -284,10 +284,6 @@ export const abTestSafeRunPlaybook = defineOperationPlaybook({
 						path: "test.updatedAt",
 					},
 				},
-				{
-					parameter: "confirm",
-					source: { kind: "literal", value: true },
-				},
 			],
 		},
 		{

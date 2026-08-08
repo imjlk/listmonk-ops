@@ -63,6 +63,37 @@ export class AbTestService {
 				`Variant percentages must sum to 100%, got ${totalPercentage}%`,
 			);
 		}
+		if (
+			config.testGroupPercentage !== undefined &&
+			(!Number.isFinite(config.testGroupPercentage) ||
+				config.testGroupPercentage <= 0 ||
+				config.testGroupPercentage > 100)
+		) {
+			throw new Error(
+				"testGroupPercentage must be a finite number in (0, 100]",
+			);
+		}
+		if (
+			config.confidenceThreshold !== undefined &&
+			(!Number.isFinite(config.confidenceThreshold) ||
+				config.confidenceThreshold <= 0 ||
+				config.confidenceThreshold >= 1)
+		) {
+			throw new Error("confidenceThreshold must be a finite number in (0, 1)");
+		}
+		if (
+			config.minimumTestSampleSize !== undefined &&
+			(!Number.isSafeInteger(config.minimumTestSampleSize) ||
+				config.minimumTestSampleSize <= 0)
+		) {
+			throw new Error("minimumTestSampleSize must be a positive integer");
+		}
+		if (
+			config.durationHours !== undefined &&
+			(!Number.isFinite(config.durationHours) || config.durationHours <= 0)
+		) {
+			throw new Error("durationHours must be a positive finite number");
+		}
 
 		// Validate test configuration and provide statistical recommendations
 		if (this.listmonkIntegration) {
@@ -75,7 +106,7 @@ export class AbTestService {
 
 			const testingMode = config.testingMode || "holdout";
 			const testGroupPercentage =
-				config.testGroupPercentage || (testingMode === "holdout" ? 10 : 100);
+				config.testGroupPercentage ?? (testingMode === "holdout" ? 10 : 100);
 
 			const validationResult = StatisticalUtils.validateTestConfiguration(
 				totalSubscribers,
@@ -157,15 +188,10 @@ export class AbTestService {
 
 		// Determine testing mode and calculate group sizes
 		const testingMode = config.testingMode || "holdout";
-		const testGroupPercentage = Math.max(
-			1,
-			Math.min(
-				100,
-				config.testGroupPercentage || (testingMode === "holdout" ? 10 : 100),
-			),
-		);
-		const confidenceThreshold = config.confidenceThreshold || 0.95;
-		const autoDeployWinner = config.autoDeployWinner || false;
+		const testGroupPercentage =
+			config.testGroupPercentage ?? (testingMode === "holdout" ? 10 : 100);
+		const confidenceThreshold = config.confidenceThreshold ?? 0.95;
+		const autoDeployWinner = config.autoDeployWinner ?? false;
 
 		const abTest: AbTest = {
 			id: testId,

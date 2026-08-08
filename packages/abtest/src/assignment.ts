@@ -21,13 +21,25 @@ import type { Variant } from "./types";
 
 const ASSIGNMENT_VERSION = "abtest-assignment:v1";
 
-export interface AssignmentGroup {
-	kind: "variant" | "holdout";
-	variantId?: string;
+interface AssignmentGroupBase {
 	expectedCount: number;
 	/** SHA-256 over the sorted UUIDs assigned to this group. */
 	subscriberChecksum: string;
 }
+
+export interface VariantAssignmentGroup extends AssignmentGroupBase {
+	kind: "variant";
+	variantId: string;
+}
+
+export interface HoldoutAssignmentGroup extends AssignmentGroupBase {
+	kind: "holdout";
+	variantId?: string;
+}
+
+export type AssignmentGroup =
+	| VariantAssignmentGroup
+	| HoldoutAssignmentGroup;
 
 export interface AssignmentManifest {
 	algorithm: "sha256-order-largest-remainder-v1";

@@ -103,12 +103,20 @@ export interface AbTest {
 		algorithm: "sha256-order-largest-remainder-v1";
 		seed: string;
 		audienceChecksum: string;
-		groups: {
-			kind: "variant" | "holdout";
-			variantId?: string;
-			expectedCount: number;
-			subscriberChecksum: string;
-		}[];
+		groups: (
+			| {
+					kind: "variant";
+					variantId: string;
+					expectedCount: number;
+					subscriberChecksum: string;
+			  }
+			| {
+					kind: "holdout";
+					variantId?: string;
+					expectedCount: number;
+					subscriberChecksum: string;
+			  }
+		)[];
 		assignedCount: number;
 	};
 	/**
