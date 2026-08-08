@@ -18,6 +18,9 @@ Or install from GitHub Releases (standalone binary):
 curl -fsSL https://raw.githubusercontent.com/imjlk/listmonk-ops/main/scripts/install-listmonk-cli.sh | bash
 ```
 
+Prebuilt standalone binaries are available for Linux x64/arm64 and Apple
+silicon macOS (arm64). Intel Macs are not supported.
+
 ## Usage
 
 ```bash

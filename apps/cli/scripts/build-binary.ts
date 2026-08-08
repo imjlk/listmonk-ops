@@ -7,7 +7,6 @@ const DIST_DIR = resolve(CLI_DIR, "dist/bin");
 const TARGETS = [
 	{ target: "bun-linux-x64", output: "listmonk-cli-linux-x64" },
 	{ target: "bun-linux-arm64", output: "listmonk-cli-linux-arm64" },
-	{ target: "bun-darwin-x64", output: "listmonk-cli-darwin-x64" },
 	{ target: "bun-darwin-arm64", output: "listmonk-cli-darwin-arm64" },
 ] as const;
 

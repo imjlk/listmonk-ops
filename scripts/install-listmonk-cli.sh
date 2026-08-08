@@ -72,6 +72,11 @@ case "$arch" in
 		;;
 esac
 
+if [[ "$os" == "darwin" && "$arch" == "x64" ]]; then
+	echo "Unsupported platform: macOS Intel (darwin-x64). macOS releases require Apple silicon (arm64)." >&2
+	exit 1
+fi
+
 asset_name="listmonk-cli-${os}-${arch}.tar.gz"
 
 resolve_latest_tag() {

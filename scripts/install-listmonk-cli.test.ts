@@ -110,3 +110,46 @@ for (const requestedVersion of ["0.3.0", "v0.3.0"]) {
 		}
 	});
 }
+
+test("CLI installer rejects macOS Intel before downloading an asset", async () => {
+	const directory = await mkdtemp(join(tmpdir(), "listmonk-cli-installer-"));
+	try {
+		const stubDirectory = join(directory, "bin");
+		const curlLog = join(directory, "curl.log");
+		await mkdir(stubDirectory, { recursive: true });
+		await writeFile(curlLog, "");
+
+		await writeExecutable(join(stubDirectory, "uname"), [
+			"#!/usr/bin/env bash",
+			"set -euo pipefail",
+			'case "${1:-}" in',
+			'  -s) echo "Darwin" ;;',
+			'  -m) echo "x86_64" ;;',
+			"  *) exit 1 ;;",
+			"esac",
+		]);
+		await writeExecutable(join(stubDirectory, "curl"), [
+			"#!/usr/bin/env bash",
+			"set -euo pipefail",
+			'printf "called\\n" >> "$CURL_LOG"',
+			"exit 99",
+		]);
+
+		const result = Bun.spawnSync(["bash", installer], {
+			env: {
+				...process.env,
+				CURL_LOG: curlLog,
+				PATH: `${stubDirectory}${delimiter}${process.env.PATH ?? ""}`,
+			},
+			stderr: "pipe",
+			stdout: "pipe",
+		});
+		const stderr = new TextDecoder().decode(result.stderr);
+
+		expect(result.exitCode).toBe(1);
+		expect(stderr).toContain("Unsupported platform: macOS Intel");
+		expect(await readFile(curlLog, "utf8")).toBe("");
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});
