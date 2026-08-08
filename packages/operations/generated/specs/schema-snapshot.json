@@ -25384,6 +25384,7 @@
               "properties": {
                 "bounce_threshold": {
                   "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+                  "maximum": 1,
                   "minimum": 0,
                   "type": "number"
                 },
@@ -25392,6 +25393,7 @@
                 },
                 "click_threshold": {
                   "description": "Minimum required click rate. Defaults to 0.01.",
+                  "maximum": 1,
                   "minimum": 0,
                   "type": "number"
                 },
@@ -25401,6 +25403,7 @@
                 },
                 "open_threshold": {
                   "description": "Minimum required open rate. Defaults to 0.08.",
+                  "maximum": 1,
                   "minimum": 0,
                   "type": "number"
                 },
@@ -25432,6 +25435,7 @@
           "properties": {
             "bounce_threshold": {
               "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+              "maximum": 1,
               "minimum": 0,
               "type": "number"
             },
@@ -25440,6 +25444,7 @@
             },
             "click_threshold": {
               "description": "Minimum required click rate. Defaults to 0.01.",
+              "maximum": 1,
               "minimum": 0,
               "type": "number"
             },
@@ -25449,6 +25454,7 @@
             },
             "open_threshold": {
               "description": "Minimum required open rate. Defaults to 0.08.",
+              "maximum": 1,
               "minimum": 0,
               "type": "number"
             },
@@ -25655,7 +25661,7 @@
       },
       "policy": {
         "audit": "required",
-        "confirmation": "never",
+        "confirmation": "required",
         "dryRun": false
       },
       "retry": {

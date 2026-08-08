@@ -29171,6 +29171,7 @@
                 "properties": {
                   "bounce_threshold": {
                     "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+                    "maximum": 1,
                     "minimum": 0,
                     "type": "number"
                   },
@@ -29179,6 +29180,7 @@
                   },
                   "click_threshold": {
                     "description": "Minimum required click rate. Defaults to 0.01.",
+                    "maximum": 1,
                     "minimum": 0,
                     "type": "number"
                   },
@@ -29188,6 +29190,7 @@
                   },
                   "open_threshold": {
                     "description": "Minimum required open rate. Defaults to 0.08.",
+                    "maximum": 1,
                     "minimum": 0,
                     "type": "number"
                   },
@@ -29219,6 +29222,7 @@
             "properties": {
               "bounce_threshold": {
                 "description": "Maximum allowed bounce rate. Defaults to 0.05.",
+                "maximum": 1,
                 "minimum": 0,
                 "type": "number"
               },
@@ -29227,6 +29231,7 @@
               },
               "click_threshold": {
                 "description": "Minimum required click rate. Defaults to 0.01.",
+                "maximum": 1,
                 "minimum": 0,
                 "type": "number"
               },
@@ -29236,6 +29241,7 @@
               },
               "open_threshold": {
                 "description": "Minimum required open rate. Defaults to 0.08.",
+                "maximum": 1,
                 "minimum": 0,
                 "type": "number"
               },
@@ -29450,13 +29456,13 @@
         {
           "kind": "write",
           "resource": "campaign",
-          "reversible": true
+          "reversible": false
         }
       ],
       "id": "ops.campaign.deliverability-guard",
       "policy": {
         "audit": "required",
-        "confirmation": "never",
+        "confirmation": "required",
         "dryRun": false
       },
       "projection": {
@@ -29489,7 +29495,7 @@
           "subscribers.list"
         ],
         "related": [],
-        "retryGuidance": "Retry with bounded backoff; the workflow is idempotent for the same candidate set.",
+        "retryGuidance": "Do not automatically retry an ambiguous live run. Inspect subscribers.list, rerun a dry-run preview to recompute the mutable candidate set, and explicitly confirm any follow-up execution.",
         "useWhen": [
           "Inactive subscribers must be identified for winback or sunset workflows."
         ],

@@ -95,11 +95,20 @@ export interface DailyDigestOutput {
 export interface DeliverabilityGuardInput {
 	campaign_id: ResourceId;
 	/** Maximum allowed bounce rate. Defaults to 0.05. */
-	bounce_threshold?: number & tags.Type<"float"> & tags.Minimum<0>;
+	bounce_threshold?: number &
+		tags.Type<"float"> &
+		tags.Minimum<0> &
+		tags.Maximum<1>;
 	/** Minimum required open rate. Defaults to 0.08. */
-	open_threshold?: number & tags.Type<"float"> & tags.Minimum<0>;
+	open_threshold?: number &
+		tags.Type<"float"> &
+		tags.Minimum<0> &
+		tags.Maximum<1>;
 	/** Minimum required click rate. Defaults to 0.01. */
-	click_threshold?: number & tags.Type<"float"> & tags.Minimum<0>;
+	click_threshold?: number &
+		tags.Type<"float"> &
+		tags.Minimum<0> &
+		tags.Maximum<1>;
 	/** Minimum sent count before engagement breaches are evaluated. Defaults to 100. */
 	minimum_sent?: PositiveInteger;
 	/** Pause a running or scheduled campaign when breached. Defaults to false. */

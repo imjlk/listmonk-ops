@@ -520,12 +520,7 @@ export const deliverabilityGuardOperation = defineOperation({
 		"Evaluate campaign deliverability metrics and optionally pause a breached campaign",
 	inputSchema: deliverabilityGuardInputSchema,
 	outputSchema: deliverabilityGuardOutputSchema,
-	safety: {
-		readOnlyHint: false,
-		destructiveHint: false,
-		idempotentHint: true,
-		openWorldHint: true,
-	},
+	safety: mutationSafety,
 	mcp: { name: "listmonk_ops_deliverability_guard" },
 	spec: bindOpsDeliverabilityGuardOperationSpec(),
 	execute: executeDeliverabilityGuardOperation,

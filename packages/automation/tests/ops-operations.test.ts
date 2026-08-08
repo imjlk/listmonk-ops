@@ -30,7 +30,10 @@ describe("automation operation registry", () => {
 		expect(getOpsOperationByMcpName("listmonk_ops_preflight")).toBe(
 			campaignPreflightOperation,
 		);
-		expect(deliverabilityGuardOperation.safety.destructiveHint).toBe(false);
+		expect(deliverabilityGuardOperation.safety).toMatchObject({
+			destructiveHint: true,
+			idempotentHint: true,
+		});
 		expect(campaignPreflightOperation.outputJsonSchema.type).toBe("object");
 		expect(segmentDriftOperation.safety.idempotentHint).toBe(false);
 		expect(templateRegistryRollbackOperation.safety).toMatchObject({

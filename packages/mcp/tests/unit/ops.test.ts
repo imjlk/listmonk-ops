@@ -37,7 +37,15 @@ describe("ops operation MCP adapter", () => {
 		const guard = opsTools.find(
 			(tool) => tool.name === "listmonk_ops_deliverability_guard",
 		);
-		expect(guard?.annotations?.destructiveHint).toBe(false);
+		expect(guard?.annotations).toMatchObject({
+			destructiveHint: true,
+			idempotentHint: true,
+		});
+		expect(guard?.inputSchema.required).toEqual(["campaign_id", "confirm"]);
+		expect(guard?.inputSchema.properties?.confirm).toMatchObject({
+			type: "boolean",
+			const: true,
+		});
 	});
 
 	test("invokes the shared preflight and returns structured output", async () => {

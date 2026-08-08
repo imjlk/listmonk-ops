@@ -1180,7 +1180,7 @@ Retry guidance: Retry is safe; the digest is read-only.
 
 ## Evaluate deliverability guard (`ops.campaign.deliverability-guard`)
 
-Contract maturity: `experimental`; effects: `read:campaign, write:campaign`; confirmation: `never`; retry: `safe`.
+Contract maturity: `experimental`; effects: `read:campaign, write:campaign`; confirmation: `required`; retry: `safe`.
 
 Use when: Campaign deliverability metrics must be evaluated against thresholds.
 
@@ -1204,7 +1204,7 @@ Prerequisites: `subscribers.list`
 
 Verify with: `subscribers.list`
 
-Retry guidance: Retry with bounded backoff; the workflow is idempotent for the same candidate set.
+Retry guidance: Do not automatically retry an ambiguous live run. Inspect subscribers.list, rerun a dry-run preview to recompute the mutable candidate set, and explicitly confirm any follow-up execution.
 
 ## Sync template registry (`ops.templates.registry-sync`)
 
