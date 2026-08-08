@@ -653,6 +653,16 @@ describe("email operations specification", () => {
 		).toThrow("retry guidance contradicts its declared retry semantics");
 		expect(() =>
 			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"Retry is safe when the idempotency key is not present.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
 				...campaignStartOperationSpec,
 				retry: {
 					kind: "unsafe",

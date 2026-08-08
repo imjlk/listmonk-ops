@@ -45,13 +45,14 @@ function retryIsUnconditionallySafe(retry: RetrySemantics): boolean {
 	return retry.cases.every(({ semantics }) => semantics.kind === "safe");
 }
 
-const RETRY_CONDITION_STOP_WORDS = new Set(["are", "has", "have", "is"]);
-
 function normalizedWords(value: string): readonly string[] {
 	return value
 		.toLowerCase()
 		.split(/[^a-z0-9]+/)
-		.filter((word) => word.length > 0);
+		.filter(
+			(word) =>
+				word.length > 0 && word !== "a" && word !== "an" && word !== "the",
+		);
 }
 
 function clauseReferencesSafeRetryCase(
@@ -59,21 +60,25 @@ function clauseReferencesSafeRetryCase(
 	clause: string,
 ): boolean {
 	if (retry.kind !== "conditional") return false;
-	const clauseWords = new Set(normalizedWords(clause));
+	const normalizedClause = normalizedWords(clause).join(" ");
 	return retry.cases.some(({ when, semantics }) => {
 		if (semantics.kind !== "safe") return false;
-		const conditionWords = normalizedWords(when).filter(
-			(word) => word.length >= 3 && !RETRY_CONDITION_STOP_WORDS.has(word),
-		);
+		const normalizedCondition = normalizedWords(when).join(" ");
 		return (
-			conditionWords.length > 0 &&
-			conditionWords.every((word) => clauseWords.has(word))
+			normalizedCondition.length > 0 &&
+			normalizedClause.includes(normalizedCondition)
 		);
 	});
 }
 
 function clauseAdvertisesSafeRetry(clause: string): boolean {
-	if (/\b(?:never|not|unsafe)\b/i.test(clause)) return false;
+	if (
+		/\b(?:not|never)(?:\s+[a-z-]+){0,2}\s+safe\b|\bunsafe\b|\b(?:do\s+not|never)\s+(?:automatically\s+)?retr(?:y|ies|ying)\b/i.test(
+			clause,
+		)
+	) {
+		return false;
+	}
 	const mentionsRetry = /\bretr(?:y|ies|ying)\b/i.test(clause);
 	const claimsSafety = /\bsafe(?:ly)?\b/i.test(clause);
 	const prescribesBackoff = /\b(?:bounded|normal)\s+backoff\b/i.test(clause);
