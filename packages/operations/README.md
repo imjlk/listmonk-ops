@@ -98,10 +98,10 @@ agent-skill, graph, stable compatibility, and migration-exemption artifacts.
 Run `bun run specs:stable:accept` only after explicitly reviewing an intentional
 stable-contract change.
 
-When a normalized shared-operation Zod boundary changes, build the workspaces,
-run `bun run operations:specs:runtime-contracts:generate` from the repository
-root, review the snapshot diff, and regenerate the spec artifacts. The final
-root build loads all 104 runtime operations and rejects any bridge drift.
+The runtime-operation bridge infrastructure is now empty — all 104
+operations have standalone product-domain contracts. The final root
+build loads all 104 runtime operations and validates them against their
+standalone TypeScript contracts.
 
 The main package exports a `discoveryOperationCatalog` with shared named
 invokers for `specs.search`, `specs.describe`, `playbooks.list`,

@@ -326,7 +326,7 @@ const createAbTestInputSchema = z.object({
 	minimum_sample_size: optionalNumberSchema.pipe(
 		z.number().int().positive().optional(),
 	),
-	duration_hours: optionalNumberSchema.pipe(z.number().min(0).optional()),
+	duration_hours: optionalNumberSchema.pipe(z.number().min(0).optional().refine((x) => x === undefined || x > 0, "duration_hours must be greater than 0")),
 	launch_at: z.string().datetime().optional(),
 	auto_launch: optionalBooleanSchema,
 	auto_deploy_winner: optionalBooleanSchema,
