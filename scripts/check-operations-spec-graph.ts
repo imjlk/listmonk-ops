@@ -1,11 +1,12 @@
 import {
 	emailOperationsSpec,
+	highRiskOperationSpecs,
 } from "../packages/operations/src/specs";
 import type { GraphDump } from "./check-graph-architecture";
 
 export type OperationsSpecGraphEdge = {
 	operationId: string;
-	kind: "calls" | "type_ref";
+	kind: "accesses" | "calls" | "type_ref";
 	from: string;
 	to: string;
 };
@@ -13,7 +14,26 @@ export type OperationsSpecGraphEdge = {
 export const operationsSpecOperationCount =
 	emailOperationsSpec.operations.length;
 
-export const operationsSpecGraphEdges: readonly OperationsSpecGraphEdge[] =
+const operationSpecTestModule =
+	"packages/operations/tests/specs.test.ts#packages/operations/tests/specs.test.ts:module";
+const highRiskOperationSpecTestAnchor =
+	"packages/operations/tests/specs.test.ts#assertHighRiskOperationSpecContracts:function";
+export const highRiskOperationSpecTestEdges: readonly OperationsSpecGraphEdge[] =
+	highRiskOperationSpecs.map((operation) => ({
+		operationId: operation.id,
+		kind: "accesses",
+		from: highRiskOperationSpecTestAnchor,
+		to: operation.projection.graph.descriptorNode,
+	}));
+
+export const highRiskOperationSpecTestCallEdge: OperationsSpecGraphEdge = {
+	operationId: "high-risk descriptor tests",
+	kind: "calls",
+	from: operationSpecTestModule,
+	to: highRiskOperationSpecTestAnchor,
+};
+
+const runtimeOperationSpecGraphEdges: readonly OperationsSpecGraphEdge[] =
 	emailOperationsSpec.operations.flatMap((operation) => [
 		{
 			operationId: operation.id,
@@ -34,6 +54,12 @@ export const operationsSpecGraphEdges: readonly OperationsSpecGraphEdge[] =
 			to: operation.projection.graph.executorNode,
 		},
 	]);
+
+export const operationsSpecGraphEdges: readonly OperationsSpecGraphEdge[] = [
+	...runtimeOperationSpecGraphEdges,
+	highRiskOperationSpecTestCallEdge,
+	...highRiskOperationSpecTestEdges,
+];
 
 export function assertOperationsSpecGraph(
 	graph: GraphDump,

@@ -125,7 +125,10 @@ const userRoleSchema = z.looseObject({
 });
 
 const userRoleManifestOperationInputSchema = userRoleManifestSchema.safeExtend({
-	roles: z.array(userRoleDesiredStateSchema).min(1).max(500),
+	roles: z
+		.array(userRoleDesiredStateSchema)
+		.min(1)
+		.max(MAX_USER_ROLE_MANIFEST_ROLES),
 	dry_run: z.boolean().default(true),
 });
 

@@ -7,13 +7,10 @@ import {
 	assertRuntimeOperationContracts,
 	assertRuntimeOperationProjection,
 	bridgedOperationSpecsById,
-	campaignCancelOperationSpec,
 	campaignGetOperationSpec,
-	campaignPreflightOperationSpec,
 	campaignResource,
 	campaignSafeStartPlaybook,
 	campaignScheduleOperationSpec,
-	campaignStartOperationSpec,
 	catalogReadOperationSpecs,
 	coreReadOperationSpecs,
 	controlStatusOperationSpec,
@@ -45,7 +42,6 @@ import {
 	templatesReconcileOperationSpec,
 	templatesSetDefaultOperationSpec,
 	templatesUpdateOperationSpec,
-	transactionalSendOperationSpec,
 	webhookDispatchOperationSpec,
 	webhookDeliveryListOperationSpec,
 	webhookDlqListOperationSpec,
@@ -55,6 +51,12 @@ import {
 	webhookReconcileOperationSpec,
 	webhookRuntimeStatusOperationSpec,
 } from "../src/specs";
+import {
+	campaignCancelOperationSpec,
+	campaignPreflightOperationSpec,
+	campaignStartOperationSpec,
+	transactionalSendOperationSpec,
+} from "../src/specs/high-risk";
 import { assertTypeScriptContractCompatibility } from "../src/specs/schema-compatibility";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import type { PolicyForEffects } from "../src/specs/policy";
@@ -82,7 +84,57 @@ const conflictingPreviewDryRunIsNever: IsNever<
 	>["dryRun"]
 > = true;
 
+function assertOperationDescriptorIdentity(
+	operation: { readonly id: string },
+	expectedId: string,
+): void {
+	expect(operation.id).toBe(expectedId);
+}
+
+export function assertHighRiskOperationSpecContracts(): void {
+	assertOperationDescriptorIdentity(
+		campaignStartOperationSpec,
+		"campaigns.start",
+	);
+	assertOperationDescriptorIdentity(
+		campaignCancelOperationSpec,
+		"campaigns.cancel",
+	);
+	assertOperationDescriptorIdentity(
+		transactionalSendOperationSpec,
+		"transactional.send",
+	);
+	assertOperationDescriptorIdentity(
+		campaignPreflightOperationSpec,
+		"ops.campaign.preflight",
+	);
+	expect(transactionalSendOperationSpec.retry).toMatchObject({
+		kind: "conditional",
+	});
+	expect(campaignStartOperationSpec.state).toEqual({
+		resource: "campaign",
+		from: ["draft", "scheduled", "paused"],
+		to: "running",
+		allowNoopFromTarget: true,
+	});
+	expect(campaignCancelOperationSpec.state?.to).toBe("cancelled");
+	expect(campaignPreflightOperationSpec.contract.output.schema.type).toBe(
+		"object",
+	);
+	expect(
+		campaignPreflightOperationSpec.contract.output.schema.properties?.checkedAt,
+	).toEqual({ $ref: "#/components/schemas/IsoDateTime" });
+	expect(
+		campaignPreflightOperationSpec.contract.output.components?.schemas
+			?.IsoDateTime,
+	).toMatchObject({ type: "string", format: "date-time" });
+}
+
 describe("email operations specification", () => {
+	test("directly anchors high-risk operation descriptor contracts", () => {
+		assertHighRiskOperationSpecContracts();
+	});
+
 	test("normalizes contract JSON through one deterministic implementation", () => {
 		expect(
 			JSON.stringify(
@@ -416,27 +468,6 @@ describe("email operations specification", () => {
 		expect(campaignScheduleOperationSpec.agent.prerequisites).toContain(
 			"ops.campaign.preflight",
 		);
-		expect(transactionalSendOperationSpec.retry).toMatchObject({
-			kind: "conditional",
-		});
-		expect(campaignStartOperationSpec.state).toEqual({
-			resource: "campaign",
-			from: ["draft", "scheduled", "paused"],
-			to: "running",
-			allowNoopFromTarget: true,
-		});
-		expect(campaignCancelOperationSpec.state?.to).toBe("cancelled");
-		expect(
-			campaignPreflightOperationSpec.contract.output.schema.type,
-		).toBe("object");
-		expect(
-			campaignPreflightOperationSpec.contract.output.schema.properties
-				?.checkedAt,
-		).toEqual({ $ref: "#/components/schemas/IsoDateTime" });
-		expect(
-			campaignPreflightOperationSpec.contract.output.components?.schemas
-				?.IsoDateTime,
-		).toMatchObject({ type: "string", format: "date-time" });
 		expect(webhookOperationSpecs).toHaveLength(16);
 		expect(sequenceOperationSpecs).toHaveLength(14);
 		expect(providerOperationSpecs).toHaveLength(7);
@@ -604,6 +635,341 @@ describe("email operations specification", () => {
 			"failed",
 			"cancelled",
 		]);
+	});
+
+	test("validates retry guidance against declared semantics", () => {
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				retry: {
+					kind: "conditional",
+					cases: [],
+					reason: "No retry case is declared.",
+				} as unknown as typeof transactionalSendOperationSpec.retry,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance: "Retrying the request is safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				retry: {
+					kind: "unsafe",
+					reason: "The delivery result may be ambiguous.",
+				},
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retrying the same campaign start is safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"Retry is safe when the idempotency key is present or absent.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"Retry is safe when the idempotency key is not present.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				retry: {
+					kind: "unsafe",
+					reason: "The delivery result may be ambiguous.",
+				},
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"Do not automatically retry; inspect campaign state before deciding whether to repeat the request.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance: "When idempotency_key is present, retry.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"Retry is safe when the idempotency key is absent.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"Retry safely only when an idempotency_key is present; do not retry without one.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"Retry is safe when the idempotency key is present; do not retry without it.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"If the request times out, retrying is safe; do not retry after other failures.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"Retrying immediately without reconciliation is safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"After inspecting campaigns.get, retrying the confirmed request is safe.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"Repeating this request is safe without reconciliation.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retrying isn't safe after a timeout.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"Reconciliation is optional and repeating the request is safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Repeating cannot be done safely after a timeout.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				retry: {
+					kind: "unsafe",
+					reason: "The delivery result may be ambiguous.",
+				},
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"Do not retry automatically, but retrying manually is safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"Retrying is safe when idempotency_key is absent, but when idempotency_key is present.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retry safely, then inspect campaigns.get.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				retry: {
+					kind: "unsafe",
+					reason: "The delivery result may be ambiguous.",
+				},
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retried requests are safe.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"You can retry immediately without reconciliation.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				retry: {
+					kind: "conditional",
+					cases: [
+						{
+							when: "key is present",
+							semantics: {
+								kind: "reconcile",
+								reconcileWith: "messages.get",
+								idempotent: true,
+								reason: "An identical request is a no-op after inspection.",
+							},
+						},
+						{
+							when: "key is absent",
+							semantics: {
+								kind: "unsafe",
+								reason: "The delivery result may be ambiguous.",
+							},
+						},
+					],
+					reason: "Retry behavior depends on the key.",
+				},
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"When the key is present, after inspecting messages.get, retrying is safe.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retry immediately without reconciliation.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"After reconciliation, retry safely without changing the request.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"When idempotency_key is present, you can retry.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				retry: {
+					kind: "unsafe",
+					reason: "The delivery result may be ambiguous.",
+				},
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retrying isn't unsafe after a timeout.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		for (const retryGuidance of [
+			"Please retry immediately without reconciliation.",
+			"Then retry immediately without reconciliation.",
+			"Immediately retry without reconciliation.",
+		]) {
+			expect(() =>
+				defineOperationSpec({
+					...campaignStartOperationSpec,
+					agent: {
+						...campaignStartOperationSpec.agent,
+						retryGuidance,
+					},
+				}),
+			).toThrow("retry guidance contradicts its declared retry semantics");
+		}
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Do not assume retrying is safe.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"After reconciliation, retry safely with a different request.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
 	});
 
 	test("derives safety requirements from operation effects", () => {
