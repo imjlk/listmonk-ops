@@ -704,6 +704,15 @@ describe("email operations specification", () => {
 				...transactionalSendOperationSpec,
 				agent: {
 					...transactionalSendOperationSpec.agent,
+					retryGuidance: "When idempotency_key is present, retry.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
 					retryGuidance:
 						"Retry is safe when the idempotency key is absent.",
 				},
@@ -885,6 +894,48 @@ describe("email operations specification", () => {
 				},
 			}),
 		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retry immediately without reconciliation.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"After reconciliation, retry safely without changing the request.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"When idempotency_key is present, you can retry.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				retry: {
+					kind: "unsafe",
+					reason: "The delivery result may be ambiguous.",
+				},
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Retrying isn't unsafe after a timeout.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
 	});
 
 	test("derives safety requirements from operation effects", () => {

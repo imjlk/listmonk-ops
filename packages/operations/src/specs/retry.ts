@@ -113,6 +113,22 @@ function findConditionReference(
 	return undefined;
 }
 
+function isRetrySafetyConsequence(words: readonly string[]): boolean {
+	const value = words.join(" ");
+	return (
+		/^(?:then )?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?) (?:is|are) safe(?:ly)?$/.test(
+			value,
+		) ||
+		/^(?:then )?(?:you )?(?:can|may|should) (?:safely )?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)$/.test(
+			value,
+		) ||
+		/^(?:then )?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?) (?:is|are) (?:allowed|permitted)$/.test(
+			value,
+		) ||
+		/^(?:then )?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)$/.test(value)
+	);
+}
+
 function clauseReferencesSafeRetryCase(
 	retry: RetrySemantics,
 	clause: string,
@@ -126,11 +142,7 @@ function clauseReferencesSafeRetryCase(
 
 		const remainder = clauseWords.slice(condition.end);
 		if (remainder.length === 0) return true;
-		if (
-			/^(?:then )?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?) (?:is|are) safe(?:ly)?$/.test(
-				remainder.join(" "),
-			)
-		) {
+		if (isRetrySafetyConsequence(remainder)) {
 			return true;
 		}
 		return false;
@@ -175,13 +187,19 @@ function clauseReferencesRequiredReconciliation(
 
 			const precedingWords = words.slice(Math.max(0, index - 4), index);
 			const targetLength = isReconcileOperation ? reconcileWithWords.length : 1;
-			const followingWords = words.slice(
-				index + targetLength,
-				index + targetLength + 4,
-			);
+			const followingWords = words.slice(index + targetLength);
+			const immediatelyPrecedingWords = precedingWords.slice(-3);
+			const firstFollowing = followingWords[0];
+			const secondFollowing = followingWords[1];
 			if (
-				precedingWords.some((word) => RECONCILIATION_DISQUALIFIERS.has(word)) ||
-				followingWords.some((word) => RECONCILIATION_DISQUALIFIERS.has(word))
+				immediatelyPrecedingWords.some((word) =>
+					RECONCILIATION_DISQUALIFIERS.has(word),
+				) ||
+				(firstFollowing !== undefined &&
+					RECONCILIATION_DISQUALIFIERS.has(firstFollowing)) ||
+				(["are", "be", "is", "was", "were"].includes(firstFollowing ?? "") &&
+					secondFollowing !== undefined &&
+					RECONCILIATION_DISQUALIFIERS.has(secondFollowing))
 			) {
 				continue;
 			}
@@ -225,19 +243,26 @@ function expandNegationContractions(clause: string): string {
 
 function clauseAdvertisesSafeRetry(clause: string): boolean {
 	const expandedClause = expandNegationContractions(clause);
+	const negatesUnsafe =
+		/\b(?:not|never)(?:\s+[a-z-]+){0,2}\s+unsafe\b/i.test(expandedClause);
+	const warnsUnsafe = /\bunsafe\b/i.test(expandedClause) && !negatesUnsafe;
 	if (
-		/\b(?:not|never)(?:\s+[a-z-]+){0,2}\s+safe(?:ly)?\b|\bunsafe\b|\b(?:(?:do|can|could|should|would|must|will)\s+not|never)\s+(?:automatically\s+)?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)\b/i.test(
+		/\b(?:not|never)(?:\s+[a-z-]+){0,2}\s+safe(?:ly)?\b|\b(?:(?:do|can|could|should|would|must|will)\s+not|never)\s+(?:automatically\s+)?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)\b/i.test(
 			expandedClause,
-		)
+		) || warnsUnsafe
 	) {
 		return false;
 	}
 	const mentionsRetry =
 		/\b(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)\b/i.test(expandedClause);
-	const claimsSafety = /\bsafe(?:ly)?\b/i.test(expandedClause);
+	const claimsSafety =
+		/\bsafe(?:ly)?\b/i.test(expandedClause) || negatesUnsafe;
 	const prescribesBackoff =
 		/\b(?:bounded|normal)\s+backoff\b/i.test(expandedClause);
 	const grantsPermission =
+		/^\s*(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)\b/i.test(
+			expandedClause,
+		) ||
 		/\b(?:can|may|should)\s+(?:safely\s+)?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)\b/i.test(
 			expandedClause,
 		) ||
