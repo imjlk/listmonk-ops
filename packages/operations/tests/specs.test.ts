@@ -843,6 +843,48 @@ describe("email operations specification", () => {
 				},
 			}),
 		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"You can retry immediately without reconciliation.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
+		expect(() =>
+			defineOperationSpec({
+				...transactionalSendOperationSpec,
+				retry: {
+					kind: "conditional",
+					cases: [
+						{
+							when: "key is present",
+							semantics: {
+								kind: "reconcile",
+								reconcileWith: "messages.get",
+								idempotent: true,
+								reason: "An identical request is a no-op after inspection.",
+							},
+						},
+						{
+							when: "key is absent",
+							semantics: {
+								kind: "unsafe",
+								reason: "The delivery result may be ambiguous.",
+							},
+						},
+					],
+					reason: "Retry behavior depends on the key.",
+				},
+				agent: {
+					...transactionalSendOperationSpec.agent,
+					retryGuidance:
+						"When the key is present, after inspecting messages.get, retrying is safe.",
+				},
+			}),
+		).not.toThrow();
 	});
 
 	test("derives safety requirements from operation effects", () => {
