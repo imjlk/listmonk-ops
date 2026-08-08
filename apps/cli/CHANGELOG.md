@@ -1,5 +1,11 @@
 # @listmonk-ops/cli
 
+## 0.12.1 — 2026-08-08
+
+### Patch changes
+
+- Updated dependencies: abtest@0.6.0, automation@0.6.0, operations@0.13.0
+
 ## 0.12.0 — 2026-08-06
 
 ### Added

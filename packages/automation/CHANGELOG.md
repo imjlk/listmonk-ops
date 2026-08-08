@@ -1,5 +1,21 @@
 # @listmonk-ops/automation
 
+## 0.6.0 — 2026-08-08
+
+### Minor changes
+
+- [c12abb0](https://github.com/imjlk/listmonk-ops/commit/c12abb00c54378c5fb5a7f4930708cc63db91cfc) Migrate all 12 remaining A/B test operations from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts. The experimental runtime bridge count drops from 13 to 0, completing the full bridge-to-standalone migration. All 104 shared operations now use standalone TypeScript contracts authored with Typia. — Thanks @imjlk!
+- [4724554](https://github.com/imjlk/listmonk-ops/commit/4724554ce14b3abff61ec521b6e6cb7d058846e3) Migrate all six remaining ops workflow operations (deliverability-guard, subscriber-hygiene, registry-sync, registry-history, registry-promote, registry-rollback) from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts, reducing the experimental runtime bridge count from 19 to 13. The ops workflow family is now fully standalone. — Thanks @imjlk!
+- [4cbc4c3](https://github.com/imjlk/listmonk-ops/commit/4cbc4c3634db726d939b029afbf0039200f5a92e) Migrate `ops.segments.drift` and `ops.digest.daily` from runtime-operation bridge snapshots to standalone TypeScript/Typia product contracts, reducing the experimental runtime bridge count from 21 to 19. — Thanks @imjlk!
+
+### Fixed
+
+- [910b58d](https://github.com/imjlk/listmonk-ops/commit/910b58d8ed67e24deeddfe58ed598cb1d0ca2889) Require confirmation for the deliverability guard's pause path, align threshold schemas, and correct subscriber hygiene retry guidance. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: operations@0.13.0
+
 ## 0.5.0 — 2026-08-06
 
 ### Minor changes
