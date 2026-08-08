@@ -125,7 +125,26 @@ function isRetrySafetyConsequence(words: readonly string[]): boolean {
 		/^(?:then )?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?) (?:is|are) (?:allowed|permitted)$/.test(
 			value,
 		) ||
-		/^(?:then )?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)$/.test(value)
+		/^(?:(?:immediately|now|please|then) )*(?:retry|repeat)$/.test(value)
+	);
+}
+
+function clauseChangesReconciledRequest(clause: string): boolean {
+	const value = normalizedWords(expandNegationContractions(clause)).join(" ");
+	if (
+		/\b(?:do not|never|without) (?:change|changing|modify|modifying) (?:request|payload|parameters|arguments|inputs|key)\b/.test(
+			value,
+		)
+	) {
+		return false;
+	}
+	return (
+		/\b(?:with|using) (?:different|changed|new) (?:request|payload|parameters|arguments|inputs|key)\b/.test(
+			value,
+		) ||
+		/\b(?:change|changing|modify|modifying) (?:request|payload|parameters|arguments|inputs|key)\b/.test(
+			value,
+		)
 	);
 }
 
@@ -156,6 +175,7 @@ function clauseReferencesRequiredReconciliation(
 	const words = normalizedWords(expandNegationContractions(clause));
 	const actionIndex = words.findIndex(isRetryActionWord);
 	if (actionIndex === -1) return false;
+	if (clauseChangesReconciledRequest(clause)) return false;
 	const reconciliationSemantics: Extract<
 		UnconditionalRetrySemantics,
 		{ kind: "reconcile" }
@@ -246,10 +266,16 @@ function clauseAdvertisesSafeRetry(clause: string): boolean {
 	const negatesUnsafe =
 		/\b(?:not|never)(?:\s+[a-z-]+){0,2}\s+unsafe\b/i.test(expandedClause);
 	const warnsUnsafe = /\bunsafe\b/i.test(expandedClause) && !negatesUnsafe;
+	const rejectsAssumedSafety =
+		/\b(?:do\s+not|never)\s+(?:assume|conclude|infer|presume)\b[^.!?;]{0,80}\bsafe(?:ly)?\b/i.test(
+			expandedClause,
+		);
 	if (
 		/\b(?:not|never)(?:\s+[a-z-]+){0,2}\s+safe(?:ly)?\b|\b(?:(?:do|can|could|should|would|must|will)\s+not|never)\s+(?:automatically\s+)?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)\b/i.test(
 			expandedClause,
-		) || warnsUnsafe
+		) ||
+		warnsUnsafe ||
+		rejectsAssumedSafety
 	) {
 		return false;
 	}
@@ -260,7 +286,7 @@ function clauseAdvertisesSafeRetry(clause: string): boolean {
 	const prescribesBackoff =
 		/\b(?:bounded|normal)\s+backoff\b/i.test(expandedClause);
 	const grantsPermission =
-		/^\s*(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)\b/i.test(
+		/^\s*(?:(?:immediately|now|please|then)\s+)*(?:retry|repeat)\b/i.test(
 			expandedClause,
 		) ||
 		/\b(?:can|may|should)\s+(?:safely\s+)?(?:retr(?:y|ies|ied|ying)|repeat(?:s|ed|ing)?)\b/i.test(

@@ -936,6 +936,40 @@ describe("email operations specification", () => {
 				},
 			}),
 		).toThrow("retry guidance contradicts its declared retry semantics");
+		for (const retryGuidance of [
+			"Please retry immediately without reconciliation.",
+			"Then retry immediately without reconciliation.",
+			"Immediately retry without reconciliation.",
+		]) {
+			expect(() =>
+				defineOperationSpec({
+					...campaignStartOperationSpec,
+					agent: {
+						...campaignStartOperationSpec.agent,
+						retryGuidance,
+					},
+				}),
+			).toThrow("retry guidance contradicts its declared retry semantics");
+		}
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance: "Do not assume retrying is safe.",
+				},
+			}),
+		).not.toThrow();
+		expect(() =>
+			defineOperationSpec({
+				...campaignStartOperationSpec,
+				agent: {
+					...campaignStartOperationSpec.agent,
+					retryGuidance:
+						"After reconciliation, retry safely with a different request.",
+				},
+			}),
+		).toThrow("retry guidance contradicts its declared retry semantics");
 	});
 
 	test("derives safety requirements from operation effects", () => {
