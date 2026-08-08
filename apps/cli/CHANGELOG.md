@@ -1,5 +1,11 @@
 # @listmonk-ops/cli
 
+## 0.12.2 — 2026-08-08
+
+### Changed
+
+- [79fff23](https://github.com/imjlk/listmonk-ops/commit/79fff23608b1349184d799eae0b8a9ce5d7a4f62) Stop publishing macOS Intel binaries, restrict prebuilt macOS releases to Apple silicon, and fail fast when the installer runs on an Intel Mac. — Thanks @imjlk!
+
 ## 0.12.1 — 2026-08-08
 
 ### Patch changes
