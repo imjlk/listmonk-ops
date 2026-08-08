@@ -543,11 +543,11 @@ payloads; enrollment reads expose subscriber-reference and stored-error
 presence without their values.
 `control.status` remains experimental because its runtime readiness contract is
 still maturing; newer subsystem, aggregation, and analytics reads remain
-experimental. Subsequent releases promoted `sequences.pause` and
-`sequences.resume` (reversible no-op writes) and `webhooks.circuit.reset`
-(idempotent circuit breaker reset), bringing the stable baseline to 43. The
-standalone `templates.reconcile` manifest contract is now also stable, bringing
-the baseline to 44. The remaining 60 descriptors are experimental.
+experimental. Stable mutations also include `sequences.pause`,
+`sequences.resume`, `webhooks.circuit.reset`, `templates.update`,
+`templates.set-default`, and `templates.reconcile`. Together these make the
+current stable baseline 46 operations; the remaining 58 descriptors are
+experimental.
 
 The spec publishes four typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, and `abtest.safe-run`.
@@ -564,9 +564,8 @@ also verifies all 104 shared operations, the API boundary rule, the 0
 runtime bridges, the 46 stable compatibility baselines, and 312 direct
 spec-to-runtime graph edges.
 
-All 104 shared operations now use standalone TypeScript contracts. The
-runtime-operation bridge infrastructure remains as an empty extension point
-for potential future internal-only operations.
+All 104 shared operations now use standalone TypeScript contracts. There are
+no governed runtime-bridge inputs or snapshots to regenerate.
 
 The spec API is published from the existing operations package through the
 `@listmonk-ops/operations/specs` subpath; it is not a separate npm package.

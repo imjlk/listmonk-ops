@@ -1650,6 +1650,141 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesReconcileOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesReconcileOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesReconcileOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesReconcileOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesReconcileOperationSpec:variable",
+        "executorNode": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable"
+      },
+      "operationId": "templates.reconcile"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#createTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesCreateOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesCreateOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesCreateOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#createTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesCreateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesCreateOperationSpec:variable",
+        "executorNode": "packages/operations/src/templates.ts#createTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#createTemplateOperation:variable"
+      },
+      "operationId": "templates.create"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#updateTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesUpdateOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesUpdateOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesUpdateOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#updateTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesUpdateOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesUpdateOperationSpec:variable",
+        "executorNode": "packages/operations/src/templates.ts#updateTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#updateTemplateOperation:variable"
+      },
+      "operationId": "templates.update"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#deleteTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesDeleteOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesDeleteOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesDeleteOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#deleteTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesDeleteOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesDeleteOperationSpec:variable",
+        "executorNode": "packages/operations/src/templates.ts#deleteTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#deleteTemplateOperation:variable"
+      },
+      "operationId": "templates.delete"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesSetDefaultOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesSetDefaultOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesSetDefaultOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/templates.ts#setDefaultTemplate:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesSetDefaultOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesSetDefaultOperationSpec:variable",
+        "executorNode": "packages/operations/src/templates.ts#setDefaultTemplate:function",
+        "invokerNode": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable"
+      },
+      "operationId": "templates.set-default"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/lists.ts#createListOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/list-specs.ts#bindListsCreateOperationSpec:function"
@@ -2024,141 +2159,6 @@
         "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#cloneCampaignOperation:variable"
       },
       "operationId": "campaigns.clone"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/templates.ts#createTemplateOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesCreateOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesCreateOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesCreateOperationSpec:variable"
-        },
-        {
-          "from": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/templates.ts#createTemplate:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesCreateOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesCreateOperationSpec:variable",
-        "executorNode": "packages/operations/src/templates.ts#createTemplate:function",
-        "invokerNode": "packages/operations/src/templates.ts#invokeCreateTemplateOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/templates.ts#createTemplateOperation:variable"
-      },
-      "operationId": "templates.create"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/templates.ts#updateTemplateOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesUpdateOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesUpdateOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesUpdateOperationSpec:variable"
-        },
-        {
-          "from": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/templates.ts#updateTemplate:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesUpdateOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesUpdateOperationSpec:variable",
-        "executorNode": "packages/operations/src/templates.ts#updateTemplate:function",
-        "invokerNode": "packages/operations/src/templates.ts#invokeUpdateTemplateOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/templates.ts#updateTemplateOperation:variable"
-      },
-      "operationId": "templates.update"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/templates.ts#deleteTemplateOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesDeleteOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesDeleteOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesDeleteOperationSpec:variable"
-        },
-        {
-          "from": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/templates.ts#deleteTemplate:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesDeleteOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesDeleteOperationSpec:variable",
-        "executorNode": "packages/operations/src/templates.ts#deleteTemplate:function",
-        "invokerNode": "packages/operations/src/templates.ts#invokeDeleteTemplateOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/templates.ts#deleteTemplateOperation:variable"
-      },
-      "operationId": "templates.delete"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesSetDefaultOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesSetDefaultOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesSetDefaultOperationSpec:variable"
-        },
-        {
-          "from": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/templates.ts#setDefaultTemplate:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesSetDefaultOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesSetDefaultOperationSpec:variable",
-        "executorNode": "packages/operations/src/templates.ts#setDefaultTemplate:function",
-        "invokerNode": "packages/operations/src/templates.ts#invokeSetDefaultTemplateOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/templates.ts#setDefaultTemplateOperation:variable"
-      },
-      "operationId": "templates.set-default"
-    },
-    {
-      "edges": [
-        {
-          "from": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable",
-          "kind": "calls",
-          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesReconcileOperationSpec:function"
-        },
-        {
-          "from": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesReconcileOperationSpec:function",
-          "kind": "type_ref",
-          "to": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesReconcileOperationSpec:variable"
-        },
-        {
-          "from": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
-          "kind": "calls",
-          "to": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function"
-        }
-      ],
-      "nodes": {
-        "bindingNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#bindTemplatesReconcileOperationSpec:function",
-        "descriptorNode": "packages/operations/src/specs/standalone-specs/template-specs.ts#templatesReconcileOperationSpec:variable",
-        "executorNode": "packages/operations/src/templates.ts#executeTemplateManifestReconcile:function",
-        "invokerNode": "packages/operations/src/templates.ts#invokeReconcileTemplateManifestOperation:function",
-        "runtimeDefinitionNode": "packages/operations/src/templates.ts#reconcileTemplateManifestOperation:variable"
-      },
-      "operationId": "templates.reconcile"
     },
     {
       "edges": [

@@ -1,5 +1,4 @@
 import { defineOperationSpec } from "../operation";
-{}
 import {
 	subscriberCreateInputContract,
 	subscriberUpdateInputContract,
