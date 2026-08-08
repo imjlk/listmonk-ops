@@ -26697,6 +26697,54 @@
       "output": {
         "components": {
           "schemas": {
+            "AbTestAssignmentGroup": {
+              "discriminator": {
+                "mapping": {
+                  "holdout": "#/components/schemas/AbTestHoldoutAssignmentGroup",
+                  "variant": "#/components/schemas/AbTestVariantAssignmentGroup"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AbTestHoldoutAssignmentGroup"
+                },
+                {
+                  "$ref": "#/components/schemas/AbTestVariantAssignmentGroup"
+                }
+              ]
+            },
+            "AbTestAssignmentManifest": {
+              "additionalProperties": false,
+              "properties": {
+                "algorithm": {
+                  "const": "sha256-order-largest-remainder-v1"
+                },
+                "assignedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "audienceChecksum": {
+                  "type": "string"
+                },
+                "groups": {
+                  "items": {
+                    "$ref": "#/components/schemas/AbTestAssignmentGroup"
+                  },
+                  "type": "array"
+                },
+                "seed": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "algorithm",
+                "seed",
+                "audienceChecksum",
+                "groups",
+                "assignedCount"
+              ],
+              "type": "object"
+            },
             "AbTestBaseConfig": {
               "additionalProperties": false,
               "properties": {
@@ -26759,6 +26807,29 @@
                 }
               },
               "required": [],
+              "type": "object"
+            },
+            "AbTestHoldoutAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "holdout"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind"
+              ],
               "type": "object"
             },
             "AbTestListMapping": {
@@ -26838,7 +26909,7 @@
               "additionalProperties": false,
               "properties": {
                 "assignmentManifest": {
-                  "$ref": "#/components/schemas/Recordstringunknown"
+                  "$ref": "#/components/schemas/AbTestAssignmentManifest"
                 },
                 "assignmentProvenance": {
                   "type": "string"
@@ -27034,6 +27105,35 @@
                 "contentOverrides"
               ],
               "type": "object"
+            },
+            "AbTestVariantAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "variant"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind",
+                "variantId"
+              ],
+              "type": "object"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             },
             "Recordstringunknown": {
               "additionalProperties": {},
@@ -27114,6 +27214,54 @@
       "output": {
         "components": {
           "schemas": {
+            "AbTestAssignmentGroup": {
+              "discriminator": {
+                "mapping": {
+                  "holdout": "#/components/schemas/AbTestHoldoutAssignmentGroup",
+                  "variant": "#/components/schemas/AbTestVariantAssignmentGroup"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AbTestHoldoutAssignmentGroup"
+                },
+                {
+                  "$ref": "#/components/schemas/AbTestVariantAssignmentGroup"
+                }
+              ]
+            },
+            "AbTestAssignmentManifest": {
+              "additionalProperties": false,
+              "properties": {
+                "algorithm": {
+                  "const": "sha256-order-largest-remainder-v1"
+                },
+                "assignedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "audienceChecksum": {
+                  "type": "string"
+                },
+                "groups": {
+                  "items": {
+                    "$ref": "#/components/schemas/AbTestAssignmentGroup"
+                  },
+                  "type": "array"
+                },
+                "seed": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "algorithm",
+                "seed",
+                "audienceChecksum",
+                "groups",
+                "assignedCount"
+              ],
+              "type": "object"
+            },
             "AbTestBaseConfig": {
               "additionalProperties": false,
               "properties": {
@@ -27190,6 +27338,29 @@
               ],
               "type": "object"
             },
+            "AbTestHoldoutAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "holdout"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind"
+              ],
+              "type": "object"
+            },
             "AbTestListMapping": {
               "additionalProperties": false,
               "properties": {
@@ -27252,7 +27423,7 @@
               "additionalProperties": false,
               "properties": {
                 "assignmentManifest": {
-                  "$ref": "#/components/schemas/Recordstringunknown"
+                  "$ref": "#/components/schemas/AbTestAssignmentManifest"
                 },
                 "assignmentProvenance": {
                   "type": "string"
@@ -27449,6 +27620,35 @@
               ],
               "type": "object"
             },
+            "AbTestVariantAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "variant"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind",
+                "variantId"
+              ],
+              "type": "object"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "Recordstringunknown": {
               "additionalProperties": {},
               "type": "object"
@@ -27501,12 +27701,15 @@
                   "type": "string"
                 },
                 "confidence_threshold": {
+                  "exclusiveMaximum": 1,
+                  "exclusiveMinimum": 0,
                   "type": "number"
                 },
                 "description": {
                   "type": "string"
                 },
                 "duration_hours": {
+                  "exclusiveMinimum": 0,
                   "type": "number"
                 },
                 "enable_stratification": {
@@ -27524,7 +27727,7 @@
                               "const": "relative"
                             },
                             "value": {
-                              "minimum": 0,
+                              "exclusiveMinimum": 0,
                               "type": "number"
                             }
                           },
@@ -27551,7 +27754,7 @@
                               ]
                             },
                             "value": {
-                              "minimum": 0,
+                              "exclusiveMinimum": 0,
                               "type": "number"
                             }
                           },
@@ -27671,12 +27874,14 @@
                   "type": "array"
                 },
                 "minimum_sample_size": {
-                  "type": "number"
+                  "$ref": "#/components/schemas/PositiveInteger"
                 },
                 "name": {
                   "$ref": "#/components/schemas/NonEmptyString"
                 },
                 "test_group_percentage": {
+                  "exclusiveMinimum": 0,
+                  "maximum": 100,
                   "type": "number"
                 },
                 "testing_mode": {
@@ -27701,15 +27906,7 @@
               "required": [
                 "name",
                 "lists",
-                "variants",
-                "test_group_percentage",
-                "confidence_threshold",
-                "minimum_sample_size",
-                "duration_hours",
-                "auto_launch",
-                "auto_deploy_winner",
-                "ignore_sample_size_warnings",
-                "enable_stratification"
+                "variants"
               ],
               "type": "object"
             },
@@ -27756,6 +27953,11 @@
               "minLength": 1,
               "type": "string"
             },
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
             "ResourceId": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -27777,12 +27979,15 @@
               "type": "string"
             },
             "confidence_threshold": {
+              "exclusiveMaximum": 1,
+              "exclusiveMinimum": 0,
               "type": "number"
             },
             "description": {
               "type": "string"
             },
             "duration_hours": {
+              "exclusiveMinimum": 0,
               "type": "number"
             },
             "enable_stratification": {
@@ -27800,7 +28005,7 @@
                           "const": "relative"
                         },
                         "value": {
-                          "minimum": 0,
+                          "exclusiveMinimum": 0,
                           "type": "number"
                         }
                       },
@@ -27827,7 +28032,7 @@
                           ]
                         },
                         "value": {
-                          "minimum": 0,
+                          "exclusiveMinimum": 0,
                           "type": "number"
                         }
                       },
@@ -27947,12 +28152,14 @@
               "type": "array"
             },
             "minimum_sample_size": {
-              "type": "number"
+              "$ref": "#/components/schemas/PositiveInteger"
             },
             "name": {
               "$ref": "#/components/schemas/NonEmptyString"
             },
             "test_group_percentage": {
+              "exclusiveMinimum": 0,
+              "maximum": 100,
               "type": "number"
             },
             "testing_mode": {
@@ -27977,15 +28184,7 @@
           "required": [
             "name",
             "lists",
-            "variants",
-            "test_group_percentage",
-            "confidence_threshold",
-            "minimum_sample_size",
-            "duration_hours",
-            "auto_launch",
-            "auto_deploy_winner",
-            "ignore_sample_size_warnings",
-            "enable_stratification"
+            "variants"
           ],
           "type": "object"
         },
@@ -27995,6 +28194,54 @@
       "output": {
         "components": {
           "schemas": {
+            "AbTestAssignmentGroup": {
+              "discriminator": {
+                "mapping": {
+                  "holdout": "#/components/schemas/AbTestHoldoutAssignmentGroup",
+                  "variant": "#/components/schemas/AbTestVariantAssignmentGroup"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AbTestHoldoutAssignmentGroup"
+                },
+                {
+                  "$ref": "#/components/schemas/AbTestVariantAssignmentGroup"
+                }
+              ]
+            },
+            "AbTestAssignmentManifest": {
+              "additionalProperties": false,
+              "properties": {
+                "algorithm": {
+                  "const": "sha256-order-largest-remainder-v1"
+                },
+                "assignedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "audienceChecksum": {
+                  "type": "string"
+                },
+                "groups": {
+                  "items": {
+                    "$ref": "#/components/schemas/AbTestAssignmentGroup"
+                  },
+                  "type": "array"
+                },
+                "seed": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "algorithm",
+                "seed",
+                "audienceChecksum",
+                "groups",
+                "assignedCount"
+              ],
+              "type": "object"
+            },
             "AbTestBaseConfig": {
               "additionalProperties": false,
               "properties": {
@@ -28071,6 +28318,29 @@
               ],
               "type": "object"
             },
+            "AbTestHoldoutAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "holdout"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind"
+              ],
+              "type": "object"
+            },
             "AbTestListMapping": {
               "additionalProperties": false,
               "properties": {
@@ -28133,7 +28403,7 @@
               "additionalProperties": false,
               "properties": {
                 "assignmentManifest": {
-                  "$ref": "#/components/schemas/Recordstringunknown"
+                  "$ref": "#/components/schemas/AbTestAssignmentManifest"
                 },
                 "assignmentProvenance": {
                   "type": "string"
@@ -28329,6 +28599,35 @@
                 "contentOverrides"
               ],
               "type": "object"
+            },
+            "AbTestVariantAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "variant"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind",
+                "variantId"
+              ],
+              "type": "object"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             },
             "Recordstringunknown": {
               "additionalProperties": {},
@@ -28672,6 +28971,54 @@
       "output": {
         "components": {
           "schemas": {
+            "AbTestAssignmentGroup": {
+              "discriminator": {
+                "mapping": {
+                  "holdout": "#/components/schemas/AbTestHoldoutAssignmentGroup",
+                  "variant": "#/components/schemas/AbTestVariantAssignmentGroup"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AbTestHoldoutAssignmentGroup"
+                },
+                {
+                  "$ref": "#/components/schemas/AbTestVariantAssignmentGroup"
+                }
+              ]
+            },
+            "AbTestAssignmentManifest": {
+              "additionalProperties": false,
+              "properties": {
+                "algorithm": {
+                  "const": "sha256-order-largest-remainder-v1"
+                },
+                "assignedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "audienceChecksum": {
+                  "type": "string"
+                },
+                "groups": {
+                  "items": {
+                    "$ref": "#/components/schemas/AbTestAssignmentGroup"
+                  },
+                  "type": "array"
+                },
+                "seed": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "algorithm",
+                "seed",
+                "audienceChecksum",
+                "groups",
+                "assignedCount"
+              ],
+              "type": "object"
+            },
             "AbTestBaseConfig": {
               "additionalProperties": false,
               "properties": {
@@ -28748,6 +29095,29 @@
               ],
               "type": "object"
             },
+            "AbTestHoldoutAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "holdout"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind"
+              ],
+              "type": "object"
+            },
             "AbTestListMapping": {
               "additionalProperties": false,
               "properties": {
@@ -28810,7 +29180,7 @@
               "additionalProperties": false,
               "properties": {
                 "assignmentManifest": {
-                  "$ref": "#/components/schemas/Recordstringunknown"
+                  "$ref": "#/components/schemas/AbTestAssignmentManifest"
                 },
                 "assignmentProvenance": {
                   "type": "string"
@@ -29006,6 +29376,35 @@
                 "contentOverrides"
               ],
               "type": "object"
+            },
+            "AbTestVariantAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "variant"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind",
+                "variantId"
+              ],
+              "type": "object"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             },
             "Recordstringunknown": {
               "additionalProperties": {},
@@ -29083,6 +29482,54 @@
       "output": {
         "components": {
           "schemas": {
+            "AbTestAssignmentGroup": {
+              "discriminator": {
+                "mapping": {
+                  "holdout": "#/components/schemas/AbTestHoldoutAssignmentGroup",
+                  "variant": "#/components/schemas/AbTestVariantAssignmentGroup"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AbTestHoldoutAssignmentGroup"
+                },
+                {
+                  "$ref": "#/components/schemas/AbTestVariantAssignmentGroup"
+                }
+              ]
+            },
+            "AbTestAssignmentManifest": {
+              "additionalProperties": false,
+              "properties": {
+                "algorithm": {
+                  "const": "sha256-order-largest-remainder-v1"
+                },
+                "assignedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "audienceChecksum": {
+                  "type": "string"
+                },
+                "groups": {
+                  "items": {
+                    "$ref": "#/components/schemas/AbTestAssignmentGroup"
+                  },
+                  "type": "array"
+                },
+                "seed": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "algorithm",
+                "seed",
+                "audienceChecksum",
+                "groups",
+                "assignedCount"
+              ],
+              "type": "object"
+            },
             "AbTestBaseConfig": {
               "additionalProperties": false,
               "properties": {
@@ -29159,6 +29606,29 @@
               ],
               "type": "object"
             },
+            "AbTestHoldoutAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "holdout"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind"
+              ],
+              "type": "object"
+            },
             "AbTestListMapping": {
               "additionalProperties": false,
               "properties": {
@@ -29221,7 +29691,7 @@
               "additionalProperties": false,
               "properties": {
                 "assignmentManifest": {
-                  "$ref": "#/components/schemas/Recordstringunknown"
+                  "$ref": "#/components/schemas/AbTestAssignmentManifest"
                 },
                 "assignmentProvenance": {
                   "type": "string"
@@ -29417,6 +29887,35 @@
                 "contentOverrides"
               ],
               "type": "object"
+            },
+            "AbTestVariantAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "variant"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind",
+                "variantId"
+              ],
+              "type": "object"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             },
             "Recordstringunknown": {
               "additionalProperties": {},
@@ -29824,9 +30323,6 @@
             "AbTestRunInput": {
               "additionalProperties": false,
               "properties": {
-                "confirm": {
-                  "type": "boolean"
-                },
                 "expected_status": {
                   "oneOf": [
                     {
@@ -29872,8 +30368,7 @@
                 }
               },
               "required": [
-                "test_id",
-                "confirm"
+                "test_id"
               ],
               "type": "object"
             },
@@ -29891,9 +30386,6 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
-            "confirm": {
-              "type": "boolean"
-            },
             "expected_status": {
               "oneOf": [
                 {
@@ -29939,8 +30431,7 @@
             }
           },
           "required": [
-            "test_id",
-            "confirm"
+            "test_id"
           ],
           "type": "object"
         },
@@ -29950,6 +30441,54 @@
       "output": {
         "components": {
           "schemas": {
+            "AbTestAssignmentGroup": {
+              "discriminator": {
+                "mapping": {
+                  "holdout": "#/components/schemas/AbTestHoldoutAssignmentGroup",
+                  "variant": "#/components/schemas/AbTestVariantAssignmentGroup"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AbTestHoldoutAssignmentGroup"
+                },
+                {
+                  "$ref": "#/components/schemas/AbTestVariantAssignmentGroup"
+                }
+              ]
+            },
+            "AbTestAssignmentManifest": {
+              "additionalProperties": false,
+              "properties": {
+                "algorithm": {
+                  "const": "sha256-order-largest-remainder-v1"
+                },
+                "assignedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "audienceChecksum": {
+                  "type": "string"
+                },
+                "groups": {
+                  "items": {
+                    "$ref": "#/components/schemas/AbTestAssignmentGroup"
+                  },
+                  "type": "array"
+                },
+                "seed": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "algorithm",
+                "seed",
+                "audienceChecksum",
+                "groups",
+                "assignedCount"
+              ],
+              "type": "object"
+            },
             "AbTestBaseConfig": {
               "additionalProperties": false,
               "properties": {
@@ -30026,6 +30565,29 @@
               ],
               "type": "object"
             },
+            "AbTestHoldoutAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "holdout"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind"
+              ],
+              "type": "object"
+            },
             "AbTestListMapping": {
               "additionalProperties": false,
               "properties": {
@@ -30088,7 +30650,7 @@
               "additionalProperties": false,
               "properties": {
                 "assignmentManifest": {
-                  "$ref": "#/components/schemas/Recordstringunknown"
+                  "$ref": "#/components/schemas/AbTestAssignmentManifest"
                 },
                 "assignmentProvenance": {
                   "type": "string"
@@ -30285,6 +30847,35 @@
               ],
               "type": "object"
             },
+            "AbTestVariantAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "variant"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind",
+                "variantId"
+              ],
+              "type": "object"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "Recordstringunknown": {
               "additionalProperties": {},
               "type": "object"
@@ -30327,17 +30918,11 @@
             "AbTestTickInput": {
               "additionalProperties": false,
               "properties": {
-                "confirm": {
-                  "type": "boolean"
-                },
                 "dry_run": {
                   "type": "boolean"
                 }
               },
-              "required": [
-                "confirm",
-                "dry_run"
-              ],
+              "required": [],
               "type": "object"
             }
           }
@@ -30346,17 +30931,11 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
-            "confirm": {
-              "type": "boolean"
-            },
             "dry_run": {
               "type": "boolean"
             }
           },
-          "required": [
-            "confirm",
-            "dry_run"
-          ],
+          "required": [],
           "type": "object"
         },
         "source": "typescript",
@@ -30494,9 +31073,6 @@
                 "all": {
                   "type": "boolean"
                 },
-                "confirm": {
-                  "type": "boolean"
-                },
                 "repair": {
                   "type": "boolean"
                 },
@@ -30504,11 +31080,7 @@
                   "$ref": "#/components/schemas/NonEmptyString"
                 }
               },
-              "required": [
-                "all",
-                "repair",
-                "confirm"
-              ],
+              "required": [],
               "type": "object"
             },
             "NonEmptyString": {
@@ -30524,9 +31096,6 @@
             "all": {
               "type": "boolean"
             },
-            "confirm": {
-              "type": "boolean"
-            },
             "repair": {
               "type": "boolean"
             },
@@ -30534,11 +31103,7 @@
               "$ref": "#/components/schemas/NonEmptyString"
             }
           },
-          "required": [
-            "all",
-            "repair",
-            "confirm"
-          ],
+          "required": [],
           "type": "object"
         },
         "source": "typescript",
@@ -30673,16 +31238,12 @@
             "AbTestExportAssignmentInput": {
               "additionalProperties": false,
               "properties": {
-                "confirm": {
-                  "type": "boolean"
-                },
                 "test_id": {
                   "$ref": "#/components/schemas/NonEmptyString"
                 }
               },
               "required": [
-                "test_id",
-                "confirm"
+                "test_id"
               ],
               "type": "object"
             },
@@ -30696,16 +31257,12 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
-            "confirm": {
-              "type": "boolean"
-            },
             "test_id": {
               "$ref": "#/components/schemas/NonEmptyString"
             }
           },
           "required": [
-            "test_id",
-            "confirm"
+            "test_id"
           ],
           "type": "object"
         },
@@ -30715,15 +31272,117 @@
       "output": {
         "components": {
           "schemas": {
+            "AbTestAssignmentGroup": {
+              "discriminator": {
+                "mapping": {
+                  "holdout": "#/components/schemas/AbTestHoldoutAssignmentGroup",
+                  "variant": "#/components/schemas/AbTestVariantAssignmentGroup"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AbTestHoldoutAssignmentGroup"
+                },
+                {
+                  "$ref": "#/components/schemas/AbTestVariantAssignmentGroup"
+                }
+              ]
+            },
+            "AbTestAssignmentManifest": {
+              "additionalProperties": false,
+              "properties": {
+                "algorithm": {
+                  "const": "sha256-order-largest-remainder-v1"
+                },
+                "assignedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "audienceChecksum": {
+                  "type": "string"
+                },
+                "groups": {
+                  "items": {
+                    "$ref": "#/components/schemas/AbTestAssignmentGroup"
+                  },
+                  "type": "array"
+                },
+                "seed": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "algorithm",
+                "seed",
+                "audienceChecksum",
+                "groups",
+                "assignedCount"
+              ],
+              "type": "object"
+            },
             "AbTestExportOutput": {
               "additionalProperties": false,
               "properties": {
-                "manifest": {}
+                "manifest": {
+                  "$ref": "#/components/schemas/AbTestAssignmentManifest"
+                }
               },
               "required": [
                 "manifest"
               ],
               "type": "object"
+            },
+            "AbTestHoldoutAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "holdout"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind"
+              ],
+              "type": "object"
+            },
+            "AbTestVariantAssignmentGroup": {
+              "additionalProperties": false,
+              "properties": {
+                "expectedCount": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "kind": {
+                  "const": "variant"
+                },
+                "subscriberChecksum": {
+                  "type": "string"
+                },
+                "variantId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expectedCount",
+                "subscriberChecksum",
+                "kind",
+                "variantId"
+              ],
+              "type": "object"
+            },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
             }
           }
         },
@@ -30731,7 +31390,9 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
-            "manifest": {}
+            "manifest": {
+              "$ref": "#/components/schemas/AbTestAssignmentManifest"
+            }
           },
           "required": [
             "manifest"

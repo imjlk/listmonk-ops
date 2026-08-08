@@ -235,7 +235,7 @@ export class ListmonkAbTestIntegration {
 		for (const group of variantGroups) {
 			const slice = ranked.slice(cursor, cursor + group.expectedCount);
 			variantSubscriberSlices.push({
-				variantId: group.variantId ?? "",
+				variantId: group.variantId,
 				subscriberIds: slice.map((entry) => entry.member.subscriberId),
 			});
 			cursor += group.expectedCount;
@@ -370,7 +370,7 @@ export class ListmonkAbTestIntegration {
 						for (const group of assignmentManifest.groups) {
 							const key =
 								group.kind === "variant"
-									? `variant:${group.variantId ?? ""}`
+									? `variant:${group.variantId}`
 									: "holdout";
 							groupOrder.push(key);
 							groupExactCounts[key] = group.expectedCount;

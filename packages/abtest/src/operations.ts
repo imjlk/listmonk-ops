@@ -60,10 +60,16 @@ const numericPercentageSchema = z.coerce
 	.finite()
 	.min(0)
 	.lte(100);
-const optionalNumberSchema = z.preprocess(
-	(value) => (value === null || value === "" ? undefined : value),
-	z.coerce.number().finite().optional(),
-);
+function optionalNumericInputSchema<const Schema extends z.ZodType>(
+	schema: Schema,
+) {
+	return z
+		.preprocess(
+			(value) => (value === null || value === "" ? undefined : value),
+			schema.optional(),
+		)
+		.optional();
+}
 const optionalBooleanSchema = z.preprocess((value) => {
 	if (value === null) {
 		return undefined;
@@ -75,7 +81,7 @@ const optionalBooleanSchema = z.preprocess((value) => {
 		return false;
 	}
 	return value;
-}, z.boolean().optional());
+}, z.boolean().optional()).optional();
 
 const contentOverridesSchema = z.object({
 	subject: z.string().optional(),
@@ -99,6 +105,29 @@ const metricSchema = z.object({
 	config: z.record(z.string(), z.unknown()).optional(),
 });
 
+const assignmentManifestSchema = z.object({
+	algorithm: z.literal("sha256-order-largest-remainder-v1"),
+	seed: z.string(),
+	audienceChecksum: z.string(),
+	groups: z.array(
+		z.discriminatedUnion("kind", [
+			z.object({
+				kind: z.literal("variant"),
+				variantId: z.string(),
+				expectedCount: z.number().int().nonnegative(),
+				subscriberChecksum: z.string(),
+			}),
+			z.object({
+				kind: z.literal("holdout"),
+				variantId: z.string().optional(),
+				expectedCount: z.number().int().nonnegative(),
+				subscriberChecksum: z.string(),
+			}),
+		]),
+	),
+	assignedCount: z.number().int().nonnegative(),
+});
+
 const abTestSchema = z.object({
 	id: z.string(),
 	name: z.string(),
@@ -119,7 +148,7 @@ const abTestSchema = z.object({
 	testGroupPercentage: z.number().finite(),
 	testGroupSize: z.number().finite().nonnegative(),
 	holdoutGroupSize: z.number().finite().nonnegative(),
-	confidenceThreshold: z.number().finite().min(0).lte(1),
+	confidenceThreshold: z.number().finite().positive().lt(1),
 	autoDeployWinner: z.boolean(),
 	campaignMappings: z.array(
 		z.object({
@@ -147,22 +176,7 @@ const abTestSchema = z.object({
 			eligibilityPolicyVersion: z.literal(1),
 		})
 		.optional(),
-	assignmentManifest: z
-		.object({
-			algorithm: z.literal("sha256-order-largest-remainder-v1"),
-			seed: z.string(),
-			audienceChecksum: z.string(),
-			groups: z.array(
-				z.object({
-					kind: z.enum(["variant", "holdout"]),
-					variantId: z.string().optional(),
-					expectedCount: z.number().int().nonnegative(),
-					subscriberChecksum: z.string(),
-				}),
-			),
-		assignedCount: z.number().int().nonnegative(),
-	})
-		.optional(),
+	assignmentManifest: assignmentManifestSchema.optional(),
 	// Stage 3 orchestration fields.
 		durationHours: z.number().finite().positive().optional(),
 		launchAt: z.string().datetime().optional(),
@@ -317,16 +331,21 @@ const createAbTestInputSchema = z.object({
 	lists: z.array(numericIntegerInputSchema).min(1).describe("Target list IDs"),
 	variants: z.array(createVariantInputSchema).min(2).max(3),
 	testing_mode: z.enum(["holdout", "full-split"]).optional(),
-	test_group_percentage: optionalNumberSchema.pipe(
-		z.number().min(0).lte(100).optional(),
+	test_group_percentage: optionalNumericInputSchema(
+		z.coerce.number().finite().positive().lte(100),
 	),
-	confidence_threshold: optionalNumberSchema.pipe(
-		z.number().min(0).lt(1).optional(),
+	confidence_threshold: optionalNumericInputSchema(
+		z.coerce.number().finite().positive().lt(1),
 	),
-	minimum_sample_size: optionalNumberSchema.pipe(
-		z.number().int().positive().optional(),
+	minimum_sample_size: optionalNumericInputSchema(
+		z.coerce.number().int().positive(),
 	),
-	duration_hours: optionalNumberSchema.pipe(z.number().min(0).optional().refine((x) => x === undefined || x > 0, "duration_hours must be greater than 0")),
+	duration_hours: optionalNumericInputSchema(
+		z.coerce
+			.number()
+			.finite()
+			.positive("duration_hours must be greater than 0"),
+	),
 	launch_at: z.string().datetime().optional(),
 	auto_launch: optionalBooleanSchema,
 	auto_deploy_winner: optionalBooleanSchema,
@@ -388,15 +407,9 @@ const runAbTestInputSchema = z.object({
 		.describe(
 			"A/B test updatedAt revision token observed before approval; copy the value verbatim",
 		),
-	confirm: optionalBooleanSchema.describe(
-		"Confirm destructive side effects before running",
-	),
 });
 
 const tickAbTestsInputSchema = z.object({
-	confirm: optionalBooleanSchema.describe(
-		"Confirm destructive side effects before ticking",
-	),
 	dry_run: optionalBooleanSchema.describe(
 		"Report the actions a tick would take without executing them",
 	),
@@ -409,9 +422,6 @@ const reconcileAbTestInputSchema = z.object({
 	),
 	repair: optionalBooleanSchema.describe(
 		"Apply repairs for detected drift (destructive when true)",
-	),
-	confirm: optionalBooleanSchema.describe(
-		"Confirm destructive repairs before applying them",
 	),
 });
 
@@ -431,9 +441,6 @@ const exportAssignmentInputSchema = z.object({
 		.trim()
 		.min(1)
 		.describe("A/B test ID whose assignment manifest to export"),
-	confirm: optionalBooleanSchema.describe(
-		"Confirm export of potentially sensitive assignment data",
-	),
 });
 
 export type AbTestOperationRecord = z.output<typeof abTestSchema>;
@@ -469,7 +476,7 @@ export type ReconcileAbTestOperationOutput = {
 	}>;
 };
 export type ExportAbTestAssignmentOperationOutput = {
-	manifest: unknown;
+	manifest: z.output<typeof assignmentManifestSchema>;
 };
 
 function jsonValue(value: unknown): string {
@@ -992,7 +999,7 @@ export const exportAbTestAssignmentOperation = defineOperation({
 		"Export the subscriber assignment manifest for a test with deterministic provisioning",
 	inputSchema: exportAssignmentInputSchema,
 	outputSchema: z.object({
-		manifest: z.unknown(),
+		manifest: assignmentManifestSchema,
 	}),
 	safety: {
 		readOnlyHint: true,

@@ -5,6 +5,8 @@ import { join } from "node:path";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	abTestOperations,
+	createAbTestOperation,
+	exportAbTestAssignmentOperation,
 	invokeAnalyzeAbTestOperation,
 	invokeCreateAbTestOperation,
 	invokeDeleteAbTestOperation,
@@ -19,6 +21,9 @@ import {
 	invokeTickAbTestsOperation,
 	invokeExportAbTestAssignmentOperation,
 	listAbTestsOperation,
+	reconcileAbTestOperation,
+	runAbTestOperation,
+	tickAbTestsOperation,
 } from "../src/operations";
 import { AbTestNotFoundError, saveStoredAbTests } from "../src/persistence";
 import type { AbTest } from "../src/types";
@@ -58,6 +63,17 @@ function createFixture(status: AbTest["status"]): AbTest {
 		autoDeployWinner: false,
 		campaignMappings: [],
 		testListMappings: [],
+	};
+}
+
+function createMinimalOperationInput() {
+	return {
+		name: "Schema parity",
+		lists: [1],
+		variants: [
+			{ name: "A", percentage: 50, campaign_config: {} },
+			{ name: "B", percentage: 50, campaign_config: {} },
+		],
 	};
 }
 
@@ -141,6 +157,102 @@ describe("A/B test operation registry", () => {
 		);
 	});
 
+	test("publishes optional create defaults, numeric bounds, and product-only inputs", () => {
+		expect(createAbTestOperation.inputJsonSchema.required).toEqual([
+			"name",
+			"lists",
+			"variants",
+		]);
+		expect(
+			createAbTestOperation.inputJsonSchema.properties?.test_group_percentage,
+		).toMatchObject({
+			type: "number",
+			exclusiveMinimum: 0,
+			maximum: 100,
+		});
+		expect(
+			createAbTestOperation.inputJsonSchema.properties?.confidence_threshold,
+		).toMatchObject({
+			type: "number",
+			exclusiveMinimum: 0,
+			exclusiveMaximum: 1,
+		});
+		expect(
+			createAbTestOperation.inputJsonSchema.properties?.minimum_sample_size,
+		).toMatchObject({ type: "integer", exclusiveMinimum: 0 });
+		expect(
+			createAbTestOperation.inputJsonSchema.properties?.duration_hours,
+		).toMatchObject({ type: "number", exclusiveMinimum: 0 });
+
+		expect(
+			createAbTestOperation.inputSchema.safeParse(
+				createMinimalOperationInput(),
+			).success,
+		).toBe(true);
+		for (const invalid of [
+			{ test_group_percentage: 0 },
+			{ confidence_threshold: 0 },
+			{ confidence_threshold: 1 },
+			{ minimum_sample_size: 0 },
+			{ duration_hours: 0 },
+		]) {
+			expect(
+				createAbTestOperation.inputSchema.safeParse({
+					...createMinimalOperationInput(),
+					...invalid,
+				}).success,
+			).toBe(false);
+		}
+
+		expect(runAbTestOperation.inputJsonSchema.required).toEqual(["test_id"]);
+		expect(runAbTestOperation.inputJsonSchema.properties).not.toHaveProperty(
+			"confirm",
+		);
+		expect(tickAbTestsOperation.inputJsonSchema.required).toBeUndefined();
+		expect(tickAbTestsOperation.inputJsonSchema.properties).not.toHaveProperty(
+			"confirm",
+		);
+		expect(reconcileAbTestOperation.inputJsonSchema.required).toBeUndefined();
+		expect(
+			reconcileAbTestOperation.inputJsonSchema.properties,
+		).not.toHaveProperty("confirm");
+		expect(exportAbTestAssignmentOperation.inputJsonSchema.required).toEqual([
+			"test_id",
+		]);
+		expect(
+			exportAbTestAssignmentOperation.inputJsonSchema.properties,
+		).not.toHaveProperty("confirm");
+		expect(
+			exportAbTestAssignmentOperation.outputJsonSchema.properties?.manifest,
+		).toMatchObject({
+			type: "object",
+			required: [
+				"algorithm",
+				"seed",
+				"audienceChecksum",
+				"groups",
+				"assignedCount",
+			],
+		});
+		expect(
+			exportAbTestAssignmentOperation.outputSchema.safeParse({
+				manifest: {
+					algorithm: "sha256-order-largest-remainder-v1",
+					seed: "seed-1",
+					audienceChecksum: "audience-checksum",
+					groups: [
+						{
+							kind: "variant",
+							expectedCount: 1,
+							subscriberChecksum: "subscriber-checksum",
+						},
+					],
+					assignedCount: 1,
+				},
+			}).success,
+		).toBe(false);
+	});
+
 test("uses shared input diagnostics across every named invoker", async () => {
 		const context = { client: {} as ListmonkClient };
 
@@ -177,11 +289,11 @@ test("uses shared input diagnostics across every named invoker", async () => {
 		// tick and reconcile have all-optional inputs, so drive them through a
 		// deliberate validation failure to keep each invoker anchored.
 		await expect(
-			invokeTickAbTestsOperation(context, { confirm: "not-boolean" }),
-		).rejects.toThrow("Invalid parameter confirm");
+			invokeTickAbTestsOperation(context, { dry_run: "not-boolean" }),
+		).rejects.toThrow("Invalid parameter dry_run");
 			await expect(
-				invokeReconcileAbTestOperation(context, { confirm: "not-boolean" }),
-			).rejects.toThrow("Invalid parameter confirm");
+				invokeReconcileAbTestOperation(context, { repair: "not-boolean" }),
+			).rejects.toThrow("Invalid parameter repair");
 			await expect(
 				invokeExportAbTestAssignmentOperation(context, { test_id: 123 }),
 			).rejects.toThrow();
@@ -218,7 +330,6 @@ test("rejects an A/B test changed after approval before progressing it", async (
 				test_id: fixture.id,
 				expected_status: "scheduled",
 				expected_updated_at: "2026-01-02T00:00:00.000Z",
-				confirm: true,
 			}),
 		).rejects.toThrow("changed after approval");
 
