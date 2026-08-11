@@ -239,6 +239,10 @@ const sendTransactionalInputSchema = z
 			.string()
 			.trim()
 			.min(1)
+			.refine(
+				(value) => !HEADER_CONTROL_CHAR_PATTERN.test(value),
+				"Subject must not contain ASCII control characters (including CR, LF, and NUL)",
+			)
 			.optional()
 			.describe("Message subject override"),
 		altbody: z

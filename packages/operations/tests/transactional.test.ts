@@ -209,6 +209,30 @@ describe("transactional operations", () => {
 		expect(send).not.toHaveBeenCalled();
 	});
 
+	test("rejects subject overrides containing control characters before dispatch", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+
+		for (const subject of [
+			"Receipt\r\nBcc: leak@example.com",
+			"Receipt\nBcc: leak@example.com",
+			"Receipt\0hidden",
+			"Receipt\x7fhidden",
+		]) {
+			await expect(
+				invokeSendTransactionalOperation(context(send), {
+					template_id: 3,
+					subscriber_id: 42,
+					subject,
+				}),
+			).rejects.toEqual(
+				expect.objectContaining<Partial<OperationInputError>>({
+					name: "OperationInputError",
+				}),
+			);
+		}
+		expect(send).not.toHaveBeenCalled();
+	});
+
 	test("rejects attempts to override protected transport headers", async () => {
 		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
 
