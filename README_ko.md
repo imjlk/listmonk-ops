@@ -614,6 +614,9 @@ listmonk-cli tx send \
 ```
 
 이메일 또는 ID 선택자는 Listmonk에 이미 등록된 subscriber를 대상으로 합니다.
+사용자 헤더는 애플리케이션 메타데이터에만 사용할 수 있습니다. 메시지 식별,
+라우팅, 추적 및 모든 `Resent-*` 헤더는 Listmonk와 SMTP transport가 관리하며
+발송 전에 거부됩니다.
 
 대응하는 MCP 도구는 `listmonk_send_transactional`입니다. 기존 클라이언트를
 위한 boolean 텍스트 결과는 유지하면서 `{"sent": true, "status": "accepted"}`

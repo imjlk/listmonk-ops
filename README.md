@@ -621,6 +621,9 @@ listmonk-cli tx send \
 ```
 
 The email or ID selector targets an existing Listmonk subscriber.
+Custom headers are limited to application metadata. Message identity, routing,
+trace, and all `Resent-*` headers remain owned by Listmonk and the SMTP
+transport and are rejected before dispatch.
 
 The corresponding MCP tool is `listmonk_send_transactional`. It returns
 structured content like `{"sent": true, "status": "accepted"}` and keeps the

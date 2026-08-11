@@ -236,7 +236,18 @@ describe("transactional operations", () => {
 	test("rejects attempts to override protected transport headers", async () => {
 		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
 
-		for (const protectedName of ["From", "Bcc", "Content-Type", "Subject"]) {
+		for (const protectedName of [
+			"From",
+			"Bcc",
+			"Content-Type",
+			"Subject",
+			"Return-Path",
+			"Sender",
+			"Received",
+			"Resent-Date",
+			"RESENT-From",
+			"Resent-X-Trace",
+		]) {
 			await expect(
 				invokeSendTransactionalOperation(context(send), {
 					template_id: 3,
@@ -291,6 +302,7 @@ describe("transactional operations", () => {
 					{ "X-Mailer": "listmonk-ops/1.0" },
 					{ "X-MyApp.Version": "1.0" },
 					{ X_Request_ID: "abc-123" },
+					{ "X-Resent-Trace": "forwarded" },
 				],
 			}),
 		).resolves.toEqual({ sent: true, status: "accepted" });
