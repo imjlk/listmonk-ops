@@ -166,7 +166,9 @@ handle과 단일 외부 수신자 transactional helper를 제공합니다. 생�
 handle 내부에 숨기며 Subscriber를 생성하지 않습니다.
 수신자 주소는 UTF-8 254바이트, 제목은 256바이트, 정상 직렬화되는 transactional
 body는 64 KiB로 제한합니다. Template data는 최대 2,048개 node와 32단계 중첩으로
-제한하고 원격 오류를 제한된 오류 코드와 상태로 투영합니다. Template data를
+제한하고 원격 오류를 제한된 오류 코드와 상태로 투영합니다. 호출자는 공유 인스턴스
+기본값에 의존하지 않고 메시지마다 정확한 Listmonk messenger와 검증된 단일 From
+주소(일반 주소 또는 표시 이름 포함)를 선택적으로 지정할 수 있습니다. Template data를
 snapshot한 뒤 검증하며, 비멱등 요청이 달라지거나 다른 origin으로 재전송되지
 않도록 sparse/확장 array, callable/accessor 직렬화 hook, HTTP redirect를 거부합니다.
 Runtime base URL은 URL 파싱 전에 percent encoding, backslash, dot segment를

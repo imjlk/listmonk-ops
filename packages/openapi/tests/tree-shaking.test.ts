@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const runtimeBundleBudgetBytes = 22_750;
 
 async function buildRuntimeArtifact(): Promise<void> {
 	await build({
@@ -91,7 +92,7 @@ describe("OpenAPI consumer tree-shaking", () => {
 		expect(generatedEndpointUrls(bundle)).toEqual(["/tx"]);
 		// Keep the opaque client and bounded payload validation within a small
 		// Worker entrypoint while retaining only the transactional endpoint.
-		expect(Buffer.byteLength(bundle)).toBeLessThan(21_500);
+		expect(Buffer.byteLength(bundle)).toBeLessThan(runtimeBundleBudgetBytes);
 	});
 
 	test("exposes the same bounded helper through the built runtime subpath", async () => {
@@ -115,6 +116,6 @@ describe("OpenAPI consumer tree-shaking", () => {
 			globalThis.__treeShakingProbe = { createListmonkRuntimeClient, sendExternalTransactionalEmail };
 		`);
 		expect(generatedEndpointUrls(bundle)).toEqual(["/tx"]);
-		expect(Buffer.byteLength(bundle)).toBeLessThan(21_500);
+		expect(Buffer.byteLength(bundle)).toBeLessThan(runtimeBundleBudgetBytes);
 	});
 });
