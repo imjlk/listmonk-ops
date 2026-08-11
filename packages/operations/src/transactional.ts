@@ -116,6 +116,15 @@ const PROTECTED_HEADER_NAMES = new Set([
 const HEADER_NAME_PATTERN = /^[A-Za-z0-9.!#$%&'*+\-/=?^_`{|}~]+$/;
 const HEADER_CONTROL_CHAR_PATTERN = /[\0\x01-\x1f\x7f]/;
 
+export const transactionalSubjectSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.refine(
+		(value) => !HEADER_CONTROL_CHAR_PATTERN.test(value),
+		"Subject must not contain ASCII control characters (including CR, LF, and NUL)",
+	);
+
 interface HeaderIssue {
 	path: Array<string | number>;
 	message: string;
@@ -235,14 +244,7 @@ const sendTransactionalInputSchema = z
 			.min(1)
 			.optional()
 			.describe("Listmonk messenger name"),
-		subject: z
-			.string()
-			.trim()
-			.min(1)
-			.refine(
-				(value) => !HEADER_CONTROL_CHAR_PATTERN.test(value),
-				"Subject must not contain ASCII control characters (including CR, LF, and NUL)",
-			)
+		subject: transactionalSubjectSchema
 			.optional()
 			.describe("Message subject override"),
 		altbody: z

@@ -7,7 +7,10 @@ import {
 	type JsonFileStore,
 	updateJsonFileStore,
 } from "@listmonk-ops/common";
-import type { TransactionalIdempotencyStore } from "@listmonk-ops/operations";
+import {
+	transactionalSubjectSchema,
+	type TransactionalIdempotencyStore,
+} from "@listmonk-ops/operations";
 import { z } from "zod";
 
 export const SEQUENCE_STORE_VERSION = 1;
@@ -43,7 +46,7 @@ export const sequenceStepSchema = z.discriminatedUnion("type", [
 		data: jsonObjectSchema.optional(),
 		contentType: z.enum(["html", "markdown", "plain"]).optional(),
 		messenger: z.string().trim().min(1).optional(),
-		subject: z.string().trim().min(1).optional(),
+		subject: transactionalSubjectSchema.optional(),
 		altBody: z.string().min(1).optional(),
 	}),
 	z.object({

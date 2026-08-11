@@ -262,6 +262,39 @@ describe("sequence definitions and file persistence", () => {
 		).rejects.toThrow();
 	});
 
+	test("rejects control characters in sequence subject overrides before persistence", async () => {
+		const maliciousSubject = "Welcome\r\nBcc: leak@example.com";
+
+		expect(() =>
+			createSequenceDefinition({
+				name: "unsafe subject",
+				steps: [
+					{
+						id: "send",
+						type: "send",
+						templateId: 7,
+						subject: maliciousSubject,
+					},
+					{ id: "stop", type: "stop" },
+				],
+			}),
+		).toThrow("Subject must not contain ASCII control characters");
+
+		await expect(
+			invokeSequenceValidateOperation({}, {
+				steps: [
+					{
+						id: "send",
+						type: "send",
+						template_id: 7,
+						subject: maliciousSubject,
+					},
+					{ id: "stop", type: "stop" },
+				],
+			}),
+		).rejects.toThrow("Subject must not contain ASCII control characters");
+	});
+
 	test("keeps validation and runtime health output aggregate-only", async () => {
 		const validation = await invokeSequenceValidateOperation({}, {
 			steps: [
