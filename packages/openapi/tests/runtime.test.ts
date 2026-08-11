@@ -112,6 +112,8 @@ describe("Workers-compatible Listmonk runtime", () => {
 		await expect(
 			sendExternalTransactionalEmail({
 				client,
+				fromEmail: "Poke.party <noreply@poke.party>",
+				messenger: "email-poke-party",
 				templateId: 42,
 				recipient: "trainer@example.com",
 				subject: 'Your sign-in code: "123,456"',
@@ -128,11 +130,38 @@ describe("Workers-compatible Listmonk runtime", () => {
 			template_id: 42,
 			subscriber_mode: "external",
 			subscriber_emails: ["trainer@example.com"],
+			from_email: "Poke.party <noreply@poke.party>",
+			messenger: "email-poke-party",
 			subject: 'Your sign-in code: "123,456"',
 			data: { otp: "123456", expiresMinutes: 5 },
 		});
 		expect(captured?.signal.aborted).toBe(false);
-		expect(capturedInit?.redirect).toBe("error");
+		 expect(capturedInit?.redirect).toBe("error");
+	});
+
+	test("accepts a quoted display name as one From mailbox", async () => {
+		let captured: Request | undefined;
+		const fetch = mock(async (request: Request) => {
+			captured = request;
+			return Response.json({ data: true });
+		});
+		const client = createListmonkRuntimeClient({
+			baseUrl: "https://mail.example.com",
+			username: "runtime",
+			accessToken: "test-token",
+			fetch,
+		});
+
+		await sendExternalTransactionalEmail({
+			client,
+			fromEmail: '"Example, Inc." <noreply@example.com>',
+			recipient: "trainer@example.com",
+			templateId: 42,
+		});
+
+		expect(await captured?.json()).toMatchObject({
+			from_email: '"Example, Inc." <noreply@example.com>',
+		});
 	});
 
 	test("allows a single local-domain recipient for private Mailpit stacks", async () => {
@@ -188,11 +217,23 @@ describe("Workers-compatible Listmonk runtime", () => {
 		});
 		let templateReads = 0;
 		let dataReads = 0;
+		let fromEmailReads = 0;
+		let messengerReads = 0;
 		const input = {
 			client,
 			get data() {
 				dataReads += 1;
 				return dataReads === 1 ? { code: "123456" } : { code: Number.NaN };
+			},
+			get fromEmail() {
+				fromEmailReads += 1;
+				return fromEmailReads === 1
+					? "Poke.party <noreply@poke.party>"
+					: "invalid";
+			},
+			get messenger() {
+				messengerReads += 1;
+				return messengerReads === 1 ? "email-poke-party" : "";
 			},
 			recipient: "trainer@example.com",
 			get templateId() {
@@ -207,9 +248,13 @@ describe("Workers-compatible Listmonk runtime", () => {
 		});
 		expect(templateReads).toBe(1);
 		expect(dataReads).toBe(1);
+		expect(fromEmailReads).toBe(1);
+		expect(messengerReads).toBe(1);
 		expect(await captured?.json()).toMatchObject({
 			template_id: 42,
 			data: { code: "123456" },
+			from_email: "Poke.party <noreply@poke.party>",
+			messenger: "email-poke-party",
 		});
 	});
 
@@ -359,6 +404,60 @@ describe("Workers-compatible Listmonk runtime", () => {
 				client,
 				templateId: 42,
 				recipient: `trainer@${"例".repeat(63)}.com`,
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				fromEmail: "not-an-email",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				fromEmail: "Sender <one@example.com>, Other <two@example.com>",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				fromEmail: "evil@example.com, Sender <sender@example.com>",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				fromEmail: '"Unclosed display <sender@example.com>',
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				fromEmail: "Sender <sender@example.com>\r\nBcc: hidden@example.com",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				fromEmail: `Sender ${"x".repeat(512)} <sender@example.com>`,
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				messenger: " email-poke-party",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				messenger: "email\npoke-party",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				messenger: `email-${"x".repeat(128)}`,
 			},
 			{
 				client,

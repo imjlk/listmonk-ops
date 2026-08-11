@@ -17,6 +17,8 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 // Avoid the 32-bit timer overflow behavior used by Node-compatible runtimes.
 const MAX_TIMEOUT_MS = 2_147_483_647;
 const MAX_RECIPIENT_BYTES = 254;
+const MAX_FROM_EMAIL_BYTES = 512;
+const MAX_MESSENGER_BYTES = 128;
 const MAX_SUBJECT_BYTES = 256;
 const MAX_ACKNOWLEDGEMENT_BYTES = 64 * 1024;
 const MAX_TRANSACTIONAL_BODY_BYTES = 64 * 1024;
@@ -96,6 +98,10 @@ export interface ExternalTransactionalEmailInput {
 	client: ListmonkRuntimeClient;
 	templateId: number;
 	recipient: string;
+	/** Optional Listmonk From override, as an address or `Display Name <address>`. */
+	fromEmail?: string;
+	/** Optional exact Listmonk messenger name. */
+	messenger?: string;
 	subject?: string;
 	data?: Record<string, unknown>;
 	signal?: AbortSignal;
@@ -292,6 +298,8 @@ export async function sendExternalTransactionalEmail(
 	const {
 		client,
 		data: inputData,
+		fromEmail: inputFromEmail,
+		messenger: inputMessenger,
 		recipient: inputRecipient,
 		signal,
 		subject: inputSubject,
@@ -330,20 +338,14 @@ export async function sendExternalTransactionalEmail(
 		"Transactional recipient",
 		"invalid_message",
 	);
-	const recipientIsInvalid =
-		!recipient.isWellFormed() ||
-		utf8ByteLength(recipient) > MAX_RECIPIENT_BYTES ||
-		!EMAIL_PATTERN.test(recipient) ||
-		!hasValidEmailAddressParts(recipient) ||
-		UNSAFE_EMAIL_CHARACTER_PATTERN.test(recipient) ||
-		CONTROL_CHARACTER_PATTERN.test(recipient) ||
-		INVISIBLE_IDENTIFIER_PATTERN.test(recipient);
-	if (recipientIsInvalid) {
+	if (!isValidEmailAddress(recipient)) {
 		throw new ListmonkRuntimeError(
 			"invalid_message",
 			"Transactional recipient must be one well-formed email address.",
 		);
 	}
+	const fromEmail = optionalFromEmailValue(inputFromEmail);
+	const messenger = optionalMessengerValue(inputMessenger);
 	const subject = optionalSubjectValue(inputSubject, "Transactional subject");
 	const data = snapshotTransactionalData(inputData);
 	const abortContext = createTransactionalAbortContext(signal, timeoutMs);
@@ -380,6 +382,8 @@ export async function sendExternalTransactionalEmail(
 						template_id: templateId,
 						subscriber_mode: "external",
 						subscriber_emails: [recipient],
+						...(fromEmail === undefined ? {} : { from_email: fromEmail }),
+						...(messenger === undefined ? {} : { messenger }),
 						...(subject === undefined ? {} : { subject }),
 						...(data === undefined ? {} : { data }),
 					},
@@ -731,6 +735,18 @@ function safeErrorName(error: unknown): unknown {
 	}
 }
 
+function isValidEmailAddress(email: string): boolean {
+	return (
+		email.isWellFormed() &&
+		utf8ByteLength(email) <= MAX_RECIPIENT_BYTES &&
+		EMAIL_PATTERN.test(email) &&
+		hasValidEmailAddressParts(email) &&
+		!UNSAFE_EMAIL_CHARACTER_PATTERN.test(email) &&
+		!CONTROL_CHARACTER_PATTERN.test(email) &&
+		!INVISIBLE_IDENTIFIER_PATTERN.test(email)
+	);
+}
+
 function hasValidEmailAddressParts(email: string): boolean {
 	const separatorIndex = email.lastIndexOf("@");
 	if (separatorIndex <= 0 || separatorIndex === email.length - 1) return false;
@@ -805,6 +821,8 @@ function snapshotTransactionalInput(
 		return {
 			client: input.client,
 			data: input.data,
+			fromEmail: input.fromEmail,
+			messenger: input.messenger,
 			recipient: input.recipient,
 			signal: input.signal,
 			subject: input.subject,
@@ -1020,6 +1038,79 @@ function isAbortSignalLike(signal: unknown): signal is AbortSignal {
 	} catch {
 		return false;
 	}
+}
+
+function optionalFromEmailValue(value: string | undefined): string | undefined {
+	if (value === undefined) return undefined;
+	const normalized = exactNonEmpty(
+		value,
+		"Transactional From address",
+		"invalid_message",
+	);
+	if (
+		!normalized.isWellFormed() ||
+		utf8ByteLength(normalized) > MAX_FROM_EMAIL_BYTES ||
+		CONTROL_CHARACTER_PATTERN.test(normalized) ||
+		INVISIBLE_IDENTIFIER_PATTERN.test(normalized)
+	) {
+		throw transactionalFromAddressError();
+	}
+	if (isValidEmailAddress(normalized)) return normalized;
+
+	const mailboxSeparator = normalized.lastIndexOf(" <");
+	if (mailboxSeparator <= 0 || !normalized.endsWith(">")) {
+		throw transactionalFromAddressError();
+	}
+	const displayName = normalized.slice(0, mailboxSeparator);
+	const address = normalized.slice(mailboxSeparator + 2, -1);
+	if (!isValidFromDisplayName(displayName) || !isValidEmailAddress(address)) {
+		throw transactionalFromAddressError();
+	}
+	return normalized;
+}
+
+function isValidFromDisplayName(value: string): boolean {
+	// Accept a conservative single-mailbox display-name subset. Any edge quote
+	// routes through the quoted-string grammar so partial quoting is rejected;
+	// unquoted names exclude address-list/structural characters through the
+	// shared unsafe pattern and exclude `@` to avoid bare-address ambiguity.
+	if (value.startsWith('"') || value.endsWith('"')) {
+		return /^"(?:[^"\\]|\\.)+"$/u.test(value);
+	}
+	return (
+		value.length > 0 &&
+		value === value.trim() &&
+		!UNSAFE_EMAIL_CHARACTER_PATTERN.test(value) &&
+		!value.includes("@")
+	);
+}
+
+function transactionalFromAddressError(): ListmonkRuntimeError {
+	return new ListmonkRuntimeError(
+		"invalid_message",
+		"Transactional From address must be one well-formed mailbox.",
+	);
+}
+
+function optionalMessengerValue(value: string | undefined): string | undefined {
+	if (value === undefined) return undefined;
+	const normalized = exactNonEmpty(
+		value,
+		"Transactional messenger",
+		"invalid_message",
+	);
+	if (
+		!normalized.isWellFormed() ||
+		utf8ByteLength(normalized) > MAX_MESSENGER_BYTES ||
+		CONTROL_CHARACTER_PATTERN.test(normalized) ||
+		INVISIBLE_IDENTIFIER_PATTERN.test(normalized)
+	) {
+		throw new ListmonkRuntimeError(
+			"invalid_message",
+			"Transactional messenger must be a bounded well-formed name.",
+		);
+	}
+	return normalized;
 }
 
 function optionalSubjectValue(
