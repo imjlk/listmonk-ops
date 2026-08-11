@@ -209,7 +209,8 @@ Callers may select an exact Listmonk SMTP messenger with `messenger` and
 override the message identity with either a bare address or
 `Display Name <address>` through `fromEmail`. Both values are optional,
 snapshotted once, bounded, and rejected when they contain malformed Unicode,
-control characters, invisible formatting, or an invalid mailbox.
+control characters, invisible formatting, or an invalid mailbox. Display names
+that contain mailbox punctuation such as commas must use a quoted display name.
 Template data is snapshotted and limited to JSON-standard values, dense arrays
 without extra properties, 2,048 nodes, and 32 levels of nesting before
 serialization. Callable or accessor `toJSON` hooks are rejected; an ordinary

@@ -136,7 +136,32 @@ describe("Workers-compatible Listmonk runtime", () => {
 			data: { otp: "123456", expiresMinutes: 5 },
 		});
 		expect(captured?.signal.aborted).toBe(false);
-		expect(capturedInit?.redirect).toBe("error");
+		 expect(capturedInit?.redirect).toBe("error");
+	});
+
+	test("accepts a quoted display name as one From mailbox", async () => {
+		let captured: Request | undefined;
+		const fetch = mock(async (request: Request) => {
+			captured = request;
+			return Response.json({ data: true });
+		});
+		const client = createListmonkRuntimeClient({
+			baseUrl: "https://mail.example.com",
+			username: "runtime",
+			accessToken: "test-token",
+			fetch,
+		});
+
+		await sendExternalTransactionalEmail({
+			client,
+			fromEmail: '"Example, Inc." <noreply@example.com>',
+			recipient: "trainer@example.com",
+			templateId: 42,
+		});
+
+		expect(await captured?.json()).toMatchObject({
+			from_email: '"Example, Inc." <noreply@example.com>',
+		});
 	});
 
 	test("allows a single local-domain recipient for private Mailpit stacks", async () => {
@@ -391,6 +416,18 @@ describe("Workers-compatible Listmonk runtime", () => {
 				templateId: 42,
 				recipient: "trainer@example.com",
 				fromEmail: "Sender <one@example.com>, Other <two@example.com>",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				fromEmail: "evil@example.com, Sender <sender@example.com>",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				fromEmail: '"Unclosed display <sender@example.com>',
 			},
 			{
 				client,

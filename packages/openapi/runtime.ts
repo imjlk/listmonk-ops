@@ -1053,42 +1053,43 @@ function optionalFromEmailValue(value: string | undefined): string | undefined {
 		CONTROL_CHARACTER_PATTERN.test(normalized) ||
 		INVISIBLE_IDENTIFIER_PATTERN.test(normalized)
 	) {
-		throw new ListmonkRuntimeError(
-			"invalid_message",
-			"Transactional From address must be one well-formed mailbox.",
-		);
+		throw transactionalFromAddressError();
 	}
+	if (isValidEmailAddress(normalized)) return normalized;
 
-	let address = normalized;
-	const openingBracket = normalized.indexOf("<");
-	if (openingBracket >= 0) {
-		const displayName = normalized.slice(0, openingBracket).trim();
-		const hasOneBracketedAddress =
-			displayName.length > 0 &&
-			normalized.lastIndexOf("<") === openingBracket &&
-			normalized.endsWith(">") &&
-			normalized.indexOf(">") === normalized.length - 1;
-		if (!hasOneBracketedAddress) {
-			throw new ListmonkRuntimeError(
-				"invalid_message",
-				"Transactional From address must be one well-formed mailbox.",
-			);
-		}
-		address = normalized.slice(openingBracket + 1, -1);
-	} else if (normalized.includes(">")) {
-		throw new ListmonkRuntimeError(
-			"invalid_message",
-			"Transactional From address must be one well-formed mailbox.",
-		);
+	const mailboxSeparator = normalized.lastIndexOf(" <");
+	if (mailboxSeparator <= 0 || !normalized.endsWith(">")) {
+		throw transactionalFromAddressError();
 	}
-
-	if (address !== address.trim() || !isValidEmailAddress(address)) {
-		throw new ListmonkRuntimeError(
-			"invalid_message",
-			"Transactional From address must be one well-formed mailbox.",
-		);
+	const displayName = normalized.slice(0, mailboxSeparator);
+	const address = normalized.slice(mailboxSeparator + 2, -1);
+	if (!isValidFromDisplayName(displayName) || !isValidEmailAddress(address)) {
+		throw transactionalFromAddressError();
 	}
 	return normalized;
+}
+
+function isValidFromDisplayName(value: string): boolean {
+	// Accept a conservative single-mailbox display-name subset. Any edge quote
+	// routes through the quoted-string grammar so partial quoting is rejected;
+	// unquoted names exclude address-list/structural characters through the
+	// shared unsafe pattern and exclude `@` to avoid bare-address ambiguity.
+	if (value.startsWith('"') || value.endsWith('"')) {
+		return /^"(?:[^"\\]|\\.)+"$/u.test(value);
+	}
+	return (
+		value.length > 0 &&
+		value === value.trim() &&
+		!UNSAFE_EMAIL_CHARACTER_PATTERN.test(value) &&
+		!value.includes("@")
+	);
+}
+
+function transactionalFromAddressError(): ListmonkRuntimeError {
+	return new ListmonkRuntimeError(
+		"invalid_message",
+		"Transactional From address must be one well-formed mailbox.",
+	);
 }
 
 function optionalMessengerValue(value: string | undefined): string | undefined {
