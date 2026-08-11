@@ -79,6 +79,9 @@ type SendTransactionalFlags = {
 	data?: string;
 	headers?: string;
 	"content-type"?: "html" | "markdown" | "plain";
+	messenger?: string;
+	subject?: string;
+	altbody?: string;
 	"idempotency-key"?: string;
 };
 
@@ -124,6 +127,9 @@ export async function handleSendTransactionalCommand({
 				data,
 				headers,
 				content_type: flags["content-type"],
+				messenger: flags.messenger,
+				subject: flags.subject,
+				altbody: flags.altbody,
 				idempotency_key: flags["idempotency-key"],
 			},
 		);
@@ -170,6 +176,15 @@ export default defineGroup({
 						description: "Message content type",
 					},
 				),
+				messenger: option(z.string().trim().min(1).optional(), {
+					description: "Listmonk messenger name",
+				}),
+				subject: option(z.string().trim().min(1).optional(), {
+					description: "Message subject override",
+				}),
+				altbody: option(z.string().min(1).optional(), {
+					description: "Plain-text alternative for multipart HTML email",
+				}),
 				"idempotency-key": option(idempotencyKeySchema, {
 					description:
 						"Optional idempotency key. A retry with the same key and payload replays the original result instead of re-sending.",

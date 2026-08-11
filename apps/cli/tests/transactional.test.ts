@@ -30,16 +30,22 @@ describe("transactional CLI action", () => {
 			template_id: 3,
 			subscriber_email: "recipient@example.com",
 			content_type: "html",
+			messenger: "email-transactional",
+			subject: "Order ready",
+			altbody: "Your order is ready.",
 			data: { order_id: "OPS-42" },
 			headers: [{ "X-Request-ID": "request-42" }],
 		});
 
 		expect(send).toHaveBeenCalledWith({
 			template_id: 3,
-			subscriber_email: "recipient@example.com",
-			subscriber_id: undefined,
+			subscriber_emails: ["recipient@example.com"],
+			subscriber_ids: undefined,
 			from_email: undefined,
 			content_type: "html",
+			messenger: "email-transactional",
+			subject: "Order ready",
+			altbody: "Your order is ready.",
 			data: { order_id: "OPS-42" },
 			headers: [{ "X-Request-ID": "request-42" }],
 		});

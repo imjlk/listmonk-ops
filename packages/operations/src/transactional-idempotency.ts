@@ -292,6 +292,9 @@ export function serializeTransactionalPayload(input: {
 	data?: Record<string, unknown>;
 	headers?: Array<Record<string, string>>;
 	content_type?: "html" | "markdown" | "plain";
+	messenger?: string;
+	subject?: string;
+	altbody?: string;
 }): string {
 	const normalized = {
 		template_id: input.template_id,
@@ -301,6 +304,9 @@ export function serializeTransactionalPayload(input: {
 		data: input.data,
 		headers: input.headers,
 		content_type: input.content_type,
+		messenger: input.messenger,
+		subject: input.subject,
+		altbody: input.altbody,
 	};
 	return stableSerializeJson(normalized);
 }

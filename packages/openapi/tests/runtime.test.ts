@@ -117,6 +117,8 @@ describe("Workers-compatible Listmonk runtime", () => {
 				templateId: 42,
 				recipient: "trainer@example.com",
 				subject: 'Your sign-in code: "123,456"',
+				contentType: "html",
+				altBody: "Your sign-in code is 123456.\nIt expires in 5 minutes.",
 				data: { otp: "123456", expiresMinutes: 5 },
 			}),
 		).resolves.toEqual({ sent: true, status: 200 });
@@ -133,6 +135,8 @@ describe("Workers-compatible Listmonk runtime", () => {
 			from_email: "Poke.party <noreply@poke.party>",
 			messenger: "email-poke-party",
 			subject: 'Your sign-in code: "123,456"',
+			content_type: "html",
+			altbody: "Your sign-in code is 123456.\nIt expires in 5 minutes.",
 			data: { otp: "123456", expiresMinutes: 5 },
 		});
 		expect(captured?.signal.aborted).toBe(false);
@@ -219,8 +223,18 @@ describe("Workers-compatible Listmonk runtime", () => {
 		let dataReads = 0;
 		let fromEmailReads = 0;
 		let messengerReads = 0;
+		let contentTypeReads = 0;
+		let altBodyReads = 0;
 		const input = {
+			get altBody() {
+				altBodyReads += 1;
+				return altBodyReads === 1 ? "Code: 123456" : "\u0000";
+			},
 			client,
+			get contentType() {
+				contentTypeReads += 1;
+				return contentTypeReads === 1 ? ("html" as const) : ("invalid" as never);
+			},
 			get data() {
 				dataReads += 1;
 				return dataReads === 1 ? { code: "123456" } : { code: Number.NaN };
@@ -250,11 +264,15 @@ describe("Workers-compatible Listmonk runtime", () => {
 		expect(dataReads).toBe(1);
 		expect(fromEmailReads).toBe(1);
 		expect(messengerReads).toBe(1);
+		expect(contentTypeReads).toBe(1);
+		expect(altBodyReads).toBe(1);
 		expect(await captured?.json()).toMatchObject({
 			template_id: 42,
 			data: { code: "123456" },
 			from_email: "Poke.party <noreply@poke.party>",
 			messenger: "email-poke-party",
+			content_type: "html",
+			altbody: "Code: 123456",
 		});
 	});
 
@@ -482,6 +500,42 @@ describe("Workers-compatible Listmonk runtime", () => {
 				templateId: 42,
 				recipient: "trainer@example.com",
 				subject: "x".repeat(257),
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				contentType: "richtext" as never,
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				altBody: 42 as never,
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				altBody: "",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				altBody: "Code\u0000hidden",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				altBody: "Code\ud800",
+			},
+			{
+				client,
+				templateId: 42,
+				recipient: "trainer@example.com",
+				altBody: "x".repeat(48 * 1024 + 1),
 			},
 		]) {
 			await expect(sendExternalTransactionalEmail(message)).rejects.toMatchObject({

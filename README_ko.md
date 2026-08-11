@@ -167,8 +167,9 @@ handle 내부에 숨기며 Subscriber를 생성하지 않습니다.
 수신자 주소는 UTF-8 254바이트, 제목은 256바이트, 정상 직렬화되는 transactional
 body는 64 KiB로 제한합니다. Template data는 최대 2,048개 node와 32단계 중첩으로
 제한하고 원격 오류를 제한된 오류 코드와 상태로 투영합니다. 호출자는 공유 인스턴스
-기본값에 의존하지 않고 메시지마다 정확한 Listmonk messenger와 검증된 단일 From
-주소(일반 주소 또는 표시 이름 포함)를 선택적으로 지정할 수 있습니다. Template data를
+기본값에 의존하지 않고 메시지마다 정확한 Listmonk messenger, 렌더링 콘텐츠 형식,
+plain-text 대체 본문과 검증된 단일 From 주소(일반 주소 또는 표시 이름 포함)를
+선택적으로 지정할 수 있습니다. Template data를
 snapshot한 뒤 검증하며, 비멱등 요청이 달라지거나 다른 origin으로 재전송되지
 않도록 sparse/확장 array, callable/accessor 직렬화 hook, HTTP redirect를 거부합니다.
 Runtime base URL은 URL 파싱 전에 percent encoding, backslash, dot segment를
@@ -596,8 +597,8 @@ listmonk-cli ops hygiene --mode winback --dry-run true --confirm
 ## 트랜잭셔널 이메일
 
 CLI와 MCP 서버는 하나의 타입드 트랜잭셔널 발송 Operation을 공유합니다. 두
-인터페이스에서 수신자, 템플릿 데이터, 콘텐츠 형식, 사용자 헤더를 동일하게
-전달할 수 있습니다.
+인터페이스에서 수신자, 템플릿 데이터, 콘텐츠 형식, messenger, 제목 재정의,
+plain-text 대체 본문, 사용자 헤더를 동일하게 전달할 수 있습니다.
 
 ```bash
 listmonk-cli tx send \
@@ -605,6 +606,9 @@ listmonk-cli tx send \
   --subscriber-email recipient@example.com \
   --from-email "Ops <ops@example.com>" \
   --content-type html \
+  --messenger email \
+  --subject "환영합니다, {{ .Subscriber.Name }}" \
+  --altbody "서비스에 오신 것을 환영합니다." \
   --data '{"name":"Ada"}' \
   --headers '[{"X-Trace-ID":"example-trace"}]'
 ```
@@ -950,8 +954,11 @@ listmonk-cli sequences worker --interval-ms 5000 --confirm
 
 Worker는 매 `send` 직전에 subscriber를 다시 조회하고 blocklisted, disabled,
 또는 반환된 모든 list에서 unsubscribed 상태이면 발송을 취소합니다.
-Transactional 발송은 enrollment/revision/step으로 결정되는 idempotency key를
-사용합니다. 발송 전 단계에서 확실히 실패한 요청은 jitter를 적용한 제한된
+`send` 단계는 messenger와 발신자를 고정하고 제목·콘텐츠 형식을 재정의하며
+multipart plain-text 대체 본문을 제공할 수 있습니다. 모든 발송 옵션은 결정적
+idempotency payload에 포함됩니다. Transactional 발송은
+enrollment/revision/step으로 결정되는 idempotency key를 사용합니다. 발송 전
+단계에서 확실히 실패한 요청은 jitter를 적용한 제한된
 exponential backoff로 최대 24회 재시도하며, enrollment list/get 결과의
 `retry_count`로 횟수를 확인할 수 있습니다. 응답이 유실된 발송은
 `ambiguous`가 되며 자동

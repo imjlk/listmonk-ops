@@ -4,7 +4,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const runtimeBundleBudgetBytes = 22_750;
+// Includes bounded delivery overrides (messenger, subject, content type, and
+// alternate body) while preserving a narrow single-endpoint Worker surface.
+const runtimeBundleBudgetBytes = 23_250;
 
 async function buildRuntimeArtifact(): Promise<void> {
 	await build({

@@ -13,6 +13,12 @@ functions preserve the registry validation and error contract while keeping
 CLI/MCP-to-domain call paths visible to static tooling. Surface packages remain
 responsible for authentication and presentation.
 
+The shared transactional operation accepts an exact messenger, subject
+override, and multipart plain-text alternative in addition to template data,
+content type, sender, and validated custom headers. These fields participate in
+the idempotency payload hash, so reusing a key with different delivery or
+rendering options is rejected instead of replaying the wrong send.
+
 Release provisioning can plan one exact-name template with
 `reconcileTemplate`, or a versioned set with `reconcileTemplateManifest`.
 Planning is read-only by default; `{ apply: true }` or `ensureTemplate` applies

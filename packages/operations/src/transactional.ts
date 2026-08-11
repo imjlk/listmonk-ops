@@ -229,6 +229,23 @@ const sendTransactionalInputSchema = z
 			.enum(["html", "markdown", "plain"])
 			.optional()
 			.describe("Message content type"),
+		messenger: z
+			.string()
+			.trim()
+			.min(1)
+			.optional()
+			.describe("Listmonk messenger name"),
+		subject: z
+			.string()
+			.trim()
+			.min(1)
+			.optional()
+			.describe("Message subject override"),
+		altbody: z
+			.string()
+			.min(1)
+			.optional()
+			.describe("Plain-text alternative for multipart HTML email"),
 		idempotency_key: idempotencyKeySchema,
 	})
 	.refine(
@@ -349,6 +366,9 @@ interface DispatchPayload {
 	data?: Record<string, unknown>;
 	headers?: Array<Record<string, string>>;
 	content_type?: "html" | "markdown" | "plain";
+	messenger?: string;
+	subject?: string;
+	altbody?: string;
 }
 
 async function dispatchToListmonk(
@@ -357,12 +377,19 @@ async function dispatchToListmonk(
 ): Promise<boolean> {
 	const response = await context.client.transactional.send({
 		template_id: payload.template_id,
-		subscriber_email: payload.subscriber_email,
-		subscriber_id: payload.subscriber_id,
+		subscriber_emails:
+			payload.subscriber_email === undefined
+				? undefined
+				: [payload.subscriber_email],
+		subscriber_ids:
+			payload.subscriber_id === undefined ? undefined : [payload.subscriber_id],
 		from_email: payload.from_email,
 		data: payload.data,
 		headers: payload.headers,
 		content_type: payload.content_type,
+		messenger: payload.messenger,
+		subject: payload.subject,
+		altbody: payload.altbody,
 	});
 	const status =
 		typeof response.response?.status === "number"
@@ -422,6 +449,9 @@ export async function sendTransactionalMessage(
 		data: input.data,
 		headers: input.headers,
 		content_type: input.content_type,
+		messenger: input.messenger,
+		subject: input.subject,
+		altbody: input.altbody,
 	};
 
 	if (input.idempotency_key === undefined) {

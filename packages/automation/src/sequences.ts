@@ -42,6 +42,9 @@ export const sequenceStepSchema = z.discriminatedUnion("type", [
 		fromEmail: z.string().trim().min(1).optional(),
 		data: jsonObjectSchema.optional(),
 		contentType: z.enum(["html", "markdown", "plain"]).optional(),
+		messenger: z.string().trim().min(1).optional(),
+		subject: z.string().trim().min(1).optional(),
+		altBody: z.string().min(1).optional(),
 	}),
 	z.object({
 		id: stepIdSchema,

@@ -15,6 +15,7 @@ type MailpitMessageList = {
 export type MailpitMessage = MailpitMessageSummary & {
 	From: MailpitAddress;
 	HTML: string;
+	Text: string;
 };
 
 function resolveMailpitApiRoot(): string {
