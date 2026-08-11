@@ -1537,6 +1537,9 @@
               "TransactionalSendBaseInput__type": {
                 "additionalProperties": false,
                 "properties": {
+                  "altbody": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
                   "content_type": {
                     "oneOf": [
                       {
@@ -1565,6 +1568,12 @@
                   },
                   "idempotency_key": {
                     "$ref": "#/components/schemas/IdempotencyKey"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/NonEmptyString"
                   },
                   "subscriber_email": {
                     "$ref": "#/components/schemas/EmailAddress"
@@ -1582,6 +1591,9 @@
               "TransactionalSendBaseInput__type-o1": {
                 "additionalProperties": false,
                 "properties": {
+                  "altbody": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
                   "content_type": {
                     "oneOf": [
                       {
@@ -1610,6 +1622,12 @@
                   },
                   "idempotency_key": {
                     "$ref": "#/components/schemas/IdempotencyKey"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/NonEmptyString"
                   },
                   "subscriber_id": {
                     "$ref": "#/components/schemas/ResourceId"

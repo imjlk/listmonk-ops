@@ -167,8 +167,9 @@ does not create subscribers, caps recipient addresses at 254 UTF-8 bytes and
 subjects at 256 UTF-8 bytes, caps the successfully serialized transactional body
 at 64 KiB, snapshots and bounds template data to 2,048 nodes and 32 nesting
 levels, and projects remote failures to bounded errors. Callers can optionally
-select an exact Listmonk messenger and a validated bare or display-name From
-address per message without relying on the shared instance defaults. It rejects
+select an exact Listmonk messenger, rendered content type, plain-text
+alternative, and a validated bare or display-name From address per message
+without relying on the shared instance defaults. It rejects
 sparse or extended arrays, callable/accessor serialization hooks, and HTTP
 redirects before they can transform or replay a validated non-idempotent request.
 Runtime base URLs also reject percent encoding, backslashes, and dot segments
@@ -603,8 +604,8 @@ listmonk-cli ops hygiene --mode winback --dry-run true --confirm
 ## Transactional Email
 
 The CLI and MCP server share one typed transactional-send operation. Both
-surfaces accept the same recipient, template data, content type, and custom
-header payloads:
+surfaces accept the same recipient, template data, content type, messenger,
+subject override, plain-text alternative, and custom header payloads:
 
 ```bash
 listmonk-cli tx send \
@@ -612,6 +613,9 @@ listmonk-cli tx send \
   --subscriber-email recipient@example.com \
   --from-email "Ops <ops@example.com>" \
   --content-type html \
+  --messenger email \
+  --subject "Welcome, {{ .Subscriber.Name }}" \
+  --altbody "Welcome to the service." \
   --data '{"name":"Ada"}' \
   --headers '[{"X-Trace-ID":"example-trace"}]'
 ```
@@ -943,6 +947,9 @@ Sequences are typed, revisioned workflows shared by the CLI and MCP server.
 Each enrollment is pinned to the revision that existed when it was created, so
 later edits do not mutate running subscriber journeys. The MVP supports
 `send`, `wait`, absolute `wait_until`, `condition`, and `stop` steps.
+Send steps can pin the messenger and sender, override the subject and content
+type, and supply a multipart plain-text alternative; all delivery options are
+part of the deterministic idempotency payload.
 
 ```bash
 listmonk-cli sequences validate \

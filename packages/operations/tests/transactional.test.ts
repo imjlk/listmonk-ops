@@ -119,6 +119,9 @@ describe("transactional operations", () => {
 			subscriber_id: "42",
 			from_email: "Sender <sender@example.com>",
 			content_type: "html",
+			messenger: "email-transactional",
+			subject: "Order {{ .Tx.Data.order_id }}",
+			altbody: "Order {{ .Tx.Data.order_id }} is ready.",
 			data: { order_id: "OPS-42" },
 			headers: [{ "X-Request-ID": "request-42" }],
 		});
@@ -126,10 +129,13 @@ describe("transactional operations", () => {
 		expect(output).toEqual({ sent: true, status: "accepted" });
 		expect(send).toHaveBeenCalledWith({
 			template_id: 3,
-			subscriber_email: undefined,
-			subscriber_id: 42,
+			subscriber_emails: undefined,
+			subscriber_ids: [42],
 			from_email: "Sender <sender@example.com>",
 			content_type: "html",
+			messenger: "email-transactional",
+			subject: "Order {{ .Tx.Data.order_id }}",
+			altbody: "Order {{ .Tx.Data.order_id }} is ready.",
 			data: { order_id: "OPS-42" },
 			headers: [{ "X-Request-ID": "request-42" }],
 		});
@@ -193,6 +199,30 @@ describe("transactional operations", () => {
 					template_id: 3,
 					subscriber_id: 42,
 					headers: [{ "X-Evil": value }],
+				}),
+			).rejects.toEqual(
+				expect.objectContaining<Partial<OperationInputError>>({
+					name: "OperationInputError",
+				}),
+			);
+		}
+		expect(send).not.toHaveBeenCalled();
+	});
+
+	test("rejects subject overrides containing control characters before dispatch", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+
+		for (const subject of [
+			"Receipt\r\nBcc: leak@example.com",
+			"Receipt\nBcc: leak@example.com",
+			"Receipt\0hidden",
+			"Receipt\x7fhidden",
+		]) {
+			await expect(
+				invokeSendTransactionalOperation(context(send), {
+					template_id: 3,
+					subscriber_id: 42,
+					subject,
 				}),
 			).rejects.toEqual(
 				expect.objectContaining<Partial<OperationInputError>>({
@@ -267,6 +297,23 @@ describe("transactional operations", () => {
 		expect(send).toHaveBeenCalledTimes(1);
 	});
 
+	test("rejects an empty plain-text alternative before dispatch", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+
+		await expect(
+			invokeSendTransactionalOperation(context(send), {
+				template_id: 3,
+				subscriber_id: 42,
+				altbody: "",
+			}),
+		).rejects.toEqual(
+			expect.objectContaining<Partial<OperationInputError>>({
+				name: "OperationInputError",
+			}),
+		);
+		expect(send).not.toHaveBeenCalled();
+	});
+
 	test("preserves API failures as operation execution errors", async () => {
 		const send = mock(async () => ({ error: { error: "smtp unavailable" } })) as unknown as TransactionalClient["transactional"]["send"];
 
@@ -316,6 +363,9 @@ describe("transactional operations", () => {
 			},
 			content_type: { enum: ["html", "markdown", "plain"] },
 			headers: { type: "array" },
+			messenger: { type: "string" },
+			subject: { type: "string" },
+			altbody: { type: "string" },
 			idempotency_key: { type: "string" },
 		});
 		expect(sendTransactionalOperation.outputJsonSchema.type).toBe("object");
@@ -627,6 +677,17 @@ describe("transactional idempotency wrapper integration", () => {
 
 describe("transactional idempotency pure helpers", () => {
 describe("serializeTransactionalPayload", () => {
+		test("distinguishes delivery and rendering overrides", () => {
+			const base = serializeTransactionalPayload({ template_id: 3 });
+			for (const payload of [
+				{ template_id: 3, messenger: "email-transactional" },
+				{ template_id: 3, subject: "Order ready" },
+				{ template_id: 3, altbody: "Your order is ready." },
+			]) {
+				expect(serializeTransactionalPayload(payload)).not.toBe(base);
+			}
+		});
+
 		test("is stable across object key reordering", () => {
 			const a = serializeTransactionalPayload({
 				template_id: 3,

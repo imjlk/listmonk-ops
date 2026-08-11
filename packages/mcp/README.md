@@ -118,8 +118,8 @@ existing behavior until they are migrated.
 ### Transactional Email
 
 - `listmonk_send_transactional` - Send a transactional template to an existing
-  subscriber email or ID with optional template data, content type, sender, and
-  custom headers
+  subscriber email or ID with optional template data, content type, messenger,
+  sender, subject override, plain-text alternative, and custom headers
 
 ### A/B Tests
 

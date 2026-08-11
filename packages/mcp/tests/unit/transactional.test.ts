@@ -34,6 +34,9 @@ describe("transactional operation MCP adapter", () => {
 			},
 			content_type: { enum: ["html", "markdown", "plain"] },
 			headers: { type: "array" },
+			messenger: { type: "string" },
+			subject: { type: "string" },
+			altbody: { type: "string" },
 			idempotency_key: { type: "string" },
 		});
 		expect(tool?.outputSchema?.type).toBe("object");
@@ -57,6 +60,9 @@ describe("transactional operation MCP adapter", () => {
 				template_id: "3",
 				subscriber_id: "42",
 				content_type: "html",
+				messenger: "email-transactional",
+				subject: "Order ready",
+				altbody: "Your order is ready.",
 				data: { order_id: "OPS-42" },
 				headers: [{ "X-Request-ID": "request-42" }],
 			}),
@@ -71,10 +77,13 @@ describe("transactional operation MCP adapter", () => {
 		});
 		expect(send).toHaveBeenCalledWith({
 			template_id: 3,
-			subscriber_email: undefined,
-			subscriber_id: 42,
+			subscriber_emails: undefined,
+			subscriber_ids: [42],
 			from_email: undefined,
 			content_type: "html",
+			messenger: "email-transactional",
+			subject: "Order ready",
+			altbody: "Your order is ready.",
 			data: { order_id: "OPS-42" },
 			headers: [{ "X-Request-ID": "request-42" }],
 		});

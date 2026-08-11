@@ -47,7 +47,7 @@ function client(options: {
 	status?: string;
 	subscriptionStatus?: string;
 	subscriberGet?: (id: number) => Promise<unknown>;
-	send?: () => Promise<unknown>;
+	send?: (input: Record<string, unknown>) => Promise<unknown>;
 } = {}): SequenceExecutionContext["client"] {
 	return {
 		subscriber: {
@@ -252,6 +252,47 @@ describe("sequence definitions and file persistence", () => {
 				steps: [{ id: "wait", type: "wait", duration_seconds: 60 }],
 			}),
 		).rejects.toThrow("must be followed by another step");
+		await expect(
+			invokeSequenceValidateOperation({}, {
+				steps: [
+					{ id: "send", type: "send", template_id: 7, altbody: "" },
+					{ id: "stop", type: "stop" },
+				],
+			}),
+		).rejects.toThrow();
+	});
+
+	test("rejects control characters in sequence subject overrides before persistence", async () => {
+		const maliciousSubject = "Welcome\r\nBcc: leak@example.com";
+
+		expect(() =>
+			createSequenceDefinition({
+				name: "unsafe subject",
+				steps: [
+					{
+						id: "send",
+						type: "send",
+						templateId: 7,
+						subject: maliciousSubject,
+					},
+					{ id: "stop", type: "stop" },
+				],
+			}),
+		).toThrow("Subject must not contain ASCII control characters");
+
+		await expect(
+			invokeSequenceValidateOperation({}, {
+				steps: [
+					{
+						id: "send",
+						type: "send",
+						template_id: 7,
+						subject: maliciousSubject,
+					},
+					{ id: "stop", type: "stop" },
+				],
+			}),
+		).rejects.toThrow("Subject must not contain ASCII control characters");
 	});
 
 	test("keeps validation and runtime health output aggregate-only", async () => {
@@ -261,6 +302,9 @@ describe("sequence definitions and file persistence", () => {
 					id: "send",
 					type: "send",
 					template_id: 7,
+					messenger: "email-sequence",
+					subject: "Welcome",
+					altbody: "Welcome to the service.",
 					data: {
 						api_secret: "must-not-be-returned",
 						recipient_email: "hidden@example.com",
@@ -376,9 +420,11 @@ describe("sequence execution", () => {
 	test("branches, sends once with idempotency, and completes", async () => {
 		const { repository, idempotencyStore } = await createStores();
 		let sends = 0;
+		let delivered: Record<string, unknown> | undefined;
 		const listmonk = client({
-			send: async () => {
+			send: async (input) => {
 				sends += 1;
+				delivered = input;
 				return { data: true };
 			},
 		});
@@ -397,7 +443,16 @@ describe("sequence execution", () => {
 							onTrue: "send",
 							onFalse: "stop",
 						},
-						{ id: "send", type: "send", templateId: 9 },
+						{
+							id: "send",
+							type: "send",
+							templateId: 9,
+							fromEmail: "Welcome <welcome@example.com>",
+							contentType: "html",
+							messenger: "email-sequence",
+							subject: "Welcome {{ .Subscriber.ID }}",
+							altBody: "Welcome to the service.",
+						},
 						{ id: "stop", type: "stop" },
 					],
 				},
@@ -430,6 +485,15 @@ describe("sequence execution", () => {
 			completed: 1,
 		});
 		expect(sends).toBe(1);
+		expect(delivered).toMatchObject({
+			template_id: 9,
+			subscriber_ids: [42],
+			from_email: "Welcome <welcome@example.com>",
+			content_type: "html",
+			messenger: "email-sequence",
+			subject: "Welcome {{ .Subscriber.ID }}",
+			altbody: "Welcome to the service.",
+		});
 		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
 			status: "completed",
 			currentStepId: "stop",

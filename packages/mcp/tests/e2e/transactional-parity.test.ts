@@ -26,6 +26,8 @@ type TransactionalCliInput = {
 	templateId: number;
 	recipient: string;
 	traceId: string;
+	subject: string;
+	altBody: string;
 };
 
 function resolveCliE2eCredential(
@@ -51,6 +53,12 @@ function runCliTransactionalSend(input: TransactionalCliInput): CliResult {
 			"listmonk-ops@example.com",
 			"--content-type",
 			"html",
+			"--messenger",
+			"email",
+			"--subject",
+			input.subject,
+			"--altbody",
+			input.altBody,
 			"--data",
 			JSON.stringify({ trace_id: input.traceId }),
 			"--headers",
@@ -150,6 +158,7 @@ describe("Transactional CLI and MCP parity", () => {
 		const cliTraceId = buildTestName("transactional-cli-trace");
 		const mcpTraceId = buildTestName("transactional-mcp-trace");
 		const body = "Transactional delivery through CLI and MCP parity.";
+		const altBody = "Transactional plain-text delivery through CLI and MCP parity.";
 
 		await utils.createTestSubscriber(
 			cliRecipient,
@@ -176,6 +185,8 @@ describe("Transactional CLI and MCP parity", () => {
 				templateId: template.id,
 				recipient: cliRecipient,
 				traceId: cliTraceId,
+				subject,
+				altBody,
 			}),
 		);
 
@@ -184,6 +195,9 @@ describe("Transactional CLI and MCP parity", () => {
 			subscriber_email: mcpRecipient,
 			from_email: "listmonk-ops@example.com",
 			content_type: "html",
+			messenger: "email",
+			subject,
+			altbody: altBody,
 			data: { trace_id: mcpTraceId },
 			headers: [{ [HEADER_NAME]: mcpTraceId }],
 		});
@@ -242,6 +256,7 @@ describe("Transactional CLI and MCP parity", () => {
 			);
 			expect(delivered.From.Address).toBe("listmonk-ops@example.com");
 			expect(delivered.HTML).toContain(body);
+			expect(delivered.Text).toContain(altBody);
 			expect(headers[HEADER_NAME]).toContain(traceId);
 		}
 	});

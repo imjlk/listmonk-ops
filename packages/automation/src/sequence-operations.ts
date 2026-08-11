@@ -5,6 +5,7 @@ import {
 	normalizeOperationExecutionError,
 	parseOperationInput,
 	parseOperationOutput,
+	transactionalSubjectSchema,
 	type TransactionalIdempotencyStore,
 } from "@listmonk-ops/operations";
 import { createHash } from "node:crypto";
@@ -102,6 +103,9 @@ function buildSequenceStepSchema(
 			from_email: z.string().trim().min(1).optional(),
 			data: z.record(z.string(), z.unknown()).optional(),
 			content_type: contentTypeSchema.optional(),
+			messenger: z.string().trim().min(1).optional(),
+			subject: transactionalSubjectSchema.optional(),
+			altbody: z.string().min(1).optional(),
 		}),
 		z.object({
 			id: stepIdInput,
@@ -335,6 +339,9 @@ function toInternalStep(
 				fromEmail: step.from_email,
 				data: step.data,
 				contentType: step.content_type,
+				messenger: step.messenger,
+				subject: step.subject,
+				altBody: step.altbody,
 			};
 		case "wait":
 			return {

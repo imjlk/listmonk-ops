@@ -116,6 +116,15 @@ const PROTECTED_HEADER_NAMES = new Set([
 const HEADER_NAME_PATTERN = /^[A-Za-z0-9.!#$%&'*+\-/=?^_`{|}~]+$/;
 const HEADER_CONTROL_CHAR_PATTERN = /[\0\x01-\x1f\x7f]/;
 
+export const transactionalSubjectSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.refine(
+		(value) => !HEADER_CONTROL_CHAR_PATTERN.test(value),
+		"Subject must not contain ASCII control characters (including CR, LF, and NUL)",
+	);
+
 interface HeaderIssue {
 	path: Array<string | number>;
 	message: string;
@@ -229,6 +238,20 @@ const sendTransactionalInputSchema = z
 			.enum(["html", "markdown", "plain"])
 			.optional()
 			.describe("Message content type"),
+		messenger: z
+			.string()
+			.trim()
+			.min(1)
+			.optional()
+			.describe("Listmonk messenger name"),
+		subject: transactionalSubjectSchema
+			.optional()
+			.describe("Message subject override"),
+		altbody: z
+			.string()
+			.min(1)
+			.optional()
+			.describe("Plain-text alternative for multipart HTML email"),
 		idempotency_key: idempotencyKeySchema,
 	})
 	.refine(
@@ -349,6 +372,9 @@ interface DispatchPayload {
 	data?: Record<string, unknown>;
 	headers?: Array<Record<string, string>>;
 	content_type?: "html" | "markdown" | "plain";
+	messenger?: string;
+	subject?: string;
+	altbody?: string;
 }
 
 async function dispatchToListmonk(
@@ -357,12 +383,19 @@ async function dispatchToListmonk(
 ): Promise<boolean> {
 	const response = await context.client.transactional.send({
 		template_id: payload.template_id,
-		subscriber_email: payload.subscriber_email,
-		subscriber_id: payload.subscriber_id,
+		subscriber_emails:
+			payload.subscriber_email === undefined
+				? undefined
+				: [payload.subscriber_email],
+		subscriber_ids:
+			payload.subscriber_id === undefined ? undefined : [payload.subscriber_id],
 		from_email: payload.from_email,
 		data: payload.data,
 		headers: payload.headers,
 		content_type: payload.content_type,
+		messenger: payload.messenger,
+		subject: payload.subject,
+		altbody: payload.altbody,
 	});
 	const status =
 		typeof response.response?.status === "number"
@@ -422,6 +455,9 @@ export async function sendTransactionalMessage(
 		data: input.data,
 		headers: input.headers,
 		content_type: input.content_type,
+		messenger: input.messenger,
+		subject: input.subject,
+		altbody: input.altbody,
 	};
 
 	if (input.idempotency_key === undefined) {

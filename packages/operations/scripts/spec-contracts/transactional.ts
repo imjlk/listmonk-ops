@@ -19,6 +19,9 @@ export interface TransactionalSendBaseInput {
 	data?: Record<string, unknown> | undefined;
 	headers?: Record<string, string>[] | undefined;
 	content_type?: "html" | "markdown" | "plain" | undefined;
+	messenger?: NonEmptyString | undefined;
+	subject?: NonEmptyString | undefined;
+	altbody?: NonEmptyString | undefined;
 	idempotency_key?: IdempotencyKey | undefined;
 }
 

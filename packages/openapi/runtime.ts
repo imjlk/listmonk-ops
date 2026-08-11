@@ -9,6 +9,8 @@ const EMAIL_DOMAIN_LABEL_PATTERN =
 	/^(?:[\p{L}\p{N}]|[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}])$/u;
 const UNSAFE_EMAIL_CHARACTER_PATTERN = /[\\",:;<>()[\]]/u;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\u009f]/u;
+const PLAIN_TEXT_CONTROL_CHARACTER_PATTERN =
+	/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u;
 const PRINTABLE_ASCII_PATTERN = /^[\u0020-\u007e]+$/u;
 const INVISIBLE_IDENTIFIER_PATTERN = /\p{Default_Ignorable_Code_Point}/u;
 const UNSAFE_URL_CHARACTER_PATTERN =
@@ -20,6 +22,7 @@ const MAX_RECIPIENT_BYTES = 254;
 const MAX_FROM_EMAIL_BYTES = 512;
 const MAX_MESSENGER_BYTES = 128;
 const MAX_SUBJECT_BYTES = 256;
+const MAX_ALT_BODY_BYTES = 48 * 1024;
 const MAX_ACKNOWLEDGEMENT_BYTES = 64 * 1024;
 const MAX_TRANSACTIONAL_BODY_BYTES = 64 * 1024;
 const MAX_TRANSACTIONAL_DATA_DEPTH = 32;
@@ -98,6 +101,10 @@ export interface ExternalTransactionalEmailInput {
 	client: ListmonkRuntimeClient;
 	templateId: number;
 	recipient: string;
+	/** Optional rendered message format. Listmonk defaults to HTML when omitted. */
+	contentType?: "html" | "markdown" | "plain";
+	/** Optional plain-text alternative for multipart HTML email. */
+	altBody?: string;
 	/** Optional Listmonk From override, as an address or `Display Name <address>`. */
 	fromEmail?: string;
 	/** Optional exact Listmonk messenger name. */
@@ -296,7 +303,9 @@ export async function sendExternalTransactionalEmail(
 	}
 	const message = snapshotTransactionalInput(input);
 	const {
+		altBody: inputAltBody,
 		client,
+		contentType: inputContentType,
 		data: inputData,
 		fromEmail: inputFromEmail,
 		messenger: inputMessenger,
@@ -347,6 +356,8 @@ export async function sendExternalTransactionalEmail(
 	const fromEmail = optionalFromEmailValue(inputFromEmail);
 	const messenger = optionalMessengerValue(inputMessenger);
 	const subject = optionalSubjectValue(inputSubject, "Transactional subject");
+	const contentType = optionalContentTypeValue(inputContentType);
+	const altBody = optionalAltBodyValue(inputAltBody);
 	const data = snapshotTransactionalData(inputData);
 	const abortContext = createTransactionalAbortContext(signal, timeoutMs);
 
@@ -382,6 +393,8 @@ export async function sendExternalTransactionalEmail(
 						template_id: templateId,
 						subscriber_mode: "external",
 						subscriber_emails: [recipient],
+						...(contentType === undefined ? {} : { content_type: contentType }),
+						...(altBody === undefined ? {} : { altbody: altBody }),
 						...(fromEmail === undefined ? {} : { from_email: fromEmail }),
 						...(messenger === undefined ? {} : { messenger }),
 						...(subject === undefined ? {} : { subject }),
@@ -819,7 +832,9 @@ function snapshotTransactionalInput(
 ): ExternalTransactionalEmailInput {
 	try {
 		return {
+			altBody: input.altBody,
 			client: input.client,
+			contentType: input.contentType,
 			data: input.data,
 			fromEmail: input.fromEmail,
 			messenger: input.messenger,
@@ -1139,4 +1154,51 @@ function optionalSubjectValue(
 		);
 	}
 	return normalized;
+}
+
+function optionalContentTypeValue(
+	value: ExternalTransactionalEmailInput["contentType"],
+): ExternalTransactionalEmailInput["contentType"] {
+	if (value === undefined) return undefined;
+	if (value !== "html" && value !== "markdown" && value !== "plain") {
+		throw new ListmonkRuntimeError(
+			"invalid_message",
+			"Transactional content type must be html, markdown, or plain.",
+		);
+	}
+	return value;
+}
+
+function optionalAltBodyValue(value: string | undefined): string | undefined {
+	if (value === undefined) return undefined;
+	// Keep the runtime type guard even though TypeScript narrows the public
+	// contract: JavaScript callers and cast values still cross this boundary.
+	if (typeof value !== "string") {
+		throw new ListmonkRuntimeError(
+			"invalid_message",
+			"Transactional alternate body must be well-formed plain text.",
+		);
+	}
+	if (value.length === 0) {
+		throw new ListmonkRuntimeError(
+			"invalid_message",
+			"Transactional alternate body must be non-empty.",
+		);
+	}
+	if (
+		!value.isWellFormed() ||
+		PLAIN_TEXT_CONTROL_CHARACTER_PATTERN.test(value)
+	) {
+		throw new ListmonkRuntimeError(
+			"invalid_message",
+			"Transactional alternate body must be well-formed plain text.",
+		);
+	}
+	if (utf8ByteLength(value) > MAX_ALT_BODY_BYTES) {
+		throw new ListmonkRuntimeError(
+			"invalid_message",
+			`Transactional alternate body must not exceed ${MAX_ALT_BODY_BYTES} UTF-8 bytes.`,
+		);
+	}
+	return value;
 }

@@ -273,6 +273,9 @@ async function executeSendStep(
 					sequence_step_id: step.id,
 				},
 				content_type: step.contentType,
+				messenger: step.messenger,
+				subject: step.subject,
+				altbody: step.altBody,
 				idempotency_key: deterministicSendKey(claimed.enrollment),
 			},
 		);
