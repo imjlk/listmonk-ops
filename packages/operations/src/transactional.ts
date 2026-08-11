@@ -87,8 +87,9 @@ const positiveIdInputSchema = z.codec(
 );
 
 /**
- * Header names that Listmonk or the SMTP transport sets on every message.
- * Callers cannot override these through the transactional `headers` field.
+ * Header names that Listmonk or the SMTP transport owns, including message
+ * identity, routing, and trace metadata. Callers cannot override these through
+ * the transactional `headers` field.
  */
 const PROTECTED_HEADER_NAMES = new Set([
 	"from",
@@ -96,6 +97,8 @@ const PROTECTED_HEADER_NAMES = new Set([
 	"cc",
 	"bcc",
 	"reply-to",
+	"return-path",
+	"sender",
 	"subject",
 	"content-type",
 	"content-length",
@@ -103,6 +106,7 @@ const PROTECTED_HEADER_NAMES = new Set([
 	"mime-version",
 	"date",
 	"message-id",
+	"received",
 ]);
 
 /**
@@ -162,7 +166,11 @@ function collectHeaderIssues(
 				});
 				continue;
 			}
-			if (PROTECTED_HEADER_NAMES.has(name.toLowerCase())) {
+			const canonicalName = name.toLowerCase();
+			if (
+				PROTECTED_HEADER_NAMES.has(canonicalName) ||
+				canonicalName.startsWith("resent-")
+			) {
 				issues.push({
 					path,
 					message: `Header '${name}' is reserved and cannot be set through the transactional headers field`,
