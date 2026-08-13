@@ -159,6 +159,7 @@ describe("transactional operations", () => {
 
 		for (const fromEmail of [
 			"sender@example.com",
+			" sender@example.com ",
 			"Sender <sender@example.com>",
 			"Sender<sender@example.com>",
 			'"Example, Inc." <sender@example.com>',
@@ -172,7 +173,11 @@ describe("transactional operations", () => {
 				}),
 			).resolves.toEqual({ sent: true, status: "accepted" });
 		}
-		expect(send).toHaveBeenCalledTimes(5);
+		expect(send).toHaveBeenCalledTimes(6);
+		expect(send).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({ from_email: "sender@example.com" }),
+		);
 	});
 
 	test("rejects malformed, multiple, or injected From mailboxes before dispatch", async () => {

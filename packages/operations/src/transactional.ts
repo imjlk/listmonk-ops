@@ -218,7 +218,7 @@ function isValidFromEmail(value: string): boolean {
  * contracts reject address lists and header-control injection up front.
  */
 export const TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE =
-	'^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?:(?:[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+)|(?:(?:"(?:[^"\\\\]|\\\\.)+")|(?:[^\\\\",:;<>()[\\]@]+)) *<[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+>)$' as const;
+	'^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])\\s*(?:(?:[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+)|(?:(?:"(?:[^"\\\\]|\\\\.)+")|(?:[^\\\\",:;<>()[\\]@]+)) *<[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+>)\\s*$' as const;
 
 export const TRANSACTIONAL_FROM_EMAIL_PATTERN = new RegExp(
 	TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE,
