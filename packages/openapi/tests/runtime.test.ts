@@ -168,6 +168,31 @@ describe("Workers-compatible Listmonk runtime", () => {
 		});
 	});
 
+	test("accepts a compact display-name From mailbox", async () => {
+		let captured: Request | undefined;
+		const fetch = mock(async (request: Request) => {
+			captured = request;
+			return Response.json({ data: true });
+		});
+		const client = createListmonkRuntimeClient({
+			baseUrl: "https://mail.example.com",
+			username: "runtime",
+			accessToken: "test-token",
+			fetch,
+		});
+
+		await sendExternalTransactionalEmail({
+			client,
+			fromEmail: "Sender<sender@example.com>",
+			recipient: "trainer@example.com",
+			templateId: 42,
+		});
+
+		expect(await captured?.json()).toMatchObject({
+			from_email: "Sender<sender@example.com>",
+		});
+	});
+
 	test("allows a single local-domain recipient for private Mailpit stacks", async () => {
 		const fetch = mock(async () => Response.json({ data: true }));
 		const client = createListmonkRuntimeClient({

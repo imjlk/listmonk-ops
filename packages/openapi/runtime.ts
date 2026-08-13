@@ -1072,12 +1072,14 @@ function optionalFromEmailValue(value: string | undefined): string | undefined {
 	}
 	if (isValidEmailAddress(normalized)) return normalized;
 
-	const mailboxSeparator = normalized.lastIndexOf(" <");
+	const mailboxSeparator = normalized.lastIndexOf("<");
 	if (mailboxSeparator <= 0 || !normalized.endsWith(">")) {
 		throw transactionalFromAddressError();
 	}
-	const displayName = normalized.slice(0, mailboxSeparator);
-	const address = normalized.slice(mailboxSeparator + 2, -1);
+	const displayName = normalized
+		.slice(0, mailboxSeparator)
+		.replace(/ +$/u, "");
+	const address = normalized.slice(mailboxSeparator + 1, -1);
 	if (!isValidFromDisplayName(displayName) || !isValidEmailAddress(address)) {
 		throw transactionalFromAddressError();
 	}

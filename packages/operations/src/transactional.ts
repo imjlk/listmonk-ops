@@ -204,10 +204,10 @@ function isValidFromEmail(value: string): boolean {
 	}
 	if (isValidEmailAddress(value)) return true;
 
-	const mailboxSeparator = value.lastIndexOf(" <");
+	const mailboxSeparator = value.lastIndexOf("<");
 	if (mailboxSeparator <= 0 || !value.endsWith(">")) return false;
-	const displayName = value.slice(0, mailboxSeparator);
-	const address = value.slice(mailboxSeparator + 2, -1);
+	const displayName = value.slice(0, mailboxSeparator).replace(/ +$/u, "");
+	const address = value.slice(mailboxSeparator + 1, -1);
 	return isValidFromDisplayName(displayName) && isValidEmailAddress(address);
 }
 
@@ -218,7 +218,7 @@ function isValidFromEmail(value: string): boolean {
  * contracts reject address lists and header-control injection up front.
  */
 export const TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE =
-	'^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?:(?:[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+)|(?:(?:"(?:[^"\\\\]|\\\\.)+")|(?:[^\\\\",:;<>()[\\]@]+)) <[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+>)$' as const;
+	'^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?:(?:[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+)|(?:(?:"(?:[^"\\\\]|\\\\.)+")|(?:[^\\\\",:;<>()[\\]@]+)) *<[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+>)$' as const;
 
 export const TRANSACTIONAL_FROM_EMAIL_PATTERN = new RegExp(
 	TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE,
