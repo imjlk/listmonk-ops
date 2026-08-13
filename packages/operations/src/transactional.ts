@@ -91,8 +91,8 @@ const positiveIdInputSchema = z.codec(
 
 /**
  * Header names that Listmonk or the SMTP transport owns, including message
- * identity, routing, and trace metadata. Callers cannot override these through
- * the transactional `headers` field.
+ * identity, authentication, routing, and trace metadata. Callers cannot
+ * override these through the transactional `headers` field.
  */
 const PROTECTED_HEADER_NAMES = new Set([
 	"from",
@@ -110,7 +110,19 @@ const PROTECTED_HEADER_NAMES = new Set([
 	"date",
 	"message-id",
 	"received",
+	"authentication-results",
+	"dkim-signature",
+	"domainkey-signature",
+	"received-spf",
+	"delivered-to",
+	"envelope-to",
+	"x-envelope-from",
+	"x-envelope-to",
+	"x-original-to",
+	"x-delivered-to",
 ]);
+
+const PROTECTED_HEADER_PREFIXES = ["arc-", "resent-"] as const;
 
 /**
  * Intentionally restrictive allowlist for custom header field-names.
@@ -298,7 +310,9 @@ function collectHeaderIssues(
 			const canonicalName = name.toLowerCase();
 			if (
 				PROTECTED_HEADER_NAMES.has(canonicalName) ||
-				canonicalName.startsWith("resent-")
+				PROTECTED_HEADER_PREFIXES.some((prefix) =>
+					canonicalName.startsWith(prefix),
+				)
 			) {
 				issues.push({
 					path,

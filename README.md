@@ -625,8 +625,9 @@ Sender overrides must resolve to one well-formed bare or display-name mailbox;
 the same validation is applied to stored sequence send steps before dispatch.
 Legacy version 1 sequence stores remain readable; an invalid stored sender is
 quarantined as a failed enrollment before Listmonk is called.
-Custom headers are limited to application metadata. Message identity, routing,
-trace, and all `Resent-*` headers remain owned by Listmonk and the SMTP
+Custom headers are limited to application metadata. Message identity,
+authentication results and signatures, routing and delivery trace metadata,
+and all `ARC-*` and `Resent-*` headers remain owned by Listmonk and the SMTP
 transport and are rejected before dispatch.
 
 The corresponding MCP tool is `listmonk_send_transactional`. It returns

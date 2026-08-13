@@ -20,6 +20,10 @@ the idempotency payload hash, so reusing a key with different delivery or
 rendering options is rejected instead of replaying the wrong send.
 Sender overrides are normalized and validated as one bare or display-name
 mailbox before Listmonk can acknowledge the queued delivery.
+Custom headers are limited to application metadata: message identity,
+authentication results and signatures, routing and delivery trace metadata,
+and `ARC-*` / `Resent-*` fields remain transport-owned and are rejected before
+dispatch.
 
 Release provisioning can plan one exact-name template with
 `reconcileTemplate`, or a versioned set with `reconcileTemplateManifest`.
