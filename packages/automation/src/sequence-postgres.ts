@@ -10,6 +10,7 @@ import {
 import postgres, { type Sql, type TransactionSql } from "postgres";
 import {
 	DEFAULT_SEQUENCE_WORKER_RETENTION_MS,
+	parsePersistedSequenceDefinition,
 	parseSequenceDefinition,
 	parseSequenceEnrollment,
 	SequenceConflictError,
@@ -315,7 +316,7 @@ async function initializeSchema(sql: Sql): Promise<void> {
 }
 
 function toDefinition(row: DefinitionRow): SequenceDefinition {
-	return parseSequenceDefinition(row.definition);
+	return parsePersistedSequenceDefinition(row.definition);
 }
 
 function toEnrollment(row: EnrollmentRow): SequenceEnrollment {
@@ -610,6 +611,7 @@ export function createPostgresSequenceRepository(
 		},
 		getDefinition,
 		async createDefinition(definition) {
+			const validatedDefinition = parseSequenceDefinition(definition);
 			await ready();
 			try {
 				await sql`
@@ -617,23 +619,23 @@ export function createPostgresSequenceRepository(
 						id, name_key, status, definition, created_at, updated_at
 					)
 					VALUES (
-						${definition.id}::uuid,
-						${definition.name.toLowerCase()},
-						${definition.status},
-						${sql.json(definition as never)},
-						${definition.createdAt}::timestamptz,
-						${definition.updatedAt}::timestamptz
+						${validatedDefinition.id}::uuid,
+						${validatedDefinition.name.toLowerCase()},
+						${validatedDefinition.status},
+						${sql.json(validatedDefinition as never)},
+						${validatedDefinition.createdAt}::timestamptz,
+						${validatedDefinition.updatedAt}::timestamptz
 					)
 				`;
 			} catch (error) {
 				if (isUniqueViolation(error)) {
 					throw new SequenceConflictError(
-						`Sequence ID or name already exists: ${definition.name}`,
+						`Sequence ID or name already exists: ${validatedDefinition.name}`,
 					);
 				}
 				throw error;
 			}
-			return definition;
+			return validatedDefinition;
 		},
 		async updateDefinition(id, input, now) {
 			await ready();
@@ -650,7 +652,7 @@ export function createPostgresSequenceRepository(
 				}
 				const previous = toDefinition(row);
 				const revision = previous.currentRevision + 1;
-				const updated = parseSequenceDefinition({
+				const updated = parsePersistedSequenceDefinition({
 					...previous,
 					name: input.name ?? previous.name,
 					description: input.description ?? previous.description,
@@ -743,7 +745,7 @@ export function createPostgresSequenceRepository(
 				if (previous.status === status) {
 					return previous;
 				}
-				const updated = parseSequenceDefinition({
+				const updated = parsePersistedSequenceDefinition({
 					...previous,
 					status,
 					updatedAt: now.toISOString(),
@@ -854,7 +856,9 @@ export function createPostgresSequenceRepository(
 				`;
 				const claimed: ClaimedSequenceEnrollment[] = [];
 				for (const row of rows) {
-					const definition = parseSequenceDefinition(row.definition);
+					const definition = parsePersistedSequenceDefinition(
+						row.definition,
+					);
 					const enrollment = toEnrollment(row);
 					const revision = definition.revisions.find(
 						(candidate) => candidate.revision === enrollment.revision,

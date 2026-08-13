@@ -230,6 +230,12 @@ persisted retry count through enrollment operations. Ambiguous outcomes are dura
 `reconcileAmbiguousSequenceEnrollment()` with an operator-reviewed `sent` or
 `not_sent` decision; pending send claims cannot be reconciled while delivery
 may remain in flight.
+Sequence definitions reuse the shared transactional sender and subject schemas,
+so malformed From mailboxes and header-control injection are rejected before
+the definition is persisted.
+Legacy version 1 definitions remain readable after this validation tightens. A
+stored sender that no longer passes the shared mailbox contract fails its
+enrollment before Listmonk is called and can be replaced by a valid revision.
 
 Use `createFileSequenceRepository()` for a single host. Set
 `LISTMONK_OPS_SEQUENCE_DATABASE_URL` (instead of

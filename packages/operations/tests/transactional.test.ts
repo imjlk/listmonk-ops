@@ -11,6 +11,8 @@ import {
 	OperationInputError,
 	serializeTransactionalPayload,
 	sendTransactionalOperation,
+	TRANSACTIONAL_FROM_EMAIL_PATTERN,
+	TRANSACTIONAL_SUBJECT_PATTERN,
 	transactionalOperations,
 	DEFAULT_TRANSACTIONAL_TTL_MS,
 	type TransactionalClaimResult,
@@ -152,6 +154,62 @@ describe("transactional operations", () => {
 		).resolves.toEqual({ sent: false, status: "failed" });
 	});
 
+	test("accepts one bare or display-name From mailbox", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+
+		for (const fromEmail of [
+			"sender@example.com",
+			" sender@example.com ",
+			`${"한".repeat(200)} <sender@example.com>`,
+			`${"😀".repeat(260)} <sender@example.com>`,
+			'"user name"@example.com',
+			"Sender <sender@example.com>",
+			'Sender <"user name"@example.com>',
+			"Sender<sender@example.com>",
+			'"Example, Inc." <sender@example.com>',
+			'"John Doe (Admin)" <sender@example.com>',
+		]) {
+			await expect(
+				invokeSendTransactionalOperation(context(send), {
+					template_id: 3,
+					subscriber_id: 42,
+					from_email: fromEmail,
+				}),
+			).resolves.toEqual({ sent: true, status: "accepted" });
+		}
+		expect(send).toHaveBeenCalledTimes(10);
+		expect(send).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({ from_email: "sender@example.com" }),
+		);
+	});
+
+	test("rejects malformed, multiple, or injected From mailboxes before dispatch", async () => {
+		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
+
+		for (const fromEmail of [
+			"Sender <sender@example.com>\r\nBcc: leak@example.com",
+			"sender@example.com, other@example.com",
+			"Sender <sender..dots@example.com>",
+			"Sender <sender@example-.com>",
+			"Sender <sender@example.com> trailing",
+			"\ud800@example.com",
+		]) {
+			await expect(
+				invokeSendTransactionalOperation(context(send), {
+					template_id: 3,
+					subscriber_id: 42,
+					from_email: fromEmail,
+				}),
+			).rejects.toEqual(
+				expect.objectContaining<Partial<OperationInputError>>({
+					name: "OperationInputError",
+				}),
+			);
+		}
+		expect(send).not.toHaveBeenCalled();
+	});
+
 	test("requires exactly one supported recipient selector (XOR)", async () => {
 		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
 
@@ -213,6 +271,7 @@ describe("transactional operations", () => {
 		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
 
 		for (const subject of [
+			"\nWelcome\n",
 			"Receipt\r\nBcc: leak@example.com",
 			"Receipt\nBcc: leak@example.com",
 			"Receipt\0hidden",
@@ -375,8 +434,18 @@ describe("transactional operations", () => {
 			},
 			content_type: { enum: ["html", "markdown", "plain"] },
 			headers: { type: "array" },
-			messenger: { type: "string" },
-			subject: { type: "string" },
+			from_email: {
+				type: "string",
+				minLength: 1,
+				maxLength: 512,
+				pattern: TRANSACTIONAL_FROM_EMAIL_PATTERN.source,
+			},
+			messenger: { type: "string", minLength: 1 },
+			subject: {
+				type: "string",
+				minLength: 1,
+				pattern: TRANSACTIONAL_SUBJECT_PATTERN.source,
+			},
 			altbody: { type: "string" },
 			idempotency_key: { type: "string" },
 		});

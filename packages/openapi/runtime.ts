@@ -4,10 +4,11 @@ import { transactWithSubscriber } from "./generated/sdk.gen";
 
 // Local domains such as `trainer@mailpit` are intentionally supported for
 // private deployments and the repository's Mailpit test environment.
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/u;
 const EMAIL_DOMAIN_LABEL_PATTERN =
 	/^(?:[\p{L}\p{N}]|[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}])$/u;
-const UNSAFE_EMAIL_CHARACTER_PATTERN = /[\\",:;<>()[\]]/u;
+const DOT_ATOM_LOCAL_PART_PATTERN = /^[^\s@\\",:;<>()[\]]+$/u;
+const QUOTED_LOCAL_PART_PATTERN = /^"(?:[^"\\]|\\.)+"$/u;
+const UNSAFE_DISPLAY_NAME_CHARACTER_PATTERN = /[\\",:;<>()[\]]/u;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\u009f]/u;
 const PLAIN_TEXT_CONTROL_CHARACTER_PATTERN =
 	/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u;
@@ -19,7 +20,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 // Avoid the 32-bit timer overflow behavior used by Node-compatible runtimes.
 const MAX_TIMEOUT_MS = 2_147_483_647;
 const MAX_RECIPIENT_BYTES = 254;
-const MAX_FROM_EMAIL_BYTES = 512;
+const MAX_FROM_EMAIL_LENGTH = 512;
 const MAX_MESSENGER_BYTES = 128;
 const MAX_SUBJECT_BYTES = 256;
 const MAX_ALT_BODY_BYTES = 48 * 1024;
@@ -752,9 +753,7 @@ function isValidEmailAddress(email: string): boolean {
 	return (
 		email.isWellFormed() &&
 		utf8ByteLength(email) <= MAX_RECIPIENT_BYTES &&
-		EMAIL_PATTERN.test(email) &&
 		hasValidEmailAddressParts(email) &&
-		!UNSAFE_EMAIL_CHARACTER_PATTERN.test(email) &&
 		!CONTROL_CHARACTER_PATTERN.test(email) &&
 		!INVISIBLE_IDENTIFIER_PATTERN.test(email)
 	);
@@ -764,11 +763,16 @@ function hasValidEmailAddressParts(email: string): boolean {
 	const separatorIndex = email.lastIndexOf("@");
 	if (separatorIndex <= 0 || separatorIndex === email.length - 1) return false;
 	const localPart = email.slice(0, separatorIndex);
+	if (utf8ByteLength(localPart) > 64) {
+		return false;
+	}
+	const isQuotedLocalPart = QUOTED_LOCAL_PART_PATTERN.test(localPart);
 	if (
-		utf8ByteLength(localPart) > 64 ||
-		localPart.startsWith(".") ||
-		localPart.endsWith(".") ||
-		localPart.includes("..")
+		!isQuotedLocalPart &&
+		(!DOT_ATOM_LOCAL_PART_PATTERN.test(localPart) ||
+			localPart.startsWith(".") ||
+			localPart.endsWith(".") ||
+			localPart.includes(".."))
 	) {
 		return false;
 	}
@@ -879,6 +883,10 @@ function serializeTransactionalBody(body: unknown): string {
 
 function utf8ByteLength(value: string): number {
 	return UTF8_ENCODER.encode(value).byteLength;
+}
+
+function unicodeCharacterLength(value: string): number {
+	return Array.from(value).length;
 }
 
 function snapshotTransactionalData(
@@ -1064,7 +1072,7 @@ function optionalFromEmailValue(value: string | undefined): string | undefined {
 	);
 	if (
 		!normalized.isWellFormed() ||
-		utf8ByteLength(normalized) > MAX_FROM_EMAIL_BYTES ||
+		unicodeCharacterLength(normalized) > MAX_FROM_EMAIL_LENGTH ||
 		CONTROL_CHARACTER_PATTERN.test(normalized) ||
 		INVISIBLE_IDENTIFIER_PATTERN.test(normalized)
 	) {
@@ -1072,12 +1080,14 @@ function optionalFromEmailValue(value: string | undefined): string | undefined {
 	}
 	if (isValidEmailAddress(normalized)) return normalized;
 
-	const mailboxSeparator = normalized.lastIndexOf(" <");
+	const mailboxSeparator = normalized.lastIndexOf("<");
 	if (mailboxSeparator <= 0 || !normalized.endsWith(">")) {
 		throw transactionalFromAddressError();
 	}
-	const displayName = normalized.slice(0, mailboxSeparator);
-	const address = normalized.slice(mailboxSeparator + 2, -1);
+	const displayName = normalized
+		.slice(0, mailboxSeparator)
+		.replace(/ +$/u, "");
+	const address = normalized.slice(mailboxSeparator + 1, -1);
 	if (!isValidFromDisplayName(displayName) || !isValidEmailAddress(address)) {
 		throw transactionalFromAddressError();
 	}
@@ -1095,7 +1105,7 @@ function isValidFromDisplayName(value: string): boolean {
 	return (
 		value.length > 0 &&
 		value === value.trim() &&
-		!UNSAFE_EMAIL_CHARACTER_PATTERN.test(value) &&
+		!UNSAFE_DISPLAY_NAME_CHARACTER_PATTERN.test(value) &&
 		!value.includes("@")
 	);
 }

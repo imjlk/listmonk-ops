@@ -6,6 +6,7 @@ import {
 	isDefinitivePreDispatchError,
 	isResourceMissingError,
 	sendTransactionalMessage,
+	transactionalFromEmailSchema,
 	TransactionalReconcileError,
 	type TransactionalIdempotencyStore,
 } from "@listmonk-ops/operations";
@@ -232,6 +233,21 @@ async function executeSendStep(
 	now: Date,
 ): Promise<Omit<SequenceEnrollment, "leaseToken" | "leaseExpiresAt">> {
 	try {
+		const parsedFromEmail = transactionalFromEmailSchema
+			.optional()
+			.safeParse(step.fromEmail);
+		if (!parsedFromEmail.success) {
+			return withoutLease(
+				claimed.enrollment,
+				{
+					status: "failed",
+					retryCount: 0,
+					lastError:
+						"Sequence delivery failed because its stored From mailbox is invalid",
+				},
+				now,
+			);
+		}
 		const subscriber = await getSubscriber(
 			{ client: context.client },
 			{ id: claimed.enrollment.subscriberId },
@@ -263,7 +279,7 @@ async function executeSendStep(
 			{
 				template_id: step.templateId,
 				subscriber_id: claimed.enrollment.subscriberId,
-				from_email: step.fromEmail,
+				from_email: parsedFromEmail.data,
 				data: {
 					...step.data,
 					...claimed.enrollment.context,

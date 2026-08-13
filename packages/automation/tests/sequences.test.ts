@@ -4,7 +4,7 @@ import {
 	hashTransactionalPayload,
 } from "@listmonk-ops/common";
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -24,6 +24,7 @@ import {
 	createFileSequenceRepository,
 	createSequenceDefinition,
 	createSequenceEnrollment,
+	parseSequenceDefinition,
 	SequenceConflictError,
 	type SequenceExecutionContext,
 	type SequenceRepository,
@@ -100,6 +101,114 @@ afterEach(async () => {
 });
 
 describe("sequence definitions and file persistence", () => {
+	test("keeps compatibility parsing out of fresh definitions and writes", async () => {
+		const valid = createSequenceDefinition({
+			name: "strict new sender",
+			steps: [{ id: "stop", type: "stop" }],
+		});
+		const invalid = {
+			...valid,
+			revisions: valid.revisions.map((revision) => ({
+				...revision,
+				steps: [
+					{
+						id: "send",
+						type: "send" as const,
+						templateId: 9,
+						fromEmail: "sender@example.com, other@example.com",
+					},
+				],
+			})),
+		};
+
+		expect(() => parseSequenceDefinition(invalid)).toThrow(
+			"From email must be one well-formed mailbox",
+		);
+		const { repository } = await createStores();
+		await expect(repository.createDefinition(invalid)).rejects.toThrow(
+			"From email must be one well-formed mailbox",
+		);
+	});
+
+	test("keeps legacy v1 senders readable while quarantining unsafe delivery", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "listmonk-ops-sequences-"));
+		directories.push(directory);
+		const storePath = join(directory, "sequences.json");
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		const definition = createSequenceDefinition(
+			{
+				name: "legacy sender",
+				steps: [
+					{ id: "send", type: "send", templateId: 9 },
+					{ id: "stop", type: "stop" },
+				],
+			},
+			now,
+		);
+		const currentRevision = definition.revisions[0]!;
+		const legacyDefinition = {
+			...definition,
+			revisions: [
+				{
+					...currentRevision,
+					steps: currentRevision.steps.map((step) =>
+						step.type === "send"
+							? {
+									...step,
+									fromEmail: "sender@example.com, other@example.com",
+								}
+							: step,
+					),
+				},
+			],
+		};
+		await writeFile(
+			storePath,
+			JSON.stringify({
+				version: 1,
+				definitions: [legacyDefinition],
+				enrollments: [],
+				workers: [],
+			}),
+		);
+		const repository = createFileSequenceRepository(storePath);
+		const [loaded] = await repository.listDefinitions();
+		expect(loaded?.id).toBe(definition.id);
+		const enrollment = await repository.createEnrollment(
+			createSequenceEnrollment(
+				loaded!,
+				{ sequenceId: definition.id, subscriberId: 42 },
+				now,
+			),
+		);
+		let sends = 0;
+		const idempotencyStore = createFileBackedTransactionalIdempotencyStore({
+			storePath: join(directory, "transactional.json"),
+		});
+
+		expect(
+			await runSequenceTick(
+				executionContext(
+					repository,
+					idempotencyStore,
+					client({
+						send: async () => {
+							sends += 1;
+							return { data: true };
+						},
+					}),
+				),
+				{ now },
+			),
+		).toMatchObject({ claimed: 1, failed: 1 });
+		expect(sends).toBe(0);
+		expect(await repository.getEnrollment(enrollment.id)).toMatchObject({
+			status: "failed",
+			lastError:
+				"Sequence delivery failed because its stored From mailbox is invalid",
+		});
+	});
+
 	test("pins enrollments to immutable revisions", async () => {
 		const { repository } = await createStores();
 		const now = new Date("2026-08-01T09:00:00.000Z");
@@ -293,6 +402,40 @@ describe("sequence definitions and file persistence", () => {
 				],
 			}),
 		).rejects.toThrow("Subject must not contain ASCII control characters");
+	});
+
+	test("rejects unsafe sequence From mailboxes before persistence", async () => {
+		const unsafeFromEmail =
+			"Welcome <welcome@example.com>\r\nBcc: leak@example.com";
+
+		expect(() =>
+			createSequenceDefinition({
+				name: "unsafe sender",
+				steps: [
+					{
+						id: "send",
+						type: "send",
+						templateId: 7,
+						fromEmail: unsafeFromEmail,
+					},
+					{ id: "stop", type: "stop" },
+				],
+			}),
+		).toThrow("From email must be one well-formed mailbox");
+
+		await expect(
+			invokeSequenceValidateOperation({}, {
+				steps: [
+					{
+						id: "send",
+						type: "send",
+						template_id: 7,
+						from_email: unsafeFromEmail,
+					},
+					{ id: "stop", type: "stop" },
+				],
+			}),
+		).rejects.toThrow("From email must be one well-formed mailbox");
 	});
 
 	test("keeps validation and runtime health output aggregate-only", async () => {

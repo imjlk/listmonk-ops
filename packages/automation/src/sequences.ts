@@ -8,6 +8,8 @@ import {
 	updateJsonFileStore,
 } from "@listmonk-ops/common";
 import {
+	transactionalFromEmailSchema,
+	transactionalMessengerSchema,
 	transactionalSubjectSchema,
 	type TransactionalIdempotencyStore,
 } from "@listmonk-ops/operations";
@@ -37,18 +39,20 @@ export const SEQUENCE_STEP_TYPES = [
 	"stop",
 ] as const;
 
+const sequenceSendStepSchema = z.object({
+	id: stepIdSchema,
+	type: z.literal(SEQUENCE_STEP_TYPES[0]),
+	templateId: z.number().int().positive(),
+	fromEmail: transactionalFromEmailSchema.optional(),
+	data: jsonObjectSchema.optional(),
+	contentType: z.enum(["html", "markdown", "plain"]).optional(),
+	messenger: transactionalMessengerSchema.optional(),
+	subject: transactionalSubjectSchema.optional(),
+	altBody: z.string().min(1).optional(),
+});
+
 export const sequenceStepSchema = z.discriminatedUnion("type", [
-	z.object({
-		id: stepIdSchema,
-		type: z.literal(SEQUENCE_STEP_TYPES[0]),
-		templateId: z.number().int().positive(),
-		fromEmail: z.string().trim().min(1).optional(),
-		data: jsonObjectSchema.optional(),
-		contentType: z.enum(["html", "markdown", "plain"]).optional(),
-		messenger: z.string().trim().min(1).optional(),
-		subject: transactionalSubjectSchema.optional(),
-		altBody: z.string().min(1).optional(),
-	}),
+	sequenceSendStepSchema,
 	z.object({
 		id: stepIdSchema,
 		type: z.literal(SEQUENCE_STEP_TYPES[1]),
@@ -76,6 +80,18 @@ export const sequenceStepSchema = z.discriminatedUnion("type", [
 	z.object({
 		id: stepIdSchema,
 		type: z.literal(SEQUENCE_STEP_TYPES[4]),
+	}),
+]);
+
+// Version 1 stores predate the strict single-mailbox sender contract. Keep
+// those definitions readable so one legacy step cannot make the complete
+// repository unavailable; new definitions and revisions still parse through
+// `sequenceStepSchema`, and the executor quarantines an invalid legacy sender
+// before any Listmonk request.
+const storedSequenceStepSchema = z.union([
+	sequenceStepSchema,
+	sequenceSendStepSchema.extend({
+		fromEmail: z.string().trim().min(1).optional(),
 	}),
 ]);
 
@@ -284,15 +300,23 @@ const revisionSchema = z.object({
 	steps: z.array(sequenceStepSchema).min(1),
 	createdAt: isoDateTimeSchema,
 });
-const definitionSchema = z.object({
+const storedRevisionSchema = revisionSchema.extend({
+	steps: z.array(storedSequenceStepSchema).min(1),
+});
+const definitionBaseSchema = z.object({
 	id: sequenceIdSchema,
 	name: z.string().trim().min(1).max(120),
 	description: z.string().trim().max(500).optional(),
 	status: z.enum(["active", "paused"]),
 	currentRevision: z.number().int().positive(),
-	revisions: z.array(revisionSchema).min(1),
 	createdAt: isoDateTimeSchema,
 	updatedAt: isoDateTimeSchema,
+});
+const definitionSchema = definitionBaseSchema.extend({
+	revisions: z.array(revisionSchema).min(1),
+});
+const storedDefinitionSchema = definitionBaseSchema.extend({
+	revisions: z.array(storedRevisionSchema).min(1),
 });
 export const sequenceEnrollmentStatusSchema = z.enum([
 	"pending",
@@ -342,7 +366,7 @@ const workerSchema = z.object({
 });
 const storeSchema = z.object({
 	version: z.literal(SEQUENCE_STORE_VERSION),
-	definitions: z.array(definitionSchema),
+	definitions: z.array(storedDefinitionSchema),
 	enrollments: z.array(enrollmentSchema),
 	workers: z.array(workerSchema),
 });
@@ -365,6 +389,12 @@ export function validateSequenceSteps(
 	steps: readonly SequenceStep[],
 ): readonly SequenceStep[] {
 	const parsed = z.array(sequenceStepSchema).min(1).parse(steps);
+	return validateSequenceStepTopology(parsed);
+}
+
+function validateSequenceStepTopology(
+	parsed: readonly SequenceStep[],
+): readonly SequenceStep[] {
 	const ids = new Set<string>();
 	for (const step of parsed) {
 		if (ids.has(step.id)) {
@@ -408,6 +438,20 @@ export function validateSequenceSteps(
 
 export function parseSequenceDefinition(value: unknown): SequenceDefinition {
 	const parsed = definitionSchema.parse(value);
+	return validateSequenceDefinitionHistory(parsed);
+}
+
+/** Parses storage created before strict sender validation without weakening new writes. */
+export function parsePersistedSequenceDefinition(
+	value: unknown,
+): SequenceDefinition {
+	const parsed = storedDefinitionSchema.parse(value);
+	return validateSequenceDefinitionHistory(parsed);
+}
+
+function validateSequenceDefinitionHistory(
+	parsed: SequenceDefinition,
+): SequenceDefinition {
 	const revisionNumbers = parsed.revisions.map((entry) => entry.revision);
 	if (
 		new Set(revisionNumbers).size !== revisionNumbers.length ||
@@ -418,7 +462,7 @@ export function parseSequenceDefinition(value: unknown): SequenceDefinition {
 		);
 	}
 	for (const revision of parsed.revisions) {
-		validateSequenceSteps(revision.steps);
+		validateSequenceStepTopology(revision.steps);
 	}
 	return parsed;
 }
@@ -429,10 +473,10 @@ export function parseSequenceEnrollment(value: unknown): SequenceEnrollment {
 
 function parseStore(value: unknown): SequenceStore {
 	const parsed = storeSchema.parse(value);
-	for (const definition of parsed.definitions) {
-		parseSequenceDefinition(definition);
-	}
-	return parsed;
+	return {
+		...parsed,
+		definitions: parsed.definitions.map(parsePersistedSequenceDefinition),
+	};
 }
 
 export function getSequenceStorePath(): string {
@@ -574,25 +618,26 @@ export function createFileSequenceRepository(
 			return getFileDefinition(await readJsonFileStore(store), id);
 		},
 		async createDefinition(definition) {
+			const validatedDefinition = parseSequenceDefinition(definition);
 			return updateJsonFileStore(store, (current) => {
 				if (
 					current.definitions.some(
 						(candidate) =>
-							candidate.id === definition.id ||
+							candidate.id === validatedDefinition.id ||
 							candidate.name.toLowerCase() ===
-								definition.name.toLowerCase(),
+								validatedDefinition.name.toLowerCase(),
 					)
 				) {
 					throw new SequenceConflictError(
-						`Sequence ID or name already exists: ${definition.name}`,
+						`Sequence ID or name already exists: ${validatedDefinition.name}`,
 					);
 				}
 				return commitJsonFileStoreUpdate(
 					{
 						...current,
-						definitions: [...current.definitions, definition],
+						definitions: [...current.definitions, validatedDefinition],
 					},
-					definition,
+					validatedDefinition,
 				);
 			});
 		},
@@ -613,7 +658,7 @@ export function createFileSequenceRepository(
 				}
 				const steps = validateSequenceSteps(input.steps);
 				const revision = previous.currentRevision + 1;
-				const updated = parseSequenceDefinition({
+				const updated = parsePersistedSequenceDefinition({
 					...previous,
 					name: input.name ?? previous.name,
 					description: input.description ?? previous.description,
@@ -669,7 +714,7 @@ export function createFileSequenceRepository(
 				if (previous.status === status) {
 					return commitJsonFileStoreUpdate(current, previous);
 				}
-				const updated = parseSequenceDefinition({
+				const updated = parsePersistedSequenceDefinition({
 					...previous,
 					status,
 					updatedAt: now.toISOString(),
