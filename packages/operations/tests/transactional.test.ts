@@ -160,7 +160,11 @@ describe("transactional operations", () => {
 		for (const fromEmail of [
 			"sender@example.com",
 			" sender@example.com ",
+			`${"한".repeat(200)} <sender@example.com>`,
+			`${"😀".repeat(260)} <sender@example.com>`,
+			'"user name"@example.com',
 			"Sender <sender@example.com>",
+			'Sender <"user name"@example.com>',
 			"Sender<sender@example.com>",
 			'"Example, Inc." <sender@example.com>',
 			'"John Doe (Admin)" <sender@example.com>',
@@ -173,7 +177,7 @@ describe("transactional operations", () => {
 				}),
 			).resolves.toEqual({ sent: true, status: "accepted" });
 		}
-		expect(send).toHaveBeenCalledTimes(6);
+		expect(send).toHaveBeenCalledTimes(10);
 		expect(send).toHaveBeenNthCalledWith(
 			2,
 			expect.objectContaining({ from_email: "sender@example.com" }),

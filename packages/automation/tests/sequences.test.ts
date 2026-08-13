@@ -24,6 +24,7 @@ import {
 	createFileSequenceRepository,
 	createSequenceDefinition,
 	createSequenceEnrollment,
+	parseSequenceDefinition,
 	SequenceConflictError,
 	type SequenceExecutionContext,
 	type SequenceRepository,
@@ -100,6 +101,35 @@ afterEach(async () => {
 });
 
 describe("sequence definitions and file persistence", () => {
+	test("keeps compatibility parsing out of fresh definitions and writes", async () => {
+		const valid = createSequenceDefinition({
+			name: "strict new sender",
+			steps: [{ id: "stop", type: "stop" }],
+		});
+		const invalid = {
+			...valid,
+			revisions: valid.revisions.map((revision) => ({
+				...revision,
+				steps: [
+					{
+						id: "send",
+						type: "send" as const,
+						templateId: 9,
+						fromEmail: "sender@example.com, other@example.com",
+					},
+				],
+			})),
+		};
+
+		expect(() => parseSequenceDefinition(invalid)).toThrow(
+			"From email must be one well-formed mailbox",
+		);
+		const { repository } = await createStores();
+		await expect(repository.createDefinition(invalid)).rejects.toThrow(
+			"From email must be one well-formed mailbox",
+		);
+	});
+
 	test("keeps legacy v1 senders readable while quarantining unsafe delivery", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "listmonk-ops-sequences-"));
 		directories.push(directory);

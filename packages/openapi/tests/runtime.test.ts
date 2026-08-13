@@ -193,6 +193,49 @@ describe("Workers-compatible Listmonk runtime", () => {
 		});
 	});
 
+	test("accepts quoted local parts and multibyte display names", async () => {
+		const captured: Request[] = [];
+		const fetch = mock(async (request: Request) => {
+			captured.push(request);
+			return Response.json({ data: true });
+		});
+		const client = createListmonkRuntimeClient({
+			baseUrl: "https://mail.example.com",
+			username: "runtime",
+			accessToken: "test-token",
+			fetch,
+		});
+
+		for (const fromEmail of [
+			'"user name"@example.com',
+			'Sender <"user name"@example.com>',
+			`${"한".repeat(200)} <sender@example.com>`,
+			`${"😀".repeat(260)} <sender@example.com>`,
+		]) {
+			await sendExternalTransactionalEmail({
+				client,
+				fromEmail,
+				recipient: "trainer@example.com",
+				templateId: 42,
+			});
+		}
+
+		expect(
+			await Promise.all(captured.map(async (request) => await request.json())),
+		).toEqual([
+			expect.objectContaining({ from_email: '"user name"@example.com' }),
+			expect.objectContaining({
+				from_email: 'Sender <"user name"@example.com>',
+			}),
+			expect.objectContaining({
+				from_email: `${"한".repeat(200)} <sender@example.com>`,
+			}),
+			expect.objectContaining({
+				from_email: `${"😀".repeat(260)} <sender@example.com>`,
+			}),
+		]);
+	});
+
 	test("allows a single local-domain recipient for private Mailpit stacks", async () => {
 		const fetch = mock(async () => Response.json({ data: true }));
 		const client = createListmonkRuntimeClient({

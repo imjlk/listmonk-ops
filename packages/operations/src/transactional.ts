@@ -119,32 +119,42 @@ const PROTECTED_HEADER_NAMES = new Set([
  */
 const HEADER_NAME_PATTERN = /^[A-Za-z0-9.!#$%&'*+\-/=?^_`{|}~]+$/;
 const HEADER_CONTROL_CHAR_PATTERN = /[\0\x01-\x1f\x7f]/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/u;
 const EMAIL_DOMAIN_LABEL_PATTERN =
 	/^(?:[\p{L}\p{N}]|[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}])$/u;
-const UNSAFE_EMAIL_CHARACTER_PATTERN = /[\\",:;<>()[\]]/u;
+const DOT_ATOM_LOCAL_PART_PATTERN = /^[^\s@\\",:;<>()[\]]+$/u;
+const QUOTED_LOCAL_PART_PATTERN = /^"(?:[^"\\]|\\.)+"$/u;
+const UNSAFE_DISPLAY_NAME_CHARACTER_PATTERN = /[\\",:;<>()[\]]/u;
 const EMAIL_CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\u009f]/u;
 const INVISIBLE_IDENTIFIER_PATTERN = /\p{Default_Ignorable_Code_Point}/u;
 const MAX_EMAIL_ADDRESS_BYTES = 254;
 const MAX_EMAIL_LOCAL_PART_BYTES = 64;
 const MAX_EMAIL_DOMAIN_LENGTH = 253;
 const MAX_EMAIL_DOMAIN_LABEL_LENGTH = 63;
-const MAX_FROM_EMAIL_BYTES = 512;
+const MAX_FROM_EMAIL_LENGTH = 512;
 const UTF8_ENCODER = new TextEncoder();
 
 function utf8ByteLength(value: string): number {
 	return UTF8_ENCODER.encode(value).byteLength;
 }
 
+function unicodeCharacterLength(value: string): number {
+	return Array.from(value).length;
+}
+
 function hasValidEmailAddressParts(email: string): boolean {
 	const separatorIndex = email.lastIndexOf("@");
 	if (separatorIndex <= 0 || separatorIndex === email.length - 1) return false;
 	const localPart = email.slice(0, separatorIndex);
+	if (utf8ByteLength(localPart) > MAX_EMAIL_LOCAL_PART_BYTES) {
+		return false;
+	}
+	const isQuotedLocalPart = QUOTED_LOCAL_PART_PATTERN.test(localPart);
 	if (
-		utf8ByteLength(localPart) > MAX_EMAIL_LOCAL_PART_BYTES ||
-		localPart.startsWith(".") ||
-		localPart.endsWith(".") ||
-		localPart.includes("..")
+		!isQuotedLocalPart &&
+		(!DOT_ATOM_LOCAL_PART_PATTERN.test(localPart) ||
+			localPart.startsWith(".") ||
+			localPart.endsWith(".") ||
+			localPart.includes(".."))
 	) {
 		return false;
 	}
@@ -173,9 +183,7 @@ function isValidEmailAddress(email: string): boolean {
 	return (
 		email.isWellFormed() &&
 		utf8ByteLength(email) <= MAX_EMAIL_ADDRESS_BYTES &&
-		EMAIL_PATTERN.test(email) &&
 		hasValidEmailAddressParts(email) &&
-		!UNSAFE_EMAIL_CHARACTER_PATTERN.test(email) &&
 		!EMAIL_CONTROL_CHARACTER_PATTERN.test(email) &&
 		!INVISIBLE_IDENTIFIER_PATTERN.test(email)
 	);
@@ -188,7 +196,7 @@ function isValidFromDisplayName(value: string): boolean {
 	return (
 		value.length > 0 &&
 		value === value.trim() &&
-		!UNSAFE_EMAIL_CHARACTER_PATTERN.test(value) &&
+		!UNSAFE_DISPLAY_NAME_CHARACTER_PATTERN.test(value) &&
 		!value.includes("@")
 	);
 }
@@ -196,7 +204,6 @@ function isValidFromDisplayName(value: string): boolean {
 function isValidFromEmail(value: string): boolean {
 	if (
 		!value.isWellFormed() ||
-		utf8ByteLength(value) > MAX_FROM_EMAIL_BYTES ||
 		EMAIL_CONTROL_CHARACTER_PATTERN.test(value) ||
 		INVISIBLE_IDENTIFIER_PATTERN.test(value)
 	) {
@@ -218,7 +225,7 @@ function isValidFromEmail(value: string): boolean {
  * contracts reject address lists and header-control injection up front.
  */
 export const TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE =
-	'^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])\\s*(?:(?:[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+)|(?:(?:"(?:[^"\\\\]|\\\\.)+")|(?:[^\\\\",:;<>()[\\]@]+)) *<[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+>)\\s*$' as const;
+	'^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])\\s*(?:(?:(?:[^\\s@\\\\",:;<>()[\\]]+)|(?:"(?:[^"\\\\]|\\\\.)+"))@[^\\s@\\\\",:;<>()[\\]]+|(?:(?:"(?:[^"\\\\]|\\\\.)+")|(?:[^\\\\",:;<>()[\\]@]+)) *<(?:(?:[^\\s@\\\\",:;<>()[\\]]+)|(?:"(?:[^"\\\\]|\\\\.)+"))@[^\\s@\\\\",:;<>()[\\]]+>)\\s*$' as const;
 
 export const TRANSACTIONAL_FROM_EMAIL_PATTERN = new RegExp(
 	TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE,
@@ -227,9 +234,12 @@ export const TRANSACTIONAL_FROM_EMAIL_PATTERN = new RegExp(
 
 export const transactionalFromEmailSchema = z
 	.string()
+	.refine(
+		(value) => unicodeCharacterLength(value) <= MAX_FROM_EMAIL_LENGTH,
+		`From email must contain at most ${MAX_FROM_EMAIL_LENGTH} Unicode characters`,
+	)
 	.trim()
 	.min(1)
-	.max(MAX_FROM_EMAIL_BYTES)
 	.regex(
 		TRANSACTIONAL_FROM_EMAIL_PATTERN,
 		"From email must be one well-formed mailbox",
@@ -237,7 +247,8 @@ export const transactionalFromEmailSchema = z
 	.refine(
 		isValidFromEmail,
 		"From email must be one well-formed mailbox",
-	);
+	)
+	.meta({ maxLength: MAX_FROM_EMAIL_LENGTH });
 
 export const transactionalMessengerSchema = z.string().trim().min(1);
 
