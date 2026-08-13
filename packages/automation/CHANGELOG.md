@@ -1,5 +1,19 @@
 # @listmonk-ops/automation
 
+## 0.7.0 — 2026-08-13
+
+### Fixed
+
+- [1e4644c](https://github.com/imjlk/listmonk-ops/commit/1e4644c3a57b3e08924bc2bc86b7e3a7fd5aa32f) Validate transactional From overrides as one mailbox across shared sends and sequence definitions, and align the published sender, messenger, and subject contracts with runtime parsing. — Thanks @imjlk!
+
+### Added
+
+- [7f8d7bd](https://github.com/imjlk/listmonk-ops/commit/7f8d7bd1190e34639c5a26b1a6a18cb55b47428f) Complete transactional messenger, subject, content-type, and multipart plain-text option parity across the Workers runtime, shared operations, CLI, MCP, and sequence automation. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: openapi@0.7.0, operations@0.14.0
+
 ## 0.6.0 — 2026-08-08
 
 ### Minor changes

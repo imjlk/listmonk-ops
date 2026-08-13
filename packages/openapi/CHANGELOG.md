@@ -1,5 +1,16 @@
 # @listmonk-ops/openapi
 
+## 0.7.0 — 2026-08-13
+
+### Added
+
+- [3d74ff2](https://github.com/imjlk/listmonk-ops/commit/3d74ff205417f9a2ab8b2b4d1041d564e53fe864) Allow Workers runtime transactional sends to select a validated From address and Listmonk messenger. — Thanks @imjlk!
+- [7f8d7bd](https://github.com/imjlk/listmonk-ops/commit/7f8d7bd1190e34639c5a26b1a6a18cb55b47428f) Complete transactional messenger, subject, content-type, and multipart plain-text option parity across the Workers runtime, shared operations, CLI, MCP, and sequence automation. — Thanks @imjlk!
+
+### Fixed
+
+- [1e4644c](https://github.com/imjlk/listmonk-ops/commit/1e4644c3a57b3e08924bc2bc86b7e3a7fd5aa32f) Validate transactional From overrides as one mailbox across shared sends and sequence definitions, and align the published sender, messenger, and subject contracts with runtime parsing. — Thanks @imjlk!
+
 ## 0.6.0 — 2026-08-05
 
 ### Added
