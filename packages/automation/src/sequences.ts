@@ -39,18 +39,20 @@ export const SEQUENCE_STEP_TYPES = [
 	"stop",
 ] as const;
 
+const sequenceSendStepSchema = z.object({
+	id: stepIdSchema,
+	type: z.literal(SEQUENCE_STEP_TYPES[0]),
+	templateId: z.number().int().positive(),
+	fromEmail: transactionalFromEmailSchema.optional(),
+	data: jsonObjectSchema.optional(),
+	contentType: z.enum(["html", "markdown", "plain"]).optional(),
+	messenger: transactionalMessengerSchema.optional(),
+	subject: transactionalSubjectSchema.optional(),
+	altBody: z.string().min(1).optional(),
+});
+
 export const sequenceStepSchema = z.discriminatedUnion("type", [
-	z.object({
-		id: stepIdSchema,
-		type: z.literal(SEQUENCE_STEP_TYPES[0]),
-		templateId: z.number().int().positive(),
-		fromEmail: transactionalFromEmailSchema.optional(),
-		data: jsonObjectSchema.optional(),
-		contentType: z.enum(["html", "markdown", "plain"]).optional(),
-		messenger: transactionalMessengerSchema.optional(),
-		subject: transactionalSubjectSchema.optional(),
-		altBody: z.string().min(1).optional(),
-	}),
+	sequenceSendStepSchema,
 	z.object({
 		id: stepIdSchema,
 		type: z.literal(SEQUENCE_STEP_TYPES[1]),
@@ -78,6 +80,18 @@ export const sequenceStepSchema = z.discriminatedUnion("type", [
 	z.object({
 		id: stepIdSchema,
 		type: z.literal(SEQUENCE_STEP_TYPES[4]),
+	}),
+]);
+
+// Version 1 stores predate the strict single-mailbox sender contract. Keep
+// those definitions readable so one legacy step cannot make the complete
+// repository unavailable; new definitions and revisions still parse through
+// `sequenceStepSchema`, and the executor quarantines an invalid legacy sender
+// before any Listmonk request.
+const storedSequenceStepSchema = z.union([
+	sequenceStepSchema,
+	sequenceSendStepSchema.extend({
+		fromEmail: z.string().trim().min(1).optional(),
 	}),
 ]);
 
@@ -283,7 +297,7 @@ type SequenceStore = Readonly<{
 
 const revisionSchema = z.object({
 	revision: z.number().int().positive(),
-	steps: z.array(sequenceStepSchema).min(1),
+	steps: z.array(storedSequenceStepSchema).min(1),
 	createdAt: isoDateTimeSchema,
 });
 const definitionSchema = z.object({
@@ -367,6 +381,12 @@ export function validateSequenceSteps(
 	steps: readonly SequenceStep[],
 ): readonly SequenceStep[] {
 	const parsed = z.array(sequenceStepSchema).min(1).parse(steps);
+	return validateSequenceStepTopology(parsed);
+}
+
+function validateSequenceStepTopology(
+	parsed: readonly SequenceStep[],
+): readonly SequenceStep[] {
 	const ids = new Set<string>();
 	for (const step of parsed) {
 		if (ids.has(step.id)) {
@@ -420,7 +440,7 @@ export function parseSequenceDefinition(value: unknown): SequenceDefinition {
 		);
 	}
 	for (const revision of parsed.revisions) {
-		validateSequenceSteps(revision.steps);
+		validateSequenceStepTopology(revision.steps);
 	}
 	return parsed;
 }

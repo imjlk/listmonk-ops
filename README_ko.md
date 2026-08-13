@@ -616,6 +616,8 @@ listmonk-cli tx send \
 이메일 또는 ID 선택자는 Listmonk에 이미 등록된 subscriber를 대상으로 합니다.
 발신자 재정의는 올바른 단일 bare 또는 display-name mailbox여야 하며, 저장되는
 sequence 발송 단계에도 발송 전에 동일한 검증을 적용합니다.
+기존 version 1 sequence 저장소는 계속 읽을 수 있으며, 유효하지 않은 저장
+발신자는 Listmonk 호출 전에 실패 enrollment로 격리됩니다.
 사용자 헤더는 애플리케이션 메타데이터에만 사용할 수 있습니다. 메시지 식별,
 라우팅, 추적 및 모든 `Resent-*` 헤더는 Listmonk와 SMTP transport가 관리하며
 발송 전에 거부됩니다.
