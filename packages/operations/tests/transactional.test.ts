@@ -271,6 +271,7 @@ describe("transactional operations", () => {
 		const send = mock(async () => ({ data: true })) as unknown as TransactionalClient["transactional"]["send"];
 
 		for (const subject of [
+			"\nWelcome\n",
 			"Receipt\r\nBcc: leak@example.com",
 			"Receipt\nBcc: leak@example.com",
 			"Receipt\0hidden",

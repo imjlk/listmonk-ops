@@ -257,12 +257,12 @@ export const TRANSACTIONAL_SUBJECT_PATTERN =
 
 export const transactionalSubjectSchema = z
 	.string()
-	.trim()
-	.min(1)
 	.regex(
 		TRANSACTIONAL_SUBJECT_PATTERN,
 		"Subject must not contain ASCII control characters (including CR, LF, and NUL)",
-	);
+	)
+	.trim()
+	.min(1);
 
 interface HeaderIssue {
 	path: Array<string | number>;
