@@ -211,11 +211,29 @@ function isValidFromEmail(value: string): boolean {
 	return isValidFromDisplayName(displayName) && isValidEmailAddress(address);
 }
 
+/**
+ * JSON-Schema-compatible structural prefilter for one bare or display-name
+ * mailbox. Detailed local-part, IDNA, label-length, and invisible-code-point
+ * checks remain in `isValidFromEmail`; this shared pattern makes published
+ * contracts reject address lists and header-control injection up front.
+ */
+export const TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE =
+	'^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])(?:(?:[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+)|(?:(?:"(?:[^"\\\\]|\\\\.)+")|(?:[^\\\\",:;<>()[\\]@]+)) <[^\\s@\\\\",:;<>()[\\]]+@[^\\s@\\\\",:;<>()[\\]]+>)$' as const;
+
+export const TRANSACTIONAL_FROM_EMAIL_PATTERN = new RegExp(
+	TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE,
+	"u",
+);
+
 export const transactionalFromEmailSchema = z
 	.string()
 	.trim()
 	.min(1)
 	.max(MAX_FROM_EMAIL_BYTES)
+	.regex(
+		TRANSACTIONAL_FROM_EMAIL_PATTERN,
+		"From email must be one well-formed mailbox",
+	)
 	.refine(
 		isValidFromEmail,
 		"From email must be one well-formed mailbox",

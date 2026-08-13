@@ -1,4 +1,5 @@
 import type { tags } from "typia";
+import type { TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE } from "../../src/transactional";
 import type {
 	ResourceId,
 	NonEmptyString,
@@ -13,8 +14,10 @@ export type TransactionalSubject = string &
 	tags.MinLength<1> &
 	tags.Pattern<"^(?=[^\\u0000-\\u001f\\u007f]*\\S)[^\\u0000-\\u001f\\u007f]+$">;
 
-export type TransactionalFromEmail = TrimmedNonEmptyString &
-	tags.MaxLength<512>;
+export type TransactionalFromEmail = string &
+	tags.MinLength<1> &
+	tags.MaxLength<512> &
+	tags.Pattern<typeof TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE>;
 
 export type TransactionalMessenger = TrimmedNonEmptyString;
 

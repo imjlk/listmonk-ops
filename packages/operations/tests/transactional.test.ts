@@ -11,6 +11,7 @@ import {
 	OperationInputError,
 	serializeTransactionalPayload,
 	sendTransactionalOperation,
+	TRANSACTIONAL_FROM_EMAIL_PATTERN,
 	TRANSACTIONAL_SUBJECT_PATTERN,
 	transactionalOperations,
 	DEFAULT_TRANSACTIONAL_TTL_MS,
@@ -422,7 +423,12 @@ describe("transactional operations", () => {
 			},
 			content_type: { enum: ["html", "markdown", "plain"] },
 			headers: { type: "array" },
-			from_email: { type: "string", minLength: 1, maxLength: 512 },
+			from_email: {
+				type: "string",
+				minLength: 1,
+				maxLength: 512,
+				pattern: TRANSACTIONAL_FROM_EMAIL_PATTERN.source,
+			},
 			messenger: { type: "string", minLength: 1 },
 			subject: {
 				type: "string",
