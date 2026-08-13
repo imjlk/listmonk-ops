@@ -1,5 +1,5 @@
 import type { tags } from "typia";
-import type { TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE } from "../../src/transactional";
+import type { TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE } from "../../src/transactional-contract";
 import type {
 	ResourceId,
 	NonEmptyString,

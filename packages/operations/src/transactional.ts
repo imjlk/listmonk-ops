@@ -20,6 +20,9 @@ import {
 	type TransactionalIdempotencyStore,
 	type TransactionalSendRecord,
 } from "./transactional-idempotency";
+import { TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE } from "./transactional-contract";
+
+export { TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE } from "./transactional-contract";
 
 export interface TransactionalOperationContext {
 	client: Pick<ListmonkClient, "transactional">;
@@ -217,15 +220,6 @@ function isValidFromEmail(value: string): boolean {
 	const address = value.slice(mailboxSeparator + 1, -1);
 	return isValidFromDisplayName(displayName) && isValidEmailAddress(address);
 }
-
-/**
- * JSON-Schema-compatible structural prefilter for one bare or display-name
- * mailbox. Detailed local-part, IDNA, label-length, and invisible-code-point
- * checks remain in `isValidFromEmail`; this shared pattern makes published
- * contracts reject address lists and header-control injection up front.
- */
-export const TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE =
-	'^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])\\s*(?:(?:(?:[^\\s@\\\\",:;<>()[\\]]+)|(?:"(?:[^"\\\\]|\\\\.)+"))@[^\\s@\\\\",:;<>()[\\]]+|(?:(?:"(?:[^"\\\\]|\\\\.)+")|(?:[^\\\\",:;<>()[\\]@]+)) *<(?:(?:[^\\s@\\\\",:;<>()[\\]]+)|(?:"(?:[^"\\\\]|\\\\.)+"))@[^\\s@\\\\",:;<>()[\\]]+>)\\s*$' as const;
 
 export const TRANSACTIONAL_FROM_EMAIL_PATTERN = new RegExp(
 	TRANSACTIONAL_FROM_EMAIL_PATTERN_SOURCE,
