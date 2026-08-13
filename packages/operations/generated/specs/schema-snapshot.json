@@ -1009,6 +1009,12 @@
               "minimum": 1,
               "type": "integer"
             },
+            "TransactionalFromEmail": {
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
+            },
             "TransactionalSendBaseInput__type": {
               "additionalProperties": false,
               "properties": {
@@ -1032,7 +1038,7 @@
                   "$ref": "#/components/schemas/Recordstringunknown"
                 },
                 "from_email": {
-                  "$ref": "#/components/schemas/NonEmptyString",
+                  "$ref": "#/components/schemas/TransactionalFromEmail",
                   "description": "RFC 5322 From header value. This may include a display name such as\n`Newsletter <news@example.com>`, so it is intentionally not narrowed to\nthe bare-address-only EmailAddress contract."
                 },
                 "headers": {
@@ -1045,10 +1051,10 @@
                   "$ref": "#/components/schemas/IdempotencyKey"
                 },
                 "messenger": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/TrimmedNonEmptyString"
                 },
                 "subject": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/TransactionalSubject"
                 },
                 "subscriber_email": {
                   "$ref": "#/components/schemas/EmailAddress"
@@ -1086,7 +1092,7 @@
                   "$ref": "#/components/schemas/Recordstringunknown"
                 },
                 "from_email": {
-                  "$ref": "#/components/schemas/NonEmptyString",
+                  "$ref": "#/components/schemas/TransactionalFromEmail",
                   "description": "RFC 5322 From header value. This may include a display name such as\n`Newsletter <news@example.com>`, so it is intentionally not narrowed to\nthe bare-address-only EmailAddress contract."
                 },
                 "headers": {
@@ -1099,10 +1105,10 @@
                   "$ref": "#/components/schemas/IdempotencyKey"
                 },
                 "messenger": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/TrimmedNonEmptyString"
                 },
                 "subject": {
-                  "$ref": "#/components/schemas/NonEmptyString"
+                  "$ref": "#/components/schemas/TransactionalSubject"
                 },
                 "subscriber_id": {
                   "$ref": "#/components/schemas/ResourceId"
@@ -1126,6 +1132,16 @@
                   "$ref": "#/components/schemas/TransactionalSendBaseInput__type-o1"
                 }
               ]
+            },
+            "TransactionalSubject": {
+              "minLength": 1,
+              "pattern": "^(?=[^\\u0000-\\u001f\\u007f]*\\S)[^\\u0000-\\u001f\\u007f]+$",
+              "type": "string"
+            },
+            "TrimmedNonEmptyString": {
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
             }
           }
         },
@@ -8591,6 +8607,9 @@
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "altbody": {
+                      "$ref": "#/components/schemas/NonEmptyString"
+                    },
                     "content_type": {
                       "oneOf": [
                         {
@@ -8608,10 +8627,16 @@
                       "$ref": "#/components/schemas/Recordstringunknown"
                     },
                     "from_email": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/TransactionalFromEmail"
                     },
                     "id": {
                       "$ref": "#/components/schemas/SequenceStepId"
+                    },
+                    "messenger": {
+                      "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                    },
+                    "subject": {
+                      "$ref": "#/components/schemas/TransactionalSubject"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -8752,6 +8777,22 @@
                 "steps"
               ],
               "type": "object"
+            },
+            "TransactionalFromEmail": {
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
+            },
+            "TransactionalSubject": {
+              "minLength": 1,
+              "pattern": "^(?=[^\\u0000-\\u001f\\u007f]*\\S)[^\\u0000-\\u001f\\u007f]+$",
+              "type": "string"
+            },
+            "TrimmedNonEmptyString": {
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
             }
           }
         },
@@ -8915,6 +8956,9 @@
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "altbody": {
+                      "$ref": "#/components/schemas/NonEmptyString"
+                    },
                     "content_type": {
                       "oneOf": [
                         {
@@ -8932,10 +8976,16 @@
                       "$ref": "#/components/schemas/Recordstringunknown"
                     },
                     "from_email": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/TransactionalFromEmail"
                     },
                     "id": {
                       "$ref": "#/components/schemas/SequenceStepId"
+                    },
+                    "messenger": {
+                      "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                    },
+                    "subject": {
+                      "$ref": "#/components/schemas/TransactionalSubject"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -9064,6 +9114,22 @@
               },
               "minItems": 1,
               "type": "array"
+            },
+            "TransactionalFromEmail": {
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
+            },
+            "TransactionalSubject": {
+              "minLength": 1,
+              "pattern": "^(?=[^\\u0000-\\u001f\\u007f]*\\S)[^\\u0000-\\u001f\\u007f]+$",
+              "type": "string"
+            },
+            "TrimmedNonEmptyString": {
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
             }
           }
         },
@@ -9297,6 +9363,9 @@
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "altbody": {
+                      "$ref": "#/components/schemas/NonEmptyString"
+                    },
                     "content_type": {
                       "oneOf": [
                         {
@@ -9314,10 +9383,16 @@
                       "$ref": "#/components/schemas/Recordstringunknown"
                     },
                     "from_email": {
-                      "$ref": "#/components/schemas/NonEmptyString"
+                      "$ref": "#/components/schemas/TransactionalFromEmail"
                     },
                     "id": {
                       "$ref": "#/components/schemas/SequenceStepId"
+                    },
+                    "messenger": {
+                      "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                    },
+                    "subject": {
+                      "$ref": "#/components/schemas/TransactionalSubject"
                     },
                     "template_id": {
                       "$ref": "#/components/schemas/ResourceId"
@@ -9469,6 +9544,22 @@
                 "steps"
               ],
               "type": "object"
+            },
+            "TransactionalFromEmail": {
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
+            },
+            "TransactionalSubject": {
+              "minLength": 1,
+              "pattern": "^(?=[^\\u0000-\\u001f\\u007f]*\\S)[^\\u0000-\\u001f\\u007f]+$",
+              "type": "string"
+            },
+            "TrimmedNonEmptyString": {
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
             }
           }
         },

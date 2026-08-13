@@ -119,13 +119,119 @@ const PROTECTED_HEADER_NAMES = new Set([
  */
 const HEADER_NAME_PATTERN = /^[A-Za-z0-9.!#$%&'*+\-/=?^_`{|}~]+$/;
 const HEADER_CONTROL_CHAR_PATTERN = /[\0\x01-\x1f\x7f]/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/u;
+const EMAIL_DOMAIN_LABEL_PATTERN =
+	/^(?:[\p{L}\p{N}]|[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}])$/u;
+const UNSAFE_EMAIL_CHARACTER_PATTERN = /[\\",:;<>()[\]]/u;
+const EMAIL_CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\u009f]/u;
+const INVISIBLE_IDENTIFIER_PATTERN = /\p{Default_Ignorable_Code_Point}/u;
+const MAX_EMAIL_ADDRESS_BYTES = 254;
+const MAX_EMAIL_LOCAL_PART_BYTES = 64;
+const MAX_EMAIL_DOMAIN_LENGTH = 253;
+const MAX_EMAIL_DOMAIN_LABEL_LENGTH = 63;
+const MAX_FROM_EMAIL_BYTES = 512;
+const UTF8_ENCODER = new TextEncoder();
+
+function utf8ByteLength(value: string): number {
+	return UTF8_ENCODER.encode(value).byteLength;
+}
+
+function hasValidEmailAddressParts(email: string): boolean {
+	const separatorIndex = email.lastIndexOf("@");
+	if (separatorIndex <= 0 || separatorIndex === email.length - 1) return false;
+	const localPart = email.slice(0, separatorIndex);
+	if (
+		utf8ByteLength(localPart) > MAX_EMAIL_LOCAL_PART_BYTES ||
+		localPart.startsWith(".") ||
+		localPart.endsWith(".") ||
+		localPart.includes("..")
+	) {
+		return false;
+	}
+	const domain = email.slice(separatorIndex + 1);
+	if (
+		!domain
+			.split(".")
+			.every((label) => EMAIL_DOMAIN_LABEL_PATTERN.test(label))
+	) {
+		return false;
+	}
+	try {
+		const encodedDomain = new URL(`https://${domain}`).hostname;
+		return (
+			encodedDomain.length <= MAX_EMAIL_DOMAIN_LENGTH &&
+			encodedDomain
+				.split(".")
+				.every((label) => label.length <= MAX_EMAIL_DOMAIN_LABEL_LENGTH)
+		);
+	} catch {
+		return false;
+	}
+}
+
+function isValidEmailAddress(email: string): boolean {
+	return (
+		email.isWellFormed() &&
+		utf8ByteLength(email) <= MAX_EMAIL_ADDRESS_BYTES &&
+		EMAIL_PATTERN.test(email) &&
+		hasValidEmailAddressParts(email) &&
+		!UNSAFE_EMAIL_CHARACTER_PATTERN.test(email) &&
+		!EMAIL_CONTROL_CHARACTER_PATTERN.test(email) &&
+		!INVISIBLE_IDENTIFIER_PATTERN.test(email)
+	);
+}
+
+function isValidFromDisplayName(value: string): boolean {
+	if (value.startsWith('"') || value.endsWith('"')) {
+		return /^"(?:[^"\\]|\\.)+"$/u.test(value);
+	}
+	return (
+		value.length > 0 &&
+		value === value.trim() &&
+		!UNSAFE_EMAIL_CHARACTER_PATTERN.test(value) &&
+		!value.includes("@")
+	);
+}
+
+function isValidFromEmail(value: string): boolean {
+	if (
+		!value.isWellFormed() ||
+		utf8ByteLength(value) > MAX_FROM_EMAIL_BYTES ||
+		EMAIL_CONTROL_CHARACTER_PATTERN.test(value) ||
+		INVISIBLE_IDENTIFIER_PATTERN.test(value)
+	) {
+		return false;
+	}
+	if (isValidEmailAddress(value)) return true;
+
+	const mailboxSeparator = value.lastIndexOf(" <");
+	if (mailboxSeparator <= 0 || !value.endsWith(">")) return false;
+	const displayName = value.slice(0, mailboxSeparator);
+	const address = value.slice(mailboxSeparator + 2, -1);
+	return isValidFromDisplayName(displayName) && isValidEmailAddress(address);
+}
+
+export const transactionalFromEmailSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(MAX_FROM_EMAIL_BYTES)
+	.refine(
+		isValidFromEmail,
+		"From email must be one well-formed mailbox",
+	);
+
+export const transactionalMessengerSchema = z.string().trim().min(1);
+
+export const TRANSACTIONAL_SUBJECT_PATTERN =
+	/^(?=[^\u0000-\u001f\u007f]*\S)[^\u0000-\u001f\u007f]+$/;
 
 export const transactionalSubjectSchema = z
 	.string()
 	.trim()
 	.min(1)
-	.refine(
-		(value) => !HEADER_CONTROL_CHAR_PATTERN.test(value),
+	.regex(
+		TRANSACTIONAL_SUBJECT_PATTERN,
 		"Subject must not contain ASCII control characters (including CR, LF, and NUL)",
 	);
 
@@ -228,12 +334,9 @@ const sendTransactionalInputSchema = z
 		subscriber_id: positiveIdInputSchema
 			.optional()
 			.describe("Recipient subscriber ID"),
-		from_email: z
-			.string()
-			.trim()
-			.min(1)
+		from_email: transactionalFromEmailSchema
 			.optional()
-			.describe("From email header value"),
+			.describe("Validated single-mailbox From email header value"),
 		data: z
 			.record(z.string(), z.unknown())
 			.optional()
@@ -246,10 +349,7 @@ const sendTransactionalInputSchema = z
 			.enum(["html", "markdown", "plain"])
 			.optional()
 			.describe("Message content type"),
-		messenger: z
-			.string()
-			.trim()
-			.min(1)
+		messenger: transactionalMessengerSchema
 			.optional()
 			.describe("Listmonk messenger name"),
 		subject: transactionalSubjectSchema

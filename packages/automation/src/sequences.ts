@@ -8,6 +8,8 @@ import {
 	updateJsonFileStore,
 } from "@listmonk-ops/common";
 import {
+	transactionalFromEmailSchema,
+	transactionalMessengerSchema,
 	transactionalSubjectSchema,
 	type TransactionalIdempotencyStore,
 } from "@listmonk-ops/operations";
@@ -42,10 +44,10 @@ export const sequenceStepSchema = z.discriminatedUnion("type", [
 		id: stepIdSchema,
 		type: z.literal(SEQUENCE_STEP_TYPES[0]),
 		templateId: z.number().int().positive(),
-		fromEmail: z.string().trim().min(1).optional(),
+		fromEmail: transactionalFromEmailSchema.optional(),
 		data: jsonObjectSchema.optional(),
 		contentType: z.enum(["html", "markdown", "plain"]).optional(),
-		messenger: z.string().trim().min(1).optional(),
+		messenger: transactionalMessengerSchema.optional(),
 		subject: transactionalSubjectSchema.optional(),
 		altBody: z.string().min(1).optional(),
 	}),

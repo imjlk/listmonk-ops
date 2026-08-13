@@ -2,11 +2,21 @@ import type { tags } from "typia";
 import type {
 	ResourceId,
 	NonEmptyString,
+	TrimmedNonEmptyString,
 	EmailAddress,
 	IsoDateTime,
 	IdempotencyKey,
 	ResourceIdInput,
 } from "./primitives";
+
+export type TransactionalSubject = string &
+	tags.MinLength<1> &
+	tags.Pattern<"^(?=[^\\u0000-\\u001f\\u007f]*\\S)[^\\u0000-\\u001f\\u007f]+$">;
+
+export type TransactionalFromEmail = TrimmedNonEmptyString &
+	tags.MaxLength<512>;
+
+export type TransactionalMessenger = TrimmedNonEmptyString;
 
 export interface TransactionalSendBaseInput {
 	template_id: ResourceId;
@@ -15,12 +25,12 @@ export interface TransactionalSendBaseInput {
 	 * `Newsletter <news@example.com>`, so it is intentionally not narrowed to
 	 * the bare-address-only EmailAddress contract.
 	 */
-	from_email?: NonEmptyString | undefined;
+	from_email?: TransactionalFromEmail | undefined;
 	data?: Record<string, unknown> | undefined;
 	headers?: Record<string, string>[] | undefined;
 	content_type?: "html" | "markdown" | "plain" | undefined;
-	messenger?: NonEmptyString | undefined;
-	subject?: NonEmptyString | undefined;
+	messenger?: TransactionalMessenger | undefined;
+	subject?: TransactionalSubject | undefined;
 	altbody?: NonEmptyString | undefined;
 	idempotency_key?: IdempotencyKey | undefined;
 }

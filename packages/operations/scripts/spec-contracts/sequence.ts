@@ -6,6 +6,11 @@ import type {
 	NonEmptyString,
 	IsoDateTime,
 } from "./primitives";
+import type {
+	TransactionalFromEmail,
+	TransactionalMessenger,
+	TransactionalSubject,
+} from "./transactional";
 
 export type SequenceStepId = NonEmptyString &
 	tags.MaxLength<80> &
@@ -24,9 +29,12 @@ export type SequenceStep =
 			id: SequenceStepId;
 			type: "send";
 			template_id: ResourceId;
-			from_email?: NonEmptyString | undefined;
+			from_email?: TransactionalFromEmail | undefined;
 			data?: Record<string, unknown> | undefined;
 			content_type?: "html" | "markdown" | "plain" | undefined;
+			messenger?: TransactionalMessenger | undefined;
+			subject?: TransactionalSubject | undefined;
+			altbody?: NonEmptyString | undefined;
 	  }
 	| {
 			id: SequenceStepId;

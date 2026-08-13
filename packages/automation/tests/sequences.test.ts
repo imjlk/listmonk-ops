@@ -295,6 +295,40 @@ describe("sequence definitions and file persistence", () => {
 		).rejects.toThrow("Subject must not contain ASCII control characters");
 	});
 
+	test("rejects unsafe sequence From mailboxes before persistence", async () => {
+		const unsafeFromEmail =
+			"Welcome <welcome@example.com>\r\nBcc: leak@example.com";
+
+		expect(() =>
+			createSequenceDefinition({
+				name: "unsafe sender",
+				steps: [
+					{
+						id: "send",
+						type: "send",
+						templateId: 7,
+						fromEmail: unsafeFromEmail,
+					},
+					{ id: "stop", type: "stop" },
+				],
+			}),
+		).toThrow("From email must be one well-formed mailbox");
+
+		await expect(
+			invokeSequenceValidateOperation({}, {
+				steps: [
+					{
+						id: "send",
+						type: "send",
+						template_id: 7,
+						from_email: unsafeFromEmail,
+					},
+					{ id: "stop", type: "stop" },
+				],
+			}),
+		).rejects.toThrow("From email must be one well-formed mailbox");
+	});
+
 	test("keeps validation and runtime health output aggregate-only", async () => {
 		const validation = await invokeSequenceValidateOperation({}, {
 			steps: [

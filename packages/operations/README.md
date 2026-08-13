@@ -18,6 +18,8 @@ override, and multipart plain-text alternative in addition to template data,
 content type, sender, and validated custom headers. These fields participate in
 the idempotency payload hash, so reusing a key with different delivery or
 rendering options is rejected instead of replaying the wrong send.
+Sender overrides are normalized and validated as one bare or display-name
+mailbox before Listmonk can acknowledge the queued delivery.
 
 Release provisioning can plan one exact-name template with
 `reconcileTemplate`, or a versioned set with `reconcileTemplateManifest`.
