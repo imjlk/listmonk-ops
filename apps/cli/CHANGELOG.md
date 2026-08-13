@@ -1,5 +1,15 @@
 # @listmonk-ops/cli
 
+## 0.13.0 — 2026-08-13
+
+### Added
+
+- [7f8d7bd](https://github.com/imjlk/listmonk-ops/commit/7f8d7bd1190e34639c5a26b1a6a18cb55b47428f) Complete transactional messenger, subject, content-type, and multipart plain-text option parity across the Workers runtime, shared operations, CLI, MCP, and sequence automation. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: abtest@0.6.1, automation@0.7.0, openapi@0.7.0, operations@0.14.0
+
 ## 0.12.2 — 2026-08-08
 
 ### Changed

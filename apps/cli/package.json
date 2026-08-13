@@ -1,6 +1,6 @@
 {
 	"name": "@listmonk-ops/cli",
-	"version": "0.12.2",
+	"version": "0.13.0",
 	"description": "Listmonk operations CLI built with Gunshi and Bun",
 	"type": "module",
 	"repository": {
@@ -38,11 +38,11 @@
 	"dependencies": {
 		"@clack/prompts": "0.10.1",
 		"@gunshi/plugin-completion": "0.37.1",
-		"@listmonk-ops/abtest": "workspace:^0.6.0",
-		"@listmonk-ops/automation": "workspace:^0.6.0",
+		"@listmonk-ops/abtest": "workspace:^0.6.1",
+		"@listmonk-ops/automation": "workspace:^0.7.0",
 		"@listmonk-ops/common": "^0.5.0",
-		"@listmonk-ops/openapi": "^0.6.0",
-		"@listmonk-ops/operations": "workspace:^0.13.0",
+		"@listmonk-ops/openapi": "^0.7.0",
+		"@listmonk-ops/operations": "workspace:^0.14.0",
 		"gunshi": "0.37.1",
 		"postgres": "3.4.9",
 		"zod": "4.3.6"

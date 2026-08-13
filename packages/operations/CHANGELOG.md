@@ -1,5 +1,21 @@
 # @listmonk-ops/operations
 
+## 0.14.0 — 2026-08-13
+
+### Security
+
+- [1e4644c](https://github.com/imjlk/listmonk-ops/commit/1e4644c3a57b3e08924bc2bc86b7e3a7fd5aa32f) Validate transactional From overrides as one mailbox across shared sends and sequence definitions, and align the published sender, messenger, and subject contracts with runtime parsing. — Thanks @imjlk!
+- [8f99973](https://github.com/imjlk/listmonk-ops/commit/8f99973d05b0f5ec385a7b5e473cda057cb11fb7) Reject caller-controlled SMTP routing, trace, sender, and resend headers before transactional dispatch. — Thanks @imjlk!
+- [d0bb75c](https://github.com/imjlk/listmonk-ops/commit/d0bb75cdb3eb55d56112f49364ac0ca9298e9e7d) Reserve SMTP authentication and routing metadata headers before transactional dispatch. — Thanks @imjlk!
+
+### Added
+
+- [7f8d7bd](https://github.com/imjlk/listmonk-ops/commit/7f8d7bd1190e34639c5a26b1a6a18cb55b47428f) Complete transactional messenger, subject, content-type, and multipart plain-text option parity across the Workers runtime, shared operations, CLI, MCP, and sequence automation. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: openapi@0.7.0
+
 ## 0.13.0 — 2026-08-08
 
 ### Fixed
