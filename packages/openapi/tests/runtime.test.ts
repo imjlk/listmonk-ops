@@ -140,7 +140,7 @@ describe("Workers-compatible Listmonk runtime", () => {
 			data: { otp: "123456", expiresMinutes: 5 },
 		});
 		expect(captured?.signal.aborted).toBe(false);
-		 expect(capturedInit?.redirect).toBe("error");
+		expect(capturedInit?.redirect).toBe("manual");
 	});
 
 	test("accepts a quoted display name as one From mailbox", async () => {
@@ -768,6 +768,36 @@ describe("Workers-compatible Listmonk runtime", () => {
 			});
 			expect(fetch).toHaveBeenCalledTimes(1);
 		}
+	});
+
+	test("rejects manual redirect responses without replaying the message", async () => {
+		let capturedInit: RequestInit | undefined;
+		const fetch = mock(async (_request: Request, init?: RequestInit) => {
+			capturedInit = init;
+			return new Response(null, {
+				headers: { Location: "https://evil.example/api/tx" },
+				status: 307,
+			});
+		});
+		const client = createListmonkRuntimeClient({
+			baseUrl: "https://mail.example.com",
+			username: "runtime",
+			accessToken: "test-token",
+			fetch,
+		});
+
+		await expect(
+			sendExternalTransactionalEmail({
+				client,
+				recipient: "trainer@example.com",
+				templateId: 42,
+			}),
+		).rejects.toMatchObject({
+			code: "request_failed",
+			reason: "network_error",
+		});
+		expect(capturedInit?.redirect).toBe("manual");
+		expect(fetch).toHaveBeenCalledTimes(1);
 	});
 
 	test("does not classify an HTTP error body as a local abort", async () => {
