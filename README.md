@@ -562,7 +562,8 @@ bringing the current stable baseline to 65 operations; the remaining 39
 descriptors are experimental.
 
 The spec publishes six typed playbooks: `campaign.safe-start`,
-`campaign.safe-schedule`, `template.safe-promote`, and `abtest.safe-run`.
+`campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
+`campaign.deliverability-guard`, and `provider.health-check`.
 Every public shared operation binds a descriptor, and the migration exemption
 manifest is empty. Coverage rejects missing, dangling, overlapping, or
 mismatched declarations.

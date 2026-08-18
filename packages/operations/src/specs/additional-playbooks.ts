@@ -355,6 +355,10 @@ export const campaignDeliverabilityGuardPlaybook = defineOperationPlaybook({
 					parameter: "campaign_id",
 					source: { kind: "playbook-input", name: "campaign_id" },
 				},
+				{
+					parameter: "pause_on_breach",
+					source: { kind: "literal", value: true },
+				},
 			],
 		},
 		{
