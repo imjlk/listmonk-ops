@@ -21135,7 +21135,7 @@
         "reason": "Reapplying the same requested list fields converges on the same representation."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Update subscriber list",
       "verb": "update"
     },
@@ -22124,7 +22124,7 @@
         "reason": "Reapplying the same requested subscriber fields converges on the same representation."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Update subscriber",
       "verb": "update"
     },
@@ -22483,7 +22483,7 @@
         "reason": "Reapplying the same add-to-lists action converges on the same membership state."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Add subscribers to lists",
       "verb": "add-to-lists"
     },
@@ -22900,7 +22900,7 @@
         "reason": "Reapplying the same unblocklist action converges on the same state."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Unblocklist subscribers",
       "verb": "unblocklist"
     },
@@ -27480,7 +27480,7 @@
         "reason": "Reapplying the same requested campaign fields converges on the same representation."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Update campaign",
       "verb": "update"
     },
@@ -27777,7 +27777,7 @@
         "reason": "Reapplying the same pause transition converges on the same paused state."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "state": {
         "allowNoopFromTarget": true,
         "from": [
@@ -30169,7 +30169,7 @@
         "reason": "Re-syncing captures the same templates; no duplicate versions are created for unchanged content."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Sync template registry",
       "verb": "registry-sync"
     },

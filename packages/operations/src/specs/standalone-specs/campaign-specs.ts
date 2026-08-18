@@ -98,7 +98,7 @@ export const campaignsUpdateOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#updateCampaign:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -199,7 +199,7 @@ export const campaignsPauseOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#pauseCampaign:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

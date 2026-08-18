@@ -98,7 +98,7 @@ export const subscribersUpdateOperationSpec = defineOperationSpec({
 				"packages/operations/src/subscribers.ts#updateSubscriber:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -199,7 +199,7 @@ export const subscribersAddToListsOperationSpec = defineOperationSpec({
 				"packages/operations/src/subscribers.ts#addSubscribersToLists:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -305,7 +305,7 @@ export const subscribersUnblocklistOperationSpec = defineOperationSpec({
 				"packages/operations/src/subscribers.ts#unblocklistSubscribers:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

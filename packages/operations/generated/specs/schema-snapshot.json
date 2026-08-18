@@ -18045,7 +18045,7 @@
         "reason": "Reapplying the same requested list fields converges on the same representation."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "lists.delete",
@@ -18909,7 +18909,7 @@
         "reason": "Reapplying the same requested subscriber fields converges on the same representation."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "subscribers.delete",
@@ -19182,7 +19182,7 @@
         "reason": "Reapplying the same add-to-lists action converges on the same membership state."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "subscribers.remove-from-lists",
@@ -19512,7 +19512,7 @@
         "reason": "Reapplying the same unblocklist action converges on the same state."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "campaigns.create",
@@ -24009,7 +24009,7 @@
         "reason": "Reapplying the same requested campaign fields converges on the same representation."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "campaigns.delete",
@@ -24221,7 +24221,7 @@
         "reason": "Reapplying the same pause transition converges on the same paused state."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "campaigns.clone",
@@ -26265,7 +26265,7 @@
         "reason": "Re-syncing captures the same templates; no duplicate versions are created for unchanged content."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "ops.templates.registry-history",
