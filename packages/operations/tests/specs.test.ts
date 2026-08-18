@@ -210,7 +210,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(62);
+		).toHaveLength(65);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -236,7 +236,7 @@ describe("email operations specification", () => {
 			),
 		).toBe(true);
 		expect(controlStatusOperationSpec).toMatchObject({
-			stability: "experimental",
+			stability: "stable",
 			projection: { openWorld: true },
 		});
 		expect(providerOperationSpecs).toHaveLength(7);

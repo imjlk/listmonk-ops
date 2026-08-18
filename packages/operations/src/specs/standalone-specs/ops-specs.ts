@@ -158,7 +158,7 @@ export const opsDeliverabilityGuardOperationSpec = defineOperationSpec({
 			executorNode: "packages/automation/src/ops-operations.ts#executeDeliverabilityGuardOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

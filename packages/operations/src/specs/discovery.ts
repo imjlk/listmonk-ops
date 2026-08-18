@@ -400,7 +400,7 @@ export const controlStatusOperationSpec = defineOperationSpec({
 				"packages/operations/src/discovery.ts#getControlStatus:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

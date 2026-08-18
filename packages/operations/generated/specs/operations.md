@@ -172,7 +172,7 @@ Check catalog integrity, typed specification coverage, runtime identity, and liv
 - Effects: `read:control`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.list`
 
@@ -894,7 +894,7 @@ Remove a batch of subscribers from one or more lists. Processes subscribers in c
 - Effects: `write:subscriber`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `subscribers.unblocklist`
 
@@ -1027,7 +1027,7 @@ Evaluate campaign deliverability metrics and optionally pause a breached campaig
 - Effects: `read:campaign, write:campaign`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `ops.subscribers.hygiene`
 
