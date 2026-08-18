@@ -210,7 +210,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(46);
+		).toHaveLength(55);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -2039,6 +2039,6 @@ describe("email operations specification", () => {
 		);
 		expect(standalone?.contract.input.source).toBe("typescript");
 		expect(standalone?.contract.output.source).toBe("typescript");
-		expect(standalone?.stability).toBe("experimental");
+		expect(standalone?.stability).toBe("stable");
 	});
 });

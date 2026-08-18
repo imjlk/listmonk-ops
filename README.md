@@ -506,7 +506,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 46 are `stable` and 58 are `experimental`. The runtime-operation
+these, 55 are `stable` and 49 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -514,7 +514,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Forty-six reviewed core operations are `stable`: the existing
+Fifty-five reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -566,7 +566,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 46 stable compatibility baselines, and 312 direct
+runtime bridges, the 55 stable compatibility baselines, and 312 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are

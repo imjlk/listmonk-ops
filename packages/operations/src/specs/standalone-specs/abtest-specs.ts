@@ -52,8 +52,8 @@ export const abTestListOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeListAbTestsOperation:function",
 		},
 	},
-	stability: "experimental",
-	since: "0.10.0",
+	stability: "stable",
+	since: "0.15.0",
 });
 
 export const abTestGetOperationSpec = defineOperationSpec({
@@ -88,8 +88,8 @@ export const abTestGetOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeGetAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
-	since: "0.10.0",
+	stability: "stable",
+	since: "0.15.0",
 });
 
 export const abTestCreateOperationSpec = defineOperationSpec({
@@ -175,8 +175,8 @@ export const abTestAnalyzeOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeAnalyzeAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
-	since: "0.10.0",
+	stability: "stable",
+	since: "0.15.0",
 });
 
 export const abTestLaunchOperationSpec = defineOperationSpec({
@@ -351,8 +351,8 @@ export const abTestRecommendSampleSizeOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeRecommendAbTestSampleSizeOperation:function",
 		},
 	},
-	stability: "experimental",
-	since: "0.10.0",
+	stability: "stable",
+	since: "0.15.0",
 });
 
 export const abTestDeployWinnerOperationSpec = defineOperationSpec({
@@ -567,8 +567,8 @@ export const abTestExportAssignmentOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeExportAbTestAssignmentOperation:function",
 		},
 	},
-	stability: "experimental",
-	since: "0.10.0",
+	stability: "stable",
+	since: "0.15.0",
 });
 
 export function bindAbTestListOperationSpec(): typeof abTestListOperationSpec {

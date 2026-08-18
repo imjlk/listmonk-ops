@@ -4827,8 +4827,8 @@
         "kind": "safe",
         "reason": "Applying the same endpoint field values is idempotent."
       },
-      "since": "0.8.0",
-      "stability": "experimental"
+      "since": "0.15.0",
+      "stability": "stable"
     },
     {
       "id": "webhooks.delete",
@@ -7869,8 +7869,8 @@
         "kind": "safe",
         "reason": "Stable provider event IDs produce deterministic event IDs and duplicate outbox rows are ignored."
       },
-      "since": "0.8.0",
-      "stability": "experimental"
+      "since": "0.15.0",
+      "stability": "stable"
     },
     {
       "id": "webhooks.dlq.list",
@@ -25480,8 +25480,8 @@
         "kind": "safe",
         "reason": "The digest is a read-only summary; re-running produces an equivalent snapshot."
       },
-      "since": "0.9.0",
-      "stability": "experimental"
+      "since": "0.15.0",
+      "stability": "stable"
     },
     {
       "id": "ops.campaign.deliverability-guard",
@@ -26437,8 +26437,8 @@
         "kind": "safe",
         "reason": "The operation only reads the local version registry."
       },
-      "since": "0.9.0",
-      "stability": "experimental"
+      "since": "0.15.0",
+      "stability": "stable"
     },
     {
       "id": "ops.templates.registry-promote",
@@ -27284,8 +27284,8 @@
         "kind": "safe",
         "reason": "The operation only reads persisted A/B tests."
       },
-      "since": "0.10.0",
-      "stability": "experimental"
+      "since": "0.15.0",
+      "stability": "stable"
     },
     {
       "id": "abtest.get",
@@ -27795,8 +27795,8 @@
         "kind": "safe",
         "reason": "The operation only reads a persisted A/B test."
       },
-      "since": "0.10.0",
-      "stability": "experimental"
+      "since": "0.15.0",
+      "stability": "stable"
     },
     {
       "id": "abtest.create",
@@ -29041,8 +29041,8 @@
         "kind": "safe",
         "reason": "The analysis is a read-only computation over persisted test data."
       },
-      "since": "0.10.0",
-      "stability": "experimental"
+      "since": "0.15.0",
+      "stability": "stable"
     },
     {
       "id": "abtest.launch",
@@ -30343,8 +30343,8 @@
         "kind": "safe",
         "reason": "The recommendation is a read-only computation over list sizes."
       },
-      "since": "0.10.0",
-      "stability": "experimental"
+      "since": "0.15.0",
+      "stability": "stable"
     },
     {
       "id": "abtest.deploy-winner",
@@ -31526,8 +31526,8 @@
         "kind": "safe",
         "reason": "The export is a read-only operation over persisted assignments."
       },
-      "since": "0.10.0",
-      "stability": "experimental"
+      "since": "0.15.0",
+      "stability": "stable"
     },
     {
       "id": "user-roles.reconcile",
