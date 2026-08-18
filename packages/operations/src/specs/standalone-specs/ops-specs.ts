@@ -114,7 +114,7 @@ export const opsDailyDigestOperationSpec = defineOperationSpec({
 				"packages/automation/src/ops-operations.ts#executeDailyDigestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -296,7 +296,7 @@ export const opsTemplateRegistryHistoryOperationSpec = defineOperationSpec({
 			executorNode: "packages/automation/src/ops-operations.ts#executeTemplateRegistryHistoryOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

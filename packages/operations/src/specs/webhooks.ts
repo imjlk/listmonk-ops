@@ -485,7 +485,7 @@ export const webhookUpdateOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookUpdateOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
@@ -979,7 +979,7 @@ export const webhookInboundIngestOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookInboundIngestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

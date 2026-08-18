@@ -228,7 +228,7 @@ Retry guidance: List endpoints by name after an ambiguous result before creating
 
 ## Update outbound webhook endpoint (`webhooks.update`)
 
-Contract maturity: `experimental`; effects: `write:webhook`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:webhook`; confirmation: `never`; retry: `safe`.
 
 Use when: An existing endpoint configuration or enabled state must change.
 
@@ -368,7 +368,7 @@ Retry guidance: Retrying the same health read is safe.
 
 ## Ingest normalized provider delivery event (`webhooks.inbound.ingest`)
 
-Contract maturity: `experimental`; effects: `write:webhook`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:webhook`; confirmation: `never`; retry: `safe`.
 
 Use when: A verified provider event must enter the shared event stream.
 
@@ -1166,7 +1166,7 @@ Retry guidance: Verify the previous snapshot was committed before retrying; a du
 
 ## Generate daily operations digest (`ops.digest.daily`)
 
-Contract maturity: `experimental`; effects: `read:control`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:control`; confirmation: `never`; retry: `safe`.
 
 Use when: An operations digest must be generated for a time window.
 
@@ -1222,7 +1222,7 @@ Retry guidance: Retry is safe; unchanged templates are skipped.
 
 ## Show template version history (`ops.templates.registry-history`)
 
-Contract maturity: `experimental`; effects: `read:template`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:template`; confirmation: `never`; retry: `safe`.
 
 Use when: A template's stored version history must be inspected.
 
@@ -1264,7 +1264,7 @@ Retry guidance: Inspect ops.templates.registry-history before retrying an ambigu
 
 ## List A/B tests (`abtest.list`)
 
-Contract maturity: `experimental`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
 
 Use when: A/B tests must be discovered or enumerated.
 
@@ -1278,7 +1278,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Get A/B test (`abtest.get`)
 
-Contract maturity: `experimental`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
 
 Use when: A specific A/B test must be inspected by ID.
 
@@ -1306,7 +1306,7 @@ Retry guidance: Inspect abtest.list before retrying an ambiguous create.
 
 ## Analyze A/B test (`abtest.analyze`)
 
-Contract maturity: `experimental`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
 
 Use when: A/B test results must be statistically evaluated.
 
@@ -1362,7 +1362,7 @@ Retry guidance: Inspect abtest.list and the remaining backing campaigns and temp
 
 ## Recommend A/B test sample size (`abtest.recommend-sample-size`)
 
-Contract maturity: `experimental`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
 
 Use when: A sample size recommendation is needed before creating a test.
 
@@ -1432,7 +1432,7 @@ Retry guidance: Inspect abtest.list before retrying an ambiguous reconcile.
 
 ## Export A/B test assignment manifest (`abtest.export-assignment`)
 
-Contract maturity: `experimental`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:experiment`; confirmation: `never`; retry: `safe`.
 
 Use when: A deterministic assignment manifest must be exported.
 

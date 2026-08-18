@@ -52,7 +52,7 @@ export const abTestListOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeListAbTestsOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -88,7 +88,7 @@ export const abTestGetOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeGetAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -175,7 +175,7 @@ export const abTestAnalyzeOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeAnalyzeAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -351,7 +351,7 @@ export const abTestRecommendSampleSizeOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeRecommendAbTestSampleSizeOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -567,7 +567,7 @@ export const abTestExportAssignmentOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeExportAbTestAssignmentOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 

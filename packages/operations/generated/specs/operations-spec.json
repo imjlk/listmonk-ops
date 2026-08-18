@@ -5814,7 +5814,7 @@
         "reason": "Applying the same endpoint field values is idempotent."
       },
       "since": "0.8.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Update outbound webhook endpoint",
       "verb": "update"
     },
@@ -9275,7 +9275,7 @@
         "reason": "Stable provider event IDs produce deterministic event IDs and duplicate outbox rows are ignored."
       },
       "since": "0.8.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Ingest normalized provider delivery event",
       "verb": "ingest"
     },
@@ -29250,7 +29250,7 @@
         "reason": "The digest is a read-only summary; re-running produces an equivalent snapshot."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Generate daily operations digest",
       "verb": "daily"
     },
@@ -30382,7 +30382,7 @@
         "reason": "The operation only reads the local version registry."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Show template version history",
       "verb": "registry-history"
     },
@@ -31352,7 +31352,7 @@
         "reason": "The operation only reads persisted A/B tests."
       },
       "since": "0.10.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "List A/B tests",
       "verb": "list"
     },
@@ -31900,7 +31900,7 @@
         "reason": "The operation only reads a persisted A/B test."
       },
       "since": "0.10.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Get A/B test",
       "verb": "get"
     },
@@ -33237,7 +33237,7 @@
         "reason": "The analysis is a read-only computation over persisted test data."
       },
       "since": "0.10.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Analyze A/B test",
       "verb": "analyze"
     },
@@ -34741,7 +34741,7 @@
         "reason": "The recommendation is a read-only computation over list sizes."
       },
       "since": "0.10.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Recommend A/B test sample size",
       "verb": "recommend-sample-size"
     },
@@ -36149,7 +36149,7 @@
         "reason": "The export is a read-only operation over persisted assignments."
       },
       "since": "0.10.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Export A/B test assignment manifest",
       "verb": "export-assignment"
     },

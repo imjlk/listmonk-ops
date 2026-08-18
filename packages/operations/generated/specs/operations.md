@@ -208,7 +208,7 @@ Update endpoint metadata, delivery policy, enabled state, or event filters witho
 - Effects: `write:webhook`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.delete`
 
@@ -328,7 +328,7 @@ Normalize a verified provider delivery event into the shared versioned event env
 - Effects: `write:webhook`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.dlq.list`
 
@@ -1015,7 +1015,7 @@ Generate a metrics and deliverability summary for an operations window
 - Effects: `read:control`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `ops.campaign.deliverability-guard`
 
@@ -1063,7 +1063,7 @@ Show the stored version history for a template
 - Effects: `read:template`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `ops.templates.registry-promote`
 
@@ -1099,7 +1099,7 @@ List persisted A/B tests, optionally filtered by status
 - Effects: `read:experiment`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `abtest.get`
 
@@ -1111,7 +1111,7 @@ Get a specific A/B test by ID
 - Effects: `read:experiment`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `abtest.create`
 
@@ -1135,7 +1135,7 @@ Analyze A/B test results and produce statistical recommendations
 - Effects: `read:experiment`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `abtest.launch`
 
@@ -1183,7 +1183,7 @@ Recommend a sample size and test group percentage for an upcoming A/B test
 - Effects: `read:experiment`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `abtest.deploy-winner`
 
@@ -1243,7 +1243,7 @@ Export the subscriber assignment manifest for a test with deterministic provisio
 - Effects: `read:experiment`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `user-roles.reconcile`
 
