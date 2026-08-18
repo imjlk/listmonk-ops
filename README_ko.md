@@ -546,6 +546,12 @@ projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설
 더 성숙할 때까지 experimental로 유지합니다. stable mutation에는
 `sequences.pause`, `sequences.resume`, `webhooks.circuit.reset`,
 `templates.update`, `templates.set-default`, `templates.reconcile`도 포함됩니다.
+후속 batch에서 read-only A/B test 조회 5종과 `webhooks.update`,
+`webhooks.inbound.ingest`, `ops.digest.daily`,
+`ops.templates.registry-history`를 승격했고, 이어서 safe-retry mutation
+`lists.update`, `subscribers.update`, `campaigns.update`, `campaigns.pause`,
+`subscribers.add-to-lists`, `subscribers.unblocklist`,
+`ops.templates.registry-sync`를 추가로 승격했습니다.
 현재 stable baseline은 62개이며, 나머지 experimental descriptor는 42개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
