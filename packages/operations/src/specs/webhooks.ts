@@ -486,7 +486,7 @@ export const webhookUpdateOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.15.0",
+	since: "0.8.0",
 });
 
 export const webhookDeleteOperationSpec = defineOperationSpec({
@@ -980,7 +980,7 @@ export const webhookInboundIngestOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.15.0",
+	since: "0.8.0",
 });
 
 export const webhookDlqListOperationSpec = defineOperationSpec({

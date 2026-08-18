@@ -115,7 +115,7 @@ export const opsDailyDigestOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.15.0",
+	since: "0.9.0",
 });
 
 export const opsDeliverabilityGuardOperationSpec = defineOperationSpec({
@@ -297,7 +297,7 @@ export const opsTemplateRegistryHistoryOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.15.0",
+	since: "0.9.0",
 });
 
 export const opsTemplateRegistryPromoteOperationSpec = defineOperationSpec({

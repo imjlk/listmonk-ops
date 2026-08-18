@@ -53,7 +53,7 @@ export const abTestListOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.15.0",
+	since: "0.10.0",
 });
 
 export const abTestGetOperationSpec = defineOperationSpec({
@@ -89,7 +89,7 @@ export const abTestGetOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.15.0",
+	since: "0.10.0",
 });
 
 export const abTestCreateOperationSpec = defineOperationSpec({
@@ -176,7 +176,7 @@ export const abTestAnalyzeOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.15.0",
+	since: "0.10.0",
 });
 
 export const abTestLaunchOperationSpec = defineOperationSpec({
@@ -352,7 +352,7 @@ export const abTestRecommendSampleSizeOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.15.0",
+	since: "0.10.0",
 });
 
 export const abTestDeployWinnerOperationSpec = defineOperationSpec({
@@ -568,7 +568,7 @@ export const abTestExportAssignmentOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.15.0",
+	since: "0.10.0",
 });
 
 export function bindAbTestListOperationSpec(): typeof abTestListOperationSpec {

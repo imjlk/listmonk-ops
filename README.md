@@ -550,9 +550,11 @@ presence without their values.
 still maturing; newer subsystem, aggregation, and analytics reads remain
 experimental. Stable mutations also include `sequences.pause`,
 `sequences.resume`, `webhooks.circuit.reset`, `templates.update`,
-`templates.set-default`, and `templates.reconcile`. Together these make the
-current stable baseline 46 operations; the remaining 58 descriptors are
-experimental.
+`templates.set-default`, and `templates.reconcile`. A follow-up batch
+promoted the five read-only A/B test operations, `webhooks.update`,
+`webhooks.inbound.ingest`, `ops.digest.daily`, and
+`ops.templates.registry-history`, bringing the current stable baseline to
+55 operations; the remaining 49 descriptors are experimental.
 
 The spec publishes four typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, and `abtest.safe-run`.
