@@ -822,7 +822,7 @@ Update an existing subscriber list
 - Effects: `write:list`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `lists.delete`
 
@@ -858,7 +858,7 @@ Update a subscriber in Listmonk
 - Effects: `write:subscriber`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `subscribers.delete`
 
@@ -882,7 +882,7 @@ Add a batch of subscribers to one or more lists. Processes subscribers in chunks
 - Effects: `write:subscriber`
 - Policy: confirmation `never`, audit `required`, dry-run `true`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `subscribers.remove-from-lists`
 
@@ -906,7 +906,7 @@ Remove a batch of subscribers from the blocklist. Processes subscribers in chunk
 - Effects: `write:subscriber`
 - Policy: confirmation `never`, audit `required`, dry-run `true`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `campaigns.create`
 
@@ -930,7 +930,7 @@ Update a campaign in Listmonk
 - Effects: `write:campaign`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `campaigns.delete`
 
@@ -954,7 +954,7 @@ Transition a campaign into the paused status. Validates the current status allow
 - Effects: `write:campaign`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 - State: `running -> paused` (target-state no-op allowed)
 
 ## `campaigns.clone`
@@ -1051,7 +1051,7 @@ Capture Listmonk templates in the local version registry
 - Effects: `write:template`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `ops.templates.registry-history`
 

@@ -94,7 +94,7 @@ export const listsUpdateOperationSpec = defineOperationSpec({
 				"packages/operations/src/lists.ts#updateSubscriberList:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

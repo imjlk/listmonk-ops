@@ -942,7 +942,7 @@ Retry guidance: Inspect lists.list before retrying an ambiguous create.
 
 ## Update subscriber list (`lists.update`)
 
-Contract maturity: `experimental`; effects: `write:list`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:list`; confirmation: `never`; retry: `safe`.
 
 Use when: A known subscriber list must be updated by numeric ID.
 
@@ -984,7 +984,7 @@ Retry guidance: Inspect subscribers.list before retrying an ambiguous create.
 
 ## Update subscriber (`subscribers.update`)
 
-Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
 
 Use when: A known subscriber must be updated by numeric ID.
 
@@ -1012,7 +1012,7 @@ Retry guidance: Verify the subscriber is gone with subscribers.list before retry
 
 ## Add subscribers to lists (`subscribers.add-to-lists`)
 
-Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
 
 Use when: Subscribers must be added to one or more lists in bulk.
 
@@ -1040,7 +1040,7 @@ Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## Unblocklist subscribers (`subscribers.unblocklist`)
 
-Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:subscriber`; confirmation: `never`; retry: `safe`.
 
 Use when: Subscribers must be removed from the blocklist in bulk.
 
@@ -1068,7 +1068,7 @@ Retry guidance: Inspect campaigns.list before retrying an ambiguous create.
 
 ## Update campaign (`campaigns.update`)
 
-Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
 
 Use when: A known campaign must be updated by numeric ID.
 
@@ -1096,7 +1096,7 @@ Retry guidance: Verify the campaign is gone with campaigns.list before retrying.
 
 ## Pause campaign (`campaigns.pause`)
 
-Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `safe`.
 
 Use when: A running campaign must be paused.
 
@@ -1208,7 +1208,7 @@ Retry guidance: Do not automatically retry an ambiguous live run. Inspect subscr
 
 ## Sync template registry (`ops.templates.registry-sync`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:template`; confirmation: `never`; retry: `safe`.
 
 Use when: Listmonk templates must be captured into the local version registry.
 

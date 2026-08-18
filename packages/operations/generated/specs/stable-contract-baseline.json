@@ -13134,6 +13134,5207 @@
         "input": {
           "components": {
             "schemas": {
+              "ListName": {
+                "maxLength": 120,
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              },
+              "ListUpdateInput": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o2"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o3"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o4"
+                  }
+                ]
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInputListUpdateFields__type": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "pattern": "^\\s*\\S[\\s\\S]*$",
+                    "type": "string"
+                  },
+                  "optin": {
+                    "oneOf": [
+                      {
+                        "const": "double"
+                      },
+                      {
+                        "const": "single"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "private"
+                      },
+                      {
+                        "const": "public"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputListUpdateFields__type-o1": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/ListName"
+                  },
+                  "optin": {
+                    "oneOf": [
+                      {
+                        "const": "double"
+                      },
+                      {
+                        "const": "single"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "private"
+                      },
+                      {
+                        "const": "public"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputListUpdateFields__type-o2": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/ListName"
+                  },
+                  "optin": {
+                    "oneOf": [
+                      {
+                        "const": "double"
+                      },
+                      {
+                        "const": "single"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "private"
+                      },
+                      {
+                        "const": "public"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "optin"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputListUpdateFields__type-o3": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/ListName"
+                  },
+                  "optin": {
+                    "oneOf": [
+                      {
+                        "const": "double"
+                      },
+                      {
+                        "const": "single"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "private"
+                      },
+                      {
+                        "const": "public"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "description"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputListUpdateFields__type-o4": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/ListName"
+                  },
+                  "optin": {
+                    "oneOf": [
+                      {
+                        "const": "double"
+                      },
+                      {
+                        "const": "single"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "private"
+                      },
+                      {
+                        "const": "public"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "tags"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o1"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o2"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o3"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputListUpdateFields__type-o4"
+              }
+            ]
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberListRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "optin": {
+                    "type": "string"
+                  },
+                  "subscriber_count": {
+                    "type": "number"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "created_at": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "name": {
+                "type": "string"
+              },
+              "optin": {
+                "type": "string"
+              },
+              "subscriber_count": {
+                "type": "number"
+              },
+              "tags": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              },
+              "uuid": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "list",
+          "reversible": true
+        }
+      ],
+      "id": "lists.update",
+      "mcpName": "listmonk_update_list",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "list",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same requested list fields converges on the same representation."
+      },
+      "verb": "update"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmailAddress": {
+                "format": "email",
+                "type": "string"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInputSubscriberUpdateFields__type": {
+                "additionalProperties": false,
+                "properties": {
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "email": {
+                    "format": "email",
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "list_uuids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "preconfirm_subscriptions": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "blocklisted"
+                      },
+                      {
+                        "const": "disabled"
+                      },
+                      {
+                        "const": "enabled"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "email"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputSubscriberUpdateFields__type-o1": {
+                "additionalProperties": false,
+                "properties": {
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "email": {
+                    "$ref": "#/components/schemas/EmailAddress"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "list_uuids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "preconfirm_subscriptions": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "blocklisted"
+                      },
+                      {
+                        "const": "disabled"
+                      },
+                      {
+                        "const": "enabled"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputSubscriberUpdateFields__type-o2": {
+                "additionalProperties": false,
+                "properties": {
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "email": {
+                    "$ref": "#/components/schemas/EmailAddress"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "list_uuids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "preconfirm_subscriptions": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "blocklisted"
+                      },
+                      {
+                        "const": "disabled"
+                      },
+                      {
+                        "const": "enabled"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputSubscriberUpdateFields__type-o3": {
+                "additionalProperties": false,
+                "properties": {
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "email": {
+                    "$ref": "#/components/schemas/EmailAddress"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "list_uuids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "preconfirm_subscriptions": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "blocklisted"
+                      },
+                      {
+                        "const": "disabled"
+                      },
+                      {
+                        "const": "enabled"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "lists"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputSubscriberUpdateFields__type-o4": {
+                "additionalProperties": false,
+                "properties": {
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "email": {
+                    "$ref": "#/components/schemas/EmailAddress"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "list_uuids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "preconfirm_subscriptions": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "blocklisted"
+                      },
+                      {
+                        "const": "disabled"
+                      },
+                      {
+                        "const": "enabled"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "list_uuids"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputSubscriberUpdateFields__type-o5": {
+                "additionalProperties": false,
+                "properties": {
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "email": {
+                    "$ref": "#/components/schemas/EmailAddress"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "list_uuids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "preconfirm_subscriptions": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "blocklisted"
+                      },
+                      {
+                        "const": "disabled"
+                      },
+                      {
+                        "const": "enabled"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "preconfirm_subscriptions"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputSubscriberUpdateFields__type-o6": {
+                "additionalProperties": false,
+                "properties": {
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "email": {
+                    "$ref": "#/components/schemas/EmailAddress"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "list_uuids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "preconfirm_subscriptions": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "blocklisted"
+                      },
+                      {
+                        "const": "disabled"
+                      },
+                      {
+                        "const": "enabled"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "attribs"
+                ],
+                "type": "object"
+              },
+              "SubscriberUpdateInput": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o2"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o3"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o4"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o5"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o6"
+                  }
+                ]
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o1"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o2"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o3"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o4"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o5"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputSubscriberUpdateFields__type-o6"
+              }
+            ]
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "attribs": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "lists": {
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              },
+              "uuid": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "subscriber",
+          "reversible": true
+        }
+      ],
+      "id": "subscribers.update",
+      "mcpName": "listmonk_update_subscriber",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same requested subscriber fields converges on the same representation."
+      },
+      "verb": "update"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberBulkListsInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "continue_on_error": {
+                    "description": "Continue processing after a chunk failure. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "description": "Plan only when true. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "list_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "max_items": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+                  },
+                  "subscriber_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "subscriber_ids",
+                  "list_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "continue_on_error": {
+                "description": "Continue processing after a chunk failure. Defaults to false.",
+                "type": "boolean"
+              },
+              "dry_run": {
+                "description": "Plan only when true. Defaults to false.",
+                "type": "boolean"
+              },
+              "list_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "max_items": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+              },
+              "subscriber_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "subscriber_ids",
+              "list_ids"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "SubscriberBulkOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "errors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "processed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "processed",
+                  "succeeded",
+                  "failed",
+                  "errors"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "errors": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "failed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "processed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "succeeded": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "processed",
+              "succeeded",
+              "failed",
+              "errors"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "preview": true,
+          "resource": "subscriber",
+          "reversible": true
+        }
+      ],
+      "id": "subscribers.add-to-lists",
+      "mcpName": "listmonk_add_subscribers_to_lists",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": true
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same add-to-lists action converges on the same membership state."
+      },
+      "verb": "add-to-lists"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberBulkBlocklistInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "continue_on_error": {
+                    "description": "Continue processing after a chunk failure. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "description": "Plan only when true. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "max_items": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+                  },
+                  "subscriber_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "subscriber_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "continue_on_error": {
+                "description": "Continue processing after a chunk failure. Defaults to false.",
+                "type": "boolean"
+              },
+              "dry_run": {
+                "description": "Plan only when true. Defaults to false.",
+                "type": "boolean"
+              },
+              "max_items": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Maximum total subscriber IDs processed. Defaults to 10000."
+              },
+              "subscriber_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "subscriber_ids"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "SubscriberBulkOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "errors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "processed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "processed",
+                  "succeeded",
+                  "failed",
+                  "errors"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "errors": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "failed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "processed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "succeeded": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "processed",
+              "succeeded",
+              "failed",
+              "errors"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "preview": true,
+          "resource": "subscriber",
+          "reversible": true
+        }
+      ],
+      "id": "subscribers.unblocklist",
+      "mcpName": "listmonk_unblocklist_subscribers",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": true
+      },
+      "resource": "subscriber",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same unblocklist action converges on the same state."
+      },
+      "verb": "unblocklist"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignUpdateInput": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o2"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o3"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o4"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o5"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o6"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o7"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o8"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o9"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o10"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o11"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o12"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o13"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o14"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o15"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o16"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o17"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o18"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o19"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o20"
+                  }
+                ]
+              },
+              "Recordstringstring": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInputCampaignUpdateFields__type": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "pattern": "^\\s*\\S[\\s\\S]*$",
+                    "type": "string"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o1": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "minLength": 1,
+                    "pattern": "^\\s*\\S[\\s\\S]*$",
+                    "type": "string"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "subject"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o10": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "minLength": 1,
+                    "pattern": "^\\s*\\S[\\s\\S]*$",
+                    "type": "string"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "messenger"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o11": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "content_type"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o12": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "send_at"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o13": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "headers"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o14": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "attribs"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o15": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "archive"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o16": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "archive_slug"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o17": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "archive_template_id"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o18": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "archive_meta"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o19": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "media"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o2": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "minLength": 1,
+                    "pattern": "^\\s*\\S[\\s\\S]*$",
+                    "type": "string"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "from_email"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o20": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "subscribers"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o3": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "minLength": 1,
+                    "pattern": "^\\s*\\S[\\s\\S]*$",
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "body"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o4": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "body_source"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o5": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "altbody"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o6": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o7": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "template_id"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o8": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "lists"
+                ],
+                "type": "object"
+              },
+              "ResourceIdInputCampaignUpdateFields__type-o9": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "tags"
+                ],
+                "type": "object"
+              },
+              "TrimmedNonEmptyString": {
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o1"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o2"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o3"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o4"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o5"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o6"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o7"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o8"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o9"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o10"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o11"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o12"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o13"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o14"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o15"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o16"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o17"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o18"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o19"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceIdInputCampaignUpdateFields__type-o20"
+              }
+            ]
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignGetOutput": {
+                "additionalProperties": {},
+                "properties": {
+                  "altbody": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "body": {
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "bounces": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "clicks": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "from_email": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "sent": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "started_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "to_send": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "type": "string"
+                  },
+                  "views": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "properties": {
+              "altbody": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "archive": {
+                "type": "boolean"
+              },
+              "body": {
+                "type": "string"
+              },
+              "body_source": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "bounces": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "clicks": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "content_type": {
+                "oneOf": [
+                  {
+                    "const": "html"
+                  },
+                  {
+                    "const": "markdown"
+                  },
+                  {
+                    "const": "plain"
+                  },
+                  {
+                    "const": "richtext"
+                  },
+                  {
+                    "const": "visual"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "from_email": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "lists": {
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "media": {
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "messenger": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "send_at": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "sent": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "started_at": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "tags": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "template_id": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                ]
+              },
+              "to_send": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "type": {
+                "oneOf": [
+                  {
+                    "const": "optin"
+                  },
+                  {
+                    "const": "regular"
+                  }
+                ]
+              },
+              "updated_at": {
+                "type": "string"
+              },
+              "uuid": {
+                "type": "string"
+              },
+              "views": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": true
+        }
+      ],
+      "id": "campaigns.update",
+      "mcpName": "listmonk_update_campaign",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same requested campaign fields converges on the same representation."
+      },
+      "verb": "update"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignLifecycleInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "expected_updated_at": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Campaign updated_at observed by the preflight that approved this transition."
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Listmonk campaign ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_updated_at": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Campaign updated_at observed by the preflight that approved this transition."
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Listmonk campaign ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignLifecycleOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "status"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": true
+        }
+      ],
+      "id": "campaigns.pause",
+      "mcpName": "listmonk_pause_campaign",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "safe",
+        "reason": "Reapplying the same pause transition converges on the same paused state."
+      },
+      "state": {
+        "allowNoopFromTarget": true,
+        "from": [
+          "running"
+        ],
+        "resource": "campaign",
+        "to": "paused"
+      },
+      "verb": "pause"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "DailyDigestInput": {
                 "additionalProperties": false,
                 "properties": {
@@ -13420,6 +18621,217 @@
         "reason": "The digest is a read-only summary; re-running produces an equivalent snapshot."
       },
       "verb": "daily"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRegistrySyncInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "note": {
+                    "type": "string"
+                  },
+                  "template_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "template_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "note": {
+                "type": "string"
+              },
+              "template_id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "template_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "type": "array"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRegistrySyncOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "capturedAt": {
+                    "type": "string"
+                  },
+                  "createdVersions": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "errors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "templates": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "changed": {
+                          "type": "boolean"
+                        },
+                        "hash": {
+                          "type": "string"
+                        },
+                        "templateId": {
+                          "$ref": "#/components/schemas/ResourceId"
+                        },
+                        "templateName": {
+                          "type": "string"
+                        },
+                        "versionId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "templateId",
+                        "templateName",
+                        "changed",
+                        "hash"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "unchangedTemplates": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "capturedAt",
+                  "createdVersions",
+                  "unchangedTemplates",
+                  "errors",
+                  "templates"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "capturedAt": {
+                "type": "string"
+              },
+              "createdVersions": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "errors": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "templates": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "hash": {
+                      "type": "string"
+                    },
+                    "templateId": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "templateName": {
+                      "type": "string"
+                    },
+                    "versionId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "templateId",
+                    "templateName",
+                    "changed",
+                    "hash"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "unchangedTemplates": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "capturedAt",
+              "createdVersions",
+              "unchangedTemplates",
+              "errors",
+              "templates"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": true
+        }
+      ],
+      "id": "ops.templates.registry-sync",
+      "mcpName": "listmonk_ops_template_registry_sync",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "template",
+      "retry": {
+        "kind": "safe",
+        "reason": "Re-syncing captures the same templates; no duplicate versions are created for unchanged content."
+      },
+      "verb": "registry-sync"
     },
     {
       "contract": {
