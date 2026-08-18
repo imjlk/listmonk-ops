@@ -70,3 +70,35 @@ Steps:
 3. `verify` → `abtest.get` (none approval). Read persisted experiment state after the action.
 
 Recovery operation: `abtest.get`
+
+## `campaign.deliverability-guard` — Guard campaign deliverability
+
+Inspect a live campaign, evaluate deliverability metrics, pause on breach, and verify the resulting state.
+
+Inputs:
+
+- `campaign_id` (`number`, required): Listmonk campaign ID to guard
+
+Steps:
+
+1. `inspect` → `campaigns.get` (none approval). Inspect the campaign and its current status. Guard: `status equals "running"`; on failure: Only guard campaigns that are currently running.
+2. `evaluate` → `ops.campaign.deliverability-guard` (human approval). Evaluate deliverability metrics and pause the campaign if thresholds are breached.
+3. `verify` → `campaigns.get` (none approval). Verify the campaign state after the guard decision.
+
+Recovery operation: `campaigns.get`
+
+## `provider.health-check` — Check provider health
+
+Inspect provider status, test API access, and verify DNS records without sending mail.
+
+Inputs:
+
+- `provider_id` (`string`, required): Configured provider profile ID
+
+Steps:
+
+1. `status` → `providers.status` (none approval). Inspect the provider configuration and credential status.
+2. `api-test` → `providers.test` (none approval). Test provider API access without sending mail.
+3. `dns-check` → `deliverability.dns-check` (none approval). Verify DMARC, DKIM, and custom MAIL FROM DNS records.
+
+Recovery operation: `providers.status`

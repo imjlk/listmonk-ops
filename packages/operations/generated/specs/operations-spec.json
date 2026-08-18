@@ -36950,6 +36950,149 @@
         }
       ],
       "title": "Safely advance one A/B test"
+    },
+    {
+      "goal": "Inspect a live campaign, evaluate deliverability metrics, pause on breach, and verify the resulting state.",
+      "id": "campaign.deliverability-guard",
+      "inputs": [
+        {
+          "description": "Listmonk campaign ID to guard",
+          "name": "campaign_id",
+          "required": true,
+          "type": "number"
+        }
+      ],
+      "recoveryOperation": "campaigns.get",
+      "steps": [
+        {
+          "approval": "none",
+          "dependsOn": [],
+          "description": "Inspect the campaign and its current status.",
+          "id": "inspect",
+          "input": [
+            {
+              "parameter": "id",
+              "source": {
+                "kind": "playbook-input",
+                "name": "campaign_id"
+              }
+            }
+          ],
+          "operation": "campaigns.get",
+          "resultGuard": {
+            "expected": "running",
+            "message": "Only guard campaigns that are currently running.",
+            "onFailure": "stop",
+            "operator": "equals",
+            "path": "status"
+          }
+        },
+        {
+          "approval": "human",
+          "dependsOn": [
+            "inspect"
+          ],
+          "description": "Evaluate deliverability metrics and pause the campaign if thresholds are breached.",
+          "id": "evaluate",
+          "input": [
+            {
+              "parameter": "campaign_id",
+              "source": {
+                "kind": "playbook-input",
+                "name": "campaign_id"
+              }
+            }
+          ],
+          "operation": "ops.campaign.deliverability-guard"
+        },
+        {
+          "approval": "none",
+          "dependsOn": [
+            "evaluate"
+          ],
+          "description": "Verify the campaign state after the guard decision.",
+          "id": "verify",
+          "input": [
+            {
+              "parameter": "id",
+              "source": {
+                "kind": "playbook-input",
+                "name": "campaign_id"
+              }
+            }
+          ],
+          "operation": "campaigns.get"
+        }
+      ],
+      "title": "Guard campaign deliverability"
+    },
+    {
+      "goal": "Inspect provider status, test API access, and verify DNS records without sending mail.",
+      "id": "provider.health-check",
+      "inputs": [
+        {
+          "description": "Configured provider profile ID",
+          "name": "provider_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "recoveryOperation": "providers.status",
+      "steps": [
+        {
+          "approval": "none",
+          "dependsOn": [],
+          "description": "Inspect the provider configuration and credential status.",
+          "id": "status",
+          "input": [
+            {
+              "parameter": "provider_id",
+              "source": {
+                "kind": "playbook-input",
+                "name": "provider_id"
+              }
+            }
+          ],
+          "operation": "providers.status"
+        },
+        {
+          "approval": "none",
+          "dependsOn": [
+            "status"
+          ],
+          "description": "Test provider API access without sending mail.",
+          "id": "api-test",
+          "input": [
+            {
+              "parameter": "provider_id",
+              "source": {
+                "kind": "playbook-input",
+                "name": "provider_id"
+              }
+            }
+          ],
+          "operation": "providers.test"
+        },
+        {
+          "approval": "none",
+          "dependsOn": [
+            "status"
+          ],
+          "description": "Verify DMARC, DKIM, and custom MAIL FROM DNS records.",
+          "id": "dns-check",
+          "input": [
+            {
+              "parameter": "provider_id",
+              "source": {
+                "kind": "playbook-input",
+                "name": "provider_id"
+              }
+            }
+          ],
+          "operation": "deliverability.dns-check"
+        }
+      ],
+      "title": "Check provider health"
     }
   ],
   "resources": [
