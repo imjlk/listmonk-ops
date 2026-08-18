@@ -1807,7 +1807,7 @@ describe("email operations specification", () => {
 	});
 
 	test("defines a guarded human-approved campaign start playbook", () => {
-		expect(emailOperationsSpec.playbooks).toHaveLength(4);
+		expect(emailOperationsSpec.playbooks).toHaveLength(6);
 		expect(emailOperationsSpec.playbooks).toContain(
 			campaignSafeStartPlaybook,
 		);

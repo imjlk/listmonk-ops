@@ -555,7 +555,8 @@ projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설
 현재 stable baseline은 65개이며, 나머지 experimental descriptor는 39개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
-`template.safe-promote`, `abtest.safe-run` 네 가지 타입드 플레이북을
+`template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
+`provider.health-check` 여섯 가지 타입드 플레이북을
 배포합니다. 모든 공용 shared Operation이 descriptor를 연결하므로 migration
 exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·중복·
 불일치 선언을 거부합니다.

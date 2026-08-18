@@ -10,6 +10,12 @@ import {
 	campaignScheduleOperationSpec,
 } from "./pilot";
 import { campaignPreflightOperationSpec } from "./high-risk";
+import { opsDeliverabilityGuardOperationSpec } from "./standalone-specs/ops-specs";
+import {
+	deliverabilityDnsCheckOperationSpec,
+	providerStatusOperationSpec,
+	providerTestOperationSpec,
+} from "./providers";
 import { defineOperationPlaybook } from "./playbook";
 
 export const campaignSafeSchedulePlaybook = defineOperationPlaybook({
@@ -301,4 +307,130 @@ export const abTestSafeRunPlaybook = defineOperationPlaybook({
 		},
 	],
 	recoveryOperation: abTestGetOperationSpec.id,
+});
+
+export const campaignDeliverabilityGuardPlaybook = defineOperationPlaybook({
+	id: "campaign.deliverability-guard",
+	title: "Guard campaign deliverability",
+	goal:
+		"Inspect a live campaign, evaluate deliverability metrics, pause on breach, and verify the resulting state.",
+	inputs: [
+		{
+			name: "campaign_id",
+			type: "number",
+			required: true,
+			description: "Listmonk campaign ID to guard",
+		},
+	],
+	steps: [
+		{
+			id: "inspect",
+			operation: campaignGetOperationSpec.id,
+			approval: "none",
+			description: "Inspect the campaign and its current status.",
+			dependsOn: [],
+			input: [
+				{
+					parameter: "id",
+					source: { kind: "playbook-input", name: "campaign_id" },
+				},
+			],
+			resultGuard: {
+				path: "status",
+				operator: "equals",
+				expected: "running",
+				onFailure: "stop",
+				message: "Only guard campaigns that are currently running.",
+			},
+		},
+		{
+			id: "evaluate",
+			operation: opsDeliverabilityGuardOperationSpec.id,
+			approval: "human",
+			description:
+				"Evaluate deliverability metrics and pause the campaign if thresholds are breached.",
+			dependsOn: ["inspect"],
+			input: [
+				{
+					parameter: "campaign_id",
+					source: { kind: "playbook-input", name: "campaign_id" },
+				},
+				{
+					parameter: "pause_on_breach",
+					source: { kind: "literal", value: true },
+				},
+			],
+		},
+		{
+			id: "verify",
+			operation: campaignGetOperationSpec.id,
+			approval: "none",
+			description: "Verify the campaign state after the guard decision.",
+			dependsOn: ["evaluate"],
+			input: [
+				{
+					parameter: "id",
+					source: { kind: "playbook-input", name: "campaign_id" },
+				},
+			],
+		},
+	],
+	recoveryOperation: campaignGetOperationSpec.id,
+});
+
+export const providerHealthCheckPlaybook = defineOperationPlaybook({
+	id: "provider.health-check",
+	title: "Check provider health",
+	goal:
+		"Inspect provider status, test API access, and verify DNS records without sending mail.",
+	inputs: [
+		{
+			name: "provider_id",
+			type: "string",
+			required: true,
+			description: "Configured provider profile ID",
+		},
+	],
+	steps: [
+		{
+			id: "status",
+			operation: providerStatusOperationSpec.id,
+			approval: "none",
+			description: "Inspect the provider configuration and credential status.",
+			dependsOn: [],
+			input: [
+				{
+					parameter: "provider_id",
+					source: { kind: "playbook-input", name: "provider_id" },
+				},
+			],
+		},
+		{
+			id: "api-test",
+			operation: providerTestOperationSpec.id,
+			approval: "none",
+			description: "Test provider API access without sending mail.",
+			dependsOn: ["status"],
+			input: [
+				{
+					parameter: "provider_id",
+					source: { kind: "playbook-input", name: "provider_id" },
+				},
+			],
+		},
+		{
+			id: "dns-check",
+			operation: deliverabilityDnsCheckOperationSpec.id,
+			approval: "none",
+			description: "Verify DMARC, DKIM, and custom MAIL FROM DNS records.",
+			dependsOn: ["status"],
+			input: [
+				{
+					parameter: "provider_id",
+					source: { kind: "playbook-input", name: "provider_id" },
+				},
+			],
+		},
+	],
+	recoveryOperation: providerStatusOperationSpec.id,
 });

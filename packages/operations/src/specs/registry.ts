@@ -5,7 +5,9 @@ import {
 } from "./high-risk";
 import {
 	abTestSafeRunPlaybook,
+	campaignDeliverabilityGuardPlaybook,
 	campaignSafeSchedulePlaybook,
+	providerHealthCheckPlaybook,
 	templateSafePromotePlaybook,
 } from "./additional-playbooks";
 import { bridgedOperationSpecs } from "./bridged";
@@ -83,5 +85,7 @@ export const emailOperationsSpec =
 			campaignSafeSchedulePlaybook,
 			templateSafePromotePlaybook,
 			abTestSafeRunPlaybook,
+			campaignDeliverabilityGuardPlaybook,
+			providerHealthCheckPlaybook,
 		],
 	});
