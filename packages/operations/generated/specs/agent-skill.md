@@ -186,7 +186,7 @@ Retry guidance: Retrying the same prime request is safe.
 
 ## Get control-plane status (`control.status`)
 
-Contract maturity: `experimental`; effects: `read:control`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:control`; confirmation: `never`; retry: `safe`.
 
 Use when: The agent must confirm the current surface and Listmonk target are ready before operational work.
 
@@ -1026,7 +1026,7 @@ Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## Remove subscribers from lists (`subscribers.remove-from-lists`)
 
-Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `required`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:subscriber`; confirmation: `required`; retry: `safe`.
 
 Use when: Subscribers must be removed from one or more lists in bulk.
 
@@ -1180,7 +1180,7 @@ Retry guidance: Retry is safe; the digest is read-only.
 
 ## Evaluate deliverability guard (`ops.campaign.deliverability-guard`)
 
-Contract maturity: `experimental`; effects: `read:campaign, write:campaign`; confirmation: `required`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:campaign, write:campaign`; confirmation: `required`; retry: `safe`.
 
 Use when: Campaign deliverability metrics must be evaluated against thresholds.
 

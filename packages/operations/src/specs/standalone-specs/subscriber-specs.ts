@@ -252,7 +252,7 @@ export const subscribersRemoveFromListsOperationSpec = defineOperationSpec({
 				"packages/operations/src/subscribers.ts#removeSubscribersFromLists:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

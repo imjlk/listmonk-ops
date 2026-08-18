@@ -3463,7 +3463,7 @@
         "reason": "The operation performs read-only local checks and a Listmonk health probe."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.list",
@@ -19355,7 +19355,7 @@
         "reason": "Reapplying the same remove-from-lists action converges on the same membership state."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "subscribers.unblocklist",
@@ -25778,7 +25778,7 @@
         "reason": "Re-evaluating the same metrics converges on the same result; pause is only applied once."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "ops.subscribers.hygiene",
