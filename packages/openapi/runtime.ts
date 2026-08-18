@@ -382,7 +382,10 @@ export async function sendExternalTransactionalEmail(
 					// Redirects must never replay this non-idempotent body outside the
 					// validated Listmonk origin. Parse as text so malformed successful
 					// responses can be projected without losing their HTTP status.
-					redirect: "error",
+					// Workerd rejects RequestInit.redirect="error" while constructing
+					// the generated Request. Manual mode is the portable fail-closed
+					// equivalent because the response boundary below rejects redirects.
+					redirect: "manual",
 					parseAs: "text",
 					requestValidator: undefined,
 					responseStyle: "fields",
@@ -559,12 +562,13 @@ function normalizeRuntimeResponseBody(
 	return (async (request, init) => {
 		const response = await fetchImplementation(request, {
 			...init,
-			redirect: "error",
+			redirect: "manual",
 		});
 		const requestUrl = request instanceof Request
 			? request.url
 			: String(request);
 		if (
+			(response.status >= 300 && response.status < 400) ||
 			response.redirected ||
 			(response.url && response.url !== requestUrl)
 		) {
