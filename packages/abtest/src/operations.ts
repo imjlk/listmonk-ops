@@ -21,6 +21,7 @@ import {
 	bindAbTestStopOperationSpec,
 	bindAbTestTickOperationSpec,
 } from "@listmonk-ops/operations/specs";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { AbTestNotFoundError } from "./errors";
@@ -131,6 +132,7 @@ const assignmentManifestSchema = z.object({
 const abTestSchema = z.object({
 	id: z.string(),
 	name: z.string(),
+	idempotencyKey: z.string().optional(),
 	campaignId: z.string(),
 	variants: z.array(variantSchema),
 	status: abTestStatusSchema,
@@ -350,6 +352,15 @@ const createAbTestInputSchema = z.object({
 	auto_launch: optionalBooleanSchema,
 	auto_deploy_winner: optionalBooleanSchema,
 	ignore_sample_size_warnings: optionalBooleanSchema,
+	idempotency_key: z
+		.string()
+		.trim()
+		.min(1)
+		.max(200)
+		.optional()
+		.describe(
+			"Caller-scoped create key; re-running with the same key returns the originally created test",
+		),
 	hypothesis: z
 		.object({
 			objective: z.string().min(1),
@@ -447,7 +458,10 @@ export type AbTestOperationRecord = z.output<typeof abTestSchema>;
 export type TestAnalysisOperationRecord = z.output<typeof testAnalysisSchema>;
 export type ListAbTestsOperationOutput = { tests: AbTestOperationRecord[] };
 export type GetAbTestOperationOutput = { test: AbTestOperationRecord };
-export type CreateAbTestOperationOutput = { test: AbTestOperationRecord };
+export type CreateAbTestOperationOutput = {
+	test: AbTestOperationRecord;
+	created: boolean;
+};
 export type AnalyzeAbTestOperationOutput = {
 	analysis: TestAnalysisOperationRecord;
 };
@@ -563,22 +577,47 @@ export async function executeGetAbTestOperation(
 	};
 }
 
+// Identical create requests derive the same replay key, so an ambiguous
+// retry never provisions a duplicate test even when no key was supplied.
+function deriveAbTestCreateKey(
+	input: z.output<typeof createAbTestInputSchema>,
+): string {
+	const digest = createHash("sha256")
+		.update(JSON.stringify(input))
+		.digest("hex")
+		.slice(0, 32);
+	return `auto-${digest}`;
+}
+
 export async function executeCreateAbTestOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof createAbTestInputSchema>,
 ): Promise<CreateAbTestOperationOutput> {
+	const keyedInput = {
+		...input,
+		idempotency_key: input.idempotency_key ?? deriveAbTestCreateKey(input),
+	};
+	const preExisting = await withStoredOperation<AbTest | null>(
+		context,
+		"read",
+		(executors) =>
+			executors.findAbTestByIdempotencyKey(keyedInput.idempotency_key),
+	);
+	const wasNew = preExisting === null;
 	const created = await withStoredOperation<AbTest>(
 		context,
 		"write",
 		async (executors) => {
-			const nextTest = await executors.createAbTest(input);
+			const nextTest = await executors.createAbTest(keyedInput);
 			// `createAbTest` owns the service-level `auto_launch` behavior. Keep
 			// creation atomic and avoid attempting a second launch after the service
 			// has already transitioned the test out of draft status.
 			return nextTest;
 		},
 	);
-	return { test: serializeAbTest(created) };
+	// An idempotency-key replay returns the originally created test rather
+	// than provisioning a duplicate; report which happened.
+	return { test: serializeAbTest(created), created: wasNew };
 }
 
 export async function executeAnalyzeAbTestOperation(
@@ -831,8 +870,8 @@ export const createAbTestOperation = defineOperation({
 	description:
 		"Create a new A/B test with variants and configuration",
 	inputSchema: createAbTestInputSchema,
-	outputSchema: z.object({ test: abTestSchema }),
-	safety: createSafety,
+	outputSchema: z.object({ test: abTestSchema, created: z.boolean() }),
+	safety: { ...createSafety, idempotentHint: true },
 	mcp: {
 		name: "listmonk_abtest_create",
 		legacySuccessText: (output) => jsonValue(output["test"]),

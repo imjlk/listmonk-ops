@@ -5,6 +5,7 @@ import {
 	abTestIdInputContract,
 	abTestGetOutputContract,
 	abTestCreateInputContract,
+	abTestCreateOutputContract,
 	abTestAnalyzeInputContract,
 	abTestAnalysisOutputContract,
 	abTestRunInputContract,
@@ -100,7 +101,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 	description: "Create a new A/B test with variants and configuration",
 	contract: {
 		input: abTestCreateInputContract,
-		output: abTestGetOutputContract,
+		output: abTestCreateOutputContract,
 	},
 	effects: [
 		{ kind: "write", resource: "experiment", reversible: true },
@@ -114,8 +115,11 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
-		reason: "A retry may create another test, provision duplicate campaigns, or initiate bulk delivery unless the original ID is known.",
+		kind: "reconcile",
+		reconcileWith: "abtest.get",
+		idempotent: true,
+		reason:
+			"Every create carries a replay key (supplied or derived from the request), so an identical retry returns the originally created test with created: false instead of provisioning duplicate campaigns or delivery.",
 	},
 	agent: {
 		useWhen: ["A new A/B test must be created."],
@@ -123,7 +127,8 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 		prerequisites: [],
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch", "abtest.delete"],
-		retryGuidance: "Inspect abtest.list before retrying an ambiguous create.",
+		retryGuidance:
+			"Verify the originally created test with abtest.get before repeating the create; an identical request replays it with created: false.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_create",
@@ -136,7 +141,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeCreateAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 

@@ -40,10 +40,12 @@ import {
 	getOutboundWebhookRuntimeHealth,
 	listOutboundWebhookDeliveries,
 	listOutboundWebhookEndpoints,
+	normalizeEventFilters,
 	normalizeOutboundWebhookEndpointUrl,
 	outboundWebhookEventFilterSchema,
 	OUTBOUND_WEBHOOK_EVENT_TYPES,
 	OUTBOUND_WEBHOOK_SECRET_REF_PATTERN,
+	OutboundWebhookConflictError,
 	OutboundWebhookNotFoundError,
 	pruneOutboundWebhookDeliveries,
 	replayOutboundWebhookDeadLetters,
@@ -335,6 +337,7 @@ const webhookListOutputSchema = z.object({
 });
 const webhookCreateOutputSchema = z.object({
 	endpoint: webhookEndpointOutputSchema,
+	created: z.boolean(),
 });
 const webhookUpdateOutputSchema = z.object({
 	endpoint: webhookEndpointOutputSchema,
@@ -617,25 +620,64 @@ export async function executeWebhookListOperation(
 	};
 }
 
+function sameWebhookCreateIntent(
+	endpoint: OutboundWebhookEndpoint,
+	input: z.output<typeof webhookCreateInputSchema>,
+): boolean {
+	return (
+		endpoint.name.toLowerCase() === input.name.toLowerCase() &&
+		endpoint.url === normalizeOutboundWebhookEndpointUrl(input.url) &&
+		endpoint.secretRef === input.secret_ref &&
+		JSON.stringify([...endpoint.eventFilters].sort()) ===
+			JSON.stringify([...normalizeEventFilters(input.event_filters)].sort()) &&
+		endpoint.enabled === input.enabled &&
+		endpoint.timeoutMs === input.timeout_ms &&
+		endpoint.maxAttempts === input.max_attempts &&
+		endpoint.circuitFailureThreshold === input.circuit_failure_threshold &&
+		endpoint.circuitCooldownMs === input.circuit_cooldown_ms
+	);
+}
+
 export async function executeWebhookCreateOperation(
 	context: WebhookOperationContext,
 	input: z.output<typeof webhookCreateInputSchema>,
 ) {
-	const endpoint = await createOutboundWebhookEndpoint(
-		{
-			name: input.name,
-			url: input.url,
-			secretRef: input.secret_ref,
-			eventFilters: input.event_filters,
-			enabled: input.enabled,
-			timeoutMs: input.timeout_ms,
-			maxAttempts: input.max_attempts,
-			circuitFailureThreshold: input.circuit_failure_threshold,
-			circuitCooldownMs: input.circuit_cooldown_ms,
-		},
-		resolveWebhookOperationStore(context),
-	);
-	return { endpoint: toEndpointOutput(endpoint) };
+	const requested = {
+		name: input.name,
+		url: input.url,
+		secretRef: input.secret_ref,
+		eventFilters: input.event_filters,
+		enabled: input.enabled,
+		timeoutMs: input.timeout_ms,
+		maxAttempts: input.max_attempts,
+		circuitFailureThreshold: input.circuit_failure_threshold,
+		circuitCooldownMs: input.circuit_cooldown_ms,
+	};
+	try {
+		const endpoint = await createOutboundWebhookEndpoint(
+			requested,
+			resolveWebhookOperationStore(context),
+		);
+		return { endpoint: toEndpointOutput(endpoint), created: true as const };
+	} catch (error) {
+		if (!(error instanceof OutboundWebhookConflictError)) {
+			throw error;
+		}
+		// Endpoint names are unique, so a retry after an ambiguous create
+		// conflicts. Replay only when the persisted endpoint matches the
+		// requested intent; a different configuration under the same name
+		// stays a conflict.
+		const existing = (
+			await listOutboundWebhookEndpoints(resolveWebhookOperationStore(context))
+		).find(
+			(candidate) =>
+				candidate.name.toLowerCase() === input.name.toLowerCase(),
+		);
+		if (!existing || !sameWebhookCreateIntent(existing, input)) {
+			throw error;
+		}
+		return { endpoint: toEndpointOutput(existing), created: false as const };
+	}
 }
 
 export async function executeWebhookUpdateOperation(
@@ -977,7 +1019,7 @@ export const webhookCreateOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: false,
-		idempotentHint: false,
+		idempotentHint: true,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_webhooks_create" },

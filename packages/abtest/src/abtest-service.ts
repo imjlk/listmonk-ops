@@ -43,6 +43,17 @@ export class AbTestService {
 	) {}
 
 	async createTest(config: AbTestConfig): Promise<AbTest> {
+		// Replaying the same idempotency key returns the originally created
+		// test, so an ambiguous create retry never provisions a duplicate.
+		if (config.idempotencyKey !== undefined) {
+			const existing = await this.getTestByIdempotencyKey(
+				config.idempotencyKey,
+			);
+			if (existing) {
+				return existing;
+			}
+		}
+
 		// Validate number of variants (2-3 variants allowed)
 		if (config.variants.length < 2) {
 			throw new Error("At least 2 variants are required for A/B testing");
@@ -196,6 +207,7 @@ export class AbTestService {
 		const abTest: AbTest = {
 			id: testId,
 			name: config.name,
+			idempotencyKey: config.idempotencyKey,
 			campaignId: config.campaignId,
 			variants,
 			metrics,
@@ -457,6 +469,15 @@ export class AbTestService {
 
 		this.tests.delete(testId);
 		return true;
+	}
+
+	async getTestByIdempotencyKey(key: string): Promise<AbTest | null> {
+		for (const test of this.tests.values()) {
+			if (test.idempotencyKey === key) {
+				return test;
+			}
+		}
+		return null;
 	}
 
 	async updateTestStatus(

@@ -38,6 +38,7 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	sequenceValidateInputContract: NormalizedContractSchema;
 	sequenceValidateOutputContract: NormalizedContractSchema;
 	sequenceCreateInputContract: NormalizedContractSchema;
+	sequenceCreateOutputContract: NormalizedContractSchema;
 	sequenceDefinitionOutputContract: NormalizedContractSchema;
 	sequenceUpdateInputContract: NormalizedContractSchema;
 	sequenceListInputContract: NormalizedContractSchema;
@@ -151,6 +152,7 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	abTestIdInputContract: NormalizedContractSchema;
 	abTestGetOutputContract: NormalizedContractSchema;
 	abTestCreateInputContract: NormalizedContractSchema;
+	abTestCreateOutputContract: NormalizedContractSchema;
 	abTestAnalyzeInputContract: NormalizedContractSchema;
 	abTestAnalysisOutputContract: NormalizedContractSchema;
 	abTestRunInputContract: NormalizedContractSchema;
@@ -223,6 +225,8 @@ export const sequenceValidateOutputContract =
 	contracts.sequenceValidateOutputContract;
 export const sequenceCreateInputContract =
 	contracts.sequenceCreateInputContract;
+export const sequenceCreateOutputContract =
+	contracts.sequenceCreateOutputContract;
 export const sequenceDefinitionOutputContract =
 	contracts.sequenceDefinitionOutputContract;
 export const sequenceUpdateInputContract =
@@ -400,6 +404,8 @@ export const abTestListOutputContract = contracts.abTestListOutputContract;
 export const abTestIdInputContract = contracts.abTestIdInputContract;
 export const abTestGetOutputContract = contracts.abTestGetOutputContract;
 export const abTestCreateInputContract = contracts.abTestCreateInputContract;
+export const abTestCreateOutputContract =
+	contracts.abTestCreateOutputContract;
 export const abTestAnalyzeInputContract = contracts.abTestAnalyzeInputContract;
 export const abTestAnalysisOutputContract = contracts.abTestAnalysisOutputContract;
 export const abTestRunInputContract = contracts.abTestRunInputContract;

@@ -714,6 +714,13 @@ export default defineGroup({
 				name: option(z.string().trim().min(1), {
 					description: "Test name",
 				}),
+				"idempotency-key": option(
+					z.string().trim().min(1).max(200).optional(),
+					{
+						description:
+							"Explicit create replay key; omitting one derives it from the request so identical retries replay",
+					},
+				),
 				"campaign-id": option(z.coerce.number().int().positive(), {
 					description: "Base campaign ID",
 				}),
@@ -763,11 +770,17 @@ export default defineGroup({
 			handler: async ({ flags, ...args }) => {
 				try {
 					const input = buildCreateInputFromFlags(flags);
-					const { test: created } = await invokeCliCreateAbTest(
-						args,
-						{ ...input, auto_launch: flags["auto-launch"] },
+					const { test: created, created: wasCreated } =
+						await invokeCliCreateAbTest(args, {
+							...input,
+							auto_launch: flags["auto-launch"],
+							idempotency_key: flags["idempotency-key"],
+						});
+					getOutput().success(
+						wasCreated
+							? `A/B test created: ${created.id}`
+							: `A/B test already created: ${created.id}`,
 					);
-					getOutput().success(`A/B test created: ${created.id}`);
 					getOutput().json(created);
 				} catch (error) {
 					throw new Error(

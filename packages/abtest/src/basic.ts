@@ -20,6 +20,7 @@ export class CreateAbTestCommand {
 		// Convert CreateAbTestInput to AbTestConfig
 		const config: AbTestConfig = {
 			name: input.name,
+			idempotencyKey: input.idempotency_key,
 			campaignId: input.campaign_id || `campaign-${Date.now()}`,
 			variants: input.variants.map((v, index) => ({
 				id: `variant-${index}`,

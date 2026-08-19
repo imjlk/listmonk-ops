@@ -411,9 +411,9 @@ export const webhookCreateOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "reconcile",
 		reconcileWith: "webhooks.list",
-		idempotent: false,
+		idempotent: true,
 		reason:
-			"A completed create is visible by name; blindly repeating an ambiguous create is not safe.",
+			"Endpoint names are unique, so a retry after an ambiguous create conflicts and replays the persisted endpoint when it matches the requested intent, reporting created: false; a different configuration under the same name stays a conflict.",
 	},
 	agent: {
 		useWhen: ["A new signed outbound event destination must be registered."],
@@ -422,7 +422,7 @@ export const webhookCreateOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.list"],
 		related: ["webhooks.test", "webhooks.update"],
 		retryGuidance:
-			"List endpoints by name after an ambiguous result before creating again.",
+			"Replay the create after an ambiguous result: an identically configured endpoint returns the persisted record with created: false, while a conflicting configuration under the same name fails explicitly.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_create",
@@ -440,7 +440,7 @@ export const webhookCreateOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookCreateOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

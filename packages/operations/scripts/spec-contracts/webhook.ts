@@ -150,6 +150,7 @@ export interface WebhookCreateInput {
 
 export interface WebhookCreateOutput {
 	endpoint: WebhookEndpoint;
+	created: boolean;
 }
 
 export interface WebhookUpdateInput {

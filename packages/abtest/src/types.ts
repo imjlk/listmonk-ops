@@ -29,6 +29,8 @@ export const TERMINAL_STATUSES: ReadonlySet<AbTest["status"]> = new Set([
 export interface AbTest {
 	id: string;
 	name: string;
+	/** Caller-scoped create key; replays return the originally created test. */
+	idempotencyKey?: string;
 	campaignId: string;
 	variants: Variant[];
 	status:
@@ -197,6 +199,8 @@ export interface StatisticalAnalysis {
 
 export interface AbTestConfig {
 	name: string;
+	/** Caller-scoped create key; replays return the originally created test. */
+	idempotencyKey?: string;
 	campaignId: string;
 	variants: Omit<Variant, "id">[];
 	metrics: Omit<Metric, "id">[];
@@ -239,6 +243,8 @@ export interface AbTestInput {
 export interface CreateAbTestInput {
 	name: string;
 	campaign_id?: string;
+	/** Caller-scoped create key; re-running with the same key replays the original test. */
+	idempotency_key?: string;
 	description?: string;
 	auto_launch?: boolean;
 	variants: Array<{

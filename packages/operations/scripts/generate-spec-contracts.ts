@@ -42,6 +42,7 @@ import type {
 	SpecSearchInput,
 	SpecSearchOutput,
 	SequenceCreateInput,
+	SequenceCreateOutput,
 	SequenceDefinitionOutput,
 	SequenceDeleteOutput,
 	SequenceEnrollInput,
@@ -150,6 +151,7 @@ import type {
 	AbTestIdInput,
 	AbTestGetOutput,
 	AbTestCreateInput,
+	AbTestCreateOutput,
 	AbTestAnalyzeInput,
 	AbTestAnalysisOutput,
 	AbTestRunInput,
@@ -353,6 +355,9 @@ const contracts = {
 	),
 	sequenceCreateInputContract: contractSchema(
 		typia.json.schema<SequenceCreateInput>(),
+	),
+	sequenceCreateOutputContract: contractSchema(
+		typia.json.schema<SequenceCreateOutput>(),
 	),
 	sequenceDefinitionOutputContract: contractSchema(
 		typia.json.schema<SequenceDefinitionOutput>(),
@@ -673,6 +678,9 @@ const contracts = {
 	),
 	abTestIdInputContract: contractSchema(typia.json.schema<AbTestIdInput>()),
 	abTestGetOutputContract: contractSchema(typia.json.schema<AbTestGetOutput>()),
+	abTestCreateOutputContract: contractSchema(
+		typia.json.schema<AbTestCreateOutput>(),
+	),
 	abTestCreateInputContract: contractSchema(
 		typia.json.schema<AbTestCreateInput>(),
 	),

@@ -123,6 +123,11 @@ export interface SequenceDefinitionOutput {
 	sequence: SequenceDefinition;
 }
 
+export interface SequenceCreateOutput {
+	sequence: SequenceDefinition;
+	created: boolean;
+}
+
 export interface SequenceUpdateInput {
 	id: string & tags.Format<"uuid">;
 	name?: SequenceName | undefined;

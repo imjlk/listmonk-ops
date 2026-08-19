@@ -3959,6 +3959,552 @@
         "input": {
           "components": {
             "schemas": {
+              "WebhookCircuitCooldownMs": {
+                "maximum": 86400000,
+                "minimum": 1000,
+                "type": "integer"
+              },
+              "WebhookCircuitFailureThreshold": {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookCreateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "circuit_cooldown_ms": {
+                    "$ref": "#/components/schemas/WebhookCircuitCooldownMs"
+                  },
+                  "circuit_failure_threshold": {
+                    "$ref": "#/components/schemas/WebhookCircuitFailureThreshold"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "event_filters": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookEventFilter"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "max_attempts": {
+                    "$ref": "#/components/schemas/WebhookMaxAttempts"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/WebhookName"
+                  },
+                  "secret_ref": {
+                    "$ref": "#/components/schemas/WebhookSecretRef",
+                    "description": "Environment variable name; the signing secret value is never persisted."
+                  },
+                  "timeout_ms": {
+                    "$ref": "#/components/schemas/WebhookTimeoutMs"
+                  },
+                  "url": {
+                    "$ref": "#/components/schemas/WebhookUrl"
+                  }
+                },
+                "required": [
+                  "name",
+                  "url",
+                  "secret_ref",
+                  "event_filters"
+                ],
+                "type": "object"
+              },
+              "WebhookEventFilter": {
+                "oneOf": [
+                  {
+                    "const": "*"
+                  },
+                  {
+                    "const": "abtest.*"
+                  },
+                  {
+                    "const": "abtest.failed"
+                  },
+                  {
+                    "const": "abtest.inconclusive"
+                  },
+                  {
+                    "const": "abtest.ready-for-analysis"
+                  },
+                  {
+                    "const": "abtest.started"
+                  },
+                  {
+                    "const": "abtest.winner-selected"
+                  },
+                  {
+                    "const": "campaign.*"
+                  },
+                  {
+                    "const": "campaign.cancelled"
+                  },
+                  {
+                    "const": "campaign.finished"
+                  },
+                  {
+                    "const": "campaign.paused"
+                  },
+                  {
+                    "const": "campaign.scheduled"
+                  },
+                  {
+                    "const": "campaign.started"
+                  },
+                  {
+                    "const": "delivery.*"
+                  },
+                  {
+                    "const": "delivery.bounced"
+                  },
+                  {
+                    "const": "delivery.complained"
+                  },
+                  {
+                    "const": "delivery.delayed"
+                  },
+                  {
+                    "const": "delivery.delivered"
+                  },
+                  {
+                    "const": "delivery.rejected"
+                  },
+                  {
+                    "const": "operation.*"
+                  },
+                  {
+                    "const": "operation.blocked"
+                  },
+                  {
+                    "const": "operation.failed"
+                  },
+                  {
+                    "const": "operation.started"
+                  },
+                  {
+                    "const": "operation.succeeded"
+                  },
+                  {
+                    "const": "sequence.*"
+                  },
+                  {
+                    "const": "sequence.created"
+                  },
+                  {
+                    "const": "sequence.deleted"
+                  },
+                  {
+                    "const": "sequence.enrolled"
+                  },
+                  {
+                    "const": "sequence.paused"
+                  },
+                  {
+                    "const": "sequence.reconciled"
+                  },
+                  {
+                    "const": "sequence.resumed"
+                  },
+                  {
+                    "const": "sequence.revised"
+                  },
+                  {
+                    "const": "subscriber.*"
+                  },
+                  {
+                    "const": "subscriber.blocklisted"
+                  },
+                  {
+                    "const": "subscriber.created"
+                  },
+                  {
+                    "const": "subscriber.unsubscribed"
+                  },
+                  {
+                    "const": "subscriber.updated"
+                  },
+                  {
+                    "const": "webhook.*"
+                  },
+                  {
+                    "const": "webhook.test"
+                  }
+                ]
+              },
+              "WebhookMaxAttempts": {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookName": {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              "WebhookSecretRef": {
+                "pattern": "^LISTMONK_OPS_WEBHOOK_SECRET(?:_[A-Z0-9]+)*$",
+                "type": "string"
+              },
+              "WebhookTimeoutMs": {
+                "maximum": 30000,
+                "minimum": 100,
+                "type": "integer"
+              },
+              "WebhookUrl": {
+                "minLength": 1,
+                "pattern": "^https://\\S+$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "circuit_cooldown_ms": {
+                "$ref": "#/components/schemas/WebhookCircuitCooldownMs"
+              },
+              "circuit_failure_threshold": {
+                "$ref": "#/components/schemas/WebhookCircuitFailureThreshold"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "event_filters": {
+                "items": {
+                  "$ref": "#/components/schemas/WebhookEventFilter"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "max_attempts": {
+                "$ref": "#/components/schemas/WebhookMaxAttempts"
+              },
+              "name": {
+                "$ref": "#/components/schemas/WebhookName"
+              },
+              "secret_ref": {
+                "$ref": "#/components/schemas/WebhookSecretRef",
+                "description": "Environment variable name; the signing secret value is never persisted."
+              },
+              "timeout_ms": {
+                "$ref": "#/components/schemas/WebhookTimeoutMs"
+              },
+              "url": {
+                "$ref": "#/components/schemas/WebhookUrl"
+              }
+            },
+            "required": [
+              "name",
+              "url",
+              "secret_ref",
+              "event_filters"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "Uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "WebhookCircuitCooldownMs": {
+                "maximum": 86400000,
+                "minimum": 1000,
+                "type": "integer"
+              },
+              "WebhookCircuitFailureThreshold": {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookCreateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
+                  "endpoint": {
+                    "$ref": "#/components/schemas/WebhookEndpoint"
+                  }
+                },
+                "required": [
+                  "endpoint",
+                  "created"
+                ],
+                "type": "object"
+              },
+              "WebhookEndpoint": {
+                "additionalProperties": false,
+                "properties": {
+                  "circuit_cooldown_ms": {
+                    "$ref": "#/components/schemas/WebhookCircuitCooldownMs"
+                  },
+                  "circuit_failure_threshold": {
+                    "$ref": "#/components/schemas/WebhookCircuitFailureThreshold"
+                  },
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "event_filters": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookEventFilter"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "max_attempts": {
+                    "$ref": "#/components/schemas/WebhookMaxAttempts"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/WebhookName"
+                  },
+                  "secret_reference_configured": {
+                    "type": "boolean"
+                  },
+                  "timeout_ms": {
+                    "$ref": "#/components/schemas/WebhookTimeoutMs"
+                  },
+                  "updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "url_fingerprint": {
+                    "$ref": "#/components/schemas/WebhookUrlFingerprint"
+                  },
+                  "url_origin": {
+                    "$ref": "#/components/schemas/WebhookUrlOrigin"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "url_origin",
+                  "url_fingerprint",
+                  "secret_reference_configured",
+                  "event_filters",
+                  "enabled",
+                  "timeout_ms",
+                  "max_attempts",
+                  "circuit_failure_threshold",
+                  "circuit_cooldown_ms",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "object"
+              },
+              "WebhookEventFilter": {
+                "oneOf": [
+                  {
+                    "const": "*"
+                  },
+                  {
+                    "const": "abtest.*"
+                  },
+                  {
+                    "const": "abtest.failed"
+                  },
+                  {
+                    "const": "abtest.inconclusive"
+                  },
+                  {
+                    "const": "abtest.ready-for-analysis"
+                  },
+                  {
+                    "const": "abtest.started"
+                  },
+                  {
+                    "const": "abtest.winner-selected"
+                  },
+                  {
+                    "const": "campaign.*"
+                  },
+                  {
+                    "const": "campaign.cancelled"
+                  },
+                  {
+                    "const": "campaign.finished"
+                  },
+                  {
+                    "const": "campaign.paused"
+                  },
+                  {
+                    "const": "campaign.scheduled"
+                  },
+                  {
+                    "const": "campaign.started"
+                  },
+                  {
+                    "const": "delivery.*"
+                  },
+                  {
+                    "const": "delivery.bounced"
+                  },
+                  {
+                    "const": "delivery.complained"
+                  },
+                  {
+                    "const": "delivery.delayed"
+                  },
+                  {
+                    "const": "delivery.delivered"
+                  },
+                  {
+                    "const": "delivery.rejected"
+                  },
+                  {
+                    "const": "operation.*"
+                  },
+                  {
+                    "const": "operation.blocked"
+                  },
+                  {
+                    "const": "operation.failed"
+                  },
+                  {
+                    "const": "operation.started"
+                  },
+                  {
+                    "const": "operation.succeeded"
+                  },
+                  {
+                    "const": "sequence.*"
+                  },
+                  {
+                    "const": "sequence.created"
+                  },
+                  {
+                    "const": "sequence.deleted"
+                  },
+                  {
+                    "const": "sequence.enrolled"
+                  },
+                  {
+                    "const": "sequence.paused"
+                  },
+                  {
+                    "const": "sequence.reconciled"
+                  },
+                  {
+                    "const": "sequence.resumed"
+                  },
+                  {
+                    "const": "sequence.revised"
+                  },
+                  {
+                    "const": "subscriber.*"
+                  },
+                  {
+                    "const": "subscriber.blocklisted"
+                  },
+                  {
+                    "const": "subscriber.created"
+                  },
+                  {
+                    "const": "subscriber.unsubscribed"
+                  },
+                  {
+                    "const": "subscriber.updated"
+                  },
+                  {
+                    "const": "webhook.*"
+                  },
+                  {
+                    "const": "webhook.test"
+                  }
+                ]
+              },
+              "WebhookMaxAttempts": {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookName": {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              "WebhookTimeoutMs": {
+                "maximum": 30000,
+                "minimum": 100,
+                "type": "integer"
+              },
+              "WebhookUrlFingerprint": {
+                "pattern": "^sha256:[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "WebhookUrlOrigin": {
+                "minLength": 1,
+                "pattern": "^https://[^/?#]+$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "created": {
+                "type": "boolean"
+              },
+              "endpoint": {
+                "$ref": "#/components/schemas/WebhookEndpoint"
+              }
+            },
+            "required": [
+              "endpoint",
+              "created"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "webhook",
+          "reversible": true
+        }
+      ],
+      "id": "webhooks.create",
+      "mcpName": "listmonk_webhooks_create",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "webhook",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Endpoint names are unique, so a retry after an ambiguous create conflicts and replays the persisted endpoint when it matches the requested intent, reporting created: false; a different configuration under the same name stays a conflict.",
+        "reconcileWith": "webhooks.list"
+      },
+      "verb": "create"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "Uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -7133,6 +7679,452 @@
         "reason": "Validation is pure and does not write state."
       },
       "verb": "validate"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceConditionPath": {
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+                "type": "string"
+              },
+              "SequenceCreateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "$ref": "#/components/schemas/SequenceDescription"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/SequenceName"
+                  },
+                  "steps": {
+                    "$ref": "#/components/schemas/SequenceSteps"
+                  }
+                },
+                "required": [
+                  "name",
+                  "steps"
+                ],
+                "type": "object"
+              },
+              "SequenceDescription": {
+                "maxLength": 500,
+                "type": "string"
+              },
+              "SequenceName": {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              "SequenceStep": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "altbody": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "content_type": {
+                        "oneOf": [
+                          {
+                            "const": "html"
+                          },
+                          {
+                            "const": "markdown"
+                          },
+                          {
+                            "const": "plain"
+                          }
+                        ]
+                      },
+                      "data": {
+                        "$ref": "#/components/schemas/Recordstringunknown"
+                      },
+                      "from_email": {
+                        "$ref": "#/components/schemas/TransactionalFromEmail"
+                      },
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "messenger": {
+                        "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                      },
+                      "subject": {
+                        "$ref": "#/components/schemas/TransactionalSubject"
+                      },
+                      "template_id": {
+                        "$ref": "#/components/schemas/ResourceId"
+                      },
+                      "type": {
+                        "const": "send"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "template_id"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "duration_seconds": {
+                        "$ref": "#/components/schemas/PositiveInteger"
+                      },
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "type": {
+                        "const": "wait"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "duration_seconds"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "at": {
+                        "$ref": "#/components/schemas/IsoDateTime"
+                      },
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "type": {
+                        "const": "wait_until"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "at"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "on_false": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "on_true": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "operator": {
+                        "oneOf": [
+                          {
+                            "const": "equals"
+                          },
+                          {
+                            "const": "exists"
+                          },
+                          {
+                            "const": "not_equals"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "$ref": "#/components/schemas/SequenceConditionPath"
+                      },
+                      "type": {
+                        "const": "condition"
+                      },
+                      "value": {}
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "path",
+                      "operator",
+                      "on_true",
+                      "on_false"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/SequenceStepId"
+                      },
+                      "type": {
+                        "const": "stop"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "SequenceStepId": {
+                "maxLength": 80,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "SequenceSteps": {
+                "items": {
+                  "$ref": "#/components/schemas/SequenceStep"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "TransactionalFromEmail": {
+                "maxLength": 512,
+                "minLength": 1,
+                "pattern": "^(?!.*[\\u0000-\\u001f\\u007f-\\u009f])\\s*(?:(?:(?:[^\\s@\\\\\",:;<>()[\\]]+)|(?:\"(?:[^\"\\\\]|\\\\.)+\"))@[^\\s@\\\\\",:;<>()[\\]]+|(?:(?:\"(?:[^\"\\\\]|\\\\.)+\")|(?:[^\\\\\",:;<>()[\\]@]+)) *<(?:(?:[^\\s@\\\\\",:;<>()[\\]]+)|(?:\"(?:[^\"\\\\]|\\\\.)+\"))@[^\\s@\\\\\",:;<>()[\\]]+>)\\s*$",
+                "type": "string"
+              },
+              "TransactionalSubject": {
+                "minLength": 1,
+                "pattern": "^(?=[^\\u0000-\\u001f\\u007f]*\\S)[^\\u0000-\\u001f\\u007f]+$",
+                "type": "string"
+              },
+              "TrimmedNonEmptyString": {
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "$ref": "#/components/schemas/SequenceDescription"
+              },
+              "name": {
+                "$ref": "#/components/schemas/SequenceName"
+              },
+              "steps": {
+                "$ref": "#/components/schemas/SequenceSteps"
+              }
+            },
+            "required": [
+              "name",
+              "steps"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceCreateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
+                  "sequence": {
+                    "$ref": "#/components/schemas/SequenceDefinition"
+                  }
+                },
+                "required": [
+                  "sequence",
+                  "created"
+                ],
+                "type": "object"
+              },
+              "SequenceDefinition": {
+                "additionalProperties": false,
+                "properties": {
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "current_revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "description_present": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/SequenceName"
+                  },
+                  "revisions": {
+                    "items": {
+                      "$ref": "#/components/schemas/SequenceRevision"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "active"
+                      },
+                      {
+                        "const": "paused"
+                      }
+                    ]
+                  },
+                  "updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "description_present",
+                  "status",
+                  "current_revision",
+                  "revisions",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "object"
+              },
+              "SequenceName": {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              "SequenceRevision": {
+                "additionalProperties": false,
+                "properties": {
+                  "content_fingerprint": {
+                    "pattern": "^sha256:[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "step_count": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "step_types": {
+                    "items": {
+                      "oneOf": [
+                        {
+                          "const": "condition"
+                        },
+                        {
+                          "const": "send"
+                        },
+                        {
+                          "const": "stop"
+                        },
+                        {
+                          "const": "wait"
+                        },
+                        {
+                          "const": "wait_until"
+                        }
+                      ]
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "revision",
+                  "step_count",
+                  "step_types",
+                  "content_fingerprint",
+                  "created_at"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "created": {
+                "type": "boolean"
+              },
+              "sequence": {
+                "$ref": "#/components/schemas/SequenceDefinition"
+              }
+            },
+            "required": [
+              "sequence",
+              "created"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "sequence",
+          "reversible": true
+        }
+      ],
+      "id": "sequences.create",
+      "mcpName": "listmonk_sequences_create",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Sequence names are unique, so a retry after an ambiguous create conflicts and replays the persisted definition when it matches the requested intent, reporting created: false; a different definition under the same name stays a conflict.",
+        "reconcileWith": "sequences.list"
+      },
+      "verb": "create"
     },
     {
       "contract": {
@@ -21466,6 +22458,10 @@
                   "id": {
                     "type": "string"
                   },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
+                    "type": "string"
+                  },
                   "launchAt": {
                     "type": "string"
                   },
@@ -21989,6 +22985,10 @@
                   "id": {
                     "type": "string"
                   },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
+                    "type": "string"
+                  },
                   "launchAt": {
                     "type": "string"
                   },
@@ -22207,6 +23207,1033 @@
         "reason": "The operation only reads a persisted A/B test."
       },
       "verb": "get"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "AbTestCreateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "auto_deploy_winner": {
+                    "type": "boolean"
+                  },
+                  "auto_launch": {
+                    "type": "boolean"
+                  },
+                  "campaign_id": {
+                    "type": "string"
+                  },
+                  "confidence_threshold": {
+                    "exclusiveMaximum": 1,
+                    "exclusiveMinimum": 0,
+                    "type": "number"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "duration_hours": {
+                    "exclusiveMinimum": 0,
+                    "type": "number"
+                  },
+                  "enable_stratification": {
+                    "type": "boolean"
+                  },
+                  "hypothesis": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "expected_lift": {
+                        "oneOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "const": "relative"
+                              },
+                              "value": {
+                                "exclusiveMinimum": 0,
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "const": "absolute"
+                              },
+                              "unit": {
+                                "oneOf": [
+                                  {
+                                    "const": "currency_per_recipient"
+                                  },
+                                  {
+                                    "const": "percentage_point"
+                                  }
+                                ]
+                              },
+                              "value": {
+                                "exclusiveMinimum": 0,
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value",
+                              "unit"
+                            ],
+                            "type": "object"
+                          }
+                        ]
+                      },
+                      "experiment_scope": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "attribution_window_hours": {
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          "channel": {
+                            "const": "email"
+                          },
+                          "exclusion_window_hours": {
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          "experiment_family_key": {
+                            "minLength": 1,
+                            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "channel",
+                          "experiment_family_key",
+                          "attribution_window_hours",
+                          "exclusion_window_hours"
+                        ],
+                        "type": "object"
+                      },
+                      "hypothesis": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "objective": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      },
+                      "owner": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "display_name": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "$ref": "#/components/schemas/NonEmptyString"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "type": "object"
+                      },
+                      "primary_metric": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "direction": {
+                            "oneOf": [
+                              {
+                                "const": "maximize"
+                              },
+                              {
+                                "const": "minimize"
+                              }
+                            ]
+                          },
+                          "type": {
+                            "oneOf": [
+                              {
+                                "const": "click_rate"
+                              },
+                              {
+                                "const": "conversion_rate"
+                              },
+                              {
+                                "const": "revenue_per_recipient"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "direction"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "objective",
+                      "hypothesis",
+                      "primary_metric",
+                      "expected_lift",
+                      "owner",
+                      "experiment_scope"
+                    ],
+                    "type": "object"
+                  },
+                  "idempotency_key": {
+                    "description": "Caller-scoped create key; omitted keys are derived from the request so identical retries replay.",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "ignore_sample_size_warnings": {
+                    "type": "boolean"
+                  },
+                  "launch_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "minimum_sample_size": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "test_group_percentage": {
+                    "exclusiveMinimum": 0,
+                    "maximum": 100,
+                    "type": "number"
+                  },
+                  "testing_mode": {
+                    "oneOf": [
+                      {
+                        "const": "full-split"
+                      },
+                      {
+                        "const": "holdout"
+                      }
+                    ]
+                  },
+                  "variants": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestCreateVariantInput"
+                    },
+                    "maxItems": 3,
+                    "minItems": 2,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "name",
+                  "lists",
+                  "variants"
+                ],
+                "type": "object"
+              },
+              "AbTestCreateVariantInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "campaign_config": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "body": {
+                        "type": "string"
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "template_id": {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "percentage": {
+                    "maximum": 100,
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "name",
+                  "percentage",
+                  "campaign_config"
+                ],
+                "type": "object"
+              },
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "auto_deploy_winner": {
+                "type": "boolean"
+              },
+              "auto_launch": {
+                "type": "boolean"
+              },
+              "campaign_id": {
+                "type": "string"
+              },
+              "confidence_threshold": {
+                "exclusiveMaximum": 1,
+                "exclusiveMinimum": 0,
+                "type": "number"
+              },
+              "description": {
+                "type": "string"
+              },
+              "duration_hours": {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              },
+              "enable_stratification": {
+                "type": "boolean"
+              },
+              "hypothesis": {
+                "additionalProperties": false,
+                "properties": {
+                  "expected_lift": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "const": "relative"
+                          },
+                          "value": {
+                            "exclusiveMinimum": 0,
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "const": "absolute"
+                          },
+                          "unit": {
+                            "oneOf": [
+                              {
+                                "const": "currency_per_recipient"
+                              },
+                              {
+                                "const": "percentage_point"
+                              }
+                            ]
+                          },
+                          "value": {
+                            "exclusiveMinimum": 0,
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value",
+                          "unit"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "experiment_scope": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "attribution_window_hours": {
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      "channel": {
+                        "const": "email"
+                      },
+                      "exclusion_window_hours": {
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      "experiment_family_key": {
+                        "minLength": 1,
+                        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "channel",
+                      "experiment_family_key",
+                      "attribution_window_hours",
+                      "exclusion_window_hours"
+                    ],
+                    "type": "object"
+                  },
+                  "hypothesis": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "objective": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "owner": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "display_name": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "$ref": "#/components/schemas/NonEmptyString"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  "primary_metric": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "direction": {
+                        "oneOf": [
+                          {
+                            "const": "maximize"
+                          },
+                          {
+                            "const": "minimize"
+                          }
+                        ]
+                      },
+                      "type": {
+                        "oneOf": [
+                          {
+                            "const": "click_rate"
+                          },
+                          {
+                            "const": "conversion_rate"
+                          },
+                          {
+                            "const": "revenue_per_recipient"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "direction"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "objective",
+                  "hypothesis",
+                  "primary_metric",
+                  "expected_lift",
+                  "owner",
+                  "experiment_scope"
+                ],
+                "type": "object"
+              },
+              "idempotency_key": {
+                "description": "Caller-scoped create key; omitted keys are derived from the request so identical retries replay.",
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "ignore_sample_size_warnings": {
+                "type": "boolean"
+              },
+              "launch_at": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "lists": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "minimum_sample_size": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              },
+              "name": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "test_group_percentage": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "number"
+              },
+              "testing_mode": {
+                "oneOf": [
+                  {
+                    "const": "full-split"
+                  },
+                  {
+                    "const": "holdout"
+                  }
+                ]
+              },
+              "variants": {
+                "items": {
+                  "$ref": "#/components/schemas/AbTestCreateVariantInput"
+                },
+                "maxItems": 3,
+                "minItems": 2,
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "lists",
+              "variants"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "AbTestAssignmentGroup": {
+                "discriminator": {
+                  "mapping": {
+                    "holdout": "#/components/schemas/AbTestHoldoutAssignmentGroup",
+                    "variant": "#/components/schemas/AbTestVariantAssignmentGroup"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/AbTestHoldoutAssignmentGroup"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AbTestVariantAssignmentGroup"
+                  }
+                ]
+              },
+              "AbTestAssignmentManifest": {
+                "additionalProperties": false,
+                "properties": {
+                  "algorithm": {
+                    "const": "sha256-order-largest-remainder-v1"
+                  },
+                  "assignedCount": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "audienceChecksum": {
+                    "type": "string"
+                  },
+                  "groups": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestAssignmentGroup"
+                    },
+                    "type": "array"
+                  },
+                  "seed": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "algorithm",
+                  "seed",
+                  "audienceChecksum",
+                  "groups",
+                  "assignedCount"
+                ],
+                "type": "object"
+              },
+              "AbTestBaseConfig": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "lists": {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "template_id": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "subject",
+                  "body",
+                  "lists"
+                ],
+                "type": "object"
+              },
+              "AbTestCampaignMapping": {
+                "additionalProperties": false,
+                "properties": {
+                  "campaignId": {
+                    "type": "number"
+                  },
+                  "variantId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "variantId",
+                  "campaignId"
+                ],
+                "type": "object"
+              },
+              "AbTestContentOverrides": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "sendTime": {
+                    "type": "string"
+                  },
+                  "senderEmail": {
+                    "type": "string"
+                  },
+                  "senderName": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "AbTestCreateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
+                  "test": {
+                    "$ref": "#/components/schemas/AbTestRecord"
+                  }
+                },
+                "required": [
+                  "test",
+                  "created"
+                ],
+                "type": "object"
+              },
+              "AbTestHoldoutAssignmentGroup": {
+                "additionalProperties": false,
+                "properties": {
+                  "expectedCount": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "kind": {
+                    "const": "holdout"
+                  },
+                  "subscriberChecksum": {
+                    "type": "string"
+                  },
+                  "variantId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "expectedCount",
+                  "subscriberChecksum",
+                  "kind"
+                ],
+                "type": "object"
+              },
+              "AbTestListMapping": {
+                "additionalProperties": false,
+                "properties": {
+                  "listId": {
+                    "type": "number"
+                  },
+                  "variantId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "variantId",
+                  "listId"
+                ],
+                "type": "object"
+              },
+              "AbTestMetric": {
+                "additionalProperties": false,
+                "properties": {
+                  "config": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/AbTestMetricType"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "AbTestMetricType": {
+                "oneOf": [
+                  {
+                    "const": "click_rate"
+                  },
+                  {
+                    "const": "conversion"
+                  },
+                  {
+                    "const": "custom"
+                  },
+                  {
+                    "const": "open_rate"
+                  },
+                  {
+                    "const": "revenue"
+                  }
+                ]
+              },
+              "AbTestRecord": {
+                "additionalProperties": false,
+                "properties": {
+                  "assignmentManifest": {
+                    "$ref": "#/components/schemas/AbTestAssignmentManifest"
+                  },
+                  "assignmentProvenance": {
+                    "type": "string"
+                  },
+                  "assignmentSeed": {
+                    "type": "string"
+                  },
+                  "audienceSnapshot": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "autoDeployWinner": {
+                    "type": "boolean"
+                  },
+                  "baseConfig": {
+                    "$ref": "#/components/schemas/AbTestBaseConfig"
+                  },
+                  "campaignId": {
+                    "type": "string"
+                  },
+                  "campaignMappings": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestCampaignMapping"
+                    },
+                    "type": "array"
+                  },
+                  "confidenceThreshold": {
+                    "type": "number"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "durationHours": {
+                    "type": "number"
+                  },
+                  "endsAt": {
+                    "type": "string"
+                  },
+                  "holdoutGroupSize": {
+                    "type": "number"
+                  },
+                  "holdoutListId": {
+                    "type": "number"
+                  },
+                  "hypothesis": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
+                    "type": "string"
+                  },
+                  "launchAt": {
+                    "type": "string"
+                  },
+                  "metrics": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestMetric"
+                    },
+                    "type": "array"
+                  },
+                  "minimumTestSampleSize": {
+                    "type": "number"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "startedAt": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/AbTestStatus"
+                  },
+                  "stratification": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "testGroupPercentage": {
+                    "type": "number"
+                  },
+                  "testGroupSize": {
+                    "type": "number"
+                  },
+                  "testListMappings": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestListMapping"
+                    },
+                    "type": "array"
+                  },
+                  "testingMode": {
+                    "$ref": "#/components/schemas/AbTestTestingMode"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "variants": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestVariant"
+                    },
+                    "type": "array"
+                  },
+                  "winnerCampaignId": {
+                    "type": "number"
+                  },
+                  "winnerVariantId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "campaignId",
+                  "variants",
+                  "status",
+                  "metrics",
+                  "createdAt",
+                  "updatedAt",
+                  "baseConfig",
+                  "testingMode",
+                  "testGroupPercentage",
+                  "testGroupSize",
+                  "holdoutGroupSize",
+                  "confidenceThreshold",
+                  "autoDeployWinner",
+                  "campaignMappings",
+                  "testListMappings"
+                ],
+                "type": "object"
+              },
+              "AbTestStatus": {
+                "oneOf": [
+                  {
+                    "const": "analyzing"
+                  },
+                  {
+                    "const": "cancelled"
+                  },
+                  {
+                    "const": "cancelling"
+                  },
+                  {
+                    "const": "completed"
+                  },
+                  {
+                    "const": "deploying"
+                  },
+                  {
+                    "const": "draft"
+                  },
+                  {
+                    "const": "failed"
+                  },
+                  {
+                    "const": "inconclusive"
+                  },
+                  {
+                    "const": "running"
+                  },
+                  {
+                    "const": "scheduled"
+                  },
+                  {
+                    "const": "testing"
+                  }
+                ]
+              },
+              "AbTestTestingMode": {
+                "oneOf": [
+                  {
+                    "const": "full-split"
+                  },
+                  {
+                    "const": "holdout"
+                  }
+                ]
+              },
+              "AbTestVariant": {
+                "additionalProperties": false,
+                "properties": {
+                  "contentOverrides": {
+                    "$ref": "#/components/schemas/AbTestContentOverrides"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "percentage": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "percentage",
+                  "contentOverrides"
+                ],
+                "type": "object"
+              },
+              "AbTestVariantAssignmentGroup": {
+                "additionalProperties": false,
+                "properties": {
+                  "expectedCount": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "kind": {
+                    "const": "variant"
+                  },
+                  "subscriberChecksum": {
+                    "type": "string"
+                  },
+                  "variantId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "expectedCount",
+                  "subscriberChecksum",
+                  "kind",
+                  "variantId"
+                ],
+                "type": "object"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "created": {
+                "type": "boolean"
+              },
+              "test": {
+                "$ref": "#/components/schemas/AbTestRecord"
+              }
+            },
+            "required": [
+              "test",
+              "created"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "experiment",
+          "reversible": true
+        },
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": true
+        },
+        {
+          "audience": "bulk",
+          "kind": "delivery",
+          "resource": "campaign",
+          "timing": "scheduled"
+        }
+      ],
+      "id": "abtest.create",
+      "mcpName": "listmonk_abtest_create",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "experiment",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Every create carries a replay key (supplied or derived from the request), so an identical retry returns the originally created test with created: false instead of provisioning duplicate campaigns or delivery.",
+        "reconcileWith": "abtest.get"
+      },
+      "verb": "create"
     },
     {
       "contract": {
@@ -22784,6 +24811,10 @@
                   "id": {
                     "type": "string"
                   },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
+                    "type": "string"
+                  },
                   "launchAt": {
                     "type": "string"
                   },
@@ -23316,6 +25347,10 @@
                     "$ref": "#/components/schemas/Recordstringunknown"
                   },
                   "id": {
+                    "type": "string"
+                  },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
                     "type": "string"
                   },
                   "launchAt": {

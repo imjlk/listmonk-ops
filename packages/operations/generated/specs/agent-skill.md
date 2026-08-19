@@ -214,7 +214,7 @@ Retry guidance: Retrying the same read is safe.
 
 ## Create outbound webhook endpoint (`webhooks.create`)
 
-Contract maturity: `experimental`; effects: `write:webhook`; confirmation: `never`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `write:webhook`; confirmation: `never`; retry: `reconcile`.
 
 Use when: A new signed outbound event destination must be registered.
 
@@ -224,7 +224,7 @@ Prerequisites: none
 
 Verify with: `webhooks.list`
 
-Retry guidance: List endpoints by name after an ambiguous result before creating again.
+Retry guidance: Replay the create after an ambiguous result: an identically configured endpoint returns the persisted record with created: false, while a conflicting configuration under the same name fails explicitly.
 
 ## Update outbound webhook endpoint (`webhooks.update`)
 
@@ -438,7 +438,7 @@ Retry guidance: Retrying validation is safe.
 
 ## Create sequence (`sequences.create`)
 
-Contract maturity: `experimental`; effects: `write:sequence`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:sequence`; confirmation: `never`; retry: `reconcile`.
 
 Use when: A validated sequence definition must be persisted.
 
@@ -448,7 +448,7 @@ Prerequisites: `sequences.validate`
 
 Verify with: `sequences.get`
 
-Retry guidance: Inspect sequences.list before retrying an ambiguous create.
+Retry guidance: Replay the create after an ambiguous result: an identically defined sequence returns the persisted record with created: false, while a conflicting definition under the same name fails explicitly.
 
 ## Create sequence revision (`sequences.update`)
 
@@ -1292,7 +1292,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Create A/B test (`abtest.create`)
 
-Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A new A/B test must be created.
 
@@ -1302,7 +1302,7 @@ Prerequisites: none
 
 Verify with: `abtest.get`
 
-Retry guidance: Inspect abtest.list before retrying an ambiguous create.
+Retry guidance: Verify the originally created test with abtest.get before repeating the create; an identical request replays it with created: false.
 
 ## Analyze A/B test (`abtest.analyze`)
 

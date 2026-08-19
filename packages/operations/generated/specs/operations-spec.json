@@ -4688,7 +4688,7 @@
           "webhooks.test",
           "webhooks.update"
         ],
-        "retryGuidance": "List endpoints by name after an ambiguous result before creating again.",
+        "retryGuidance": "Replay the create after an ambiguous result: an identically configured endpoint returns the persisted record with created: false, while a conflicting configuration under the same name fails explicitly.",
         "useWhen": [
           "A new signed outbound event destination must be registered."
         ],
@@ -4973,12 +4973,16 @@
               "WebhookCreateOutput": {
                 "additionalProperties": false,
                 "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
                   "endpoint": {
                     "$ref": "#/components/schemas/WebhookEndpoint"
                   }
                 },
                 "required": [
-                  "endpoint"
+                  "endpoint",
+                  "created"
                 ],
                 "type": "object"
               },
@@ -5197,12 +5201,16 @@
           "schema": {
             "additionalProperties": false,
             "properties": {
+              "created": {
+                "type": "boolean"
+              },
               "endpoint": {
                 "$ref": "#/components/schemas/WebhookEndpoint"
               }
             },
             "required": [
-              "endpoint"
+              "endpoint",
+              "created"
             ],
             "type": "object"
           },
@@ -5237,13 +5245,13 @@
       },
       "resource": "webhook",
       "retry": {
-        "idempotent": false,
+        "idempotent": true,
         "kind": "reconcile",
-        "reason": "A completed create is visible by name; blindly repeating an ambiguous create is not safe.",
+        "reason": "Endpoint names are unique, so a retry after an ambiguous create conflicts and replays the persisted endpoint when it matches the requested intent, reporting created: false; a different configuration under the same name stays a conflict.",
         "reconcileWith": "webhooks.list"
       },
       "since": "0.8.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Create outbound webhook endpoint",
       "verb": "create"
     },
@@ -10518,7 +10526,7 @@
           "sequences.update",
           "sequences.enroll"
         ],
-        "retryGuidance": "Inspect sequences.list before retrying an ambiguous create.",
+        "retryGuidance": "Replay the create after an ambiguous result: an identically defined sequence returns the persisted record with created: false, while a conflicting definition under the same name fails explicitly.",
         "useWhen": [
           "A validated sequence definition must be persisted."
         ],
@@ -10803,6 +10811,22 @@
                 "minimum": 1,
                 "type": "integer"
               },
+              "SequenceCreateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
+                  "sequence": {
+                    "$ref": "#/components/schemas/SequenceDefinition"
+                  }
+                },
+                "required": [
+                  "sequence",
+                  "created"
+                ],
+                "type": "object"
+              },
               "SequenceDefinition": {
                 "additionalProperties": false,
                 "properties": {
@@ -10852,18 +10876,6 @@
                   "revisions",
                   "created_at",
                   "updated_at"
-                ],
-                "type": "object"
-              },
-              "SequenceDefinitionOutput": {
-                "additionalProperties": false,
-                "properties": {
-                  "sequence": {
-                    "$ref": "#/components/schemas/SequenceDefinition"
-                  }
-                },
-                "required": [
-                  "sequence"
                 ],
                 "type": "object"
               },
@@ -10927,12 +10939,16 @@
           "schema": {
             "additionalProperties": false,
             "properties": {
+              "created": {
+                "type": "boolean"
+              },
               "sequence": {
                 "$ref": "#/components/schemas/SequenceDefinition"
               }
             },
             "required": [
-              "sequence"
+              "sequence",
+              "created"
             ],
             "type": "object"
           },
@@ -10967,11 +10983,13 @@
       },
       "resource": "sequence",
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may create another sequence unless the original ID is known."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Sequence names are unique, so a retry after an ambiguous create conflicts and replays the persisted definition when it matches the requested intent, reporting created: false; a different definition under the same name stays a conflict.",
+        "reconcileWith": "sequences.list"
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Create sequence",
       "verb": "create"
     },
@@ -31193,6 +31211,10 @@
                   "id": {
                     "type": "string"
                   },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
+                    "type": "string"
+                  },
                   "launchAt": {
                     "type": "string"
                   },
@@ -31744,6 +31766,10 @@
                   "id": {
                     "type": "string"
                   },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
+                    "type": "string"
+                  },
                   "launchAt": {
                     "type": "string"
                   },
@@ -31987,7 +32013,7 @@
           "abtest.launch",
           "abtest.delete"
         ],
-        "retryGuidance": "Inspect abtest.list before retrying an ambiguous create.",
+        "retryGuidance": "Verify the originally created test with abtest.get before repeating the create; an identical request replays it with created: false.",
         "useWhen": [
           "A new A/B test must be created."
         ],
@@ -32170,6 +32196,12 @@
                       "experiment_scope"
                     ],
                     "type": "object"
+                  },
+                  "idempotency_key": {
+                    "description": "Caller-scoped create key; omitted keys are derived from the request so identical retries replay.",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "type": "string"
                   },
                   "ignore_sample_size_warnings": {
                     "type": "boolean"
@@ -32449,6 +32481,12 @@
                 ],
                 "type": "object"
               },
+              "idempotency_key": {
+                "description": "Caller-scoped create key; omitted keys are derived from the request so identical retries replay.",
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
               "ignore_sample_size_warnings": {
                 "type": "boolean"
               },
@@ -32617,15 +32655,19 @@
                 "required": [],
                 "type": "object"
               },
-              "AbTestGetOutput": {
+              "AbTestCreateOutput": {
                 "additionalProperties": false,
                 "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
                   "test": {
                     "$ref": "#/components/schemas/AbTestRecord"
                   }
                 },
                 "required": [
-                  "test"
+                  "test",
+                  "created"
                 ],
                 "type": "object"
               },
@@ -32762,6 +32804,10 @@
                     "$ref": "#/components/schemas/Recordstringunknown"
                   },
                   "id": {
+                    "type": "string"
+                  },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
                     "type": "string"
                   },
                   "launchAt": {
@@ -32950,12 +32996,16 @@
           "schema": {
             "additionalProperties": false,
             "properties": {
+              "created": {
+                "type": "boolean"
+              },
               "test": {
                 "$ref": "#/components/schemas/AbTestRecord"
               }
             },
             "required": [
-              "test"
+              "test",
+              "created"
             ],
             "type": "object"
           },
@@ -33001,11 +33051,13 @@
       },
       "resource": "experiment",
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may create another test, provision duplicate campaigns, or initiate bulk delivery unless the original ID is known."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Every create carries a replay key (supplied or derived from the request), so an identical retry returns the originally created test with created: false instead of provisioning duplicate campaigns or delivery.",
+        "reconcileWith": "abtest.get"
       },
       "since": "0.10.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Create A/B test",
       "verb": "create"
     },
@@ -33634,6 +33686,10 @@
                   "id": {
                     "type": "string"
                   },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
+                    "type": "string"
+                  },
                   "launchAt": {
                     "type": "string"
                   },
@@ -34198,6 +34254,10 @@
                     "$ref": "#/components/schemas/Recordstringunknown"
                   },
                   "id": {
+                    "type": "string"
+                  },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
                     "type": "string"
                   },
                   "launchAt": {
@@ -35356,6 +35416,10 @@
                     "$ref": "#/components/schemas/Recordstringunknown"
                   },
                   "id": {
+                    "type": "string"
+                  },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
                     "type": "string"
                   },
                   "launchAt": {
