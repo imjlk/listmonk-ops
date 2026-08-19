@@ -33326,7 +33326,7 @@
           "abtest.stop",
           "abtest.run"
         ],
-        "retryGuidance": "Inspect abtest.get and the backing Listmonk campaigns before retrying an ambiguous launch.",
+        "retryGuidance": "Verify the launch with abtest.get before retrying; a recorded launch repeats as a no-op that returns the persisted test.",
         "useWhen": [
           "A draft A/B test is ready to go live."
         ],
@@ -33871,11 +33871,13 @@
       },
       "resource": "experiment",
       "retry": {
-        "kind": "unsafe",
-        "reason": "An ambiguous launch may have scheduled variant campaigns before the persisted test status was updated; repeating it can reschedule delivery."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "A retry after a recorded launch (scheduled or running with startedAt set) returns the persisted test instead of rescheduling delivery; verify with abtest.get after an ambiguous result.",
+        "reconcileWith": "abtest.get"
       },
       "since": "0.10.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Launch A/B test",
       "verb": "launch"
     },
@@ -33890,7 +33892,7 @@
         "related": [
           "abtest.launch"
         ],
-        "retryGuidance": "Inspect abtest.get and every backing campaign and temporary list before retrying an ambiguous stop.",
+        "retryGuidance": "Verify the stop with abtest.get before retrying; a completed stop repeats as a no-op and remote cleanup skips already-removed resources.",
         "useWhen": [
           "A running or scheduled A/B test must be stopped."
         ],
@@ -34439,11 +34441,13 @@
       },
       "resource": "experiment",
       "retry": {
-        "kind": "unsafe",
-        "reason": "A stop can partially cancel or delete remote resources before persistence is updated, and repeating a completed stop is rejected by the lifecycle guard."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "A retry of a completed stop returns the persisted cancelled test, and remote cleanup repeats converge because already-cancelled or deleted campaigns and lists are skipped; verify with abtest.get after an ambiguous result.",
+        "reconcileWith": "abtest.get"
       },
       "since": "0.10.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Stop A/B test",
       "verb": "stop"
     },

@@ -45,6 +45,15 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 			throw new AbTestNotFoundError(testId);
 		}
 
+		if (
+			(test.status === "scheduled" || test.status === "running") &&
+			test.startedAt !== undefined
+		) {
+			// A retry after a recorded launch is a documented no-op that
+			// returns the persisted test instead of rescheduling delivery.
+			return test;
+		}
+
 		if (test.status !== "draft" && test.status !== "scheduled") {
 			throw new Error(
 				`Test ${testId} is not in draft or scheduled status (current: ${test.status})`,
@@ -90,6 +99,12 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		const test = await abTestService.getTest(testId);
 		if (!test) {
 			throw new AbTestNotFoundError(testId);
+		}
+
+		if (test.status === "cancelled") {
+			// A retry after a completed stop is a documented no-op that
+			// returns the persisted test without repeating remote cleanup.
+			return test;
 		}
 
 		if (test.status !== "running" && test.status !== "scheduled") {

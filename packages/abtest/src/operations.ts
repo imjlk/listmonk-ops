@@ -853,7 +853,7 @@ export const launchAbTestOperation = defineOperation({
 		"Schedule every variant campaign for delivery and transition a draft A/B test to scheduled",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
-	safety: destructiveNonIdempotentSafety,
+	safety: destructiveSafety,
 	mcp: {
 		name: "listmonk_abtest_launch",
 		legacySuccessText: (output) => jsonValue(output["test"]),
@@ -869,7 +869,7 @@ export const stopAbTestOperation = defineOperation({
 		"Stop a running or scheduled A/B test, cancel or delete its backing campaigns, clean up eligible temporary lists, and transition it to cancelled",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
-	safety: destructiveNonIdempotentSafety,
+	safety: destructiveSafety,
 	mcp: {
 		name: "listmonk_abtest_stop",
 		legacySuccessText: (output) => jsonValue(output["test"]),

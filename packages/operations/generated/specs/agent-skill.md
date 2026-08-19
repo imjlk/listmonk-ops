@@ -1320,7 +1320,7 @@ Retry guidance: Retry is safe; the analysis is read-only.
 
 ## Launch A/B test (`abtest.launch`)
 
-Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A draft A/B test is ready to go live.
 
@@ -1330,11 +1330,11 @@ Prerequisites: `abtest.get`
 
 Verify with: `abtest.get`
 
-Retry guidance: Inspect abtest.get and the backing Listmonk campaigns before retrying an ambiguous launch.
+Retry guidance: Verify the launch with abtest.get before retrying; a recorded launch repeats as a no-op that returns the persisted test.
 
 ## Stop A/B test (`abtest.stop`)
 
-Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delete:campaign, delete:list`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:experiment, write:campaign, delete:campaign, delete:list`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A running or scheduled A/B test must be stopped.
 
@@ -1344,7 +1344,7 @@ Prerequisites: `abtest.get`
 
 Verify with: `abtest.get`
 
-Retry guidance: Inspect abtest.get and every backing campaign and temporary list before retrying an ambiguous stop.
+Retry guidance: Verify the stop with abtest.get before retrying; a completed stop repeats as a no-op and remote cleanup skips already-removed resources.
 
 ## Delete A/B test (`abtest.delete`)
 

@@ -112,12 +112,12 @@ describe("A/B test operation registry", () => {
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_stop",
 			)?.safety,
-		).toMatchObject({ destructiveHint: true, idempotentHint: false });
+		).toMatchObject({ destructiveHint: true, idempotentHint: true });
 		expect(
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_launch",
 			)?.safety,
-		).toMatchObject({ destructiveHint: true, idempotentHint: false });
+		).toMatchObject({ destructiveHint: true, idempotentHint: true });
 		expect(
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_delete",
@@ -316,6 +316,36 @@ test("preserves typed not-found errors for lifecycle transitions", async () => {
 			cause: expect.any(AbTestNotFoundError),
 		});
 	});
+
+test("repeats recorded launches and completed stops as no-ops", async () => {
+	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-lifecycle-"));
+	const storePath = join(tempDir, "abtests.json");
+	const fixture = createFixture("draft");
+	await saveStoredAbTests([fixture], storePath);
+	const context = { client: {} as ListmonkClient, storePath };
+
+	const launched = await invokeLaunchAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(launched.test.status).toBe("scheduled");
+	expect(launched.test.startedAt).toBeDefined();
+
+	const relaunched = await invokeLaunchAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(relaunched.test.status).toBe("scheduled");
+	expect(relaunched.test.started_at).toBe(launched.test.started_at);
+
+	const stopped = await invokeStopAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(stopped.test.status).toBe("cancelled");
+	const stoppedAgain = await invokeStopAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(stoppedAgain.test.status).toBe("cancelled");
+	expect(stoppedAgain.test.updatedAt).toBe(stopped.test.updatedAt);
+});
 
 test("reports a repeated delete as a documented no-op", async () => {
 	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-delete-"));
