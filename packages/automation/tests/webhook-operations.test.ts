@@ -286,6 +286,46 @@ describe("webhook shared operations", () => {
 		});
 	});
 
+	test("honors an explicit prune cutoff and requires it for destructive runs", async () => {
+		const context = await createContext();
+		const before = "2026-01-01T00:00:00.000Z";
+		const first = await invokeWebhookPruneOperation(context, {
+			older_than_days: 30,
+			before,
+			limit: 10,
+			dry_run: true,
+		});
+		expect(first.before).toBe(before);
+		const second = await invokeWebhookPruneOperation(context, {
+			older_than_days: 30,
+			before,
+			limit: 10,
+			dry_run: false,
+		});
+		expect(second).toEqual({
+			eligible: first.eligible,
+			deleted: first.eligible,
+			dry_run: false,
+			before,
+		});
+		await expect(
+			invokeWebhookPruneOperation(context, {
+				before: "not-a-timestamp",
+			}),
+		).rejects.toThrow();
+		const offsetCutoff = await invokeWebhookPruneOperation(context, {
+			before: "2026-01-01T00:00:00.000+02:00",
+			dry_run: true,
+		});
+		expect(offsetCutoff.before).toBe("2025-12-31T22:00:00.000Z");
+		await expect(
+			invokeWebhookPruneOperation(context, {
+				older_than_days: 30,
+				dry_run: false,
+			}),
+		).rejects.toThrow(/before/);
+	});
+
 	test("creates, filters, updates, and deletes endpoints through named invokers", async () => {
 		const context = await createContext();
 		const created = await invokeWebhookCreateOperation(context, {

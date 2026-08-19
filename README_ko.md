@@ -556,7 +556,10 @@ projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설
 no-op인 네 가지 idempotent delete(`lists.delete`, `subscribers.delete`,
 `campaigns.delete`, `media.delete`)를 승격했습니다. 다섯 번째 batch에서는
 plan-then-apply 방식의 manifest 수렴이 idempotent로 선언되고 dry-run으로
-미리보기 가능한 `user-roles.reconcile`을 승격했습니다.
+미리보기 가능한 `user-roles.reconcile`을 승격했습니다. `webhooks.prune`은
+승격 대신 강화했습니다. 파괴적 실행은 dry-run이 보고한 명시적 `before`
+cutoff를 그대로 전달해야 하고, bounded retry는 해당 창 안에서 다음
+오래된 batch부터 이어서 처리하는 것으로 문서화했습니다.
 현재 stable baseline은 70개이며, 나머지 experimental descriptor는 34개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
@@ -865,7 +868,7 @@ listmonk-cli webhooks tick --dispatch-limit 25 --confirm
 listmonk-cli webhooks reconcile
 listmonk-cli webhooks reconcile --no-dry-run
 listmonk-cli webhooks prune --older-than-days 30 --dry-run
-listmonk-cli webhooks prune --older-than-days 30 --no-dry-run --confirm
+listmonk-cli webhooks prune --before <cutoff-reported-by-dry-run> --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted
 listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
 listmonk-cli webhooks runtime status
@@ -929,8 +932,9 @@ lock으로 보호되는 순차 migration으로 갱신합니다. `webhooks tick`�
 limit으로 batch 처리되므로, ambiguous retry가 순수 no-op가 아니라 다음 만료
 delivery batch를 처리할 수 있습니다. 재시도 전 dry-run으로 남은 backlog를 확인하세요.
 `webhooks prune`은 기본
-dry-run이며 오래된 terminal
-history를 명시적으로 확인한 경우에만 삭제합니다.
+dry-run이며, 파괴적 실행에는 dry-run이 보고한 timestamp를 `--before`로
+그대로 전달해야 합니다. 확인된 삭제 창이 현재 시계로 흔들리지 않으며,
+bounded retry는 해당 창 안에서 다음 오래된 batch부터 이어서 처리합니다.
 
 자격 증명, query string, fragment가 없는 public HTTPS endpoint만 허용합니다.
 Dispatch 시 DNS/IP가 전역 라우팅 가능한 주소인지 다시 확인하고, 검증된 주소를

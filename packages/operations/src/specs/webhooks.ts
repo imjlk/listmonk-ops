@@ -791,7 +791,7 @@ export const webhookPruneOperationSpec = defineOperationSpec({
 	verb: "prune",
 	title: "Prune outbound webhook delivery history",
 	description:
-		"Preview or delete bounded terminal delivery records older than a retention cutoff.",
+		"Preview or delete bounded terminal delivery records older than a retention cutoff. Destructive runs require the explicit `before` cutoff reported by a dry run.",
 	contract: {
 		input: webhookPruneInputContract,
 		output: webhookPruneOutputContract,
@@ -806,9 +806,11 @@ export const webhookPruneOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: true },
 	retry: {
-		kind: "safe",
+		kind: "reconcile",
+		reconcileWith: "webhooks.delivery.list",
+		idempotent: false,
 		reason:
-			"Deleting the same already-removed terminal records is an idempotent no-op.",
+			"An explicit `before` cutoff pins the deletion window, but a bounded retry selects the next oldest batch within it; verify the remaining backlog with webhooks.delivery.list before repeating.",
 	},
 	agent: {
 		useWhen: ["Terminal delivery history has exceeded the retention policy."],
@@ -817,7 +819,7 @@ export const webhookPruneOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.reconcile"],
 		retryGuidance:
-			"Run dry_run first; repeating the confirmed cutoff is safe.",
+			"Run dry_run first; destructive runs echo the reported `before` cutoff, and a bounded retry continues with the next oldest batch inside that window.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_prune",

@@ -563,8 +563,11 @@ promoted the four idempotent delete operations (`lists.delete`,
 `subscribers.delete`, `campaigns.delete`, `media.delete`) where retry on an
 already-deleted resource is a documented no-op. A fifth batch promoted
 `user-roles.reconcile`, whose plan-then-apply manifest convergence is
-declared idempotent and previewable through dry-run; the remaining 34
-descriptors are experimental.
+declared idempotent and previewable through dry-run. `webhooks.prune` was
+subsequently hardened rather than promoted: destructive runs must echo the
+explicit `before` cutoff a dry run reported, and bounded retries are
+documented as continuing with the next oldest batch inside that window;
+the remaining 34 descriptors are experimental.
 
 The spec publishes six typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -882,7 +885,7 @@ listmonk-cli webhooks tick --dispatch-limit 25 --confirm
 listmonk-cli webhooks reconcile
 listmonk-cli webhooks reconcile --no-dry-run
 listmonk-cli webhooks prune --older-than-days 30 --dry-run
-listmonk-cli webhooks prune --older-than-days 30 --no-dry-run --confirm
+listmonk-cli webhooks prune --before <cutoff-reported-by-dry-run> --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted
 listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
 listmonk-cli webhooks runtime status
@@ -947,8 +950,10 @@ and applies it with `--no-dry-run`. Reconciliation is bounded by a per-call
 limit, so an ambiguous retry can process the next batch of expired deliveries
 rather than being a pure no-op; re-run in dry-run mode to verify the remaining
 backlog before retrying. In contrast,
-`webhooks prune` defaults to a dry run and only deletes old terminal history
-after explicit confirmation.
+`webhooks prune` defaults to a dry run. Destructive runs require
+`--before` echoing the timestamp the dry run reported, so the confirmed
+deletion window can never drift with the clock; a bounded retry then
+continues with the next oldest batch inside that window.
 
 Only public HTTPS endpoints without credentials, query strings, or fragments
 are accepted. Destination DNS/IP safety is rechecked against globally routable

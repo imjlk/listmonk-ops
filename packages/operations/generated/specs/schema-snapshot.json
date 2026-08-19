@@ -6796,6 +6796,10 @@
       "input": {
         "components": {
           "schemas": {
+            "IsoDateTime": {
+              "format": "date-time",
+              "type": "string"
+            },
             "WebhookDeliveryListLimit": {
               "maximum": 1000,
               "minimum": 1,
@@ -6804,6 +6808,9 @@
             "WebhookPruneInput": {
               "additionalProperties": false,
               "properties": {
+                "before": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
                 "dry_run": {
                   "type": "boolean"
                 },
@@ -6828,6 +6835,9 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "before": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
             "dry_run": {
               "type": "boolean"
             },
@@ -6916,8 +6926,10 @@
         "dryRun": true
       },
       "retry": {
-        "kind": "safe",
-        "reason": "Deleting the same already-removed terminal records is an idempotent no-op."
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "An explicit `before` cutoff pins the deletion window, but a bounded retry selects the next oldest batch within it; verify the remaining backlog with webhooks.delivery.list before repeating.",
+        "reconcileWith": "webhooks.delivery.list"
       },
       "since": "0.8.0",
       "stability": "experimental"
