@@ -338,8 +338,16 @@ export type ReconcileOutboundWebhooksResult = Readonly<{
 
 export type PruneOutboundWebhooksOptions = Readonly<{
 	before: Date;
+	ids?: readonly string[];
 	limit?: number;
 	dryRun?: boolean;
+}>;
+
+export type ResolvedPruneOutboundWebhooksOptions = Readonly<{
+	before: Date;
+	ids: readonly string[] | undefined;
+	limit: number;
+	dryRun: boolean;
 }>;
 
 export type PruneOutboundWebhooksResult = Readonly<{
@@ -347,6 +355,7 @@ export type PruneOutboundWebhooksResult = Readonly<{
 	deleted: number;
 	dryRun: boolean;
 	before: string;
+	ids: readonly string[];
 }>;
 
 export type ReplayOutboundWebhookDeadLettersOptions = Readonly<{
@@ -459,7 +468,7 @@ export interface OutboundWebhookRepository {
 		options: Required<ReconcileOutboundWebhooksOptions>,
 	): Promise<ReconcileOutboundWebhooksResult>;
 	prune(
-		options: Required<PruneOutboundWebhooksOptions>,
+		options: ResolvedPruneOutboundWebhooksOptions,
 	): Promise<PruneOutboundWebhooksResult>;
 	getRuntimeHealth(options: Readonly<{
 		now: Date;
@@ -1652,6 +1661,10 @@ export async function reconcileOutboundWebhookDeliveries(
 /**
  * Remove bounded terminal delivery history older than `before`. Active and
  * retryable records are never eligible, even when their timestamps are old.
+ * Without `ids`, the oldest eligible batch up to `limit` is selected; with
+ * `ids`, exactly that set is matched against the same terminal/cutoff
+ * criteria (stale or non-terminal ids are silently skipped) and `limit`
+ * and oldest-first ordering do not apply.
  */
 export async function pruneOutboundWebhookDeliveries(
 	options: PruneOutboundWebhooksOptions &
@@ -1660,8 +1673,9 @@ export async function pruneOutboundWebhookDeliveries(
 	if (!Number.isFinite(options.before.getTime())) {
 		throw new TypeError("Webhook prune cutoff must be a valid date");
 	}
-	const resolved = {
+	const resolved: ResolvedPruneOutboundWebhooksOptions = {
 		before: options.before,
+		ids: options.ids,
 		limit: resolveMaintenanceLimit(options.limit),
 		dryRun: options.dryRun ?? false,
 	};
@@ -1671,24 +1685,30 @@ export async function pruneOutboundWebhookDeliveries(
 
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
-		const eligibleIds = current.deliveries
-			.filter(
-				(delivery) =>
-					["succeeded", "exhausted"].includes(delivery.status) &&
-					delivery.completedAt !== undefined &&
-					Date.parse(delivery.completedAt) < resolved.before.getTime(),
-			)
-			.sort((left, right) =>
-				(left.completedAt ?? "").localeCompare(right.completedAt ?? ""),
-			)
-			.slice(0, resolved.limit)
-			.map((delivery) => delivery.id);
+		const requestedIds =
+			resolved.ids === undefined ? undefined : new Set(resolved.ids);
+		const matchesCutoff = (delivery: OutboundWebhookDelivery) =>
+			["succeeded", "exhausted"].includes(delivery.status) &&
+			delivery.completedAt !== undefined &&
+			Date.parse(delivery.completedAt) < resolved.before.getTime();
+		const candidates = requestedIds
+			? current.deliveries.filter(
+					(delivery) => requestedIds.has(delivery.id) && matchesCutoff(delivery),
+				)
+			: current.deliveries
+					.filter(matchesCutoff)
+					.sort((left, right) =>
+						(left.completedAt ?? "").localeCompare(right.completedAt ?? ""),
+					)
+					.slice(0, resolved.limit);
+		const eligibleIds = candidates.map((delivery) => delivery.id);
 		const eligible = new Set(eligibleIds);
 		const result: PruneOutboundWebhooksResult = {
 			eligible: eligible.size,
 			deleted: resolved.dryRun ? 0 : eligible.size,
 			dryRun: resolved.dryRun,
 			before: resolved.before.toISOString(),
+			ids: eligibleIds,
 		};
 		if (resolved.dryRun || eligible.size === 0) {
 			return commitJsonFileStoreUpdate(current, result);

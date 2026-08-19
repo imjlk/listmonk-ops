@@ -791,7 +791,7 @@ export const webhookPruneOperationSpec = defineOperationSpec({
 	verb: "prune",
 	title: "Prune outbound webhook delivery history",
 	description:
-		"Preview or delete bounded terminal delivery records older than a retention cutoff. Destructive runs require the explicit `before` cutoff reported by a dry run.",
+		"Preview or delete bounded terminal delivery records older than a retention cutoff. Destructive runs echo the exact delivery ids and `before` cutoff a dry run reported, so a retry deletes nothing new.",
 	contract: {
 		input: webhookPruneInputContract,
 		output: webhookPruneOutputContract,
@@ -806,11 +806,9 @@ export const webhookPruneOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: true },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "webhooks.delivery.list",
-		idempotent: false,
+		kind: "safe",
 		reason:
-			"An explicit `before` cutoff pins the deletion window, but a bounded retry selects the next oldest batch within it; verify the remaining backlog with webhooks.delivery.list before repeating.",
+			"Destructive runs delete exactly the echoed delivery set inside the echoed cutoff; a retry finds those records already removed and is a documented no-op. Dry runs only preview the bounded oldest batch.",
 	},
 	agent: {
 		useWhen: ["Terminal delivery history has exceeded the retention policy."],
@@ -819,7 +817,7 @@ export const webhookPruneOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.reconcile"],
 		retryGuidance:
-			"Run dry_run first; destructive runs echo the reported `before` cutoff, and a bounded retry continues with the next oldest batch inside that window.",
+			"Run dry_run first, then echo the reported ids and before cutoff; repeating that exact request deletes nothing new.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_prune",
@@ -837,7 +835,7 @@ export const webhookPruneOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookPruneOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

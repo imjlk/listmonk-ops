@@ -299,6 +299,7 @@ describe("webhook shared operations", () => {
 		const second = await invokeWebhookPruneOperation(context, {
 			older_than_days: 30,
 			before,
+			ids: first.ids,
 			limit: 10,
 			dry_run: false,
 		});
@@ -307,6 +308,7 @@ describe("webhook shared operations", () => {
 			deleted: first.eligible,
 			dry_run: false,
 			before,
+			ids: first.ids,
 		});
 		await expect(
 			invokeWebhookPruneOperation(context, {
@@ -324,6 +326,84 @@ describe("webhook shared operations", () => {
 				dry_run: false,
 			}),
 		).rejects.toThrow(/before/);
+	});
+
+	test("deletes exactly the echoed prune set and retries as a no-op", async () => {
+		const context = await createContext();
+		const endpoint = await invokeWebhookCreateOperation(context, {
+			name: "prune-target",
+			url: "https://8.8.8.8/hooks",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_PRUNE",
+			event_filters: ["delivery.*"],
+			circuit_failure_threshold: 1,
+		});
+		await invokeWebhookInboundIngestOperation(context, {
+			provider: "ses",
+			provider_event_id: "prune-event-1",
+			kind: "rejected" as const,
+			message_id: "prune-message-1",
+			metadata: { recipient_email: "hidden@example.com", reason: "policy" },
+		});
+		await invokeWebhookDispatchOperation(
+			{
+				...context,
+				fetcher: mock(
+					async () => new Response(null, { status: 400 }),
+				) as typeof fetch,
+			},
+			{ limit: 10 },
+		);
+		const deadLetters = await invokeWebhookDlqListOperation(context, {});
+		const deliveryId = deadLetters.deliveries[0]?.id;
+		expect(deliveryId).toBeDefined();
+
+		const before = "2030-01-01T00:00:00.000Z";
+		const preview = await invokeWebhookPruneOperation(context, {
+			before,
+			limit: 10,
+			dry_run: true,
+		});
+		expect(preview).toMatchObject({
+			eligible: 1,
+			deleted: 0,
+			dry_run: true,
+			before,
+		});
+		expect(preview.ids).toEqual([deliveryId]);
+
+		const deleted = await invokeWebhookPruneOperation(context, {
+			before,
+			ids: preview.ids,
+			dry_run: false,
+		});
+		expect(deleted).toEqual({
+			eligible: 1,
+			deleted: 1,
+			dry_run: false,
+			before,
+			ids: [deliveryId],
+		});
+
+		const retried = await invokeWebhookPruneOperation(context, {
+			before,
+			ids: preview.ids,
+			dry_run: false,
+		});
+		expect(retried).toEqual({
+			eligible: 0,
+			deleted: 0,
+			dry_run: false,
+			before,
+			ids: [],
+		});
+
+		await expect(
+			invokeWebhookPruneOperation(context, {
+				before,
+				dry_run: false,
+			}),
+		).rejects.toThrow(/ids/);
+		expect(endpoint.endpoint.enabled).toBe(true);
 	});
 
 	test("creates, filters, updates, and deletes endpoints through named invokers", async () => {

@@ -8043,7 +8043,7 @@
         "related": [
           "webhooks.reconcile"
         ],
-        "retryGuidance": "Run dry_run first; destructive runs echo the reported `before` cutoff, and a bounded retry continues with the next oldest batch inside that window.",
+        "retryGuidance": "Run dry_run first, then echo the reported ids and before cutoff; repeating that exact request deletes nothing new.",
         "useWhen": [
           "Terminal delivery history has exceeded the retention policy."
         ],
@@ -8059,6 +8059,10 @@
                 "format": "date-time",
                 "type": "string"
               },
+              "Uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
               "WebhookDeliveryListLimit": {
                 "maximum": 1000,
                 "minimum": 1,
@@ -8072,6 +8076,13 @@
                   },
                   "dry_run": {
                     "type": "boolean"
+                  },
+                  "ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/Uuid"
+                    },
+                    "maxItems": 1000,
+                    "type": "array"
                   },
                   "limit": {
                     "$ref": "#/components/schemas/WebhookDeliveryListLimit"
@@ -8100,6 +8111,13 @@
               "dry_run": {
                 "type": "boolean"
               },
+              "ids": {
+                "items": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "maxItems": 1000,
+                "type": "array"
+              },
               "limit": {
                 "$ref": "#/components/schemas/WebhookDeliveryListLimit"
               },
@@ -8125,6 +8143,10 @@
                 "minimum": 0,
                 "type": "integer"
               },
+              "Uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
               "WebhookPruneOutput": {
                 "additionalProperties": false,
                 "properties": {
@@ -8139,13 +8161,20 @@
                   },
                   "eligible": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/Uuid"
+                    },
+                    "type": "array"
                   }
                 },
                 "required": [
                   "eligible",
                   "deleted",
                   "dry_run",
-                  "before"
+                  "before",
+                  "ids"
                 ],
                 "type": "object"
               }
@@ -8166,13 +8195,20 @@
               },
               "eligible": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "ids": {
+                "items": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "type": "array"
               }
             },
             "required": [
               "eligible",
               "deleted",
               "dry_run",
-              "before"
+              "before",
+              "ids"
             ],
             "type": "object"
           },
@@ -8180,7 +8216,7 @@
           "stage": "normalized"
         }
       },
-      "description": "Preview or delete bounded terminal delivery records older than a retention cutoff. Destructive runs require the explicit `before` cutoff reported by a dry run.",
+      "description": "Preview or delete bounded terminal delivery records older than a retention cutoff. Destructive runs echo the exact delivery ids and `before` cutoff a dry run reported, so a retry deletes nothing new.",
       "effects": [
         {
           "action": "prune",
@@ -8208,13 +8244,11 @@
       },
       "resource": "webhook",
       "retry": {
-        "idempotent": false,
-        "kind": "reconcile",
-        "reason": "An explicit `before` cutoff pins the deletion window, but a bounded retry selects the next oldest batch within it; verify the remaining backlog with webhooks.delivery.list before repeating.",
-        "reconcileWith": "webhooks.delivery.list"
+        "kind": "safe",
+        "reason": "Destructive runs delete exactly the echoed delivery set inside the echoed cutoff; a retry finds those records already removed and is a documented no-op. Dry runs only preview the bounded oldest batch."
       },
       "since": "0.8.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Prune outbound webhook delivery history",
       "verb": "prune"
     },

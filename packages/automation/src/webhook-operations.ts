@@ -226,16 +226,34 @@ const webhookPruneInputSchema = z
 			.describe(
 				"Explicit retention cutoff that takes precedence over older_than_days and is required for destructive runs; echo the timestamp a dry run reported so the confirmed window never drifts",
 			),
+		ids: z
+			.array(z.uuid())
+			.max(1_000)
+			.optional()
+			.describe(
+				"Exact terminal delivery set reported by a dry run; required for destructive runs so a retry deletes nothing new",
+			),
 		limit: webhookDeliveryListLimitInput.default(100),
 		dry_run: booleanInput.default(true),
 	})
 	.superRefine((value, context) => {
-		if (!value.dry_run && value.before === undefined) {
+		if (value.dry_run) {
+			return;
+		}
+		if (value.before === undefined) {
 			context.addIssue({
 				code: "custom",
 				path: ["before"],
 				message:
 					"Destructive prune runs require an explicit before cutoff; run a dry run first and echo the reported timestamp",
+			});
+		}
+		if (value.ids === undefined) {
+			context.addIssue({
+				code: "custom",
+				path: ["ids"],
+				message:
+					"Destructive prune runs require the exact delivery ids a dry run reported; echo them so a retry deletes nothing new",
 			});
 		}
 	});
@@ -437,6 +455,7 @@ const webhookPruneOutputSchema = z.object({
 	deleted: z.number().int().nonnegative(),
 	dry_run: z.boolean(),
 	before: z.iso.datetime({ offset: true }),
+	ids: z.array(z.uuid()).readonly(),
 });
 const webhookTickOutputSchema = z.object({
 	reconcile: webhookReconcileOutputSchema,
@@ -750,6 +769,7 @@ export async function executeWebhookPruneOperation(
 		before: input.before
 			? new Date(input.before)
 			: new Date(Date.now() - input.older_than_days * MILLISECONDS_PER_DAY),
+		ids: input.ids,
 		limit: input.limit,
 		dryRun: input.dry_run,
 	});
@@ -758,6 +778,7 @@ export async function executeWebhookPruneOperation(
 		deleted: result.deleted,
 		dry_run: result.dryRun,
 		before: result.before,
+		ids: result.ids,
 	};
 }
 
@@ -1082,13 +1103,13 @@ export const webhookPruneOperation = defineOperation({
 	id: "webhooks.prune",
 	title: "Prune outbound webhook delivery history",
 	description:
-		"Preview or delete bounded terminal delivery records older than a retention cutoff. Destructive runs require the explicit `before` cutoff reported by a dry run.",
+		"Preview or delete bounded terminal delivery records older than a retention cutoff. Destructive runs echo the exact delivery ids and `before` cutoff a dry run reported, so a retry deletes nothing new.",
 	inputSchema: webhookPruneInputSchema,
 	outputSchema: webhookPruneOutputSchema,
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: false,
+		idempotentHint: true,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_webhooks_prune" },

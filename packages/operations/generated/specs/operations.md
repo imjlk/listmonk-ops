@@ -284,15 +284,15 @@ Recover expired worker leases and exhaust deliveries whose endpoint is missing o
 
 ## `webhooks.prune`
 
-Preview or delete bounded terminal delivery records older than a retention cutoff. Destructive runs require the explicit `before` cutoff reported by a dry run.
+Preview or delete bounded terminal delivery records older than a retention cutoff. Destructive runs echo the exact delivery ids and `before` cutoff a dry run reported, so a retry deletes nothing new.
 
 - Resource / verb: `webhook.prune`
 - MCP tool: `listmonk_webhooks_prune`
 - Contract source: input `typescript`, output `typescript`
 - Effects: `maintenance:prune:destructive`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
-- Retry: `reconcile`
-- Stability: `experimental` since `0.8.0`
+- Retry: `safe`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.tick`
 

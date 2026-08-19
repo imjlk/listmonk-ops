@@ -23004,6 +23004,10 @@
           "format": "date-time",
           "type": "string"
         },
+        "Uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
         "WebhookDeliveryListLimit": {
           "maximum": 1000,
           "minimum": 1,
@@ -23017,6 +23021,13 @@
             },
             "dry_run": {
               "type": "boolean"
+            },
+            "ids": {
+              "items": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "maxItems": 1000,
+              "type": "array"
             },
             "limit": {
               "$ref": "#/components/schemas/WebhookDeliveryListLimit"
@@ -23045,6 +23056,13 @@
         "dry_run": {
           "type": "boolean"
         },
+        "ids": {
+          "items": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
         "limit": {
           "$ref": "#/components/schemas/WebhookDeliveryListLimit"
         },
@@ -23070,6 +23088,10 @@
           "minimum": 0,
           "type": "integer"
         },
+        "Uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
         "WebhookPruneOutput": {
           "additionalProperties": false,
           "properties": {
@@ -23084,13 +23106,20 @@
             },
             "eligible": {
               "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "ids": {
+              "items": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "type": "array"
             }
           },
           "required": [
             "eligible",
             "deleted",
             "dry_run",
-            "before"
+            "before",
+            "ids"
           ],
           "type": "object"
         }
@@ -23111,13 +23140,20 @@
         },
         "eligible": {
           "$ref": "#/components/schemas/NonNegativeInteger"
+        },
+        "ids": {
+          "items": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "type": "array"
         }
       },
       "required": [
         "eligible",
         "deleted",
         "dry_run",
-        "before"
+        "before",
+        "ids"
       ],
       "type": "object"
     },
