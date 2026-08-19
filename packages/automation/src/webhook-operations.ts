@@ -339,6 +339,9 @@ const webhookCreateOutputSchema = z.object({
 const webhookUpdateOutputSchema = z.object({
 	endpoint: webhookEndpointOutputSchema,
 });
+// Operation output schemas must keep an object root, so the deleted/endpoint
+// correlation (endpoint is present exactly when deleted is true) is enforced
+// by the executor rather than a discriminated union.
 const webhookDeleteOutputSchema = z.object({
 	deleted: z.boolean(),
 	endpoint: webhookEndpointOutputSchema.optional(),

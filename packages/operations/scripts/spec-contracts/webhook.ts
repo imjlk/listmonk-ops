@@ -173,6 +173,8 @@ export interface WebhookDeleteInput {
 	id: WebhookId;
 }
 
+// endpoint is present exactly when deleted is true; the flat optional shape
+// keeps the object root the operation schema projection requires.
 export interface WebhookDeleteOutput {
 	deleted: boolean;
 	endpoint?: WebhookEndpoint | undefined;

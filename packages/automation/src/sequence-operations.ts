@@ -271,6 +271,9 @@ const sequenceDefinitionEnvelopeSchema = z.object({
 const sequenceListOutputSchema = z.object({
 	sequences: z.array(sequenceDefinitionOutputSchema),
 });
+// Operation output schemas must keep an object root, so the deleted/sequence
+// correlation (sequence is present exactly when deleted is true) is enforced
+// by the executor rather than a discriminated union.
 const sequenceDeleteOutputSchema = z.object({
 	deleted: z.boolean(),
 	sequence: sequenceDefinitionOutputSchema.optional(),

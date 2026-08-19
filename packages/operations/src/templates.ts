@@ -17,6 +17,7 @@ import {
 	optionalBooleanSchema,
 	readResourceSafety,
 	resourceIdSchema,
+	isResourceMissingError,
 	ResourceResponseError,
 	toResourceErrorMessage,
 	unwrapResourceResponse,
@@ -652,11 +653,15 @@ function templateMatchesDesiredState(
 	);
 }
 
+// Mirrors Listmonk's shared server-side rejection for deleting a missing
+// template and the protected default template; update if upstream rewords it.
+const NONEXISTENT_OR_DEFAULT_TEMPLATE_MESSAGE = /non-existent or default template/i;
+
 function isTemplateNonexistentOrDefaultError(error: unknown): boolean {
 	return (
 		error instanceof ResourceResponseError &&
 		error.status === 400 &&
-		/non-existent or default template/i.test(error.message)
+		NONEXISTENT_OR_DEFAULT_TEMPLATE_MESSAGE.test(error.message)
 	);
 }
 
@@ -675,11 +680,15 @@ export async function deleteTemplate(
 			throw error;
 		}
 		// Listmonk reports one message for a missing template and for the
-		// protected default template; only the missing case is a delete no-op.
+		// protected default template; only a genuinely missing template is a
+		// delete no-op, so probe existence and treat anything but a clean
+		// not-found (including transient probe failures) as an explicit error.
 		try {
 			await getTemplate({ client }, { id: input.id });
-		} catch {
-			return { id: input.id, deleted: false };
+		} catch (probeError) {
+			if (isResourceMissingError(probeError)) {
+				return { id: input.id, deleted: false };
+			}
 		}
 		throw error;
 	}

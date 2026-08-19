@@ -142,6 +142,8 @@ export interface SequenceIdInput {
 	id: string & tags.Format<"uuid">;
 }
 
+// sequence is present exactly when deleted is true; the flat optional shape
+// keeps the object root the operation schema projection requires.
 export interface SequenceDeleteOutput {
 	deleted: boolean;
 	sequence?: SequenceDefinition | undefined;
