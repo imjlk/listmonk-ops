@@ -12833,6 +12833,12 @@
               "$ref": "#/components/schemas/NonNegativeInteger",
               "description": "Minimum absolute subscriber delta for an alert. Defaults to 50."
             },
+            "sample_key": {
+              "description": "Sampling period key; same-key snapshots replace their predecessor so retries never double-weight the period.",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
             "threshold": {
               "description": "Relative drift threshold. Defaults to 0.2.",
               "minimum": 0,
@@ -12876,6 +12882,12 @@
           "$ref": "#/components/schemas/NonNegativeInteger",
           "description": "Minimum absolute subscriber delta for an alert. Defaults to 50."
         },
+        "sample_key": {
+          "description": "Sampling period key; same-key snapshots replace their predecessor so retries never double-weight the period.",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
         "threshold": {
           "description": "Relative drift threshold. Defaults to 0.2.",
           "minimum": 0,
@@ -12891,6 +12903,11 @@
   "segmentDriftOutputContract": {
     "components": {
       "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
         "ResourceId": {
           "maximum": 9007199254740991,
           "minimum": 1,
@@ -12955,6 +12972,10 @@
               "minimum": 0,
               "type": "number"
             },
+            "replaced": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Snapshots replaced by this run because they shared its sample key."
+            },
             "threshold": {
               "minimum": 0,
               "type": "number"
@@ -12964,6 +12985,7 @@
             "capturedAt",
             "threshold",
             "minAbsoluteChange",
+            "replaced",
             "comparisons",
             "alerts"
           ],
@@ -12994,6 +13016,10 @@
           "minimum": 0,
           "type": "number"
         },
+        "replaced": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Snapshots replaced by this run because they shared its sample key."
+        },
         "threshold": {
           "minimum": 0,
           "type": "number"
@@ -13003,6 +13029,7 @@
         "capturedAt",
         "threshold",
         "minAbsoluteChange",
+        "replaced",
         "comparisons",
         "alerts"
       ],

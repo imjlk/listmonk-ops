@@ -1162,7 +1162,7 @@ Prerequisites: `lists.list`
 
 Verify with: `lists.list`
 
-Retry guidance: Verify the previous snapshot was committed before retrying; a duplicate sample double-weights the same count.
+Retry guidance: Re-run with the same sample_key after an ambiguous result: the retry replaces that period's snapshot instead of appending a duplicate sample.
 
 ## Generate daily operations digest (`ops.digest.daily`)
 

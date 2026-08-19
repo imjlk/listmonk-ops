@@ -149,6 +149,53 @@ describe("automation persistence", () => {
 		expect(persisted.snapshots[0]?.subscriberCount).toBe(1);
 	});
 
+	test("replaces same-key drift snapshots instead of double-weighting", async () => {
+		const { segmentStorePath } = await useTemporaryStores();
+		const client = {
+			list: {
+				list: async () => ({
+					data: {
+						results: [
+							{
+								id: 1,
+								name: "Audience",
+								subscriber_count: 100,
+							},
+						],
+					},
+				}),
+			},
+		} as unknown as ListmonkClient;
+
+		const unkeyed = await runSegmentDriftSnapshot(client);
+		expect(unkeyed.replaced).toBe(0);
+		expect(unkeyed.comparisons[0]?.previousCount).toBeUndefined();
+
+		const firstKeyed = await runSegmentDriftSnapshot(client, {
+			sampleKey: "2026-08-19",
+		});
+		expect(firstKeyed.replaced).toBe(0);
+		// The keyed sample compares against the prior unkeyed snapshot, not itself.
+		expect(firstKeyed.comparisons[0]?.previousCount).toBe(100);
+
+		const retriedKeyed = await runSegmentDriftSnapshot(client, {
+			sampleKey: "2026-08-19",
+		});
+		expect(retriedKeyed.replaced).toBe(1);
+		// The retry still compares against the prior period, never the same-key
+		// snapshot it replaces, so the sample is not double-weighted.
+		expect(retriedKeyed.comparisons[0]?.previousCount).toBe(100);
+
+		const persisted = JSON.parse(await readFile(segmentStorePath, "utf8")) as {
+			version: number;
+			snapshots: Array<{ sampleKey?: string }>;
+		};
+		expect(persisted.snapshots.map((snapshot) => snapshot.sampleKey)).toEqual([
+			undefined,
+			"2026-08-19",
+		]);
+	});
+
 	test("serializes template versions, promotion, and rollback", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let requestCount = 0;
