@@ -1061,8 +1061,8 @@ export function createPostgresOutboundWebhookRepository(
 					WHERE status IN ('succeeded', 'exhausted')
 						AND completed_at < ${pruneOptions.before}
 						${exactSetFilter.idFilter}
-					FOR UPDATE SKIP LOCKED
 					${exactSetFilter.orderedBatch}
+					FOR UPDATE SKIP LOCKED
 				`;
 				if (!pruneOptions.dryRun && rows.length > 0) {
 					await transaction`
