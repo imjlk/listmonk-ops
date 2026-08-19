@@ -220,10 +220,10 @@ const webhookPruneInputSchema = z.object({
 		)
 		.default(30),
 	before: z
-		.iso.datetime()
+		.iso.datetime({ offset: true })
 		.optional()
 		.describe(
-			"Explicit retention cutoff; retries reuse the exact confirmed window instead of recomputing it from the current clock",
+			"Explicit retention cutoff that takes precedence over older_than_days; retries reuse the exact confirmed window instead of recomputing it from the current clock",
 		),
 	limit: webhookDeliveryListLimitInput.default(100),
 	dry_run: booleanInput.default(true),

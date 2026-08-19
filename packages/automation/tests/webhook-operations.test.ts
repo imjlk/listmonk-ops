@@ -313,6 +313,11 @@ describe("webhook shared operations", () => {
 				before: "not-a-timestamp",
 			}),
 		).rejects.toThrow();
+		const offsetCutoff = await invokeWebhookPruneOperation(context, {
+			before: "2026-01-01T00:00:00.000+02:00",
+			dry_run: true,
+		});
+		expect(offsetCutoff.before).toBe("2025-12-31T22:00:00.000Z");
 	});
 
 	test("creates, filters, updates, and deletes endpoints through named invokers", async () => {

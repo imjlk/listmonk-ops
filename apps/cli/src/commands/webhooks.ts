@@ -281,9 +281,9 @@ const pruneCommand = defineCommand({
 			z.coerce.number().int().min(1).max(3_650).default(30),
 			{ description: "Retention age in days" },
 		),
-		before: option(z.iso.datetime().optional(), {
+		before: option(z.iso.datetime({ offset: true }).optional(), {
 			description:
-				"Explicit retention cutoff so retries reuse the exact confirmed deletion window",
+				"Explicit retention cutoff (takes precedence over --older-than-days) so retries reuse the exact confirmed deletion window",
 		}),
 		limit: option(z.coerce.number().int().min(1).max(1_000).default(100), {
 			description: "Maximum terminal records to inspect or delete",
