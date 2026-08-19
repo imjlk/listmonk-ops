@@ -1042,15 +1042,24 @@ export function createPostgresOutboundWebhookRepository(
 						hashtext('webhook_delivery_capacity')
 					)
 				`;
-				const rows = await transaction<{ id: string }[]>`
-					SELECT id
-					FROM listmonk_ops.webhook_deliveries
-					WHERE status IN ('succeeded', 'exhausted')
-						AND completed_at < ${pruneOptions.before}
-					ORDER BY completed_at ASC
-					FOR UPDATE SKIP LOCKED
-					LIMIT ${pruneOptions.limit}
-				`;
+				const rows = pruneOptions.ids
+					? await transaction<{ id: string }[]>`
+							SELECT id
+							FROM listmonk_ops.webhook_deliveries
+							WHERE id = ANY(${transaction.array([...pruneOptions.ids], POSTGRES_UUID_TYPE_OID)})
+								AND status IN ('succeeded', 'exhausted')
+								AND completed_at < ${pruneOptions.before}
+							FOR UPDATE SKIP LOCKED
+						`
+					: await transaction<{ id: string }[]>`
+							SELECT id
+							FROM listmonk_ops.webhook_deliveries
+							WHERE status IN ('succeeded', 'exhausted')
+								AND completed_at < ${pruneOptions.before}
+							ORDER BY completed_at ASC
+							FOR UPDATE SKIP LOCKED
+							LIMIT ${pruneOptions.limit}
+						`;
 				if (!pruneOptions.dryRun && rows.length > 0) {
 					await transaction`
 						DELETE FROM listmonk_ops.webhook_deliveries
@@ -1062,6 +1071,7 @@ export function createPostgresOutboundWebhookRepository(
 					deleted: pruneOptions.dryRun ? 0 : rows.length,
 					dryRun: pruneOptions.dryRun,
 					before: pruneOptions.before.toISOString(),
+					ids: rows.map((row) => row.id),
 				} satisfies PruneOutboundWebhooksResult;
 			});
 		},

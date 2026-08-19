@@ -89,7 +89,7 @@ describe("MCP outbound webhook tools", () => {
 		expect(reconcile?.inputSchema.required ?? []).not.toContain("confirm");
 		expect(prune?.annotations).toMatchObject({
 			destructiveHint: true,
-			idempotentHint: false,
+			idempotentHint: true,
 		});
 		expect(prune?.inputSchema.required).toContain("confirm");
 		expect(tick?.inputSchema.required).toContain("confirm");

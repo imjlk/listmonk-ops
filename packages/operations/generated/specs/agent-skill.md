@@ -326,7 +326,7 @@ Retry guidance: Re-run in dry-run mode after an ambiguous result to verify wheth
 
 ## Prune outbound webhook delivery history (`webhooks.prune`)
 
-Contract maturity: `experimental`; effects: `maintenance:prune:destructive`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `maintenance:prune:destructive`; confirmation: `required`; retry: `safe`.
 
 Use when: Terminal delivery history has exceeded the retention policy.
 
@@ -336,7 +336,7 @@ Prerequisites: `webhooks.delivery.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Run dry_run first; destructive runs echo the reported `before` cutoff, and a bounded retry continues with the next oldest batch inside that window.
+Retry guidance: Run dry_run first, then echo the reported ids and before cutoff; repeating that exact request deletes nothing new.
 
 ## Run one outbound webhook worker tick (`webhooks.tick`)
 

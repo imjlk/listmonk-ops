@@ -36,6 +36,17 @@ function parseEventFilters(value: string): string[] {
 	return filters;
 }
 
+function parseDeliveryIds(value: string): string[] {
+	const ids = value
+		.split(",")
+		.map((entry) => entry.trim())
+		.filter(Boolean);
+	if (ids.length === 0) {
+		throw new Error("Expected one or more comma-separated delivery ids");
+	}
+	return ids;
+}
+
 function parseJsonObject(value: string | undefined): Record<string, unknown> {
 	if (value === undefined) {
 		return {};
@@ -285,6 +296,10 @@ const pruneCommand = defineCommand({
 			description:
 				"Explicit retention cutoff (takes precedence over --older-than-days) so retries reuse the exact confirmed deletion window",
 		}),
+		ids: option(z.string().trim().min(1).optional(), {
+			description:
+				"Comma-separated exact delivery ids a dry run reported; required with --no-dry-run",
+		}),
 		limit: option(z.coerce.number().int().min(1).max(1_000).default(100), {
 			description: "Maximum terminal records to inspect or delete",
 		}),
@@ -299,6 +314,7 @@ const pruneCommand = defineCommand({
 				{
 					older_than_days: flags["older-than-days"],
 					before: flags.before,
+					ids: flags.ids ? parseDeliveryIds(flags.ids) : undefined,
 					limit: flags.limit,
 					dry_run: flags["dry-run"],
 				},

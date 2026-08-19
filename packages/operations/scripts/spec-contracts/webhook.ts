@@ -312,6 +312,7 @@ export type WebhookRetentionDays = number &
 export interface WebhookPruneInput {
 	older_than_days?: WebhookRetentionDays | undefined;
 	before?: IsoDateTime | undefined;
+	ids?: (readonly WebhookId[] & tags.MaxItems<1_000>) | undefined;
 	limit?: WebhookDeliveryListLimit | undefined;
 	dry_run?: boolean | undefined;
 }
@@ -321,6 +322,7 @@ export interface WebhookPruneOutput {
 	deleted: NonNegativeInteger;
 	dry_run: boolean;
 	before: IsoDateTime;
+	ids: readonly WebhookId[];
 }
 
 export interface WebhookTickInput {

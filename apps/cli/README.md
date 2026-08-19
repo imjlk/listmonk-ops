@@ -107,7 +107,7 @@ listmonk-cli webhooks tick --confirm
 listmonk-cli webhooks reconcile
 listmonk-cli webhooks reconcile --no-dry-run
 listmonk-cli webhooks prune --older-than-days 30 --dry-run
-listmonk-cli webhooks prune --before <cutoff-reported-by-dry-run> --no-dry-run --confirm
+listmonk-cli webhooks prune --before <cutoff> --ids <ids-from-dry-run> --no-dry-run --confirm
 listmonk-cli webhooks deliveries list --status exhausted
 listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
 listmonk-cli webhooks runtime status
