@@ -95,7 +95,11 @@ export async function renderDeleteTemplate(
 	input: { id: number },
 ): Promise<void> {
 	const result = await invokeDeleteTemplateOperation(context, input);
-	context.output.success(`Template deleted: ${input.id}`);
+	context.output.success(
+		result.deleted
+			? `Template deleted: ${input.id}`
+			: `Template already deleted: ${input.id}`,
+	);
 	context.output.json(result);
 }
 

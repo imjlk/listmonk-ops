@@ -154,3 +154,44 @@ describe("A/B test provisioning", () => {
 		await expect(service.getAllTests()).resolves.toHaveLength(0);
 	});
 });
+
+describe("deleteTestResources retry safety", () => {
+	test("skips already-removed campaigns and lists and continues remaining cleanup", async () => {
+		const deletedCampaigns: number[] = [];
+		const deletedLists: number[] = [];
+		const client = {
+			campaign: {
+				getById: async ({ path }: { path: { id: number } }) => {
+					// Campaign 1 was already removed in the first attempt;
+					// campaign 2 still needs cleanup.
+					if (path.id === 1) {
+						return {
+							error: { message: "campaign not found" },
+							response: { status: 404 },
+						};
+					}
+					return { data: { id: path.id, status: "draft" } };
+				},
+				delete: async ({ path }: { path: { id: number } }) => {
+					deletedCampaigns.push(path.id);
+					return { data: true };
+				},
+			},
+			list: {
+				delete: async ({ path }: { path: { list_id: number } }) => {
+					deletedLists.push(path.list_id);
+					return { data: true };
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		const integration = new ListmonkAbTestIntegration(client);
+		await integration.deleteTestResources({
+			campaignIds: [1, 2],
+			listIds: [10, 11],
+		});
+
+		expect(deletedCampaigns).toEqual([2]);
+		expect(deletedLists).toEqual([11, 10]);
+	});
+});

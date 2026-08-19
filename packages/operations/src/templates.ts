@@ -771,7 +771,10 @@ export const deleteTemplateOperation = defineOperation({
 	safety: deleteResourceSafety,
 	mcp: {
 		name: "listmonk_delete_template",
-		legacySuccessText: "Template deleted successfully",
+		legacySuccessText: (output) =>
+			output.deleted
+				? "Template deleted successfully"
+				: "Template already deleted",
 	},
 	spec: bindTemplatesDeleteOperationSpec(),
 	execute: deleteTemplate,
