@@ -28907,13 +28907,11 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": true,
-        "kind": "reconcile",
-        "reason": "The create intent (replay key, request fingerprint, and payload) is committed before any remote provisioning, so an ambiguous retry resumes the same test; a completed create replays it with created: false, and a key reused with a different request conflicts explicitly.",
-        "reconcileWith": "abtest.get"
+        "kind": "unsafe",
+        "reason": "The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning and an ambiguous retry resumes it, but a crash between successful provisioning and the provisioned commit can still re-provision remote resources; creation stays experimental until remote resource ids are checkpointed or reconciled on resume."
       },
       "since": "0.10.0",
-      "stability": "stable"
+      "stability": "experimental"
     },
     {
       "id": "abtest.analyze",

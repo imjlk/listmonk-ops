@@ -127,7 +127,7 @@ describe("A/B test operation registry", () => {
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_create",
 			)?.safety,
-		).toMatchObject({ destructiveHint: true, idempotentHint: true });
+		).toMatchObject({ destructiveHint: true, idempotentHint: false });
 		expect(
 			abTestOperations.find(
 				(operation) =>
@@ -476,6 +476,24 @@ test("resumes an ambiguous create from its persisted intent", async () => {
 	expect(replayed.created).toBe(false);
 	expect(replayed.test.id).toBe(persisted.test.id);
 	expect(replayed.test.provisionedAt).toBeDefined();
+});
+
+test("blocks launch and stop while a create intent is still provisioning", async () => {
+	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-guard-"));
+	const storePath = join(tempDir, "abtests.json");
+	const fixture = createFixture("draft");
+	fixture.pendingCreate = {
+		config: {} as import("../src/types").AbTestConfig,
+	};
+	await saveStoredAbTests([fixture], storePath);
+	const context = { client: {} as ListmonkClient, storePath };
+
+	await expect(
+		invokeLaunchAbTestOperation(context, { test_id: fixture.id }),
+	).rejects.toThrow(/still being provisioned/);
+	await expect(
+		invokeStopAbTestOperation(context, { test_id: fixture.id }),
+	).rejects.toThrow(/still being provisioned/);
 });
 
 test("replays an identical create through its derived replay key", async () => {

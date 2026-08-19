@@ -115,11 +115,9 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "abtest.get",
-		idempotent: true,
+		kind: "unsafe",
 		reason:
-			"The create intent (replay key, request fingerprint, and payload) is committed before any remote provisioning, so an ambiguous retry resumes the same test; a completed create replays it with created: false, and a key reused with a different request conflicts explicitly.",
+			"The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning and an ambiguous retry resumes it, but a crash between successful provisioning and the provisioned commit can still re-provision remote resources; creation stays experimental until remote resource ids are checkpointed or reconciled on resume.",
 	},
 	agent: {
 		useWhen: ["A new A/B test must be created."],
@@ -128,7 +126,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch", "abtest.delete"],
 		retryGuidance:
-			"Verify the test with abtest.get before repeating an ambiguous create; an identical retry resumes an unfinished intent or replays a completed one with created: false.",
+			"Verify the test with abtest.get before repeating an ambiguous create; an identical retry resumes an unfinished intent or replays a completed one, and the remote campaigns and lists should be inspected for duplicates.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_create",
@@ -141,7 +139,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeCreateAbTestOperation:function",
 		},
 	},
-	stability: "stable",
+	stability: "experimental",
 	since: "0.10.0",
 });
 

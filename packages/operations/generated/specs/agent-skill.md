@@ -1292,7 +1292,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Create A/B test (`abtest.create`)
 
-Contract maturity: `stable`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
 
 Use when: A new A/B test must be created.
 
@@ -1302,7 +1302,7 @@ Prerequisites: none
 
 Verify with: `abtest.get`
 
-Retry guidance: Verify the test with abtest.get before repeating an ambiguous create; an identical retry resumes an unfinished intent or replays a completed one with created: false.
+Retry guidance: Verify the test with abtest.get before repeating an ambiguous create; an identical retry resumes an unfinished intent or replays a completed one, and the remote campaigns and lists should be inspected for duplicates.
 
 ## Analyze A/B test (`abtest.analyze`)
 

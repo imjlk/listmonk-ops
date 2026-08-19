@@ -22,7 +22,7 @@ export function buildAbTestConfig(input: CreateAbTestInput): AbTestConfig {
 	return {
 			name: input.name,
 			idempotencyKey: input.idempotency_key,
-			campaignId: input.campaign_id || `campaign-${Date.now()}`,
+			campaignId: input.campaign_id || "campaign-auto",
 			variants: input.variants.map((v, index) => ({
 				id: `variant-${index}`,
 				name: v.name,

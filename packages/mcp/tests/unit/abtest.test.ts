@@ -65,7 +65,7 @@ describe("MCP A/B test operation adapter", () => {
 		});
 		expect(createTool?.annotations).toMatchObject({
 			destructiveHint: true,
-			idempotentHint: true,
+			idempotentHint: false,
 		});
 		expect(deployWinnerTool?.annotations?.idempotentHint).toBe(false);
 		expect(createTool?.inputSchema.required).toEqual([

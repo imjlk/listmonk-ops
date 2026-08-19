@@ -58,17 +58,22 @@ function canonicalizeConfigValue(value: unknown): unknown {
  * lock timestamp) are excluded so retries derive the same fingerprint.
  */
 export function fingerprintAbTestConfig(config: AbTestConfig): string {
-	const { campaignId: _campaignId, ...payload } = config;
+	const { idempotencyKey: _key, ...payload } = config;
 	const { createdAt: _createdAt, ...hypothesis } = payload.hypothesis ?? {};
+	// Normalize the defaults the service applies during provisioning so
+	// requests differing only in omitted defaults hash equally.
+	const testingMode = payload.testingMode ?? "holdout";
+	const normalized = {
+		...payload,
+		testingMode,
+		testGroupPercentage:
+			payload.testGroupPercentage ?? (testingMode === "holdout" ? 10 : 100),
+		confidenceThreshold: payload.confidenceThreshold ?? 0.95,
+		autoDeployWinner: payload.autoDeployWinner ?? false,
+		...(hypothesis ? { hypothesis } : {}),
+	};
 	return createHash("sha256")
-		.update(
-			JSON.stringify(
-				canonicalizeConfigValue({
-					...payload,
-					...(hypothesis ? { hypothesis } : {}),
-				}),
-			),
-		)
+		.update(JSON.stringify(canonicalizeConfigValue(normalized)))
 		.digest("hex");
 }
 
@@ -85,19 +90,13 @@ export class AbTestService {
 	private readonly inFlightKeyedCreates = new Map<string, Promise<AbTest>>();
 
 	async createTest(config: AbTestConfig): Promise<AbTest> {
-		// Replaying the same idempotency key returns the originally created
-		// test, so an ambiguous create retry never provisions a duplicate.
 		if (config.idempotencyKey !== undefined) {
-			const existing = await this.getTestByIdempotencyKey(
-				config.idempotencyKey,
-			);
-			if (existing) {
-				return existing;
-			}
 			// Direct library consumers are not serialized by the operation
 			// wrapper, so reserve the key while provisioning is in flight:
 			// a concurrent caller with the same key awaits this creation
 			// instead of provisioning a second set of campaigns and lists.
+			// Replays, conflicting fingerprints, and intent resumes are all
+			// resolved by recordCreateIntent below.
 			const key = config.idempotencyKey;
 			const inFlight = this.inFlightKeyedCreates.get(key);
 			if (inFlight) {
@@ -144,8 +143,12 @@ export class AbTestService {
 					);
 				}
 				// A completed creation is a replay; a persisted-but-unprovisioned
-				// intent resumes provisioning instead.
-				const completed = existing.provisionedAt !== undefined;
+				// intent resumes provisioning instead. Records persisted before
+				// intent-first creation carry neither marker and count as
+				// completed legacy creations.
+				const completed =
+					existing.provisionedAt !== undefined ||
+					existing.pendingCreate === undefined;
 				return { test: existing, replayed: completed };
 			}
 		}

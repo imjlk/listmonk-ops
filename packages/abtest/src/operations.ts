@@ -589,7 +589,9 @@ export async function executeGetAbTestOperation(
 // Deriving from the fully defaulted config keeps the key stable across
 // adapters that omit or explicitly send default values.
 function deriveAbTestCreateKey(config: AbTestConfig): string {
-	return `auto-${fingerprintAbTestConfig(config).slice(0, 32)}`;
+	// Version the prefix so any future change to the derivation starts a
+	// fresh key space instead of colliding with previously derived keys.
+	return `auto-v1-${fingerprintAbTestConfig(config).slice(0, 32)}`;
 }
 
 export async function executeCreateAbTestOperation(
@@ -874,7 +876,7 @@ export const createAbTestOperation = defineOperation({
 		"Create a new A/B test with variants and configuration",
 	inputSchema: createAbTestInputSchema,
 	outputSchema: z.object({ test: abTestSchema, created: z.boolean() }),
-		safety: { ...createSafety, idempotentHint: true },
+		safety: createSafety,
 	mcp: {
 		name: "listmonk_abtest_create",
 		legacySuccessText: (output) => jsonValue(output["test"]),
