@@ -506,7 +506,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 69 are `stable` and 35 are `experimental`. The runtime-operation
+these, 70 are `stable` and 34 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -514,7 +514,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Sixty-nine reviewed core operations are `stable`: the existing
+Seventy reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -561,8 +561,10 @@ and `ops.templates.registry-sync`. A third batch promoted `control.status`,
 bringing the current stable baseline to 65 operations. A fourth batch
 promoted the four idempotent delete operations (`lists.delete`,
 `subscribers.delete`, `campaigns.delete`, `media.delete`) where retry on an
-already-deleted resource is a documented no-op; the remaining 35 descriptors
-are experimental.
+already-deleted resource is a documented no-op. A fifth batch promoted
+`user-roles.reconcile`, whose plan-then-apply manifest convergence is
+declared idempotent and previewable through dry-run; the remaining 34
+descriptors are experimental.
 
 The spec publishes six typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -577,7 +579,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 69 stable compatibility baselines, and 312 direct
+runtime bridges, the 70 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are

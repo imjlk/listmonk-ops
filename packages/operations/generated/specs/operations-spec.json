@@ -36474,7 +36474,7 @@
         "reconcileWith": "user-roles.reconcile"
       },
       "since": "0.12.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Reconcile user-role manifest",
       "verb": "reconcile"
     }

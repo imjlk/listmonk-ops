@@ -1446,7 +1446,7 @@ Retry guidance: Retry is safe; the export is read-only.
 
 ## Reconcile user-role manifest (`user-roles.reconcile`)
 
-Contract maturity: `experimental`; effects: `write:user-role`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `write:user-role`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A versioned least-privilege user-role manifest must be planned or applied.
 
