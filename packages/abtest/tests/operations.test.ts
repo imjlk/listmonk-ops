@@ -112,12 +112,12 @@ describe("A/B test operation registry", () => {
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_stop",
 			)?.safety,
-		).toMatchObject({ destructiveHint: true, idempotentHint: false });
+		).toMatchObject({ destructiveHint: true, idempotentHint: true });
 		expect(
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_launch",
 			)?.safety,
-		).toMatchObject({ destructiveHint: true, idempotentHint: false });
+		).toMatchObject({ destructiveHint: true, idempotentHint: true });
 		expect(
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_delete",
@@ -316,6 +316,82 @@ test("preserves typed not-found errors for lifecycle transitions", async () => {
 			cause: expect.any(AbTestNotFoundError),
 		});
 	});
+
+test("reuses the persisted launch window after an ambiguous partial launch", async () => {
+	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-ambiguous-"));
+	const storePath = join(tempDir, "abtests.json");
+	const fixture = createFixture("draft");
+	fixture.campaignMappings = [{ variantId: "A", campaignId: 7 }];
+	fixture.testListMappings = [{ variantId: "A", listId: 5 }];
+	await saveStoredAbTests([fixture], storePath);
+
+	let updateCalls = 0;
+	const scheduledSendAts: Array<string | undefined> = [];
+	const client = {
+		campaign: {
+			update: async ({ body }: { body: { send_at?: string } }) => {
+				updateCalls += 1;
+				scheduledSendAts.push(body.send_at);
+				if (updateCalls === 1) {
+					return { error: { message: "transient scheduling failure" } };
+				}
+				return { data: true };
+			},
+			updateStatus: async () => ({ data: true }),
+		},
+	} as unknown as ListmonkClient;
+	const context = { client, storePath };
+
+	await expect(
+		invokeLaunchAbTestOperation(context, { test_id: fixture.id }),
+	).rejects.toThrow(/Failed to update campaign 7/);
+
+	// The launch intent survived the failed attempt...
+	const persistedIntent = await invokeGetAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(persistedIntent.test.status).toBe("draft");
+	const recordedWindow = persistedIntent.test.launchAt;
+	expect(recordedWindow).toBeDefined();
+
+	// ...so the retry schedules with the same send window, not a new one.
+	const retried = await invokeLaunchAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(retried.test.status).toBe("scheduled");
+	expect(retried.test.launchAt).toBe(recordedWindow);
+	expect(scheduledSendAts).toEqual([recordedWindow, recordedWindow]);
+});
+
+test("repeats recorded launches and completed stops as no-ops", async () => {
+	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-lifecycle-"));
+	const storePath = join(tempDir, "abtests.json");
+	const fixture = createFixture("draft");
+	await saveStoredAbTests([fixture], storePath);
+	const context = { client: {} as ListmonkClient, storePath };
+
+	const launched = await invokeLaunchAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(launched.test.status).toBe("scheduled");
+	expect(launched.test.startedAt).toBeDefined();
+
+	const relaunched = await invokeLaunchAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(relaunched.test.status).toBe("scheduled");
+	expect(relaunched.test.started_at).toBe(launched.test.started_at);
+
+	const stopped = await invokeStopAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(stopped.test.status).toBe("cancelled");
+	const stoppedAgain = await invokeStopAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(stoppedAgain.test.status).toBe("cancelled");
+	expect(stoppedAgain.test.updatedAt).toBe(stopped.test.updatedAt);
+});
 
 test("reports a repeated delete as a documented no-op", async () => {
 	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-delete-"));

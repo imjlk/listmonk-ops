@@ -29622,11 +29622,13 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "An ambiguous launch may have scheduled variant campaigns before the persisted test status was updated; repeating it can reschedule delivery."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "The send window is persisted before any campaign is scheduled, so an ambiguous retry reuses it; a completed launch (scheduled or running with startedAt set) returns the persisted test instead of rescheduling delivery.",
+        "reconcileWith": "abtest.get"
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.stop",
@@ -30133,11 +30135,13 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A stop can partially cancel or delete remote resources before persistence is updated, and repeating a completed stop is rejected by the lifecycle guard."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "A retry of a completed stop returns the persisted cancelled test, and remote cleanup repeats converge because already-cancelled or deleted campaigns and lists are skipped; verify with abtest.get after an ambiguous result.",
+        "reconcileWith": "abtest.get"
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.delete",

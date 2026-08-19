@@ -600,6 +600,16 @@ export async function executeLaunchAbTestOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof testIdInputSchema>,
 ): Promise<LaunchAbTestOperationOutput> {
+	// Phase 1 persists the launch intent (send window and startedAt) in its
+	// own committed store write, so an ambiguous retry after partial remote
+	// scheduling reuses the same window instead of recomputing it.
+	await withStoredOperation<AbTest>(context, "write", async (executors) => {
+		const intent = await executors.recordLaunchIntent(input.test_id);
+		if (!intent) {
+			throw new AbTestNotFoundError(input.test_id);
+		}
+		return intent;
+	});
 	return {
 		test: serializeAbTest(
 			await withStoredOperation<AbTest>(
@@ -853,7 +863,7 @@ export const launchAbTestOperation = defineOperation({
 		"Schedule every variant campaign for delivery and transition a draft A/B test to scheduled",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
-	safety: destructiveNonIdempotentSafety,
+	safety: destructiveSafety,
 	mcp: {
 		name: "listmonk_abtest_launch",
 		legacySuccessText: (output) => jsonValue(output["test"]),
@@ -869,7 +879,7 @@ export const stopAbTestOperation = defineOperation({
 		"Stop a running or scheduled A/B test, cancel or delete its backing campaigns, clean up eligible temporary lists, and transition it to cancelled",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ test: abTestSchema }),
-	safety: destructiveNonIdempotentSafety,
+	safety: destructiveSafety,
 	mcp: {
 		name: "listmonk_abtest_stop",
 		legacySuccessText: (output) => jsonValue(output["test"]),

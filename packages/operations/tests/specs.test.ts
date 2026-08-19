@@ -210,7 +210,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(75);
+		).toHaveLength(77);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -603,14 +603,20 @@ describe("email operations specification", () => {
 				timing: "scheduled",
 			},
 		]);
-		expect(abTestLaunchOperationSpec.retry).toMatchObject({ kind: "unsafe" });
+		expect(abTestLaunchOperationSpec.retry).toMatchObject({
+			kind: "reconcile",
+			idempotent: true,
+		});
 		expect(abTestStopOperationSpec.effects).toEqual([
 			{ kind: "write", resource: "experiment", reversible: false },
 			{ kind: "write", resource: "campaign", reversible: false },
 			{ kind: "delete", resource: "campaign", reversible: false },
 			{ kind: "delete", resource: "list", reversible: false },
 		]);
-		expect(abTestStopOperationSpec.retry).toMatchObject({ kind: "unsafe" });
+		expect(abTestStopOperationSpec.retry).toMatchObject({
+			kind: "reconcile",
+			idempotent: true,
+		});
 		expect(abTestDeleteOperationSpec.retry).toMatchObject({
 			kind: "reconcile",
 			idempotent: true,

@@ -199,9 +199,11 @@ export const abTestLaunchOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "reconcile",
+		reconcileWith: "abtest.get",
+		idempotent: true,
 		reason:
-			"An ambiguous launch may have scheduled variant campaigns before the persisted test status was updated; repeating it can reschedule delivery.",
+			"The send window is persisted before any campaign is scheduled, so an ambiguous retry reuses it; a completed launch (scheduled or running with startedAt set) returns the persisted test instead of rescheduling delivery.",
 	},
 	agent: {
 		useWhen: ["A draft A/B test is ready to go live."],
@@ -210,7 +212,7 @@ export const abTestLaunchOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.get"],
 		related: ["abtest.stop", "abtest.run"],
 		retryGuidance:
-			"Inspect abtest.get and the backing Listmonk campaigns before retrying an ambiguous launch.",
+			"Verify the launch with abtest.get before retrying; a recorded launch repeats as a no-op that returns the persisted test.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_launch",
@@ -223,7 +225,7 @@ export const abTestLaunchOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeLaunchAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -243,9 +245,11 @@ export const abTestStopOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "reconcile",
+		reconcileWith: "abtest.get",
+		idempotent: true,
 		reason:
-			"A stop can partially cancel or delete remote resources before persistence is updated, and repeating a completed stop is rejected by the lifecycle guard.",
+			"A retry of a completed stop returns the persisted cancelled test, and remote cleanup repeats converge because already-cancelled or deleted campaigns and lists are skipped; verify with abtest.get after an ambiguous result.",
 	},
 	agent: {
 		useWhen: ["A running or scheduled A/B test must be stopped."],
@@ -254,7 +258,7 @@ export const abTestStopOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch"],
 		retryGuidance:
-			"Inspect abtest.get and every backing campaign and temporary list before retrying an ambiguous stop.",
+			"Verify the stop with abtest.get before retrying; a completed stop repeats as a no-op and remote cleanup skips already-removed resources.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_stop",
@@ -267,7 +271,7 @@ export const abTestStopOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeStopAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 

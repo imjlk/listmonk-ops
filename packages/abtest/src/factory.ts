@@ -35,14 +35,24 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		metricsCollector,
 	);
 
-	// Launch is shared between the manual launchAbTest method and the
-	// orchestration runAbTest step, so define it once as a named helper.
-	const launchAbTestImpl = async (
+	// Record the launch intent (startedAt and the send window) so it can be
+	// persisted BEFORE any remote campaign is scheduled; an ambiguous retry
+	// then reuses the same window instead of recomputing it from the clock.
+	const recordLaunchIntent = async (
 		testId: string,
 	): Promise<AbTest | null> => {
 		const test = await abTestService.getTest(testId);
 		if (!test) {
 			throw new AbTestNotFoundError(testId);
+		}
+
+		if (
+			(test.status === "scheduled" || test.status === "running") &&
+			test.startedAt !== undefined
+		) {
+			// A retry after a recorded launch keeps returning the persisted
+			// test instead of rescheduling delivery.
+			return test;
 		}
 
 		if (test.status !== "draft" && test.status !== "scheduled") {
@@ -51,14 +61,49 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 			);
 		}
 
-		// Compute the shared send_at for all variant campaigns. Prefer
-		// the test's launchAt; otherwise use now + safety lead time
-		// so all variants send simultaneously rather than sequentially.
-		const sendAt =
-			test.launchAt ??
-			new Date(
-				Date.now() + ABTEST_SAFETY_LEAD_SECONDS * 1000,
-			).toISOString();
+		if (test.startedAt === undefined) {
+			// Compute the shared send_at for all variant campaigns. Prefer
+			// the test's launchAt; otherwise use now + safety lead time
+			// so all variants send simultaneously rather than sequentially.
+			const sendAt =
+				test.launchAt ??
+				new Date(
+					Date.now() + ABTEST_SAFETY_LEAD_SECONDS * 1000,
+				).toISOString();
+			test.startedAt = new Date().toISOString();
+			test.launchAt = sendAt;
+			if (test.durationHours !== undefined) {
+				test.endsAt = new Date(
+					new Date(sendAt).getTime() + test.durationHours * 3600 * 1000,
+				).toISOString();
+			}
+			// Persist the intent with the status unchanged; endsAt is computed
+			// from sendAt (when campaigns actually fire), not Date.now().
+			return await abTestService.updateTestStatus(testId, test.status);
+		}
+		return test;
+	};
+
+	// Launch is shared between the manual launchAbTest method and the
+	// orchestration runAbTest step, so define it once as a named helper.
+	// It reuses the persisted launch intent's send window on every attempt.
+	const launchAbTestImpl = async (
+		testId: string,
+	): Promise<AbTest | null> => {
+		const test = await recordLaunchIntent(testId);
+		if (!test) {
+			throw new AbTestNotFoundError(testId);
+		}
+
+		if (test.status === "scheduled" || test.status === "running") {
+			// The launch already completed; repeating it is a documented no-op.
+			return test;
+		}
+
+		const sendAt = test.launchAt;
+		if (sendAt === undefined) {
+			throw new Error(`Test ${testId} is missing a recorded launch window`);
+		}
 
 		// Launch with the shared send_at so every variant campaign
 		// transitions to 'scheduled' simultaneously.
@@ -67,18 +112,6 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 			test.testListMappings,
 			{ sendAt },
 		);
-
-			// Record timestamps. startedAt marks when the launch was initiated;
-			// endsAt is computed from sendAt (when campaigns actually fire),
-			// not Date.now(), so the test end aligns with the actual send time.
-		const startedAt = new Date().toISOString();
-		test.startedAt = startedAt;
-		if (test.durationHours !== undefined) {
-			test.endsAt = new Date(
-					new Date(sendAt).getTime() + test.durationHours * 3600 * 1000,
-				).toISOString();
-		}
-		test.launchAt = sendAt;
 
 		// The test is now scheduled — the campaigns will fire at sendAt.
 		return await abTestService.updateTestStatus(testId, "scheduled");
@@ -90,6 +123,12 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		const test = await abTestService.getTest(testId);
 		if (!test) {
 			throw new AbTestNotFoundError(testId);
+		}
+
+		if (test.status === "cancelled") {
+			// A retry after a completed stop is a documented no-op that
+			// returns the persisted test without repeating remote cleanup.
+			return test;
 		}
 
 		if (test.status !== "running" && test.status !== "scheduled") {
@@ -444,6 +483,7 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 
 		// Advanced operations
 		launchAbTest: launchAbTestImpl,
+		recordLaunchIntent,
 
 		stopAbTest: stopAbTestImpl,
 

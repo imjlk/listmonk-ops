@@ -1146,8 +1146,8 @@ Schedule every variant campaign for delivery and transition a draft A/B test to 
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:experiment, write:campaign, delivery:bulk:scheduled`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.10.0`
+- Retry: `reconcile`
+- Stability: `stable` since `0.10.0`
 
 ## `abtest.stop`
 
@@ -1158,8 +1158,8 @@ Stop a running or scheduled A/B test, cancel or delete its backing campaigns, cl
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:experiment, write:campaign, delete:campaign, delete:list`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.10.0`
+- Retry: `reconcile`
+- Stability: `stable` since `0.10.0`
 
 ## `abtest.delete`
 
