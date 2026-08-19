@@ -196,6 +196,8 @@ function isStoredAbTest(value: unknown): boolean {
 		isRecord(value) &&
 		typeof value.id === "string" &&
 		typeof value.name === "string" &&
+		(value.idempotencyKey === undefined ||
+			typeof value.idempotencyKey === "string") &&
 		typeof value.campaignId === "string" &&
 		typeof value.status === "string" &&
 		ABTEST_STATUSES.has(value.status as AbTest["status"]) &&
