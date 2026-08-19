@@ -146,7 +146,7 @@ export const campaignsDeleteOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#deleteCampaign:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

@@ -13851,6 +13851,116 @@
         "input": {
           "components": {
             "schemas": {
+              "ListDeleteInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ListDeleteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "deleted"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "deleted": {
+                "type": "boolean"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id",
+              "deleted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "list",
+          "reversible": false
+        }
+      ],
+      "id": "lists.delete",
+      "mcpName": "listmonk_delete_list",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "list",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Deleting an already-deleted list is a no-op; verify with lists.list after an ambiguous result.",
+        "reconcileWith": "lists.list"
+      },
+      "verb": "delete"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "EmailAddress": {
                 "format": "email",
                 "type": "string"
@@ -14391,6 +14501,116 @@
         "reason": "Reapplying the same requested subscriber fields converges on the same representation."
       },
       "verb": "update"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberDeleteInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberDeleteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "deleted"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "deleted": {
+                "type": "boolean"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id",
+              "deleted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "subscriber",
+          "reversible": false
+        }
+      ],
+      "id": "subscribers.delete",
+      "mcpName": "listmonk_delete_subscriber",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "subscriber",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Deleting an already-deleted subscriber is a no-op; verify with subscribers.list after an ambiguous result.",
+        "reconcileWith": "subscribers.list"
+      },
+      "verb": "delete"
     },
     {
       "contract": {
@@ -18697,6 +18917,116 @@
         "input": {
           "components": {
             "schemas": {
+              "CampaignDeleteInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignDeleteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "deleted"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "deleted": {
+                "type": "boolean"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id",
+              "deleted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "campaign",
+          "reversible": false
+        }
+      ],
+      "id": "campaigns.delete",
+      "mcpName": "listmonk_delete_campaign",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "campaign",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Deleting an already-deleted campaign is a no-op; verify with campaigns.list after an ambiguous result.",
+        "reconcileWith": "campaigns.list"
+      },
+      "verb": "delete"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "CampaignLifecycleInput": {
                 "additionalProperties": false,
                 "properties": {
@@ -18821,6 +19151,116 @@
         "to": "paused"
       },
       "verb": "pause"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "MediaDeleteInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "MediaDeleteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "deleted"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "deleted": {
+                "type": "boolean"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id",
+              "deleted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "media",
+          "reversible": false
+        }
+      ],
+      "id": "media.delete",
+      "mcpName": "listmonk_delete_media",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "media",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Deleting an already-deleted media file is a no-op; verify with media.list after an ambiguous result.",
+        "reconcileWith": "media.list"
+      },
+      "verb": "delete"
     },
     {
       "contract": {

@@ -504,14 +504,14 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 65개는
-`stable`, 39개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 69개는
+`stable`, 35개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
-검토를 마친 핵심 65개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 69개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -552,7 +552,7 @@ projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설
 `lists.update`, `subscribers.update`, `campaigns.update`, `campaigns.pause`,
 `subscribers.add-to-lists`, `subscribers.unblocklist`,
 `ops.templates.registry-sync`를 추가로 승격했습니다.
-현재 stable baseline은 65개이며, 나머지 experimental descriptor는 39개입니다.
+현재 stable baseline은 69개이며, 나머지 experimental descriptor는 35개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,

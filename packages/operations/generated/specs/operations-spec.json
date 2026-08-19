@@ -21277,7 +21277,7 @@
         "reconcileWith": "lists.list"
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Delete subscriber list",
       "verb": "delete"
     },
@@ -22266,7 +22266,7 @@
         "reconcileWith": "subscribers.list"
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Delete subscriber",
       "verb": "delete"
     },
@@ -27622,7 +27622,7 @@
         "reconcileWith": "campaigns.list"
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Delete campaign",
       "verb": "delete"
     },
@@ -28427,7 +28427,7 @@
         "reconcileWith": "media.list"
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Delete media file",
       "verb": "delete"
     },

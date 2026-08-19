@@ -49,7 +49,7 @@ export const mediaDeleteOperationSpec = defineOperationSpec({
 				"packages/operations/src/media.ts#deleteMediaFile:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
