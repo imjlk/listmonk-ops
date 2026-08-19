@@ -828,6 +828,8 @@ listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --co
 # 4) 세그먼트 드리프트 스냅샷
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
 # --baseline-mode lookback-mean으로 lookback 평균 기준 비교 가능.
+# 안정적인 --sample-key(예: UTC 날짜)를 전달하면 재시도가 해당 기간의
+# 스냅샷을 교체하므로 중복 표본이 이중 가중되지 않습니다.
 
 # 5) 템플릿 레지스트리/버전 관리
 listmonk-cli ops templates-sync

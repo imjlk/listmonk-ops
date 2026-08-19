@@ -221,6 +221,10 @@ export default defineGroup({
 						description: "How to compute the alert baseline",
 					},
 				),
+				"sample-key": option(z.string().trim().min(1).max(200).optional(), {
+					description:
+						"Sampling period key; re-running with the same key replaces that period's snapshot instead of appending a duplicate",
+				}),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
@@ -236,6 +240,7 @@ export default defineGroup({
 							min_absolute_change: flags["min-absolute-change"],
 							lookback_days: flags["lookback-days"],
 							baseline_mode: flags["baseline-mode"],
+							sample_key: flags["sample-key"],
 						},
 					);
 					getOutput().json(result);

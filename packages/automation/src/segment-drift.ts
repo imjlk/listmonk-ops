@@ -20,6 +20,8 @@ export interface SegmentSnapshotEntry {
 	listId: number;
 	listName: string;
 	subscriberCount: number;
+	/** Caller-scoped sampling period; same-key entries replace their predecessor. */
+	sampleKey?: string;
 }
 
 export interface SegmentDriftStore {
@@ -34,6 +36,12 @@ export interface SegmentDriftOptions {
 	lookbackDays?: number;
 	/** How to compute the baseline for alert decisions. */
 	baselineMode?: "previous" | "lookback-mean" | "lookback-median";
+	/**
+	 * Caller-scoped sampling period key. Snapshots sharing a listId and
+	 * sampleKey replace their predecessor instead of appending, so an
+	 * ambiguous retry never double-weights the same period.
+	 */
+	sampleKey?: string;
 }
 
 export interface SegmentDriftComparison {
@@ -52,6 +60,8 @@ export interface SegmentDriftResult {
 	storePath: string;
 	threshold: number;
 	minAbsoluteChange: number;
+	/** Snapshots replaced by this run because they shared its sample key. */
+	replaced: number;
 	comparisons: SegmentDriftComparison[];
 	alerts: SegmentDriftComparison[];
 }
@@ -75,7 +85,10 @@ function parseSegmentDriftStore(value: unknown): SegmentDriftStore {
 			typeof snapshot.listName !== "string" ||
 			typeof snapshot.subscriberCount !== "number" ||
 			!Number.isFinite(snapshot.subscriberCount) ||
-			snapshot.subscriberCount < 0
+			snapshot.subscriberCount < 0 ||
+			(snapshot.sampleKey !== undefined &&
+				(typeof snapshot.sampleKey !== "string" ||
+					snapshot.sampleKey.length === 0))
 		) {
 			throw new Error(
 				`Invalid segment drift store: snapshot ${index} failed schema validation`,
@@ -136,13 +149,24 @@ function retainRecentSegmentSnapshots(
 		);
 }
 
+function sharesSampleKey(
+	entry: SegmentSnapshotEntry,
+	snapshot: SegmentSnapshotEntry,
+): boolean {
+	return (
+		entry.sampleKey !== undefined && snapshot.sampleKey === entry.sampleKey
+	);
+}
+
 async function getListsForDrift(
 	client: ListmonkClient,
 	listIds?: number[],
 ): Promise<List[]> {
 	if (listIds && listIds.length > 0) {
 		const lists: List[] = [];
-		for (const listId of listIds) {
+		// Duplicate ids would produce duplicate snapshots for one list and
+		// double-weight that list's period, so fetch each id exactly once.
+		for (const listId of new Set(listIds)) {
 			lists.push(await getListById(client, listId));
 		}
 		return lists;
@@ -164,6 +188,15 @@ export async function runSegmentDriftSnapshot(
 	const minAbsoluteChange = Math.max(0, options.minAbsoluteChange ?? 50);
 	const lookbackDays = Math.max(1, options.lookbackDays ?? 14);
 	const baselineMode = options.baselineMode ?? "previous";
+	if (
+		options.sampleKey !== undefined &&
+		(typeof options.sampleKey !== "string" || options.sampleKey.trim() === "")
+	) {
+		// A persisted empty key would fail store parsing on every later run,
+		// so reject it before any snapshot is written.
+		throw new TypeError("Segment drift sample key must be a non-empty string");
+	}
+	const sampleKey = options.sampleKey?.trim();
 	const capturedAt = new Date().toISOString();
 	const lists = await getListsForDrift(client, options.listIds);
 
@@ -178,6 +211,7 @@ export async function runSegmentDriftSnapshot(
 				listId: id,
 				listName: list.name || `List ${id}`,
 				subscriberCount: Math.max(0, Number(list.subscriber_count || 0)),
+				...(sampleKey === undefined ? {} : { sampleKey }),
 			};
 		})
 		.filter((entry): entry is SegmentSnapshotEntry => entry !== undefined);
@@ -186,12 +220,39 @@ export async function runSegmentDriftSnapshot(
 	const storeDefinition = createSegmentDriftStore();
 
 	return updateJsonFileStore(storeDefinition, (store) => {
+		// Same-key snapshots are the same logical sample: they are excluded
+		// from the comparison history and replaced in the store, so a retry
+		// with the same sample key never double-weights the period. When a
+		// concurrent same-key run already committed a newer capture, keep it
+		// and drop this run's stale entry instead of overwriting it.
+		const retainedEntries = currentEntries.filter((entry) => {
+			const committedSameKey = store.snapshots.find(
+				(snapshot) =>
+					snapshot.listId === entry.listId && sharesSampleKey(entry, snapshot),
+			);
+			return (
+				committedSameKey === undefined ||
+				committedSameKey.capturedAt <= entry.capturedAt
+			);
+		});
+		const replacedKeys = new Set(
+			retainedEntries
+				.filter((entry) =>
+					store.snapshots.some(
+						(snapshot) =>
+							snapshot.listId === entry.listId &&
+							sharesSampleKey(entry, snapshot),
+					),
+				)
+				.map((entry) => `${entry.listId}:${entry.sampleKey}`),
+		);
 		const comparisons: SegmentDriftComparison[] = currentEntries.map((entry) => {
 			const history = store.snapshots
 				.filter(
 					(snapshot) =>
 						snapshot.listId === entry.listId &&
-						snapshot.capturedAt < entry.capturedAt,
+						snapshot.capturedAt < entry.capturedAt &&
+						!sharesSampleKey(entry, snapshot),
 				)
 				.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
 			const previous = history.at(-1);
@@ -262,11 +323,20 @@ export async function runSegmentDriftSnapshot(
 					alert,
 				};
 		});
+		const survivingSnapshots = store.snapshots.filter((snapshot) => {
+			if (snapshot.sampleKey === undefined) {
+				return true;
+			}
+			return !retainedEntries.some(
+				(entry) =>
+					snapshot.listId === entry.listId && sharesSampleKey(entry, snapshot),
+			);
+		});
 		const nextStore: SegmentDriftStore = {
 			version: 1,
 			snapshots: retainRecentSegmentSnapshots([
-				...store.snapshots,
-				...currentEntries,
+				...survivingSnapshots,
+				...retainedEntries,
 			]),
 		};
 		const result: SegmentDriftResult = {
@@ -274,6 +344,7 @@ export async function runSegmentDriftSnapshot(
 			storePath: storeDefinition.path,
 			threshold,
 			minAbsoluteChange,
+			replaced: replacedKeys.size,
 			comparisons,
 			alerts: comparisons.filter((comparison) => comparison.alert),
 		};

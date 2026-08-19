@@ -149,6 +149,125 @@ describe("automation persistence", () => {
 		expect(persisted.snapshots[0]?.subscriberCount).toBe(1);
 	});
 
+	test("replaces same-key drift snapshots instead of double-weighting", async () => {
+		const { segmentStorePath } = await useTemporaryStores();
+		const client = {
+			list: {
+				list: async () => ({
+					data: {
+						results: [
+							{
+								id: 1,
+								name: "Audience",
+								subscriber_count: 100,
+							},
+						],
+					},
+				}),
+			},
+		} as unknown as ListmonkClient;
+
+		const unkeyed = await runSegmentDriftSnapshot(client);
+		expect(unkeyed.replaced).toBe(0);
+		expect(unkeyed.comparisons[0]?.previousCount).toBeUndefined();
+
+		const firstKeyed = await runSegmentDriftSnapshot(client, {
+			sampleKey: "2026-08-19",
+		});
+		expect(firstKeyed.replaced).toBe(0);
+		// The keyed sample compares against the prior unkeyed snapshot, not itself.
+		expect(firstKeyed.comparisons[0]?.previousCount).toBe(100);
+
+		const retriedKeyed = await runSegmentDriftSnapshot(client, {
+			sampleKey: "2026-08-19",
+		});
+		expect(retriedKeyed.replaced).toBe(1);
+		// The retry still compares against the prior period, never the same-key
+		// snapshot it replaces, so the sample is not double-weighted.
+		expect(retriedKeyed.comparisons[0]?.previousCount).toBe(100);
+
+		const persisted = JSON.parse(await readFile(segmentStorePath, "utf8")) as {
+			version: number;
+			snapshots: Array<{ sampleKey?: string }>;
+		};
+		expect(persisted.snapshots.map((snapshot) => snapshot.sampleKey)).toEqual([
+			undefined,
+			"2026-08-19",
+		]);
+
+		await expect(
+			runSegmentDriftSnapshot(client, { sampleKey: "   " }),
+		).rejects.toThrow("sample key must be a non-empty string");
+
+		const duplicatedIds = await runSegmentDriftSnapshot(
+			{
+				list: {
+					getById: async () => ({
+						data: { id: 7, name: "Repeated", subscriber_count: 5 },
+					}),
+				},
+			} as unknown as ListmonkClient,
+			{ listIds: [7, 7], sampleKey: "dup-check" },
+		);
+		expect(duplicatedIds.replaced).toBe(0);
+		expect(duplicatedIds.comparisons).toHaveLength(1);
+	});
+
+	test("keeps the newest same-key snapshot when runs overlap", async () => {
+		const { segmentStorePath } = await useTemporaryStores();
+		const client = {
+			list: {
+				list: async () => ({
+					data: {
+						results: [
+							{ id: 1, name: "Audience", subscriber_count: 100 },
+						],
+					},
+				}),
+			},
+		} as unknown as ListmonkClient;
+
+		// Simulate the winning run of a same-key race: its snapshot is already
+		// committed with a capture timestamp newer than any later retry can have.
+		await writeFile(
+			segmentStorePath,
+			`${JSON.stringify({
+				version: 1,
+				snapshots: [
+					{
+						capturedAt: "2999-01-01T00:00:00.000Z",
+						listId: 1,
+						listName: "Audience",
+						subscriberCount: 100,
+						sampleKey: "race",
+					},
+				],
+			})}\n`,
+			"utf8",
+		);
+
+		const staleRun = await runSegmentDriftSnapshot(client, {
+			sampleKey: "race",
+		});
+		// The stale run neither replaces the newer snapshot nor appends a
+		// duplicate: the newest same-key capture wins.
+		expect(staleRun.replaced).toBe(0);
+		const persisted = JSON.parse(await readFile(segmentStorePath, "utf8")) as {
+			snapshots: Array<{ capturedAt: string; sampleKey?: string }>;
+		};
+		expect(
+			persisted.snapshots.filter((s) => s.sampleKey === "race"),
+		).toEqual([
+			{
+				capturedAt: "2999-01-01T00:00:00.000Z",
+				listId: 1,
+				listName: "Audience",
+				subscriberCount: 100,
+				sampleKey: "race",
+			},
+		]);
+	});
+
 	test("serializes template versions, promotion, and rollback", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let requestCount = 0;

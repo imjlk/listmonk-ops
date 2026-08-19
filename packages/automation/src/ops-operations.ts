@@ -154,6 +154,15 @@ const segmentDriftInputSchema = z.object({
 		.enum(["previous", "lookback-mean", "lookback-median"])
 		.default("previous")
 		.describe("How to compute the alert baseline"),
+	sample_key: z
+		.string()
+		.trim()
+		.min(1)
+		.max(200)
+		.optional()
+		.describe(
+			"Sampling period key; re-running with the same key replaces that period's snapshots instead of appending, so retries never double-weight the sample",
+		),
 });
 
 const templateRegistrySyncInputSchema = z.object({
@@ -275,6 +284,7 @@ const segmentDriftOutputSchema = z.object({
 	capturedAt: z.string(),
 	threshold: z.number().nonnegative(),
 	minAbsoluteChange: z.number().nonnegative(),
+	replaced: z.number().int().nonnegative(),
 	comparisons: z.array(segmentDriftComparisonSchema),
 	alerts: z.array(segmentDriftComparisonSchema),
 });
@@ -443,6 +453,7 @@ export async function executeSegmentDriftOperation(
 		minAbsoluteChange: input.min_absolute_change,
 		lookbackDays: input.lookback_days,
 		baselineMode: input.baseline_mode,
+		sampleKey: input.sample_key,
 	});
 }
 

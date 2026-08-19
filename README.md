@@ -843,7 +843,9 @@ listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --co
 # 4) Segment drift snapshot
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
 # Use --baseline-mode lookback-mean to compare against the lookback
-# window average instead of the previous snapshot.
+# window average instead of the previous snapshot. Pass a stable
+# --sample-key (for example the UTC date) so a retry replaces that
+# period's snapshot instead of appending a duplicate sample.
 
 # 5) Template registry/versioning
 listmonk-cli ops templates-sync

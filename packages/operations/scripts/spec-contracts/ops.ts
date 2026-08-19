@@ -2,6 +2,7 @@ import type { tags } from "typia";
 import type {
 	ResourceId,
 	NonNegativeInteger,
+	TrimmedNonEmptyString,
 	PositiveInteger,
 } from "./primitives";
 
@@ -20,6 +21,8 @@ export interface SegmentDriftInput {
 	lookback_days?: PositiveInteger;
 	/** How to compute the alert baseline. Defaults to "previous". */
 	baseline_mode?: SegmentDriftBaselineMode;
+	/** Sampling period key; same-key snapshots replace their predecessor so retries never double-weight the period. */
+	sample_key?: TrimmedNonEmptyString & tags.MaxLength<200>;
 }
 
 export interface SegmentDriftComparison {
@@ -37,6 +40,8 @@ export interface SegmentDriftOutput {
 	capturedAt: string;
 	threshold: number & tags.Type<"float"> & tags.Minimum<0>;
 	minAbsoluteChange: number & tags.Type<"float"> & tags.Minimum<0>;
+	/** Snapshots replaced by this run because they shared its sample key. */
+	replaced: NonNegativeInteger;
 	comparisons: SegmentDriftComparison[];
 	alerts: SegmentDriftComparison[];
 }

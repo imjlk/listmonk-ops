@@ -39,7 +39,7 @@ export const opsSegmentDriftOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "unsafe",
 		reason:
-			"Each drift snapshot captures a point-in-time count; an ambiguous retry captures a different snapshot.",
+			"Each unkeyed drift snapshot appends a point-in-time count, so an ambiguous retry captures a new sample; pass an explicit sample_key to make a retry replace that period's snapshot instead of double-weighting it.",
 	},
 	agent: {
 		useWhen: ["Subscriber list sizes must be monitored for unexpected drift."],
@@ -47,7 +47,8 @@ export const opsSegmentDriftOperationSpec = defineOperationSpec({
 		prerequisites: ["lists.list"],
 		verifyWith: ["lists.list"],
 		related: [],
-		retryGuidance: "Verify the previous snapshot was committed before retrying; a duplicate sample double-weights the same count.",
+		retryGuidance:
+			"For an unkeyed run, verify the prior snapshot was committed before re-running; an ambiguous retry appends a fresh sample that double-weights the period. For a keyed run, re-run with the same sample_key: the retry replaces that period's snapshot instead of appending a duplicate sample.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_segment_drift",
