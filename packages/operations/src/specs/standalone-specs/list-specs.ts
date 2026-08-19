@@ -141,7 +141,7 @@ export const listsDeleteOperationSpec = defineOperationSpec({
 				"packages/operations/src/lists.ts#deleteSubscriberList:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

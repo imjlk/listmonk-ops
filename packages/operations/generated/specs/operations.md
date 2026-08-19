@@ -834,7 +834,7 @@ Delete a subscriber list
 - Effects: `delete:list`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `subscribers.create`
 
@@ -870,7 +870,7 @@ Delete a subscriber from Listmonk
 - Effects: `delete:subscriber`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `subscribers.add-to-lists`
 
@@ -942,7 +942,7 @@ Delete a campaign from Listmonk
 - Effects: `delete:campaign`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `campaigns.pause`
 
@@ -979,7 +979,7 @@ Delete an uploaded media file from Listmonk
 - Effects: `delete:media`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `media.upload`
 

@@ -146,7 +146,7 @@ export const subscribersDeleteOperationSpec = defineOperationSpec({
 				"packages/operations/src/subscribers.ts#deleteSubscriber:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

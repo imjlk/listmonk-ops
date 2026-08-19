@@ -956,7 +956,7 @@ Retry guidance: Retry identical transient failures with bounded backoff, then ve
 
 ## Delete subscriber list (`lists.delete`)
 
-Contract maturity: `experimental`; effects: `delete:list`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `delete:list`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A subscriber list must be permanently removed.
 
@@ -998,7 +998,7 @@ Retry guidance: Retry identical transient failures with bounded backoff, then ve
 
 ## Delete subscriber (`subscribers.delete`)
 
-Contract maturity: `experimental`; effects: `delete:subscriber`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `delete:subscriber`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A subscriber must be permanently removed.
 
@@ -1082,7 +1082,7 @@ Retry guidance: Retry identical transient failures with bounded backoff, then ve
 
 ## Delete campaign (`campaigns.delete`)
 
-Contract maturity: `experimental`; effects: `delete:campaign`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `delete:campaign`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A campaign must be permanently removed.
 
@@ -1124,7 +1124,7 @@ Retry guidance: Inspect campaigns.list before retrying an ambiguous clone.
 
 ## Delete media file (`media.delete`)
 
-Contract maturity: `experimental`; effects: `delete:media`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `delete:media`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A media file must be permanently removed.
 

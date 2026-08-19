@@ -18145,7 +18145,7 @@
         "reconcileWith": "lists.list"
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "subscribers.create",
@@ -19009,7 +19009,7 @@
         "reconcileWith": "subscribers.list"
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "subscribers.add-to-lists",
@@ -24109,7 +24109,7 @@
         "reconcileWith": "campaigns.list"
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "campaigns.pause",
@@ -24778,7 +24778,7 @@
         "reconcileWith": "media.list"
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "media.upload",
