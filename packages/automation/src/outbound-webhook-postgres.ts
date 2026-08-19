@@ -1042,24 +1042,28 @@ export function createPostgresOutboundWebhookRepository(
 						hashtext('webhook_delivery_capacity')
 					)
 				`;
-				const rows = pruneOptions.ids
-					? await transaction<{ id: string }[]>`
-							SELECT id
-							FROM listmonk_ops.webhook_deliveries
-							WHERE id = ANY(${transaction.array([...pruneOptions.ids], POSTGRES_UUID_TYPE_OID)})
-								AND status IN ('succeeded', 'exhausted')
-								AND completed_at < ${pruneOptions.before}
-							FOR UPDATE SKIP LOCKED
-						`
-					: await transaction<{ id: string }[]>`
-							SELECT id
-							FROM listmonk_ops.webhook_deliveries
-							WHERE status IN ('succeeded', 'exhausted')
-								AND completed_at < ${pruneOptions.before}
-							ORDER BY completed_at ASC
-							FOR UPDATE SKIP LOCKED
-							LIMIT ${pruneOptions.limit}
-						`;
+				const exactSetFilter =
+					pruneOptions.ids === undefined
+						? {
+								idFilter: transaction``,
+								orderedBatch: transaction`
+									ORDER BY completed_at ASC
+									LIMIT ${pruneOptions.limit}
+								`,
+							}
+						: {
+								idFilter: transaction`AND id = ANY(${transaction.array([...pruneOptions.ids], POSTGRES_UUID_TYPE_OID)})`,
+								orderedBatch: transaction``,
+							};
+				const rows = await transaction<{ id: string }[]>`
+					SELECT id
+					FROM listmonk_ops.webhook_deliveries
+					WHERE status IN ('succeeded', 'exhausted')
+						AND completed_at < ${pruneOptions.before}
+						${exactSetFilter.idFilter}
+					FOR UPDATE SKIP LOCKED
+					${exactSetFilter.orderedBatch}
+				`;
 				if (!pruneOptions.dryRun && rows.length > 0) {
 					await transaction`
 						DELETE FROM listmonk_ops.webhook_deliveries

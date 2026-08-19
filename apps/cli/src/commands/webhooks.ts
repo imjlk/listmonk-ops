@@ -25,26 +25,23 @@ import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
 import { getOutput } from "../lib/output";
 
-function parseEventFilters(value: string): string[] {
-	const filters = value
+function parseCommaSeparatedList(value: string, label: string): string[] {
+	const entries = value
 		.split(",")
 		.map((entry) => entry.trim())
 		.filter(Boolean);
-	if (filters.length === 0) {
-		throw new Error("Expected one or more comma-separated event filters");
+	if (entries.length === 0) {
+		throw new Error(`Expected one or more comma-separated ${label}`);
 	}
-	return filters;
+	return entries;
+}
+
+function parseEventFilters(value: string): string[] {
+	return parseCommaSeparatedList(value, "event filters");
 }
 
 function parseDeliveryIds(value: string): string[] {
-	const ids = value
-		.split(",")
-		.map((entry) => entry.trim())
-		.filter(Boolean);
-	if (ids.length === 0) {
-		throw new Error("Expected one or more comma-separated delivery ids");
-	}
-	return ids;
+	return parseCommaSeparatedList(value, "delivery ids");
 }
 
 function parseJsonObject(value: string | undefined): Record<string, unknown> {

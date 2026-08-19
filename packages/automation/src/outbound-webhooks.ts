@@ -1661,6 +1661,10 @@ export async function reconcileOutboundWebhookDeliveries(
 /**
  * Remove bounded terminal delivery history older than `before`. Active and
  * retryable records are never eligible, even when their timestamps are old.
+ * Without `ids`, the oldest eligible batch up to `limit` is selected; with
+ * `ids`, exactly that set is matched against the same terminal/cutoff
+ * criteria (stale or non-terminal ids are silently skipped) and `limit`
+ * and oldest-first ordering do not apply.
  */
 export async function pruneOutboundWebhookDeliveries(
 	options: PruneOutboundWebhooksOptions &
