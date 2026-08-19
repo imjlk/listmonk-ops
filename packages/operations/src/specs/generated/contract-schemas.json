@@ -13520,15 +13520,14 @@
           "additionalProperties": false,
           "properties": {
             "deleted": {
-              "const": true
+              "type": "boolean"
             },
             "sequence": {
               "$ref": "#/components/schemas/SequenceDefinition"
             }
           },
           "required": [
-            "deleted",
-            "sequence"
+            "deleted"
           ],
           "type": "object"
         },
@@ -13593,15 +13592,14 @@
       "additionalProperties": false,
       "properties": {
         "deleted": {
-          "const": true
+          "type": "boolean"
         },
         "sequence": {
           "$ref": "#/components/schemas/SequenceDefinition"
         }
       },
       "required": [
-        "deleted",
-        "sequence"
+        "deleted"
       ],
       "type": "object"
     },
@@ -20402,15 +20400,14 @@
           "additionalProperties": false,
           "properties": {
             "deleted": {
-              "const": true
+              "type": "boolean"
             },
             "endpoint": {
               "$ref": "#/components/schemas/WebhookEndpoint"
             }
           },
           "required": [
-            "deleted",
-            "endpoint"
+            "deleted"
           ],
           "type": "object"
         },
@@ -20630,15 +20627,14 @@
       "additionalProperties": false,
       "properties": {
         "deleted": {
-          "const": true
+          "type": "boolean"
         },
         "endpoint": {
           "$ref": "#/components/schemas/WebhookEndpoint"
         }
       },
       "required": [
-        "deleted",
-        "endpoint"
+        "deleted"
       ],
       "type": "object"
     },

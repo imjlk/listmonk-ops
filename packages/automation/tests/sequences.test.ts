@@ -13,6 +13,7 @@ import {
 	runSequenceWorker,
 } from "../src/sequence-engine";
 import {
+	invokeSequenceDeleteOperation,
 	invokeSequencePauseOperation,
 	invokeSequenceResumeOperation,
 	invokeSequenceStatusOperation,
@@ -101,6 +102,27 @@ afterEach(async () => {
 });
 
 describe("sequence definitions and file persistence", () => {
+	test("reports a repeated sequence delete as a documented no-op", async () => {
+		const { repository } = await createStores();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{ name: "noop delete", steps: [{ id: "stop", type: "stop" }] },
+				new Date("2026-08-01T09:00:00.000Z"),
+			),
+		);
+		const first = await invokeSequenceDeleteOperation(
+			{ repository },
+			{ id: definition.id },
+		);
+		expect(first.deleted).toBe(true);
+		expect(first.sequence?.id).toBe(definition.id);
+		const retried = await invokeSequenceDeleteOperation(
+			{ repository },
+			{ id: definition.id },
+		);
+		expect(retried).toEqual({ deleted: false });
+	});
+
 	test("keeps compatibility parsing out of fresh definitions and writes", async () => {
 		const valid = createSequenceDefinition({
 			name: "strict new sender",

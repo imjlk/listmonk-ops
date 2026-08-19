@@ -44,6 +44,7 @@ import {
 	outboundWebhookEventFilterSchema,
 	OUTBOUND_WEBHOOK_EVENT_TYPES,
 	OUTBOUND_WEBHOOK_SECRET_REF_PATTERN,
+	OutboundWebhookNotFoundError,
 	pruneOutboundWebhookDeliveries,
 	replayOutboundWebhookDeadLetters,
 	reconcileOutboundWebhookDeliveries,
@@ -339,8 +340,8 @@ const webhookUpdateOutputSchema = z.object({
 	endpoint: webhookEndpointOutputSchema,
 });
 const webhookDeleteOutputSchema = z.object({
-	deleted: z.literal(true),
-	endpoint: webhookEndpointOutputSchema,
+	deleted: z.boolean(),
+	endpoint: webhookEndpointOutputSchema.optional(),
 });
 const dispatchResultIdentitySchema = {
 	delivery_id: z.uuid(),
@@ -660,11 +661,19 @@ export async function executeWebhookDeleteOperation(
 	context: WebhookOperationContext,
 	input: z.output<typeof webhookDeleteInputSchema>,
 ) {
-	const endpoint = await deleteOutboundWebhookEndpoint(
-		input.id,
-		resolveWebhookOperationStore(context),
-	);
-	return { deleted: true as const, endpoint: toEndpointOutput(endpoint) };
+	try {
+		const endpoint = await deleteOutboundWebhookEndpoint(
+			input.id,
+			resolveWebhookOperationStore(context),
+		);
+		return { deleted: true as const, endpoint: toEndpointOutput(endpoint) };
+	} catch (error) {
+		if (error instanceof OutboundWebhookNotFoundError) {
+			// Deleting an already-deleted endpoint is a documented no-op.
+			return { deleted: false as const };
+		}
+		throw error;
+	}
 }
 
 export async function executeWebhookTestOperation(
@@ -1001,7 +1010,7 @@ export const webhookDeleteOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: false,
+		idempotentHint: true,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_webhooks_delete" },

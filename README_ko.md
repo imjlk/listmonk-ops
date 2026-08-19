@@ -504,14 +504,14 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 71개는
-`stable`, 33개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 75개는
+`stable`, 29개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
-검토를 마친 핵심 71개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 75개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -559,8 +559,11 @@ plan-then-apply 방식의 manifest 수렴이 idempotent로 선언되고 dry-run�
 미리보기 가능한 `user-roles.reconcile`을 승격했습니다. 여섯 번째 batch에서는
 `webhooks.prune`의 파괴적 실행이 dry-run이 보고한 정확한 delivery 집합과
 `before` cutoff를 그대로 전달하도록 만들어 retry가 아무것도 추가로 삭제하지
-않게 한 뒤 함께 승격했습니다.
-현재 stable baseline은 71개이며, 나머지 experimental descriptor는 33개입니다.
+않게 한 뒤 함께 승격했습니다. 일곱 번째 batch에서는 이미 삭제된 리소스에 대한
+재시도가 `deleted: false` no-op가 되도록 실행기를 고친 뒤 나머지 delete
+(`webhooks.delete`, `sequences.delete`, `abtest.delete`,
+`templates.delete`)를 승격했습니다.
+현재 stable baseline은 75개이며, 나머지 experimental descriptor는 29개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
@@ -574,7 +577,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 71개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 75개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 317개를
 검증합니다.
 

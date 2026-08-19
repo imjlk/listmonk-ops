@@ -39,6 +39,7 @@ import {
 	createSequenceEnrollment,
 	SEQUENCE_STEP_TYPES,
 	sequenceEnrollmentStatusSchema,
+	SequenceNotFoundError,
 	type SequenceDefinition,
 	type SequenceEnrollment,
 	type SequenceRepository,
@@ -271,8 +272,8 @@ const sequenceListOutputSchema = z.object({
 	sequences: z.array(sequenceDefinitionOutputSchema),
 });
 const sequenceDeleteOutputSchema = z.object({
-	deleted: z.literal(true),
-	sequence: sequenceDefinitionOutputSchema,
+	deleted: z.boolean(),
+	sequence: sequenceDefinitionOutputSchema.optional(),
 });
 const sequenceEnrollmentEnvelopeSchema = z.object({
 	enrollment: sequenceEnrollmentOutputSchema,
@@ -526,8 +527,16 @@ export async function executeSequenceDeleteOperation(
 	context: SequenceOperationContext,
 	input: z.output<typeof sequenceDeleteInputSchema>,
 ) {
-	const definition = await repository(context).deleteDefinition(input.id);
-	return { deleted: true as const, sequence: toDefinitionOutput(definition) };
+	try {
+		const definition = await repository(context).deleteDefinition(input.id);
+		return { deleted: true as const, sequence: toDefinitionOutput(definition) };
+	} catch (error) {
+		if (error instanceof SequenceNotFoundError) {
+			// Deleting an already-deleted sequence is a documented no-op.
+			return { deleted: false as const };
+		}
+		throw error;
+	}
 }
 
 export async function executeSequenceEnrollOperation(
@@ -764,7 +773,7 @@ export const sequenceDeleteOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: false,
+		idempotentHint: true,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_sequences_delete" },

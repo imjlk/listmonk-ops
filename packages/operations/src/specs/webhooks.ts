@@ -505,9 +505,9 @@ export const webhookDeleteOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "reconcile",
 		reconcileWith: "webhooks.list",
-		idempotent: false,
+		idempotent: true,
 		reason:
-			"After an ambiguous delete, inspect the endpoint registry before repeating it.",
+			"Deleting an already-deleted endpoint is a documented no-op that reports deleted: false; verify with webhooks.list after an ambiguous result.",
 	},
 	agent: {
 		useWhen: ["An endpoint must be permanently removed and pending work abandoned."],
@@ -516,7 +516,7 @@ export const webhookDeleteOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.list", "webhooks.delivery.list"],
 		related: ["webhooks.update"],
 		retryGuidance:
-			"List endpoints after an ambiguous result; do not blindly repeat deletion.",
+			"Verify the endpoint is gone with webhooks.list before retrying; an already-deleted endpoint reports deleted: false without error.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_delete",
@@ -534,7 +534,7 @@ export const webhookDeleteOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookDeleteOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

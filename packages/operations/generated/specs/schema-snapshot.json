@@ -4894,15 +4894,14 @@
               "additionalProperties": false,
               "properties": {
                 "deleted": {
-                  "const": true
+                  "type": "boolean"
                 },
                 "endpoint": {
                   "$ref": "#/components/schemas/WebhookEndpoint"
                 }
               },
               "required": [
-                "deleted",
-                "endpoint"
+                "deleted"
               ],
               "type": "object"
             },
@@ -5122,15 +5121,14 @@
           "additionalProperties": false,
           "properties": {
             "deleted": {
-              "const": true
+              "type": "boolean"
             },
             "endpoint": {
               "$ref": "#/components/schemas/WebhookEndpoint"
             }
           },
           "required": [
-            "deleted",
-            "endpoint"
+            "deleted"
           ],
           "type": "object"
         },
@@ -5143,13 +5141,13 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": false,
+        "idempotent": true,
         "kind": "reconcile",
-        "reason": "After an ambiguous delete, inspect the endpoint registry before repeating it.",
+        "reason": "Deleting an already-deleted endpoint is a documented no-op that reports deleted: false; verify with webhooks.list after an ambiguous result.",
         "reconcileWith": "webhooks.list"
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.test",
@@ -10309,15 +10307,14 @@
               "additionalProperties": false,
               "properties": {
                 "deleted": {
-                  "const": true
+                  "type": "boolean"
                 },
                 "sequence": {
                   "$ref": "#/components/schemas/SequenceDefinition"
                 }
               },
               "required": [
-                "deleted",
-                "sequence"
+                "deleted"
               ],
               "type": "object"
             },
@@ -10382,15 +10379,14 @@
           "additionalProperties": false,
           "properties": {
             "deleted": {
-              "const": true
+              "type": "boolean"
             },
             "sequence": {
               "$ref": "#/components/schemas/SequenceDefinition"
             }
           },
           "required": [
-            "deleted",
-            "sequence"
+            "deleted"
           ],
           "type": "object"
         },
@@ -10403,11 +10399,13 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A successful delete removes the resource."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Deleting an already-deleted sequence is a documented no-op that reports deleted: false; verify with sequences.list after an ambiguous result.",
+        "reconcileWith": "sequences.list"
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "sequences.enroll",
@@ -17375,13 +17373,13 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": false,
+        "idempotent": true,
         "kind": "reconcile",
-        "reason": "After an ambiguous delete, inspect templates.list before repeating the irreversible request.",
+        "reason": "Deleting an already-deleted template is a documented no-op that reports deleted: false; the protected default template still fails explicitly. Verify with templates.list after an ambiguous result.",
         "reconcileWith": "templates.list"
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "templates.set-default",
@@ -30219,13 +30217,13 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": false,
+        "idempotent": true,
         "kind": "reconcile",
-        "reason": "A completed repeat is reported as not found, while an ambiguous first attempt may have removed only some remote resources; verify with abtest.list before deciding whether cleanup is still required.",
+        "reason": "Repeating a delete continues any partially removed remote cleanup (already-removed campaigns and lists are skipped as not-found) and a fully completed repeat reports deleted: false without error.",
         "reconcileWith": "abtest.list"
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.recommend-sample-size",

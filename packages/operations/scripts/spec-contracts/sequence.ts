@@ -143,8 +143,8 @@ export interface SequenceIdInput {
 }
 
 export interface SequenceDeleteOutput {
-	deleted: true;
-	sequence: SequenceDefinition;
+	deleted: boolean;
+	sequence?: SequenceDefinition | undefined;
 }
 
 export interface SequenceEnrollInput {

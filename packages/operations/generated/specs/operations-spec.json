@@ -5829,7 +5829,7 @@
         "related": [
           "webhooks.update"
         ],
-        "retryGuidance": "List endpoints after an ambiguous result; do not blindly repeat deletion.",
+        "retryGuidance": "Verify the endpoint is gone with webhooks.list before retrying; an already-deleted endpoint reports deleted: false without error.",
         "useWhen": [
           "An endpoint must be permanently removed and pending work abandoned."
         ],
@@ -5901,15 +5901,14 @@
                 "additionalProperties": false,
                 "properties": {
                   "deleted": {
-                    "const": true
+                    "type": "boolean"
                   },
                   "endpoint": {
                     "$ref": "#/components/schemas/WebhookEndpoint"
                   }
                 },
                 "required": [
-                  "deleted",
-                  "endpoint"
+                  "deleted"
                 ],
                 "type": "object"
               },
@@ -6129,15 +6128,14 @@
             "additionalProperties": false,
             "properties": {
               "deleted": {
-                "const": true
+                "type": "boolean"
               },
               "endpoint": {
                 "$ref": "#/components/schemas/WebhookEndpoint"
               }
             },
             "required": [
-              "deleted",
-              "endpoint"
+              "deleted"
             ],
             "type": "object"
           },
@@ -6172,13 +6170,13 @@
       },
       "resource": "webhook",
       "retry": {
-        "idempotent": false,
+        "idempotent": true,
         "kind": "reconcile",
-        "reason": "After an ambiguous delete, inspect the endpoint registry before repeating it.",
+        "reason": "Deleting an already-deleted endpoint is a documented no-op that reports deleted: false; verify with webhooks.list after an ambiguous result.",
         "reconcileWith": "webhooks.list"
       },
       "since": "0.8.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Delete outbound webhook endpoint",
       "verb": "delete"
     },
@@ -11952,7 +11950,7 @@
         "related": [
           "sequences.pause"
         ],
-        "retryGuidance": "List sequences before retrying a response-lost delete.",
+        "retryGuidance": "Verify the sequence is gone with sequences.list before retrying; an already-deleted sequence reports deleted: false without error.",
         "useWhen": [
           "A retired sequence with no active enrollments must be removed."
         ],
@@ -12064,15 +12062,14 @@
                 "additionalProperties": false,
                 "properties": {
                   "deleted": {
-                    "const": true
+                    "type": "boolean"
                   },
                   "sequence": {
                     "$ref": "#/components/schemas/SequenceDefinition"
                   }
                 },
                 "required": [
-                  "deleted",
-                  "sequence"
+                  "deleted"
                 ],
                 "type": "object"
               },
@@ -12137,15 +12134,14 @@
             "additionalProperties": false,
             "properties": {
               "deleted": {
-                "const": true
+                "type": "boolean"
               },
               "sequence": {
                 "$ref": "#/components/schemas/SequenceDefinition"
               }
             },
             "required": [
-              "deleted",
-              "sequence"
+              "deleted"
             ],
             "type": "object"
           },
@@ -12180,11 +12176,13 @@
       },
       "resource": "sequence",
       "retry": {
-        "kind": "unsafe",
-        "reason": "A successful delete removes the resource."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Deleting an already-deleted sequence is a documented no-op that reports deleted: false; verify with sequences.list after an ambiguous result.",
+        "reconcileWith": "sequences.list"
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Delete sequence",
       "verb": "delete"
     },
@@ -20217,7 +20215,7 @@
           "templates.get"
         ],
         "related": [],
-        "retryGuidance": "After an ambiguous failure, verify absence with templates.list before retrying.",
+        "retryGuidance": "Verify the template is gone with templates.list before retrying; an already-deleted template reports deleted: false without error.",
         "useWhen": [
           "A verified template must be permanently deleted."
         ],
@@ -20340,13 +20338,13 @@
       },
       "resource": "template",
       "retry": {
-        "idempotent": false,
+        "idempotent": true,
         "kind": "reconcile",
-        "reason": "After an ambiguous delete, inspect templates.list before repeating the irreversible request.",
+        "reason": "Deleting an already-deleted template is a documented no-op that reports deleted: false; the protected default template still fails explicitly. Verify with templates.list after an ambiguous result.",
         "reconcileWith": "templates.list"
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Delete template",
       "verb": "delete"
     },
@@ -34460,7 +34458,7 @@
         "related": [
           "abtest.stop"
         ],
-        "retryGuidance": "Inspect abtest.list and the remaining backing campaigns and temporary lists before retrying; an ambiguous delete may have removed only some remote resources.",
+        "retryGuidance": "Verify the test is gone with abtest.list before retrying; a completed repeat reports deleted: false and skips already-removed remote resources.",
         "useWhen": [
           "An A/B test must be permanently removed."
         ],
@@ -34577,13 +34575,13 @@
       },
       "resource": "experiment",
       "retry": {
-        "idempotent": false,
+        "idempotent": true,
         "kind": "reconcile",
-        "reason": "A completed repeat is reported as not found, while an ambiguous first attempt may have removed only some remote resources; verify with abtest.list before deciding whether cleanup is still required.",
+        "reason": "Repeating a delete continues any partially removed remote cleanup (already-removed campaigns and lists are skipped as not-found) and a fully completed repeat reports deleted: false without error.",
         "reconcileWith": "abtest.list"
       },
       "since": "0.10.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Delete A/B test",
       "verb": "delete"
     },

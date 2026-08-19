@@ -133,9 +133,9 @@ export const templatesDeleteOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "reconcile",
 		reconcileWith: "templates.list",
-		idempotent: false,
+		idempotent: true,
 		reason:
-			"After an ambiguous delete, inspect templates.list before repeating the irreversible request.",
+			"Deleting an already-deleted template is a documented no-op that reports deleted: false; the protected default template still fails explicitly. Verify with templates.list after an ambiguous result.",
 	},
 	agent: {
 		useWhen: ["A verified template must be permanently deleted."],
@@ -146,7 +146,7 @@ export const templatesDeleteOperationSpec = defineOperationSpec({
 		verifyWith: ["templates.list"],
 		related: [],
 		retryGuidance:
-			"After an ambiguous failure, verify absence with templates.list before retrying.",
+			"Verify the template is gone with templates.list before retrying; an already-deleted template reports deleted: false without error.",
 	},
 	projection: {
 		mcpName: "listmonk_delete_template",
@@ -164,7 +164,7 @@ export const templatesDeleteOperationSpec = defineOperationSpec({
 				"packages/operations/src/templates.ts#deleteTemplate:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

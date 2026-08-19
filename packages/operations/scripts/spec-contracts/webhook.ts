@@ -174,8 +174,8 @@ export interface WebhookDeleteInput {
 }
 
 export interface WebhookDeleteOutput {
-	deleted: true;
-	endpoint: WebhookEndpoint;
+	deleted: boolean;
+	endpoint?: WebhookEndpoint | undefined;
 }
 
 export interface WebhookTestInput {

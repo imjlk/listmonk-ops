@@ -17,6 +17,7 @@ import {
 	optionalBooleanSchema,
 	readResourceSafety,
 	resourceIdSchema,
+	ResourceResponseError,
 	toResourceErrorMessage,
 	unwrapResourceResponse,
 	updateResourceSafety,
@@ -651,15 +652,37 @@ function templateMatchesDesiredState(
 	);
 }
 
+function isTemplateNonexistentOrDefaultError(error: unknown): boolean {
+	return (
+		error instanceof ResourceResponseError &&
+		error.status === 400 &&
+		/non-existent or default template/i.test(error.message)
+	);
+}
+
 export async function deleteTemplate(
 	{ client }: TemplateOperationContext,
 	input: z.output<typeof templateIdInputSchema>,
 ): Promise<z.output<typeof deleteTemplateOutputSchema>> {
-	const response = await client.template.delete({ path: { id: input.id } });
-	return {
-		id: input.id,
-		deleted: unwrapResourceResponse(response, "Failed to delete template"),
-	};
+	try {
+		const response = await client.template.delete({ path: { id: input.id } });
+		return {
+			id: input.id,
+			deleted: unwrapResourceResponse(response, "Failed to delete template"),
+		};
+	} catch (error) {
+		if (!isTemplateNonexistentOrDefaultError(error)) {
+			throw error;
+		}
+		// Listmonk reports one message for a missing template and for the
+		// protected default template; only the missing case is a delete no-op.
+		try {
+			await getTemplate({ client }, { id: input.id });
+		} catch {
+			return { id: input.id, deleted: false };
+		}
+		throw error;
+	}
 }
 
 export async function setDefaultTemplate(
@@ -736,7 +759,7 @@ export const deleteTemplateOperation = defineOperation({
 	description: "Delete a template from Listmonk",
 	inputSchema: templateIdInputSchema,
 	outputSchema: deleteTemplateOutputSchema,
-	safety: { ...deleteResourceSafety, idempotentHint: false },
+	safety: deleteResourceSafety,
 	mcp: {
 		name: "listmonk_delete_template",
 		legacySuccessText: "Template deleted successfully",

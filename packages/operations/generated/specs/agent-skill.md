@@ -242,7 +242,7 @@ Retry guidance: Retrying the same field update is safe.
 
 ## Delete outbound webhook endpoint (`webhooks.delete`)
 
-Contract maturity: `experimental`; effects: `delete:webhook`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `delete:webhook`; confirmation: `required`; retry: `reconcile`.
 
 Use when: An endpoint must be permanently removed and pending work abandoned.
 
@@ -252,7 +252,7 @@ Prerequisites: `webhooks.list`
 
 Verify with: `webhooks.list`, `webhooks.delivery.list`
 
-Retry guidance: List endpoints after an ambiguous result; do not blindly repeat deletion.
+Retry guidance: Verify the endpoint is gone with webhooks.list before retrying; an already-deleted endpoint reports deleted: false without error.
 
 ## Send outbound webhook test (`webhooks.test`)
 
@@ -494,7 +494,7 @@ Retry guidance: Retrying the same read is safe.
 
 ## Delete sequence (`sequences.delete`)
 
-Contract maturity: `experimental`; effects: `delete:sequence`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `delete:sequence`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A retired sequence with no active enrollments must be removed.
 
@@ -504,7 +504,7 @@ Prerequisites: `sequences.get`, `sequences.status`
 
 Verify with: `sequences.list`
 
-Retry guidance: List sequences before retrying a response-lost delete.
+Retry guidance: Verify the sequence is gone with sequences.list before retrying; an already-deleted sequence reports deleted: false without error.
 
 ## Enroll subscriber in sequence (`sequences.enroll`)
 
@@ -900,7 +900,7 @@ Retry guidance: Retry identical transient failures with bounded backoff, then ve
 
 ## Delete template (`templates.delete`)
 
-Contract maturity: `experimental`; effects: `delete:template`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `delete:template`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A verified template must be permanently deleted.
 
@@ -910,7 +910,7 @@ Prerequisites: `templates.get`
 
 Verify with: `templates.list`
 
-Retry guidance: After an ambiguous failure, verify absence with templates.list before retrying.
+Retry guidance: Verify the template is gone with templates.list before retrying; an already-deleted template reports deleted: false without error.
 
 ## Set default template (`templates.set-default`)
 
@@ -1348,7 +1348,7 @@ Retry guidance: Inspect abtest.get and every backing campaign and temporary list
 
 ## Delete A/B test (`abtest.delete`)
 
-Contract maturity: `experimental`; effects: `delete:experiment, delete:campaign, delete:list`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `delete:experiment, delete:campaign, delete:list`; confirmation: `required`; retry: `reconcile`.
 
 Use when: An A/B test must be permanently removed.
 
@@ -1358,7 +1358,7 @@ Prerequisites: `abtest.get`
 
 Verify with: `abtest.list`
 
-Retry guidance: Inspect abtest.list and the remaining backing campaigns and temporary lists before retrying; an ambiguous delete may have removed only some remote resources.
+Retry guidance: Verify the test is gone with abtest.list before retrying; a completed repeat reports deleted: false and skips already-removed remote resources.
 
 ## Recommend A/B test sample size (`abtest.recommend-sample-size`)
 
