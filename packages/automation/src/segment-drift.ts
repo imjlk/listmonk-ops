@@ -222,9 +222,21 @@ export async function runSegmentDriftSnapshot(
 	return updateJsonFileStore(storeDefinition, (store) => {
 		// Same-key snapshots are the same logical sample: they are excluded
 		// from the comparison history and replaced in the store, so a retry
-		// with the same sample key never double-weights the period.
+		// with the same sample key never double-weights the period. When a
+		// concurrent same-key run already committed a newer capture, keep it
+		// and drop this run's stale entry instead of overwriting it.
+		const retainedEntries = currentEntries.filter((entry) => {
+			const committedSameKey = store.snapshots.find(
+				(snapshot) =>
+					snapshot.listId === entry.listId && sharesSampleKey(entry, snapshot),
+			);
+			return (
+				committedSameKey === undefined ||
+				committedSameKey.capturedAt <= entry.capturedAt
+			);
+		});
 		const replacedKeys = new Set(
-			currentEntries
+			retainedEntries
 				.filter((entry) =>
 					store.snapshots.some(
 						(snapshot) =>
@@ -315,7 +327,7 @@ export async function runSegmentDriftSnapshot(
 			if (snapshot.sampleKey === undefined) {
 				return true;
 			}
-			return !currentEntries.some(
+			return !retainedEntries.some(
 				(entry) =>
 					snapshot.listId === entry.listId && sharesSampleKey(entry, snapshot),
 			);
@@ -324,7 +336,7 @@ export async function runSegmentDriftSnapshot(
 			version: 1,
 			snapshots: retainRecentSegmentSnapshots([
 				...survivingSnapshots,
-				...currentEntries,
+				...retainedEntries,
 			]),
 		};
 		const result: SegmentDriftResult = {

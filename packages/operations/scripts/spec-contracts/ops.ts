@@ -2,7 +2,7 @@ import type { tags } from "typia";
 import type {
 	ResourceId,
 	NonNegativeInteger,
-	NonEmptyString,
+	TrimmedNonEmptyString,
 	PositiveInteger,
 } from "./primitives";
 
@@ -22,7 +22,7 @@ export interface SegmentDriftInput {
 	/** How to compute the alert baseline. Defaults to "previous". */
 	baseline_mode?: SegmentDriftBaselineMode;
 	/** Sampling period key; same-key snapshots replace their predecessor so retries never double-weight the period. */
-	sample_key?: NonEmptyString & tags.MaxLength<200>;
+	sample_key?: TrimmedNonEmptyString & tags.MaxLength<200>;
 }
 
 export interface SegmentDriftComparison {

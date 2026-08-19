@@ -213,6 +213,61 @@ describe("automation persistence", () => {
 		expect(duplicatedIds.comparisons).toHaveLength(1);
 	});
 
+	test("keeps the newest same-key snapshot when runs overlap", async () => {
+		const { segmentStorePath } = await useTemporaryStores();
+		const client = {
+			list: {
+				list: async () => ({
+					data: {
+						results: [
+							{ id: 1, name: "Audience", subscriber_count: 100 },
+						],
+					},
+				}),
+			},
+		} as unknown as ListmonkClient;
+
+		// Simulate the winning run of a same-key race: its snapshot is already
+		// committed with a capture timestamp newer than any later retry can have.
+		await writeFile(
+			segmentStorePath,
+			`${JSON.stringify({
+				version: 1,
+				snapshots: [
+					{
+						capturedAt: "2999-01-01T00:00:00.000Z",
+						listId: 1,
+						listName: "Audience",
+						subscriberCount: 100,
+						sampleKey: "race",
+					},
+				],
+			})}\n`,
+			"utf8",
+		);
+
+		const staleRun = await runSegmentDriftSnapshot(client, {
+			sampleKey: "race",
+		});
+		// The stale run neither replaces the newer snapshot nor appends a
+		// duplicate: the newest same-key capture wins.
+		expect(staleRun.replaced).toBe(0);
+		const persisted = JSON.parse(await readFile(segmentStorePath, "utf8")) as {
+			snapshots: Array<{ capturedAt: string; sampleKey?: string }>;
+		};
+		expect(
+			persisted.snapshots.filter((s) => s.sampleKey === "race"),
+		).toEqual([
+			{
+				capturedAt: "2999-01-01T00:00:00.000Z",
+				listId: 1,
+				listName: "Audience",
+				subscriberCount: 100,
+				sampleKey: "race",
+			},
+		]);
+	});
+
 	test("serializes template versions, promotion, and rollback", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let requestCount = 0;

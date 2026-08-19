@@ -28767,6 +28767,7 @@
                     "description": "Sampling period key; same-key snapshots replace their predecessor so retries never double-weight the period.",
                     "maxLength": 200,
                     "minLength": 1,
+                    "pattern": "^\\s*\\S[\\s\\S]*$",
                     "type": "string"
                   },
                   "threshold": {
@@ -28816,6 +28817,7 @@
                 "description": "Sampling period key; same-key snapshots replace their predecessor so retries never double-weight the period.",
                 "maxLength": 200,
                 "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
                 "type": "string"
               },
               "threshold": {
