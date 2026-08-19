@@ -1050,10 +1050,14 @@ export function createPostgresOutboundWebhookRepository(
 									ORDER BY completed_at ASC
 									LIMIT ${pruneOptions.limit}
 								`,
+								lockClause: transaction`FOR UPDATE SKIP LOCKED`,
 							}
 						: {
 								idFilter: transaction`AND id = ANY(${transaction.array([...pruneOptions.ids], POSTGRES_UUID_TYPE_OID)})`,
 								orderedBatch: transaction``,
+								// The exact-set contract promises a retry is a no-op, so wait
+								// for concurrent locks instead of silently dropping rows.
+								lockClause: transaction`FOR UPDATE`,
 							};
 				const rows = await transaction<{ id: string }[]>`
 					SELECT id
@@ -1062,7 +1066,7 @@ export function createPostgresOutboundWebhookRepository(
 						AND completed_at < ${pruneOptions.before}
 						${exactSetFilter.idFilter}
 					${exactSetFilter.orderedBatch}
-					FOR UPDATE SKIP LOCKED
+					${exactSetFilter.lockClause}
 				`;
 				if (!pruneOptions.dryRun && rows.length > 0) {
 					await transaction`
