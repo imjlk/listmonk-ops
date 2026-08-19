@@ -393,6 +393,69 @@ test("repeats recorded launches and completed stops as no-ops", async () => {
 	expect(stoppedAgain.test.updatedAt).toBe(stopped.test.updatedAt);
 });
 
+test("replays an identical create through its derived replay key", async () => {
+	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-create-"));
+	const storePath = join(tempDir, "abtests.json");
+	await saveStoredAbTests([], storePath);
+	const client = {
+		subscriber: {
+			list: async () => ({
+				data: {
+					results: [
+						{
+							id: 1,
+							uuid: "11111111-1111-4111-8111-111111111111",
+							email: "member@example.com",
+							status: "enabled",
+						},
+					],
+				},
+			}),
+			manageLists: async () => ({ data: true }),
+		},
+		list: {
+			create: async ({ body }: { body?: { name?: string } }) => ({
+				data: { id: 900 + Math.floor(Math.random() * 100), name: body?.name },
+			}),
+			delete: async () => ({ data: true }),
+		},
+		campaign: {
+			create: async ({ body }: { body?: { name?: string } }) => ({
+				data: { id: 900 + Math.floor(Math.random() * 100), name: body?.name },
+			}),
+			update: async () => ({ data: true }),
+			delete: async () => ({ data: true }),
+		},
+		template: {
+			getById: async () => ({
+				data: { id: 1, name: "Base", type: "campaign", body: "<p>x</p>" },
+			}),
+		},
+	} as unknown as ListmonkClient;
+	const context = { client, storePath };
+
+	const createInput = {
+		name: "replay-key-test",
+		lists: [1],
+		variants: [
+			{ name: "A", percentage: 50, campaign_config: { subject: "A", body: "a" } },
+			{ name: "B", percentage: 50, campaign_config: { subject: "B", body: "b" } },
+		],
+	};
+	const first = await invokeCreateAbTestOperation(context, createInput);
+	expect(first.created).toBe(true);
+	const replayed = await invokeCreateAbTestOperation(context, createInput);
+	expect(replayed.created).toBe(false);
+	expect(replayed.test.id).toBe(first.test.id);
+
+	const second = await invokeCreateAbTestOperation(context, {
+		...createInput,
+		name: "replay-key-test-2",
+	});
+	expect(second.created).toBe(true);
+	expect(second.test.id).not.toBe(first.test.id);
+});
+
 test("reports a repeated delete as a documented no-op", async () => {
 	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-delete-"));
 	const storePath = join(tempDir, "abtests.json");

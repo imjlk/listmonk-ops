@@ -468,6 +468,9 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		createAbTest: (input: CreateAbTestInput): Promise<AbTest> =>
 			new CreateAbTestCommand(abTestService).execute(input),
 
+		findAbTestByIdempotencyKey: (key: string): Promise<AbTest | null> =>
+			abTestService.getTestByIdempotencyKey(key),
+
 		deleteAbTest: (testId: string): Promise<boolean> =>
 			new DeleteAbTestCommand(abTestService).execute(testId),
 

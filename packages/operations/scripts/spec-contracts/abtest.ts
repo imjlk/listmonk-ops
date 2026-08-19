@@ -100,6 +100,8 @@ export interface AbTestAssignmentManifest {
 export interface AbTestRecord {
 	id: string;
 	name: string;
+	/** Caller-scoped create key; replays return the originally created test. */
+	idempotencyKey?: string | undefined;
 	campaignId: string;
 	variants: AbTestVariant[];
 	status: AbTestStatus;
@@ -152,6 +154,8 @@ export interface AbTestCreateVariantInput {
 export interface AbTestCreateInput {
 	name: NonEmptyString;
 	campaign_id?: string;
+	/** Caller-scoped create key; omitted keys are derived from the request so identical retries replay. */
+	idempotency_key?: NonEmptyString & tags.MaxLength<200>;
 	description?: string;
 	lists: ResourceId[] & tags.MinItems<1>;
 	variants: AbTestCreateVariantInput[] & tags.MinItems<2> & tags.MaxItems<3>;
@@ -233,6 +237,11 @@ export interface AbTestExportAssignmentInput {
 
 export interface AbTestListOutput {
 	tests: AbTestRecord[];
+}
+
+export interface AbTestCreateOutput {
+	test: AbTestRecord;
+	created: boolean;
 }
 
 export interface AbTestGetOutput {

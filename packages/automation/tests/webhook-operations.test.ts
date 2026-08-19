@@ -406,6 +406,28 @@ describe("webhook shared operations", () => {
 		expect(endpoint.endpoint.enabled).toBe(true);
 	});
 
+	test("replays an identical endpoint create as a documented no-op", async () => {
+		const context = await createContext();
+		const input = {
+			name: "replay-create",
+			url: "https://8.8.8.8/replay",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_REPLAY",
+			event_filters: ["operation.*"],
+		};
+		const first = await invokeWebhookCreateOperation(context, input);
+		expect(first.created).toBe(true);
+		const replayed = await invokeWebhookCreateOperation(context, input);
+		expect(replayed.created).toBe(false);
+		expect(replayed.endpoint.id).toBe(first.endpoint.id);
+
+		await expect(
+			invokeWebhookCreateOperation(context, {
+				...input,
+				url: "https://8.8.8.8/different",
+			}),
+		).rejects.toThrow(/already exists/);
+	});
+
 	test("creates, filters, updates, and deletes endpoints through named invokers", async () => {
 		const context = await createContext();
 		const created = await invokeWebhookCreateOperation(context, {

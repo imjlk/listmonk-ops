@@ -196,7 +196,7 @@ Create an HTTPS endpoint using an environment-variable secret reference and type
 - Effects: `write:webhook`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.update`
 
@@ -387,8 +387,8 @@ Create an active sequence with an immutable first revision.
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:sequence`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `reconcile`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.update`
 

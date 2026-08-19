@@ -5,6 +5,7 @@ import {
 	abTestIdInputContract,
 	abTestGetOutputContract,
 	abTestCreateInputContract,
+	abTestCreateOutputContract,
 	abTestAnalyzeInputContract,
 	abTestAnalysisOutputContract,
 	abTestRunInputContract,
@@ -100,7 +101,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 	description: "Create a new A/B test with variants and configuration",
 	contract: {
 		input: abTestCreateInputContract,
-		output: abTestGetOutputContract,
+		output: abTestCreateOutputContract,
 	},
 	effects: [
 		{ kind: "write", resource: "experiment", reversible: true },
@@ -115,7 +116,8 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
 		kind: "unsafe",
-		reason: "A retry may create another test, provision duplicate campaigns, or initiate bulk delivery unless the original ID is known.",
+		reason:
+			"The replay key is only persisted with the local record, so an ambiguous failure after remote campaign provisioning loses it and a retry can provision duplicates; creation stays experimental until the intent is durable before remote effects.",
 	},
 	agent: {
 		useWhen: ["A new A/B test must be created."],
@@ -123,7 +125,8 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 		prerequisites: [],
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch", "abtest.delete"],
-		retryGuidance: "Inspect abtest.list before retrying an ambiguous create.",
+		retryGuidance:
+			"Inspect abtest.list and the provisioned campaigns and lists before retrying an ambiguous create; a completed create replays through its idempotency key with created: false.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_create",

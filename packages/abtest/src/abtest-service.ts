@@ -42,7 +42,38 @@ export class AbTestService {
 		private metricsCollector?: MetricsCollector,
 	) {}
 
+	private readonly inFlightKeyedCreates = new Map<string, Promise<AbTest>>();
+
 	async createTest(config: AbTestConfig): Promise<AbTest> {
+		// Replaying the same idempotency key returns the originally created
+		// test, so an ambiguous create retry never provisions a duplicate.
+		if (config.idempotencyKey !== undefined) {
+			const existing = await this.getTestByIdempotencyKey(
+				config.idempotencyKey,
+			);
+			if (existing) {
+				return existing;
+			}
+			// Direct library consumers are not serialized by the operation
+			// wrapper, so reserve the key while provisioning is in flight:
+			// a concurrent caller with the same key awaits this creation
+			// instead of provisioning a second set of campaigns and lists.
+			const key = config.idempotencyKey;
+			const inFlight = this.inFlightKeyedCreates.get(key);
+			if (inFlight) {
+				return inFlight;
+			}
+			const creation = this.createUnreservedTest(config).finally(() => {
+				this.inFlightKeyedCreates.delete(key);
+			});
+			this.inFlightKeyedCreates.set(key, creation);
+			return creation;
+		}
+
+		return this.createUnreservedTest(config);
+	}
+
+	private async createUnreservedTest(config: AbTestConfig): Promise<AbTest> {
 		// Validate number of variants (2-3 variants allowed)
 		if (config.variants.length < 2) {
 			throw new Error("At least 2 variants are required for A/B testing");
@@ -196,6 +227,7 @@ export class AbTestService {
 		const abTest: AbTest = {
 			id: testId,
 			name: config.name,
+			idempotencyKey: config.idempotencyKey,
 			campaignId: config.campaignId,
 			variants,
 			metrics,
@@ -457,6 +489,15 @@ export class AbTestService {
 
 		this.tests.delete(testId);
 		return true;
+	}
+
+	async getTestByIdempotencyKey(key: string): Promise<AbTest | null> {
+		for (const test of this.tests.values()) {
+			if (test.idempotencyKey === key) {
+				return test;
+			}
+		}
+		return null;
 	}
 
 	async updateTestStatus(

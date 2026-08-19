@@ -875,7 +875,7 @@ export function normalizeOutboundWebhookEndpointUrl(value: string): string {
 	return parsed.toString();
 }
 
-function normalizeEventFilters(filters: readonly string[]): readonly string[] {
+export function normalizeEventFilters(filters: readonly string[]): readonly string[] {
 	const parsed = z
 		.array(outboundWebhookEventFilterSchema)
 		.min(1)

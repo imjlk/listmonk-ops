@@ -39,6 +39,7 @@ import {
 	createSequenceEnrollment,
 	SEQUENCE_STEP_TYPES,
 	sequenceEnrollmentStatusSchema,
+	SequenceConflictError,
 	SequenceNotFoundError,
 	type SequenceDefinition,
 	type SequenceEnrollment,
@@ -271,6 +272,10 @@ const sequenceDefinitionEnvelopeSchema = z.object({
 const sequenceListOutputSchema = z.object({
 	sequences: z.array(sequenceDefinitionOutputSchema),
 });
+const sequenceCreateOutputSchema = z.object({
+	sequence: sequenceDefinitionOutputSchema,
+	created: z.boolean(),
+});
 // Operation output schemas must keep an object root, so the deleted/sequence
 // correlation (sequence is present exactly when deleted is true) is enforced
 // by the executor rather than a discriminated union.
@@ -470,6 +475,45 @@ export async function executeSequenceValidateOperation(
 	};
 }
 
+function canonicalizeStepValue(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(canonicalizeStepValue);
+	}
+	if (value !== null && typeof value === "object") {
+		const record = value as Record<string, unknown>;
+		return Object.fromEntries(
+			Object.keys(record)
+				.sort()
+				.map((key) => [key, canonicalizeStepValue(record[key])]),
+		);
+	}
+	return value;
+}
+
+function sameSequenceCreateIntent(
+	existing: SequenceDefinition,
+	requested: SequenceDefinition,
+): boolean {
+	return (
+		existing.name.toLowerCase() === requested.name.toLowerCase() &&
+		(existing.description ?? undefined) ===
+			(requested.description ?? undefined) &&
+		// Steps live in revisions; compare only the canonically ordered steps
+		// because revisions also carry per-attempt timestamps and equivalent
+		// JSON payloads may arrive with different property order.
+		JSON.stringify(
+			existing.revisions.map((revision) =>
+				revision.steps.map(canonicalizeStepValue),
+			),
+		) ===
+			JSON.stringify(
+				requested.revisions.map((revision) =>
+					revision.steps.map(canonicalizeStepValue),
+				),
+			)
+	);
+}
+
 export async function executeSequenceCreateOperation(
 	context: SequenceOperationContext,
 	input: z.output<typeof sequenceCreateInputSchema>,
@@ -483,8 +527,29 @@ export async function executeSequenceCreateOperation(
 		},
 		now,
 	);
-	const created = await repository(context).createDefinition(definition);
-	return { sequence: toDefinitionOutput(created) };
+	try {
+		const created = await repository(context).createDefinition(definition);
+		return { sequence: toDefinitionOutput(created), created: true as const };
+	} catch (error) {
+		if (!(error instanceof SequenceConflictError)) {
+			throw error;
+		}
+		// Sequence names are unique, so a retry after an ambiguous create
+		// conflicts. Replay only when the persisted definition matches the
+		// requested intent; a different definition under the same name stays
+		// a conflict.
+		const existing = (await repository(context).listDefinitions()).find(
+			(candidate) =>
+				candidate.name.toLowerCase() === definition.name.toLowerCase(),
+		);
+		if (!existing || !sameSequenceCreateIntent(existing, definition)) {
+			throw error;
+		}
+		return {
+			sequence: toDefinitionOutput(existing),
+			created: false as const,
+		};
+	}
 }
 
 export async function executeSequenceUpdateOperation(
@@ -705,11 +770,11 @@ export const sequenceCreateOperation = defineOperation({
 	title: "Create sequence",
 	description: "Create an active sequence with an immutable first revision.",
 	inputSchema: sequenceCreateInputSchema,
-	outputSchema: sequenceDefinitionEnvelopeSchema,
+	outputSchema: sequenceCreateOutputSchema,
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: false,
-		idempotentHint: false,
+		idempotentHint: true,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_sequences_create" },

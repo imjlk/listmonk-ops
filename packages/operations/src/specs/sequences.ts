@@ -1,5 +1,6 @@
 import {
 	sequenceCreateInputContract,
+	sequenceCreateOutputContract,
 	sequenceDefinitionOutputContract,
 	sequenceDeleteOutputContract,
 	sequenceEnrollInputContract,
@@ -89,13 +90,16 @@ export const sequenceCreateOperationSpec = defineOperationSpec({
 		"Create an active sequence with an immutable first revision.",
 	contract: {
 		input: sequenceCreateInputContract,
-		output: sequenceDefinitionOutputContract,
+		output: sequenceCreateOutputContract,
 	},
 	effects: [{ kind: "write", resource: "sequence", reversible: true }],
 	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
-		reason: "A retry may create another sequence unless the original ID is known.",
+		kind: "reconcile",
+		reconcileWith: "sequences.list",
+		idempotent: true,
+		reason:
+			"Sequence names are unique, so a retry after an ambiguous create conflicts and replays the persisted definition when it matches the requested intent, reporting created: false; a different definition under the same name stays a conflict.",
 	},
 	agent: {
 		useWhen: ["A validated sequence definition must be persisted."],
@@ -103,14 +107,15 @@ export const sequenceCreateOperationSpec = defineOperationSpec({
 		prerequisites: ["sequences.validate"],
 		verifyWith: ["sequences.get"],
 		related: ["sequences.update", "sequences.enroll"],
-		retryGuidance: "Inspect sequences.list before retrying an ambiguous create.",
+		retryGuidance:
+			"Replay the create after an ambiguous result: an identically defined sequence returns the persisted record with created: false, while a conflicting definition under the same name fails explicitly.",
 	},
 	projection: {
 		mcpName: "listmonk_sequences_create",
 		openWorld: false,
 		graph: graphNodes("create"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

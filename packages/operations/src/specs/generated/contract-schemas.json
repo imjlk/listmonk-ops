@@ -426,6 +426,12 @@
               ],
               "type": "object"
             },
+            "idempotency_key": {
+              "description": "Caller-scoped create key; omitted keys are derived from the request so identical retries replay.",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
             "ignore_sample_size_warnings": {
               "type": "boolean"
             },
@@ -704,6 +710,12 @@
           ],
           "type": "object"
         },
+        "idempotency_key": {
+          "description": "Caller-scoped create key; omitted keys are derived from the request so identical retries replay.",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
         "ignore_sample_size_warnings": {
           "type": "boolean"
         },
@@ -751,6 +763,478 @@
         "name",
         "lists",
         "variants"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "abTestCreateOutputContract": {
+    "components": {
+      "schemas": {
+        "AbTestAssignmentGroup": {
+          "discriminator": {
+            "mapping": {
+              "holdout": "#/components/schemas/AbTestHoldoutAssignmentGroup",
+              "variant": "#/components/schemas/AbTestVariantAssignmentGroup"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/AbTestHoldoutAssignmentGroup"
+            },
+            {
+              "$ref": "#/components/schemas/AbTestVariantAssignmentGroup"
+            }
+          ]
+        },
+        "AbTestAssignmentManifest": {
+          "additionalProperties": false,
+          "properties": {
+            "algorithm": {
+              "const": "sha256-order-largest-remainder-v1"
+            },
+            "assignedCount": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "audienceChecksum": {
+              "type": "string"
+            },
+            "groups": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestAssignmentGroup"
+              },
+              "type": "array"
+            },
+            "seed": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "algorithm",
+            "seed",
+            "audienceChecksum",
+            "groups",
+            "assignedCount"
+          ],
+          "type": "object"
+        },
+        "AbTestBaseConfig": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "lists": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "template_id": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "subject",
+            "body",
+            "lists"
+          ],
+          "type": "object"
+        },
+        "AbTestCampaignMapping": {
+          "additionalProperties": false,
+          "properties": {
+            "campaignId": {
+              "type": "number"
+            },
+            "variantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "variantId",
+            "campaignId"
+          ],
+          "type": "object"
+        },
+        "AbTestContentOverrides": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "sendTime": {
+              "type": "string"
+            },
+            "senderEmail": {
+              "type": "string"
+            },
+            "senderName": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "AbTestCreateOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "created": {
+              "type": "boolean"
+            },
+            "test": {
+              "$ref": "#/components/schemas/AbTestRecord"
+            }
+          },
+          "required": [
+            "test",
+            "created"
+          ],
+          "type": "object"
+        },
+        "AbTestHoldoutAssignmentGroup": {
+          "additionalProperties": false,
+          "properties": {
+            "expectedCount": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "kind": {
+              "const": "holdout"
+            },
+            "subscriberChecksum": {
+              "type": "string"
+            },
+            "variantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "expectedCount",
+            "subscriberChecksum",
+            "kind"
+          ],
+          "type": "object"
+        },
+        "AbTestListMapping": {
+          "additionalProperties": false,
+          "properties": {
+            "listId": {
+              "type": "number"
+            },
+            "variantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "variantId",
+            "listId"
+          ],
+          "type": "object"
+        },
+        "AbTestMetric": {
+          "additionalProperties": false,
+          "properties": {
+            "config": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/components/schemas/AbTestMetricType"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "type"
+          ],
+          "type": "object"
+        },
+        "AbTestMetricType": {
+          "oneOf": [
+            {
+              "const": "click_rate"
+            },
+            {
+              "const": "conversion"
+            },
+            {
+              "const": "custom"
+            },
+            {
+              "const": "open_rate"
+            },
+            {
+              "const": "revenue"
+            }
+          ]
+        },
+        "AbTestRecord": {
+          "additionalProperties": false,
+          "properties": {
+            "assignmentManifest": {
+              "$ref": "#/components/schemas/AbTestAssignmentManifest"
+            },
+            "assignmentProvenance": {
+              "type": "string"
+            },
+            "assignmentSeed": {
+              "type": "string"
+            },
+            "audienceSnapshot": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "autoDeployWinner": {
+              "type": "boolean"
+            },
+            "baseConfig": {
+              "$ref": "#/components/schemas/AbTestBaseConfig"
+            },
+            "campaignId": {
+              "type": "string"
+            },
+            "campaignMappings": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestCampaignMapping"
+              },
+              "type": "array"
+            },
+            "confidenceThreshold": {
+              "type": "number"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "durationHours": {
+              "type": "number"
+            },
+            "endsAt": {
+              "type": "string"
+            },
+            "holdoutGroupSize": {
+              "type": "number"
+            },
+            "holdoutListId": {
+              "type": "number"
+            },
+            "hypothesis": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "id": {
+              "type": "string"
+            },
+            "idempotencyKey": {
+              "description": "Caller-scoped create key; replays return the originally created test.",
+              "type": "string"
+            },
+            "launchAt": {
+              "type": "string"
+            },
+            "metrics": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestMetric"
+              },
+              "type": "array"
+            },
+            "minimumTestSampleSize": {
+              "type": "number"
+            },
+            "name": {
+              "type": "string"
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/components/schemas/AbTestStatus"
+            },
+            "stratification": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "testGroupPercentage": {
+              "type": "number"
+            },
+            "testGroupSize": {
+              "type": "number"
+            },
+            "testListMappings": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestListMapping"
+              },
+              "type": "array"
+            },
+            "testingMode": {
+              "$ref": "#/components/schemas/AbTestTestingMode"
+            },
+            "updatedAt": {
+              "type": "string"
+            },
+            "variants": {
+              "items": {
+                "$ref": "#/components/schemas/AbTestVariant"
+              },
+              "type": "array"
+            },
+            "winnerCampaignId": {
+              "type": "number"
+            },
+            "winnerVariantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "campaignId",
+            "variants",
+            "status",
+            "metrics",
+            "createdAt",
+            "updatedAt",
+            "baseConfig",
+            "testingMode",
+            "testGroupPercentage",
+            "testGroupSize",
+            "holdoutGroupSize",
+            "confidenceThreshold",
+            "autoDeployWinner",
+            "campaignMappings",
+            "testListMappings"
+          ],
+          "type": "object"
+        },
+        "AbTestStatus": {
+          "oneOf": [
+            {
+              "const": "analyzing"
+            },
+            {
+              "const": "cancelled"
+            },
+            {
+              "const": "cancelling"
+            },
+            {
+              "const": "completed"
+            },
+            {
+              "const": "deploying"
+            },
+            {
+              "const": "draft"
+            },
+            {
+              "const": "failed"
+            },
+            {
+              "const": "inconclusive"
+            },
+            {
+              "const": "running"
+            },
+            {
+              "const": "scheduled"
+            },
+            {
+              "const": "testing"
+            }
+          ]
+        },
+        "AbTestTestingMode": {
+          "oneOf": [
+            {
+              "const": "full-split"
+            },
+            {
+              "const": "holdout"
+            }
+          ]
+        },
+        "AbTestVariant": {
+          "additionalProperties": false,
+          "properties": {
+            "contentOverrides": {
+              "$ref": "#/components/schemas/AbTestContentOverrides"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "percentage": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "percentage",
+            "contentOverrides"
+          ],
+          "type": "object"
+        },
+        "AbTestVariantAssignmentGroup": {
+          "additionalProperties": false,
+          "properties": {
+            "expectedCount": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "kind": {
+              "const": "variant"
+            },
+            "subscriberChecksum": {
+              "type": "string"
+            },
+            "variantId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "expectedCount",
+            "subscriberChecksum",
+            "kind",
+            "variantId"
+          ],
+          "type": "object"
+        },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "created": {
+          "type": "boolean"
+        },
+        "test": {
+          "$ref": "#/components/schemas/AbTestRecord"
+        }
+      },
+      "required": [
+        "test",
+        "created"
       ],
       "type": "object"
     },
@@ -1253,6 +1737,10 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "id": {
+              "type": "string"
+            },
+            "idempotencyKey": {
+              "description": "Caller-scoped create key; replays return the originally created test.",
               "type": "string"
             },
             "launchAt": {
@@ -1850,6 +2338,10 @@
               "$ref": "#/components/schemas/Recordstringunknown"
             },
             "id": {
+              "type": "string"
+            },
+            "idempotencyKey": {
+              "description": "Caller-scoped create key; replays return the originally created test.",
               "type": "string"
             },
             "launchAt": {
@@ -13304,6 +13796,162 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "sequenceCreateOutputContract": {
+    "components": {
+      "schemas": {
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "PositiveInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SequenceCreateOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "created": {
+              "type": "boolean"
+            },
+            "sequence": {
+              "$ref": "#/components/schemas/SequenceDefinition"
+            }
+          },
+          "required": [
+            "sequence",
+            "created"
+          ],
+          "type": "object"
+        },
+        "SequenceDefinition": {
+          "additionalProperties": false,
+          "properties": {
+            "created_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "current_revision": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "description_present": {
+              "type": "boolean"
+            },
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "name": {
+              "$ref": "#/components/schemas/SequenceName"
+            },
+            "revisions": {
+              "items": {
+                "$ref": "#/components/schemas/SequenceRevision"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "status": {
+              "oneOf": [
+                {
+                  "const": "active"
+                },
+                {
+                  "const": "paused"
+                }
+              ]
+            },
+            "updated_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "description_present",
+            "status",
+            "current_revision",
+            "revisions",
+            "created_at",
+            "updated_at"
+          ],
+          "type": "object"
+        },
+        "SequenceName": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "SequenceRevision": {
+          "additionalProperties": false,
+          "properties": {
+            "content_fingerprint": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "created_at": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
+            "revision": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "step_count": {
+              "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "step_types": {
+              "items": {
+                "oneOf": [
+                  {
+                    "const": "condition"
+                  },
+                  {
+                    "const": "send"
+                  },
+                  {
+                    "const": "stop"
+                  },
+                  {
+                    "const": "wait"
+                  },
+                  {
+                    "const": "wait_until"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "revision",
+            "step_count",
+            "step_types",
+            "content_fingerprint",
+            "created_at"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "created": {
+          "type": "boolean"
+        },
+        "sequence": {
+          "$ref": "#/components/schemas/SequenceDefinition"
+        }
+      },
+      "required": [
+        "sequence",
+        "created"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "sequenceDefinitionOutputContract": {
     "components": {
       "schemas": {
@@ -20102,12 +20750,16 @@
         "WebhookCreateOutput": {
           "additionalProperties": false,
           "properties": {
+            "created": {
+              "type": "boolean"
+            },
             "endpoint": {
               "$ref": "#/components/schemas/WebhookEndpoint"
             }
           },
           "required": [
-            "endpoint"
+            "endpoint",
+            "created"
           ],
           "type": "object"
         },
@@ -20326,12 +20978,16 @@
     "schema": {
       "additionalProperties": false,
       "properties": {
+        "created": {
+          "type": "boolean"
+        },
         "endpoint": {
           "$ref": "#/components/schemas/WebhookEndpoint"
         }
       },
       "required": [
-        "endpoint"
+        "endpoint",
+        "created"
       ],
       "type": "object"
     },

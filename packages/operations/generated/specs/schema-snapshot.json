@@ -4052,12 +4052,16 @@
             "WebhookCreateOutput": {
               "additionalProperties": false,
               "properties": {
+                "created": {
+                  "type": "boolean"
+                },
                 "endpoint": {
                   "$ref": "#/components/schemas/WebhookEndpoint"
                 }
               },
               "required": [
-                "endpoint"
+                "endpoint",
+                "created"
               ],
               "type": "object"
             },
@@ -4276,12 +4280,16 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "created": {
+              "type": "boolean"
+            },
             "endpoint": {
               "$ref": "#/components/schemas/WebhookEndpoint"
             }
           },
           "required": [
-            "endpoint"
+            "endpoint",
+            "created"
           ],
           "type": "object"
         },
@@ -4294,13 +4302,13 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": false,
+        "idempotent": true,
         "kind": "reconcile",
-        "reason": "A completed create is visible by name; blindly repeating an ambiguous create is not safe.",
+        "reason": "Endpoint names are unique, so a retry after an ambiguous create conflicts and replays the persisted endpoint when it matches the requested intent, reporting created: false; a different configuration under the same name stays a conflict.",
         "reconcileWith": "webhooks.list"
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.update",
@@ -9212,6 +9220,22 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceCreateOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "created": {
+                  "type": "boolean"
+                },
+                "sequence": {
+                  "$ref": "#/components/schemas/SequenceDefinition"
+                }
+              },
+              "required": [
+                "sequence",
+                "created"
+              ],
+              "type": "object"
+            },
             "SequenceDefinition": {
               "additionalProperties": false,
               "properties": {
@@ -9261,18 +9285,6 @@
                 "revisions",
                 "created_at",
                 "updated_at"
-              ],
-              "type": "object"
-            },
-            "SequenceDefinitionOutput": {
-              "additionalProperties": false,
-              "properties": {
-                "sequence": {
-                  "$ref": "#/components/schemas/SequenceDefinition"
-                }
-              },
-              "required": [
-                "sequence"
               ],
               "type": "object"
             },
@@ -9336,12 +9348,16 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "created": {
+              "type": "boolean"
+            },
             "sequence": {
               "$ref": "#/components/schemas/SequenceDefinition"
             }
           },
           "required": [
-            "sequence"
+            "sequence",
+            "created"
           ],
           "type": "object"
         },
@@ -9354,11 +9370,13 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may create another sequence unless the original ID is known."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Sequence names are unique, so a retry after an ambiguous create conflicts and replays the persisted definition when it matches the requested intent, reporting created: false; a different definition under the same name stays a conflict.",
+        "reconcileWith": "sequences.list"
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "sequences.update",
@@ -27147,6 +27165,10 @@
                 "id": {
                   "type": "string"
                 },
+                "idempotencyKey": {
+                  "description": "Caller-scoped create key; replays return the originally created test.",
+                  "type": "string"
+                },
                 "launchAt": {
                   "type": "string"
                 },
@@ -27661,6 +27683,10 @@
                 "id": {
                   "type": "string"
                 },
+                "idempotencyKey": {
+                  "description": "Caller-scoped create key; replays return the originally created test.",
+                  "type": "string"
+                },
                 "launchAt": {
                   "type": "string"
                 },
@@ -28048,6 +28074,12 @@
                   ],
                   "type": "object"
                 },
+                "idempotency_key": {
+                  "description": "Caller-scoped create key; omitted keys are derived from the request so identical retries replay.",
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
                 "ignore_sample_size_warnings": {
                   "type": "boolean"
                 },
@@ -28326,6 +28358,12 @@
               ],
               "type": "object"
             },
+            "idempotency_key": {
+              "description": "Caller-scoped create key; omitted keys are derived from the request so identical retries replay.",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
             "ignore_sample_size_warnings": {
               "type": "boolean"
             },
@@ -28494,15 +28532,19 @@
               "required": [],
               "type": "object"
             },
-            "AbTestGetOutput": {
+            "AbTestCreateOutput": {
               "additionalProperties": false,
               "properties": {
+                "created": {
+                  "type": "boolean"
+                },
                 "test": {
                   "$ref": "#/components/schemas/AbTestRecord"
                 }
               },
               "required": [
-                "test"
+                "test",
+                "created"
               ],
               "type": "object"
             },
@@ -28639,6 +28681,10 @@
                   "$ref": "#/components/schemas/Recordstringunknown"
                 },
                 "id": {
+                  "type": "string"
+                },
+                "idempotencyKey": {
+                  "description": "Caller-scoped create key; replays return the originally created test.",
                   "type": "string"
                 },
                 "launchAt": {
@@ -28827,12 +28873,16 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "created": {
+              "type": "boolean"
+            },
             "test": {
               "$ref": "#/components/schemas/AbTestRecord"
             }
           },
           "required": [
-            "test"
+            "test",
+            "created"
           ],
           "type": "object"
         },
@@ -28846,7 +28896,7 @@
       },
       "retry": {
         "kind": "unsafe",
-        "reason": "A retry may create another test, provision duplicate campaigns, or initiate bulk delivery unless the original ID is known."
+        "reason": "The replay key is only persisted with the local record, so an ambiguous failure after remote campaign provisioning loses it and a retry can provision duplicates; creation stays experimental until the intent is durable before remote effects."
       },
       "since": "0.10.0",
       "stability": "experimental"
@@ -29418,6 +29468,10 @@
                 "id": {
                   "type": "string"
                 },
+                "idempotencyKey": {
+                  "description": "Caller-scoped create key; replays return the originally created test.",
+                  "type": "string"
+                },
                 "launchAt": {
                   "type": "string"
                 },
@@ -29929,6 +29983,10 @@
                   "$ref": "#/components/schemas/Recordstringunknown"
                 },
                 "id": {
+                  "type": "string"
+                },
+                "idempotencyKey": {
+                  "description": "Caller-scoped create key; replays return the originally created test.",
                   "type": "string"
                 },
                 "launchAt": {
@@ -30890,6 +30948,10 @@
                   "$ref": "#/components/schemas/Recordstringunknown"
                 },
                 "id": {
+                  "type": "string"
+                },
+                "idempotencyKey": {
+                  "description": "Caller-scoped create key; replays return the originally created test.",
                   "type": "string"
                 },
                 "launchAt": {
