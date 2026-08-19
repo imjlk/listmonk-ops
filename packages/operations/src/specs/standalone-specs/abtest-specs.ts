@@ -203,7 +203,7 @@ export const abTestLaunchOperationSpec = defineOperationSpec({
 		reconcileWith: "abtest.get",
 		idempotent: true,
 		reason:
-			"A retry after a recorded launch (scheduled or running with startedAt set) returns the persisted test instead of rescheduling delivery; verify with abtest.get after an ambiguous result.",
+			"The send window is persisted before any campaign is scheduled, so an ambiguous retry reuses it; a completed launch (scheduled or running with startedAt set) returns the persisted test instead of rescheduling delivery.",
 	},
 	agent: {
 		useWhen: ["A draft A/B test is ready to go live."],

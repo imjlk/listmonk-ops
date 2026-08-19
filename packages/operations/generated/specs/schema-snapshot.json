@@ -29624,7 +29624,7 @@
       "retry": {
         "idempotent": true,
         "kind": "reconcile",
-        "reason": "A retry after a recorded launch (scheduled or running with startedAt set) returns the persisted test instead of rescheduling delivery; verify with abtest.get after an ambiguous result.",
+        "reason": "The send window is persisted before any campaign is scheduled, so an ambiguous retry reuses it; a completed launch (scheduled or running with startedAt set) returns the persisted test instead of rescheduling delivery.",
         "reconcileWith": "abtest.get"
       },
       "since": "0.10.0",

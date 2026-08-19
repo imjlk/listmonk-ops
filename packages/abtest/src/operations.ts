@@ -600,6 +600,16 @@ export async function executeLaunchAbTestOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof testIdInputSchema>,
 ): Promise<LaunchAbTestOperationOutput> {
+	// Phase 1 persists the launch intent (send window and startedAt) in its
+	// own committed store write, so an ambiguous retry after partial remote
+	// scheduling reuses the same window instead of recomputing it.
+	await withStoredOperation<AbTest>(context, "write", async (executors) => {
+		const intent = await executors.recordLaunchIntent(input.test_id);
+		if (!intent) {
+			throw new AbTestNotFoundError(input.test_id);
+		}
+		return intent;
+	});
 	return {
 		test: serializeAbTest(
 			await withStoredOperation<AbTest>(
