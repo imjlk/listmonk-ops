@@ -311,6 +311,7 @@ export type WebhookRetentionDays = number &
 
 export interface WebhookPruneInput {
 	older_than_days?: WebhookRetentionDays | undefined;
+	before?: IsoDateTime | undefined;
 	limit?: WebhookDeliveryListLimit | undefined;
 	dry_run?: boolean | undefined;
 }

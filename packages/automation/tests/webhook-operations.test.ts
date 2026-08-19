@@ -286,6 +286,35 @@ describe("webhook shared operations", () => {
 		});
 	});
 
+	test("honors an explicit prune cutoff so retries cannot drift", async () => {
+		const context = await createContext();
+		const before = "2026-01-01T00:00:00.000Z";
+		const first = await invokeWebhookPruneOperation(context, {
+			older_than_days: 30,
+			before,
+			limit: 10,
+			dry_run: true,
+		});
+		expect(first.before).toBe(before);
+		const second = await invokeWebhookPruneOperation(context, {
+			older_than_days: 30,
+			before,
+			limit: 10,
+			dry_run: false,
+		});
+		expect(second).toEqual({
+			eligible: first.eligible,
+			deleted: first.eligible,
+			dry_run: false,
+			before,
+		});
+		await expect(
+			invokeWebhookPruneOperation(context, {
+				before: "not-a-timestamp",
+			}),
+		).rejects.toThrow();
+	});
+
 	test("creates, filters, updates, and deletes endpoints through named invokers", async () => {
 		const context = await createContext();
 		const created = await invokeWebhookCreateOperation(context, {

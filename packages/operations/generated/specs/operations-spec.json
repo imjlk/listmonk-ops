@@ -8043,7 +8043,7 @@
         "related": [
           "webhooks.reconcile"
         ],
-        "retryGuidance": "Run dry_run first; repeating the confirmed cutoff is safe.",
+        "retryGuidance": "Run dry_run first and repeat the confirmed cutoff; pass the returned `before` timestamp on retry so the deletion window never drifts.",
         "useWhen": [
           "Terminal delivery history has exceeded the retention policy."
         ],
@@ -8055,6 +8055,10 @@
         "input": {
           "components": {
             "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
               "WebhookDeliveryListLimit": {
                 "maximum": 1000,
                 "minimum": 1,
@@ -8063,6 +8067,9 @@
               "WebhookPruneInput": {
                 "additionalProperties": false,
                 "properties": {
+                  "before": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
                   "dry_run": {
                     "type": "boolean"
                   },
@@ -8087,6 +8094,9 @@
           "schema": {
             "additionalProperties": false,
             "properties": {
+              "before": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
               "dry_run": {
                 "type": "boolean"
               },
@@ -8170,7 +8180,7 @@
           "stage": "normalized"
         }
       },
-      "description": "Preview or delete bounded terminal delivery records older than a retention cutoff.",
+      "description": "Preview or delete bounded terminal delivery records older than a retention cutoff. Pass an explicit `before` cutoff so a retry reproduces the exact confirmed deletion window.",
       "effects": [
         {
           "action": "prune",
@@ -8199,10 +8209,10 @@
       "resource": "webhook",
       "retry": {
         "kind": "safe",
-        "reason": "Deleting the same already-removed terminal records is an idempotent no-op."
+        "reason": "Deleting the same already-removed terminal records is an idempotent no-op. An explicit `before` cutoff makes retries delete exactly the confirmed window instead of recomputing it from the current clock."
       },
       "since": "0.8.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Prune outbound webhook delivery history",
       "verb": "prune"
     },

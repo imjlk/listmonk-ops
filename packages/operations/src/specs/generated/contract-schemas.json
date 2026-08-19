@@ -23000,6 +23000,10 @@
   "webhookPruneInputContract": {
     "components": {
       "schemas": {
+        "IsoDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
         "WebhookDeliveryListLimit": {
           "maximum": 1000,
           "minimum": 1,
@@ -23008,6 +23012,9 @@
         "WebhookPruneInput": {
           "additionalProperties": false,
           "properties": {
+            "before": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
             "dry_run": {
               "type": "boolean"
             },
@@ -23032,6 +23039,9 @@
     "schema": {
       "additionalProperties": false,
       "properties": {
+        "before": {
+          "$ref": "#/components/schemas/IsoDateTime"
+        },
         "dry_run": {
           "type": "boolean"
         },

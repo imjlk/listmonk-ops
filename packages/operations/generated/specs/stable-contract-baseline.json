@@ -5117,6 +5117,158 @@
         "input": {
           "components": {
             "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "WebhookDeliveryListLimit": {
+                "maximum": 1000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookPruneInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "before": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "limit": {
+                    "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                  },
+                  "older_than_days": {
+                    "$ref": "#/components/schemas/WebhookRetentionDays"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "WebhookRetentionDays": {
+                "maximum": 3650,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "before": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "dry_run": {
+                "type": "boolean"
+              },
+              "limit": {
+                "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+              },
+              "older_than_days": {
+                "$ref": "#/components/schemas/WebhookRetentionDays"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "WebhookPruneOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "before": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "deleted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "eligible": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "eligible",
+                  "deleted",
+                  "dry_run",
+                  "before"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "before": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "deleted": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "dry_run": {
+                "type": "boolean"
+              },
+              "eligible": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "eligible",
+              "deleted",
+              "dry_run",
+              "before"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "action": "prune",
+          "destructive": true,
+          "kind": "maintenance",
+          "resource": "webhook"
+        }
+      ],
+      "id": "webhooks.prune",
+      "mcpName": "listmonk_webhooks_prune",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "resource": "webhook",
+      "retry": {
+        "kind": "safe",
+        "reason": "Deleting the same already-removed terminal records is an idempotent no-op. An explicit `before` cutoff makes retries delete exactly the confirmed window instead of recomputing it from the current clock."
+      },
+      "verb": "prune"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "WebhookRuntimeStatusInput": {
                 "additionalProperties": false,
                 "properties": {

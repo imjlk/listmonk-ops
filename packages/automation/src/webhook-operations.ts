@@ -219,6 +219,12 @@ const webhookPruneInputSchema = z.object({
 			"older_than_days must be between 1 and 3650",
 		)
 		.default(30),
+	before: z
+		.iso.datetime()
+		.optional()
+		.describe(
+			"Explicit retention cutoff; retries reuse the exact confirmed window instead of recomputing it from the current clock",
+		),
 	limit: webhookDeliveryListLimitInput.default(100),
 	dry_run: booleanInput.default(true),
 });
@@ -730,7 +736,9 @@ export async function executeWebhookPruneOperation(
 ) {
 	const result = await pruneOutboundWebhookDeliveries({
 		...resolveWebhookOperationStore(context),
-		before: new Date(Date.now() - input.older_than_days * MILLISECONDS_PER_DAY),
+		before: input.before
+			? new Date(input.before)
+			: new Date(Date.now() - input.older_than_days * MILLISECONDS_PER_DAY),
 		limit: input.limit,
 		dryRun: input.dry_run,
 	});
@@ -1063,7 +1071,7 @@ export const webhookPruneOperation = defineOperation({
 	id: "webhooks.prune",
 	title: "Prune outbound webhook delivery history",
 	description:
-		"Preview or delete bounded terminal delivery records older than a retention cutoff.",
+		"Preview or delete bounded terminal delivery records older than a retention cutoff. Pass an explicit `before` cutoff so a retry reproduces the exact confirmed deletion window.",
 	inputSchema: webhookPruneInputSchema,
 	outputSchema: webhookPruneOutputSchema,
 	safety: {

@@ -6796,6 +6796,10 @@
       "input": {
         "components": {
           "schemas": {
+            "IsoDateTime": {
+              "format": "date-time",
+              "type": "string"
+            },
             "WebhookDeliveryListLimit": {
               "maximum": 1000,
               "minimum": 1,
@@ -6804,6 +6808,9 @@
             "WebhookPruneInput": {
               "additionalProperties": false,
               "properties": {
+                "before": {
+                  "$ref": "#/components/schemas/IsoDateTime"
+                },
                 "dry_run": {
                   "type": "boolean"
                 },
@@ -6828,6 +6835,9 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "before": {
+              "$ref": "#/components/schemas/IsoDateTime"
+            },
             "dry_run": {
               "type": "boolean"
             },
@@ -6917,10 +6927,10 @@
       },
       "retry": {
         "kind": "safe",
-        "reason": "Deleting the same already-removed terminal records is an idempotent no-op."
+        "reason": "Deleting the same already-removed terminal records is an idempotent no-op. An explicit `before` cutoff makes retries delete exactly the confirmed window instead of recomputing it from the current clock."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.tick",
