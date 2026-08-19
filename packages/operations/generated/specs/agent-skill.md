@@ -1162,7 +1162,7 @@ Prerequisites: `lists.list`
 
 Verify with: `lists.list`
 
-Retry guidance: Re-run with the same sample_key after an ambiguous result: the retry replaces that period's snapshot instead of appending a duplicate sample.
+Retry guidance: For an unkeyed run, verify the prior snapshot was committed before re-running; an ambiguous retry appends a fresh sample that double-weights the period. For a keyed run, re-run with the same sample_key: the retry replaces that period's snapshot instead of appending a duplicate sample.
 
 ## Generate daily operations digest (`ops.digest.daily`)
 

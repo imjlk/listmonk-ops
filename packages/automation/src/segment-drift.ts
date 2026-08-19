@@ -149,13 +149,24 @@ function retainRecentSegmentSnapshots(
 		);
 }
 
+function sharesSampleKey(
+	entry: SegmentSnapshotEntry,
+	snapshot: SegmentSnapshotEntry,
+): boolean {
+	return (
+		entry.sampleKey !== undefined && snapshot.sampleKey === entry.sampleKey
+	);
+}
+
 async function getListsForDrift(
 	client: ListmonkClient,
 	listIds?: number[],
 ): Promise<List[]> {
 	if (listIds && listIds.length > 0) {
 		const lists: List[] = [];
-		for (const listId of listIds) {
+		// Duplicate ids would produce duplicate snapshots for one list and
+		// double-weight that list's period, so fetch each id exactly once.
+		for (const listId of new Set(listIds)) {
 			lists.push(await getListById(client, listId));
 		}
 		return lists;
@@ -177,6 +188,15 @@ export async function runSegmentDriftSnapshot(
 	const minAbsoluteChange = Math.max(0, options.minAbsoluteChange ?? 50);
 	const lookbackDays = Math.max(1, options.lookbackDays ?? 14);
 	const baselineMode = options.baselineMode ?? "previous";
+	if (
+		options.sampleKey !== undefined &&
+		(typeof options.sampleKey !== "string" || options.sampleKey.trim() === "")
+	) {
+		// A persisted empty key would fail store parsing on every later run,
+		// so reject it before any snapshot is written.
+		throw new TypeError("Segment drift sample key must be a non-empty string");
+	}
+	const sampleKey = options.sampleKey?.trim();
 	const capturedAt = new Date().toISOString();
 	const lists = await getListsForDrift(client, options.listIds);
 
@@ -191,9 +211,7 @@ export async function runSegmentDriftSnapshot(
 				listId: id,
 				listName: list.name || `List ${id}`,
 				subscriberCount: Math.max(0, Number(list.subscriber_count || 0)),
-				...(options.sampleKey === undefined
-					? {}
-					: { sampleKey: options.sampleKey }),
+				...(sampleKey === undefined ? {} : { sampleKey }),
 			};
 		})
 		.filter((entry): entry is SegmentSnapshotEntry => entry !== undefined);
@@ -207,14 +225,12 @@ export async function runSegmentDriftSnapshot(
 		// with the same sample key never double-weights the period.
 		const replacedKeys = new Set(
 			currentEntries
-				.filter(
-					(entry) =>
-						entry.sampleKey !== undefined &&
-						store.snapshots.some(
-							(snapshot) =>
-								snapshot.listId === entry.listId &&
-								snapshot.sampleKey === entry.sampleKey,
-						),
+				.filter((entry) =>
+					store.snapshots.some(
+						(snapshot) =>
+							snapshot.listId === entry.listId &&
+							sharesSampleKey(entry, snapshot),
+					),
 				)
 				.map((entry) => `${entry.listId}:${entry.sampleKey}`),
 		);
@@ -224,10 +240,7 @@ export async function runSegmentDriftSnapshot(
 					(snapshot) =>
 						snapshot.listId === entry.listId &&
 						snapshot.capturedAt < entry.capturedAt &&
-						!(
-							entry.sampleKey !== undefined &&
-							snapshot.sampleKey === entry.sampleKey
-						),
+						!sharesSampleKey(entry, snapshot),
 				)
 				.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
 			const previous = history.at(-1);
@@ -304,8 +317,7 @@ export async function runSegmentDriftSnapshot(
 			}
 			return !currentEntries.some(
 				(entry) =>
-					entry.listId === snapshot.listId &&
-					entry.sampleKey === snapshot.sampleKey,
+					snapshot.listId === entry.listId && sharesSampleKey(entry, snapshot),
 			);
 		});
 		const nextStore: SegmentDriftStore = {

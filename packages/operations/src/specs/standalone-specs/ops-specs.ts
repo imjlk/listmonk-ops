@@ -48,7 +48,7 @@ export const opsSegmentDriftOperationSpec = defineOperationSpec({
 		verifyWith: ["lists.list"],
 		related: [],
 		retryGuidance:
-			"Re-run with the same sample_key after an ambiguous result: the retry replaces that period's snapshot instead of appending a duplicate sample.",
+			"For an unkeyed run, verify the prior snapshot was committed before re-running; an ambiguous retry appends a fresh sample that double-weights the period. For a keyed run, re-run with the same sample_key: the retry replaces that period's snapshot instead of appending a duplicate sample.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_segment_drift",

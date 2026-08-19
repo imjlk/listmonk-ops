@@ -194,6 +194,23 @@ describe("automation persistence", () => {
 			undefined,
 			"2026-08-19",
 		]);
+
+		await expect(
+			runSegmentDriftSnapshot(client, { sampleKey: "   " }),
+		).rejects.toThrow("sample key must be a non-empty string");
+
+		const duplicatedIds = await runSegmentDriftSnapshot(
+			{
+				list: {
+					getById: async () => ({
+						data: { id: 7, name: "Repeated", subscriber_count: 5 },
+					}),
+				},
+			} as unknown as ListmonkClient,
+			{ listIds: [7, 7], sampleKey: "dup-check" },
+		);
+		expect(duplicatedIds.replaced).toBe(0);
+		expect(duplicatedIds.comparisons).toHaveLength(1);
 	});
 
 	test("serializes template versions, promotion, and rollback", async () => {
