@@ -191,6 +191,18 @@ function isStoredListMapping(value: unknown): boolean {
 	);
 }
 
+function isStoredPendingCreate(value: unknown): boolean {
+	if (!isRecord(value) || !isRecord(value.config)) {
+		return false;
+	}
+	const config = value.config;
+	return (
+		typeof config.name === "string" &&
+		Array.isArray(config.variants) &&
+		isRecord(config.baseConfig) &&
+		Array.isArray(config.baseConfig.lists)
+	);
+}
 function isStoredAbTest(value: unknown): boolean {
 	return (
 		isRecord(value) &&
@@ -202,9 +214,9 @@ function isStoredAbTest(value: unknown): boolean {
 			typeof value.idempotencyFingerprint === "string") &&
 		(value.provisionedAt === undefined ||
 			typeof value.provisionedAt === "string") &&
-		(value.pendingCreate === undefined ||
-			(typeof value.pendingCreate === "object" &&
-				value.pendingCreate !== null)) &&
+		(value.pendingCreate === undefined || isStoredPendingCreate(
+			value.pendingCreate,
+		)) &&
 		typeof value.campaignId === "string" &&
 		typeof value.status === "string" &&
 		ABTEST_STATUSES.has(value.status as AbTest["status"]) &&

@@ -483,7 +483,13 @@ test("blocks launch and stop while a create intent is still provisioning", async
 	const storePath = join(tempDir, "abtests.json");
 	const fixture = createFixture("draft");
 	fixture.pendingCreate = {
-		config: {} as import("../src/types").AbTestConfig,
+		config: {
+			name: fixture.name,
+			campaignId: "campaign-auto",
+			variants: [],
+			metrics: [],
+			baseConfig: { subject: "s", body: "b", lists: [] },
+		} as unknown as import("../src/types").AbTestConfig,
 	};
 	await saveStoredAbTests([fixture], storePath);
 	const context = { client: {} as ListmonkClient, storePath };

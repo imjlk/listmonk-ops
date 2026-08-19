@@ -70,6 +70,9 @@ export function fingerprintAbTestConfig(config: AbTestConfig): string {
 			payload.testGroupPercentage ?? (testingMode === "holdout" ? 10 : 100),
 		confidenceThreshold: payload.confidenceThreshold ?? 0.95,
 		autoDeployWinner: payload.autoDeployWinner ?? false,
+		// Explicit false and an omitted flag behave identically at runtime.
+		autoLaunch: payload.autoLaunch ?? false,
+		ignoreStatisticalWarnings: payload.ignoreStatisticalWarnings ?? false,
 		...(hypothesis ? { hypothesis } : {}),
 	};
 	return createHash("sha256")
@@ -87,25 +90,34 @@ export class AbTestService {
 		private metricsCollector?: MetricsCollector,
 	) {}
 
-	private readonly inFlightKeyedCreates = new Map<string, Promise<AbTest>>();
+	private readonly inFlightKeyedCreates = new Map<
+		string,
+		{ fingerprint: string; creation: Promise<AbTest> }
+	>();
 
 	async createTest(config: AbTestConfig): Promise<AbTest> {
 		if (config.idempotencyKey !== undefined) {
 			// Direct library consumers are not serialized by the operation
 			// wrapper, so reserve the key while provisioning is in flight:
-			// a concurrent caller with the same key awaits this creation
-			// instead of provisioning a second set of campaigns and lists.
-			// Replays, conflicting fingerprints, and intent resumes are all
-			// resolved by recordCreateIntent below.
+			// a concurrent caller with the same key and the same request
+			// awaits this creation instead of provisioning a second set of
+			// campaigns and lists, while a different request under the same
+			// key conflicts exactly as a persisted replay would.
 			const key = config.idempotencyKey;
+			const fingerprint = fingerprintAbTestConfig(config);
 			const inFlight = this.inFlightKeyedCreates.get(key);
 			if (inFlight) {
-				return inFlight;
+				if (inFlight.fingerprint !== fingerprint) {
+					throw new AbTestConflictError(
+						`Idempotency key already used by a different create request: ${key}`,
+					);
+				}
+				return inFlight.creation;
 			}
 			const creation = this.createUnreservedTest(config).finally(() => {
 				this.inFlightKeyedCreates.delete(key);
 			});
-			this.inFlightKeyedCreates.set(key, creation);
+			this.inFlightKeyedCreates.set(key, { fingerprint, creation });
 			return creation;
 		}
 
