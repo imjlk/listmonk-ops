@@ -196,12 +196,101 @@ function isStoredPendingCreate(value: unknown): boolean {
 		return false;
 	}
 	const config = value.config;
-	return (
-		typeof config.name === "string" &&
-		Array.isArray(config.variants) &&
-		isRecord(config.baseConfig) &&
-		Array.isArray(config.baseConfig.lists)
-	);
+	// Validate every field provisioning consumes so a malformed intent is
+	// rejected at the store boundary instead of failing after partial
+	// remote effects or provisioning invalid data.
+	if (typeof config.name !== "string" || config.name.length === 0) {
+		return false;
+	}
+	if (typeof config.campaignId !== "string") {
+		return false;
+	}
+	if (
+		!Array.isArray(config.variants) ||
+		!config.variants.every(
+			(variant) =>
+				isRecord(variant) &&
+				typeof variant.name === "string" &&
+				typeof variant.percentage === "number" &&
+				Number.isFinite(variant.percentage),
+		)
+	) {
+		return false;
+	}
+	if (
+		!Array.isArray(config.metrics) ||
+		!config.metrics.every(
+			(metric) =>
+				isRecord(metric) &&
+				typeof metric.name === "string" &&
+				typeof metric.type === "string",
+		)
+	) {
+		return false;
+	}
+	const baseConfig = config.baseConfig;
+	if (
+		!isRecord(baseConfig) ||
+		typeof baseConfig.subject !== "string" ||
+		typeof baseConfig.body !== "string" ||
+		!Array.isArray(baseConfig.lists) ||
+		!baseConfig.lists.every(
+			(listId) => typeof listId === "number" && Number.isFinite(listId),
+		) ||
+		(baseConfig.template_id !== undefined &&
+			typeof baseConfig.template_id !== "number")
+	) {
+		return false;
+	}
+	if (
+		config.testingMode !== undefined &&
+		config.testingMode !== "holdout" &&
+		config.testingMode !== "full-split"
+	) {
+		return false;
+	}
+	const numericFields = [
+		"testGroupPercentage",
+		"confidenceThreshold",
+		"minimumTestSampleSize",
+		"durationHours",
+	] as const;
+	for (const field of numericFields) {
+		const fieldValue = config[field];
+		if (
+			fieldValue !== undefined &&
+			(typeof fieldValue !== "number" || !Number.isFinite(fieldValue))
+		) {
+			return false;
+		}
+	}
+	const booleanFields = [
+		"autoLaunch",
+		"autoDeployWinner",
+		"ignoreStatisticalWarnings",
+	] as const;
+	for (const field of booleanFields) {
+		const fieldValue = config[field];
+		if (fieldValue !== undefined && typeof fieldValue !== "boolean") {
+			return false;
+		}
+	}
+	if (
+		config.launchAt !== undefined &&
+		typeof config.launchAt !== "string"
+	) {
+		return false;
+	}
+	if (
+		config.stratificationPolicy !== undefined &&
+		!isRecord(config.stratificationPolicy)
+	) {
+		return false;
+	}
+	if (config.hypothesis !== undefined && !isRecord(config.hypothesis)) {
+		return false;
+	}
+	return true;
 }
 function isStoredAbTest(value: unknown): boolean {
 	return (
