@@ -1560,3 +1560,18 @@ Steps:
 3. `dns-check` → `deliverability.dns-check` (none approval). Verify DMARC, DKIM, and custom MAIL FROM DNS records.
 
 Recovery operation: `providers.status`
+
+## `webhook.retention` — Prune terminal webhook delivery history
+
+Preview the oldest terminal webhook deliveries past a retention window, then delete exactly the previewed set inside the previewed cutoff.
+
+Inputs:
+
+- `older_than_days` (`number`, required): Retention age in days for terminal delivery records
+
+Steps:
+
+1. `preview` → `webhooks.prune` (human approval). Preview the bounded oldest terminal batch past the retention window and capture its exact delivery ids and cutoff. Guard: `dry_run equals true`; on failure: The retention preview must stay a dry run.
+2. `delete` → `webhooks.prune` (human approval). Delete exactly the previewed delivery ids inside the previewed cutoff; repeating the same request is a no-op.
+
+Recovery operation: `webhooks.delivery.list`

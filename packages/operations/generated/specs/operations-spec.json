@@ -37175,6 +37175,86 @@
         }
       ],
       "title": "Check provider health"
+    },
+    {
+      "goal": "Preview the oldest terminal webhook deliveries past a retention window, then delete exactly the previewed set inside the previewed cutoff.",
+      "id": "webhook.retention",
+      "inputs": [
+        {
+          "description": "Retention age in days for terminal delivery records",
+          "name": "older_than_days",
+          "required": true,
+          "type": "number"
+        }
+      ],
+      "recoveryOperation": "webhooks.delivery.list",
+      "steps": [
+        {
+          "approval": "human",
+          "dependsOn": [],
+          "description": "Preview the bounded oldest terminal batch past the retention window and capture its exact delivery ids and cutoff.",
+          "id": "preview",
+          "input": [
+            {
+              "parameter": "older_than_days",
+              "source": {
+                "kind": "playbook-input",
+                "name": "older_than_days"
+              }
+            },
+            {
+              "parameter": "dry_run",
+              "source": {
+                "kind": "literal",
+                "value": true
+              }
+            }
+          ],
+          "operation": "webhooks.prune",
+          "resultGuard": {
+            "expected": true,
+            "message": "The retention preview must stay a dry run.",
+            "onFailure": "stop",
+            "operator": "equals",
+            "path": "dry_run"
+          }
+        },
+        {
+          "approval": "human",
+          "dependsOn": [
+            "preview"
+          ],
+          "description": "Delete exactly the previewed delivery ids inside the previewed cutoff; repeating the same request is a no-op.",
+          "id": "delete",
+          "input": [
+            {
+              "parameter": "before",
+              "source": {
+                "kind": "step-output",
+                "path": "before",
+                "stepId": "preview"
+              }
+            },
+            {
+              "parameter": "ids",
+              "source": {
+                "kind": "step-output",
+                "path": "ids",
+                "stepId": "preview"
+              }
+            },
+            {
+              "parameter": "dry_run",
+              "source": {
+                "kind": "literal",
+                "value": false
+              }
+            }
+          ],
+          "operation": "webhooks.prune"
+        }
+      ],
+      "title": "Prune terminal webhook delivery history"
     }
   ],
   "resources": [

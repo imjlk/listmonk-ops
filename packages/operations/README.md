@@ -97,10 +97,10 @@ provider/store error messages, secret references, or subscriber identifiers.
 Their complete contracts, effects, policies, retry semantics, states, and MCP
 names are protected by an explicitly accepted compatibility baseline.
 
-The same subpath exports six guarded typed playbooks
+The same subpath exports seven guarded typed playbooks
 (`campaign.safe-start`, `campaign.safe-schedule`, `template.safe-promote`,
-`abtest.safe-run`, `campaign.deliverability-guard`, and
-`provider.health-check`), 16 resource state models, and 31 runtime-backed lifecycle
+`abtest.safe-run`, `campaign.deliverability-guard`,
+`provider.health-check`, and `webhook.retention`), 16 resource state models, and 31 runtime-backed lifecycle
 event declarations. Every public shared `defineOperation()` call binds a descriptor;
 the public migration exemption manifest is empty. Repository coverage,
 governance, compatibility, and compiler-graph gates enforce those invariants.

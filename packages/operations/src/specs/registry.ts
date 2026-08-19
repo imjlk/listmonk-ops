@@ -9,6 +9,7 @@ import {
 	campaignSafeSchedulePlaybook,
 	providerHealthCheckPlaybook,
 	templateSafePromotePlaybook,
+	webhookRetentionPlaybook,
 } from "./additional-playbooks";
 import { bridgedOperationSpecs } from "./bridged";
 import { coreReadOperationSpecs, standaloneOperationSpecs } from "./core-reads";
@@ -87,5 +88,6 @@ export const emailOperationsSpec =
 			abTestSafeRunPlaybook,
 			campaignDeliverabilityGuardPlaybook,
 			providerHealthCheckPlaybook,
+			webhookRetentionPlaybook,
 		],
 	});

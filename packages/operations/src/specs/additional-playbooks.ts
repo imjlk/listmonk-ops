@@ -16,6 +16,10 @@ import {
 	providerStatusOperationSpec,
 	providerTestOperationSpec,
 } from "./providers";
+import {
+	webhookDeliveryListOperationSpec,
+	webhookPruneOperationSpec,
+} from "./webhooks";
 import { defineOperationPlaybook } from "./playbook";
 
 export const campaignSafeSchedulePlaybook = defineOperationPlaybook({
@@ -433,4 +437,63 @@ export const providerHealthCheckPlaybook = defineOperationPlaybook({
 		},
 	],
 	recoveryOperation: providerStatusOperationSpec.id,
+});
+
+export const webhookRetentionPlaybook = defineOperationPlaybook({
+	id: "webhook.retention",
+	title: "Prune terminal webhook delivery history",
+	goal:
+		"Preview the oldest terminal webhook deliveries past a retention window, then delete exactly the previewed set inside the previewed cutoff.",
+	inputs: [
+		{
+			name: "older_than_days",
+			type: "number",
+			required: true,
+			description: "Retention age in days for terminal delivery records",
+		},
+	],
+	steps: [
+		{
+			id: "preview",
+			operation: webhookPruneOperationSpec.id,
+			approval: "human",
+			description:
+				"Preview the bounded oldest terminal batch past the retention window and capture its exact delivery ids and cutoff.",
+			dependsOn: [],
+			input: [
+				{
+					parameter: "older_than_days",
+					source: { kind: "playbook-input", name: "older_than_days" },
+				},
+				{ parameter: "dry_run", source: { kind: "literal", value: true } },
+			],
+			resultGuard: {
+				path: "dry_run",
+				operator: "equals",
+				expected: true,
+				onFailure: "stop",
+				message: "The retention preview must stay a dry run.",
+			},
+		},
+		{
+			id: "delete",
+			operation: webhookPruneOperationSpec.id,
+			approval: "human",
+			description:
+				"Delete exactly the previewed delivery ids inside the previewed cutoff; repeating the same request is a no-op.",
+			dependsOn: ["preview"],
+			input: [
+				{
+					parameter: "before",
+					source: { kind: "step-output", stepId: "preview", path: "before" },
+				},
+				{
+					parameter: "ids",
+					source: { kind: "step-output", stepId: "preview", path: "ids" },
+				},
+				{ parameter: "dry_run", source: { kind: "literal", value: false } },
+			],
+		},
+	],
+	recoveryOperation: webhookDeliveryListOperationSpec.id,
 });
