@@ -87,7 +87,7 @@ export const userRoleReconcileOperationSpec = defineOperationSpec({
 		openWorld: true,
 		graph: graphNodes("Reconcile"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.12.0",
 });
 
