@@ -286,7 +286,7 @@ describe("webhook shared operations", () => {
 		});
 	});
 
-	test("honors an explicit prune cutoff so retries cannot drift", async () => {
+	test("honors an explicit prune cutoff and requires it for destructive runs", async () => {
 		const context = await createContext();
 		const before = "2026-01-01T00:00:00.000Z";
 		const first = await invokeWebhookPruneOperation(context, {
@@ -318,6 +318,12 @@ describe("webhook shared operations", () => {
 			dry_run: true,
 		});
 		expect(offsetCutoff.before).toBe("2025-12-31T22:00:00.000Z");
+		await expect(
+			invokeWebhookPruneOperation(context, {
+				older_than_days: 30,
+				dry_run: false,
+			}),
+		).rejects.toThrow(/before/);
 	});
 
 	test("creates, filters, updates, and deletes endpoints through named invokers", async () => {

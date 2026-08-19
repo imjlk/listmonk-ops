@@ -6926,11 +6926,13 @@
         "dryRun": true
       },
       "retry": {
-        "kind": "safe",
-        "reason": "Deleting the same already-removed terminal records is an idempotent no-op. An explicit `before` cutoff makes retries delete exactly the confirmed window instead of recomputing it from the current clock."
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "An explicit `before` cutoff pins the deletion window, but a bounded retry selects the next oldest batch within it; verify the remaining backlog with webhooks.delivery.list before repeating.",
+        "reconcileWith": "webhooks.delivery.list"
       },
       "since": "0.8.0",
-      "stability": "stable"
+      "stability": "experimental"
     },
     {
       "id": "webhooks.tick",
