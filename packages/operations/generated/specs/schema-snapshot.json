@@ -28895,13 +28895,11 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": true,
-        "kind": "reconcile",
-        "reason": "Every create carries a replay key (supplied or derived from the request), so an identical retry returns the originally created test with created: false instead of provisioning duplicate campaigns or delivery.",
-        "reconcileWith": "abtest.get"
+        "kind": "unsafe",
+        "reason": "The replay key is only persisted with the local record, so an ambiguous failure after remote campaign provisioning loses it and a retry can provision duplicates; creation stays experimental until the intent is durable before remote effects."
       },
       "since": "0.10.0",
-      "stability": "stable"
+      "stability": "experimental"
     },
     {
       "id": "abtest.analyze",

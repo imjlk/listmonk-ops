@@ -115,11 +115,9 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "abtest.get",
-		idempotent: true,
+		kind: "unsafe",
 		reason:
-			"Every create carries a replay key (supplied or derived from the request), so an identical retry returns the originally created test with created: false instead of provisioning duplicate campaigns or delivery.",
+			"The replay key is only persisted with the local record, so an ambiguous failure after remote campaign provisioning loses it and a retry can provision duplicates; creation stays experimental until the intent is durable before remote effects.",
 	},
 	agent: {
 		useWhen: ["A new A/B test must be created."],
@@ -128,7 +126,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch", "abtest.delete"],
 		retryGuidance:
-			"Verify the originally created test with abtest.get before repeating the create; an identical request replays it with created: false.",
+			"Inspect abtest.list and the provisioned campaigns and lists before retrying an ambiguous create; a completed create replays through its idempotency key with created: false.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_create",
@@ -141,7 +139,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeCreateAbTestOperation:function",
 		},
 	},
-	stability: "stable",
+	stability: "experimental",
 	since: "0.10.0",
 });
 

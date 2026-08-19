@@ -781,7 +781,7 @@ export default defineGroup({
 							? `A/B test created: ${created.id}`
 							: `A/B test already created: ${created.id}`,
 					);
-					getOutput().json(created);
+					getOutput().json({ test: created, created: wasCreated });
 				} catch (error) {
 					throw new Error(
 						`Failed to create A/B test: ${toErrorMessage(error)}`,

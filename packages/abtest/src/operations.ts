@@ -597,27 +597,21 @@ export async function executeCreateAbTestOperation(
 		...input,
 		idempotency_key: input.idempotency_key ?? deriveAbTestCreateKey(input),
 	};
-	const preExisting = await withStoredOperation<AbTest | null>(
-		context,
-		"read",
-		(executors) =>
-			executors.findAbTestByIdempotencyKey(keyedInput.idempotency_key),
-	);
-	const wasNew = preExisting === null;
-	const created = await withStoredOperation<AbTest>(
-		context,
-		"write",
-		async (executors) => {
-			const nextTest = await executors.createAbTest(keyedInput);
-			// `createAbTest` owns the service-level `auto_launch` behavior. Keep
-			// creation atomic and avoid attempting a second launch after the service
-			// has already transitioned the test out of draft status.
-			return nextTest;
-		},
-	);
-	// An idempotency-key replay returns the originally created test rather
-	// than provisioning a duplicate; report which happened.
-	return { test: serializeAbTest(created), created: wasNew };
+	// Resolve the replay inside the same serialized write that performs the
+	// create, so the created flag cannot disagree with the persisted record.
+	const { test, wasNew } = await withStoredOperation<{
+		test: AbTest;
+		wasNew: boolean;
+	}>(context, "write", async (executors) => {
+		const preExisting = await executors.findAbTestByIdempotencyKey(
+			keyedInput.idempotency_key,
+		);
+		// `createAbTest` owns the service-level `auto_launch` behavior and
+		// replays the original test when the key already exists.
+		const nextTest = await executors.createAbTest(keyedInput);
+		return { test: nextTest, wasNew: preExisting === null };
+	});
+	return { test: serializeAbTest(test), created: wasNew };
 }
 
 export async function executeAnalyzeAbTestOperation(
@@ -871,7 +865,7 @@ export const createAbTestOperation = defineOperation({
 		"Create a new A/B test with variants and configuration",
 	inputSchema: createAbTestInputSchema,
 	outputSchema: z.object({ test: abTestSchema, created: z.boolean() }),
-	safety: { ...createSafety, idempotentHint: true },
+	safety: createSafety,
 	mcp: {
 		name: "listmonk_abtest_create",
 		legacySuccessText: (output) => jsonValue(output["test"]),

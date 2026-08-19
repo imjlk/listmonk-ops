@@ -475,6 +475,21 @@ export async function executeSequenceValidateOperation(
 	};
 }
 
+function canonicalizeStepValue(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(canonicalizeStepValue);
+	}
+	if (value !== null && typeof value === "object") {
+		const record = value as Record<string, unknown>;
+		return Object.fromEntries(
+			Object.keys(record)
+				.sort()
+				.map((key) => [key, canonicalizeStepValue(record[key])]),
+		);
+	}
+	return value;
+}
+
 function sameSequenceCreateIntent(
 	existing: SequenceDefinition,
 	requested: SequenceDefinition,
@@ -483,10 +498,19 @@ function sameSequenceCreateIntent(
 		existing.name.toLowerCase() === requested.name.toLowerCase() &&
 		(existing.description ?? undefined) ===
 			(requested.description ?? undefined) &&
-		// Steps live in revisions; compare only the normalized steps because
-		// revisions also carry creation timestamps that differ per attempt.
-		JSON.stringify(existing.revisions.map((revision) => revision.steps)) ===
-		JSON.stringify(requested.revisions.map((revision) => revision.steps))
+		// Steps live in revisions; compare only the canonically ordered steps
+		// because revisions also carry per-attempt timestamps and equivalent
+		// JSON payloads may arrive with different property order.
+		JSON.stringify(
+			existing.revisions.map((revision) =>
+				revision.steps.map(canonicalizeStepValue),
+			),
+		) ===
+			JSON.stringify(
+				requested.revisions.map((revision) =>
+					revision.steps.map(canonicalizeStepValue),
+				),
+			)
 	);
 }
 
