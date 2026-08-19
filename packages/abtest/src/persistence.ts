@@ -198,6 +198,13 @@ function isStoredAbTest(value: unknown): boolean {
 		typeof value.name === "string" &&
 		(value.idempotencyKey === undefined ||
 			typeof value.idempotencyKey === "string") &&
+		(value.idempotencyFingerprint === undefined ||
+			typeof value.idempotencyFingerprint === "string") &&
+		(value.provisionedAt === undefined ||
+			typeof value.provisionedAt === "string") &&
+		(value.pendingCreate === undefined ||
+			(typeof value.pendingCreate === "object" &&
+				value.pendingCreate !== null)) &&
 		typeof value.campaignId === "string" &&
 		typeof value.status === "string" &&
 		ABTEST_STATUSES.has(value.status as AbTest["status"]) &&

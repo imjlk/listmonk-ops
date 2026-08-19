@@ -31,6 +31,16 @@ export interface AbTest {
 	name: string;
 	/** Caller-scoped create key; replays return the originally created test. */
 	idempotencyKey?: string;
+	/** Canonical fingerprint of the create request bound to the replay key. */
+	idempotencyFingerprint?: string;
+	/**
+	 * Transient create payload persisted before remote provisioning so an
+	 * ambiguous retry resumes instead of provisioning duplicates; removed
+	 * once provisioning completes.
+	 */
+	pendingCreate?: { config: AbTestConfig } | undefined;
+	/** Set when remote provisioning has completed for this test. */
+	provisionedAt?: string;
 	campaignId: string;
 	variants: Variant[];
 	status:

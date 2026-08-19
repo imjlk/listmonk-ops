@@ -31230,6 +31230,10 @@
                   "name": {
                     "type": "string"
                   },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
+                    "type": "string"
+                  },
                   "startedAt": {
                     "type": "string"
                   },
@@ -31785,6 +31789,10 @@
                   "name": {
                     "type": "string"
                   },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
+                    "type": "string"
+                  },
                   "startedAt": {
                     "type": "string"
                   },
@@ -32013,7 +32021,7 @@
           "abtest.launch",
           "abtest.delete"
         ],
-        "retryGuidance": "Inspect abtest.list and the provisioned campaigns and lists before retrying an ambiguous create; a completed create replays through its idempotency key with created: false.",
+        "retryGuidance": "Verify the test with abtest.get before repeating an ambiguous create; an identical retry resumes an unfinished intent or replays a completed one with created: false.",
         "useWhen": [
           "A new A/B test must be created."
         ],
@@ -32825,6 +32833,10 @@
                   "name": {
                     "type": "string"
                   },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
+                    "type": "string"
+                  },
                   "startedAt": {
                     "type": "string"
                   },
@@ -33051,11 +33063,13 @@
       },
       "resource": "experiment",
       "retry": {
-        "kind": "unsafe",
-        "reason": "The replay key is only persisted with the local record, so an ambiguous failure after remote campaign provisioning loses it and a retry can provision duplicates; creation stays experimental until the intent is durable before remote effects."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "The create intent (replay key, request fingerprint, and payload) is committed before any remote provisioning, so an ambiguous retry resumes the same test; a completed create replays it with created: false, and a key reused with a different request conflicts explicitly.",
+        "reconcileWith": "abtest.get"
       },
       "since": "0.10.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Create A/B test",
       "verb": "create"
     },
@@ -33703,6 +33717,10 @@
                   "name": {
                     "type": "string"
                   },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
+                    "type": "string"
+                  },
                   "startedAt": {
                     "type": "string"
                   },
@@ -34271,6 +34289,10 @@
                     "type": "number"
                   },
                   "name": {
+                    "type": "string"
+                  },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
                     "type": "string"
                   },
                   "startedAt": {
@@ -35433,6 +35455,10 @@
                     "type": "number"
                   },
                   "name": {
+                    "type": "string"
+                  },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
                     "type": "string"
                   },
                   "startedAt": {

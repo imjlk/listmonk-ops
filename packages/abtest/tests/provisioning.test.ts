@@ -151,7 +151,13 @@ describe("A/B test provisioning", () => {
 		expect(rollbackResources?.testListIds).toEqual([]);
 		expect(rollbackResources?.holdoutListId).toBeUndefined();
 		expect(rollbackResources?.testId).toContain("test_");
-		await expect(service.getAllTests()).resolves.toHaveLength(0);
+		// Intent-first creation keeps the replayable draft (with its pending
+		// payload) so a retry resumes provisioning instead of duplicating it.
+		const tests = await service.getAllTests();
+		expect(tests).toHaveLength(1);
+		expect(tests[0]?.status).toBe("draft");
+		expect(tests[0]?.provisionedAt).toBeUndefined();
+		expect(tests[0]?.pendingCreate).toBeDefined();
 	});
 });
 

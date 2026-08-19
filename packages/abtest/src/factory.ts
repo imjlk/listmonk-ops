@@ -471,6 +471,14 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		findAbTestByIdempotencyKey: (key: string): Promise<AbTest | null> =>
 			abTestService.getTestByIdempotencyKey(key),
 
+		recordAbTestCreateIntent: (
+			input: CreateAbTestInput,
+		): Promise<{ test: AbTest; replayed: boolean }> =>
+			new CreateAbTestCommand(abTestService).recordIntent(input),
+
+		provisionAbTestIntent: (testId: string): Promise<AbTest> =>
+			new CreateAbTestCommand(abTestService).provision(testId),
+
 		deleteAbTest: (testId: string): Promise<boolean> =>
 			new DeleteAbTestCommand(abTestService).execute(testId),
 

@@ -1,3 +1,5 @@
+import { buildAbTestConfig } from "./basic";
+import { fingerprintAbTestConfig } from "./abtest-service";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	defineOperationCatalog,
@@ -21,12 +23,16 @@ import {
 	bindAbTestStopOperationSpec,
 	bindAbTestTickOperationSpec,
 } from "@listmonk-ops/operations/specs";
-import { createHash } from "node:crypto";
 import { z } from "zod";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { AbTestNotFoundError } from "./errors";
 import { withStoredAbTestExecutors } from "./persistence";
-import type { AbTest, TestAnalysis, TestValidationResult } from "./types";
+import type {
+	AbTest,
+	AbTestConfig,
+	TestAnalysis,
+	TestValidationResult,
+} from "./types";
 
 // Keep the lifecycle contracts in the domain package so CLI and MCP share the
 // same validation, persistence transaction, and Listmonk integration behavior.
@@ -133,6 +139,7 @@ const abTestSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	idempotencyKey: z.string().optional(),
+	provisionedAt: z.string().optional(),
 	campaignId: z.string(),
 	variants: z.array(variantSchema),
 	status: abTestStatusSchema,
@@ -579,39 +586,41 @@ export async function executeGetAbTestOperation(
 
 // Identical create requests derive the same replay key, so an ambiguous
 // retry never provisions a duplicate test even when no key was supplied.
-function deriveAbTestCreateKey(
-	input: z.output<typeof createAbTestInputSchema>,
-): string {
-	const digest = createHash("sha256")
-		.update(JSON.stringify(input))
-		.digest("hex")
-		.slice(0, 32);
-	return `auto-${digest}`;
+// Deriving from the fully defaulted config keeps the key stable across
+// adapters that omit or explicitly send default values.
+function deriveAbTestCreateKey(config: AbTestConfig): string {
+	return `auto-${fingerprintAbTestConfig(config).slice(0, 32)}`;
 }
 
 export async function executeCreateAbTestOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof createAbTestInputSchema>,
 ): Promise<CreateAbTestOperationOutput> {
+	// Phase 1 persists the create intent (replay key plus payload) in its
+	// own committed store write, so an ambiguous retry after partial remote
+	// provisioning resumes the original creation instead of duplicating it.
+	const keyedConfig = buildAbTestConfig(input);
 	const keyedInput = {
 		...input,
-		idempotency_key: input.idempotency_key ?? deriveAbTestCreateKey(input),
+		idempotency_key:
+			input.idempotency_key ?? deriveAbTestCreateKey(keyedConfig),
 	};
-	// Resolve the replay inside the same serialized write that performs the
-	// create, so the created flag cannot disagree with the persisted record.
-	const { test, wasNew } = await withStoredOperation<{
+	const { test: intent, replayed } = await withStoredOperation<{
 		test: AbTest;
-		wasNew: boolean;
-	}>(context, "write", async (executors) => {
-		const preExisting = await executors.findAbTestByIdempotencyKey(
-			keyedInput.idempotency_key,
-		);
-		// `createAbTest` owns the service-level `auto_launch` behavior and
-		// replays the original test when the key already exists.
-		const nextTest = await executors.createAbTest(keyedInput);
-		return { test: nextTest, wasNew: preExisting === null };
-	});
-	return { test: serializeAbTest(test), created: wasNew };
+		replayed: boolean;
+	}>(context, "write", (executors) =>
+		executors.recordAbTestCreateIntent(keyedInput),
+	);
+	if (replayed) {
+		return { test: serializeAbTest(intent), created: false };
+	}
+	// Phase 2 provisions campaigns and lists and finalizes the same record.
+	const test = await withStoredOperation<AbTest>(
+		context,
+		"write",
+		(executors) => executors.provisionAbTestIntent(intent.id),
+	);
+	return { test: serializeAbTest(test), created: true };
 }
 
 export async function executeAnalyzeAbTestOperation(
@@ -865,7 +874,7 @@ export const createAbTestOperation = defineOperation({
 		"Create a new A/B test with variants and configuration",
 	inputSchema: createAbTestInputSchema,
 	outputSchema: z.object({ test: abTestSchema, created: z.boolean() }),
-	safety: createSafety,
+		safety: { ...createSafety, idempotentHint: true },
 	mcp: {
 		name: "listmonk_abtest_create",
 		legacySuccessText: (output) => jsonValue(output["test"]),

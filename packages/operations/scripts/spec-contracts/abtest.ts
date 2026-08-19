@@ -102,6 +102,8 @@ export interface AbTestRecord {
 	name: string;
 	/** Caller-scoped create key; replays return the originally created test. */
 	idempotencyKey?: string | undefined;
+	/** Set when remote provisioning completed for this test. */
+	provisionedAt?: string | undefined;
 	campaignId: string;
 	variants: AbTestVariant[];
 	status: AbTestStatus;
