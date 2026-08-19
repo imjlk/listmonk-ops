@@ -506,7 +506,7 @@ describe("shared CRUD resource operations", () => {
 			templateOperations.find(
 				(operation) => operation.id === "templates.delete",
 			)?.safety.idempotentHint,
-		).toBe(false);
+		).toBe(true);
 		expect(
 			templateOperations.find(
 				(operation) => operation.id === "templates.set-default",

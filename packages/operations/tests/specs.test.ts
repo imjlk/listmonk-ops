@@ -210,7 +210,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(71);
+		).toHaveLength(75);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -380,7 +380,7 @@ describe("email operations specification", () => {
 			),
 		).toBe(true);
 		expect(templatesCreateOperationSpec.stability).toBe("experimental");
-		expect(templatesDeleteOperationSpec.stability).toBe("experimental");
+		expect(templatesDeleteOperationSpec.stability).toBe("stable");
 		expect(templatesUpdateOperationSpec.stability).toBe("stable");
 		expect(templatesSetDefaultOperationSpec.stability).toBe("stable");
 		const runtimeBridgeIds = new Set<string>(runtimeOperationContractIds);
@@ -394,9 +394,9 @@ describe("email operations specification", () => {
 		expect(templatesDeleteOperationSpec.retry).toEqual({
 			kind: "reconcile",
 			reconcileWith: "templates.list",
-			idempotent: false,
+			idempotent: true,
 			reason:
-				"After an ambiguous delete, inspect templates.list before repeating the irreversible request.",
+				"Deleting an already-deleted template is a documented no-op that reports deleted: false; the protected default template still fails explicitly. Verify with templates.list after an ambiguous result.",
 		});
 		const updateInputContract = templatesUpdateOperationSpec.contract.input;
 		expect(updateInputContract.schema["oneOf"]).toBeUndefined();
@@ -613,7 +613,7 @@ describe("email operations specification", () => {
 		expect(abTestStopOperationSpec.retry).toMatchObject({ kind: "unsafe" });
 		expect(abTestDeleteOperationSpec.retry).toMatchObject({
 			kind: "reconcile",
-			idempotent: false,
+			idempotent: true,
 		});
 		expect(abTestDeployWinnerOperationSpec.retry).toMatchObject({
 			kind: "unsafe",

@@ -220,7 +220,7 @@ Delete an endpoint and exhaust its unfinished delivery records.
 - Effects: `delete:webhook`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.test`
 
@@ -435,8 +435,8 @@ Delete a sequence only after all of its enrollments have reached terminal states
 - Contract source: input `typescript`, output `typescript`
 - Effects: `delete:sequence`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `reconcile`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.enroll`
 
@@ -786,7 +786,7 @@ Delete a template from Listmonk
 - Effects: `delete:template`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `templates.set-default`
 
@@ -1171,7 +1171,7 @@ Delete a persisted A/B test and clean up its non-terminal backing campaigns and 
 - Effects: `delete:experiment, delete:campaign, delete:list`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.10.0`
+- Stability: `stable` since `0.10.0`
 
 ## `abtest.recommend-sample-size`
 

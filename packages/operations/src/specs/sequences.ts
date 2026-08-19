@@ -222,21 +222,28 @@ export const sequenceDeleteOperationSpec = defineOperationSpec({
 	},
 	effects: [{ kind: "delete", resource: "sequence", reversible: false }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
-	retry: { kind: "unsafe", reason: "A successful delete removes the resource." },
+	retry: {
+		kind: "reconcile",
+		reconcileWith: "sequences.list",
+		idempotent: true,
+		reason:
+			"Deleting an already-deleted sequence is a documented no-op that reports deleted: false; verify with sequences.list after an ambiguous result.",
+	},
 	agent: {
 		useWhen: ["A retired sequence with no active enrollments must be removed."],
 		avoidWhen: ["Any enrollment is pending, running, waiting, or paused."],
 		prerequisites: ["sequences.get", "sequences.status"],
 		verifyWith: ["sequences.list"],
 		related: ["sequences.pause"],
-		retryGuidance: "List sequences before retrying a response-lost delete.",
+		retryGuidance:
+			"Verify the sequence is gone with sequences.list before retrying; an already-deleted sequence reports deleted: false without error.",
 	},
 	projection: {
 		mcpName: "listmonk_sequences_delete",
 		openWorld: false,
 		graph: graphNodes("delete"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

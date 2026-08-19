@@ -17,6 +17,8 @@ import {
 	optionalBooleanSchema,
 	readResourceSafety,
 	resourceIdSchema,
+	isResourceMissingError,
+	ResourceResponseError,
 	toResourceErrorMessage,
 	unwrapResourceResponse,
 	updateResourceSafety,
@@ -651,15 +653,45 @@ function templateMatchesDesiredState(
 	);
 }
 
+// Mirrors Listmonk's shared server-side rejection for deleting a missing
+// template and the protected default template; update if upstream rewords it.
+const NONEXISTENT_OR_DEFAULT_TEMPLATE_MESSAGE = /non-existent or default template/i;
+
+function isTemplateNonexistentOrDefaultError(error: unknown): boolean {
+	return (
+		error instanceof ResourceResponseError &&
+		error.status === 400 &&
+		NONEXISTENT_OR_DEFAULT_TEMPLATE_MESSAGE.test(error.message)
+	);
+}
+
 export async function deleteTemplate(
 	{ client }: TemplateOperationContext,
 	input: z.output<typeof templateIdInputSchema>,
 ): Promise<z.output<typeof deleteTemplateOutputSchema>> {
-	const response = await client.template.delete({ path: { id: input.id } });
-	return {
-		id: input.id,
-		deleted: unwrapResourceResponse(response, "Failed to delete template"),
-	};
+	try {
+		const response = await client.template.delete({ path: { id: input.id } });
+		return {
+			id: input.id,
+			deleted: unwrapResourceResponse(response, "Failed to delete template"),
+		};
+	} catch (error) {
+		if (!isTemplateNonexistentOrDefaultError(error)) {
+			throw error;
+		}
+		// Listmonk reports one message for a missing template and for the
+		// protected default template; only a genuinely missing template is a
+		// delete no-op, so probe existence and treat anything but a clean
+		// not-found (including transient probe failures) as an explicit error.
+		try {
+			await getTemplate({ client }, { id: input.id });
+		} catch (probeError) {
+			if (isResourceMissingError(probeError)) {
+				return { id: input.id, deleted: false };
+			}
+		}
+		throw error;
+	}
 }
 
 export async function setDefaultTemplate(
@@ -736,10 +768,13 @@ export const deleteTemplateOperation = defineOperation({
 	description: "Delete a template from Listmonk",
 	inputSchema: templateIdInputSchema,
 	outputSchema: deleteTemplateOutputSchema,
-	safety: { ...deleteResourceSafety, idempotentHint: false },
+	safety: deleteResourceSafety,
 	mcp: {
 		name: "listmonk_delete_template",
-		legacySuccessText: "Template deleted successfully",
+		legacySuccessText: (output) =>
+			output.deleted
+				? "Template deleted successfully"
+				: "Template already deleted",
 	},
 	spec: bindTemplatesDeleteOperationSpec(),
 	execute: deleteTemplate,

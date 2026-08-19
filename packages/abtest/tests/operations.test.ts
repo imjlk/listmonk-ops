@@ -122,7 +122,7 @@ describe("A/B test operation registry", () => {
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_delete",
 			)?.safety,
-		).toMatchObject({ destructiveHint: true, idempotentHint: false });
+		).toMatchObject({ destructiveHint: true, idempotentHint: true });
 		expect(
 			abTestOperations.find(
 				(operation) => operation.mcp.name === "listmonk_abtest_create",
@@ -316,6 +316,23 @@ test("preserves typed not-found errors for lifecycle transitions", async () => {
 			cause: expect.any(AbTestNotFoundError),
 		});
 	});
+
+test("reports a repeated delete as a documented no-op", async () => {
+	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-delete-"));
+	const storePath = join(tempDir, "abtests.json");
+	const fixture = createFixture("completed");
+	await saveStoredAbTests([fixture], storePath);
+	const context = { client: {} as ListmonkClient, storePath };
+
+	const first = await invokeDeleteAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(first).toEqual({ deleted: true });
+	const retried = await invokeDeleteAbTestOperation(context, {
+		test_id: fixture.id,
+	});
+	expect(retried).toEqual({ deleted: false });
+});
 
 test("rejects an A/B test changed after approval before progressing it", async () => {
 		tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-run-"));

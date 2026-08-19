@@ -642,14 +642,14 @@ export async function executeDeleteAbTestOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof testIdInputSchema>,
 ): Promise<DeleteAbTestOperationOutput> {
-	await withStoredOperation<boolean>(context, "write", async (executors) => {
-		const deleted = await executors.deleteAbTest(input.test_id);
-		if (!deleted) {
-			throw new AbTestNotFoundError(input.test_id);
-		}
-		return deleted;
-	});
-	return { deleted: true };
+	const deleted = await withStoredOperation<boolean>(
+		context,
+		"write",
+		// Deleting an already-deleted test is a documented no-op that simply
+		// reports deleted: false instead of surfacing a not-found error.
+		async (executors) => executors.deleteAbTest(input.test_id),
+	);
+	return { deleted };
 }
 
 export async function executeRecommendAbTestSampleSizeOperation(
@@ -885,7 +885,7 @@ export const deleteAbTestOperation = defineOperation({
 		"Delete a persisted A/B test and clean up its non-terminal backing campaigns and temporary lists",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ deleted: z.boolean() }),
-	safety: destructiveNonIdempotentSafety,
+	safety: destructiveSafety,
 	mcp: {
 		name: "listmonk_abtest_delete",
 		legacySuccessText: (output) => jsonValue(output),

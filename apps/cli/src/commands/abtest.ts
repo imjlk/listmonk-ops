@@ -1081,11 +1081,15 @@ export default defineGroup({
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
-					await invokeCliDeleteAbTest(
-						args,
-						{ test_id: flags["test-id"] },
+					const { deleted } = await invokeCliDeleteAbTest(args, {
+						test_id: flags["test-id"],
+					});
+					getOutput().success(
+						deleted
+							? `A/B test deleted: ${flags["test-id"]}`
+							: `A/B test already deleted: ${flags["test-id"]}`,
 					);
-					getOutput().success(`A/B test deleted: ${flags["test-id"]}`);
+					getOutput().json({ deleted });
 				} catch (error) {
 					throw new Error(
 						`Failed to delete A/B test: ${toErrorMessage(error)}`,

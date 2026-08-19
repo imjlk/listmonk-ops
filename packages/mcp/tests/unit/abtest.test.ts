@@ -54,7 +54,7 @@ describe("MCP A/B test operation adapter", () => {
 		expect(listTool?.outputSchema?.type).toBe("object");
 		expect(listTool?.annotations?.readOnlyHint).toBe(true);
 		expect(deleteTool?.annotations?.destructiveHint).toBe(true);
-		expect(deleteTool?.annotations?.idempotentHint).toBe(false);
+		expect(deleteTool?.annotations?.idempotentHint).toBe(true);
 		expect(stopTool?.annotations).toMatchObject({
 			destructiveHint: true,
 			idempotentHint: false,

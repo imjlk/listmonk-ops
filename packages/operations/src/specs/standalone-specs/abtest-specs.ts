@@ -288,9 +288,9 @@ export const abTestDeleteOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "reconcile",
 		reconcileWith: "abtest.list",
-		idempotent: false,
+		idempotent: true,
 		reason:
-			"A completed repeat is reported as not found, while an ambiguous first attempt may have removed only some remote resources; verify with abtest.list before deciding whether cleanup is still required.",
+			"Repeating a delete continues any partially removed remote cleanup (already-removed campaigns and lists are skipped as not-found) and a fully completed repeat reports deleted: false without error.",
 	},
 	agent: {
 		useWhen: ["An A/B test must be permanently removed."],
@@ -299,7 +299,7 @@ export const abTestDeleteOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.list"],
 		related: ["abtest.stop"],
 		retryGuidance:
-			"Inspect abtest.list and the remaining backing campaigns and temporary lists before retrying; an ambiguous delete may have removed only some remote resources.",
+			"Verify the test is gone with abtest.list before retrying; a completed repeat reports deleted: false and skips already-removed remote resources.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_delete",
@@ -312,7 +312,7 @@ export const abTestDeleteOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeDeleteAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 

@@ -450,6 +450,9 @@ describe("webhook shared operations", () => {
 			deleted: true,
 			endpoint: { id },
 		});
+		expect(await invokeWebhookDeleteOperation(context, { id })).toEqual({
+			deleted: false,
+		});
 	});
 
 	test("uses the canonical event filter contract at the operation boundary", async () => {
