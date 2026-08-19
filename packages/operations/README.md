@@ -71,7 +71,7 @@ Listmonk OpenAPI transport
 
 All 104 contracts are authored as TypeScript types and projected with Typia.
 The runtime-operation bridge infrastructure is now empty — all operations
-have standalone product-domain contracts. Sixty-nine reviewed core operations
+have standalone product-domain contracts. Seventy reviewed core operations
 are `stable`, including the first
 read-only promotion batch for list, subscriber, campaign, template, and media
 inspection plus the static `specs.*`, `playbooks.*`, and agent control-plane
@@ -86,8 +86,9 @@ presence, while delivery output exposes subject and stored-error presence
 without their values. Redacted sequence-definition and enrollment reads are
 stable as well: revisions expose counts, types, and content fingerprints, while
 enrollments expose subscriber-reference and stored-error presence without
-their values. Sequence pause/resume, webhook circuit reset, and standalone
-template manifest reconciliation are stable mutations. The runtime-readiness
+their values. Sequence pause/resume, webhook circuit reset, standalone
+template manifest reconciliation, and idempotent plan-then-apply user-role
+manifest reconciliation are stable mutations. The runtime-readiness
 `control.status` operation is stable since its readiness contract was hardened.
 Experimental mutation contracts are audited with the same redaction boundary:
 they may expose bounded error codes, counts, and presence flags, but not raw
@@ -95,9 +96,10 @@ provider/store error messages, secret references, or subscriber identifiers.
 Their complete contracts, effects, policies, retry semantics, states, and MCP
 names are protected by an explicitly accepted compatibility baseline.
 
-The same subpath exports four guarded typed playbooks
-(`campaign.safe-start`, `campaign.safe-schedule`, `template.safe-promote`, and
-`abtest.safe-run`), 16 resource state models, and 31 runtime-backed lifecycle
+The same subpath exports six guarded typed playbooks
+(`campaign.safe-start`, `campaign.safe-schedule`, `template.safe-promote`,
+`abtest.safe-run`, `campaign.deliverability-guard`, and
+`provider.health-check`), 16 resource state models, and 31 runtime-backed lifecycle
 event declarations. Every public shared `defineOperation()` call binds a descriptor;
 the public migration exemption manifest is empty. Repository coverage,
 governance, compatibility, and compiler-graph gates enforce those invariants.
