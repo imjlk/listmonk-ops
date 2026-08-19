@@ -568,9 +568,10 @@ declared idempotent and previewable through dry-run. A sixth batch made
 cutoff a dry run reported, so a retry deletes nothing new, and promoted
 it; the remaining 33 descriptors are experimental.
 
-The spec publishes six typed playbooks: `campaign.safe-start`,
+The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
-`campaign.deliverability-guard`, and `provider.health-check`.
+`campaign.deliverability-guard`, `provider.health-check`, and
+`webhook.retention`.
 Every public shared operation binds a descriptor, and the migration exemption
 manifest is empty. Coverage rejects missing, dangling, overlapping, or
 mismatched declarations.

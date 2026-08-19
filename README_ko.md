@@ -564,7 +564,7 @@ plan-then-apply 방식의 manifest 수렴이 idempotent로 선언되고 dry-run�
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
-`provider.health-check` 여섯 가지 타입드 플레이북을
+`provider.health-check`, `webhook.retention` 일곱 가지 타입드 플레이북을
 배포합니다. 모든 공용 shared Operation이 descriptor를 연결하므로 migration
 exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·중복·
 불일치 선언을 거부합니다.
