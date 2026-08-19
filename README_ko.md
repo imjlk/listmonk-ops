@@ -552,6 +552,9 @@ projection은 HTTPS origin, 결정적 구성 fingerprint와 secret-reference 설
 `lists.update`, `subscribers.update`, `campaigns.update`, `campaigns.pause`,
 `subscribers.add-to-lists`, `subscribers.unblocklist`,
 `ops.templates.registry-sync`를 추가로 승격했습니다.
+네 번째 batch에서는 retry 시 이미 삭제된 리소스에 대한 재시도가 문서화된
+no-op인 네 가지 idempotent delete(`lists.delete`, `subscribers.delete`,
+`campaigns.delete`, `media.delete`)를 승격했습니다.
 현재 stable baseline은 69개이며, 나머지 experimental descriptor는 35개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
