@@ -684,21 +684,26 @@ export default defineGroup({
 					const { input, autoLaunch } = await promptInteractiveInput(
 						prompt.clack,
 					);
-					const { test: created } = await executeCliOperation({
-						operationId: "abtest.create",
-						input: { ...input, auto_launch: autoLaunch },
-						// The interactive flow has already received an explicit create
-						// confirmation immediately before this operation boundary.
-						confirmed: true,
-						invoke: () =>
-							invokeCliCreateAbTest(args, {
-								...input,
-								auto_launch: autoLaunch,
-							}),
-					});
+					const { test: created, created: wasCreated } =
+						await executeCliOperation({
+							operationId: "abtest.create",
+							input: { ...input, auto_launch: autoLaunch },
+							// The interactive flow has already received an explicit create
+							// confirmation immediately before this operation boundary.
+							confirmed: true,
+							invoke: () =>
+								invokeCliCreateAbTest(args, {
+									...input,
+									auto_launch: autoLaunch,
+								}),
+						});
 
-					getOutput().success(`A/B test created: ${created.id}`);
-					getOutput().json(created);
+					getOutput().success(
+						wasCreated
+							? `A/B test created: ${created.id}`
+							: `A/B test already created: ${created.id}`,
+					);
+					getOutput().json({ test: created, created: wasCreated });
 				} catch (error) {
 					throw new Error(
 						`Failed to create A/B test: ${toErrorMessage(error)}`,
