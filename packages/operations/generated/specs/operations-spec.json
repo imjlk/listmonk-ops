@@ -7469,7 +7469,7 @@
           "webhooks.dispatch",
           "webhooks.update"
         ],
-        "retryGuidance": "Verify the delivery with webhooks.delivery.list before repeating an ambiguous retry; once the delivery is pending the retry repeats as a documented no-op reporting retried: false.",
+        "retryGuidance": "Verify the delivery with webhooks.delivery.list before repeating an ambiguous retry; a repeat while the delivery is still pending reports retried: false, but a completed dispatch can make the repeat start another cycle.",
         "useWhen": [
           "An operator has reviewed a failed delivery and wants another attempt cycle."
         ],
@@ -7866,13 +7866,13 @@
       },
       "resource": "webhook",
       "retry": {
-        "idempotent": true,
+        "idempotent": false,
         "kind": "reconcile",
-        "reason": "Repeating the retry once the delivery is already pending reports retried: false and returns the queued record without another mutation; only retry-eligible states (retry, exhausted) transition to pending.",
+        "reason": "A repeat while the delivery is still pending reports retried: false, but a dispatcher may complete it first and return it to retry or exhausted, so the repeat can start another delivery cycle; the operation is not idempotent.",
         "reconcileWith": "webhooks.delivery.list"
       },
       "since": "0.8.0",
-      "stability": "stable",
+      "stability": "experimental",
       "title": "Retry outbound webhook delivery",
       "verb": "retry"
     },

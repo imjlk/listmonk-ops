@@ -1128,7 +1128,7 @@ export const webhookDeliveryRetryOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: true,
+		idempotentHint: false,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_webhook_delivery_retry" },

@@ -695,9 +695,9 @@ export const webhookDeliveryRetryOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "reconcile",
 		reconcileWith: "webhooks.delivery.list",
-		idempotent: true,
+		idempotent: false,
 		reason:
-			"Repeating the retry once the delivery is already pending reports retried: false and returns the queued record without another mutation; only retry-eligible states (retry, exhausted) transition to pending.",
+			"A repeat while the delivery is still pending reports retried: false, but a dispatcher may complete it first and return it to retry or exhausted, so the repeat can start another delivery cycle; the operation is not idempotent.",
 	},
 	agent: {
 		useWhen: ["An operator has reviewed a failed delivery and wants another attempt cycle."],
@@ -706,7 +706,7 @@ export const webhookDeliveryRetryOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.dispatch", "webhooks.update"],
 		retryGuidance:
-			"Verify the delivery with webhooks.delivery.list before repeating an ambiguous retry; once the delivery is pending the retry repeats as a documented no-op reporting retried: false.",
+			"Verify the delivery with webhooks.delivery.list before repeating an ambiguous retry; a repeat while the delivery is still pending reports retried: false, but a completed dispatch can make the repeat start another cycle.",
 	},
 	projection: {
 		mcpName: "listmonk_webhook_delivery_retry",
@@ -724,7 +724,7 @@ export const webhookDeliveryRetryOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookDeliveryRetryOperation:function",
 		},
 	},
-	stability: "stable",
+	stability: "experimental",
 	since: "0.8.0",
 });
 

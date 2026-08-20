@@ -71,7 +71,7 @@ Listmonk OpenAPI transport
 
 All 104 contracts are authored as TypeScript types and projected with Typia.
 The runtime-operation bridge infrastructure is now empty — all operations
-have standalone product-domain contracts. Eighty-two reviewed core operations
+have standalone product-domain contracts. Eighty-one reviewed core operations
 are `stable`, including the first
 read-only promotion batch for list, subscriber, campaign, template, and media
 inspection plus the static `specs.*`, `playbooks.*`, and agent control-plane
@@ -91,9 +91,8 @@ template manifest reconciliation, idempotent plan-then-apply user-role
 manifest reconciliation, exact-set webhook delivery pruning, every
 resource delete (repeats report `deleted: false` as a documented no-op),
 and the local-store creates (name-intent replays for webhooks and
-sequences, email-intent replays for subscribers), pending-convergent
-delivery retries, and keyed drift snapshots (conditional retry) are
-stable mutations. The runtime-readiness
+sequences, email-intent replays for subscribers) and keyed drift
+snapshots (conditional retry) are stable mutations. The runtime-readiness
 `control.status` operation is stable since its readiness contract was hardened.
 Experimental mutation contracts are audited with the same redaction boundary:
 they may expose bounded error codes, counts, and presence flags, but not raw

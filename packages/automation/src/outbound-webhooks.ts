@@ -1528,14 +1528,20 @@ export async function replayOutboundWebhookDeadLetters(
 		const results = await Promise.all(
 			batch.map(async (delivery) => {
 				try {
-					await retryOutboundWebhookDelivery(delivery.id, {
-						...options,
-						now: options.now,
-					});
+					const { retried } = await retryOutboundWebhookDelivery(
+						delivery.id,
+						{
+							...options,
+							now: options.now,
+						},
+					);
 					return {
 						deliveryId: delivery.id,
 						error: undefined,
 						errorCode: undefined,
+						// A concurrent replay may have requeued this delivery
+						// already; report it so the aggregate count stays honest.
+						retried,
 					};
 				} catch (error) {
 					return {
@@ -1547,8 +1553,10 @@ export async function replayOutboundWebhookDeadLetters(
 			}),
 		);
 		for (const result of results) {
-			if (result.error === undefined) {
+			if (result.error === undefined && result.retried) {
 				deliveryIds.push(result.deliveryId);
+			} else if (result.error === undefined) {
+				continue;
 			} else {
 				errors.push({
 					deliveryId: result.deliveryId,

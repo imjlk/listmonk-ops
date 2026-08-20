@@ -268,7 +268,7 @@ Requeue one retryable or exhausted delivery for a fresh bounded attempt cycle.
 - Effects: `write:webhook`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `stable` since `0.8.0`
+- Stability: `experimental` since `0.8.0`
 
 ## `webhooks.reconcile`
 

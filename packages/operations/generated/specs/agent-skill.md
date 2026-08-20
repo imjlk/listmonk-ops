@@ -298,7 +298,7 @@ Retry guidance: Retrying the same read is safe.
 
 ## Retry outbound webhook delivery (`webhooks.delivery.retry`)
 
-Contract maturity: `stable`; effects: `write:webhook`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `experimental`; effects: `write:webhook`; confirmation: `required`; retry: `reconcile`.
 
 Use when: An operator has reviewed a failed delivery and wants another attempt cycle.
 
@@ -308,7 +308,7 @@ Prerequisites: `webhooks.delivery.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Verify the delivery with webhooks.delivery.list before repeating an ambiguous retry; once the delivery is pending the retry repeats as a documented no-op reporting retried: false.
+Retry guidance: Verify the delivery with webhooks.delivery.list before repeating an ambiguous retry; a repeat while the delivery is still pending reports retried: false, but a completed dispatch can make the repeat start another cycle.
 
 ## Reconcile outbound webhook leases (`webhooks.reconcile`)
 
