@@ -28,7 +28,7 @@ export const subscribersCreateOperationSpec = defineOperationSpec({
 		reconcileWith: "subscribers.list",
 		idempotent: true,
 		reason:
-			"Subscriber emails are unique, so a retry after an ambiguous create is rejected as already existing and replays the persisted subscriber when it matches the requested identity, reporting created: false; a conflicting configuration under the same email stays an explicit error.",
+			"Subscriber emails are unique, so a retry after an ambiguous create is rejected as already existing and replays the persisted subscriber when every observable create effect matches (email, name, status, list membership by id or uuid, canonical attributes), reporting created: false; a conflicting configuration under the same email — or a request carrying preconfirm_subscriptions, whose per-list confirmation effect the request cannot express — stays an explicit error.",
 	},
 	agent: {
 		useWhen: ["A new subscriber must be created."],

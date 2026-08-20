@@ -198,10 +198,13 @@ async function findCreatedSubscriber(
 	email: string,
 ): Promise<Subscriber | undefined> {
 	const pageSize = 100;
-	// Filter by email server-side so resolving a conflicting create never
-	// degrades into a full-table scan on large installations.
+	// Listmonk's subscriber query parameter is a raw SQL expression; bind the
+	// email as an escaped equality predicate so the lookup stays exact and
+	// never degrades into a full-table scan on large installations.
+	const escaped = email.replace(/'/g, "''");
+	const emailPredicate = `email = '${escaped}'`;
 	const firstResponse = await client.subscriber.list({
-		query: { page: 1, per_page: pageSize, query: email },
+		query: { page: 1, per_page: pageSize, query: emailPredicate },
 	});
 	const data = unwrapResourceResponse(
 		firstResponse,
@@ -216,7 +219,7 @@ async function findCreatedSubscriber(
 	const pageCount = Math.max(1, Math.ceil((data.total ?? 0) / pageSize));
 	for (let page = 2; page <= pageCount; page += 1) {
 		const response = await client.subscriber.list({
-			query: { page, per_page: pageSize, query: email },
+			query: { page, per_page: pageSize, query: emailPredicate },
 		});
 		const pageData = unwrapResourceResponse(
 			response,
@@ -270,18 +273,30 @@ function sameSubscriberCreateIntent(
 	existing: Subscriber,
 	input: z.output<typeof createSubscriberInputSchema>,
 ): boolean {
-	// Compare every observable create effect: identity fields, the sorted
-	// list memberships, and the canonical attribute payload. Request-only
-	// directives (list_uuids, preconfirm_subscriptions) are not persisted on
-	// the record and cannot conflict.
+	// Compare every observable create effect: identity fields, list
+	// membership (by uuid when the request addressed lists by uuid), and
+	// the canonical attribute payload. preconfirm_subscriptions mutates
+	// per-list subscription status in ways the request cannot express, so
+	// a replay is only offered when it was omitted.
+	if (input.preconfirm_subscriptions !== undefined) {
+		return false;
+	}
+	const requestedLists =
+		input.list_uuids !== undefined
+			? [...(existing.lists ?? [])]
+					.map((list) => list.uuid ?? "")
+					.filter(Boolean)
+					.sort()
+			: [...(existing.lists ?? [])].map((list) => list.id).sort();
+	const expectedLists =
+		input.list_uuids !== undefined
+			? [...input.list_uuids].sort()
+			: [...input.lists].sort();
 	return (
 		existing.email?.toLowerCase() === input.email.toLowerCase() &&
 		(existing.name ?? "") === input.name &&
 		existing.status === input.status &&
-		JSON.stringify(
-			[...(existing.lists ?? [])].map((list) => list.id).sort(),
-		) ===
-			JSON.stringify([...input.lists].sort()) &&
+		JSON.stringify(requestedLists) === JSON.stringify(expectedLists) &&
 		canonicalJson(existing.attribs ?? {}) === canonicalJson(input.attribs)
 	);
 }

@@ -599,6 +599,42 @@ describe("shared CRUD resource operations", () => {
 		});
 	});
 
+	test("does not replay when the request carries unverifiable effects", async () => {
+		const conflictResponse = {
+			error: { message: "E-mail already exists." },
+			response: { status: 409 },
+		};
+		const createSubscriber = mock(async () => conflictResponse);
+		const listSubscribers = mock(async () => ({
+			data: {
+				results: [
+					{
+						id: 43,
+						email: "preconfirm@example.com",
+						name: "Pre",
+						status: "enabled",
+					},
+				],
+				total: 1,
+			},
+		}));
+		const context = subscriberContext({
+			create: createSubscriber as SubscriberClient["subscriber"]["create"],
+			list: listSubscribers as SubscriberClient["subscriber"]["list"],
+		});
+
+		// preconfirm_subscriptions mutates per-list confirmation state the
+		// request cannot express, so the conflict stays an explicit error.
+		await expect(
+			invokeCreateSubscriberOperation(context, {
+				email: "preconfirm@example.com",
+				name: "Pre",
+				status: "enabled",
+				preconfirm_subscriptions: true,
+			}),
+		).rejects.toThrow(/already exists/i);
+	});
+
 	test("replays an identical subscriber create through its email conflict", async () => {
 		const conflictResponse = {
 			error: { message: "E-mail already exists." },
@@ -662,10 +698,18 @@ describe("shared CRUD resource operations", () => {
 		).resolves.toMatchObject({ created: true, subscriber: { id: 11 } });
 		expect(listSubscribers).toHaveBeenCalledTimes(2);
 		expect(listSubscribers).toHaveBeenNthCalledWith(1, {
-			query: { page: 1, per_page: 100, query: "created@example.com" },
+			query: {
+				page: 1,
+				per_page: 100,
+				query: "email = 'created@example.com'",
+			},
 		});
 		expect(listSubscribers).toHaveBeenNthCalledWith(2, {
-			query: { page: 2, per_page: 100, query: "created@example.com" },
+			query: {
+				page: 2,
+				per_page: 100,
+				query: "email = 'created@example.com'",
+			},
 		});
 
 		const createTemplate = mock(async () => ({ data: undefined }));
