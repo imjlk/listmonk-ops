@@ -970,7 +970,7 @@ Retry guidance: Verify the list is gone with lists.list before retrying.
 
 ## Create subscriber (`subscribers.create`)
 
-Contract maturity: `experimental`; effects: `write:subscriber`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:subscriber`; confirmation: `never`; retry: `reconcile`.
 
 Use when: A new subscriber must be created.
 
@@ -980,7 +980,7 @@ Prerequisites: none
 
 Verify with: `subscribers.list`
 
-Retry guidance: Inspect subscribers.list before retrying an ambiguous create.
+Retry guidance: Verify the subscriber with subscribers.list before repeating an ambiguous create; an identical retry replays it with created: false.
 
 ## Update subscriber (`subscribers.update`)
 

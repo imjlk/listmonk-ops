@@ -76,7 +76,7 @@ describe("agent discovery operations", () => {
 		});
 		expect(standalone.operation).toMatchObject({
 			coverage: "described",
-			stability: "experimental",
+			stability: "stable",
 			spec: {
 				resource: "subscriber",
 				contract: {

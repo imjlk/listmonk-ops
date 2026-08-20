@@ -91,9 +91,16 @@ export async function renderCreateSubscriber(
 	context: SubscribersCliContext,
 	input: CreateSubscriberInput,
 ) {
-	const subscriber = await invokeCreateSubscriberOperation(context, input);
-	context.output.success(`Subscriber created: ${subscriber.id ?? input.email}`);
-	context.output.json(subscriber);
+	const { subscriber, created } = await invokeCreateSubscriberOperation(
+		context,
+		input,
+	);
+	context.output.success(
+		created
+			? `Subscriber created: ${subscriber.id ?? input.email}`
+			: `Subscriber already exists: ${subscriber.id ?? input.email}`,
+	);
+	context.output.json({ subscriber, created });
 	return subscriber;
 }
 

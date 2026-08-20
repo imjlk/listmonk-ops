@@ -91,6 +91,10 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 			},
 		});
 		expect(cliContext.output.success).toHaveBeenCalledWith("Subscriber created: 8");
+		expect(cliContext.output.json).toHaveBeenCalledWith({
+			subscriber: { id: 8, email: "user@example.com", name: "User" },
+			created: true,
+		});
 	});
 
 	test("updates templates through the shared merge operation", async () => {

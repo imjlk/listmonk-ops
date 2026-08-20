@@ -21353,7 +21353,7 @@
           "subscribers.update",
           "subscribers.delete"
         ],
-        "retryGuidance": "Inspect subscribers.list before retrying an ambiguous create.",
+        "retryGuidance": "Verify the subscriber with subscribers.list before repeating an ambiguous create; an identical retry replays it with created: false.",
         "useWhen": [
           "A new subscriber must be created."
         ],
@@ -21496,6 +21496,22 @@
                 "minimum": 1,
                 "type": "integer"
               },
+              "SubscriberCreateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
+                  "subscriber": {
+                    "$ref": "#/components/schemas/SubscriberRecord"
+                  }
+                },
+                "required": [
+                  "subscriber",
+                  "created"
+                ],
+                "type": "object"
+              },
               "SubscriberRecord": {
                 "additionalProperties": {},
                 "properties": {
@@ -21537,40 +21553,19 @@
           },
           "dialect": "openapi-3.1",
           "schema": {
-            "additionalProperties": {},
+            "additionalProperties": false,
             "properties": {
-              "attribs": {
-                "$ref": "#/components/schemas/Recordstringunknown"
+              "created": {
+                "type": "boolean"
               },
-              "created_at": {
-                "type": "string"
-              },
-              "email": {
-                "type": "string"
-              },
-              "id": {
-                "$ref": "#/components/schemas/ResourceId"
-              },
-              "lists": {
-                "items": {
-                  "$ref": "#/components/schemas/Recordstringunknown"
-                },
-                "type": "array"
-              },
-              "name": {
-                "type": "string"
-              },
-              "status": {
-                "type": "string"
-              },
-              "updated_at": {
-                "type": "string"
-              },
-              "uuid": {
-                "type": "string"
+              "subscriber": {
+                "$ref": "#/components/schemas/SubscriberRecord"
               }
             },
-            "required": [],
+            "required": [
+              "subscriber",
+              "created"
+            ],
             "type": "object"
           },
           "source": "typescript",
@@ -21604,11 +21599,13 @@
       },
       "resource": "subscriber",
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may create another subscriber unless the original email or ID is known."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Subscriber emails are unique, so a retry after an ambiguous create is rejected as already existing and replays the persisted subscriber when it matches the requested identity, reporting created: false; a conflicting configuration under the same email stays an explicit error.",
+        "reconcileWith": "subscribers.list"
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Create subscriber",
       "verb": "create"
     },

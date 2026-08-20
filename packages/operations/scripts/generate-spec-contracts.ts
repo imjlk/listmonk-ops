@@ -68,6 +68,7 @@ import type {
 	SubscriberListCollectionOutput,
 	SubscriberListInput,
 	SubscriberListRecord,
+	SubscriberCreateOutput,
 	SubscriberRecord,
 	TemplateCollectionOutput,
 	TemplateCreateInput,
@@ -587,6 +588,9 @@ const contracts = {
 	listDeleteInputContract: contractSchema(typia.json.schema<ListDeleteInput>()),
 	listDeleteOutputContract: contractSchema(
 		typia.json.schema<ListDeleteOutput>(),
+	),
+	subscriberCreateOutputContract: contractSchema(
+		typia.json.schema<SubscriberCreateOutput>(),
 	),
 	subscriberCreateInputContract: contractSchema(
 		typia.json.schema<SubscriberCreateInput>(),

@@ -148,8 +148,14 @@ export class MCPTestUtils {
 			name: name || buildTestName("subscriber"),
 			status: "enabled",
 		});
-
-		return this.assertSuccess(result, "Failed to create test subscriber");
+		const output = this.assertSuccess(
+			result,
+			"Failed to create test subscriber",
+		) as {
+			subscriber?: unknown;
+		};
+		// The create result wraps the subscriber record with a created flag.
+		return (output.subscriber ?? output) as Record<string, unknown>;
 	}
 
 	/**

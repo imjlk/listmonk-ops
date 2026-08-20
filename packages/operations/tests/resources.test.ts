@@ -593,7 +593,54 @@ describe("shared CRUD resource operations", () => {
 			}),
 			{ email: "created@example.com", name: "Created" },
 		);
-		expect(subscriber).toMatchObject({ id: 11, email: "created@example.com" });
+		expect(subscriber).toMatchObject({
+			created: true,
+			subscriber: { id: 11, email: "created@example.com" },
+		});
+	});
+
+	test("replays an identical subscriber create through its email conflict", async () => {
+		const conflictResponse = {
+			error: { message: "E-mail already exists." },
+			response: { status: 409 },
+		};
+		const createSubscriber = mock(async () => conflictResponse);
+		const listSubscribers = mock(async () => ({
+			data: {
+				results: [
+					{
+						id: 42,
+						email: "replay@example.com",
+						name: "Replay",
+						status: "enabled",
+					},
+				],
+				total: 1,
+			},
+		}));
+		const context = subscriberContext({
+			create: createSubscriber as SubscriberClient["subscriber"]["create"],
+			list: listSubscribers as SubscriberClient["subscriber"]["list"],
+		});
+
+		const replayed = await invokeCreateSubscriberOperation(context, {
+			email: "replay@example.com",
+			name: "Replay",
+			status: "enabled",
+		});
+		expect(replayed).toMatchObject({
+			created: false,
+			subscriber: { id: 42, email: "replay@example.com" },
+		});
+
+		// A conflicting configuration under the same email stays an error.
+		await expect(
+			invokeCreateSubscriberOperation(context, {
+				email: "replay@example.com",
+				name: "Different",
+				status: "enabled",
+			}),
+		).rejects.toThrow(/already exists/i);
 	});
 
 	test("searches later pages when resolving created subscribers and templates", async () => {
@@ -612,7 +659,7 @@ describe("shared CRUD resource operations", () => {
 				}),
 				{ email: "created@example.com", name: "Created" },
 			),
-		).resolves.toMatchObject({ id: 11 });
+		).resolves.toMatchObject({ created: true, subscriber: { id: 11 } });
 		expect(listSubscribers).toHaveBeenCalledTimes(2);
 		expect(listSubscribers).toHaveBeenNthCalledWith(1, {
 			query: { page: 1, per_page: 100 },

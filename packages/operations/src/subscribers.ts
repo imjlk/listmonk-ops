@@ -63,6 +63,10 @@ const subscriberSchema = z.looseObject({
 	lists: z.array(z.looseObject({})).optional(),
 });
 
+const subscriberCreateOutputSchema = z.object({
+	subscriber: subscriberSchema,
+	created: z.boolean(),
+});
 const subscriberListOutputSchema = z.object({
 	results: z.array(subscriberSchema),
 	total: z.number(),
@@ -177,6 +181,10 @@ export async function listSubscribers(
 			? (data.results?.length ?? 0)
 			: input.per_page,
 	});
+	const subscriberCreateOutputSchema = z.object({
+		subscriber: subscriberSchema,
+		created: z.boolean(),
+	});
 }
 
 export async function getSubscriber(
@@ -225,19 +233,62 @@ async function findCreatedSubscriber(
 	return undefined;
 }
 
+// Listmonk enforces unique subscriber emails, so an ambiguous-create retry
+// surfaces as an "already exists" rejection. Replay only when the persisted
+// subscriber matches the requested identity; a conflicting configuration
+// under the same email stays an explicit error.
+function isSubscriberEmailExistsError(error: unknown): boolean {
+	return (
+		error instanceof Error &&
+		responseStatusOf(error) === 409 &&
+		/e-?mail already exists/i.test(error.message)
+	);
+}
+
+function responseStatusOf(error: unknown): number | undefined {
+	const cause = (error as { cause?: unknown })?.cause;
+	const status = (
+		cause as { response?: { status?: unknown } } | undefined
+	)?.response?.status;
+	return typeof status === "number" ? status : undefined;
+}
+
+function sameSubscriberCreateIntent(
+	existing: Subscriber,
+	input: z.output<typeof createSubscriberInputSchema>,
+): boolean {
+	return (
+		existing.email?.toLowerCase() === input.email.toLowerCase() &&
+		(existing.name ?? "") === input.name &&
+		existing.status === input.status
+	);
+}
+
 export async function createSubscriber(
 	{ client }: SubscriberOperationContext,
 	input: z.output<typeof createSubscriberInputSchema>,
-): Promise<z.output<typeof subscriberSchema>> {
+): Promise<z.output<typeof subscriberCreateOutputSchema>> {
+	let createError: Error | undefined;
 	const response = await client.subscriber.create({
 		body: input as SubscriberCreateBody,
 	});
 	if ("error" in response && response.error !== undefined) {
-		throw new Error(
+		createError = new Error(
 			`Failed to create subscriber: ${toResourceErrorMessage(response.error)}`,
+			{ cause: response },
 		);
+		if (!isSubscriberEmailExistsError(createError)) {
+			throw createError;
+		}
+		const existing = await findCreatedSubscriber(client, input.email);
+		if (!existing || !sameSubscriberCreateIntent(existing, input)) {
+			throw createError;
+		}
+		return { subscriber: asSubscriber(existing), created: false };
 	}
-	if (response.data !== undefined) return asSubscriber(response.data);
+	if (response.data !== undefined) {
+		return { subscriber: asSubscriber(response.data), created: true };
+	}
 
 	const created = await findCreatedSubscriber(client, input.email);
 	if (!created) {
@@ -245,7 +296,7 @@ export async function createSubscriber(
 			"Subscriber was created but the created record could not be resolved",
 		);
 	}
-	return asSubscriber(created);
+	return { subscriber: asSubscriber(created), created: true };
 }
 
 export async function updateSubscriber(
@@ -477,8 +528,8 @@ export const createSubscriberOperation = defineOperation({
 	title: "Create subscriber",
 	description: "Create a subscriber in Listmonk",
 	inputSchema: createSubscriberInputSchema,
-	outputSchema: subscriberSchema,
-	safety: createResourceSafety,
+	outputSchema: subscriberCreateOutputSchema,
+	safety: { ...createResourceSafety, idempotentHint: true },
 	mcp: {
 		name: "listmonk_create_subscriber",
 		legacySuccessText: jsonResourceValue,
@@ -626,12 +677,12 @@ export async function invokeGetSubscriberOperation(
 export async function invokeCreateSubscriberOperation(
 	context: SubscriberOperationContext,
 	input: unknown,
-): Promise<z.output<typeof subscriberSchema>> {
+): Promise<z.output<typeof subscriberCreateOutputSchema>> {
 	const parsedInput = parseOperationInput(
 		createSubscriberOperation.inputSchema,
 		input,
 	);
-	let output: z.output<typeof subscriberSchema>;
+	let output: z.output<typeof subscriberCreateOutputSchema>;
 	try {
 		output = await createSubscriber(context, parsedInput);
 	} catch (error) {

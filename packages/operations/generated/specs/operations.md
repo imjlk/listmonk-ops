@@ -845,8 +845,8 @@ Create a subscriber in Listmonk
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:subscriber`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `reconcile`
+- Stability: `stable` since `0.9.0`
 
 ## `subscribers.update`
 
