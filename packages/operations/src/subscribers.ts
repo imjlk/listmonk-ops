@@ -181,10 +181,6 @@ export async function listSubscribers(
 			? (data.results?.length ?? 0)
 			: input.per_page,
 	});
-	const subscriberCreateOutputSchema = z.object({
-		subscriber: subscriberSchema,
-		created: z.boolean(),
-	});
 }
 
 export async function getSubscriber(
@@ -202,8 +198,10 @@ async function findCreatedSubscriber(
 	email: string,
 ): Promise<Subscriber | undefined> {
 	const pageSize = 100;
+	// Filter by email server-side so resolving a conflicting create never
+	// degrades into a full-table scan on large installations.
 	const firstResponse = await client.subscriber.list({
-		query: { page: 1, per_page: pageSize },
+		query: { page: 1, per_page: pageSize, query: email },
 	});
 	const data = unwrapResourceResponse(
 		firstResponse,
@@ -218,7 +216,7 @@ async function findCreatedSubscriber(
 	const pageCount = Math.max(1, Math.ceil((data.total ?? 0) / pageSize));
 	for (let page = 2; page <= pageCount; page += 1) {
 		const response = await client.subscriber.list({
-			query: { page, per_page: pageSize },
+			query: { page, per_page: pageSize, query: email },
 		});
 		const pageData = unwrapResourceResponse(
 			response,
@@ -253,14 +251,38 @@ function responseStatusOf(error: unknown): number | undefined {
 	return typeof status === "number" ? status : undefined;
 }
 
+function canonicalJson(value: unknown): string {
+	if (value === null || typeof value !== "object") return JSON.stringify(value);
+	if (Array.isArray(value)) return JSON.stringify(value.map(canonicalJson));
+	return JSON.stringify(
+		Object.fromEntries(
+			Object.keys(value as Record<string, unknown>)
+				.sort()
+				.map((key) => [
+					key,
+					canonicalJson((value as Record<string, unknown>)[key]),
+				]),
+		),
+	);
+}
+
 function sameSubscriberCreateIntent(
 	existing: Subscriber,
 	input: z.output<typeof createSubscriberInputSchema>,
 ): boolean {
+	// Compare every observable create effect: identity fields, the sorted
+	// list memberships, and the canonical attribute payload. Request-only
+	// directives (list_uuids, preconfirm_subscriptions) are not persisted on
+	// the record and cannot conflict.
 	return (
 		existing.email?.toLowerCase() === input.email.toLowerCase() &&
 		(existing.name ?? "") === input.name &&
-		existing.status === input.status
+		existing.status === input.status &&
+		JSON.stringify(
+			[...(existing.lists ?? [])].map((list) => list.id).sort(),
+		) ===
+			JSON.stringify([...input.lists].sort()) &&
+		canonicalJson(existing.attribs ?? {}) === canonicalJson(input.attribs)
 	);
 }
 

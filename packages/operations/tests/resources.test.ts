@@ -662,10 +662,10 @@ describe("shared CRUD resource operations", () => {
 		).resolves.toMatchObject({ created: true, subscriber: { id: 11 } });
 		expect(listSubscribers).toHaveBeenCalledTimes(2);
 		expect(listSubscribers).toHaveBeenNthCalledWith(1, {
-			query: { page: 1, per_page: 100 },
+			query: { page: 1, per_page: 100, query: "created@example.com" },
 		});
 		expect(listSubscribers).toHaveBeenNthCalledWith(2, {
-			query: { page: 2, per_page: 100 },
+			query: { page: 2, per_page: 100, query: "created@example.com" },
 		});
 
 		const createTemplate = mock(async () => ({ data: undefined }));
