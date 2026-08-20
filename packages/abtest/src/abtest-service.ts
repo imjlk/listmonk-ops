@@ -129,7 +129,16 @@ export class AbTestService {
 		if (replayed) {
 			return test;
 		}
-		return this.provisionTest(test);
+		try {
+			return await this.provisionTest(test);
+		} catch (error) {
+			// An unkeyed create has no replay path, so a failed provision
+			// discards the unreachable draft rather than accumulating it.
+			if (config.idempotencyKey === undefined) {
+				this.tests.delete(test.id);
+			}
+			throw error;
+		}
 	}
 
 	/**

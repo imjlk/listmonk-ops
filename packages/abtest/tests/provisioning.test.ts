@@ -151,13 +151,9 @@ describe("A/B test provisioning", () => {
 		expect(rollbackResources?.testListIds).toEqual([]);
 		expect(rollbackResources?.holdoutListId).toBeUndefined();
 		expect(rollbackResources?.testId).toContain("test_");
-		// Intent-first creation keeps the replayable draft (with its pending
-		// payload) so a retry resumes provisioning instead of duplicating it.
-		const tests = await service.getAllTests();
-		expect(tests).toHaveLength(1);
-		expect(tests[0]?.status).toBe("draft");
-		expect(tests[0]?.provisionedAt).toBeUndefined();
-		expect(tests[0]?.pendingCreate).toBeDefined();
+		// This unkeyed create has no replay path, so the failed provision
+		// discards the draft instead of leaving an unreachable record.
+		await expect(service.getAllTests()).resolves.toHaveLength(0);
 	});
 });
 

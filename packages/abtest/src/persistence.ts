@@ -249,20 +249,34 @@ function isStoredPendingCreate(value: unknown): boolean {
 	) {
 		return false;
 	}
-	const numericFields = [
-		"testGroupPercentage",
-		"confidenceThreshold",
-		"minimumTestSampleSize",
-		"durationHours",
-	] as const;
-	for (const field of numericFields) {
-		const fieldValue = config[field];
-		if (
-			fieldValue !== undefined &&
-			(typeof fieldValue !== "number" || !Number.isFinite(fieldValue))
-		) {
-			return false;
-		}
+	if (
+		config.testGroupPercentage !== undefined &&
+		(typeof config.testGroupPercentage !== "number" ||
+			!(config.testGroupPercentage > 0 && config.testGroupPercentage <= 100))
+	) {
+		return false;
+	}
+	if (
+		config.confidenceThreshold !== undefined &&
+		(typeof config.confidenceThreshold !== "number" ||
+			!(config.confidenceThreshold > 0 && config.confidenceThreshold < 1))
+	) {
+		return false;
+	}
+	if (
+		config.minimumTestSampleSize !== undefined &&
+		(typeof config.minimumTestSampleSize !== "number" ||
+			!Number.isSafeInteger(config.minimumTestSampleSize) ||
+			config.minimumTestSampleSize <= 0)
+	) {
+		return false;
+	}
+	if (
+		config.durationHours !== undefined &&
+		(typeof config.durationHours !== "number" ||
+			!(config.durationHours > 0))
+	) {
+		return false;
 	}
 	const booleanFields = [
 		"autoLaunch",
@@ -277,7 +291,8 @@ function isStoredPendingCreate(value: unknown): boolean {
 	}
 	if (
 		config.launchAt !== undefined &&
-		typeof config.launchAt !== "string"
+		(typeof config.launchAt !== "string" ||
+			Number.isNaN(new Date(config.launchAt).getTime()))
 	) {
 		return false;
 	}
