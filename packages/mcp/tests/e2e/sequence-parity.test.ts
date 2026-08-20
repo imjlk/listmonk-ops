@@ -131,13 +131,16 @@ describe("Sequence CLI and MCP parity", () => {
 				params: { name, arguments: args },
 			});
 
-		const subscriber = parseMcpResult<{ id: number }>(
+		const subscriberCreate = parseMcpResult<{
+			subscriber: { id: number };
+		}>(
 			await request("listmonk_create_subscriber", {
 				email: recipient,
 				name: buildTestName("sequence-subscriber"),
 				status: "enabled",
 			}),
 		);
+		const subscriber = subscriberCreate.subscriber;
 		const template = parseMcpResult<{ id: number }>(
 			await request("listmonk_create_template", {
 				name: buildTestName("sequence-template"),

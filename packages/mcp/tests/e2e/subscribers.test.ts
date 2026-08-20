@@ -93,17 +93,19 @@ describe("Subscribers MCP Tools", () => {
 			},
 		});
 
-		const createdSubscriber = utils.assertSuccess(
+		const created = utils.assertSuccess(
 			result,
 			"Failed to create subscriber",
-		);
+		) as { subscriber: Record<string, unknown>; created: boolean };
+		const createdSubscriber = created.subscriber;
 
+		expect(created.created).toBe(true);
 		expect(createdSubscriber).toHaveProperty("id");
 		expect(createdSubscriber.email).toBe(email);
 		expect(createdSubscriber.name).toBe(name);
 		expect(createdSubscriber.status).toBe("enabled");
 
-		testSubscriberId = (createdSubscriber as { id: number }).id;
+		testSubscriberId = createdSubscriber.id as number;
 		expect(isManagedTestEmail(createdSubscriber.email)).toBe(true);
 	});
 

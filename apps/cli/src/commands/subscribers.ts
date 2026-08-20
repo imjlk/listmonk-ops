@@ -91,10 +91,17 @@ export async function renderCreateSubscriber(
 	context: SubscribersCliContext,
 	input: CreateSubscriberInput,
 ) {
-	const subscriber = await invokeCreateSubscriberOperation(context, input);
-	context.output.success(`Subscriber created: ${subscriber.id ?? input.email}`);
-	context.output.json(subscriber);
-	return subscriber;
+	const result = await invokeCreateSubscriberOperation(context, input);
+	const { subscriber, created } = result;
+	context.output.success(
+		created
+			? `Subscriber created: ${subscriber.id ?? input.email}`
+			: `Subscriber already exists: ${subscriber.id ?? input.email}`,
+	);
+	context.output.json(result);
+	// Return the full envelope so the operation lifecycle hook can suppress
+	// the subscriber.created event when the call was a replay.
+	return result;
 }
 
 export async function renderUpdateSubscriber(

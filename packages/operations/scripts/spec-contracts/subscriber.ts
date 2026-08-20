@@ -31,6 +31,11 @@ export interface SubscriberListCollectionOutput {
 	page: number;
 }
 
+export interface SubscriberCreateOutput {
+	subscriber: SubscriberRecord;
+	created: boolean;
+}
+
 export interface SubscriberRecord {
 	id?: ResourceId | undefined;
 	created_at?: string | undefined;

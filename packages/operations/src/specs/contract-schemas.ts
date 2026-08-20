@@ -120,6 +120,7 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	listDeleteInputContract: NormalizedContractSchema;
 	listDeleteOutputContract: NormalizedContractSchema;
 	subscriberCreateInputContract: NormalizedContractSchema;
+	subscriberCreateOutputContract: NormalizedContractSchema;
 	subscriberUpdateInputContract: NormalizedContractSchema;
 	subscriberDeleteInputContract: NormalizedContractSchema;
 	subscriberDeleteOutputContract: NormalizedContractSchema;
@@ -353,6 +354,8 @@ export const listDeleteInputContract = contracts.listDeleteInputContract;
 export const listDeleteOutputContract = contracts.listDeleteOutputContract;
 export const subscriberCreateInputContract =
 	contracts.subscriberCreateInputContract;
+export const subscriberCreateOutputContract =
+	contracts.subscriberCreateOutputContract;
 export const subscriberUpdateInputContract =
 	contracts.subscriberUpdateInputContract;
 export const subscriberDeleteInputContract =

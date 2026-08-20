@@ -593,7 +593,139 @@ describe("shared CRUD resource operations", () => {
 			}),
 			{ email: "created@example.com", name: "Created" },
 		);
-		expect(subscriber).toMatchObject({ id: 11, email: "created@example.com" });
+		expect(subscriber).toMatchObject({
+			created: true,
+			subscriber: { id: 11, email: "created@example.com" },
+		});
+	});
+
+	test("declines replays with unsubscribed memberships and tolerates bigint attributes", async () => {
+		const conflictResponse = {
+			error: { message: "E-mail already exists." },
+			response: { status: 409 },
+		};
+		let persisted: Record<string, unknown> = {
+			id: 44,
+			email: "lists@example.com",
+			name: "Lists",
+			status: "enabled",
+			attribs: { count: "7" },
+			lists: [{ id: 5, subscription_status: "unsubscribed" }],
+		};
+		const createSubscriber = mock(async () => conflictResponse);
+		const listSubscribers = mock(async () => ({
+			data: { results: [persisted], total: 1 },
+		}));
+		const context = subscriberContext({
+			create: createSubscriber as SubscriberClient["subscriber"]["create"],
+			list: listSubscribers as SubscriberClient["subscriber"]["list"],
+		});
+
+		// An unsubscribed membership is not the subscription the retry asked
+		// for, so the conflict stays an explicit error.
+		await expect(
+			invokeCreateSubscriberOperation(context, {
+				email: "lists@example.com",
+				name: "Lists",
+				status: "enabled",
+				lists: [5],
+			}),
+		).rejects.toThrow(/already exists/i);
+
+		// bigint attributes are canonicalized the way the transport
+		// serializes them (as strings), so the replay compares cleanly.
+		persisted = {
+			...persisted,
+			lists: [{ id: 5, subscription_status: "confirmed" }],
+		};
+		const replayed = await invokeCreateSubscriberOperation(context, {
+			email: "lists@example.com",
+			name: "Lists",
+			status: "enabled",
+			lists: [5],
+			attribs: { count: 7n },
+		});
+		expect(replayed).toMatchObject({ created: false, subscriber: { id: 44 } });
+	});
+
+	test("does not replay when the request carries unverifiable effects", async () => {
+		const conflictResponse = {
+			error: { message: "E-mail already exists." },
+			response: { status: 409 },
+		};
+		const createSubscriber = mock(async () => conflictResponse);
+		const listSubscribers = mock(async () => ({
+			data: {
+				results: [
+					{
+						id: 43,
+						email: "preconfirm@example.com",
+						name: "Pre",
+						status: "enabled",
+					},
+				],
+				total: 1,
+			},
+		}));
+		const context = subscriberContext({
+			create: createSubscriber as SubscriberClient["subscriber"]["create"],
+			list: listSubscribers as SubscriberClient["subscriber"]["list"],
+		});
+
+		// preconfirm_subscriptions mutates per-list confirmation state the
+		// request cannot express, so the conflict stays an explicit error.
+		await expect(
+			invokeCreateSubscriberOperation(context, {
+				email: "preconfirm@example.com",
+				name: "Pre",
+				status: "enabled",
+				preconfirm_subscriptions: true,
+			}),
+		).rejects.toThrow(/already exists/i);
+	});
+
+	test("replays an identical subscriber create through its email conflict", async () => {
+		const conflictResponse = {
+			error: { message: "E-mail already exists." },
+			response: { status: 409 },
+		};
+		const createSubscriber = mock(async () => conflictResponse);
+		const listSubscribers = mock(async () => ({
+			data: {
+				results: [
+					{
+						id: 42,
+						email: "replay@example.com",
+						name: "Replay",
+						status: "enabled",
+					},
+				],
+				total: 1,
+			},
+		}));
+		const context = subscriberContext({
+			create: createSubscriber as SubscriberClient["subscriber"]["create"],
+			list: listSubscribers as SubscriberClient["subscriber"]["list"],
+		});
+
+		const replayed = await invokeCreateSubscriberOperation(context, {
+			email: "replay@example.com",
+			name: "Replay",
+			status: "enabled",
+		});
+		expect(replayed).toMatchObject({
+			created: false,
+			subscriber: { id: 42, email: "replay@example.com" },
+		});
+
+		// A conflicting configuration under the same email stays an error.
+		await expect(
+			invokeCreateSubscriberOperation(context, {
+				email: "replay@example.com",
+				name: "Different",
+				status: "enabled",
+			}),
+		).rejects.toThrow(/already exists/i);
 	});
 
 	test("searches later pages when resolving created subscribers and templates", async () => {
@@ -612,13 +744,21 @@ describe("shared CRUD resource operations", () => {
 				}),
 				{ email: "created@example.com", name: "Created" },
 			),
-		).resolves.toMatchObject({ id: 11 });
+		).resolves.toMatchObject({ created: true, subscriber: { id: 11 } });
 		expect(listSubscribers).toHaveBeenCalledTimes(2);
 		expect(listSubscribers).toHaveBeenNthCalledWith(1, {
-			query: { page: 1, per_page: 100 },
+			query: {
+				page: 1,
+				per_page: 100,
+				query: "LOWER(email) = LOWER('created@example.com')",
+			},
 		});
 		expect(listSubscribers).toHaveBeenNthCalledWith(2, {
-			query: { page: 2, per_page: 100 },
+			query: {
+				page: 2,
+				per_page: 100,
+				query: "LOWER(email) = LOWER('created@example.com')",
+			},
 		});
 
 		const createTemplate = mock(async () => ({ data: undefined }));

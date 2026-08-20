@@ -1,6 +1,7 @@
 import { defineOperationSpec } from "../operation";
 import {
 	subscriberCreateInputContract,
+	subscriberCreateOutputContract,
 	subscriberUpdateInputContract,
 	subscriberDeleteInputContract,
 	subscriberDeleteOutputContract,
@@ -18,14 +19,16 @@ export const subscribersCreateOperationSpec = defineOperationSpec({
 	description: "Create a subscriber in Listmonk",
 	contract: {
 		input: subscriberCreateInputContract,
-		output: subscriberRecordContract,
+		output: subscriberCreateOutputContract,
 	},
 	effects: [{ kind: "write", resource: "subscriber", reversible: true }],
 	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "reconcile",
+		reconcileWith: "subscribers.list",
+		idempotent: true,
 		reason:
-			"A retry may create another subscriber unless the original email or ID is known.",
+			"Subscriber emails are unique, so a retry after an ambiguous create is rejected as already existing and replays the persisted subscriber when every observable create effect matches (email, name, status, list membership across both id and uuid selectors with non-unsubscribed state, canonical attributes), reporting created: false; a conflicting configuration under the same email — an unsubscribed membership, or a request carrying preconfirm_subscriptions whose per-list confirmation effect the request cannot express — stays an explicit error.",
 	},
 	agent: {
 		useWhen: ["A new subscriber must be created."],
@@ -34,7 +37,7 @@ export const subscribersCreateOperationSpec = defineOperationSpec({
 		verifyWith: ["subscribers.list"],
 		related: ["subscribers.update", "subscribers.delete"],
 		retryGuidance:
-			"Inspect subscribers.list before retrying an ambiguous create.",
+			"Verify the subscriber with subscribers.list before repeating an ambiguous create; an identical retry replays it with created: false.",
 	},
 	projection: {
 		mcpName: "listmonk_create_subscriber",
@@ -52,7 +55,7 @@ export const subscribersCreateOperationSpec = defineOperationSpec({
 				"packages/operations/src/subscribers.ts#createSubscriber:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

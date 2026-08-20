@@ -88,7 +88,7 @@ function parseSegmentDriftStore(value: unknown): SegmentDriftStore {
 			snapshot.subscriberCount < 0 ||
 			(snapshot.sampleKey !== undefined &&
 				(typeof snapshot.sampleKey !== "string" ||
-					snapshot.sampleKey.length === 0 ||
+					snapshot.sampleKey.trim() === "" ||
 					// The published contract caps the key at 200 trimmed
 					// characters; reject store state the supported transports
 					// could never have created.

@@ -15810,6 +15810,241 @@
                 "minimum": 1,
                 "type": "integer"
               },
+              "SubscriberCreateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown",
+                    "description": "Optional, defaults to `{}`."
+                  },
+                  "email": {
+                    "$ref": "#/components/schemas/EmailAddress"
+                  },
+                  "list_uuids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "lists": {
+                    "description": "Optional, defaults to `[]`.",
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "description": "Optional, defaults to `\"\"`.",
+                    "type": "string"
+                  },
+                  "preconfirm_subscriptions": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "description": "Optional, defaults to `\"enabled\"`.",
+                    "oneOf": [
+                      {
+                        "const": "blocklisted"
+                      },
+                      {
+                        "const": "disabled"
+                      },
+                      {
+                        "const": "enabled"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "email"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "attribs": {
+                "$ref": "#/components/schemas/Recordstringunknown",
+                "description": "Optional, defaults to `{}`."
+              },
+              "email": {
+                "$ref": "#/components/schemas/EmailAddress"
+              },
+              "list_uuids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "lists": {
+                "description": "Optional, defaults to `[]`.",
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "type": "array"
+              },
+              "name": {
+                "description": "Optional, defaults to `\"\"`.",
+                "type": "string"
+              },
+              "preconfirm_subscriptions": {
+                "type": "boolean"
+              },
+              "status": {
+                "description": "Optional, defaults to `\"enabled\"`.",
+                "oneOf": [
+                  {
+                    "const": "blocklisted"
+                  },
+                  {
+                    "const": "disabled"
+                  },
+                  {
+                    "const": "enabled"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "email"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberCreateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
+                  "subscriber": {
+                    "$ref": "#/components/schemas/SubscriberRecord"
+                  }
+                },
+                "required": [
+                  "subscriber",
+                  "created"
+                ],
+                "type": "object"
+              },
+              "SubscriberRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "created": {
+                "type": "boolean"
+              },
+              "subscriber": {
+                "$ref": "#/components/schemas/SubscriberRecord"
+              }
+            },
+            "required": [
+              "subscriber",
+              "created"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "subscriber",
+          "reversible": true
+        }
+      ],
+      "id": "subscribers.create",
+      "mcpName": "listmonk_create_subscriber",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "subscriber",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Subscriber emails are unique, so a retry after an ambiguous create is rejected as already existing and replays the persisted subscriber when every observable create effect matches (email, name, status, list membership across both id and uuid selectors with non-unsubscribed state, canonical attributes), reporting created: false; a conflicting configuration under the same email — an unsubscribed membership, or a request carrying preconfirm_subscriptions whose per-list confirmation effect the request cannot express — stays an explicit error.",
+        "reconcileWith": "subscribers.list"
+      },
+      "verb": "create"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "EmailAddress": {
+                "format": "email",
+                "type": "string"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
               "ResourceIdInputSubscriberUpdateFields__type": {
                 "additionalProperties": false,
                 "properties": {

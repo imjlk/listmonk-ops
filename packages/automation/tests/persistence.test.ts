@@ -231,6 +231,24 @@ describe("automation persistence", () => {
 		await expect(
 			runSegmentDriftSnapshot(client, { sampleKey: "after-bad-read" }),
 		).rejects.toThrow("failed schema validation");
+
+		// Whitespace-only persisted keys are also rejected on read.
+		const whitespaceRead = JSON.parse(
+			await readFile(segmentStorePath, "utf8"),
+		) as { snapshots: Array<{ sampleKey?: string }> };
+		for (const snapshot of whitespaceRead.snapshots) {
+			if (snapshot.sampleKey !== undefined) {
+				snapshot.sampleKey = "   ";
+			}
+		}
+		await writeFile(
+			segmentStorePath,
+			`${JSON.stringify(whitespaceRead)}\n`,
+			"utf8",
+		);
+		await expect(
+			runSegmentDriftSnapshot(client, {}),
+		).rejects.toThrow("failed schema validation");
 	});
 
 	test("keeps the newest same-key snapshot when runs overlap", async () => {

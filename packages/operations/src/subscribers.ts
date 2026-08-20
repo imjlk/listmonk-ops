@@ -63,6 +63,10 @@ const subscriberSchema = z.looseObject({
 	lists: z.array(z.looseObject({})).optional(),
 });
 
+const subscriberCreateOutputSchema = z.object({
+	subscriber: subscriberSchema,
+	created: z.boolean(),
+});
 const subscriberListOutputSchema = z.object({
 	results: z.array(subscriberSchema),
 	total: z.number(),
@@ -194,8 +198,15 @@ async function findCreatedSubscriber(
 	email: string,
 ): Promise<Subscriber | undefined> {
 	const pageSize = 100;
+	// Listmonk's subscriber query parameter is a raw SQL expression; bind the
+	// email as an escaped equality predicate so the lookup stays exact and
+	// never degrades into a full-table scan on large installations.
+	const escaped = email.replace(/'/g, "''");
+	// Postgres folds unquoted identifiers case-insensitively, so LOWER(email)
+	// matches the case-insensitive comparison used on the resolved records.
+	const emailPredicate = `LOWER(email) = LOWER('${escaped}')`;
 	const firstResponse = await client.subscriber.list({
-		query: { page: 1, per_page: pageSize },
+		query: { page: 1, per_page: pageSize, query: emailPredicate },
 	});
 	const data = unwrapResourceResponse(
 		firstResponse,
@@ -210,7 +221,7 @@ async function findCreatedSubscriber(
 	const pageCount = Math.max(1, Math.ceil((data.total ?? 0) / pageSize));
 	for (let page = 2; page <= pageCount; page += 1) {
 		const response = await client.subscriber.list({
-			query: { page, per_page: pageSize },
+			query: { page, per_page: pageSize, query: emailPredicate },
 		});
 		const pageData = unwrapResourceResponse(
 			response,
@@ -225,19 +236,145 @@ async function findCreatedSubscriber(
 	return undefined;
 }
 
+// Listmonk enforces unique subscriber emails, so an ambiguous-create retry
+// surfaces as an "already exists" rejection. Replay only when the persisted
+// subscriber matches the requested identity; a conflicting configuration
+// under the same email stays an explicit error.
+function isSubscriberEmailExistsError(error: unknown): boolean {
+	return (
+		error instanceof Error &&
+		responseStatusOf(error) === 409 &&
+		/e-?mail already exists/i.test(error.message)
+	);
+}
+
+function responseStatusOf(error: unknown): number | undefined {
+	const cause = (error as { cause?: unknown })?.cause;
+	const status = (
+		cause as { response?: { status?: unknown } } | undefined
+	)?.response?.status;
+	return typeof status === "number" ? status : undefined;
+}
+
+function canonicalJson(value: unknown): string {
+	// The generated transport serializes bigint attributes as strings and
+	// routes other values through JSON.stringify (honoring toJSON), so
+	// canonicalize the same way before comparing a replay.
+	if (typeof value === "bigint") return JSON.stringify(value.toString());
+	if (
+		value !== null &&
+		typeof value === "object" &&
+		typeof (value as { toJSON?: unknown }).toJSON === "function"
+	) {
+		return canonicalJson((value as { toJSON: () => unknown }).toJSON());
+	}
+	if (value === null || typeof value !== "object") return JSON.stringify(value);
+	if (Array.isArray(value)) return JSON.stringify(value.map(canonicalJson));
+	return JSON.stringify(
+		Object.fromEntries(
+			Object.keys(value as Record<string, unknown>)
+				.sort()
+				.map((key) => [
+					key,
+					canonicalJson((value as Record<string, unknown>)[key]),
+				]),
+		),
+	);
+}
+
+function sameSubscriberCreateIntent(
+	existing: Subscriber,
+	input: z.output<typeof createSubscriberInputSchema>,
+): boolean {
+	// Compare every observable create effect: identity fields, list
+	// membership (by uuid when the request addressed lists by uuid), and
+	// the canonical attribute payload. preconfirm_subscriptions mutates
+	// per-list subscription status in ways the request cannot express, so
+	// a replay is only offered when it was omitted.
+	if (input.preconfirm_subscriptions !== undefined) {
+		return false;
+	}
+	// Both selectors can be supplied together and each contributes
+	// memberships, so compare the union: persisted uuids when uuids were
+	// requested, plus persisted ids whenever numeric ids were requested.
+	const byUuid =
+		input.list_uuids !== undefined
+			? [...(existing.lists ?? [])]
+					.map((list) => list.uuid ?? "")
+					.filter(Boolean)
+					.sort()
+			: undefined;
+	const byId =
+		input.lists.length > 0 || input.list_uuids === undefined
+			? [...(existing.lists ?? [])].map((list) => list.id).sort()
+			: undefined;
+	const requestedLists = JSON.stringify({
+		byUuid,
+		byId,
+	});
+	const expectedUuids =
+		input.list_uuids !== undefined ? [...input.list_uuids].sort() : undefined;
+	const expectedIds =
+		input.lists.length > 0 || input.list_uuids === undefined
+			? [...input.lists].sort()
+			: undefined;
+	const expectedLists = JSON.stringify({
+		byUuid: expectedUuids,
+		byId: expectedIds,
+	});
+	// A persisted unsubscribed membership is not the subscription the
+	// request asked for, so decline the replay instead of reporting it.
+	const unsubscribed =
+		input.list_uuids === undefined
+			? input.lists.some((listId) =>
+					(existing.lists ?? []).some(
+						(list) =>
+							list.id === listId &&
+							list.subscription_status === "unsubscribed",
+					),
+				)
+			: input.list_uuids.some((listUuid) =>
+					(existing.lists ?? []).some(
+						(list) =>
+							list.uuid === listUuid &&
+							list.subscription_status === "unsubscribed",
+					),
+				);
+	return (
+		!unsubscribed &&
+		existing.email?.toLowerCase() === input.email.toLowerCase() &&
+		(existing.name ?? "") === input.name &&
+		existing.status === input.status &&
+		JSON.stringify(requestedLists) === JSON.stringify(expectedLists) &&
+		canonicalJson(existing.attribs ?? {}) === canonicalJson(input.attribs)
+	);
+}
+
 export async function createSubscriber(
 	{ client }: SubscriberOperationContext,
 	input: z.output<typeof createSubscriberInputSchema>,
-): Promise<z.output<typeof subscriberSchema>> {
+): Promise<z.output<typeof subscriberCreateOutputSchema>> {
+	let createError: Error | undefined;
 	const response = await client.subscriber.create({
 		body: input as SubscriberCreateBody,
 	});
 	if ("error" in response && response.error !== undefined) {
-		throw new Error(
+		createError = new Error(
 			`Failed to create subscriber: ${toResourceErrorMessage(response.error)}`,
+			{ cause: response },
 		);
+		if (!isSubscriberEmailExistsError(createError)) {
+			throw createError;
+		}
+		const existing = await findCreatedSubscriber(client, input.email);
+		if (!existing || !sameSubscriberCreateIntent(existing, input)) {
+			throw createError;
+		}
+		return { subscriber: asSubscriber(existing), created: false };
 	}
-	if (response.data !== undefined) return asSubscriber(response.data);
+	if (response.data !== undefined) {
+		return { subscriber: asSubscriber(response.data), created: true };
+	}
 
 	const created = await findCreatedSubscriber(client, input.email);
 	if (!created) {
@@ -245,7 +382,7 @@ export async function createSubscriber(
 			"Subscriber was created but the created record could not be resolved",
 		);
 	}
-	return asSubscriber(created);
+	return { subscriber: asSubscriber(created), created: true };
 }
 
 export async function updateSubscriber(
@@ -477,8 +614,8 @@ export const createSubscriberOperation = defineOperation({
 	title: "Create subscriber",
 	description: "Create a subscriber in Listmonk",
 	inputSchema: createSubscriberInputSchema,
-	outputSchema: subscriberSchema,
-	safety: createResourceSafety,
+	outputSchema: subscriberCreateOutputSchema,
+	safety: { ...createResourceSafety, idempotentHint: true },
 	mcp: {
 		name: "listmonk_create_subscriber",
 		legacySuccessText: jsonResourceValue,
@@ -626,12 +763,12 @@ export async function invokeGetSubscriberOperation(
 export async function invokeCreateSubscriberOperation(
 	context: SubscriberOperationContext,
 	input: unknown,
-): Promise<z.output<typeof subscriberSchema>> {
+): Promise<z.output<typeof subscriberCreateOutputSchema>> {
 	const parsedInput = parseOperationInput(
 		createSubscriberOperation.inputSchema,
 		input,
 	);
-	let output: z.output<typeof subscriberSchema>;
+	let output: z.output<typeof subscriberCreateOutputSchema>;
 	try {
 		output = await createSubscriber(context, parsedInput);
 	} catch (error) {
