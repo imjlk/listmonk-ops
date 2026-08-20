@@ -10,6 +10,7 @@ import {
 } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { AbTestNotFoundError } from "./errors";
+export { AbTestConflictError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { isStrictIsoTimestamp, verifyHypothesisChecksum } from "./hypothesis";
 import type { AbTest } from "./types";
