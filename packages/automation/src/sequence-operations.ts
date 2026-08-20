@@ -276,6 +276,14 @@ const sequenceCreateOutputSchema = z.object({
 	sequence: sequenceDefinitionOutputSchema,
 	created: z.boolean(),
 });
+const sequenceUpdateOutputSchema = z.object({
+	sequence: sequenceDefinitionOutputSchema,
+	updated: z.boolean(),
+});
+const sequenceEnrollOutputSchema = z.object({
+	enrollment: sequenceEnrollmentOutputSchema,
+	created: z.boolean(),
+});
 // Operation output schemas must keep an object root, so the deleted/sequence
 // correlation (sequence is present exactly when deleted is true) is enforced
 // by the executor rather than a discriminated union.
@@ -556,7 +564,7 @@ export async function executeSequenceUpdateOperation(
 	context: SequenceOperationContext,
 	input: z.output<typeof sequenceUpdateInputSchema>,
 ) {
-	const updated = await repository(context).updateDefinition(
+	const { definition, updated } = await repository(context).updateDefinition(
 		input.id,
 		{
 			name: input.name,
@@ -565,7 +573,7 @@ export async function executeSequenceUpdateOperation(
 		},
 		context.now?.() ?? new Date(),
 	);
-	return { sequence: toDefinitionOutput(updated) };
+	return { sequence: toDefinitionOutput(definition), updated };
 }
 
 export async function executeSequenceListOperation(
@@ -607,6 +615,16 @@ export async function executeSequenceDeleteOperation(
 	}
 }
 
+function canonicalContextJson(context: Readonly<Record<string, unknown>>): string {
+	return JSON.stringify(
+		Object.fromEntries(
+			Object.keys(context)
+				.sort()
+				.map((key) => [key, context[key]]),
+		),
+	);
+}
+
 export async function executeSequenceEnrollOperation(
 	context: SequenceOperationContext,
 	input: z.output<typeof sequenceEnrollInputSchema>,
@@ -623,8 +641,35 @@ export async function executeSequenceEnrollOperation(
 		},
 		context.now?.() ?? new Date(),
 	);
-	const created = await store.createEnrollment(enrollment);
-	return { enrollment: toEnrollmentOutput(created) };
+	try {
+		const created = await store.createEnrollment(enrollment);
+		return { enrollment: toEnrollmentOutput(created), created: true };
+	} catch (error) {
+		if (!(error instanceof SequenceConflictError)) {
+			throw error;
+		}
+		// A subscriber can hold only one active enrollment per sequence, so
+		// an ambiguous retry conflicts. Replay only when the active
+		// enrollment is still untouched (pending, never attempted) and its
+		// enrollment context matches the request; anything else keeps the
+		// explicit conflict.
+		const active = (await store.listEnrollments({ sequenceId: input.id }))
+			.filter(
+				(candidate) =>
+					candidate.subscriberId === input.subscriber_id &&
+					candidate.status === "pending" &&
+					candidate.retryCount === 0,
+			)
+			.at(0);
+		if (
+			!active ||
+			canonicalContextJson(active.context) !==
+				canonicalContextJson(input.context)
+		) {
+			throw error;
+		}
+		return { enrollment: toEnrollmentOutput(active), created: false };
+	}
 }
 
 export async function executeSequenceEnrollmentListOperation(
@@ -787,11 +832,11 @@ export const sequenceUpdateOperation = defineOperation({
 	description:
 		"Append an immutable revision while existing enrollments stay pinned to their original revision.",
 	inputSchema: sequenceUpdateInputSchema,
-	outputSchema: sequenceDefinitionEnvelopeSchema,
+	outputSchema: sequenceUpdateOutputSchema,
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: false,
-		idempotentHint: false,
+		idempotentHint: true,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_sequences_update" },
@@ -854,11 +899,11 @@ export const sequenceEnrollOperation = defineOperation({
 	description:
 		"Pin one subscriber to the current immutable sequence revision and schedule its first step.",
 	inputSchema: sequenceEnrollInputSchema,
-	outputSchema: sequenceEnrollmentEnvelopeSchema,
+	outputSchema: sequenceEnrollOutputSchema,
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: false,
-		idempotentHint: false,
+		idempotentHint: true,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_sequences_enroll" },

@@ -4,6 +4,7 @@ import {
 	sequenceDefinitionOutputContract,
 	sequenceDeleteOutputContract,
 	sequenceEnrollInputContract,
+	sequenceEnrollOutputContract,
 	sequenceEnrollmentGetInputContract,
 	sequenceEnrollmentListInputContract,
 	sequenceEnrollmentListOutputContract,
@@ -18,6 +19,7 @@ import {
 	sequenceTickInputContract,
 	sequenceTickOutputContract,
 	sequenceUpdateInputContract,
+	sequenceUpdateOutputContract,
 	sequenceValidateInputContract,
 	sequenceValidateOutputContract,
 } from "./contract-schemas";
@@ -128,13 +130,16 @@ export const sequenceUpdateOperationSpec = defineOperationSpec({
 		"Append an immutable revision while existing enrollments stay pinned to their original revision.",
 	contract: {
 		input: sequenceUpdateInputContract,
-		output: sequenceDefinitionOutputContract,
+		output: sequenceUpdateOutputContract,
 	},
 	effects: [{ kind: "write", resource: "sequence", reversible: true }],
 	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
-		reason: "Repeating the update appends another revision.",
+		kind: "reconcile",
+		reconcileWith: "sequences.get",
+		idempotent: true,
+		reason:
+			"An identical update is already applied when the resolved name and description match and the latest revision carries the requested steps: repeating it reports updated: false without appending an equivalent revision.",
 	},
 	agent: {
 		useWhen: ["Future enrollments need a revised sequence definition."],
@@ -142,14 +147,15 @@ export const sequenceUpdateOperationSpec = defineOperationSpec({
 		prerequisites: ["sequences.get", "sequences.validate"],
 		verifyWith: ["sequences.get"],
 		related: ["sequences.pause", "sequences.enroll"],
-		retryGuidance: "Read the current revision before retrying an ambiguous update.",
+		retryGuidance:
+			"Verify the latest revision with sequences.get before repeating an ambiguous update; an identical repeat reports updated: false without a new revision.",
 	},
 	projection: {
 		mcpName: "listmonk_sequences_update",
 		openWorld: false,
 		graph: graphNodes("update"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -261,7 +267,7 @@ export const sequenceEnrollOperationSpec = defineOperationSpec({
 		"Pin one subscriber to the current immutable sequence revision and schedule its first step.",
 	contract: {
 		input: sequenceEnrollInputContract,
-		output: sequenceEnrollmentOutputContract,
+		output: sequenceEnrollOutputContract,
 	},
 	effects: [
 		{
@@ -274,9 +280,10 @@ export const sequenceEnrollOperationSpec = defineOperationSpec({
 	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
 		kind: "reconcile",
-		reconcileWith: "sequences.status",
-		idempotent: false,
-		reason: "A retry can create another enrollment after a terminal run.",
+		reconcileWith: "sequences.enrollments.list",
+		idempotent: true,
+		reason:
+			"A subscriber holds at most one active enrollment per sequence, so an ambiguous retry conflicts and replays the untouched pending enrollment when its context matches the request, reporting created: false; a progressed or differently-contexted enrollment keeps the explicit conflict.",
 	},
 	agent: {
 		useWhen: ["A known subscriber should enter a reviewed active sequence."],
@@ -284,14 +291,15 @@ export const sequenceEnrollOperationSpec = defineOperationSpec({
 		prerequisites: ["sequences.get"],
 		verifyWith: ["sequences.status"],
 		related: ["sequences.tick", "sequences.pause"],
-		retryGuidance: "Inspect sequence state before retrying enrollment.",
+		retryGuidance:
+			"Verify the enrollment with sequences.enrollments.list before repeating an ambiguous enroll; an untouched identical enrollment replays with created: false.",
 	},
 	projection: {
 		mcpName: "listmonk_sequences_enroll",
 		openWorld: false,
 		graph: graphNodes("enroll"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

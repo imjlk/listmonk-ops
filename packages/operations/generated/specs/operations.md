@@ -399,8 +399,8 @@ Append an immutable revision while existing enrollments stay pinned to their ori
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:sequence`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `reconcile`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.list`
 
@@ -448,7 +448,7 @@ Pin one subscriber to the current immutable sequence revision and schedule its f
 - Effects: `delivery:single:scheduled`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.enrollments.list`
 

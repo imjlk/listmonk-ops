@@ -452,7 +452,7 @@ Retry guidance: Replay the create after an ambiguous result: an identically defi
 
 ## Create sequence revision (`sequences.update`)
 
-Contract maturity: `experimental`; effects: `write:sequence`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:sequence`; confirmation: `never`; retry: `reconcile`.
 
 Use when: Future enrollments need a revised sequence definition.
 
@@ -462,7 +462,7 @@ Prerequisites: `sequences.get`, `sequences.validate`
 
 Verify with: `sequences.get`
 
-Retry guidance: Read the current revision before retrying an ambiguous update.
+Retry guidance: Verify the latest revision with sequences.get before repeating an ambiguous update; an identical repeat reports updated: false without a new revision.
 
 ## List sequences (`sequences.list`)
 
@@ -508,7 +508,7 @@ Retry guidance: Verify the sequence is gone with sequences.list before retrying;
 
 ## Enroll subscriber in sequence (`sequences.enroll`)
 
-Contract maturity: `experimental`; effects: `delivery:single:scheduled`; confirmation: `never`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `delivery:single:scheduled`; confirmation: `never`; retry: `reconcile`.
 
 Use when: A known subscriber should enter a reviewed active sequence.
 
@@ -518,7 +518,7 @@ Prerequisites: `sequences.get`
 
 Verify with: `sequences.status`
 
-Retry guidance: Inspect sequence state before retrying enrollment.
+Retry guidance: Verify the enrollment with sequences.enrollments.list before repeating an ambiguous enroll; an untouched identical enrollment replays with created: false.
 
 ## List sequence enrollments (`sequences.enrollments.list`)
 

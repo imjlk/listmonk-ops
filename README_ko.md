@@ -504,14 +504,14 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 81개는
-`stable`, 23개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 83개는
+`stable`, 21개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
-검토를 마친 핵심 81개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 83개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -577,8 +577,12 @@ experimental로 유지합니다. 열한 번째 batch에서는 `subscribers.creat
 해당 기간의 저장된 측정을 재생, 키 없는 append는 unsafe)를 승격했습니다.
 `webhooks.delivery.retry`는 pending no-op(`retried: false`)를 얻었지만
 experimental로 유지됩니다. dispatcher가 pending delivery를 먼저 완료할 수
-있어 반복이 또 다른 delivery 주기를 시작할 수 있기 때문입니다.
-현재 stable baseline은 81개이며, 나머지 experimental descriptor는 23개입니다.
+있어 반복이 또 다른 delivery 주기를 시작할 수 있기 때문입니다. 열세 번째
+batch에서는 `sequences.update`(이미 적용된 동일한 수정의 반복은 동등한
+revision을 추가하지 않고 `updated: false` 보고)와 `sequences.enroll`(애매한
+재시도는 충돌하며, 문맥이 일치하는 미진행 pending 등록을 `created: false`로
+재생)를 승격했습니다.
+현재 stable baseline은 83개이며, 나머지 experimental descriptor는 21개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
@@ -592,7 +596,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 81개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 83개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 317개를
 검증합니다.
 

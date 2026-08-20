@@ -9724,18 +9724,6 @@
               ],
               "type": "object"
             },
-            "SequenceDefinitionOutput": {
-              "additionalProperties": false,
-              "properties": {
-                "sequence": {
-                  "$ref": "#/components/schemas/SequenceDefinition"
-                }
-              },
-              "required": [
-                "sequence"
-              ],
-              "type": "object"
-            },
             "SequenceName": {
               "maxLength": 120,
               "minLength": 1,
@@ -9789,6 +9777,22 @@
                 "created_at"
               ],
               "type": "object"
+            },
+            "SequenceUpdateOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "sequence": {
+                  "$ref": "#/components/schemas/SequenceDefinition"
+                },
+                "updated": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "sequence",
+                "updated"
+              ],
+              "type": "object"
             }
           }
         },
@@ -9798,10 +9802,14 @@
           "properties": {
             "sequence": {
               "$ref": "#/components/schemas/SequenceDefinition"
+            },
+            "updated": {
+              "type": "boolean"
             }
           },
           "required": [
-            "sequence"
+            "sequence",
+            "updated"
           ],
           "type": "object"
         },
@@ -9814,11 +9822,13 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "Repeating the update appends another revision."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "An identical update is already applied when the resolved name and description match and the latest revision carries the requested steps: repeating it reports updated: false without appending an equivalent revision.",
+        "reconcileWith": "sequences.get"
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "sequences.list",
@@ -10520,6 +10530,22 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceEnrollOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "created": {
+                  "type": "boolean"
+                },
+                "enrollment": {
+                  "$ref": "#/components/schemas/SequenceEnrollment"
+                }
+              },
+              "required": [
+                "enrollment",
+                "created"
+              ],
+              "type": "object"
+            },
             "SequenceEnrollment": {
               "additionalProperties": false,
               "properties": {
@@ -10599,18 +10625,6 @@
               ],
               "type": "object"
             },
-            "SequenceEnrollmentOutput": {
-              "additionalProperties": false,
-              "properties": {
-                "enrollment": {
-                  "$ref": "#/components/schemas/SequenceEnrollment"
-                }
-              },
-              "required": [
-                "enrollment"
-              ],
-              "type": "object"
-            },
             "SequenceStepId": {
               "maxLength": 80,
               "minLength": 1,
@@ -10623,12 +10637,16 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "created": {
+              "type": "boolean"
+            },
             "enrollment": {
               "$ref": "#/components/schemas/SequenceEnrollment"
             }
           },
           "required": [
-            "enrollment"
+            "enrollment",
+            "created"
           ],
           "type": "object"
         },
@@ -10641,13 +10659,13 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": false,
+        "idempotent": true,
         "kind": "reconcile",
-        "reason": "A retry can create another enrollment after a terminal run.",
-        "reconcileWith": "sequences.status"
+        "reason": "A subscriber holds at most one active enrollment per sequence, so an ambiguous retry conflicts and replays the untouched pending enrollment when its context matches the request, reporting created: false; a progressed or differently-contexted enrollment keeps the explicit conflict.",
+        "reconcileWith": "sequences.enrollments.list"
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "sequences.enrollments.list",
