@@ -750,14 +750,14 @@ describe("shared CRUD resource operations", () => {
 			query: {
 				page: 1,
 				per_page: 100,
-				query: "email = 'created@example.com'",
+				query: "LOWER(email) = LOWER('created@example.com')",
 			},
 		});
 		expect(listSubscribers).toHaveBeenNthCalledWith(2, {
 			query: {
 				page: 2,
 				per_page: 100,
-				query: "email = 'created@example.com'",
+				query: "LOWER(email) = LOWER('created@example.com')",
 			},
 		});
 

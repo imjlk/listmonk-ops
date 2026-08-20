@@ -202,7 +202,9 @@ async function findCreatedSubscriber(
 	// email as an escaped equality predicate so the lookup stays exact and
 	// never degrades into a full-table scan on large installations.
 	const escaped = email.replace(/'/g, "''");
-	const emailPredicate = `email = '${escaped}'`;
+	// Postgres folds unquoted identifiers case-insensitively, so LOWER(email)
+	// matches the case-insensitive comparison used on the resolved records.
+	const emailPredicate = `LOWER(email) = LOWER('${escaped}')`;
 	const firstResponse = await client.subscriber.list({
 		query: { page: 1, per_page: pageSize, query: emailPredicate },
 	});
@@ -298,13 +300,21 @@ function sameSubscriberCreateIntent(
 	// A persisted unsubscribed membership is not the subscription the
 	// request asked for, so decline the replay instead of reporting it.
 	const unsubscribed =
-		input.list_uuids === undefined &&
-		input.lists.some((listId) =>
-			(existing.lists ?? []).some(
-				(list) =>
-					list.id === listId && list.subscription_status === "unsubscribed",
-			),
-		);
+		input.list_uuids === undefined
+			? input.lists.some((listId) =>
+					(existing.lists ?? []).some(
+						(list) =>
+							list.id === listId &&
+							list.subscription_status === "unsubscribed",
+					),
+				)
+			: input.list_uuids.some((listUuid) =>
+					(existing.lists ?? []).some(
+						(list) =>
+							list.uuid === listUuid &&
+							list.subscription_status === "unsubscribed",
+					),
+				);
 	return (
 		!unsubscribed &&
 		existing.email?.toLowerCase() === input.email.toLowerCase() &&
