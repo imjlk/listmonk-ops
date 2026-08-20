@@ -255,6 +255,9 @@ function responseStatusOf(error: unknown): number | undefined {
 }
 
 function canonicalJson(value: unknown): string {
+	// The generated transport serializes bigint attributes as strings, so
+	// canonicalize them the same way before comparing a replay.
+	if (typeof value === "bigint") return JSON.stringify(value.toString());
 	if (value === null || typeof value !== "object") return JSON.stringify(value);
 	if (Array.isArray(value)) return JSON.stringify(value.map(canonicalJson));
 	return JSON.stringify(
@@ -292,7 +295,18 @@ function sameSubscriberCreateIntent(
 		input.list_uuids !== undefined
 			? [...input.list_uuids].sort()
 			: [...input.lists].sort();
+	// A persisted unsubscribed membership is not the subscription the
+	// request asked for, so decline the replay instead of reporting it.
+	const unsubscribed =
+		input.list_uuids === undefined &&
+		input.lists.some((listId) =>
+			(existing.lists ?? []).some(
+				(list) =>
+					list.id === listId && list.subscription_status === "unsubscribed",
+			),
+		);
 	return (
+		!unsubscribed &&
 		existing.email?.toLowerCase() === input.email.toLowerCase() &&
 		(existing.name ?? "") === input.name &&
 		existing.status === input.status &&

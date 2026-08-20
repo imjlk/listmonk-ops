@@ -599,6 +599,55 @@ describe("shared CRUD resource operations", () => {
 		});
 	});
 
+	test("declines replays with unsubscribed memberships and tolerates bigint attributes", async () => {
+		const conflictResponse = {
+			error: { message: "E-mail already exists." },
+			response: { status: 409 },
+		};
+		let persisted: Record<string, unknown> = {
+			id: 44,
+			email: "lists@example.com",
+			name: "Lists",
+			status: "enabled",
+			attribs: { count: "7" },
+			lists: [{ id: 5, subscription_status: "unsubscribed" }],
+		};
+		const createSubscriber = mock(async () => conflictResponse);
+		const listSubscribers = mock(async () => ({
+			data: { results: [persisted], total: 1 },
+		}));
+		const context = subscriberContext({
+			create: createSubscriber as SubscriberClient["subscriber"]["create"],
+			list: listSubscribers as SubscriberClient["subscriber"]["list"],
+		});
+
+		// An unsubscribed membership is not the subscription the retry asked
+		// for, so the conflict stays an explicit error.
+		await expect(
+			invokeCreateSubscriberOperation(context, {
+				email: "lists@example.com",
+				name: "Lists",
+				status: "enabled",
+				lists: [5],
+			}),
+		).rejects.toThrow(/already exists/i);
+
+		// bigint attributes are canonicalized the way the transport
+		// serializes them (as strings), so the replay compares cleanly.
+		persisted = {
+			...persisted,
+			lists: [{ id: 5, subscription_status: "confirmed" }],
+		};
+		const replayed = await invokeCreateSubscriberOperation(context, {
+			email: "lists@example.com",
+			name: "Lists",
+			status: "enabled",
+			lists: [5],
+			attribs: { count: 7n },
+		});
+		expect(replayed).toMatchObject({ created: false, subscriber: { id: 44 } });
+	});
+
 	test("does not replay when the request carries unverifiable effects", async () => {
 		const conflictResponse = {
 			error: { message: "E-mail already exists." },
