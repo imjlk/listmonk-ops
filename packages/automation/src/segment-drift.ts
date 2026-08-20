@@ -88,7 +88,11 @@ function parseSegmentDriftStore(value: unknown): SegmentDriftStore {
 			snapshot.subscriberCount < 0 ||
 			(snapshot.sampleKey !== undefined &&
 				(typeof snapshot.sampleKey !== "string" ||
-					snapshot.sampleKey.length === 0))
+					snapshot.sampleKey.length === 0 ||
+					// The published contract caps the key at 200 trimmed
+					// characters; reject store state the supported transports
+					// could never have created.
+					snapshot.sampleKey.trim().length > 200))
 		) {
 			throw new Error(
 				`Invalid segment drift store: snapshot ${index} failed schema validation`,
@@ -190,11 +194,17 @@ export async function runSegmentDriftSnapshot(
 	const baselineMode = options.baselineMode ?? "previous";
 	if (
 		options.sampleKey !== undefined &&
-		(typeof options.sampleKey !== "string" || options.sampleKey.trim() === "")
+		(typeof options.sampleKey !== "string" ||
+			options.sampleKey.trim() === "" ||
+			// Match the published 200-character contract limit so direct
+			// callers cannot persist keys the CLI and MCP reject.
+			options.sampleKey.trim().length > 200)
 	) {
-		// A persisted empty key would fail store parsing on every later run,
-		// so reject it before any snapshot is written.
-		throw new TypeError("Segment drift sample key must be a non-empty string");
+		// A persisted empty or overlength key would fail store parsing on
+		// every later run, so reject it before any snapshot is written.
+		throw new TypeError(
+			"Segment drift sample key must be a non-empty string of at most 200 trimmed characters",
+		);
 	}
 	const sampleKey = options.sampleKey?.trim();
 	const capturedAt = new Date().toISOString();

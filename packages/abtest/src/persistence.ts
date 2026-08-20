@@ -318,7 +318,7 @@ function isStoredAbTest(value: unknown): boolean {
 		(value.idempotencyFingerprint === undefined ||
 			typeof value.idempotencyFingerprint === "string") &&
 		(value.provisionedAt === undefined ||
-			typeof value.provisionedAt === "string") &&
+			isValidTimestamp(value.provisionedAt)) &&
 		(value.pendingCreate === undefined || isStoredPendingCreate(
 			value.pendingCreate,
 		)) &&
