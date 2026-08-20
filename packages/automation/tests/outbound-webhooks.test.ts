@@ -695,9 +695,25 @@ describe("outbound webhook delivery", () => {
 			path,
 		});
 		expect(retried).toMatchObject({
-			status: "pending",
-			attemptCount: 0,
-			manualRetryCount: 1,
+			delivery: {
+				status: "pending",
+				attemptCount: 0,
+				manualRetryCount: 1,
+			},
+			retried: true,
+		});
+
+		// Once the delivery is pending, an ambiguous retry repeats as a
+		// documented no-op without another mutation.
+		const repeated = await retryOutboundWebhookDelivery(exhausted!.id, {
+			path,
+		});
+		expect(repeated).toMatchObject({
+			delivery: {
+				status: "pending",
+				manualRetryCount: 1,
+			},
+			retried: false,
 		});
 	});
 

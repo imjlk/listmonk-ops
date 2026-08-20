@@ -298,7 +298,7 @@ Retry guidance: Retrying the same read is safe.
 
 ## Retry outbound webhook delivery (`webhooks.delivery.retry`)
 
-Contract maturity: `experimental`; effects: `write:webhook`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `write:webhook`; confirmation: `required`; retry: `reconcile`.
 
 Use when: An operator has reviewed a failed delivery and wants another attempt cycle.
 
@@ -308,7 +308,7 @@ Prerequisites: `webhooks.delivery.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Inspect the delivery status after an ambiguous result before requeueing again.
+Retry guidance: Verify the delivery with webhooks.delivery.list before repeating an ambiguous retry; once the delivery is pending the retry repeats as a documented no-op reporting retried: false.
 
 ## Reconcile outbound webhook leases (`webhooks.reconcile`)
 
@@ -1152,7 +1152,7 @@ Retry guidance: Inspect media.list before retrying an ambiguous upload.
 
 ## Detect segment drift (`ops.segments.drift`)
 
-Contract maturity: `experimental`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `conditional`.
 
 Use when: Subscriber list sizes must be monitored for unexpected drift.
 

@@ -6469,10 +6469,14 @@
               "properties": {
                 "delivery": {
                   "$ref": "#/components/schemas/WebhookDelivery"
+                },
+                "retried": {
+                  "type": "boolean"
                 }
               },
               "required": [
-                "delivery"
+                "delivery",
+                "retried"
               ],
               "type": "object"
             },
@@ -6647,10 +6651,14 @@
           "properties": {
             "delivery": {
               "$ref": "#/components/schemas/WebhookDelivery"
+            },
+            "retried": {
+              "type": "boolean"
             }
           },
           "required": [
-            "delivery"
+            "delivery",
+            "retried"
           ],
           "type": "object"
         },
@@ -6663,13 +6671,13 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": false,
+        "idempotent": true,
         "kind": "reconcile",
-        "reason": "Repeating the retry action after success is not a no-op because the delivery is already pending.",
+        "reason": "Repeating the retry once the delivery is already pending reports retried: false and returns the queued record without another mutation; only retry-eligible states (retry, exhausted) transition to pending.",
         "reconcileWith": "webhooks.delivery.list"
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.reconcile",
@@ -25282,11 +25290,29 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "Each unkeyed drift snapshot appends a point-in-time count, so an ambiguous retry captures a new sample; pass an explicit sample_key to make a retry replace that period's snapshot instead of double-weighting it."
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": true,
+              "kind": "reconcile",
+              "reason": "Snapshots sharing the sample key replace their predecessor, so an identical retry replaces the same period's snapshot again without double-weighting the sample.",
+              "reconcileWith": "ops.segments.drift"
+            },
+            "when": "sample_key is provided"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "An unkeyed snapshot appends a point-in-time count, so an ambiguous retry captures a new sample that double-weights the period."
+            },
+            "when": "sample_key is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller supplies the sampling period key."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "ops.digest.daily",

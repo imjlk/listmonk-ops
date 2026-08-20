@@ -22157,10 +22157,14 @@
           "properties": {
             "delivery": {
               "$ref": "#/components/schemas/WebhookDelivery"
+            },
+            "retried": {
+              "type": "boolean"
             }
           },
           "required": [
-            "delivery"
+            "delivery",
+            "retried"
           ],
           "type": "object"
         },
@@ -22335,10 +22339,14 @@
       "properties": {
         "delivery": {
           "$ref": "#/components/schemas/WebhookDelivery"
+        },
+        "retried": {
+          "type": "boolean"
         }
       },
       "required": [
-        "delivery"
+        "delivery",
+        "retried"
       ],
       "type": "object"
     },

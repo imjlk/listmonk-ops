@@ -449,6 +449,7 @@ const webhookDeliveryListOutputSchema = z.object({
 });
 const webhookDeliveryRetryOutputSchema = z.object({
 	delivery: webhookDeliveryOutputSchema,
+	retried: z.boolean(),
 });
 const webhookReconcileOutputSchema = z.object({
 	scanned: z.number().int().nonnegative(),
@@ -789,11 +790,11 @@ export async function executeWebhookDeliveryRetryOperation(
 	context: WebhookOperationContext,
 	input: z.output<typeof webhookDeliveryRetryInputSchema>,
 ) {
-	const delivery = await retryOutboundWebhookDelivery(
+	const { delivery, retried } = await retryOutboundWebhookDelivery(
 		input.id,
 		resolveWebhookOperationStore(context),
 	);
-	return { delivery: toDeliveryOutput(delivery) };
+	return { delivery: toDeliveryOutput(delivery), retried };
 }
 
 export async function executeWebhookReconcileOperation(
@@ -1127,7 +1128,7 @@ export const webhookDeliveryRetryOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: false,
+		idempotentHint: true,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_webhook_delivery_retry" },

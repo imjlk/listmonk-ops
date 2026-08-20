@@ -37,9 +37,29 @@ export const opsSegmentDriftOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "conditional",
+		cases: [
+			{
+				when: "sample_key is provided",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "ops.segments.drift",
+					idempotent: true,
+					reason:
+						"Snapshots sharing the sample key replace their predecessor, so an identical retry replaces the same period's snapshot again without double-weighting the sample.",
+				},
+			},
+			{
+				when: "sample_key is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"An unkeyed snapshot appends a point-in-time count, so an ambiguous retry captures a new sample that double-weights the period.",
+				},
+			},
+		],
 		reason:
-			"Each unkeyed drift snapshot appends a point-in-time count, so an ambiguous retry captures a new sample; pass an explicit sample_key to make a retry replace that period's snapshot instead of double-weighting it.",
+			"Retry safety depends on whether the caller supplies the sampling period key.",
 	},
 	agent: {
 		useWhen: ["Subscriber list sizes must be monitored for unexpected drift."],
@@ -66,7 +86,7 @@ export const opsSegmentDriftOperationSpec = defineOperationSpec({
 				"packages/automation/src/ops-operations.ts#executeSegmentDriftOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

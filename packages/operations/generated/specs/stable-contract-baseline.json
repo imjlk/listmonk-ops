@@ -5992,6 +5992,392 @@
         "input": {
           "components": {
             "schemas": {
+              "Uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "WebhookDeliveryRetryInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/Uuid"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "Uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "WebhookDelivery": {
+                "additionalProperties": false,
+                "properties": {
+                  "attempt_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "completed_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "endpoint_id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "event": {
+                    "$ref": "#/components/schemas/WebhookDeliveryEventSummary"
+                  },
+                  "event_id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "last_attempt_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "last_error_present": {
+                    "type": "boolean"
+                  },
+                  "manual_retry_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "next_attempt_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/WebhookDeliveryStatus"
+                  },
+                  "status_code": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  }
+                },
+                "required": [
+                  "id",
+                  "event_id",
+                  "endpoint_id",
+                  "event",
+                  "status",
+                  "attempt_count",
+                  "manual_retry_count",
+                  "next_attempt_at",
+                  "last_error_present"
+                ],
+                "type": "object"
+              },
+              "WebhookDeliveryEventSummary": {
+                "additionalProperties": false,
+                "properties": {
+                  "correlation_id_present": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "occurred_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "schema_version": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "source": {
+                    "$ref": "#/components/schemas/WebhookEventSource"
+                  },
+                  "subject": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "key_redacted": {
+                        "const": true
+                      },
+                      "kind": {
+                        "$ref": "#/components/schemas/WebhookSubjectKind"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "key_redacted"
+                    ],
+                    "type": "object"
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/WebhookEventType"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "schema_version",
+                  "occurred_at",
+                  "source",
+                  "correlation_id_present"
+                ],
+                "type": "object"
+              },
+              "WebhookDeliveryRetryOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "delivery": {
+                    "$ref": "#/components/schemas/WebhookDelivery"
+                  },
+                  "retried": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "delivery",
+                  "retried"
+                ],
+                "type": "object"
+              },
+              "WebhookDeliveryStatus": {
+                "oneOf": [
+                  {
+                    "const": "delivering"
+                  },
+                  {
+                    "const": "exhausted"
+                  },
+                  {
+                    "const": "pending"
+                  },
+                  {
+                    "const": "retry"
+                  },
+                  {
+                    "const": "succeeded"
+                  }
+                ]
+              },
+              "WebhookEventSource": {
+                "oneOf": [
+                  {
+                    "const": "abtest"
+                  },
+                  {
+                    "const": "listmonk"
+                  },
+                  {
+                    "const": "operation"
+                  },
+                  {
+                    "const": "provider"
+                  },
+                  {
+                    "const": "sequence"
+                  },
+                  {
+                    "const": "webhook"
+                  }
+                ]
+              },
+              "WebhookEventType": {
+                "oneOf": [
+                  {
+                    "const": "abtest.failed"
+                  },
+                  {
+                    "const": "abtest.inconclusive"
+                  },
+                  {
+                    "const": "abtest.ready-for-analysis"
+                  },
+                  {
+                    "const": "abtest.started"
+                  },
+                  {
+                    "const": "abtest.winner-selected"
+                  },
+                  {
+                    "const": "campaign.cancelled"
+                  },
+                  {
+                    "const": "campaign.finished"
+                  },
+                  {
+                    "const": "campaign.paused"
+                  },
+                  {
+                    "const": "campaign.scheduled"
+                  },
+                  {
+                    "const": "campaign.started"
+                  },
+                  {
+                    "const": "delivery.bounced"
+                  },
+                  {
+                    "const": "delivery.complained"
+                  },
+                  {
+                    "const": "delivery.delayed"
+                  },
+                  {
+                    "const": "delivery.delivered"
+                  },
+                  {
+                    "const": "delivery.rejected"
+                  },
+                  {
+                    "const": "operation.blocked"
+                  },
+                  {
+                    "const": "operation.failed"
+                  },
+                  {
+                    "const": "operation.started"
+                  },
+                  {
+                    "const": "operation.succeeded"
+                  },
+                  {
+                    "const": "sequence.created"
+                  },
+                  {
+                    "const": "sequence.deleted"
+                  },
+                  {
+                    "const": "sequence.enrolled"
+                  },
+                  {
+                    "const": "sequence.paused"
+                  },
+                  {
+                    "const": "sequence.reconciled"
+                  },
+                  {
+                    "const": "sequence.resumed"
+                  },
+                  {
+                    "const": "sequence.revised"
+                  },
+                  {
+                    "const": "subscriber.blocklisted"
+                  },
+                  {
+                    "const": "subscriber.created"
+                  },
+                  {
+                    "const": "subscriber.unsubscribed"
+                  },
+                  {
+                    "const": "subscriber.updated"
+                  },
+                  {
+                    "const": "webhook.test"
+                  }
+                ]
+              },
+              "WebhookSubjectKind": {
+                "oneOf": [
+                  {
+                    "const": "campaign"
+                  },
+                  {
+                    "const": "experiment"
+                  },
+                  {
+                    "const": "message"
+                  },
+                  {
+                    "const": "operation"
+                  },
+                  {
+                    "const": "sequence"
+                  },
+                  {
+                    "const": "subscriber"
+                  },
+                  {
+                    "const": "webhook"
+                  }
+                ]
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "delivery": {
+                "$ref": "#/components/schemas/WebhookDelivery"
+              },
+              "retried": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "delivery",
+              "retried"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "webhook",
+          "reversible": false
+        }
+      ],
+      "id": "webhooks.delivery.retry",
+      "mcpName": "listmonk_webhook_delivery_retry",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "webhook",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Repeating the retry once the delivery is already pending reports retried: false and returns the queued record without another mutation; only retry-eligible states (retry, exhausted) transition to pending.",
+        "reconcileWith": "webhooks.delivery.list"
+      },
+      "verb": "retry"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "IsoDateTime": {
                 "format": "date-time",
                 "type": "string"
@@ -21332,6 +21718,306 @@
         "reconcileWith": "media.list"
       },
       "verb": "delete"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SegmentDriftInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "baseline_mode": {
+                    "description": "How to compute the alert baseline. Defaults to \"previous\".",
+                    "oneOf": [
+                      {
+                        "const": "lookback-mean"
+                      },
+                      {
+                        "const": "lookback-median"
+                      },
+                      {
+                        "const": "previous"
+                      }
+                    ]
+                  },
+                  "list_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "lookback_days": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Baseline lookback window in days. Defaults to 14."
+                  },
+                  "min_absolute_change": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Minimum absolute subscriber delta for an alert. Defaults to 50."
+                  },
+                  "sample_key": {
+                    "description": "Sampling period key; same-key snapshots replace their predecessor so retries never double-weight the period.",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "pattern": "^\\s*\\S[\\s\\S]*$",
+                    "type": "string"
+                  },
+                  "threshold": {
+                    "description": "Relative drift threshold. Defaults to 0.2.",
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "baseline_mode": {
+                "description": "How to compute the alert baseline. Defaults to \"previous\".",
+                "oneOf": [
+                  {
+                    "const": "lookback-mean"
+                  },
+                  {
+                    "const": "lookback-median"
+                  },
+                  {
+                    "const": "previous"
+                  }
+                ]
+              },
+              "list_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "type": "array"
+              },
+              "lookback_days": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Baseline lookback window in days. Defaults to 14."
+              },
+              "min_absolute_change": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Minimum absolute subscriber delta for an alert. Defaults to 50."
+              },
+              "sample_key": {
+                "description": "Sampling period key; same-key snapshots replace their predecessor so retries never double-weight the period.",
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              },
+              "threshold": {
+                "description": "Relative drift threshold. Defaults to 0.2.",
+                "minimum": 0,
+                "type": "number"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SegmentDriftComparison": {
+                "additionalProperties": false,
+                "properties": {
+                  "alert": {
+                    "type": "boolean"
+                  },
+                  "baselineCount": {
+                    "type": "number"
+                  },
+                  "currentCount": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "delta": {
+                    "type": "number"
+                  },
+                  "deltaRate": {
+                    "type": "number"
+                  },
+                  "listId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "listName": {
+                    "type": "string"
+                  },
+                  "previousCount": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "listId",
+                  "listName",
+                  "currentCount",
+                  "alert"
+                ],
+                "type": "object"
+              },
+              "SegmentDriftOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "alerts": {
+                    "items": {
+                      "$ref": "#/components/schemas/SegmentDriftComparison"
+                    },
+                    "type": "array"
+                  },
+                  "capturedAt": {
+                    "type": "string"
+                  },
+                  "comparisons": {
+                    "items": {
+                      "$ref": "#/components/schemas/SegmentDriftComparison"
+                    },
+                    "type": "array"
+                  },
+                  "minAbsoluteChange": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "replaced": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Snapshots replaced by this run because they shared its sample key."
+                  },
+                  "threshold": {
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "capturedAt",
+                  "threshold",
+                  "minAbsoluteChange",
+                  "replaced",
+                  "comparisons",
+                  "alerts"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "alerts": {
+                "items": {
+                  "$ref": "#/components/schemas/SegmentDriftComparison"
+                },
+                "type": "array"
+              },
+              "capturedAt": {
+                "type": "string"
+              },
+              "comparisons": {
+                "items": {
+                  "$ref": "#/components/schemas/SegmentDriftComparison"
+                },
+                "type": "array"
+              },
+              "minAbsoluteChange": {
+                "minimum": 0,
+                "type": "number"
+              },
+              "replaced": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Snapshots replaced by this run because they shared its sample key."
+              },
+              "threshold": {
+                "minimum": 0,
+                "type": "number"
+              }
+            },
+            "required": [
+              "capturedAt",
+              "threshold",
+              "minAbsoluteChange",
+              "replaced",
+              "comparisons",
+              "alerts"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "action": "recover",
+          "destructive": false,
+          "kind": "maintenance",
+          "preview": false,
+          "resource": "audience"
+        }
+      ],
+      "id": "ops.segments.drift",
+      "mcpName": "listmonk_ops_segment_drift",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "audience",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": true,
+              "kind": "reconcile",
+              "reason": "Snapshots sharing the sample key replace their predecessor, so an identical retry replaces the same period's snapshot again without double-weighting the sample.",
+              "reconcileWith": "ops.segments.drift"
+            },
+            "when": "sample_key is provided"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "An unkeyed snapshot appends a point-in-time count, so an ambiguous retry captures a new sample that double-weights the period."
+            },
+            "when": "sample_key is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller supplies the sampling period key."
+      },
+      "verb": "drift"
     },
     {
       "contract": {
