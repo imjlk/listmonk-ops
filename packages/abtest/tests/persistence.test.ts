@@ -272,6 +272,21 @@ describe("A/B test persistence", () => {
 		);
 	});
 
+	test("rejects a non-timestamp provisioned marker", async () => {
+		const storePath = await createStorePath();
+		const invalidTest = createTest("bad-provisioned");
+		invalidTest.provisionedAt = "not-a-timestamp";
+		await writeFile(
+			storePath,
+			`${JSON.stringify({ version: 2, tests: [invalidTest] })}\n`,
+			"utf8",
+		);
+
+		await expect(loadStoredAbTests(storePath)).rejects.toThrow(
+			"test 0 failed schema validation",
+		);
+	});
+
 	test("rejects malformed persisted hypothesis metadata", async () => {
 		const storePath = await createStorePath();
 		const validTest = createTest("one");

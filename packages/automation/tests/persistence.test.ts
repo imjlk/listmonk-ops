@@ -197,8 +197,12 @@ describe("automation persistence", () => {
 
 		await expect(
 			runSegmentDriftSnapshot(client, { sampleKey: "   " }),
-		).rejects.toThrow("sample key must be a non-empty string");
-
+		).rejects.toThrow("sample key must be a non-empty");
+		await expect(
+			runSegmentDriftSnapshot(client, {
+				sampleKey: `k-${"x".repeat(200)}`,
+			}),
+		).rejects.toThrow("at most 200 trimmed characters");
 		const duplicatedIds = await runSegmentDriftSnapshot(
 			{
 				list: {
@@ -211,6 +215,22 @@ describe("automation persistence", () => {
 		);
 		expect(duplicatedIds.replaced).toBe(0);
 		expect(duplicatedIds.comparisons).toHaveLength(1);
+
+		// A persisted overlength key is rejected when the store is read, so
+		// store state the supported transports could never create cannot
+		// silently flow back through a later run.
+		const reread = JSON.parse(await readFile(segmentStorePath, "utf8")) as {
+			snapshots: Array<{ sampleKey?: string }>;
+		};
+		reread.snapshots[0]!.sampleKey = `bad-${"y".repeat(200)}`;
+		await writeFile(
+			segmentStorePath,
+			`${JSON.stringify(reread)}\n`,
+			"utf8",
+		);
+		await expect(
+			runSegmentDriftSnapshot(client, { sampleKey: "after-bad-read" }),
+		).rejects.toThrow("failed schema validation");
 	});
 
 	test("keeps the newest same-key snapshot when runs overlap", async () => {
