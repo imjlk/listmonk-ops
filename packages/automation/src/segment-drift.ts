@@ -30,15 +30,24 @@ export interface SegmentSnapshotEntry {
  * retry replays the exact measurement (including alerts) instead of
  * re-observing live counts.
  */
+export interface StoredSegmentDriftSettings {
+	threshold: number;
+	minAbsoluteChange: number;
+	lookbackDays: number;
+	baselineMode: "previous" | "lookback-mean" | "lookback-median";
+}
+
 export interface StoredSegmentDriftResult {
 	scope: "all" | "lists";
 	listIds: number[];
 	capturedAt: string;
-	threshold: number;
-	minAbsoluteChange: number;
+	settings: StoredSegmentDriftSettings;
 	comparisons: SegmentDriftComparison[];
 	alerts: SegmentDriftComparison[];
 }
+
+/** Upper bound on retained replay records so the store cannot grow unbounded. */
+const MAX_STORED_KEYED_RESULTS = 100;
 
 export interface SegmentDriftStore {
 	version: 1;
@@ -126,10 +135,16 @@ function parseSegmentDriftStore(value: unknown): SegmentDriftStore {
 				) ||
 				typeof stored.capturedAt !== "string" ||
 				Number.isNaN(new Date(stored.capturedAt).getTime()) ||
-				typeof stored.threshold !== "number" ||
-				!Number.isFinite(stored.threshold) ||
-				typeof stored.minAbsoluteChange !== "number" ||
-				!Number.isFinite(stored.minAbsoluteChange) ||
+				!isRecord(stored.settings) ||
+				typeof stored.settings.threshold !== "number" ||
+				!Number.isFinite(stored.settings.threshold) ||
+				typeof stored.settings.minAbsoluteChange !== "number" ||
+				!Number.isFinite(stored.settings.minAbsoluteChange) ||
+				typeof stored.settings.lookbackDays !== "number" ||
+				!Number.isFinite(stored.settings.lookbackDays) ||
+				(stored.settings.baselineMode !== "previous" &&
+					stored.settings.baselineMode !== "lookback-mean" &&
+					stored.settings.baselineMode !== "lookback-median") ||
 				!Array.isArray(stored.comparisons) ||
 				!stored.comparisons.every(isValidComparison) ||
 				!Array.isArray(stored.alerts) ||
@@ -279,27 +294,37 @@ export async function runSegmentDriftSnapshot(
 	const storeDefinition = createSegmentDriftStore();
 
 	if (sampleKey !== undefined) {
-		// A completed keyed sample replays from the store: the same period
-		// key returns the originally committed measurement — comparisons and
-		// alerts included — instead of overwriting it with freshly observed
-		// counts. Replay only covers a request whose scope the stored result
-		// actually measured.
+		// A completed keyed sample replays from the store: an exactly
+		// identical request — same scope, same list set, and same drift
+		// settings — returns the originally committed measurement,
+		// comparisons and alerts included, instead of overwriting it with
+		// freshly observed counts. Any other request under the same key
+		// takes the normal capture path.
 		const existing = await readJsonFileStore(storeDefinition);
-		const stored = existing.keyedResults?.[sampleKey];
+		const results = existing.keyedResults;
+		const stored =
+			results !== undefined && Object.hasOwn(results, sampleKey)
+				? results[sampleKey]
+				: undefined;
 		if (stored) {
 			const requestIsAll =
 				options.listIds === undefined || options.listIds.length === 0;
-			const covered = requestIsAll
+			const scopeMatches = requestIsAll
 				? stored.scope === "all"
-				: options.listIds!.every((id) =>
-						stored.scope === "all" ? true : stored.listIds.includes(id),
-					);
-			if (covered) {
+				: stored.scope === "lists" &&
+					[...options.listIds!].sort().join(",") ===
+						[...stored.listIds].sort().join(",");
+			const settingsMatch =
+				stored.settings.threshold === threshold &&
+				stored.settings.minAbsoluteChange === minAbsoluteChange &&
+				stored.settings.lookbackDays === lookbackDays &&
+				stored.settings.baselineMode === baselineMode;
+			if (scopeMatches && settingsMatch) {
 				return {
 					capturedAt: stored.capturedAt,
 					storePath: storeDefinition.path,
-					threshold: stored.threshold,
-					minAbsoluteChange: stored.minAbsoluteChange,
+					threshold,
+					minAbsoluteChange,
 					replaced: 0,
 					comparisons: stored.comparisons,
 					alerts: stored.alerts,
@@ -443,32 +468,49 @@ export async function runSegmentDriftSnapshot(
 		});
 		const requestIsAllScope =
 			options.listIds === undefined || options.listIds.length === 0;
+		// Preserve committed replay records on every write. A keyed record is
+		// only written when the key has none yet — the first committed
+		// measurement is the period's measurement, so a slower overlapping
+		// run with the same key never replaces the winning record.
+		const previousResults = store.keyedResults ?? {};
+		const keyedResults =
+			sampleKey === undefined || Object.hasOwn(previousResults, sampleKey)
+				? previousResults
+				: {
+						...previousResults,
+						[sampleKey]: {
+							scope: requestIsAllScope ? ("all" as const) : ("lists" as const),
+							listIds: retainedEntries.map((entry) => entry.listId),
+							capturedAt,
+							settings: {
+								threshold,
+								minAbsoluteChange,
+								lookbackDays,
+								baselineMode,
+							},
+							comparisons,
+							alerts: comparisons.filter(
+								(comparison) => comparison.alert,
+							),
+						} satisfies StoredSegmentDriftResult,
+					};
+		// Bound the replay records so a key-per-period workload cannot grow
+		// the store without limit; keep the most recent measurements.
+		const prunedKeyedResults = Object.fromEntries(
+			Object.entries(keyedResults)
+				.sort(
+					(left, right) =>
+						right[1].capturedAt.localeCompare(left[1].capturedAt),
+				)
+				.slice(0, MAX_STORED_KEYED_RESULTS),
+		);
 		const nextStore: SegmentDriftStore = {
 			version: 1,
 			snapshots: retainRecentSegmentSnapshots([
 				...survivingSnapshots,
 				...retainedEntries,
 			]),
-			...(sampleKey === undefined
-				? {}
-				: {
-						// Persist this keyed sample's result so an identical
-						// retry replays the exact measurement, alerts included.
-						keyedResults: {
-							...(store.keyedResults ?? {}),
-							[sampleKey]: {
-								scope: requestIsAllScope ? "all" : "lists",
-								listIds: retainedEntries.map((entry) => entry.listId),
-								capturedAt,
-								threshold,
-								minAbsoluteChange,
-								comparisons,
-								alerts: comparisons.filter(
-									(comparison) => comparison.alert,
-								),
-							} satisfies StoredSegmentDriftResult,
-						},
-					}),
+			keyedResults: prunedKeyedResults,
 		};
 		const result: SegmentDriftResult = {
 			capturedAt,

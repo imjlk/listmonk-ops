@@ -573,8 +573,8 @@ intent(key, 요청 fingerprint, payload)를 커밋해 애매한 재시도가 같
 experimental로 유지합니다. 열한 번째 batch에서는 `subscribers.create`를
 승격했습니다. 구독자 이메일은 Listmonk에서 고유하므로(로컬 스택으로 검증),
 애매한 재시도가 동일하게 구성된 구독자를 `created: false`로 재생합니다. 열두
-번째 batch에서는 조건부 retry 시맨틱의 `ops.segments.drift`(키 있는 샘플은
-기간을 교체해 수렴, 키 없는 append는 unsafe)를 승격했습니다.
+번째 batch에서는 조건부 retry 시맨틱의 `ops.segments.drift`(완전히 동일한 키 요청은
+해당 기간의 저장된 측정을 재생, 키 없는 append는 unsafe)를 승격했습니다.
 `webhooks.delivery.retry`는 pending no-op(`retried: false`)를 얻었지만
 experimental로 유지됩니다. dispatcher가 pending delivery를 먼저 완료할 수
 있어 반복이 또 다른 delivery 주기를 시작할 수 있기 때문입니다.
@@ -846,8 +846,8 @@ listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --co
 # 4) 세그먼트 드리프트 스냅샷
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
 # --baseline-mode lookback-mean으로 lookback 평균 기준 비교 가능.
-# 안정적인 --sample-key(예: UTC 날짜)를 전달하면 재시도가 해당 기간의
-# 스냅샷을 교체하므로 중복 표본이 이중 가중되지 않습니다.
+# 안정적인 --sample-key(예: UTC 날짜)를 전달하면 완전히 동일한 재시도가
+# 해당 기간의 저장된 측정을 재생하므로 중복 표본이 이중 가중되지 않습니다.
 
 # 5) 템플릿 레지스트리/버전 관리
 listmonk-cli ops templates-sync

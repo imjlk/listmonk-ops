@@ -582,8 +582,9 @@ resume. An eleventh batch promoted `subscribers.create` — subscriber
 emails are unique in Listmonk, so an ambiguous retry replays an
 identically configured subscriber as `created: false` (verified
 against the local stack). A twelfth batch promoted `ops.segments.drift` with
-conditional retry semantics — keyed samples replace their period so
-retries converge, unkeyed appends stay unsafe. `webhooks.delivery.retry`
+conditional retry semantics — an exactly identical keyed request
+replays the period's committed measurement, unkeyed appends stay
+unsafe. `webhooks.delivery.retry`
 gained a pending no-op (`retried: false`) but stays experimental: a
 dispatcher can complete the pending delivery first, so a repeat can
 still start another delivery cycle. The remaining 23 descriptors are
@@ -866,8 +867,9 @@ listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --co
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
 # Use --baseline-mode lookback-mean to compare against the lookback
 # window average instead of the previous snapshot. Pass a stable
-# --sample-key (for example the UTC date) so a retry replaces that
-# period's snapshot instead of appending a duplicate sample.
+# --sample-key (for example the UTC date) so an identical retry
+# replays that period's committed measurement instead of appending
+# a duplicate sample.
 
 # 5) Template registry/versioning
 listmonk-cli ops templates-sync
