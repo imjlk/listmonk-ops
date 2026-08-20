@@ -25,9 +25,25 @@ export interface SegmentSnapshotEntry {
 	sampleKey?: string;
 }
 
+/**
+ * A committed keyed sample's original result, persisted so an identical
+ * retry replays the exact measurement (including alerts) instead of
+ * re-observing live counts.
+ */
+export interface StoredSegmentDriftResult {
+	scope: "all" | "lists";
+	listIds: number[];
+	capturedAt: string;
+	threshold: number;
+	minAbsoluteChange: number;
+	comparisons: SegmentDriftComparison[];
+	alerts: SegmentDriftComparison[];
+}
+
 export interface SegmentDriftStore {
 	version: 1;
 	snapshots: SegmentSnapshotEntry[];
+	keyedResults?: Record<string, StoredSegmentDriftResult>;
 }
 
 export interface SegmentDriftOptions {
@@ -73,6 +89,57 @@ function parseSegmentDriftStore(value: unknown): SegmentDriftStore {
 	}
 	if (!Array.isArray(value.snapshots)) {
 		throw new Error("Invalid segment drift store: snapshots must be an array");
+	}
+
+	const keyedResults: unknown = value.keyedResults;
+	if (keyedResults !== undefined) {
+		const isValidComparison = (comparison: unknown): boolean => {
+			if (!isRecord(comparison)) return false;
+			return (
+				typeof comparison.listId === "number" &&
+				Number.isInteger(comparison.listId) &&
+				comparison.listId > 0 &&
+				typeof comparison.listName === "string" &&
+				typeof comparison.currentCount === "number" &&
+				Number.isFinite(comparison.currentCount) &&
+				comparison.currentCount >= 0 &&
+				typeof comparison.alert === "boolean" &&
+				(comparison.previousCount === undefined ||
+					typeof comparison.previousCount === "number") &&
+				(comparison.baselineCount === undefined ||
+					typeof comparison.baselineCount === "number") &&
+				(comparison.delta === undefined ||
+					typeof comparison.delta === "number") &&
+				(comparison.deltaRate === undefined ||
+					typeof comparison.deltaRate === "number")
+			);
+		};
+		const keyedRecord = keyedResults as Record<string, unknown>;
+		for (const [key, storedEntry] of Object.entries(keyedRecord)) {
+			const stored: unknown = storedEntry;
+			if (
+				!isRecord(stored) ||
+				(stored.scope !== "all" && stored.scope !== "lists") ||
+				!Array.isArray(stored.listIds) ||
+				!stored.listIds.every(
+					(id) => Number.isInteger(id) && (id as number) > 0,
+				) ||
+				typeof stored.capturedAt !== "string" ||
+				Number.isNaN(new Date(stored.capturedAt).getTime()) ||
+				typeof stored.threshold !== "number" ||
+				!Number.isFinite(stored.threshold) ||
+				typeof stored.minAbsoluteChange !== "number" ||
+				!Number.isFinite(stored.minAbsoluteChange) ||
+				!Array.isArray(stored.comparisons) ||
+				!stored.comparisons.every(isValidComparison) ||
+				!Array.isArray(stored.alerts) ||
+				!stored.alerts.every(isValidComparison)
+			) {
+				throw new Error(
+					`Invalid segment drift store: keyed result ${key} failed schema validation`,
+				);
+			}
+		}
 	}
 
 	for (const [index, snapshot] of value.snapshots.entries()) {
@@ -213,36 +280,31 @@ export async function runSegmentDriftSnapshot(
 
 	if (sampleKey !== undefined) {
 		// A completed keyed sample replays from the store: the same period
-		// key returns the originally committed measurement instead of
-		// overwriting it with freshly observed counts.
+		// key returns the originally committed measurement — comparisons and
+		// alerts included — instead of overwriting it with freshly observed
+		// counts. Replay only covers a request whose scope the stored result
+		// actually measured.
 		const existing = await readJsonFileStore(storeDefinition);
-		const keyed = existing.snapshots.filter(
-			(snapshot) => snapshot.sampleKey === sampleKey,
-		);
-		const keyedListIds = new Set(keyed.map((snapshot) => snapshot.listId));
-		const requestedListIds =
-			options.listIds && options.listIds.length > 0
-				? new Set(options.listIds)
-				: null;
-		const covered =
-			keyed.length > 0 &&
-			(requestedListIds === null ||
-				[...requestedListIds].every((id) => keyedListIds.has(id)));
-		if (covered) {
-			return {
-				capturedAt: keyed[0]!.capturedAt,
-				storePath: storeDefinition.path,
-				threshold,
-				minAbsoluteChange,
-				replaced: 0,
-				comparisons: keyed.map((snapshot) => ({
-					listId: snapshot.listId,
-					listName: snapshot.listName,
-					currentCount: snapshot.subscriberCount,
-					alert: false,
-				})),
-				alerts: [],
-			};
+		const stored = existing.keyedResults?.[sampleKey];
+		if (stored) {
+			const requestIsAll =
+				options.listIds === undefined || options.listIds.length === 0;
+			const covered = requestIsAll
+				? stored.scope === "all"
+				: options.listIds!.every((id) =>
+						stored.scope === "all" ? true : stored.listIds.includes(id),
+					);
+			if (covered) {
+				return {
+					capturedAt: stored.capturedAt,
+					storePath: storeDefinition.path,
+					threshold: stored.threshold,
+					minAbsoluteChange: stored.minAbsoluteChange,
+					replaced: 0,
+					comparisons: stored.comparisons,
+					alerts: stored.alerts,
+				};
+			}
 		}
 	}
 
@@ -379,12 +441,34 @@ export async function runSegmentDriftSnapshot(
 					snapshot.listId === entry.listId && sharesSampleKey(entry, snapshot),
 			);
 		});
+		const requestIsAllScope =
+			options.listIds === undefined || options.listIds.length === 0;
 		const nextStore: SegmentDriftStore = {
 			version: 1,
 			snapshots: retainRecentSegmentSnapshots([
 				...survivingSnapshots,
 				...retainedEntries,
 			]),
+			...(sampleKey === undefined
+				? {}
+				: {
+						// Persist this keyed sample's result so an identical
+						// retry replays the exact measurement, alerts included.
+						keyedResults: {
+							...(store.keyedResults ?? {}),
+							[sampleKey]: {
+								scope: requestIsAllScope ? "all" : "lists",
+								listIds: retainedEntries.map((entry) => entry.listId),
+								capturedAt,
+								threshold,
+								minAbsoluteChange,
+								comparisons,
+								alerts: comparisons.filter(
+									(comparison) => comparison.alert,
+								),
+							} satisfies StoredSegmentDriftResult,
+						},
+					}),
 		};
 		const result: SegmentDriftResult = {
 			capturedAt,

@@ -186,8 +186,10 @@ describe("automation persistence", () => {
 		// or overwriting the period's sample.
 		expect(retriedKeyed.replaced).toBe(0);
 		expect(retriedKeyed.capturedAt).toBe(firstKeyed.capturedAt);
-		expect(retriedKeyed.comparisons[0]?.currentCount).toBe(100);
-		expect(retriedKeyed.comparisons[0]?.previousCount).toBeUndefined();
+		// The replay returns the ORIGINAL measurement — including its
+		// comparison fields — not a recomputation.
+		expect(retriedKeyed.comparisons).toEqual(firstKeyed.comparisons);
+		expect(retriedKeyed.alerts).toEqual(firstKeyed.alerts);
 
 		const persisted = JSON.parse(await readFile(segmentStorePath, "utf8")) as {
 			version: number;
