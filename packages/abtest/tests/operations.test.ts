@@ -393,6 +393,115 @@ test("repeats recorded launches and completed stops as no-ops", async () => {
 	expect(stoppedAgain.test.updatedAt).toBe(stopped.test.updatedAt);
 });
 
+test("resumes an ambiguous create from its persisted intent", async () => {
+	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-intent-"));
+	const storePath = join(tempDir, "abtests.json");
+	await saveStoredAbTests([], storePath);
+
+	let campaignCreates = 0;
+	let provisioningShouldFail = true;
+	const client = {
+		subscriber: {
+			list: async () => ({
+				data: {
+					results: [
+						{
+							id: 1,
+							uuid: "22222222-2222-4222-8222-222222222222",
+							email: "member@example.com",
+							status: "enabled",
+						},
+					],
+				},
+			}),
+			manageLists: async () => ({ data: true }),
+		},
+		list: {
+			create: async ({ body }: { body?: { name?: string } }) => ({
+				data: { id: 800 + Math.floor(Math.random() * 100), name: body?.name },
+			}),
+			delete: async () => ({ data: true }),
+		},
+		campaign: {
+			create: async ({ body }: { body?: { name?: string } }) => {
+				campaignCreates += 1;
+				if (provisioningShouldFail && campaignCreates === 1) {
+					return { error: { message: "transient campaign failure" } };
+				}
+				return {
+					data: { id: 800 + Math.floor(Math.random() * 100), name: body?.name },
+				};
+			},
+			update: async () => ({ data: true }),
+			delete: async () => ({ data: true }),
+		},
+		template: {
+			getById: async () => ({
+				data: { id: 1, name: "Base", type: "campaign", body: "<p>x</p>" },
+			}),
+		},
+	} as unknown as ListmonkClient;
+	const context = { client, storePath };
+
+	const createInput = {
+		name: "intent-resume-test",
+		lists: [1],
+		variants: [
+			{ name: "A", percentage: 50, campaign_config: { subject: "A", body: "a" } },
+			{ name: "B", percentage: 50, campaign_config: { subject: "B", body: "b" } },
+		],
+	};
+
+	await expect(
+		invokeCreateAbTestOperation(context, createInput),
+	).rejects.toThrow();
+
+	// The intent survived the failed provisioning with its replay key.
+	const persisted = await invokeGetAbTestOperation(context, {
+		test_id: (
+			await invokeListAbTestsOperation(context, {})
+		).tests[0]!.id,
+	});
+	expect(persisted.test.status).toBe("draft");
+	expect(persisted.test.provisionedAt).toBeUndefined();
+
+	// The retry resumes the SAME test and completes provisioning.
+	provisioningShouldFail = false;
+	const resumed = await invokeCreateAbTestOperation(context, createInput);
+	expect(resumed.created).toBe(true);
+	expect(resumed.test.id).toBe(persisted.test.id);
+
+	// A further identical retry is a completed replay.
+	const replayed = await invokeCreateAbTestOperation(context, createInput);
+	expect(replayed.created).toBe(false);
+	expect(replayed.test.id).toBe(persisted.test.id);
+	expect(replayed.test.provisionedAt).toBeDefined();
+});
+
+test("blocks launch and stop while a create intent is still provisioning", async () => {
+	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-guard-"));
+	const storePath = join(tempDir, "abtests.json");
+	const fixture = createFixture("draft");
+	fixture.pendingCreate = {
+		config: {
+			name: fixture.name,
+			campaignId: "campaign-auto",
+			variants: [],
+			metrics: [],
+			baseConfig: { subject: "s", body: "b", lists: [] },
+		} as unknown as import("../src/types").AbTestConfig,
+	};
+	await saveStoredAbTests([fixture], storePath);
+	const context = { client: {} as ListmonkClient, storePath };
+
+	await expect(
+		invokeLaunchAbTestOperation(context, { test_id: fixture.id }),
+	).rejects.toThrow(/still being provisioned/);
+	await expect(
+		invokeStopAbTestOperation(context, { test_id: fixture.id }),
+	).rejects.toThrow(/still being provisioned/);
+});
+
 test("replays an identical create through its derived replay key", async () => {
 	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-create-"));
 	const storePath = join(tempDir, "abtests.json");

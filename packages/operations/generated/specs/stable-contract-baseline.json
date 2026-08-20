@@ -22477,6 +22477,10 @@
                   "name": {
                     "type": "string"
                   },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
+                    "type": "string"
+                  },
                   "startedAt": {
                     "type": "string"
                   },
@@ -23002,6 +23006,10 @@
                     "type": "number"
                   },
                   "name": {
+                    "type": "string"
+                  },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
                     "type": "string"
                   },
                   "startedAt": {
@@ -23803,6 +23811,10 @@
                   "name": {
                     "type": "string"
                   },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
+                    "type": "string"
+                  },
                   "startedAt": {
                     "type": "string"
                   },
@@ -24339,6 +24351,10 @@
                     "type": "number"
                   },
                   "name": {
+                    "type": "string"
+                  },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
                     "type": "string"
                   },
                   "startedAt": {

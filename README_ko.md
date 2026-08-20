@@ -567,8 +567,10 @@ plan-then-apply 방식의 manifest 수렴이 idempotent로 선언되고 dry-run�
 `abtest.launch`와 `abtest.stop`을 승격했습니다. 아홉 번째 batch에서는 순수 로컬
 저장소 create를 승격했습니다. `webhooks.create`와 `sequences.create`는 동일하게
 구성된 기존 이름을 `created: false`로 재생하고(충돌하는 구성은 여전히 실패)
-합니다. `abtest.create`도 같은 replay key 장치를 얻었지만, 원격 campaign
-provisioning 전에 key가 영속화되기 전까지는 experimental로 유지합니다.
+합니다. 열 번째 batch에서는 `abtest.create`가 원격 provisioning 전에 replay
+intent(key, 요청 fingerprint, payload)를 커밋해 애매한 재시도가 같은 테스트를
+이어 완성하도록 만들었습니다. 재개 시 원격 자원 ID를 checkpointing하기 전까지는
+experimental로 유지합니다.
 현재 stable baseline은 79개이며, 나머지 experimental descriptor는 25개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,

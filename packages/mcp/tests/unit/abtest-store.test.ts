@@ -106,7 +106,13 @@ describe("mcp abtest persistence", () => {
 
 		expect(result.isError).toBe(true);
 		expect(result.content?.[0]?.text).toContain("campaign creation failed");
-		expect(existsSync(storePath)).toBe(false);
-		await expect(loadStoredAbTests()).resolves.toEqual([]);
+		// Intent-first creation persists the resumable intent (replay key and
+		// payload) even when provisioning fails, so a retry resumes it.
+		expect(existsSync(storePath)).toBe(true);
+		const persisted = await loadStoredAbTests();
+		expect(persisted).toHaveLength(1);
+		expect(persisted[0]?.status).toBe("draft");
+		expect(persisted[0]?.provisionedAt).toBeUndefined();
+		expect(persisted[0]?.pendingCreate).toBeDefined();
 	});
 });

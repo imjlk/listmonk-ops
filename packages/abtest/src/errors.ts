@@ -4,3 +4,10 @@ export class AbTestNotFoundError extends Error {
 		this.name = "AbTestNotFoundError";
 	}
 }
+
+export class AbTestConflictError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "AbTestConflictError";
+	}
+}

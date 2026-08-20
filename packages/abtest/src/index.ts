@@ -148,6 +148,7 @@ export type {
 	TickAbTestsOperationOutput,
 } from "./operations";
 export {
+	AbTestConflictError,
 	AbTestNotFoundError,
 	AbTestWriteTransactionError,
 	getAbTestStorePath,

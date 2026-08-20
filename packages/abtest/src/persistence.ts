@@ -10,6 +10,7 @@ import {
 } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { AbTestNotFoundError } from "./errors";
+export { AbTestConflictError } from "./errors";
 import { createAbTestExecutors, type AbTestExecutors } from "./factory";
 import { isStrictIsoTimestamp, verifyHypothesisChecksum } from "./hypothesis";
 import type { AbTest } from "./types";
@@ -191,6 +192,122 @@ function isStoredListMapping(value: unknown): boolean {
 	);
 }
 
+function isStoredPendingCreate(value: unknown): boolean {
+	if (!isRecord(value) || !isRecord(value.config)) {
+		return false;
+	}
+	const config = value.config;
+	// Validate every field provisioning consumes so a malformed intent is
+	// rejected at the store boundary instead of failing after partial
+	// remote effects or provisioning invalid data.
+	if (typeof config.name !== "string" || config.name.length === 0) {
+		return false;
+	}
+	if (typeof config.campaignId !== "string") {
+		return false;
+	}
+	if (
+		!Array.isArray(config.variants) ||
+		!config.variants.every(
+			(variant) =>
+				isRecord(variant) &&
+				typeof variant.name === "string" &&
+				typeof variant.percentage === "number" &&
+				Number.isFinite(variant.percentage),
+		)
+	) {
+		return false;
+	}
+	if (
+		!Array.isArray(config.metrics) ||
+		!config.metrics.every(
+			(metric) =>
+				isRecord(metric) &&
+				typeof metric.name === "string" &&
+				typeof metric.type === "string",
+		)
+	) {
+		return false;
+	}
+	const baseConfig = config.baseConfig;
+	if (
+		!isRecord(baseConfig) ||
+		typeof baseConfig.subject !== "string" ||
+		typeof baseConfig.body !== "string" ||
+		!Array.isArray(baseConfig.lists) ||
+		!baseConfig.lists.every(
+			(listId) => typeof listId === "number" && Number.isFinite(listId),
+		) ||
+		(baseConfig.template_id !== undefined &&
+			typeof baseConfig.template_id !== "number")
+	) {
+		return false;
+	}
+	if (
+		config.testingMode !== undefined &&
+		config.testingMode !== "holdout" &&
+		config.testingMode !== "full-split"
+	) {
+		return false;
+	}
+	if (
+		config.testGroupPercentage !== undefined &&
+		(typeof config.testGroupPercentage !== "number" ||
+			!(config.testGroupPercentage > 0 && config.testGroupPercentage <= 100))
+	) {
+		return false;
+	}
+	if (
+		config.confidenceThreshold !== undefined &&
+		(typeof config.confidenceThreshold !== "number" ||
+			!(config.confidenceThreshold > 0 && config.confidenceThreshold < 1))
+	) {
+		return false;
+	}
+	if (
+		config.minimumTestSampleSize !== undefined &&
+		(typeof config.minimumTestSampleSize !== "number" ||
+			!Number.isSafeInteger(config.minimumTestSampleSize) ||
+			config.minimumTestSampleSize <= 0)
+	) {
+		return false;
+	}
+	if (
+		config.durationHours !== undefined &&
+		(typeof config.durationHours !== "number" ||
+			!(config.durationHours > 0))
+	) {
+		return false;
+	}
+	const booleanFields = [
+		"autoLaunch",
+		"autoDeployWinner",
+		"ignoreStatisticalWarnings",
+	] as const;
+	for (const field of booleanFields) {
+		const fieldValue = config[field];
+		if (fieldValue !== undefined && typeof fieldValue !== "boolean") {
+			return false;
+		}
+	}
+	if (
+		config.launchAt !== undefined &&
+		(typeof config.launchAt !== "string" ||
+			Number.isNaN(new Date(config.launchAt).getTime()))
+	) {
+		return false;
+	}
+	if (
+		config.stratificationPolicy !== undefined &&
+		!isRecord(config.stratificationPolicy)
+	) {
+		return false;
+	}
+	if (config.hypothesis !== undefined && !isRecord(config.hypothesis)) {
+		return false;
+	}
+	return true;
+}
 function isStoredAbTest(value: unknown): boolean {
 	return (
 		isRecord(value) &&
@@ -198,6 +315,13 @@ function isStoredAbTest(value: unknown): boolean {
 		typeof value.name === "string" &&
 		(value.idempotencyKey === undefined ||
 			typeof value.idempotencyKey === "string") &&
+		(value.idempotencyFingerprint === undefined ||
+			typeof value.idempotencyFingerprint === "string") &&
+		(value.provisionedAt === undefined ||
+			typeof value.provisionedAt === "string") &&
+		(value.pendingCreate === undefined || isStoredPendingCreate(
+			value.pendingCreate,
+		)) &&
 		typeof value.campaignId === "string" &&
 		typeof value.status === "string" &&
 		ABTEST_STATUSES.has(value.status as AbTest["status"]) &&

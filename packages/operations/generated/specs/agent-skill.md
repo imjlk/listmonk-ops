@@ -1302,7 +1302,7 @@ Prerequisites: none
 
 Verify with: `abtest.get`
 
-Retry guidance: Inspect abtest.list and the provisioned campaigns and lists before retrying an ambiguous create; a completed create replays through its idempotency key with created: false.
+Retry guidance: Verify the test with abtest.get before repeating an ambiguous create; an identical retry resumes an unfinished intent or replays a completed one, and the remote campaigns and lists should be inspected for duplicates.
 
 ## Analyze A/B test (`abtest.analyze`)
 

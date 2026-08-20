@@ -31230,6 +31230,10 @@
                   "name": {
                     "type": "string"
                   },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
+                    "type": "string"
+                  },
                   "startedAt": {
                     "type": "string"
                   },
@@ -31785,6 +31789,10 @@
                   "name": {
                     "type": "string"
                   },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
+                    "type": "string"
+                  },
                   "startedAt": {
                     "type": "string"
                   },
@@ -32013,7 +32021,7 @@
           "abtest.launch",
           "abtest.delete"
         ],
-        "retryGuidance": "Inspect abtest.list and the provisioned campaigns and lists before retrying an ambiguous create; a completed create replays through its idempotency key with created: false.",
+        "retryGuidance": "Verify the test with abtest.get before repeating an ambiguous create; an identical retry resumes an unfinished intent or replays a completed one, and the remote campaigns and lists should be inspected for duplicates.",
         "useWhen": [
           "A new A/B test must be created."
         ],
@@ -32825,6 +32833,10 @@
                   "name": {
                     "type": "string"
                   },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
+                    "type": "string"
+                  },
                   "startedAt": {
                     "type": "string"
                   },
@@ -33052,7 +33064,7 @@
       "resource": "experiment",
       "retry": {
         "kind": "unsafe",
-        "reason": "The replay key is only persisted with the local record, so an ambiguous failure after remote campaign provisioning loses it and a retry can provision duplicates; creation stays experimental until the intent is durable before remote effects."
+        "reason": "The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning and an ambiguous retry resumes it, but a crash between successful provisioning and the provisioned commit can still re-provision remote resources; creation stays experimental until remote resource ids are checkpointed or reconciled on resume."
       },
       "since": "0.10.0",
       "stability": "experimental",
@@ -33703,6 +33715,10 @@
                   "name": {
                     "type": "string"
                   },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
+                    "type": "string"
+                  },
                   "startedAt": {
                     "type": "string"
                   },
@@ -34271,6 +34287,10 @@
                     "type": "number"
                   },
                   "name": {
+                    "type": "string"
+                  },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
                     "type": "string"
                   },
                   "startedAt": {
@@ -35433,6 +35453,10 @@
                     "type": "number"
                   },
                   "name": {
+                    "type": "string"
+                  },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
                     "type": "string"
                   },
                   "startedAt": {

@@ -1,4 +1,5 @@
 import { ValidationError } from "@listmonk-ops/common";
+import { AbTestNotFoundError } from "./errors";
 import type { AbTestService } from "./abtest-service";
 import type {
 	AbTest,
@@ -11,17 +12,17 @@ import type {
 import { DEFAULT_STRATIFICATION_POLICY } from "./stratification";
 
 // Simple A/B Test command wrappers (no longer extending BaseCommand)
-export class CreateAbTestCommand {
-	constructor(private abTestService: AbTestService) {}
-
-	async execute(input: CreateAbTestInput): Promise<AbTest> {
-		this.validate(input);
-
+/**
+ * Fully defaulted domain configuration for a create request. Adapter
+ * differences (omitted vs explicit defaults) normalize here so replay
+ * fingerprints and derived keys are stable across surfaces.
+ */
+export function buildAbTestConfig(input: CreateAbTestInput): AbTestConfig {
 		// Convert CreateAbTestInput to AbTestConfig
-		const config: AbTestConfig = {
+	return {
 			name: input.name,
 			idempotencyKey: input.idempotency_key,
-			campaignId: input.campaign_id || `campaign-${Date.now()}`,
+			campaignId: input.campaign_id || "campaign-auto",
 			variants: input.variants.map((v, index) => ({
 				id: `variant-${index}`,
 				name: v.name,
@@ -95,8 +96,37 @@ export class CreateAbTestCommand {
 				? { ...DEFAULT_STRATIFICATION_POLICY, enabled: true }
 				: undefined,
 		};
+}
 
-		return await this.abTestService.createTest(config);
+export class CreateAbTestCommand {
+	constructor(private abTestService: AbTestService) {}
+
+	async execute(input: CreateAbTestInput): Promise<AbTest> {
+		this.validate(input);
+		return await this.abTestService.createTest(buildAbTestConfig(input));
+	}
+
+	/**
+	 * Validate and persist the create intent (replay key and payload)
+	 * before any remote provisioning runs. Returns the persisted draft and
+	 * whether it was an existing replay.
+	 */
+	async recordIntent(
+		input: CreateAbTestInput,
+	): Promise<{ test: AbTest; replayed: boolean }> {
+		this.validate(input);
+		return await this.abTestService.recordCreateIntent(
+			buildAbTestConfig(input),
+		);
+	}
+
+	/** Resume provisioning for a persisted create intent. */
+	async provision(testId: string): Promise<AbTest> {
+		const test = await this.abTestService.getTest(testId);
+		if (!test) {
+			throw new AbTestNotFoundError(testId);
+		}
+		return await this.abTestService.provisionTest(test);
 	}
 
 	private validate(input: CreateAbTestInput): void {

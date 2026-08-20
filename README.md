@@ -574,9 +574,11 @@ whose repeats now return the persisted lifecycle state instead of
 rescheduling delivery or repeating remote cleanup. A ninth batch promoted the purely local-store creates:
 `webhooks.create` and `sequences.create` replay an identically
 configured existing name as `created: false` (a conflicting
-configuration still fails). `abtest.create` gained the same replay-key
-machinery but stays experimental until the key is durable before remote
-campaign provisioning; the remaining 25 descriptors are experimental.
+configuration still fails). A tenth batch made `abtest.create` commit
+its replay intent (key, request fingerprint, and payload) before any
+remote provisioning, so ambiguous retries resume the same test; it
+stays experimental until remote resource ids are checkpointed on
+resume. The remaining 25 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,

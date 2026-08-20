@@ -151,6 +151,8 @@ describe("A/B test provisioning", () => {
 		expect(rollbackResources?.testListIds).toEqual([]);
 		expect(rollbackResources?.holdoutListId).toBeUndefined();
 		expect(rollbackResources?.testId).toContain("test_");
+		// This unkeyed create has no replay path, so the failed provision
+		// discards the draft instead of leaving an unreachable record.
 		await expect(service.getAllTests()).resolves.toHaveLength(0);
 	});
 });

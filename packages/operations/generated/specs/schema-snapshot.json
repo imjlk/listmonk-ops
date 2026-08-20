@@ -27184,6 +27184,10 @@
                 "name": {
                   "type": "string"
                 },
+                "provisionedAt": {
+                  "description": "Set when remote provisioning completed for this test.",
+                  "type": "string"
+                },
                 "startedAt": {
                   "type": "string"
                 },
@@ -27700,6 +27704,10 @@
                   "type": "number"
                 },
                 "name": {
+                  "type": "string"
+                },
+                "provisionedAt": {
+                  "description": "Set when remote provisioning completed for this test.",
                   "type": "string"
                 },
                 "startedAt": {
@@ -28702,6 +28710,10 @@
                 "name": {
                   "type": "string"
                 },
+                "provisionedAt": {
+                  "description": "Set when remote provisioning completed for this test.",
+                  "type": "string"
+                },
                 "startedAt": {
                   "type": "string"
                 },
@@ -28896,7 +28908,7 @@
       },
       "retry": {
         "kind": "unsafe",
-        "reason": "The replay key is only persisted with the local record, so an ambiguous failure after remote campaign provisioning loses it and a retry can provision duplicates; creation stays experimental until the intent is durable before remote effects."
+        "reason": "The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning and an ambiguous retry resumes it, but a crash between successful provisioning and the provisioned commit can still re-provision remote resources; creation stays experimental until remote resource ids are checkpointed or reconciled on resume."
       },
       "since": "0.10.0",
       "stability": "experimental"
@@ -29487,6 +29499,10 @@
                 "name": {
                   "type": "string"
                 },
+                "provisionedAt": {
+                  "description": "Set when remote provisioning completed for this test.",
+                  "type": "string"
+                },
                 "startedAt": {
                   "type": "string"
                 },
@@ -30002,6 +30018,10 @@
                   "type": "number"
                 },
                 "name": {
+                  "type": "string"
+                },
+                "provisionedAt": {
+                  "description": "Set when remote provisioning completed for this test.",
                   "type": "string"
                 },
                 "startedAt": {
@@ -30967,6 +30987,10 @@
                   "type": "number"
                 },
                 "name": {
+                  "type": "string"
+                },
+                "provisionedAt": {
+                  "description": "Set when remote provisioning completed for this test.",
                   "type": "string"
                 },
                 "startedAt": {

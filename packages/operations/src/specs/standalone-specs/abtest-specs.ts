@@ -117,7 +117,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "unsafe",
 		reason:
-			"The replay key is only persisted with the local record, so an ambiguous failure after remote campaign provisioning loses it and a retry can provision duplicates; creation stays experimental until the intent is durable before remote effects.",
+			"The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning and an ambiguous retry resumes it, but a crash between successful provisioning and the provisioned commit can still re-provision remote resources; creation stays experimental until remote resource ids are checkpointed or reconciled on resume.",
 	},
 	agent: {
 		useWhen: ["A new A/B test must be created."],
@@ -126,7 +126,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch", "abtest.delete"],
 		retryGuidance:
-			"Inspect abtest.list and the provisioned campaigns and lists before retrying an ambiguous create; a completed create replays through its idempotency key with created: false.",
+			"Verify the test with abtest.get before repeating an ambiguous create; an identical retry resumes an unfinished intent or replays a completed one, and the remote campaigns and lists should be inspected for duplicates.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_create",

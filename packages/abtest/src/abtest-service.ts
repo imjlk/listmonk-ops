@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
 	ListmonkAbTestIntegration,
 	ProvisionedAbTestResources,
@@ -27,11 +28,58 @@ import type {
 	TestValidationResult,
 	Variant,
 } from "./types";
+import { AbTestConflictError } from "./errors";
 import { ABTEST_SAFETY_LEAD_SECONDS, TERMINAL_STATUSES } from "./types";
 
 /**
  * A/B/C Testing Service - supports up to 3 variants (A, B, C)
  */
+
+function canonicalizeConfigValue(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(canonicalizeConfigValue);
+	}
+	if (value !== null && typeof value === "object") {
+		const record = value as Record<string, unknown>;
+		return Object.fromEntries(
+			Object.keys(record)
+				.sort()
+				.map((key) => [key, canonicalizeConfigValue(record[key])]),
+		);
+	}
+	return value;
+}
+
+/**
+ * Canonical fingerprint of a create request. Adapter-equivalent requests
+ * (one omitting a default, another supplying it explicitly) hash equally
+ * because callers fingerprint the fully defaulted config. Per-call
+ * placeholders (the synthesized base campaign id and the hypothesis
+ * lock timestamp) are excluded so retries derive the same fingerprint.
+ */
+export function fingerprintAbTestConfig(config: AbTestConfig): string {
+	const { idempotencyKey: _key, ...payload } = config;
+	const { createdAt: _createdAt, ...hypothesis } = payload.hypothesis ?? {};
+	// Normalize the defaults the service applies during provisioning so
+	// requests differing only in omitted defaults hash equally.
+	const testingMode = payload.testingMode ?? "holdout";
+	const normalized = {
+		...payload,
+		testingMode,
+		testGroupPercentage:
+			payload.testGroupPercentage ?? (testingMode === "holdout" ? 10 : 100),
+		confidenceThreshold: payload.confidenceThreshold ?? 0.95,
+		autoDeployWinner: payload.autoDeployWinner ?? false,
+		// Explicit false and an omitted flag behave identically at runtime.
+		autoLaunch: payload.autoLaunch ?? false,
+		ignoreStatisticalWarnings: payload.ignoreStatisticalWarnings ?? false,
+		...(hypothesis ? { hypothesis } : {}),
+	};
+	return createHash("sha256")
+		.update(JSON.stringify(canonicalizeConfigValue(normalized)))
+		.digest("hex");
+}
+
 export class AbTestService {
 	private static readonly MAX_VARIANTS = 3;
 	private static readonly VARIANT_LABELS = ["A", "B", "C"];
@@ -42,31 +90,34 @@ export class AbTestService {
 		private metricsCollector?: MetricsCollector,
 	) {}
 
-	private readonly inFlightKeyedCreates = new Map<string, Promise<AbTest>>();
+	private readonly inFlightKeyedCreates = new Map<
+		string,
+		{ fingerprint: string; creation: Promise<AbTest> }
+	>();
 
 	async createTest(config: AbTestConfig): Promise<AbTest> {
-		// Replaying the same idempotency key returns the originally created
-		// test, so an ambiguous create retry never provisions a duplicate.
 		if (config.idempotencyKey !== undefined) {
-			const existing = await this.getTestByIdempotencyKey(
-				config.idempotencyKey,
-			);
-			if (existing) {
-				return existing;
-			}
 			// Direct library consumers are not serialized by the operation
 			// wrapper, so reserve the key while provisioning is in flight:
-			// a concurrent caller with the same key awaits this creation
-			// instead of provisioning a second set of campaigns and lists.
+			// a concurrent caller with the same key and the same request
+			// awaits this creation instead of provisioning a second set of
+			// campaigns and lists, while a different request under the same
+			// key conflicts exactly as a persisted replay would.
 			const key = config.idempotencyKey;
+			const fingerprint = fingerprintAbTestConfig(config);
 			const inFlight = this.inFlightKeyedCreates.get(key);
 			if (inFlight) {
-				return inFlight;
+				if (inFlight.fingerprint !== fingerprint) {
+					throw new AbTestConflictError(
+						`Idempotency key already used by a different create request: ${key}`,
+					);
+				}
+				return inFlight.creation;
 			}
 			const creation = this.createUnreservedTest(config).finally(() => {
 				this.inFlightKeyedCreates.delete(key);
 			});
-			this.inFlightKeyedCreates.set(key, creation);
+			this.inFlightKeyedCreates.set(key, { fingerprint, creation });
 			return creation;
 		}
 
@@ -74,6 +125,55 @@ export class AbTestService {
 	}
 
 	private async createUnreservedTest(config: AbTestConfig): Promise<AbTest> {
+		const { test, replayed } = await this.recordCreateIntent(config);
+		if (replayed) {
+			return test;
+		}
+		try {
+			return await this.provisionTest(test);
+		} catch (error) {
+			// An unkeyed create has no replay path, so a failed provision
+			// discards the unreachable draft rather than accumulating it.
+			if (config.idempotencyKey === undefined) {
+				this.tests.delete(test.id);
+			}
+			throw error;
+		}
+	}
+
+	/**
+	 * Validate the create request and persist a draft record carrying the
+	 * replay key before any remote provisioning runs, so an ambiguous retry
+	 * resumes the original creation instead of provisioning duplicates.
+	 * Returns the persisted draft and whether it was an existing replay.
+	 */
+	async recordCreateIntent(
+		config: AbTestConfig,
+	): Promise<{ test: AbTest; replayed: boolean }> {
+		if (config.idempotencyKey !== undefined) {
+			const existing = await this.getTestByIdempotencyKey(
+				config.idempotencyKey,
+			);
+			if (existing) {
+				if (
+					existing.idempotencyFingerprint !== undefined &&
+					existing.idempotencyFingerprint !== fingerprintAbTestConfig(config)
+				) {
+					throw new AbTestConflictError(
+						`Idempotency key already used by a different create request: ${config.idempotencyKey}`,
+					);
+				}
+				// A completed creation is a replay; a persisted-but-unprovisioned
+				// intent resumes provisioning instead. Records persisted before
+				// intent-first creation carry neither marker and count as
+				// completed legacy creations.
+				const completed =
+					existing.provisionedAt !== undefined ||
+					existing.pendingCreate === undefined;
+				return { test: existing, replayed: completed };
+			}
+		}
+
 		// Validate number of variants (2-3 variants allowed)
 		if (config.variants.length < 2) {
 			throw new Error("At least 2 variants are required for A/B testing");
@@ -125,7 +225,6 @@ export class AbTestService {
 		) {
 			throw new Error("durationHours must be a positive finite number");
 		}
-
 		// Validate test configuration and provide statistical recommendations
 		if (this.listmonkIntegration) {
 			const shouldLogStatSummary =
@@ -199,7 +298,6 @@ export class AbTestService {
 				}
 			}
 		}
-
 		// Generate unique ID for the test
 		const testId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
@@ -224,7 +322,7 @@ export class AbTestService {
 		const confidenceThreshold = config.confidenceThreshold ?? 0.95;
 		const autoDeployWinner = config.autoDeployWinner ?? false;
 
-		const abTest: AbTest = {
+		const draftTest: AbTest = {
 			id: testId,
 			name: config.name,
 			idempotencyKey: config.idempotencyKey,
@@ -270,12 +368,31 @@ export class AbTestService {
 							})()
 						: lockHypothesis(config.hypothesis)
 					: undefined,
+			idempotencyFingerprint: fingerprintAbTestConfig(config),
+			pendingCreate: { config },
 		};
+		this.tests.set(draftTest.id, draftTest);
+		return { test: draftTest, replayed: false };
+	}
 
+	/**
+	 * Run remote provisioning for a persisted create intent and finalize it.
+	 * A test whose provisioning already completed is returned unchanged.
+	 */
+	async provisionTest(test: AbTest): Promise<AbTest> {
+		if (test.provisionedAt !== undefined) {
+			return test;
+		}
+		const config = test.pendingCreate?.config;
+		if (config === undefined) {
+			// Legacy drafts recorded before intent-first persistence have no
+			// payload; treat them as completed drafts rather than failing.
+			return test;
+		}
 		// Create Listmonk campaigns if integration is available
 		if (this.listmonkIntegration) {
 			let provisionedResources: ProvisionedAbTestResources = {
-				testId,
+				testId: test.id,
 				campaignIds: [],
 				testListIds: [],
 			};
@@ -283,7 +400,7 @@ export class AbTestService {
 			try {
 				const campaignMappings =
 					await this.listmonkIntegration.createTestCampaigns(
-						abTest,
+						test,
 						config.baseConfig,
 					);
 				provisionedResources = {
@@ -297,15 +414,15 @@ export class AbTestService {
 				let testGroupSize: number;
 				let holdoutGroupSize: number;
 
-				if (testingMode === "holdout") {
+				if (test.testingMode === "holdout") {
 					// Use holdout methodology with deterministic assignment.
 					const segmentationResult =
 						await this.listmonkIntegration.segmentSubscribersForHoldout(
 							config.baseConfig.lists,
-							variants,
-							testGroupPercentage,
+							test.variants,
+							test.testGroupPercentage,
 							{
-								testId: abTest.id,
+								testId: test.id,
 								stratificationPolicy: config.stratificationPolicy,
 							},
 						);
@@ -316,22 +433,22 @@ export class AbTestService {
 					holdoutGroupSize = segmentationResult.holdoutGroupSize;
 					// Persist the deterministic-provisioning metadata so
 					// retries and reconciliation reuse the same split.
-					abTest.assignmentSeed = segmentationResult.assignmentSeed;
-					abTest.audienceSnapshot = segmentationResult.audienceSnapshot;
-					abTest.assignmentManifest = segmentationResult.assignmentManifest;
+					test.assignmentSeed = segmentationResult.assignmentSeed;
+					test.audienceSnapshot = segmentationResult.audienceSnapshot;
+					test.assignmentManifest = segmentationResult.assignmentManifest;
 					// Record that recipients were assigned through a deterministic
 					// manifest, so consumers can distinguish it from legacy splits.
-					abTest.assignmentProvenance = "manifest_v1";
+					test.assignmentProvenance = "manifest_v1";
 					// Capture the stratified quota matrix when a stratification
 					// policy produced one, so reports can show per-provider shares.
 					if (segmentationResult.stratification) {
-						abTest.stratification = segmentationResult.stratification;
+						test.stratification = segmentationResult.stratification;
 					}
 				} else {
 					// Use full-split methodology (legacy)
 					testListMappings = await this.listmonkIntegration.segmentSubscribers(
 						config.baseConfig.lists,
-						variants,
+						test.variants,
 					);
 
 					// Calculate group sizes for full-split
@@ -342,7 +459,7 @@ export class AbTestService {
 					testGroupSize = totalSubscribers;
 					holdoutGroupSize = 0;
 					// Full-split provisioning predates deterministic manifests.
-					abTest.assignmentProvenance = "legacy_unavailable";
+					test.assignmentProvenance = "legacy_unavailable";
 				}
 				provisionedResources = {
 					...provisionedResources,
@@ -350,24 +467,24 @@ export class AbTestService {
 					holdoutListId,
 				};
 
-				abTest.campaignMappings = campaignMappings;
-				abTest.testListMappings = testListMappings;
-				abTest.holdoutListId = holdoutListId;
-				abTest.testGroupSize = testGroupSize;
-				abTest.holdoutGroupSize = holdoutGroupSize;
-				abTest.status = "draft";
+				test.campaignMappings = campaignMappings;
+				test.testListMappings = testListMappings;
+				test.holdoutListId = holdoutListId;
+				test.testGroupSize = testGroupSize;
+				test.holdoutGroupSize = holdoutGroupSize;
+				test.status = "draft";
 				// Persist orchestration metadata from the config.
 				if (config.durationHours !== undefined) {
-					abTest.durationHours = config.durationHours;
+					test.durationHours = config.durationHours;
 				}
 				if (config.minimumTestSampleSize !== undefined) {
-					abTest.minimumTestSampleSize = config.minimumTestSampleSize;
+					test.minimumTestSampleSize = config.minimumTestSampleSize;
 				}
 				// Persist launchAt on the record regardless of autoLaunch so
 				// a draft with a planned launch time retains it for later
 				// explicit launch via launchAbTest.
 				if (config.launchAt !== undefined) {
-					abTest.launchAt = config.launchAt;
+					test.launchAt = config.launchAt;
 				}
 
 				// Auto-launch: schedule campaigns with a shared send_at and
@@ -384,13 +501,13 @@ export class AbTestService {
 						testListMappings,
 						{ sendAt },
 					);
-					abTest.status = "scheduled";
-					abTest.launchAt = sendAt;
-					abTest.startedAt = new Date().toISOString();
-					if (abTest.durationHours !== undefined) {
-						abTest.endsAt = new Date(
+					test.status = "scheduled";
+					test.launchAt = sendAt;
+					test.startedAt = new Date().toISOString();
+					if (test.durationHours !== undefined) {
+						test.endsAt = new Date(
 							new Date(sendAt).getTime() +
-								abTest.durationHours * 3600 * 1000,
+								test.durationHours * 3600 * 1000,
 						).toISOString();
 					}
 				}
@@ -409,9 +526,11 @@ export class AbTestService {
 				throw error;
 			}
 		}
-
-		this.tests.set(testId, abTest);
-		return abTest;
+		test.provisionedAt = new Date().toISOString();
+		test.updatedAt = new Date();
+		delete test.pendingCreate;
+		this.tests.set(test.id, test);
+		return test;
 	}
 
 	async getTest(testId: string): Promise<AbTest | null> {

@@ -35,6 +35,13 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		metricsCollector,
 	);
 
+	function assertProvisioned(test: AbTest, action: string): void {
+		if (test.pendingCreate !== undefined) {
+			throw new Error(
+			`A/B test ${test.id} is still being provisioned; ${action} is blocked until the create completes`,
+		);
+		}
+	}
 	// Record the launch intent (startedAt and the send window) so it can be
 	// persisted BEFORE any remote campaign is scheduled; an ambiguous retry
 	// then reuses the same window instead of recomputing it from the clock.
@@ -45,6 +52,8 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		if (!test) {
 			throw new AbTestNotFoundError(testId);
 		}
+
+		assertProvisioned(test, "launch");
 
 		if (
 			(test.status === "scheduled" || test.status === "running") &&
@@ -124,6 +133,8 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		if (!test) {
 			throw new AbTestNotFoundError(testId);
 		}
+
+		assertProvisioned(test, "stop");
 
 		if (test.status === "cancelled") {
 			// A retry after a completed stop is a documented no-op that
@@ -470,6 +481,14 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 
 		findAbTestByIdempotencyKey: (key: string): Promise<AbTest | null> =>
 			abTestService.getTestByIdempotencyKey(key),
+
+		recordAbTestCreateIntent: (
+			input: CreateAbTestInput,
+		): Promise<{ test: AbTest; replayed: boolean }> =>
+			new CreateAbTestCommand(abTestService).recordIntent(input),
+
+		provisionAbTestIntent: (testId: string): Promise<AbTest> =>
+			new CreateAbTestCommand(abTestService).provision(testId),
 
 		deleteAbTest: (testId: string): Promise<boolean> =>
 			new DeleteAbTestCommand(abTestService).execute(testId),

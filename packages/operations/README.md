@@ -88,9 +88,11 @@ stable as well: revisions expose counts, types, and content fingerprints, while
 enrollments expose subscriber-reference and stored-error presence without
 their values. Sequence pause/resume, webhook circuit reset, standalone
 template manifest reconciliation, idempotent plan-then-apply user-role
-manifest reconciliation, exact-set webhook delivery pruning, and every
-resource delete (repeats report `deleted: false` as a documented no-op)
-are stable mutations. The runtime-readiness
+manifest reconciliation, exact-set webhook delivery pruning, every
+resource delete (repeats report `deleted: false` as a documented no-op),
+and the local-store creates (name-intent replays for webhooks and
+sequences) are stable mutations.
+The runtime-readiness
 `control.status` operation is stable since its readiness contract was hardened.
 Experimental mutation contracts are audited with the same redaction boundary:
 they may expose bounded error codes, counts, and presence flags, but not raw
