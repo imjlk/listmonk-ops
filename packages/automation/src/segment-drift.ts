@@ -1,6 +1,7 @@
 import {
 	commitJsonFileStoreUpdate,
 	type JsonFileStore,
+	readJsonFileStore,
 	updateJsonFileStore,
 } from "@listmonk-ops/common";
 import type { List, ListmonkClient } from "@listmonk-ops/openapi";
@@ -208,6 +209,43 @@ export async function runSegmentDriftSnapshot(
 	}
 	const sampleKey = options.sampleKey?.trim();
 	const capturedAt = new Date().toISOString();
+	const storeDefinition = createSegmentDriftStore();
+
+	if (sampleKey !== undefined) {
+		// A completed keyed sample replays from the store: the same period
+		// key returns the originally committed measurement instead of
+		// overwriting it with freshly observed counts.
+		const existing = await readJsonFileStore(storeDefinition);
+		const keyed = existing.snapshots.filter(
+			(snapshot) => snapshot.sampleKey === sampleKey,
+		);
+		const keyedListIds = new Set(keyed.map((snapshot) => snapshot.listId));
+		const requestedListIds =
+			options.listIds && options.listIds.length > 0
+				? new Set(options.listIds)
+				: null;
+		const covered =
+			keyed.length > 0 &&
+			(requestedListIds === null ||
+				[...requestedListIds].every((id) => keyedListIds.has(id)));
+		if (covered) {
+			return {
+				capturedAt: keyed[0]!.capturedAt,
+				storePath: storeDefinition.path,
+				threshold,
+				minAbsoluteChange,
+				replaced: 0,
+				comparisons: keyed.map((snapshot) => ({
+					listId: snapshot.listId,
+					listName: snapshot.listName,
+					currentCount: snapshot.subscriberCount,
+					alert: false,
+				})),
+				alerts: [],
+			};
+		}
+	}
+
 	const lists = await getListsForDrift(client, options.listIds);
 
 	const currentEntries: SegmentSnapshotEntry[] = lists
@@ -227,7 +265,6 @@ export async function runSegmentDriftSnapshot(
 		.filter((entry): entry is SegmentSnapshotEntry => entry !== undefined);
 
 	const lookbackCutoff = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
-	const storeDefinition = createSegmentDriftStore();
 
 	return updateJsonFileStore(storeDefinition, (store) => {
 		// Same-key snapshots are the same logical sample: they are excluded

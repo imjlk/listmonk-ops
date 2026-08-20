@@ -46,7 +46,7 @@ export const opsSegmentDriftOperationSpec = defineOperationSpec({
 					reconcileWith: "ops.segments.drift",
 					idempotent: true,
 					reason:
-						"Snapshots sharing the sample key replace their predecessor, so an identical retry replaces the same period's snapshot again without double-weighting the sample.",
+						"A completed keyed sample replays from the store: an identical retry returns the originally committed measurement without fetching live counts or overwriting the period's sample.",
 				},
 			},
 			{

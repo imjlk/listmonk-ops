@@ -181,10 +181,13 @@ describe("automation persistence", () => {
 		const retriedKeyed = await runSegmentDriftSnapshot(client, {
 			sampleKey: "2026-08-19",
 		});
-		expect(retriedKeyed.replaced).toBe(1);
-		// The retry still compares against the prior period, never the same-key
-		// snapshot it replaces, so the sample is not double-weighted.
-		expect(retriedKeyed.comparisons[0]?.previousCount).toBe(100);
+		// A completed keyed sample replays from the store: the retry returns
+		// the originally committed measurement without fetching live counts
+		// or overwriting the period's sample.
+		expect(retriedKeyed.replaced).toBe(0);
+		expect(retriedKeyed.capturedAt).toBe(firstKeyed.capturedAt);
+		expect(retriedKeyed.comparisons[0]?.currentCount).toBe(100);
+		expect(retriedKeyed.comparisons[0]?.previousCount).toBeUndefined();
 
 		const persisted = JSON.parse(await readFile(segmentStorePath, "utf8")) as {
 			version: number;

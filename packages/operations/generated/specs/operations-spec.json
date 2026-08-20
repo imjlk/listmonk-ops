@@ -29026,7 +29026,7 @@
             "semantics": {
               "idempotent": true,
               "kind": "reconcile",
-              "reason": "Snapshots sharing the sample key replace their predecessor, so an identical retry replaces the same period's snapshot again without double-weighting the sample.",
+              "reason": "A completed keyed sample replays from the store: an identical retry returns the originally committed measurement without fetching live counts or overwriting the period's sample.",
               "reconcileWith": "ops.segments.drift"
             },
             "when": "sample_key is provided"
