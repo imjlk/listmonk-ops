@@ -179,8 +179,22 @@ function subscriberProjection(
 		input.operationId === "subscribers.create" ||
 		input.operationId === "subscribers.update"
 	) {
+		// The create output wraps the subscriber record with a created flag:
+		// unwrap it for the identity fields and suppress the lifecycle event
+		// when the call was a replay rather than a fresh create.
+		const envelope = asRecord(output?.["subscriber"]);
+		const subscriberOutput =
+			input.operationId === "subscribers.create" && envelope
+				? envelope
+				: output;
+		if (
+			input.operationId === "subscribers.create" &&
+			output?.["created"] === false
+		) {
+			return [];
+		}
 		const subscriberId =
-			asResourceKey(output?.["id"]) ??
+			asResourceKey(subscriberOutput?.["id"]) ??
 			(input.operationId === "subscribers.update"
 				? asResourceKey(input.operationInput["id"])
 				: undefined);
@@ -196,7 +210,7 @@ function subscriberProjection(
 				source: "listmonk",
 				subject: { kind: "subscriber", key: subscriberId },
 				data: {
-					status: output?.["status"],
+					status: subscriberOutput?.["status"],
 				},
 			},
 		];

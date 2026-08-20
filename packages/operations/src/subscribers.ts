@@ -257,9 +257,17 @@ function responseStatusOf(error: unknown): number | undefined {
 }
 
 function canonicalJson(value: unknown): string {
-	// The generated transport serializes bigint attributes as strings, so
-	// canonicalize them the same way before comparing a replay.
+	// The generated transport serializes bigint attributes as strings and
+	// routes other values through JSON.stringify (honoring toJSON), so
+	// canonicalize the same way before comparing a replay.
 	if (typeof value === "bigint") return JSON.stringify(value.toString());
+	if (
+		value !== null &&
+		typeof value === "object" &&
+		typeof (value as { toJSON?: unknown }).toJSON === "function"
+	) {
+		return canonicalJson((value as { toJSON: () => unknown }).toJSON());
+	}
 	if (value === null || typeof value !== "object") return JSON.stringify(value);
 	if (Array.isArray(value)) return JSON.stringify(value.map(canonicalJson));
 	return JSON.stringify(
@@ -286,17 +294,34 @@ function sameSubscriberCreateIntent(
 	if (input.preconfirm_subscriptions !== undefined) {
 		return false;
 	}
-	const requestedLists =
+	// Both selectors can be supplied together and each contributes
+	// memberships, so compare the union: persisted uuids when uuids were
+	// requested, plus persisted ids whenever numeric ids were requested.
+	const byUuid =
 		input.list_uuids !== undefined
 			? [...(existing.lists ?? [])]
 					.map((list) => list.uuid ?? "")
 					.filter(Boolean)
 					.sort()
-			: [...(existing.lists ?? [])].map((list) => list.id).sort();
-	const expectedLists =
-		input.list_uuids !== undefined
-			? [...input.list_uuids].sort()
-			: [...input.lists].sort();
+			: undefined;
+	const byId =
+		input.lists.length > 0 || input.list_uuids === undefined
+			? [...(existing.lists ?? [])].map((list) => list.id).sort()
+			: undefined;
+	const requestedLists = JSON.stringify({
+		byUuid,
+		byId,
+	});
+	const expectedUuids =
+		input.list_uuids !== undefined ? [...input.list_uuids].sort() : undefined;
+	const expectedIds =
+		input.lists.length > 0 || input.list_uuids === undefined
+			? [...input.lists].sort()
+			: undefined;
+	const expectedLists = JSON.stringify({
+		byUuid: expectedUuids,
+		byId: expectedIds,
+	});
 	// A persisted unsubscribed membership is not the subscription the
 	// request asked for, so decline the replay instead of reporting it.
 	const unsubscribed =
