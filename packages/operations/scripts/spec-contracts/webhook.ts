@@ -292,6 +292,7 @@ export interface WebhookDeliveryRetryInput {
 
 export interface WebhookDeliveryRetryOutput {
 	delivery: WebhookDelivery;
+	retried: boolean;
 }
 
 export interface WebhookReconcileInput {

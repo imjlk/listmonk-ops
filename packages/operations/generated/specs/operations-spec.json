@@ -7469,7 +7469,7 @@
           "webhooks.dispatch",
           "webhooks.update"
         ],
-        "retryGuidance": "Inspect the delivery status after an ambiguous result before requeueing again.",
+        "retryGuidance": "Verify the delivery with webhooks.delivery.list before repeating an ambiguous retry; a repeat while the delivery is still pending reports retried: false, but a completed dispatch can make the repeat start another cycle.",
         "useWhen": [
           "An operator has reviewed a failed delivery and wants another attempt cycle."
         ],
@@ -7642,10 +7642,14 @@
                 "properties": {
                   "delivery": {
                     "$ref": "#/components/schemas/WebhookDelivery"
+                  },
+                  "retried": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
-                  "delivery"
+                  "delivery",
+                  "retried"
                 ],
                 "type": "object"
               },
@@ -7820,10 +7824,14 @@
             "properties": {
               "delivery": {
                 "$ref": "#/components/schemas/WebhookDelivery"
+              },
+              "retried": {
+                "type": "boolean"
               }
             },
             "required": [
-              "delivery"
+              "delivery",
+              "retried"
             ],
             "type": "object"
           },
@@ -7860,7 +7868,7 @@
       "retry": {
         "idempotent": false,
         "kind": "reconcile",
-        "reason": "Repeating the retry action after success is not a no-op because the delivery is already pending.",
+        "reason": "A repeat while the delivery is still pending reports retried: false, but a dispatcher may complete it first and return it to retry or exhausted, so the repeat can start another delivery cycle; the operation is not idempotent.",
         "reconcileWith": "webhooks.delivery.list"
       },
       "since": "0.8.0",
@@ -29013,11 +29021,29 @@
       },
       "resource": "audience",
       "retry": {
-        "kind": "unsafe",
-        "reason": "Each unkeyed drift snapshot appends a point-in-time count, so an ambiguous retry captures a new sample; pass an explicit sample_key to make a retry replace that period's snapshot instead of double-weighting it."
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": true,
+              "kind": "reconcile",
+              "reason": "A completed keyed sample replays from the store: an exactly identical retry (same scope, list set, and drift settings) returns the originally committed measurement — comparisons and alerts included — for as long as that measurement remains retained, while reusing the key with a different request is an explicit conflict.",
+              "reconcileWith": "ops.segments.drift"
+            },
+            "when": "sample_key is provided"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "An unkeyed snapshot appends a point-in-time count, so an ambiguous retry captures a new sample that double-weights the period."
+            },
+            "when": "sample_key is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller supplies the sampling period key."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Detect segment drift",
       "verb": "drift"
     },

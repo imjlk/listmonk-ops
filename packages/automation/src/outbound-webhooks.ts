@@ -446,7 +446,7 @@ export interface OutboundWebhookRepository {
 	retryDelivery(
 		id: string,
 		now: Date,
-	): Promise<OutboundWebhookDelivery>;
+	): Promise<RetryOutboundWebhookDeliveryResult>;
 	claimDeliveries(options: Readonly<{
 		limit: number;
 		now: Date;
@@ -1327,10 +1327,15 @@ export async function listOutboundWebhookDeliveries(
 		.slice(0, limit);
 }
 
+export type RetryOutboundWebhookDeliveryResult = Readonly<{
+	delivery: OutboundWebhookDelivery;
+	retried: boolean;
+}>;
+
 export async function retryOutboundWebhookDelivery(
 	id: string,
 	options: OutboundWebhookMutationOptions = {},
-): Promise<OutboundWebhookDelivery> {
+): Promise<RetryOutboundWebhookDeliveryResult> {
 	const now = options.now ?? new Date();
 	if (options.repository) {
 		return options.repository.retryDelivery(id, now);
@@ -1344,6 +1349,15 @@ export async function retryOutboundWebhookDelivery(
 			throw new OutboundWebhookNotFoundError("delivery", id);
 		}
 		const previous = current.deliveries[index]!;
+		if (previous.status === "pending") {
+			// The requested effect — the delivery queued for dispatch — is
+			// already satisfied, so an ambiguous retry repeats as a no-op.
+			const result: RetryOutboundWebhookDeliveryResult = {
+				delivery: previous,
+				retried: false,
+			};
+			return commitJsonFileStoreUpdate(current, result);
+		}
 		if (!["retry", "exhausted"].includes(previous.status)) {
 			throw new OutboundWebhookConflictError(
 				`Delivery ${id} cannot be retried from status ${previous.status}`,
@@ -1375,9 +1389,13 @@ export async function retryOutboundWebhookDelivery(
 		});
 		const deliveries = [...current.deliveries];
 		deliveries[index] = delivery;
+		const retriedResult: RetryOutboundWebhookDeliveryResult = {
+			delivery,
+			retried: true,
+		};
 		return commitJsonFileStoreUpdate(
 			{ ...current, deliveries },
-			delivery,
+			retriedResult,
 		);
 	});
 }
@@ -1510,14 +1528,20 @@ export async function replayOutboundWebhookDeadLetters(
 		const results = await Promise.all(
 			batch.map(async (delivery) => {
 				try {
-					await retryOutboundWebhookDelivery(delivery.id, {
-						...options,
-						now: options.now,
-					});
+					const { retried } = await retryOutboundWebhookDelivery(
+						delivery.id,
+						{
+							...options,
+							now: options.now,
+						},
+					);
 					return {
 						deliveryId: delivery.id,
 						error: undefined,
 						errorCode: undefined,
+						// A concurrent replay may have requeued this delivery
+						// already; report it so the aggregate count stays honest.
+						retried,
 					};
 				} catch (error) {
 					return {
@@ -1529,8 +1553,10 @@ export async function replayOutboundWebhookDeadLetters(
 			}),
 		);
 		for (const result of results) {
-			if (result.error === undefined) {
+			if (result.error === undefined && result.retried) {
 				deliveryIds.push(result.deliveryId);
+			} else if (result.error === undefined) {
+				continue;
 			} else {
 				errors.push({
 					deliveryId: result.deliveryId,

@@ -506,7 +506,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 80 are `stable` and 24 are `experimental`. The runtime-operation
+these, 81 are `stable` and 23 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -514,7 +514,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Eighty reviewed core operations are `stable`: the existing
+Eighty-one reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -581,7 +581,13 @@ stays experimental until remote resource ids are checkpointed on
 resume. An eleventh batch promoted `subscribers.create` — subscriber
 emails are unique in Listmonk, so an ambiguous retry replays an
 identically configured subscriber as `created: false` (verified
-against the local stack). The remaining 24 descriptors are
+against the local stack). A twelfth batch promoted `ops.segments.drift` with
+conditional retry semantics — an exactly identical keyed request
+replays the period's committed measurement, unkeyed appends stay
+unsafe. `webhooks.delivery.retry`
+gained a pending no-op (`retried: false`) but stays experimental: a
+dispatcher can complete the pending delivery first, so a repeat can
+still start another delivery cycle. The remaining 23 descriptors are
 experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
@@ -598,7 +604,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 80 stable compatibility baselines, and 317 direct
+runtime bridges, the 81 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are
@@ -861,8 +867,9 @@ listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --co
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
 # Use --baseline-mode lookback-mean to compare against the lookback
 # window average instead of the previous snapshot. Pass a stable
-# --sample-key (for example the UTC date) so a retry replaces that
-# period's snapshot instead of appending a duplicate sample.
+# --sample-key (for example the UTC date) so an identical retry
+# replays that period's committed measurement instead of appending
+# a duplicate sample.
 
 # 5) Template registry/versioning
 listmonk-cli ops templates-sync

@@ -308,7 +308,7 @@ Prerequisites: `webhooks.delivery.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Inspect the delivery status after an ambiguous result before requeueing again.
+Retry guidance: Verify the delivery with webhooks.delivery.list before repeating an ambiguous retry; a repeat while the delivery is still pending reports retried: false, but a completed dispatch can make the repeat start another cycle.
 
 ## Reconcile outbound webhook leases (`webhooks.reconcile`)
 
@@ -1152,7 +1152,7 @@ Retry guidance: Inspect media.list before retrying an ambiguous upload.
 
 ## Detect segment drift (`ops.segments.drift`)
 
-Contract maturity: `experimental`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `conditional`.
 
 Use when: Subscriber list sizes must be monitored for unexpected drift.
 

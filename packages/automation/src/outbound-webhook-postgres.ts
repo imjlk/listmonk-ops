@@ -708,6 +708,12 @@ export function createPostgresOutboundWebhookRepository(
 				if (!row) {
 					throw new OutboundWebhookNotFoundError("delivery", id);
 				}
+				if (row.status === "pending") {
+					// The requested effect — the delivery queued for dispatch —
+					// is already satisfied, so an ambiguous retry repeats as a
+					// documented no-op.
+					return { delivery: toDelivery(row), retried: false };
+				}
 				if (row.status !== "retry" && row.status !== "exhausted") {
 					throw new OutboundWebhookConflictError(
 						`Delivery ${id} cannot be retried from status ${row.status}`,
@@ -745,7 +751,7 @@ export function createPostgresOutboundWebhookRepository(
 						completed_at, status_code, last_error, lease_token,
 						lease_expires_at
 				`;
-				return toDelivery(updatedRows[0]!);
+				return { delivery: toDelivery(updatedRows[0]!), retried: true };
 			});
 		},
 

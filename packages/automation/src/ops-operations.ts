@@ -560,6 +560,9 @@ export const segmentDriftOperation = defineOperation({
 	description: "Snapshot list sizes and detect subscriber-count drift",
 	inputSchema: segmentDriftInputSchema,
 	outputSchema: segmentDriftOutputSchema,
+	// Unkeyed retries append a fresh sample, so the honest hint stays
+	// non-idempotent; the conditional retry spec records that keyed
+	// snapshots converge.
 	safety: nonIdempotentLocalWriteSafety,
 	mcp: { name: "listmonk_ops_segment_drift" },
 	spec: bindOpsSegmentDriftOperationSpec(),

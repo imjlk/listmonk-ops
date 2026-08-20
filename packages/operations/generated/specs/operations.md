@@ -1002,8 +1002,8 @@ Snapshot list sizes and detect subscriber-count drift
 - Contract source: input `typescript`, output `typescript`
 - Effects: `maintenance:recover:recoverable`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.9.0`
 
 ## `ops.digest.daily`
 
