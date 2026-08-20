@@ -398,7 +398,7 @@ describe("Postgres sequence repository", () => {
 					),
 				),
 			).rejects.toBeInstanceOf(SequenceConflictError);
-			const nextRevision = await first.updateDefinition(
+			const { definition: nextRevision } = await first.updateDefinition(
 				definition.id,
 				{ steps: [{ id: "stop-v2", type: "stop" }] },
 				new Date("2026-07-29T00:00:00.150Z"),
