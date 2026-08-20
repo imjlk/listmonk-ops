@@ -236,6 +236,51 @@ function retainRecentSegmentSnapshots(
 		);
 }
 
+function normalizedListIdSet(listIds: readonly number[]): string {
+	return [...new Set(listIds)].sort((left, right) => left - right).join(",");
+}
+
+function storedRequestMatches(
+	stored: StoredSegmentDriftResult,
+	options: SegmentDriftOptions,
+	threshold: number,
+	minAbsoluteChange: number,
+	lookbackDays: number,
+	baselineMode: "previous" | "lookback-mean" | "lookback-median",
+): boolean {
+	const requestIsAll =
+		options.listIds === undefined || options.listIds.length === 0;
+	const scopeMatches = requestIsAll
+		? stored.scope === "all"
+		: stored.scope === "lists" &&
+			normalizedListIdSet(options.listIds ?? []) ===
+				normalizedListIdSet(stored.listIds);
+	return (
+		scopeMatches &&
+		stored.settings.threshold === threshold &&
+		stored.settings.minAbsoluteChange === minAbsoluteChange &&
+		stored.settings.lookbackDays === lookbackDays &&
+		stored.settings.baselineMode === baselineMode
+	);
+}
+
+function replayStoredResult(
+	stored: StoredSegmentDriftResult,
+	storePath: string,
+	threshold: number,
+	minAbsoluteChange: number,
+): SegmentDriftResult {
+	return {
+		capturedAt: stored.capturedAt,
+		storePath,
+		threshold,
+		minAbsoluteChange,
+		replaced: 0,
+		comparisons: stored.comparisons,
+		alerts: stored.alerts,
+	};
+}
+
 function sharesSampleKey(
 	entry: SegmentSnapshotEntry,
 	snapshot: SegmentSnapshotEntry,
@@ -307,29 +352,28 @@ export async function runSegmentDriftSnapshot(
 				? results[sampleKey]
 				: undefined;
 		if (stored) {
-			const requestIsAll =
-				options.listIds === undefined || options.listIds.length === 0;
-			const scopeMatches = requestIsAll
-				? stored.scope === "all"
-				: stored.scope === "lists" &&
-					[...options.listIds!].sort().join(",") ===
-						[...stored.listIds].sort().join(",");
-			const settingsMatch =
-				stored.settings.threshold === threshold &&
-				stored.settings.minAbsoluteChange === minAbsoluteChange &&
-				stored.settings.lookbackDays === lookbackDays &&
-				stored.settings.baselineMode === baselineMode;
-			if (scopeMatches && settingsMatch) {
-				return {
-					capturedAt: stored.capturedAt,
-					storePath: storeDefinition.path,
+			const requestMatches = storedRequestMatches(
+				stored,
+				options,
+				threshold,
+				minAbsoluteChange,
+				lookbackDays,
+				baselineMode,
+			);
+			if (requestMatches) {
+				return replayStoredResult(
+					stored,
+					storeDefinition.path,
 					threshold,
 					minAbsoluteChange,
-					replaced: 0,
-					comparisons: stored.comparisons,
-					alerts: stored.alerts,
-				};
+				);
 			}
+			// The key already committed a different measurement; reusing it
+			// with a different scope or settings stays an explicit conflict
+			// rather than silently capturing an unrecorded result.
+			throw new Error(
+				`Segment drift sample key already committed a different request: ${sampleKey}`,
+			);
 		}
 	}
 
@@ -470,17 +514,52 @@ export async function runSegmentDriftSnapshot(
 			options.listIds === undefined || options.listIds.length === 0;
 		// Preserve committed replay records on every write. A keyed record is
 		// only written when the key has none yet — the first committed
-		// measurement is the period's measurement, so a slower overlapping
-		// run with the same key never replaces the winning record.
+		// measurement is the period's measurement — and an overlapping
+		// identical run that lost the race replays the committed winner
+		// instead of returning its own uncommitted values.
 		const previousResults = store.keyedResults ?? {};
+		const committed =
+			sampleKey !== undefined &&
+			Object.hasOwn(previousResults, sampleKey)
+				? previousResults[sampleKey]
+				: undefined;
+		if (committed !== undefined) {
+			// The replay check before the lock missed this record; the
+			// committed measurement wins.
+			if (
+				!storedRequestMatches(
+					committed,
+					options,
+					threshold,
+					minAbsoluteChange,
+					lookbackDays,
+					baselineMode,
+				)
+			) {
+				throw new Error(
+					`Segment drift sample key already committed a different request: ${sampleKey}`,
+				);
+			}
+			return commitJsonFileStoreUpdate(
+				store,
+				replayStoredResult(
+					committed,
+					storeDefinition.path,
+					threshold,
+					minAbsoluteChange,
+				),
+			);
+		}
 		const keyedResults =
-			sampleKey === undefined || Object.hasOwn(previousResults, sampleKey)
+			sampleKey === undefined
 				? previousResults
 				: {
 						...previousResults,
 						[sampleKey]: {
 							scope: requestIsAllScope ? ("all" as const) : ("lists" as const),
-							listIds: retainedEntries.map((entry) => entry.listId),
+							listIds: [
+								...new Set(retainedEntries.map((entry) => entry.listId)),
+							].sort((left, right) => left - right),
 							capturedAt,
 							settings: {
 								threshold,
@@ -494,10 +573,23 @@ export async function runSegmentDriftSnapshot(
 							),
 						} satisfies StoredSegmentDriftResult,
 					};
-		// Bound the replay records so a key-per-period workload cannot grow
-		// the store without limit; keep the most recent measurements.
+		// Replay records live exactly as long as the measurements they
+		// describe: evict a record together with the last retained snapshot
+		// carrying its key, so a replay never silently replaces a historical
+		// measurement after retention has forgotten it. A hard cap bounds the
+		// record map itself.
+		const nextSnapshots = retainRecentSegmentSnapshots([
+			...survivingSnapshots,
+			...retainedEntries,
+		]);
+		const retainedKeys = new Set(
+			nextSnapshots
+				.filter((snapshot) => snapshot.sampleKey !== undefined)
+				.map((snapshot) => snapshot.sampleKey),
+		);
 		const prunedKeyedResults = Object.fromEntries(
 			Object.entries(keyedResults)
+				.filter(([key]) => retainedKeys.has(key))
 				.sort(
 					(left, right) =>
 						right[1].capturedAt.localeCompare(left[1].capturedAt),
@@ -506,10 +598,7 @@ export async function runSegmentDriftSnapshot(
 		);
 		const nextStore: SegmentDriftStore = {
 			version: 1,
-			snapshots: retainRecentSegmentSnapshots([
-				...survivingSnapshots,
-				...retainedEntries,
-			]),
+			snapshots: nextSnapshots,
 			keyedResults: prunedKeyedResults,
 		};
 		const result: SegmentDriftResult = {

@@ -46,7 +46,7 @@ export const opsSegmentDriftOperationSpec = defineOperationSpec({
 					reconcileWith: "ops.segments.drift",
 					idempotent: true,
 					reason:
-						"A completed keyed sample replays from the store: an identical retry returns the originally committed measurement without fetching live counts or overwriting the period's sample.",
+						"A completed keyed sample replays from the store: an exactly identical retry (same scope, list set, and drift settings) returns the originally committed measurement — comparisons and alerts included — for as long as that measurement remains retained, while reusing the key with a different request is an explicit conflict.",
 				},
 			},
 			{
