@@ -578,8 +578,9 @@ experimental로 유지합니다. 열한 번째 batch에서는 `subscribers.creat
 `webhooks.delivery.retry`는 pending no-op(`retried: false`)를 얻었지만
 experimental로 유지됩니다. dispatcher가 pending delivery를 먼저 완료할 수
 있어 반복이 또 다른 delivery 주기를 시작할 수 있기 때문입니다. 열세 번째
-batch에서는 `sequences.update`(이미 적용된 동일한 수정의 반복은 동등한
-revision을 추가하지 않고 `updated: false` 보고)를 승격했습니다.
+batch에서는 조건부 retry 시맨틱의 `sequences.update`(최신 revision이 이미
+요청된 steps를 담고 있으면 반복이 동등한 revision 없이 `updated: false`
+보고, 대체된 반복은 append되어 unsafe)를 승격했습니다.
 `sequences.enroll`는 충돌 재생 장치(애매한 재시도가 검증 가능하게 미진행인
 일치 등록을 `created: false`로 재생)를 얻었지만 experimental로 유지됩니다.
 등록이 terminal에 도달하면 같은 요청이 새 lifecycle을 시작하기 때문입니다.

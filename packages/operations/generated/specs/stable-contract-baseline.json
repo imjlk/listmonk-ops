@@ -8573,10 +8573,24 @@
       },
       "resource": "sequence",
       "retry": {
-        "idempotent": true,
-        "kind": "reconcile",
-        "reason": "An identical update is already applied when the resolved name and description match and the latest revision carries the requested steps: repeating it reports updated: false without appending an equivalent revision.",
-        "reconcileWith": "sequences.get"
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The resolved name and description match and the latest revision carries the requested steps, so the repeat reports updated: false without appending an equivalent revision."
+            },
+            "when": "the latest revision already carries the requested steps"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "The repeat appends the requested steps as a new revision, superseding any intervening update that committed after the ambiguous attempt."
+            },
+            "when": "an intervening revision superseded the request"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the latest revision already carries the requested steps."
       },
       "verb": "update"
     },

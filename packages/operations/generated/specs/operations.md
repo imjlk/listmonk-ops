@@ -399,7 +399,7 @@ Append an immutable revision while existing enrollments stay pinned to their ori
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:sequence`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `reconcile`
+- Retry: `conditional`
 - Stability: `stable` since `0.9.0`
 
 ## `sequences.list`

@@ -588,8 +588,10 @@ unsafe. `webhooks.delivery.retry`
 gained a pending no-op (`retried: false`) but stays experimental: a
 dispatcher can complete the pending delivery first, so a repeat can
 still start another delivery cycle. A thirteenth batch promoted
-`sequences.update` (an identical repeat of an already-applied update
-reports `updated: false` without appending an equivalent revision).
+`sequences.update` with conditional retry semantics (a repeat whose
+steps the latest revision already carries reports `updated: false`
+without an equivalent revision; a superseded repeat appends and is
+unsafe).
 `sequences.enroll` gained conflict-replay machinery (an ambiguous retry
 replays a provably untouched matching enrollment as `created: false`)
 but stays experimental: once an enrollment reaches a terminal status,

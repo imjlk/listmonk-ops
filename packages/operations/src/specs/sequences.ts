@@ -135,11 +135,27 @@ export const sequenceUpdateOperationSpec = defineOperationSpec({
 	effects: [{ kind: "write", resource: "sequence", reversible: true }],
 	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "sequences.get",
-		idempotent: true,
+		kind: "conditional",
+		cases: [
+			{
+				when: "the latest revision already carries the requested steps",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The resolved name and description match and the latest revision carries the requested steps, so the repeat reports updated: false without appending an equivalent revision.",
+				},
+			},
+			{
+				when: "an intervening revision superseded the request",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"The repeat appends the requested steps as a new revision, superseding any intervening update that committed after the ambiguous attempt.",
+				},
+			},
+		],
 		reason:
-			"An identical update is already applied when the resolved name and description match and the latest revision carries the requested steps: repeating it reports updated: false without appending an equivalent revision.",
+			"Retry safety depends on whether the latest revision already carries the requested steps.",
 	},
 	agent: {
 		useWhen: ["Future enrollments need a revised sequence definition."],

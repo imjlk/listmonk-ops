@@ -452,7 +452,7 @@ Retry guidance: Replay the create after an ambiguous result: an identically defi
 
 ## Create sequence revision (`sequences.update`)
 
-Contract maturity: `stable`; effects: `write:sequence`; confirmation: `never`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `write:sequence`; confirmation: `never`; retry: `conditional`.
 
 Use when: Future enrollments need a revised sequence definition.
 

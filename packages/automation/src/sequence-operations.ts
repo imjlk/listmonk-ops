@@ -662,7 +662,10 @@ export async function executeSequenceEnrollOperation(
 		const untouched =
 			active !== undefined &&
 			active.retryCount === 0 &&
-			active.lastTransitionAt === active.createdAt;
+			active.lastTransitionAt === active.createdAt &&
+			// The replay must pin the same revision a fresh enroll would;
+			// otherwise the request targets newer steps than the record.
+			active.revision === enrollment.revision;
 		const startMatches =
 			input.start_at === undefined || active?.nextRunAt === input.start_at;
 		if (
@@ -842,7 +845,7 @@ export const sequenceUpdateOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: false,
-		idempotentHint: true,
+		idempotentHint: false,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_sequences_update" },
