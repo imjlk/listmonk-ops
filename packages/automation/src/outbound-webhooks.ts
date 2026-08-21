@@ -254,6 +254,8 @@ export type OutboundWebhookDeliveryListOptions = Readonly<{
 	eventType?: OutboundWebhookEventType;
 	/** Resolves a single delivery by its originating event without a paginated scan. */
 	eventId?: string;
+	/** Resolves a single delivery by id without a paginated scan. */
+	deliveryId?: string;
 	limit?: number;
 }>;
 
@@ -1308,6 +1310,7 @@ export async function listOutboundWebhookDeliveries(
 			status: options.status,
 			eventType: options.eventType,
 			eventId: options.eventId,
+			deliveryId: options.deliveryId,
 			limit,
 		});
 	}
@@ -1321,6 +1324,8 @@ export async function listOutboundWebhookDeliveries(
 					delivery.endpointId === options.endpointId) &&
 				(options.eventId === undefined ||
 					delivery.eventId === options.eventId) &&
+				(options.deliveryId === undefined ||
+					delivery.id === options.deliveryId) &&
 				(options.status === undefined ||
 					delivery.status === options.status) &&
 				(options.eventType === undefined ||
@@ -1528,21 +1533,33 @@ export async function replayOutboundWebhookDeadLetters(
 			);
 		});
 	}
-	const listedDeliveries = await listOutboundWebhookDeliveries({
-		...options,
-		endpointId: options.endpointId,
-		status: "exhausted",
-		limit,
-	});
-	// An echoed set is matched against the same dead-letter criteria;
-	// records that left the dead-letter set (already replayed) are skipped
-	// so a retry is a documented no-op — in the repository path too.
+	// An echoed set must be resolved before pagination: fetch every
+	// requested id directly so newer dead letters cannot displace the
+	// previewed ids from a limited listing.
 	const deliveries =
 		options.deliveryIds === undefined
-			? listedDeliveries
-			: listedDeliveries.filter((delivery) =>
-					options.deliveryIds!.includes(delivery.id),
-				);
+			? await listOutboundWebhookDeliveries({
+					...options,
+					endpointId: options.endpointId,
+					status: "exhausted",
+					limit,
+				})
+			: (
+					await Promise.all(
+						[...new Set(options.deliveryIds)].map((deliveryId) =>
+							listOutboundWebhookDeliveries({
+								...options,
+								endpointId: options.endpointId,
+								status: "exhausted",
+								eventId: undefined,
+								deliveryId,
+								limit: 1,
+							}),
+						),
+					)
+				)
+					.flat()
+					.filter((delivery) => delivery.status === "exhausted");
 	if (dryRun) {
 		return {
 			eligible: deliveries.length,

@@ -420,8 +420,8 @@ export type WebhookDlqReplayInput =
 	| {
 			endpoint_id?: WebhookId | undefined;
 			limit?: WebhookDeliveryListLimit | undefined;
-			/** Dry runs preview the bounded newest batch and report the eligible ids. */
-			dry_run: true;
+			/** Dry runs preview the bounded newest batch and report the eligible ids. Defaults to true. */
+			dry_run?: true | undefined;
 	  }
 	| {
 			endpoint_id?: WebhookId | undefined;

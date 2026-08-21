@@ -9817,7 +9817,7 @@
                     "properties": {
                       "dry_run": {
                         "const": true,
-                        "description": "Dry runs preview the bounded newest batch and report the eligible ids."
+                        "description": "Dry runs preview the bounded newest batch and report the eligible ids. Defaults to true."
                       },
                       "endpoint_id": {
                         "$ref": "#/components/schemas/Uuid"
@@ -9826,9 +9826,7 @@
                         "$ref": "#/components/schemas/WebhookDeliveryListLimit"
                       }
                     },
-                    "required": [
-                      "dry_run"
-                    ],
+                    "required": [],
                     "type": "object"
                   },
                   {
@@ -9870,7 +9868,7 @@
                 "properties": {
                   "dry_run": {
                     "const": true,
-                    "description": "Dry runs preview the bounded newest batch and report the eligible ids."
+                    "description": "Dry runs preview the bounded newest batch and report the eligible ids. Defaults to true."
                   },
                   "endpoint_id": {
                     "$ref": "#/components/schemas/Uuid"
@@ -9879,9 +9877,7 @@
                     "$ref": "#/components/schemas/WebhookDeliveryListLimit"
                   }
                 },
-                "required": [
-                  "dry_run"
-                ],
+                "required": [],
                 "type": "object"
               },
               {

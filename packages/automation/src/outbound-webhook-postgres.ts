@@ -677,6 +677,10 @@ export function createPostgresOutboundWebhookRepository(
 				listOptions.eventId === undefined
 					? sql``
 					: sql`AND event_id = ${listOptions.eventId}::uuid`;
+			const deliveryIdFilter =
+				listOptions.deliveryId === undefined
+					? sql``
+					: sql`AND id = ${listOptions.deliveryId}::uuid`;
 			const limit = listOptions.limit ?? 100;
 			const rows = await sql<DeliveryRow[]>`
 				SELECT
@@ -690,6 +694,7 @@ export function createPostgresOutboundWebhookRepository(
 				${statusFilter}
 				${eventTypeFilter}
 				${eventIdFilter}
+				${deliveryIdFilter}
 				ORDER BY next_attempt_at DESC, id DESC
 				LIMIT ${limit}
 			`;
