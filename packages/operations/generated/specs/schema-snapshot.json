@@ -26739,16 +26739,24 @@
       "input": {
         "components": {
           "schemas": {
+            "NonEmptyString": {
+              "minLength": 1,
+              "type": "string"
+            },
             "ResourceId": {
               "maximum": 9007199254740991,
               "minimum": 1,
               "type": "integer"
             },
-            "TemplateIdInput": {
+            "TemplateRollbackInput": {
               "additionalProperties": false,
               "properties": {
                 "template_id": {
                   "$ref": "#/components/schemas/ResourceId"
+                },
+                "to_version_id": {
+                  "$ref": "#/components/schemas/NonEmptyString",
+                  "description": "Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version."
                 }
               },
               "required": [
@@ -26764,6 +26772,10 @@
           "properties": {
             "template_id": {
               "$ref": "#/components/schemas/ResourceId"
+            },
+            "to_version_id": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version."
             }
           },
           "required": [
@@ -26782,7 +26794,7 @@
               "minimum": 1,
               "type": "integer"
             },
-            "TemplatePromoteOutput": {
+            "TemplateRollbackOutput": {
               "additionalProperties": false,
               "properties": {
                 "activeVersionId": {
@@ -26790,6 +26802,10 @@
                 },
                 "promotedAt": {
                   "type": "string"
+                },
+                "rolledBack": {
+                  "description": "False when the requested rollback was already applied.",
+                  "type": "boolean"
                 },
                 "templateId": {
                   "$ref": "#/components/schemas/ResourceId"
@@ -26806,7 +26822,8 @@
                 "templateName",
                 "versionId",
                 "activeVersionId",
-                "promotedAt"
+                "promotedAt",
+                "rolledBack"
               ],
               "type": "object"
             }
@@ -26821,6 +26838,10 @@
             },
             "promotedAt": {
               "type": "string"
+            },
+            "rolledBack": {
+              "description": "False when the requested rollback was already applied.",
+              "type": "boolean"
             },
             "templateId": {
               "$ref": "#/components/schemas/ResourceId"
@@ -26837,7 +26858,8 @@
             "templateName",
             "versionId",
             "activeVersionId",
-            "promotedAt"
+            "promotedAt",
+            "rolledBack"
           ],
           "type": "object"
         },
@@ -26850,11 +26872,27 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may roll back to a different version if the registry was updated between calls."
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "A retry whose pinned target already equals the active version reports rolled_back: false without another mutation, and a registry that moved so the pinned target is no longer reachable fails instead of rolling to a different version."
+            },
+            "when": "to_version_id pins the rollback target"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "The rollback resolves the previous version dynamically, so a retry after an intervening promote or rollback can revert to a different version."
+            },
+            "when": "to_version_id is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller pins the rollback target."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.list",

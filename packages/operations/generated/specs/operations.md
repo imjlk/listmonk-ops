@@ -1086,8 +1086,8 @@ Rollback a Listmonk template to its previous stored version
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:template`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.9.0`
 
 ## `abtest.list`
 

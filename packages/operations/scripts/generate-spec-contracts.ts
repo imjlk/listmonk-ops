@@ -149,6 +149,8 @@ import type {
 	TemplateIdInput,
 	TemplatePromoteInput,
 	TemplatePromoteOutput,
+	TemplateRollbackInput,
+	TemplateRollbackOutput,
 	AbTestListInput,
 	AbTestListOutput,
 	AbTestIdInput,
@@ -680,6 +682,12 @@ const contracts = {
 	templateIdInputContract: contractSchema(typia.json.schema<TemplateIdInput>()),
 	templatePromoteInputContract: contractSchema(
 		typia.json.schema<TemplatePromoteInput>(),
+	),
+	templateRollbackInputContract: contractSchema(
+		typia.json.schema<TemplateRollbackInput>(),
+	),
+	templateRollbackOutputContract: contractSchema(
+		typia.json.schema<TemplateRollbackOutput>(),
 	),
 	templatePromoteOutputContract: contractSchema(
 		typia.json.schema<TemplatePromoteOutput>(),

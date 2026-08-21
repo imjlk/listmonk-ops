@@ -506,7 +506,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 82 are `stable` and 22 are `experimental`. The runtime-operation
+these, 83 are `stable` and 21 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -514,7 +514,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Eighty-two reviewed core operations are `stable`: the existing
+Eighty-three reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -595,8 +595,12 @@ unsafe).
 `sequences.enroll` gained conflict-replay machinery (an ambiguous retry
 replays a provably untouched matching enrollment as `created: false`)
 but stays experimental: once an enrollment reaches a terminal status,
-the same request starts a fresh lifecycle. The remaining 22 descriptors
-are experimental.
+the same request starts a fresh lifecycle. A fourteenth batch promoted
+`ops.templates.registry-rollback` with conditional retry semantics — a
+pinned `to_version_id` repeat reports `rolled_back: false` when already
+applied and fails explicitly when the registry moved, while an unpinned
+rollback resolves dynamically and stays unsafe. The remaining 21
+descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -612,7 +616,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 82 stable compatibility baselines, and 317 direct
+runtime bridges, the 83 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are
@@ -884,6 +888,8 @@ listmonk-cli ops templates-sync
 listmonk-cli ops templates-history --template-id 10
 listmonk-cli ops templates-promote --template-id 10 --version-id v_... --confirm
 listmonk-cli ops templates-rollback --template-id 10 --confirm
+# Pin the target with --to-version-id so an ambiguous retry replays or
+# fails explicitly instead of rolling to a different version.
 
 # 6) Daily digest
 listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md

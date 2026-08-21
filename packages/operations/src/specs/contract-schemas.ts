@@ -150,6 +150,8 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	templateIdInputContract: NormalizedContractSchema;
 	templatePromoteInputContract: NormalizedContractSchema;
 	templatePromoteOutputContract: NormalizedContractSchema;
+	templateRollbackInputContract: NormalizedContractSchema;
+	templateRollbackOutputContract: NormalizedContractSchema;
 	abTestListInputContract: NormalizedContractSchema;
 	abTestListOutputContract: NormalizedContractSchema;
 	abTestIdInputContract: NormalizedContractSchema;
@@ -408,6 +410,10 @@ export const templatePromoteInputContract =
 	contracts.templatePromoteInputContract;
 export const templatePromoteOutputContract =
 	contracts.templatePromoteOutputContract;
+export const templateRollbackInputContract =
+	contracts.templateRollbackInputContract;
+export const templateRollbackOutputContract =
+	contracts.templateRollbackOutputContract;
 export const abTestListInputContract = contracts.abTestListInputContract;
 export const abTestListOutputContract = contracts.abTestListOutputContract;
 export const abTestIdInputContract = contracts.abTestIdInputContract;

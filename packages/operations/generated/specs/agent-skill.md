@@ -1250,7 +1250,7 @@ Retry guidance: Retry is safe; the promotion is idempotent for the same version 
 
 ## Rollback template version (`ops.templates.registry-rollback`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:template`; confirmation: `required`; retry: `conditional`.
 
 Use when: A template must be reverted to its previous stored version.
 
@@ -1260,7 +1260,7 @@ Prerequisites: `ops.templates.registry-history`
 
 Verify with: `templates.get`
 
-Retry guidance: Inspect ops.templates.registry-history before retrying an ambiguous rollback.
+Retry guidance: Pin the target with to_version_id from ops.templates.registry-history before retrying an ambiguous rollback; a pinned repeat reports rolled_back: false or fails explicitly when the registry moved.
 
 ## List A/B tests (`abtest.list`)
 

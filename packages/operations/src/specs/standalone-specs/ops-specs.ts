@@ -12,6 +12,8 @@ import {
 	templateRegistrySyncOutputContract,
 	templateRegistryHistoryOutputContract,
 	templateIdInputContract,
+	templateRollbackInputContract,
+	templateRollbackOutputContract,
 	templatePromoteInputContract,
 	templatePromoteOutputContract,
 } from "../contract-schemas";
@@ -369,14 +371,33 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 	title: "Rollback template version",
 	description: "Rollback a Listmonk template to its previous stored version",
 	contract: {
-		input: templateIdInputContract,
-		output: templatePromoteOutputContract,
+		input: templateRollbackInputContract,
+		output: templateRollbackOutputContract,
 	},
 	effects: [{ kind: "write", resource: "template", reversible: false }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
-		reason: "A retry may roll back to a different version if the registry was updated between calls.",
+		kind: "conditional",
+		cases: [
+			{
+				when: "to_version_id pins the rollback target",
+				semantics: {
+					kind: "safe",
+					reason:
+						"A retry whose pinned target already equals the active version reports rolled_back: false without another mutation, and a registry that moved so the pinned target is no longer reachable fails instead of rolling to a different version.",
+				},
+			},
+			{
+				when: "to_version_id is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"The rollback resolves the previous version dynamically, so a retry after an intervening promote or rollback can revert to a different version.",
+				},
+			},
+		],
+		reason:
+			"Retry safety depends on whether the caller pins the rollback target.",
 	},
 	agent: {
 		useWhen: ["A template must be reverted to its previous stored version."],
@@ -384,7 +405,8 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 		prerequisites: ["ops.templates.registry-history"],
 		verifyWith: ["templates.get"],
 		related: ["ops.templates.registry-sync", "ops.templates.registry-promote"],
-		retryGuidance: "Inspect ops.templates.registry-history before retrying an ambiguous rollback.",
+		retryGuidance:
+			"Pin the target with to_version_id from ops.templates.registry-history before retrying an ambiguous rollback; a pinned repeat reports rolled_back: false or fails explicitly when the registry moved.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_template_registry_rollback",
@@ -397,7 +419,7 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 			executorNode: "packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

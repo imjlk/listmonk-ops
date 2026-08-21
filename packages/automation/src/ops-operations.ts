@@ -21,6 +21,7 @@ import {
 	rollbackTemplateVersion,
 	syncTemplateRegistry,
 	type TemplatePromoteResult,
+	type TemplateRollbackResult,
 	type TemplateRegistrySyncResult,
 } from "./template-registry.js";
 import {
@@ -136,6 +137,17 @@ const subscriberHygieneInputSchema = z.object({
 		.describe("Maximum candidates to process"),
 });
 
+const templateRollbackInputSchema = z.object({
+	template_id: positiveIntegerInput,
+	to_version_id: z
+		.string()
+		.trim()
+		.min(1)
+		.optional()
+		.describe(
+			"Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version",
+		),
+});
 const segmentDriftInputSchema = z.object({
 	list_ids: z
 		.array(positiveIntegerInput)
@@ -335,6 +347,9 @@ const templatePromoteOutputSchema = z.object({
 	promotedAt: z.string(),
 });
 
+const templateRollbackOutputSchema = templatePromoteOutputSchema.extend({
+	rolledBack: z.boolean(),
+});
 const dailyDigestOutputSchema = z.object({
 	generatedAt: z.string(),
 	window: z.object({
@@ -492,10 +507,12 @@ export async function executeTemplateRegistryPromoteOperation(
 
 export async function executeTemplateRegistryRollbackOperation(
 	context: OpsOperationContext,
-	input: z.output<typeof templateIdInputSchema>,
-): Promise<TemplatePromoteResult> {
+	input: z.output<typeof templateRollbackInputSchema>,
+): Promise<TemplateRollbackResult> {
 	const client = requireOpsClient(context);
-	return rollbackTemplateVersion(client, input.template_id);
+	return rollbackTemplateVersion(client, input.template_id, {
+		toVersionId: input.to_version_id,
+	});
 }
 
 export async function executeDailyDigestOperation(
@@ -619,8 +636,8 @@ export const templateRegistryRollbackOperation = defineOperation({
 	id: "ops.templates.registry-rollback",
 	title: "Rollback template version",
 	description: "Rollback a Listmonk template to its previous stored version",
-	inputSchema: templateIdInputSchema,
-	outputSchema: templatePromoteOutputSchema,
+	inputSchema: templateRollbackInputSchema,
+	outputSchema: templateRollbackOutputSchema,
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,

@@ -410,6 +410,56 @@ describe("automation persistence", () => {
 		expect(serialized).not.toContain("internal.example");
 	});
 
+	test("pins registry rollbacks to an explicit target version", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let body = "<p>v1</p>";
+		const client = {
+			template: {
+				getById: async () => ({
+					data: { id: 10, name: "Pinned", type: "campaign", body },
+				}),
+				update: async () => ({ data: true }),
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const { syncTemplateRegistry, rollbackTemplateVersion } =
+			await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [10] });
+		// A changed body creates the second version rollback targets; keep
+		// the captures on distinct timestamps so version ordering is stable.
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [10] });
+
+		const record = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			templates: Record<
+				string,
+				{ versions: { versionId: string }[]; activeVersionId?: string }
+			>;
+		};
+		const versions = record.templates["10"]!.versions;
+		// The registry keeps the first capture active; promote the second so
+		// the pinned rollback has a genuine previous version to target.
+		const { promoteTemplateVersion } = await import("../src/template-registry");
+		const newer = versions.find(
+			(version) => version.versionId !== record.templates["10"]!.activeVersionId,
+		)!;
+		await promoteTemplateVersion(client, 10, newer.versionId);
+		const target = record.templates["10"]!.activeVersionId!;
+
+		const rolled = await rollbackTemplateVersion(client, 10, {
+			toVersionId: target,
+		});
+		expect(rolled.rolledBack).toBe(true);
+		expect(rolled.activeVersionId).toBe(target);
+
+		// An identical pinned retry is a documented no-op.
+		const retried = await rollbackTemplateVersion(client, 10, {
+			toVersionId: target,
+		});
+		expect(retried.rolledBack).toBe(false);
+		expect(retried.activeVersionId).toBe(target);
+	});
+
 	test("reports an unconfirmed registry commit after a remote promotion", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let remoteUpdates = 0;
