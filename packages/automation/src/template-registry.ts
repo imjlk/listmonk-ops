@@ -534,7 +534,24 @@ export async function rollbackTemplateVersion(
 				);
 			}
 
-			let targetIndex = record.versions.length - 2;
+			// A pinned target that already equals the active version is the
+			// already-applied case even when no further previous version
+			// exists, so check it before resolving the dynamic target.
+			if (
+				options.toVersionId !== undefined &&
+				record.activeVersionId === options.toVersionId
+			) {
+				return {
+					templateId,
+					templateName: record.templateName,
+					versionId: options.toVersionId,
+					activeVersionId: record.activeVersionId,
+					promotedAt: new Date().toISOString(),
+					rolledBack: false,
+				};
+			}
+
+			let targetIndex: number | undefined = undefined;
 			if (record.activeVersionId) {
 				const activeIndex = record.versions.findIndex(
 					(version) => version.versionId === record.activeVersionId,
@@ -542,6 +559,11 @@ export async function rollbackTemplateVersion(
 				if (activeIndex > 0) {
 					targetIndex = activeIndex - 1;
 				}
+			}
+			if (targetIndex === undefined) {
+				throw new Error(
+					`Template ${templateId} has no previous version to roll back to`,
+				);
 			}
 
 			const targetVersion = record.versions[targetIndex];
@@ -557,16 +579,6 @@ export async function rollbackTemplateVersion(
 			// no longer reachable the request fails instead of silently
 			// rolling to a different version.
 			if (options.toVersionId !== undefined) {
-				if (record.activeVersionId === options.toVersionId) {
-					return {
-						templateId,
-						templateName: record.templateName,
-						versionId: options.toVersionId,
-						activeVersionId: record.activeVersionId,
-						promotedAt: new Date().toISOString(),
-						rolledBack: false,
-					};
-				}
 				if (targetVersion.versionId !== options.toVersionId) {
 					throw new Error(
 						`Rollback target ${options.toVersionId} is no longer the previous version of template ${templateId}`,

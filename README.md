@@ -506,7 +506,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 83 are `stable` and 21 are `experimental`. The runtime-operation
+these, 82 are `stable` and 22 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -514,7 +514,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Eighty-three reviewed core operations are `stable`: the existing
+Eighty-two reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -595,11 +595,11 @@ unsafe).
 `sequences.enroll` gained conflict-replay machinery (an ambiguous retry
 replays a provably untouched matching enrollment as `created: false`)
 but stays experimental: once an enrollment reaches a terminal status,
-the same request starts a fresh lifecycle. A fourteenth batch promoted
-`ops.templates.registry-rollback` with conditional retry semantics — a
-pinned `to_version_id` repeat reports `rolled_back: false` when already
-applied and fails explicitly when the registry moved, while an unpinned
-rollback resolves dynamically and stays unsafe. The remaining 21
+the same request starts a fresh lifecycle. A fourteenth batch gave `ops.templates.registry-rollback` an optional
+`to_version_id` pin (a moved registry makes a pinned repeat conflict,
+and an already-applied pin reports `rolled_back: false`) but it stays
+experimental: ABA transitions and remote drift outside the registry are
+indistinguishable without a source-version pin. The remaining 22
 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
@@ -616,7 +616,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 83 stable compatibility baselines, and 317 direct
+runtime bridges, the 82 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are

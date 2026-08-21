@@ -377,27 +377,9 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 	effects: [{ kind: "write", resource: "template", reversible: false }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "conditional",
-		cases: [
-			{
-				when: "to_version_id pins the rollback target",
-				semantics: {
-					kind: "safe",
-					reason:
-						"A retry whose pinned target already equals the active version reports rolled_back: false without another mutation, and a registry that moved so the pinned target is no longer reachable fails instead of rolling to a different version.",
-				},
-			},
-			{
-				when: "to_version_id is absent",
-				semantics: {
-					kind: "unsafe",
-					reason:
-						"The rollback resolves the previous version dynamically, so a retry after an intervening promote or rollback can revert to a different version.",
-				},
-			},
-		],
+		kind: "unsafe",
 		reason:
-			"Retry safety depends on whether the caller pins the rollback target.",
+			"A pinned target (to_version_id) makes a repeat conflict when the registry moved to a different previous version, but an ABA transition — promoting the original version back — is indistinguishable without a source-version or generation pin, and the remote template may have drifted outside the registry; the rollback stays experimental until retries can detect both.",
 	},
 	agent: {
 		useWhen: ["A template must be reverted to its previous stored version."],
@@ -406,7 +388,7 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 		verifyWith: ["templates.get"],
 		related: ["ops.templates.registry-sync", "ops.templates.registry-promote"],
 		retryGuidance:
-			"Pin the target with to_version_id from ops.templates.registry-history before retrying an ambiguous rollback; a pinned repeat reports rolled_back: false or fails explicitly when the registry moved.",
+			"Pin the target with to_version_id from ops.templates.registry-history before retrying an ambiguous rollback, and inspect templates.get and the registry history for intervening promotes; a pinned repeat conflicts when the registry moved to a different previous version.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_template_registry_rollback",
@@ -419,7 +401,7 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 			executorNode: "packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function",
 		},
 	},
-	stability: "stable",
+	stability: "experimental",
 	since: "0.9.0",
 });
 
