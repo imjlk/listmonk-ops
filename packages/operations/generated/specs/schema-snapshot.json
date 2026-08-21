@@ -5436,27 +5436,11 @@
         "dryRun": false
       },
       "retry": {
-        "cases": [
-          {
-            "semantics": {
-              "kind": "safe",
-              "reason": "The test derives a deterministic event id from the endpoint and correlation id, so the outbox dedup collapses an identical retry onto the already-queued delivery for as long as that delivery remains retained and reports replayed: true without another ping; a still-pending replayed delivery is dispatched, and pruning the original delivery lets a repeat send a fresh probe."
-            },
-            "when": "correlation_id is provided"
-          },
-          {
-            "semantics": {
-              "kind": "unsafe",
-              "reason": "Each call queues a fresh delivery, so a retry after the endpoint accepted the test sends a duplicate ping."
-            },
-            "when": "correlation_id is absent"
-          }
-        ],
-        "kind": "conditional",
-        "reason": "Retry safety depends on whether the caller keys the probe with a correlation id."
+        "kind": "unsafe",
+        "reason": "A keyed probe derives a deterministic event id so the outbox dedup collapses an identical retry onto the already-queued delivery and replays or resumes it, but a retry or expired lease whose first attempt already reached the endpoint redelivers the ping (at-least-once), and a pruned original lets a repeat send a fresh probe; the test stays experimental until receivers can deduplicate or the delivery records a durable request identity."
       },
       "since": "0.8.0",
-      "stability": "stable"
+      "stability": "experimental"
     },
     {
       "id": "webhooks.dispatch",

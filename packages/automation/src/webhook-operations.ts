@@ -785,19 +785,12 @@ export async function executeWebhookTestOperation(
 			limit: 1,
 		});
 		if (!existing) {
-			return {
-				event_id: queued.event.id,
-				delivery_id: undefined,
-				replayed: true,
-				dispatch: toDispatchOutput({
-					claimed: 0,
-					succeeded: 0,
-					exhausted: 0,
-					retried: 0,
-					skipped: 0,
-					results: [],
-				}),
-			};
+			// Nothing was queued and no persisted delivery carries this event:
+			// the enqueue selected no enabled endpoint, so the probe never ran.
+			throw new OutboundWebhookConflictError(
+				`Webhook endpoint ${input.id} is disabled or missing`,
+				"endpoint_unavailable",
+			);
 		}
 		const leaseExpired =
 			existing.status === "delivering" &&
@@ -823,14 +816,17 @@ export async function executeWebhookTestOperation(
 				dispatch: toDispatchOutput(dispatch),
 			};
 		}
+		// Terminal deliveries report as skipped only — the persisted outcome
+		// is already visible through webhooks.delivery.list, and the dispatch
+		// summary stays internally consistent (one record, skipped).
 		return {
 			event_id: queued.event.id,
 			delivery_id: existing.id,
 			replayed: true,
 			dispatch: toDispatchOutput({
 				claimed: 0,
-				succeeded: existing.status === "succeeded" ? 1 : 0,
-				exhausted: existing.status === "exhausted" ? 1 : 0,
+				succeeded: 0,
+				exhausted: 0,
 				retried: 0,
 				skipped: 1,
 				results: [],

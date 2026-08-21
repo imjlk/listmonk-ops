@@ -552,27 +552,9 @@ export const webhookTestOperationSpec = defineOperationSpec({
 	effects: [{ kind: "webhook", resource: "webhook", audience: "single" }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "conditional",
-		cases: [
-			{
-				when: "correlation_id is provided",
-				semantics: {
-					kind: "safe",
-					reason:
-						"The test derives a deterministic event id from the endpoint and correlation id, so the outbox dedup collapses an identical retry onto the already-queued delivery for as long as that delivery remains retained and reports replayed: true without another ping; a still-pending replayed delivery is dispatched, and pruning the original delivery lets a repeat send a fresh probe.",
-				},
-			},
-			{
-				when: "correlation_id is absent",
-				semantics: {
-					kind: "unsafe",
-					reason:
-						"Each call queues a fresh delivery, so a retry after the endpoint accepted the test sends a duplicate ping.",
-				},
-			},
-		],
+		kind: "unsafe",
 		reason:
-			"Retry safety depends on whether the caller keys the probe with a correlation id.",
+			"A keyed probe derives a deterministic event id so the outbox dedup collapses an identical retry onto the already-queued delivery and replays or resumes it, but a retry or expired lease whose first attempt already reached the endpoint redelivers the ping (at-least-once), and a pruned original lets a repeat send a fresh probe; the test stays experimental until receivers can deduplicate or the delivery records a durable request identity.",
 	},
 	agent: {
 		useWhen: ["A configured endpoint and signing secret must be verified end to end."],
@@ -581,7 +563,7 @@ export const webhookTestOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.dispatch"],
 		retryGuidance:
-			"Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery and reports replayed: true; without one, inspect webhooks.delivery.list before repeating.",
+			"Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery, and inspect webhooks.delivery.list before repeating — a retry or expired lease whose first attempt reached the endpoint can redeliver the ping.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_test",
@@ -599,7 +581,7 @@ export const webhookTestOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookTestOperation:function",
 		},
 	},
-	stability: "stable",
+	stability: "experimental",
 	since: "0.8.0",
 });
 

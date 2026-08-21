@@ -506,7 +506,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 83 are `stable` and 21 are `experimental`. The runtime-operation
+these, 82 are `stable` and 22 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -514,7 +514,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Eighty-three reviewed core operations are `stable`: the existing
+Eighty-two reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -599,12 +599,13 @@ the same request starts a fresh lifecycle. A fourteenth batch gave `ops.template
 `to_version_id` pin (a moved registry makes a pinned repeat conflict,
 and an already-applied pin reports `rolled_back: false`) but it stays
 experimental: ABA transitions and remote drift outside the registry are
-indistinguishable without a source-version pin. A fifteenth batch
-promoted `webhooks.test` with conditional retry semantics — a probe
-keyed by `correlation_id` derives a deterministic event id so the outbox
-dedup collapses an identical retry onto the queued delivery
-(`replayed: true`) without another ping; unkeyed probes stay unsafe.
-The remaining 21 descriptors are experimental.
+indistinguishable without a source-version pin. A fifteenth batch gave `webhooks.test` keyed-probe
+deduplication — a `correlation_id` derives a deterministic event id so
+the outbox collapses an identical retry onto the queued delivery and
+resumes or replays it (`replayed: true`) — but it stays experimental:
+a retry or expired lease whose first attempt reached the endpoint
+redelivers the ping, the same at-least-once ambiguity as the dispatch
+family. The remaining 22 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -620,7 +621,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 83 stable compatibility baselines, and 317 direct
+runtime bridges, the 82 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are

@@ -231,8 +231,8 @@ Queue and immediately send one signed webhook.test event to a selected endpoint.
 - Contract source: input `typescript`, output `typescript`
 - Effects: `webhook:single`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `conditional`
-- Stability: `stable` since `0.8.0`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.8.0`
 
 ## `webhooks.dispatch`
 
