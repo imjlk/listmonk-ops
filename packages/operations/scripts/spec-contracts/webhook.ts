@@ -227,6 +227,10 @@ export interface WebhookDispatchOutput {
 export interface WebhookTestOutput {
 	event_id: WebhookId;
 	delivery_id?: WebhookId | undefined;
+	/** True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings). */
+	replayed: boolean;
+	/** The endpoint configuration revision the probe identity was bound to; a later dispatch may still resolve a newer revision. */
+	bound_revision: string;
 	dispatch: WebhookDispatchOutput;
 }
 

@@ -588,6 +588,12 @@ batch에서는 조건부 retry 시맨틱의 `sequences.update`(최신 revision�
 `to_version_id` 핀을 추가했습니다(이동한 registry에서 핀된 반복은 충돌,
 이미 적용된 핀은 `rolled_back: false`). 그러나 ABA 전이와 registry 밖의
 원격 drift가 원본 버전 핀 없이는 구별 불가능해 experimental로 유지됩니다.
+열다섯 번째 batch에서는 `webhooks.test`에 키 지정 probe 중복 제거를
+추가했습니다. `correlation_id`가 결정적 event id를 파생해 outbox가 동일한
+재시도를 이미 큐된 delivery로 합치고 이어 dispatch하거나 재생합니다
+(`replayed: true`). 그러나 첫 시도가 endpoint에 도달한 후의 재시도나 만료된
+lease는 ping을 재전송하는 at-least-once 모호성 때문에 experimental로
+유지됩니다.
 현재 stable baseline은 82개이며, 나머지 experimental descriptor는 22개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,

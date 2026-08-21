@@ -5379,6 +5379,10 @@
             "WebhookTestOutput": {
               "additionalProperties": false,
               "properties": {
+                "bound_revision": {
+                  "description": "The endpoint configuration revision the probe identity was bound to; a later dispatch may still resolve a newer revision.",
+                  "type": "string"
+                },
                 "delivery_id": {
                   "$ref": "#/components/schemas/Uuid"
                 },
@@ -5387,10 +5391,16 @@
                 },
                 "event_id": {
                   "$ref": "#/components/schemas/Uuid"
+                },
+                "replayed": {
+                  "description": "True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings).",
+                  "type": "boolean"
                 }
               },
               "required": [
                 "event_id",
+                "replayed",
+                "bound_revision",
                 "dispatch"
               ],
               "type": "object"
@@ -5401,6 +5411,10 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "bound_revision": {
+              "description": "The endpoint configuration revision the probe identity was bound to; a later dispatch may still resolve a newer revision.",
+              "type": "string"
+            },
             "delivery_id": {
               "$ref": "#/components/schemas/Uuid"
             },
@@ -5409,10 +5423,16 @@
             },
             "event_id": {
               "$ref": "#/components/schemas/Uuid"
+            },
+            "replayed": {
+              "description": "True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings).",
+              "type": "boolean"
             }
           },
           "required": [
             "event_id",
+            "replayed",
+            "bound_revision",
             "dispatch"
           ],
           "type": "object"
@@ -5427,7 +5447,7 @@
       },
       "retry": {
         "kind": "unsafe",
-        "reason": "A timeout can occur after the endpoint accepted the test, so an automatic retry may duplicate it."
+        "reason": "A keyed probe derives a deterministic event id — bound to the endpoint's configuration revision so a repeat after a URL or secret change tests the new configuration — so the outbox dedup collapses an identical retry onto the already-queued delivery and replays or resumes it, but a retry or expired lease whose first attempt already reached the endpoint redelivers the ping (at-least-once), and a pruned original lets a repeat send a fresh probe; and the unsalted derivation means readers of the delivery log can enumerate predictable correlation values offline; the test stays experimental until receivers can deduplicate, the delivery records a durable request identity, or the derived id is keyed to a server secret."
       },
       "since": "0.8.0",
       "stability": "experimental"

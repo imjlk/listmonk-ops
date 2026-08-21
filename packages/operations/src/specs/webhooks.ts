@@ -554,7 +554,7 @@ export const webhookTestOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "unsafe",
 		reason:
-			"A timeout can occur after the endpoint accepted the test, so an automatic retry may duplicate it.",
+			"A keyed probe derives a deterministic event id — bound to the endpoint's configuration revision so a repeat after a URL or secret change tests the new configuration — so the outbox dedup collapses an identical retry onto the already-queued delivery and replays or resumes it, but a retry or expired lease whose first attempt already reached the endpoint redelivers the ping (at-least-once), and a pruned original lets a repeat send a fresh probe; and the unsalted derivation means readers of the delivery log can enumerate predictable correlation values offline; the test stays experimental until receivers can deduplicate, the delivery records a durable request identity, or the derived id is keyed to a server secret.",
 	},
 	agent: {
 		useWhen: ["A configured endpoint and signing secret must be verified end to end."],
@@ -563,7 +563,7 @@ export const webhookTestOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.dispatch"],
 		retryGuidance:
-			"Inspect the delivery log and endpoint system before sending another test.",
+			"Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery, and inspect webhooks.delivery.list before repeating — a retry or expired lease whose first attempt reached the endpoint can redeliver the ping.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_test",

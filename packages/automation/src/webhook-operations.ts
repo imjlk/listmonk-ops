@@ -5,7 +5,7 @@ import {
 	parseOperationInput,
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
 	bindWebhookCreateOperationSpec,
 	bindWebhookDeleteOperationSpec,
@@ -66,7 +66,7 @@ export interface WebhookOperationContext {
 	resolveSecret?: (secretRef: string) => string | undefined;
 }
 
-function resolveWebhookOperationStore(
+export function resolveWebhookOperationStore(
 	context: WebhookOperationContext,
 ): OutboundWebhookStoreOptions {
 	return context.store ?? getOutboundWebhookStoreOptionsFromEnvironment();
@@ -399,6 +399,10 @@ const webhookDispatchOutputSchema = z.object({
 const webhookTestOutputSchema = z.object({
 	event_id: z.uuid(),
 	delivery_id: z.uuid().optional(),
+	/** True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings). */
+	replayed: z.boolean(),
+	/** The endpoint configuration revision the probe identity was bound to; a later dispatch may still resolve a newer revision. */
+	bound_revision: z.string(),
 	dispatch: webhookDispatchOutputSchema,
 });
 const webhookEventSummarySchema = z.object({
@@ -722,14 +726,52 @@ export async function executeWebhookDeleteOperation(
 	}
 }
 
+// A keyed test derives a deterministic event id so the outbox dedup
+// (event id + endpoint id) collapses an ambiguous retry onto the
+// already-queued delivery instead of sending a second ping.
+// Bind the probe identity to the endpoint's configuration revision (its
+// updatedAt timestamp, bumped on every mutation) so a repeat after a URL
+// or secret change tests the new configuration rather than replaying the
+// old probe's terminal delivery.
+export function testConfigFingerprint(endpoint: {
+	updatedAt: string;
+}): string {
+	return endpoint.updatedAt;
+}
+
+export function testEventUuid(
+	endpointId: string,
+	correlationId: string,
+	configFingerprint = "",
+): string {
+	const digest = createHash("sha256")
+		.update(`webhook.test:${endpointId}:${correlationId}:${configFingerprint}`)
+		.digest("hex");
+	const bytes = Uint8Array.from(
+		digest.slice(0, 32).match(/../g)!.map((h) => Number.parseInt(h, 16)),
+	);
+	bytes[6] = (bytes[6]! & 0x0f) | 0x50; // uuid v5 marker
+	bytes[8] = (bytes[8]! & 0x3f) | 0x80; // rfc 4122 variant
+	const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export async function executeWebhookTestOperation(
 	context: WebhookOperationContext,
 	input: z.output<typeof webhookTestInputSchema>,
 ) {
 	const store = resolveWebhookOperationStore(context);
 	const endpoint = await getOutboundWebhookEndpoint(input.id, store);
+	const keyed = input.correlation_id !== undefined;
 	const queued = await enqueueOutboundWebhookEvent(
 		{
+			id: keyed
+				? testEventUuid(
+						endpoint.id,
+						input.correlation_id!,
+						testConfigFingerprint(endpoint),
+					)
+				: randomUUID(),
 			type: "webhook.test",
 			source: "webhook",
 			correlationId: input.correlation_id,
@@ -743,17 +785,90 @@ export async function executeWebhookTestOperation(
 		},
 	);
 	const deliveryId = queued.deliveryIds[0];
+	if (deliveryId === undefined) {
+		if (!keyed) {
+			// Only enabled endpoints receive deliveries, so an unkeyed probe
+			// with nothing queued means the endpoint is unavailable.
+			throw new OutboundWebhookConflictError(
+				`Webhook endpoint ${input.id} is disabled or missing`,
+				"endpoint_unavailable",
+			);
+		}
+		// The dedup collapsed the retry onto an already-queued delivery. The
+		// original call may have failed before dispatching it, so resolve the
+		// persisted delivery directly by event: a still-claimable one (or one
+		// whose lease expired) is dispatched now, and a terminal one reports
+		// its persisted outcome without resending.
+		const [existing] = await listOutboundWebhookDeliveries({
+			...store,
+			endpointId: endpoint.id,
+			eventId: queued.event.id,
+			limit: 1,
+		});
+		if (!existing) {
+			// Nothing was queued and no persisted delivery carries this event:
+			// the enqueue selected no enabled endpoint, so the probe never ran.
+			throw new OutboundWebhookConflictError(
+				`Webhook endpoint ${input.id} is disabled or missing`,
+				"endpoint_unavailable",
+			);
+		}
+		const leaseExpired =
+			existing.status === "delivering" &&
+			(existing.leaseExpiresAt === undefined ||
+				Date.parse(existing.leaseExpiresAt) <= Date.now());
+		if (
+			existing.status === "pending" ||
+			existing.status === "retry" ||
+			leaseExpired
+		) {
+			const dispatch = await dispatchOutboundWebhooks({
+				store,
+				fetcher: context.fetcher,
+				resolveSecret: context.resolveSecret,
+				deliveryIds: [existing.id],
+				bypassCircuitBreaker: true,
+				limit: 1,
+			});
+			return {
+				event_id: queued.event.id,
+				delivery_id: existing.id,
+				replayed: true,
+				bound_revision: endpoint.updatedAt,
+				dispatch: toDispatchOutput(dispatch),
+			};
+		}
+		// Terminal deliveries report as skipped only — the persisted outcome
+		// is already visible through webhooks.delivery.list, and the dispatch
+		// summary stays internally consistent (one record, skipped).
+		return {
+			event_id: queued.event.id,
+			delivery_id: existing.id,
+			replayed: true,
+			bound_revision: endpoint.updatedAt,
+			dispatch: toDispatchOutput({
+				claimed: 0,
+				succeeded: 0,
+				exhausted: 0,
+				retried: 0,
+				skipped: 1,
+				results: [],
+			}),
+		};
+	}
 	const dispatch = await dispatchOutboundWebhooks({
 		store,
 		fetcher: context.fetcher,
 		resolveSecret: context.resolveSecret,
-		deliveryIds: deliveryId ? [deliveryId] : [],
+		deliveryIds: [deliveryId],
 		bypassCircuitBreaker: true,
 		limit: 1,
 	});
 	return {
 		event_id: queued.event.id,
 		delivery_id: deliveryId,
+		replayed: false,
+		bound_revision: endpoint.updatedAt,
 		dispatch: toDispatchOutput(dispatch),
 	};
 }

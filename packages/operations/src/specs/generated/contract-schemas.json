@@ -25000,6 +25000,10 @@
         "WebhookTestOutput": {
           "additionalProperties": false,
           "properties": {
+            "bound_revision": {
+              "description": "The endpoint configuration revision the probe identity was bound to; a later dispatch may still resolve a newer revision.",
+              "type": "string"
+            },
             "delivery_id": {
               "$ref": "#/components/schemas/Uuid"
             },
@@ -25008,10 +25012,16 @@
             },
             "event_id": {
               "$ref": "#/components/schemas/Uuid"
+            },
+            "replayed": {
+              "description": "True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings).",
+              "type": "boolean"
             }
           },
           "required": [
             "event_id",
+            "replayed",
+            "bound_revision",
             "dispatch"
           ],
           "type": "object"
@@ -25022,6 +25032,10 @@
     "schema": {
       "additionalProperties": false,
       "properties": {
+        "bound_revision": {
+          "description": "The endpoint configuration revision the probe identity was bound to; a later dispatch may still resolve a newer revision.",
+          "type": "string"
+        },
         "delivery_id": {
           "$ref": "#/components/schemas/Uuid"
         },
@@ -25030,10 +25044,16 @@
         },
         "event_id": {
           "$ref": "#/components/schemas/Uuid"
+        },
+        "replayed": {
+          "description": "True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings).",
+          "type": "boolean"
         }
       },
       "required": [
         "event_id",
+        "replayed",
+        "bound_revision",
         "dispatch"
       ],
       "type": "object"

@@ -266,7 +266,7 @@ Prerequisites: `webhooks.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Inspect the delivery log and endpoint system before sending another test.
+Retry guidance: Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery, and inspect webhooks.delivery.list before repeating — a retry or expired lease whose first attempt reached the endpoint can redeliver the ping.
 
 ## Dispatch outbound webhooks (`webhooks.dispatch`)
 

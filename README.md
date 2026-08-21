@@ -599,8 +599,13 @@ the same request starts a fresh lifecycle. A fourteenth batch gave `ops.template
 `to_version_id` pin (a moved registry makes a pinned repeat conflict,
 and an already-applied pin reports `rolled_back: false`) but it stays
 experimental: ABA transitions and remote drift outside the registry are
-indistinguishable without a source-version pin. The remaining 22
-descriptors are experimental.
+indistinguishable without a source-version pin. A fifteenth batch gave `webhooks.test` keyed-probe
+deduplication — a `correlation_id` derives a deterministic event id so
+the outbox collapses an identical retry onto the queued delivery and
+resumes or replays it (`replayed: true`) — but it stays experimental:
+a retry or expired lease whose first attempt reached the endpoint
+redelivers the ping, the same at-least-once ambiguity as the dispatch
+family. The remaining 22 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
