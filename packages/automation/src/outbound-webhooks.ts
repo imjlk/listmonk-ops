@@ -256,6 +256,8 @@ export type OutboundWebhookDeliveryListOptions = Readonly<{
 	eventId?: string;
 	/** Resolves a single delivery by id without a paginated scan. */
 	deliveryId?: string;
+	/** Restricts the listing to exactly these deliveries before pagination. */
+	deliveryIds?: readonly string[];
 	limit?: number;
 }>;
 
@@ -1311,6 +1313,7 @@ export async function listOutboundWebhookDeliveries(
 			eventType: options.eventType,
 			eventId: options.eventId,
 			deliveryId: options.deliveryId,
+			deliveryIds: options.deliveryIds,
 			limit,
 		});
 	}
@@ -1326,6 +1329,9 @@ export async function listOutboundWebhookDeliveries(
 					delivery.eventId === options.eventId) &&
 				(options.deliveryId === undefined ||
 					delivery.id === options.deliveryId) &&
+				(options.deliveryIds === undefined
+					? true
+					: options.deliveryIds.includes(delivery.id)) &&
 				(options.status === undefined ||
 					delivery.status === options.status) &&
 				(options.eventType === undefined ||
@@ -1548,17 +1554,15 @@ export async function replayOutboundWebhookDeadLetters(
 					status: "exhausted",
 					limit,
 				})
-			: (
-					await listOutboundWebhookDeliveries({
-						...options,
-						endpointId: options.endpointId,
-						status: "exhausted",
-						// The echoed set is capped at 1000 by the contract;
-						// fetch that whole page so every echoed id is visible
-						// regardless of ordering, then filter locally.
-						limit: Math.max(limit, requestedIds.size),
-					})
-				).filter((delivery) => requestedIds.has(delivery.id));
+			: await listOutboundWebhookDeliveries({
+					...options,
+					endpointId: options.endpointId,
+					status: "exhausted",
+					// The store filters by the echoed ids before pagination
+					// so newer dead letters can never displace them.
+					deliveryIds: [...requestedIds],
+					limit,
+				});
 	if (dryRun) {
 		return {
 			eligible: deliveries.length,
