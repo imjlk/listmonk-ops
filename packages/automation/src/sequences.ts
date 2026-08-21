@@ -592,6 +592,21 @@ function replaceById<T extends { readonly id: string }>(
 	);
 }
 
+export function canonicalJsonValue(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(canonicalJsonValue);
+	}
+	if (value !== null && typeof value === "object") {
+		const record = value as Record<string, unknown>;
+		return Object.fromEntries(
+			Object.keys(record)
+				.sort()
+				.map((key) => [key, canonicalJsonValue(record[key])]),
+		);
+	}
+	return value;
+}
+
 export function canonicalStepsJson(steps: readonly SequenceStep[]): string {
 	return JSON.stringify(
 		steps.map((step) => {
@@ -599,7 +614,7 @@ export function canonicalStepsJson(steps: readonly SequenceStep[]): string {
 			return Object.fromEntries(
 				Object.keys(record)
 					.sort()
-					.map((key) => [key, record[key]]),
+					.map((key) => [key, canonicalJsonValue(record[key])]),
 			);
 		}),
 	);

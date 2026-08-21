@@ -448,7 +448,7 @@ Pin one subscriber to the current immutable sequence revision and schedule its f
 - Effects: `delivery:single:scheduled`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `stable` since `0.9.0`
+- Stability: `experimental` since `0.9.0`
 
 ## `sequences.enrollments.list`
 

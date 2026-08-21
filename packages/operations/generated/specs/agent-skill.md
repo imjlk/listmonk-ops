@@ -508,7 +508,7 @@ Retry guidance: Verify the sequence is gone with sequences.list before retrying;
 
 ## Enroll subscriber in sequence (`sequences.enroll`)
 
-Contract maturity: `stable`; effects: `delivery:single:scheduled`; confirmation: `never`; retry: `reconcile`.
+Contract maturity: `experimental`; effects: `delivery:single:scheduled`; confirmation: `never`; retry: `reconcile`.
 
 Use when: A known subscriber should enter a reviewed active sequence.
 
@@ -518,7 +518,7 @@ Prerequisites: `sequences.get`
 
 Verify with: `sequences.status`
 
-Retry guidance: Verify the enrollment with sequences.enrollments.list before repeating an ambiguous enroll; an untouched identical enrollment replays with created: false.
+Retry guidance: Verify the enrollment with sequences.enrollments.list before repeating an ambiguous enroll; an untouched identical one replays with created: false, but a terminal enrollment lets the repeat start a fresh lifecycle.
 
 ## List sequence enrollments (`sequences.enrollments.list`)
 

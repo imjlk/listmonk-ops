@@ -46,6 +46,7 @@ import {
 	type SequenceRepository,
 	type SequenceStep,
 	validateSequenceSteps,
+	canonicalJsonValue,
 } from "./sequences";
 
 export interface SequenceOperationContext {
@@ -615,14 +616,10 @@ export async function executeSequenceDeleteOperation(
 	}
 }
 
-function canonicalContextJson(context: Readonly<Record<string, unknown>>): string {
-	return JSON.stringify(
-		Object.fromEntries(
-			Object.keys(context)
-				.sort()
-				.map((key) => [key, context[key]]),
-		),
-	);
+function canonicalContextJson(
+	context: Readonly<Record<string, unknown>>,
+): string {
+	return JSON.stringify(canonicalJsonValue(context));
 }
 
 export async function executeSequenceEnrollOperation(
@@ -649,20 +646,29 @@ export async function executeSequenceEnrollOperation(
 			throw error;
 		}
 		// A subscriber can hold only one active enrollment per sequence, so
-		// an ambiguous retry conflicts. Replay only when the active
-		// enrollment is still untouched (pending, never attempted) and its
-		// enrollment context matches the request; anything else keeps the
-		// explicit conflict.
-		const active = (await store.listEnrollments({ sequenceId: input.id }))
-			.filter(
-				(candidate) =>
-					candidate.subscriberId === input.subscriber_id &&
-					candidate.status === "pending" &&
-					candidate.retryCount === 0,
-			)
-			.at(0);
+		// an ambiguous retry conflicts. Replay only when the conflicting
+		// enrollment is provably untouched — pending, never attempted, and
+		// never transitioned (lastTransitionAt still equals createdAt) —
+		// with a matching context and, when the request schedules a start,
+		// the same activation time; anything else keeps the explicit
+		// conflict.
+		const active = (
+			await store.listEnrollments({
+				sequenceId: input.id,
+				subscriberId: input.subscriber_id,
+				status: "pending",
+			})
+		).at(0);
+		const untouched =
+			active !== undefined &&
+			active.retryCount === 0 &&
+			active.lastTransitionAt === active.createdAt;
+		const startMatches =
+			input.start_at === undefined || active?.nextRunAt === input.start_at;
 		if (
 			!active ||
+			!untouched ||
+			!startMatches ||
 			canonicalContextJson(active.context) !==
 				canonicalContextJson(input.context)
 		) {
@@ -903,7 +909,7 @@ export const sequenceEnrollOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: false,
-		idempotentHint: true,
+		idempotentHint: false,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_sequences_enroll" },

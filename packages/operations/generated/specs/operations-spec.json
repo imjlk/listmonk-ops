@@ -12234,7 +12234,7 @@
           "sequences.tick",
           "sequences.pause"
         ],
-        "retryGuidance": "Verify the enrollment with sequences.enrollments.list before repeating an ambiguous enroll; an untouched identical enrollment replays with created: false.",
+        "retryGuidance": "Verify the enrollment with sequences.enrollments.list before repeating an ambiguous enroll; an untouched identical one replays with created: false, but a terminal enrollment lets the repeat start a fresh lifecycle.",
         "useWhen": [
           "A known subscriber should enter a reviewed active sequence."
         ],
@@ -12480,13 +12480,13 @@
       },
       "resource": "sequence",
       "retry": {
-        "idempotent": true,
+        "idempotent": false,
         "kind": "reconcile",
-        "reason": "A subscriber holds at most one active enrollment per sequence, so an ambiguous retry conflicts and replays the untouched pending enrollment when its context matches the request, reporting created: false; a progressed or differently-contexted enrollment keeps the explicit conflict.",
+        "reason": "An ambiguous retry conflicts while the enrollment is active and replays a provably untouched matching one as created: false, but once an enrollment reaches a terminal status the same request creates and schedules a fresh enrollment, so the operation is not idempotent.",
         "reconcileWith": "sequences.enrollments.list"
       },
       "since": "0.9.0",
-      "stability": "stable",
+      "stability": "experimental",
       "title": "Enroll subscriber in sequence",
       "verb": "enroll"
     },

@@ -281,9 +281,9 @@ export const sequenceEnrollOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "reconcile",
 		reconcileWith: "sequences.enrollments.list",
-		idempotent: true,
+		idempotent: false,
 		reason:
-			"A subscriber holds at most one active enrollment per sequence, so an ambiguous retry conflicts and replays the untouched pending enrollment when its context matches the request, reporting created: false; a progressed or differently-contexted enrollment keeps the explicit conflict.",
+			"An ambiguous retry conflicts while the enrollment is active and replays a provably untouched matching one as created: false, but once an enrollment reaches a terminal status the same request creates and schedules a fresh enrollment, so the operation is not idempotent.",
 	},
 	agent: {
 		useWhen: ["A known subscriber should enter a reviewed active sequence."],
@@ -292,14 +292,14 @@ export const sequenceEnrollOperationSpec = defineOperationSpec({
 		verifyWith: ["sequences.status"],
 		related: ["sequences.tick", "sequences.pause"],
 		retryGuidance:
-			"Verify the enrollment with sequences.enrollments.list before repeating an ambiguous enroll; an untouched identical enrollment replays with created: false.",
+			"Verify the enrollment with sequences.enrollments.list before repeating an ambiguous enroll; an untouched identical one replays with created: false, but a terminal enrollment lets the repeat start a fresh lifecycle.",
 	},
 	projection: {
 		mcpName: "listmonk_sequences_enroll",
 		openWorld: false,
 		graph: graphNodes("enroll"),
 	},
-	stability: "stable",
+	stability: "experimental",
 	since: "0.9.0",
 });
 

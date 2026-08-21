@@ -506,7 +506,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 83 are `stable` and 21 are `experimental`. The runtime-operation
+these, 82 are `stable` and 22 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -514,7 +514,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Eighty-three reviewed core operations are `stable`: the existing
+Eighty-two reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -589,10 +589,12 @@ gained a pending no-op (`retried: false`) but stays experimental: a
 dispatcher can complete the pending delivery first, so a repeat can
 still start another delivery cycle. A thirteenth batch promoted
 `sequences.update` (an identical repeat of an already-applied update
-reports `updated: false` without appending an equivalent revision) and
-`sequences.enroll` (an ambiguous retry conflicts and replays an
-untouched pending enrollment with a matching context as
-`created: false`). The remaining 21 descriptors are experimental.
+reports `updated: false` without appending an equivalent revision).
+`sequences.enroll` gained conflict-replay machinery (an ambiguous retry
+replays a provably untouched matching enrollment as `created: false`)
+but stays experimental: once an enrollment reaches a terminal status,
+the same request starts a fresh lifecycle. The remaining 22 descriptors
+are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -608,7 +610,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 83 stable compatibility baselines, and 317 direct
+runtime bridges, the 82 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are
