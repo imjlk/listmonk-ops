@@ -2,6 +2,7 @@ import type { tags } from "typia";
 import type {
 	ResourceId,
 	NonNegativeInteger,
+	NonEmptyString,
 	TrimmedNonEmptyString,
 	PositiveInteger,
 } from "./primitives";
@@ -144,4 +145,20 @@ export interface DeliverabilityGuardOutput {
 	};
 	breaches: string[];
 	paused: boolean;
+}
+
+export interface TemplateRollbackInput {
+	template_id: ResourceId;
+	/** Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version. */
+	to_version_id?: NonEmptyString;
+}
+
+export interface TemplateRollbackOutput {
+	templateId: ResourceId;
+	templateName: string;
+	versionId: string;
+	activeVersionId: string;
+	promotedAt: string;
+	/** False when the requested rollback was already applied. */
+	rolledBack: boolean;
 }

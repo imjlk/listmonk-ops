@@ -26739,16 +26739,24 @@
       "input": {
         "components": {
           "schemas": {
+            "NonEmptyString": {
+              "minLength": 1,
+              "type": "string"
+            },
             "ResourceId": {
               "maximum": 9007199254740991,
               "minimum": 1,
               "type": "integer"
             },
-            "TemplateIdInput": {
+            "TemplateRollbackInput": {
               "additionalProperties": false,
               "properties": {
                 "template_id": {
                   "$ref": "#/components/schemas/ResourceId"
+                },
+                "to_version_id": {
+                  "$ref": "#/components/schemas/NonEmptyString",
+                  "description": "Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version."
                 }
               },
               "required": [
@@ -26764,6 +26772,10 @@
           "properties": {
             "template_id": {
               "$ref": "#/components/schemas/ResourceId"
+            },
+            "to_version_id": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version."
             }
           },
           "required": [
@@ -26782,7 +26794,7 @@
               "minimum": 1,
               "type": "integer"
             },
-            "TemplatePromoteOutput": {
+            "TemplateRollbackOutput": {
               "additionalProperties": false,
               "properties": {
                 "activeVersionId": {
@@ -26790,6 +26802,10 @@
                 },
                 "promotedAt": {
                   "type": "string"
+                },
+                "rolledBack": {
+                  "description": "False when the requested rollback was already applied.",
+                  "type": "boolean"
                 },
                 "templateId": {
                   "$ref": "#/components/schemas/ResourceId"
@@ -26806,7 +26822,8 @@
                 "templateName",
                 "versionId",
                 "activeVersionId",
-                "promotedAt"
+                "promotedAt",
+                "rolledBack"
               ],
               "type": "object"
             }
@@ -26821,6 +26838,10 @@
             },
             "promotedAt": {
               "type": "string"
+            },
+            "rolledBack": {
+              "description": "False when the requested rollback was already applied.",
+              "type": "boolean"
             },
             "templateId": {
               "$ref": "#/components/schemas/ResourceId"
@@ -26837,7 +26858,8 @@
             "templateName",
             "versionId",
             "activeVersionId",
-            "promotedAt"
+            "promotedAt",
+            "rolledBack"
           ],
           "type": "object"
         },
@@ -26851,7 +26873,7 @@
       },
       "retry": {
         "kind": "unsafe",
-        "reason": "A retry may roll back to a different version if the registry was updated between calls."
+        "reason": "A pinned target (to_version_id) makes a repeat conflict when the registry moved to a different previous version, but an ABA transition — promoting the original version back — is indistinguishable without a source-version or generation pin, and the remote template may have drifted outside the registry; the rollback stays experimental until retries can detect both."
       },
       "since": "0.9.0",
       "stability": "experimental"

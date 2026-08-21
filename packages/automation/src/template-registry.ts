@@ -78,6 +78,16 @@ export interface TemplatePromoteResult {
 	promotedAt: string;
 }
 
+export interface TemplateRollbackResult {
+	templateId: number;
+	templateName: string;
+	versionId: string;
+	activeVersionId: string;
+	promotedAt: string;
+	/** False when the requested rollback was already applied. */
+	rolledBack: boolean;
+}
+
 export class TemplateRegistryWriteTransactionError extends Error {
 	constructor(message: string, cause: unknown) {
 		super(message, { cause });
@@ -441,13 +451,13 @@ async function promoteTemplateVersionInStore(
 	};
 }
 
-async function commitRemoteTemplateMutation(
+async function commitRemoteTemplateMutation<Result extends TemplatePromoteResult>(
 	storeDefinition: JsonFileStore<TemplateRegistryStore>,
 	templateId: number,
 	action: (
 		store: TemplateRegistryStore,
-	) => Promise<TemplatePromoteResult>,
-): Promise<TemplatePromoteResult> {
+	) => Promise<Result>,
+): Promise<Result> {
 	let remoteMutationCompleted = false;
 	try {
 		return await updateJsonFileStore(storeDefinition, async (store) => {
@@ -510,7 +520,8 @@ export async function promoteTemplateVersion(
 export async function rollbackTemplateVersion(
 	client: ListmonkClient,
 	templateId: number,
-): Promise<TemplatePromoteResult> {
+	options: { toVersionId?: string } = {},
+): Promise<TemplateRollbackResult> {
 	const storeDefinition = createTemplateRegistryStore();
 	return commitRemoteTemplateMutation(
 		storeDefinition,
@@ -523,7 +534,24 @@ export async function rollbackTemplateVersion(
 				);
 			}
 
-			let targetIndex = record.versions.length - 2;
+			// A pinned target that already equals the active version is the
+			// already-applied case even when no further previous version
+			// exists, so check it before resolving the dynamic target.
+			if (
+				options.toVersionId !== undefined &&
+				record.activeVersionId === options.toVersionId
+			) {
+				return {
+					templateId,
+					templateName: record.templateName,
+					versionId: options.toVersionId,
+					activeVersionId: record.activeVersionId,
+					promotedAt: new Date().toISOString(),
+					rolledBack: false,
+				};
+			}
+
+			let targetIndex: number | undefined = undefined;
 			if (record.activeVersionId) {
 				const activeIndex = record.versions.findIndex(
 					(version) => version.versionId === record.activeVersionId,
@@ -531,6 +559,11 @@ export async function rollbackTemplateVersion(
 				if (activeIndex > 0) {
 					targetIndex = activeIndex - 1;
 				}
+			}
+			if (targetIndex === undefined) {
+				throw new Error(
+					`Template ${templateId} has no previous version to roll back to`,
+				);
 			}
 
 			const targetVersion = record.versions[targetIndex];
@@ -540,12 +573,26 @@ export async function rollbackTemplateVersion(
 				);
 			}
 
-			return promoteTemplateVersionInStore(
+			// An explicit target pins the rollback: when the active version
+			// already equals it the rollback is already applied (a documented
+			// no-op), and when the registry moved so the resolved target is
+			// no longer reachable the request fails instead of silently
+			// rolling to a different version.
+			if (options.toVersionId !== undefined) {
+				if (targetVersion.versionId !== options.toVersionId) {
+					throw new Error(
+						`Rollback target ${options.toVersionId} is no longer the previous version of template ${templateId}`,
+					);
+				}
+			}
+
+			const promoted = await promoteTemplateVersionInStore(
 				client,
 				templateId,
 				targetVersion.versionId,
 				store,
 			);
+			return { ...promoted, rolledBack: true };
 		},
 	);
 }

@@ -584,6 +584,10 @@ batch에서는 조건부 retry 시맨틱의 `sequences.update`(최신 revision�
 `sequences.enroll`는 충돌 재생 장치(애매한 재시도가 검증 가능하게 미진행인
 일치 등록을 `created: false`로 재생)를 얻었지만 experimental로 유지됩니다.
 등록이 terminal에 도달하면 같은 요청이 새 lifecycle을 시작하기 때문입니다.
+열네 번째 batch에서는 `ops.templates.registry-rollback`에 선택적
+`to_version_id` 핀을 추가했습니다(이동한 registry에서 핀된 반복은 충돌,
+이미 적용된 핀은 `rolled_back: false`). 그러나 ABA 전이와 registry 밖의
+원격 drift가 원본 버전 핀 없이는 구별 불가능해 experimental로 유지됩니다.
 현재 stable baseline은 82개이며, 나머지 experimental descriptor는 22개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
@@ -860,6 +864,8 @@ listmonk-cli ops templates-sync
 listmonk-cli ops templates-history --template-id 10
 listmonk-cli ops templates-promote --template-id 10 --version-id v_... --confirm
 listmonk-cli ops templates-rollback --template-id 10 --confirm
+# --to-version-id로 대상을 핀하면 애매한 재시도가 재생되거나 명시적으로
+# 실패하고, 다른 버전으로 rollback되지 않습니다.
 
 # 6) 데일리 다이제스트
 listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md

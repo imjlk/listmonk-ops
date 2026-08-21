@@ -351,13 +351,25 @@ export default defineGroup({
 				"template-id": option(z.coerce.number().int().positive(), {
 					description: "Template ID",
 				}),
+				"to-version-id": option(z.string().trim().min(1).optional(), {
+					description:
+						"Explicit rollback target from templates-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version",
+				}),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
 					const client = await getListmonkClient(args);
 					const result = await invokeTemplateRegistryRollbackOperation(
 						{ client },
-						{ template_id: flags["template-id"] },
+						{
+							template_id: flags["template-id"],
+							to_version_id: flags["to-version-id"],
+						},
+					);
+					getOutput().success(
+						result.rolledBack
+							? `Template ${flags["template-id"]} rolled back to ${result.versionId}`
+							: `Template ${flags["template-id"]} already rolled back to ${result.versionId}`,
 					);
 					getOutput().json(result);
 				} catch (error) {

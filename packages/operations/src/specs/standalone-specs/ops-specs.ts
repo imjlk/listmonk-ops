@@ -12,6 +12,8 @@ import {
 	templateRegistrySyncOutputContract,
 	templateRegistryHistoryOutputContract,
 	templateIdInputContract,
+	templateRollbackInputContract,
+	templateRollbackOutputContract,
 	templatePromoteInputContract,
 	templatePromoteOutputContract,
 } from "../contract-schemas";
@@ -369,14 +371,15 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 	title: "Rollback template version",
 	description: "Rollback a Listmonk template to its previous stored version",
 	contract: {
-		input: templateIdInputContract,
-		output: templatePromoteOutputContract,
+		input: templateRollbackInputContract,
+		output: templateRollbackOutputContract,
 	},
 	effects: [{ kind: "write", resource: "template", reversible: false }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
 		kind: "unsafe",
-		reason: "A retry may roll back to a different version if the registry was updated between calls.",
+		reason:
+			"A pinned target (to_version_id) makes a repeat conflict when the registry moved to a different previous version, but an ABA transition — promoting the original version back — is indistinguishable without a source-version or generation pin, and the remote template may have drifted outside the registry; the rollback stays experimental until retries can detect both.",
 	},
 	agent: {
 		useWhen: ["A template must be reverted to its previous stored version."],
@@ -384,7 +387,8 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 		prerequisites: ["ops.templates.registry-history"],
 		verifyWith: ["templates.get"],
 		related: ["ops.templates.registry-sync", "ops.templates.registry-promote"],
-		retryGuidance: "Inspect ops.templates.registry-history before retrying an ambiguous rollback.",
+		retryGuidance:
+			"Pin the target with to_version_id from ops.templates.registry-history before retrying an ambiguous rollback, and inspect templates.get and the registry history for intervening promotes; a pinned repeat conflicts when the registry moved to a different previous version.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_template_registry_rollback",

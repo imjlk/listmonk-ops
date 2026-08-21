@@ -595,8 +595,12 @@ unsafe).
 `sequences.enroll` gained conflict-replay machinery (an ambiguous retry
 replays a provably untouched matching enrollment as `created: false`)
 but stays experimental: once an enrollment reaches a terminal status,
-the same request starts a fresh lifecycle. The remaining 22 descriptors
-are experimental.
+the same request starts a fresh lifecycle. A fourteenth batch gave `ops.templates.registry-rollback` an optional
+`to_version_id` pin (a moved registry makes a pinned repeat conflict,
+and an already-applied pin reports `rolled_back: false`) but it stays
+experimental: ABA transitions and remote drift outside the registry are
+indistinguishable without a source-version pin. The remaining 22
+descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -884,6 +888,8 @@ listmonk-cli ops templates-sync
 listmonk-cli ops templates-history --template-id 10
 listmonk-cli ops templates-promote --template-id 10 --version-id v_... --confirm
 listmonk-cli ops templates-rollback --template-id 10 --confirm
+# Pin the target with --to-version-id so an ambiguous retry replays or
+# fails explicitly instead of rolling to a different version.
 
 # 6) Daily digest
 listmonk-cli ops digest --hours 24 --output /tmp/listmonk-ops-digest.md
