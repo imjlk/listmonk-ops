@@ -455,6 +455,14 @@ export interface OutboundWebhookRepository {
 		id: string,
 		now: Date,
 	): Promise<RetryOutboundWebhookDeliveryResult>;
+	/** Atomically transitions still-exhausted deliveries back to pending. */
+	replayDeadLetters(options: {
+		endpointId?: string;
+		deliveryIds?: readonly string[];
+		limit: number;
+		dryRun: boolean;
+		now: Date;
+	}): Promise<ReplayOutboundWebhookDeadLettersResult>;
 	claimDeliveries(options: Readonly<{
 		limit: number;
 		now: Date;
@@ -824,6 +832,8 @@ export function createFileOutboundWebhookRepository(
 			listOutboundWebhookDeliveries({ ...fileOptions, ...listOptions }),
 		retryDelivery: (id, now) =>
 			retryOutboundWebhookDelivery(id, { ...fileOptions, now }),
+		replayDeadLetters: (replayOptions) =>
+			replayOutboundWebhookDeadLetters({ ...fileOptions, ...replayOptions }),
 		claimDeliveries: (claimOptions) =>
 			claimOutboundWebhookDeliveries({
 				...fileOptions,
@@ -1539,95 +1549,17 @@ export async function replayOutboundWebhookDeadLetters(
 			);
 		});
 	}
-	// An echoed set must be resolved before pagination: one bulk listing
-	// with a raised cap so newer dead letters cannot displace the previewed
-	// ids from a limited page, then filter to the echoed ids locally.
-	const requestedIds =
-		options.deliveryIds === undefined
-			? undefined
-			: new Set(options.deliveryIds);
-	const deliveries =
-		requestedIds === undefined
-			? await listOutboundWebhookDeliveries({
-					...options,
-					endpointId: options.endpointId,
-					status: "exhausted",
-					limit,
-				})
-			: await listOutboundWebhookDeliveries({
-					...options,
-					endpointId: options.endpointId,
-					status: "exhausted",
-					// The store filters by the echoed ids before pagination,
-					// and the query is sized to the echoed set so an
-					// independently smaller limit cannot silently replay only
-					// part of the reviewed set.
-					deliveryIds: [...requestedIds],
-					limit: requestedIds.size,
-				});
-	if (dryRun) {
-		return {
-			eligible: deliveries.length,
-			replayed: 0,
-			failed: 0,
-			dryRun: true,
-			deliveryIds: deliveries.map((delivery) => delivery.id),
-			errors: [],
-		};
-	}
-	const deliveryIds: string[] = [];
-	const errors: ReplayDeadLetterError[] = [];
-	const replayConcurrency = 10;
-	for (let offset = 0; offset < deliveries.length; offset += replayConcurrency) {
-		const batch = deliveries.slice(offset, offset + replayConcurrency);
-		const results = await Promise.all(
-			batch.map(async (delivery) => {
-				try {
-					const { retried } = await retryOutboundWebhookDelivery(
-						delivery.id,
-						{
-							...options,
-							now: options.now,
-						},
-					);
-					return {
-						deliveryId: delivery.id,
-						error: undefined,
-						errorCode: undefined,
-						// A concurrent replay may have requeued this delivery
-						// already; report it so the aggregate count stays honest.
-						retried,
-					};
-				} catch (error) {
-					return {
-						deliveryId: delivery.id,
-						error: truncateOutboundWebhookError(error),
-						errorCode: classifyReplayDeadLetterError(error),
-					};
-				}
-			}),
-		);
-		for (const result of results) {
-			if (result.error === undefined && result.retried) {
-				deliveryIds.push(result.deliveryId);
-			} else if (result.error === undefined) {
-				continue;
-			} else {
-				errors.push({
-					deliveryId: result.deliveryId,
-					errorCode: result.errorCode,
-				});
-			}
-		}
-	}
-	return {
-		eligible: deliveries.length,
-		replayed: deliveryIds.length,
-		failed: errors.length,
-		dryRun: false,
-		deliveryIds,
-		errors,
-	};
+	// The repository performs the whole selection and transition
+	// atomically, so an overlapping replay or worker cannot double-claim a
+	// record that already left the dead-letter set.
+	return options.repository.replayDeadLetters({
+		endpointId: options.endpointId,
+		deliveryIds: options.deliveryIds,
+		limit,
+		dryRun,
+		now: options.now ?? new Date(),
+	});
+
 }
 
 function resolveMaintenanceLimit(limit: number | undefined): number {

@@ -1049,7 +1049,7 @@ export const webhookDlqReplayOperationSpec = defineOperationSpec({
 		reconcileWith: "webhooks.dlq.list",
 		idempotent: false,
 		reason:
-			"Destructive runs replay exactly the echoed dead-letter set and already-requeued records are skipped, but a worker can re-exhaust a replayed record before the retry, making the identical echoed request eligible again and starting another attempt cycle; the replay stays experimental until the echo carries a delivery generation.",
+			"Destructive runs transition exactly the echoed dead-letter set atomically (only records still exhausted move, in both stores), but a worker can re-exhaust a replayed record before the retry, making the identical echoed request eligible again and starting another attempt cycle; the replay stays experimental until the echo carries a delivery generation.",
 	},
 	agent: {
 		useWhen: ["Reviewed dead letters should receive a fresh bounded attempt cycle."],
