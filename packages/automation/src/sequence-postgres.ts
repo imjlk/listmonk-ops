@@ -23,6 +23,7 @@ import {
 	type SequenceRuntimeHealth,
 	type UpdateSequenceDefinitionInput,
 	validateSequenceSteps,
+	canonicalStepsJson,
 } from "./sequences";
 
 export const SEQUENCE_POSTGRES_SCHEMA_VERSION = 2;
@@ -651,6 +652,24 @@ export function createPostgresSequenceRepository(
 					throw new SequenceNotFoundError("definition", id);
 				}
 				const previous = toDefinition(row);
+				const steps = validateSequenceSteps(input.steps);
+				// An identical update is already applied when the resolved
+				// name and description match and the latest revision carries
+				// the requested steps: repeating it is a documented no-op.
+				const latestRevision = [...previous.revisions]
+					.sort((left, right) => right.revision - left.revision)
+					.at(0);
+				const alreadyApplied =
+					(input.name === undefined || previous.name === input.name) &&
+					(input.description === undefined ||
+						(previous.description ?? undefined) ===
+							(input.description ?? undefined)) &&
+					latestRevision !== undefined &&
+					canonicalStepsJson(latestRevision.steps) ===
+						canonicalStepsJson(steps);
+				if (alreadyApplied) {
+					return { definition: previous, updated: false };
+				}
 				const revision = previous.currentRevision + 1;
 				const updated = parsePersistedSequenceDefinition({
 					...previous,
@@ -661,7 +680,7 @@ export function createPostgresSequenceRepository(
 						...previous.revisions,
 						{
 							revision,
-							steps: validateSequenceSteps(input.steps),
+							steps,
 							createdAt: now.toISOString(),
 						},
 					],
@@ -685,7 +704,7 @@ export function createPostgresSequenceRepository(
 					}
 					throw error;
 				}
-				return updated;
+				return { definition: updated, updated: true };
 			});
 		},
 		async deleteDefinition(id) {

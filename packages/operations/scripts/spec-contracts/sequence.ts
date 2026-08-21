@@ -154,11 +154,21 @@ export interface SequenceDeleteOutput {
 	sequence?: SequenceDefinition | undefined;
 }
 
+export interface SequenceUpdateOutput {
+	sequence: SequenceDefinition;
+	updated: boolean;
+}
+
 export interface SequenceEnrollInput {
 	id: string & tags.Format<"uuid">;
 	subscriber_id: ResourceId;
 	context?: Record<string, unknown> | undefined;
 	start_at?: IsoDateTime | undefined;
+}
+
+export interface SequenceEnrollOutput {
+	enrollment: SequenceEnrollment;
+	created: boolean;
 }
 
 export interface SequenceEnrollmentOutput {

@@ -43,6 +43,8 @@ import type {
 	SpecSearchOutput,
 	SequenceCreateInput,
 	SequenceCreateOutput,
+	SequenceEnrollOutput,
+	SequenceUpdateOutput,
 	SequenceDefinitionOutput,
 	SequenceDeleteOutput,
 	SequenceEnrollInput,
@@ -363,6 +365,9 @@ const contracts = {
 	sequenceDefinitionOutputContract: contractSchema(
 		typia.json.schema<SequenceDefinitionOutput>(),
 	),
+	sequenceUpdateOutputContract: contractSchema(
+		typia.json.schema<SequenceUpdateOutput>(),
+	),
 	sequenceUpdateInputContract: contractSchema(
 		typia.json.schema<SequenceUpdateInput>(),
 	),
@@ -375,6 +380,9 @@ const contracts = {
 	sequenceIdInputContract: contractSchema(typia.json.schema<SequenceIdInput>()),
 	sequenceDeleteOutputContract: contractSchema(
 		typia.json.schema<SequenceDeleteOutput>(),
+	),
+	sequenceEnrollOutputContract: contractSchema(
+		typia.json.schema<SequenceEnrollOutput>(),
 	),
 	sequenceEnrollInputContract: contractSchema(
 		typia.json.schema<SequenceEnrollInput>(),

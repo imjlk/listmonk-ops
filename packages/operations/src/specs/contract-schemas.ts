@@ -41,11 +41,13 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	sequenceCreateOutputContract: NormalizedContractSchema;
 	sequenceDefinitionOutputContract: NormalizedContractSchema;
 	sequenceUpdateInputContract: NormalizedContractSchema;
+	sequenceUpdateOutputContract: NormalizedContractSchema;
 	sequenceListInputContract: NormalizedContractSchema;
 	sequenceListOutputContract: NormalizedContractSchema;
 	sequenceIdInputContract: NormalizedContractSchema;
 	sequenceDeleteOutputContract: NormalizedContractSchema;
 	sequenceEnrollInputContract: NormalizedContractSchema;
+	sequenceEnrollOutputContract: NormalizedContractSchema;
 	sequenceEnrollmentOutputContract: NormalizedContractSchema;
 	sequenceEnrollmentListInputContract: NormalizedContractSchema;
 	sequenceEnrollmentListOutputContract: NormalizedContractSchema;
@@ -232,6 +234,8 @@ export const sequenceDefinitionOutputContract =
 	contracts.sequenceDefinitionOutputContract;
 export const sequenceUpdateInputContract =
 	contracts.sequenceUpdateInputContract;
+export const sequenceUpdateOutputContract =
+	contracts.sequenceUpdateOutputContract;
 export const sequenceListInputContract = contracts.sequenceListInputContract;
 export const sequenceListOutputContract = contracts.sequenceListOutputContract;
 export const sequenceIdInputContract = contracts.sequenceIdInputContract;
@@ -239,6 +243,8 @@ export const sequenceDeleteOutputContract =
 	contracts.sequenceDeleteOutputContract;
 export const sequenceEnrollInputContract =
 	contracts.sequenceEnrollInputContract;
+export const sequenceEnrollOutputContract =
+	contracts.sequenceEnrollOutputContract;
 export const sequenceEnrollmentOutputContract =
 	contracts.sequenceEnrollmentOutputContract;
 export const sequenceEnrollmentListInputContract =

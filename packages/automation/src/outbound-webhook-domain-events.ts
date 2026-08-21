@@ -378,12 +378,22 @@ function sequenceProjection(
 				data: { revision: resource["current_revision"] },
 			}));
 		case "sequences.update":
+			// The updated flag lives on the operation envelope next to the
+			// resource; a documented no-op repeat emits no lifecycle event.
+			if (asRecord(input.operationOutput)?.["updated"] === false) {
+				return [];
+			}
 			return projectWhen(sequence, (resource) => ({
 				...common,
 				type: "sequence.revised",
 				data: { revision: resource["current_revision"] },
 			}));
 		case "sequences.enroll":
+			// A replayed untouched enrollment reports created: false and
+			// emits no lifecycle event.
+			if (asRecord(input.operationOutput)?.["created"] === false) {
+				return [];
+			}
 			return projectWhen(enrollment, (resource) => ({
 				...common,
 				type: "sequence.enrolled",

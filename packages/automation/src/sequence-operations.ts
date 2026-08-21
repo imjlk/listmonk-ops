@@ -46,6 +46,7 @@ import {
 	type SequenceRepository,
 	type SequenceStep,
 	validateSequenceSteps,
+	canonicalJsonValue,
 } from "./sequences";
 
 export interface SequenceOperationContext {
@@ -274,6 +275,14 @@ const sequenceListOutputSchema = z.object({
 });
 const sequenceCreateOutputSchema = z.object({
 	sequence: sequenceDefinitionOutputSchema,
+	created: z.boolean(),
+});
+const sequenceUpdateOutputSchema = z.object({
+	sequence: sequenceDefinitionOutputSchema,
+	updated: z.boolean(),
+});
+const sequenceEnrollOutputSchema = z.object({
+	enrollment: sequenceEnrollmentOutputSchema,
 	created: z.boolean(),
 });
 // Operation output schemas must keep an object root, so the deleted/sequence
@@ -556,7 +565,7 @@ export async function executeSequenceUpdateOperation(
 	context: SequenceOperationContext,
 	input: z.output<typeof sequenceUpdateInputSchema>,
 ) {
-	const updated = await repository(context).updateDefinition(
+	const { definition, updated } = await repository(context).updateDefinition(
 		input.id,
 		{
 			name: input.name,
@@ -565,7 +574,7 @@ export async function executeSequenceUpdateOperation(
 		},
 		context.now?.() ?? new Date(),
 	);
-	return { sequence: toDefinitionOutput(updated) };
+	return { sequence: toDefinitionOutput(definition), updated };
 }
 
 export async function executeSequenceListOperation(
@@ -607,6 +616,12 @@ export async function executeSequenceDeleteOperation(
 	}
 }
 
+function canonicalContextJson(
+	context: Readonly<Record<string, unknown>>,
+): string {
+	return JSON.stringify(canonicalJsonValue(context));
+}
+
 export async function executeSequenceEnrollOperation(
 	context: SequenceOperationContext,
 	input: z.output<typeof sequenceEnrollInputSchema>,
@@ -623,8 +638,50 @@ export async function executeSequenceEnrollOperation(
 		},
 		context.now?.() ?? new Date(),
 	);
-	const created = await store.createEnrollment(enrollment);
-	return { enrollment: toEnrollmentOutput(created) };
+	try {
+		const created = await store.createEnrollment(enrollment);
+		return { enrollment: toEnrollmentOutput(created), created: true };
+	} catch (error) {
+		if (!(error instanceof SequenceConflictError)) {
+			throw error;
+		}
+		// A subscriber can hold only one active enrollment per sequence, so
+		// an ambiguous retry conflicts. Replay only when the conflicting
+		// enrollment is provably untouched — pending, never attempted, and
+		// never transitioned (lastTransitionAt still equals createdAt) —
+		// with a matching context and, when the request schedules a start,
+		// the same activation time; anything else keeps the explicit
+		// conflict.
+		const active = (
+			await store.listEnrollments({
+				sequenceId: input.id,
+				subscriberId: input.subscriber_id,
+				status: "pending",
+			})
+		).at(0);
+		const untouched =
+			active !== undefined &&
+			active.retryCount === 0 &&
+			active.lastTransitionAt === active.createdAt &&
+			// The replay must pin the same revision a fresh enroll would and
+			// still sit on that revision's first step; an advanced step means
+			// the engine has progressed the record even when a fixed clock
+			// leaves the transition timestamp equal to creation.
+			active.revision === enrollment.revision &&
+			active.currentStepId === enrollment.currentStepId;
+		const startMatches =
+			input.start_at === undefined || active?.nextRunAt === input.start_at;
+		if (
+			!active ||
+			!untouched ||
+			!startMatches ||
+			canonicalContextJson(active.context) !==
+				canonicalContextJson(input.context)
+		) {
+			throw error;
+		}
+		return { enrollment: toEnrollmentOutput(active), created: false };
+	}
 }
 
 export async function executeSequenceEnrollmentListOperation(
@@ -787,7 +844,7 @@ export const sequenceUpdateOperation = defineOperation({
 	description:
 		"Append an immutable revision while existing enrollments stay pinned to their original revision.",
 	inputSchema: sequenceUpdateInputSchema,
-	outputSchema: sequenceDefinitionEnvelopeSchema,
+	outputSchema: sequenceUpdateOutputSchema,
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: false,
@@ -854,7 +911,7 @@ export const sequenceEnrollOperation = defineOperation({
 	description:
 		"Pin one subscriber to the current immutable sequence revision and schedule its first step.",
 	inputSchema: sequenceEnrollInputSchema,
-	outputSchema: sequenceEnrollmentEnvelopeSchema,
+	outputSchema: sequenceEnrollOutputSchema,
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: false,

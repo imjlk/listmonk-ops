@@ -9724,18 +9724,6 @@
               ],
               "type": "object"
             },
-            "SequenceDefinitionOutput": {
-              "additionalProperties": false,
-              "properties": {
-                "sequence": {
-                  "$ref": "#/components/schemas/SequenceDefinition"
-                }
-              },
-              "required": [
-                "sequence"
-              ],
-              "type": "object"
-            },
             "SequenceName": {
               "maxLength": 120,
               "minLength": 1,
@@ -9789,6 +9777,22 @@
                 "created_at"
               ],
               "type": "object"
+            },
+            "SequenceUpdateOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "sequence": {
+                  "$ref": "#/components/schemas/SequenceDefinition"
+                },
+                "updated": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "sequence",
+                "updated"
+              ],
+              "type": "object"
             }
           }
         },
@@ -9798,10 +9802,14 @@
           "properties": {
             "sequence": {
               "$ref": "#/components/schemas/SequenceDefinition"
+            },
+            "updated": {
+              "type": "boolean"
             }
           },
           "required": [
-            "sequence"
+            "sequence",
+            "updated"
           ],
           "type": "object"
         },
@@ -9814,11 +9822,27 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "Repeating the update appends another revision."
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The resolved name and description match and the latest revision carries the requested steps, so the repeat reports updated: false without appending an equivalent revision."
+            },
+            "when": "the latest revision already carries the requested steps"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "The repeat appends the requested steps as a new revision, superseding any intervening update that committed after the ambiguous attempt."
+            },
+            "when": "an intervening revision superseded the request"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the latest revision already carries the requested steps."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "sequences.list",
@@ -10520,6 +10544,22 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SequenceEnrollOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "created": {
+                  "type": "boolean"
+                },
+                "enrollment": {
+                  "$ref": "#/components/schemas/SequenceEnrollment"
+                }
+              },
+              "required": [
+                "enrollment",
+                "created"
+              ],
+              "type": "object"
+            },
             "SequenceEnrollment": {
               "additionalProperties": false,
               "properties": {
@@ -10599,18 +10639,6 @@
               ],
               "type": "object"
             },
-            "SequenceEnrollmentOutput": {
-              "additionalProperties": false,
-              "properties": {
-                "enrollment": {
-                  "$ref": "#/components/schemas/SequenceEnrollment"
-                }
-              },
-              "required": [
-                "enrollment"
-              ],
-              "type": "object"
-            },
             "SequenceStepId": {
               "maxLength": 80,
               "minLength": 1,
@@ -10623,12 +10651,16 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "created": {
+              "type": "boolean"
+            },
             "enrollment": {
               "$ref": "#/components/schemas/SequenceEnrollment"
             }
           },
           "required": [
-            "enrollment"
+            "enrollment",
+            "created"
           ],
           "type": "object"
         },
@@ -10643,8 +10675,8 @@
       "retry": {
         "idempotent": false,
         "kind": "reconcile",
-        "reason": "A retry can create another enrollment after a terminal run.",
-        "reconcileWith": "sequences.status"
+        "reason": "An ambiguous retry conflicts while the enrollment is active and replays a provably untouched matching one as created: false, but once an enrollment reaches a terminal status the same request creates and schedules a fresh enrollment, so the operation is not idempotent.",
+        "reconcileWith": "sequences.enrollments.list"
       },
       "since": "0.9.0",
       "stability": "experimental"

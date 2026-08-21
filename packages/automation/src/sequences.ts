@@ -125,6 +125,11 @@ export type SequenceDefinition = Readonly<{
 	updatedAt: string;
 }>;
 
+export type SequenceUpdateResult = Readonly<{
+	definition: SequenceDefinition;
+	updated: boolean;
+}>;
+
 export type SequenceEnrollment = Readonly<{
 	id: string;
 	sequenceId: string;
@@ -248,7 +253,7 @@ export interface SequenceRepository {
 		id: string,
 		input: UpdateSequenceDefinitionInput,
 		now: Date,
-	): Promise<SequenceDefinition>;
+	): Promise<SequenceUpdateResult>;
 	deleteDefinition(id: string): Promise<SequenceDefinition>;
 	setDefinitionStatus(
 		id: string,
@@ -587,6 +592,34 @@ function replaceById<T extends { readonly id: string }>(
 	);
 }
 
+export function canonicalJsonValue(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(canonicalJsonValue);
+	}
+	if (value !== null && typeof value === "object") {
+		const record = value as Record<string, unknown>;
+		return Object.fromEntries(
+			Object.keys(record)
+				.sort()
+				.map((key) => [key, canonicalJsonValue(record[key])]),
+		);
+	}
+	return value;
+}
+
+export function canonicalStepsJson(steps: readonly SequenceStep[]): string {
+	return JSON.stringify(
+		steps.map((step) => {
+			const record = step as unknown as Record<string, unknown>;
+			return Object.fromEntries(
+				Object.keys(record)
+					.sort()
+					.map((key) => [key, canonicalJsonValue(record[key])]),
+			);
+		}),
+	);
+}
+
 function enrollmentIsTerminal(status: SequenceEnrollmentStatus): boolean {
 	return ["completed", "failed", "cancelled"].includes(status);
 }
@@ -657,6 +690,28 @@ export function createFileSequenceRepository(
 					);
 				}
 				const steps = validateSequenceSteps(input.steps);
+				// An identical update is already applied when the resolved
+				// name and description match and the latest revision carries
+				// the requested steps: repeating it is a documented no-op
+				// instead of a duplicate equivalent revision.
+				const latestRevision = [...previous.revisions]
+					.sort((left, right) => right.revision - left.revision)
+					.at(0);
+				const alreadyApplied =
+					(input.name === undefined || previous.name === input.name) &&
+					(input.description === undefined ||
+						(previous.description ?? undefined) ===
+							(input.description ?? undefined)) &&
+					latestRevision !== undefined &&
+					canonicalStepsJson(latestRevision.steps) ===
+						canonicalStepsJson(steps);
+				if (alreadyApplied) {
+					const noOpResult: SequenceUpdateResult = {
+						definition: previous,
+						updated: false,
+					};
+					return commitJsonFileStoreUpdate(current, noOpResult);
+				}
 				const revision = previous.currentRevision + 1;
 				const updated = parsePersistedSequenceDefinition({
 					...previous,
@@ -669,12 +724,16 @@ export function createFileSequenceRepository(
 					],
 					updatedAt: now.toISOString(),
 				});
+				const updatedResult: SequenceUpdateResult = {
+					definition: updated,
+					updated: true,
+				};
 				return commitJsonFileStoreUpdate(
 					{
 						...current,
 						definitions: replaceById(current.definitions, updated),
 					},
-					updated,
+					updatedResult,
 				);
 			});
 		},

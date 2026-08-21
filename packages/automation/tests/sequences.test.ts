@@ -15,6 +15,8 @@ import {
 import {
 	invokeSequenceCreateOperation,
 	invokeSequenceDeleteOperation,
+	invokeSequenceEnrollOperation,
+	invokeSequenceUpdateOperation,
 	invokeSequencePauseOperation,
 	invokeSequenceResumeOperation,
 	invokeSequenceStatusOperation,
@@ -133,6 +135,89 @@ describe("sequence definitions and file persistence", () => {
 				},
 			),
 		).rejects.toThrow(/already exists/);
+	});
+
+	test("repeats an identical sequence update as a documented no-op", async () => {
+		const { repository } = await createStores();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{ name: "update-noop", steps: [{ id: "stop", type: "stop" }] },
+				new Date("2026-08-01T09:00:00.000Z"),
+			),
+		);
+		const updated = await invokeSequenceUpdateOperation(
+			{ repository },
+			{
+				id: definition.id,
+				steps: [
+					{ id: "wait", type: "wait", duration_seconds: 60 },
+					{ id: "stop", type: "stop" },
+				],
+			},
+		);
+		expect(updated.updated).toBe(true);
+		expect(updated.sequence.current_revision).toBe(2);
+
+		// The identical repeat is already applied: no extra revision.
+		const repeated = await invokeSequenceUpdateOperation(
+			{ repository },
+			{
+				id: definition.id,
+				steps: [
+					{ id: "wait", type: "wait", duration_seconds: 60 },
+					{ id: "stop", type: "stop" },
+				],
+			},
+		);
+		expect(repeated.updated).toBe(false);
+		expect(repeated.sequence.current_revision).toBe(2);
+		expect(repeated.sequence.id).toBe(updated.sequence.id);
+
+		// A genuinely different update still appends a revision.
+		const changed = await invokeSequenceUpdateOperation(
+			{ repository },
+			{
+				id: definition.id,
+				steps: [
+					{ id: "wait", type: "wait", duration_seconds: 120 },
+					{ id: "stop", type: "stop" },
+				],
+			},
+		);
+		expect(changed.updated).toBe(true);
+		expect(changed.sequence.current_revision).toBe(3);
+	});
+
+	test("replays an untouched identical enrollment and conflicts otherwise", async () => {
+		const { repository } = await createStores();
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{ name: "enroll-replay", steps: [{ id: "stop", type: "stop" }] },
+				new Date("2026-08-01T09:00:00.000Z"),
+			),
+		);
+
+		const first = await invokeSequenceEnrollOperation(
+			{ repository },
+			{ id: definition.id, subscriber_id: 7, context: { plan: "pro" } },
+		);
+		expect(first.created).toBe(true);
+
+		// An identical retry replays the untouched pending enrollment.
+		const replayed = await invokeSequenceEnrollOperation(
+			{ repository },
+			{ id: definition.id, subscriber_id: 7, context: { plan: "pro" } },
+		);
+		expect(replayed.created).toBe(false);
+		expect(replayed.enrollment.id).toBe(first.enrollment.id);
+
+		// A different context under the same subscriber stays a conflict.
+		await expect(
+			invokeSequenceEnrollOperation(
+				{ repository },
+				{ id: definition.id, subscriber_id: 7, context: { plan: "team" } },
+			),
+		).rejects.toThrow(/already has an active enrollment/);
 	});
 
 	test("reports a repeated sequence delete as a documented no-op", async () => {
@@ -283,7 +368,7 @@ describe("sequence definitions and file persistence", () => {
 				now,
 			),
 		);
-		const updated = await repository.updateDefinition(
+		const { definition: updated } = await repository.updateDefinition(
 			definition.id,
 			{ steps: [{ id: "stop-v2", type: "stop" }] },
 			new Date("2026-08-01T10:00:00.000Z"),
