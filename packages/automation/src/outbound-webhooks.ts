@@ -1533,11 +1533,15 @@ export async function replayOutboundWebhookDeadLetters(
 			);
 		});
 	}
-	// An echoed set must be resolved before pagination: fetch every
-	// requested id directly so newer dead letters cannot displace the
-	// previewed ids from a limited listing.
-	const deliveries =
+	// An echoed set must be resolved before pagination: one bulk listing
+	// with a raised cap so newer dead letters cannot displace the previewed
+	// ids from a limited page, then filter to the echoed ids locally.
+	const requestedIds =
 		options.deliveryIds === undefined
+			? undefined
+			: new Set(options.deliveryIds);
+	const deliveries =
+		requestedIds === undefined
 			? await listOutboundWebhookDeliveries({
 					...options,
 					endpointId: options.endpointId,
@@ -1545,21 +1549,16 @@ export async function replayOutboundWebhookDeadLetters(
 					limit,
 				})
 			: (
-					await Promise.all(
-						[...new Set(options.deliveryIds)].map((deliveryId) =>
-							listOutboundWebhookDeliveries({
-								...options,
-								endpointId: options.endpointId,
-								status: "exhausted",
-								eventId: undefined,
-								deliveryId,
-								limit: 1,
-							}),
-						),
-					)
-				)
-					.flat()
-					.filter((delivery) => delivery.status === "exhausted");
+					await listOutboundWebhookDeliveries({
+						...options,
+						endpointId: options.endpointId,
+						status: "exhausted",
+						// The echoed set is capped at 1000 by the contract;
+						// fetch that whole page so every echoed id is visible
+						// regardless of ordering, then filter locally.
+						limit: Math.max(limit, requestedIds.size),
+					})
+				).filter((delivery) => requestedIds.has(delivery.id));
 	if (dryRun) {
 		return {
 			eligible: deliveries.length,

@@ -308,6 +308,9 @@ const webhookDlqListInputSchema = z.object({
 	endpoint_id: endpointIdInput.optional(),
 	limit: webhookDeliveryListLimitInput.default(100),
 });
+// The operation schema system requires an object root, so the destructive
+// variant's delivery_ids requirement is enforced by superRefine at the
+// boundary (the standalone TypeScript contract models it as a union).
 const webhookDlqReplayInputSchema = z
 	.object({
 		endpoint_id: endpointIdInput.optional(),
@@ -316,7 +319,7 @@ const webhookDlqReplayInputSchema = z
 			.max(1_000)
 			.optional()
 			.describe(
-				"Exact dead-letter set reported by a dry run; required for destructive runs so a retry replays nothing new",
+				"Exact dead-letter set reported by a dry run; required when dry_run is false",
 			),
 		limit: webhookDeliveryListLimitInput.default(100),
 		dry_run: booleanInput.default(true),
