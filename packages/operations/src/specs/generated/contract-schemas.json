@@ -23428,6 +23428,7 @@
                     "$ref": "#/components/schemas/Uuid"
                   },
                   "maxItems": 1000,
+                  "minItems": 1,
                   "type": "array"
                 },
                 "dry_run": {
@@ -23479,6 +23480,7 @@
                 "$ref": "#/components/schemas/Uuid"
               },
               "maxItems": 1000,
+              "minItems": 1,
               "type": "array"
             },
             "dry_run": {

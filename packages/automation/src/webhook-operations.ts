@@ -316,6 +316,7 @@ const webhookDlqReplayInputSchema = z
 		endpoint_id: endpointIdInput.optional(),
 		delivery_ids: z
 			.array(z.uuid())
+			.min(1)
 			.max(1_000)
 			.optional()
 			.describe(

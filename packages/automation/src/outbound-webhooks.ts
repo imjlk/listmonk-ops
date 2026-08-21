@@ -1558,10 +1558,12 @@ export async function replayOutboundWebhookDeadLetters(
 					...options,
 					endpointId: options.endpointId,
 					status: "exhausted",
-					// The store filters by the echoed ids before pagination
-					// so newer dead letters can never displace them.
+					// The store filters by the echoed ids before pagination,
+					// and the query is sized to the echoed set so an
+					// independently smaller limit cannot silently replay only
+					// part of the reviewed set.
 					deliveryIds: [...requestedIds],
-					limit,
+					limit: requestedIds.size,
 				});
 	if (dryRun) {
 		return {

@@ -682,13 +682,14 @@ export function createPostgresOutboundWebhookRepository(
 					? sql``
 					: sql`AND id = ${listOptions.deliveryId}::uuid`;
 			const deliveryIdsFilter =
-				listOptions.deliveryIds === undefined ||
-				listOptions.deliveryIds.length === 0
+				listOptions.deliveryIds === undefined
 					? sql``
-					: sql`AND id = ANY(${sql.array(
-							[...listOptions.deliveryIds],
-							POSTGRES_UUID_TYPE_OID,
-						)})`;
+					: listOptions.deliveryIds.length === 0
+						? sql`AND false`
+						: sql`AND id = ANY(${sql.array(
+								[...listOptions.deliveryIds],
+								POSTGRES_UUID_TYPE_OID,
+							)})`;
 			const limit = listOptions.limit ?? 100;
 			const rows = await sql<DeliveryRow[]>`
 				SELECT
