@@ -4,4 +4,4 @@ npm/@listmonk-ops/operations: minor
 npm/@listmonk-ops/cli: minor
 ---
 
-Promote `webhooks.dlq.replay` from experimental to stable with the prune echo pattern. The replay input accepts an optional `delivery_ids` set (CLI `--delivery-ids`, required with `--no-dry-run`): destructive runs requeue exactly the echoed dead-letter set, records that already left the dead-letter set are skipped, and an identical retry is a documented no-op. Dry runs preview the bounded newest batch and report the eligible ids to echo. The stable TypeScript contract count rises from 82 to 83.
+Apply the prune echo pattern to `webhooks.dlq.replay`. The input accepts an optional `delivery_ids` set (CLI `--delivery-ids`, required with `--no-dry-run`, modeled as a discriminated contract union): destructive runs requeue exactly the echoed dead-letter set and records that already left the dead-letter set are skipped in both the file and repository paths, so an identical retry replays nothing new. The operation stays experimental — a worker can re-exhaust a replayed record before the retry, making the identical echoed request eligible again.

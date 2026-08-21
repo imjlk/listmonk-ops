@@ -1528,12 +1528,21 @@ export async function replayOutboundWebhookDeadLetters(
 			);
 		});
 	}
-	const deliveries = await listOutboundWebhookDeliveries({
+	const listedDeliveries = await listOutboundWebhookDeliveries({
 		...options,
 		endpointId: options.endpointId,
 		status: "exhausted",
 		limit,
 	});
+	// An echoed set is matched against the same dead-letter criteria;
+	// records that left the dead-letter set (already replayed) are skipped
+	// so a retry is a documented no-op — in the repository path too.
+	const deliveries =
+		options.deliveryIds === undefined
+			? listedDeliveries
+			: listedDeliveries.filter((delivery) =>
+					options.deliveryIds!.includes(delivery.id),
+				);
 	if (dryRun) {
 		return {
 			eligible: deliveries.length,

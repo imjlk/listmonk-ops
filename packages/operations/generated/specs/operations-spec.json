@@ -9789,7 +9789,7 @@
           "webhooks.circuit.reset",
           "webhooks.dispatch"
         ],
-        "retryGuidance": "Run dry_run first, then echo the reported delivery_ids; repeating the same destructive request replays nothing new.",
+        "retryGuidance": "Run dry_run first, then echo the reported delivery_ids; an identical repeat replays nothing new unless a worker re-exhausted a replayed record, so inspect webhooks.dlq.list before repeating.",
         "useWhen": [
           "Reviewed dead letters should receive a fresh bounded attempt cycle."
         ],
@@ -9811,18 +9811,66 @@
                 "type": "integer"
               },
               "WebhookDlqReplayInput": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dry_run": {
+                        "const": true,
+                        "description": "Dry runs preview the bounded newest batch and report the eligible ids."
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "limit": {
+                        "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                      }
+                    },
+                    "required": [
+                      "dry_run"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_ids": {
+                        "description": "Exact dead-letter set reported by a dry run; a retry replays nothing new.",
+                        "items": {
+                          "$ref": "#/components/schemas/Uuid"
+                        },
+                        "maxItems": 1000,
+                        "type": "array"
+                      },
+                      "dry_run": {
+                        "const": false
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "limit": {
+                        "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                      }
+                    },
+                    "required": [
+                      "delivery_ids",
+                      "dry_run"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "oneOf": [
+              {
                 "additionalProperties": false,
                 "properties": {
-                  "delivery_ids": {
-                    "description": "Exact dead-letter set reported by a dry run; required for destructive runs so a retry replays nothing new.",
-                    "items": {
-                      "$ref": "#/components/schemas/Uuid"
-                    },
-                    "maxItems": 1000,
-                    "type": "array"
-                  },
                   "dry_run": {
-                    "type": "boolean"
+                    "const": true,
+                    "description": "Dry runs preview the bounded newest batch and report the eligible ids."
                   },
                   "endpoint_id": {
                     "$ref": "#/components/schemas/Uuid"
@@ -9831,35 +9879,39 @@
                     "$ref": "#/components/schemas/WebhookDeliveryListLimit"
                   }
                 },
-                "required": [],
+                "required": [
+                  "dry_run"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "delivery_ids": {
+                    "description": "Exact dead-letter set reported by a dry run; a retry replays nothing new.",
+                    "items": {
+                      "$ref": "#/components/schemas/Uuid"
+                    },
+                    "maxItems": 1000,
+                    "type": "array"
+                  },
+                  "dry_run": {
+                    "const": false
+                  },
+                  "endpoint_id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "limit": {
+                    "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                  }
+                },
+                "required": [
+                  "delivery_ids",
+                  "dry_run"
+                ],
                 "type": "object"
               }
-            }
-          },
-          "dialect": "openapi-3.1",
-          "schema": {
-            "additionalProperties": false,
-            "properties": {
-              "delivery_ids": {
-                "description": "Exact dead-letter set reported by a dry run; required for destructive runs so a retry replays nothing new.",
-                "items": {
-                  "$ref": "#/components/schemas/Uuid"
-                },
-                "maxItems": 1000,
-                "type": "array"
-              },
-              "dry_run": {
-                "type": "boolean"
-              },
-              "endpoint_id": {
-                "$ref": "#/components/schemas/Uuid"
-              },
-              "limit": {
-                "$ref": "#/components/schemas/WebhookDeliveryListLimit"
-              }
-            },
-            "required": [],
-            "type": "object"
+            ]
           },
           "source": "typescript",
           "stage": "normalized"
@@ -10041,13 +10093,13 @@
       },
       "resource": "webhook",
       "retry": {
-        "idempotent": true,
+        "idempotent": false,
         "kind": "reconcile",
-        "reason": "Destructive runs replay exactly the echoed dead-letter set, and records that already left the dead-letter set are skipped, so an identical retry is a documented no-op; dry runs only preview the bounded newest batch.",
+        "reason": "Destructive runs replay exactly the echoed dead-letter set and already-requeued records are skipped, but a worker can re-exhaust a replayed record before the retry, making the identical echoed request eligible again and starting another attempt cycle; the replay stays experimental until the echo carries a delivery generation.",
         "reconcileWith": "webhooks.dlq.list"
       },
       "since": "0.8.0",
-      "stability": "stable",
+      "stability": "experimental",
       "title": "Replay outbound webhook dead letters",
       "verb": "replay"
     },

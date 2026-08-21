@@ -396,7 +396,7 @@ Retry guidance: Retrying the same read is safe.
 
 ## Replay outbound webhook dead letters (`webhooks.dlq.replay`)
 
-Contract maturity: `stable`; effects: `maintenance:replay:destructive`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `experimental`; effects: `maintenance:replay:destructive`; confirmation: `required`; retry: `reconcile`.
 
 Use when: Reviewed dead letters should receive a fresh bounded attempt cycle.
 
@@ -406,7 +406,7 @@ Prerequisites: `webhooks.dlq.list`, `webhooks.runtime.status`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Run dry_run first, then echo the reported delivery_ids; repeating the same destructive request replays nothing new.
+Retry guidance: Run dry_run first, then echo the reported delivery_ids; an identical repeat replays nothing new unless a worker re-exhausted a replayed record, so inspect webhooks.dlq.list before repeating.
 
 ## Reset outbound webhook circuit breaker (`webhooks.circuit.reset`)
 

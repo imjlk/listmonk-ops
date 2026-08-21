@@ -352,7 +352,7 @@ Preview or requeue a bounded set of reviewed dead-letter deliveries. Destructive
 - Effects: `maintenance:replay:destructive`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `reconcile`
-- Stability: `stable` since `0.8.0`
+- Stability: `experimental` since `0.8.0`
 
 ## `webhooks.circuit.reset`
 

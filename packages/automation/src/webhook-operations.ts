@@ -1387,7 +1387,7 @@ export const webhookDlqReplayOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: true,
+		idempotentHint: false,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_webhooks_dlq_replay" },
