@@ -559,7 +559,7 @@ export const webhookTestOperationSpec = defineOperationSpec({
 				semantics: {
 					kind: "safe",
 					reason:
-						"The test derives a deterministic event id from the endpoint and correlation id, so the outbox dedup collapses an identical retry onto the already-queued delivery and reports replayed: true without another ping.",
+						"The test derives a deterministic event id from the endpoint and correlation id, so the outbox dedup collapses an identical retry onto the already-queued delivery for as long as that delivery remains retained and reports replayed: true without another ping; a still-pending replayed delivery is dispatched, and pruning the original delivery lets a repeat send a fresh probe.",
 				},
 			},
 			{

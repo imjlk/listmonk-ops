@@ -66,7 +66,7 @@ export interface WebhookOperationContext {
 	resolveSecret?: (secretRef: string) => string | undefined;
 }
 
-function resolveWebhookOperationStore(
+export function resolveWebhookOperationStore(
 	context: WebhookOperationContext,
 ): OutboundWebhookStoreOptions {
 	return context.store ?? getOutboundWebhookStoreOptionsFromEnvironment();
@@ -726,7 +726,7 @@ export async function executeWebhookDeleteOperation(
 // A keyed test derives a deterministic event id so the outbox dedup
 // (event id + endpoint id) collapses an ambiguous retry onto the
 // already-queued delivery instead of sending a second ping.
-function testEventUuid(endpointId: string, correlationId: string): string {
+export function testEventUuid(endpointId: string, correlationId: string): string {
 	const digest = createHash("sha256")
 		.update(`webhook.test:${endpointId}:${correlationId}`)
 		.digest("hex");
@@ -763,21 +763,60 @@ export async function executeWebhookTestOperation(
 			bypassEventFilters: true,
 		},
 	);
-	const replayed = queued.duplicateDeliveries > 0;
 	const deliveryId = queued.deliveryIds[0];
-	if (replayed) {
-		// The dedup collapsed the retry onto the already-queued delivery; the
-		// original call dispatched it, so the retry reports without sending.
+	if (deliveryId === undefined) {
+		// The dedup collapsed the retry onto an already-queued delivery. The
+		// original call may have failed before dispatching it, so resolve the
+		// persisted delivery: a still-claimable one is dispatched now, and a
+		// terminal one reports its persisted outcome without resending.
+		const existing = (
+			await listOutboundWebhookDeliveries({
+				...store,
+				endpointId: endpoint.id,
+				limit: 1_000,
+			})
+		).find((delivery) => delivery.eventId === queued.event.id);
+		if (!existing) {
+			return {
+				event_id: queued.event.id,
+				delivery_id: undefined,
+				replayed: true,
+				dispatch: toDispatchOutput({
+					claimed: 0,
+					succeeded: 0,
+					exhausted: 0,
+					retried: 0,
+					skipped: 0,
+					results: [],
+				}),
+			};
+		}
+		if (existing.status === "pending" || existing.status === "retry") {
+			const dispatch = await dispatchOutboundWebhooks({
+				store,
+				fetcher: context.fetcher,
+				resolveSecret: context.resolveSecret,
+				deliveryIds: [existing.id],
+				bypassCircuitBreaker: true,
+				limit: 1,
+			});
+			return {
+				event_id: queued.event.id,
+				delivery_id: existing.id,
+				replayed: true,
+				dispatch: toDispatchOutput(dispatch),
+			};
+		}
 		return {
 			event_id: queued.event.id,
-			delivery_id: queued.deliveryIds[0],
+			delivery_id: existing.id,
 			replayed: true,
 			dispatch: toDispatchOutput({
 				claimed: 0,
-				succeeded: 0,
-				exhausted: 0,
+				succeeded: existing.status === "succeeded" ? 1 : 0,
+				exhausted: existing.status === "exhausted" ? 1 : 0,
 				retried: 0,
-				skipped: 0,
+				skipped: 1,
 				results: [],
 			}),
 		};
@@ -786,7 +825,7 @@ export async function executeWebhookTestOperation(
 		store,
 		fetcher: context.fetcher,
 		resolveSecret: context.resolveSecret,
-		deliveryIds: deliveryId ? [deliveryId] : [],
+		deliveryIds: [deliveryId],
 		bypassCircuitBreaker: true,
 		limit: 1,
 	});

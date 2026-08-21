@@ -23,6 +23,11 @@ import {
 	webhookOperations,
 } from "../src/webhook-operations";
 import { ingestInboundDeliveryEvent } from "../src/inbound-delivery-events";
+import {
+	resolveWebhookOperationStore,
+	testEventUuid,
+} from "../src/webhook-operations";
+import { enqueueOutboundWebhookEvent } from "../src/outbound-webhooks";
 
 const directories: string[] = [];
 
@@ -452,10 +457,12 @@ describe("webhook shared operations", () => {
 		});
 		expect(retry.replayed).toBe(true);
 		expect(retry.event_id).toBe(first.event_id);
-		// The dedup queued nothing new, so the retry reports no fresh
-		// delivery and dispatches nothing.
-		expect(retry.delivery_id).toBeUndefined();
+		// The dedup collapsed the retry onto the original delivery: the
+		// first call already delivered it, so the retry resolves the
+		// persisted terminal delivery instead of claiming it again.
+		expect(retry.delivery_id).toBe(first.delivery_id);
 		expect(retry.dispatch.claimed).toBe(0);
+		expect(retry.dispatch.skipped).toBe(1);
 
 		// A different correlation id is a new probe.
 		const second = await invokeWebhookTestOperation(context, {
@@ -465,6 +472,44 @@ describe("webhook shared operations", () => {
 		expect(second.replayed).toBe(false);
 		expect(second.event_id).not.toBe(first.event_id);
 		expect(second.dispatch.claimed).toBe(1);
+	});
+
+	test("resumes a keyed probe whose first call failed before dispatch", async () => {
+		const context = await createContext();
+		const endpoint = await invokeWebhookCreateOperation(context, {
+			name: "test-resume",
+			url: "https://8.8.8.8/resume",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_RESUME",
+			event_filters: ["operation.*"],
+		});
+		// Queue the keyed probe without dispatching, as if the first call
+		// died between enqueue and dispatch.
+		await enqueueOutboundWebhookEvent(
+			{
+				id: testEventUuid(endpoint.endpoint.id, "resume-1"),
+				type: "webhook.test",
+				source: "webhook",
+				correlationId: "resume-1",
+				subject: { kind: "webhook", key: endpoint.endpoint.id },
+				data: {
+					endpoint_id: endpoint.endpoint.id,
+					endpoint_name: endpoint.endpoint.name,
+				},
+			},
+			{
+				...resolveWebhookOperationStore(context),
+				endpointIds: [endpoint.endpoint.id],
+				bypassEventFilters: true,
+			},
+		);
+
+		const resumed = await invokeWebhookTestOperation(context, {
+			id: endpoint.endpoint.id,
+			correlation_id: "resume-1",
+		});
+		expect(resumed.replayed).toBe(true);
+		expect(resumed.dispatch.claimed).toBe(1);
+		expect(resumed.dispatch.succeeded).toBe(1);
 	});
 
 	test("creates, filters, updates, and deletes endpoints through named invokers", async () => {
