@@ -25000,6 +25000,10 @@
         "WebhookTestOutput": {
           "additionalProperties": false,
           "properties": {
+            "bound_revision": {
+              "description": "The endpoint configuration revision the probe identity was bound to; a later dispatch may still resolve a newer revision.",
+              "type": "string"
+            },
             "delivery_id": {
               "$ref": "#/components/schemas/Uuid"
             },
@@ -25017,6 +25021,7 @@
           "required": [
             "event_id",
             "replayed",
+            "bound_revision",
             "dispatch"
           ],
           "type": "object"
@@ -25027,6 +25032,10 @@
     "schema": {
       "additionalProperties": false,
       "properties": {
+        "bound_revision": {
+          "description": "The endpoint configuration revision the probe identity was bound to; a later dispatch may still resolve a newer revision.",
+          "type": "string"
+        },
         "delivery_id": {
           "$ref": "#/components/schemas/Uuid"
         },
@@ -25044,6 +25053,7 @@
       "required": [
         "event_id",
         "replayed",
+        "bound_revision",
         "dispatch"
       ],
       "type": "object"

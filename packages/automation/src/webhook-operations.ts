@@ -399,8 +399,10 @@ const webhookDispatchOutputSchema = z.object({
 const webhookTestOutputSchema = z.object({
 	event_id: z.uuid(),
 	delivery_id: z.uuid().optional(),
-	/** True when the call reused an already-queued delivery instead of enqueuing a new one. */
+	/** True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings). */
 	replayed: z.boolean(),
+	/** The endpoint configuration revision the probe identity was bound to; a later dispatch may still resolve a newer revision. */
+	bound_revision: z.string(),
 	dispatch: webhookDispatchOutputSchema,
 });
 const webhookEventSummarySchema = z.object({
@@ -832,6 +834,7 @@ export async function executeWebhookTestOperation(
 				event_id: queued.event.id,
 				delivery_id: existing.id,
 				replayed: true,
+				bound_revision: endpoint.updatedAt,
 				dispatch: toDispatchOutput(dispatch),
 			};
 		}
@@ -842,6 +845,7 @@ export async function executeWebhookTestOperation(
 			event_id: queued.event.id,
 			delivery_id: existing.id,
 			replayed: true,
+			bound_revision: endpoint.updatedAt,
 			dispatch: toDispatchOutput({
 				claimed: 0,
 				succeeded: 0,
@@ -864,6 +868,7 @@ export async function executeWebhookTestOperation(
 		event_id: queued.event.id,
 		delivery_id: deliveryId,
 		replayed: false,
+		bound_revision: endpoint.updatedAt,
 		dispatch: toDispatchOutput(dispatch),
 	};
 }
