@@ -256,7 +256,7 @@ Retry guidance: Verify the endpoint is gone with webhooks.list before retrying; 
 
 ## Send outbound webhook test (`webhooks.test`)
 
-Contract maturity: `experimental`; effects: `webhook:single`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `webhook:single`; confirmation: `required`; retry: `conditional`.
 
 Use when: A configured endpoint and signing secret must be verified end to end.
 
@@ -266,7 +266,7 @@ Prerequisites: `webhooks.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Inspect the delivery log and endpoint system before sending another test.
+Retry guidance: Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery and reports replayed: true; without one, inspect webhooks.delivery.list before repeating.
 
 ## Dispatch outbound webhooks (`webhooks.dispatch`)
 

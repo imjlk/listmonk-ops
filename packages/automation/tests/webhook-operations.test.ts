@@ -428,6 +428,45 @@ describe("webhook shared operations", () => {
 		).rejects.toThrow(/already exists/);
 	});
 
+	test("collapses keyed test retries onto the queued delivery", async () => {
+		const context = await createContext();
+		const endpoint = await invokeWebhookCreateOperation(context, {
+			name: "test-dedupe",
+			url: "https://8.8.8.8/dedupe",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_DEDUPE",
+			event_filters: ["operation.*"],
+		});
+
+		const first = await invokeWebhookTestOperation(context, {
+			id: endpoint.endpoint.id,
+			correlation_id: "probe-1",
+		});
+		expect(first.replayed).toBe(false);
+		expect(first.dispatch.claimed).toBe(1);
+
+		// The keyed retry dedupes onto the same event and delivery: no
+		// second ping is queued or dispatched.
+		const retry = await invokeWebhookTestOperation(context, {
+			id: endpoint.endpoint.id,
+			correlation_id: "probe-1",
+		});
+		expect(retry.replayed).toBe(true);
+		expect(retry.event_id).toBe(first.event_id);
+		// The dedup queued nothing new, so the retry reports no fresh
+		// delivery and dispatches nothing.
+		expect(retry.delivery_id).toBeUndefined();
+		expect(retry.dispatch.claimed).toBe(0);
+
+		// A different correlation id is a new probe.
+		const second = await invokeWebhookTestOperation(context, {
+			id: endpoint.endpoint.id,
+			correlation_id: "probe-2",
+		});
+		expect(second.replayed).toBe(false);
+		expect(second.event_id).not.toBe(first.event_id);
+		expect(second.dispatch.claimed).toBe(1);
+	});
+
 	test("creates, filters, updates, and deletes endpoints through named invokers", async () => {
 		const context = await createContext();
 		const created = await invokeWebhookCreateOperation(context, {

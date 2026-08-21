@@ -5387,10 +5387,15 @@
                 },
                 "event_id": {
                   "$ref": "#/components/schemas/Uuid"
+                },
+                "replayed": {
+                  "description": "True when a keyed retry collapsed onto the already-queued delivery without another ping.",
+                  "type": "boolean"
                 }
               },
               "required": [
                 "event_id",
+                "replayed",
                 "dispatch"
               ],
               "type": "object"
@@ -5409,10 +5414,15 @@
             },
             "event_id": {
               "$ref": "#/components/schemas/Uuid"
+            },
+            "replayed": {
+              "description": "True when a keyed retry collapsed onto the already-queued delivery without another ping.",
+              "type": "boolean"
             }
           },
           "required": [
             "event_id",
+            "replayed",
             "dispatch"
           ],
           "type": "object"
@@ -5426,11 +5436,27 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A timeout can occur after the endpoint accepted the test, so an automatic retry may duplicate it."
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The test derives a deterministic event id from the endpoint and correlation id, so the outbox dedup collapses an identical retry onto the already-queued delivery and reports replayed: true without another ping."
+            },
+            "when": "correlation_id is provided"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Each call queues a fresh delivery, so a retry after the endpoint accepted the test sends a duplicate ping."
+            },
+            "when": "correlation_id is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller keys the probe with a correlation id."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.dispatch",

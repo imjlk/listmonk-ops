@@ -25008,10 +25008,15 @@
             },
             "event_id": {
               "$ref": "#/components/schemas/Uuid"
+            },
+            "replayed": {
+              "description": "True when a keyed retry collapsed onto the already-queued delivery without another ping.",
+              "type": "boolean"
             }
           },
           "required": [
             "event_id",
+            "replayed",
             "dispatch"
           ],
           "type": "object"
@@ -25030,10 +25035,15 @@
         },
         "event_id": {
           "$ref": "#/components/schemas/Uuid"
+        },
+        "replayed": {
+          "description": "True when a keyed retry collapsed onto the already-queued delivery without another ping.",
+          "type": "boolean"
         }
       },
       "required": [
         "event_id",
+        "replayed",
         "dispatch"
       ],
       "type": "object"

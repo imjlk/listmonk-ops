@@ -552,9 +552,27 @@ export const webhookTestOperationSpec = defineOperationSpec({
 	effects: [{ kind: "webhook", resource: "webhook", audience: "single" }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "conditional",
+		cases: [
+			{
+				when: "correlation_id is provided",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The test derives a deterministic event id from the endpoint and correlation id, so the outbox dedup collapses an identical retry onto the already-queued delivery and reports replayed: true without another ping.",
+				},
+			},
+			{
+				when: "correlation_id is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"Each call queues a fresh delivery, so a retry after the endpoint accepted the test sends a duplicate ping.",
+				},
+			},
+		],
 		reason:
-			"A timeout can occur after the endpoint accepted the test, so an automatic retry may duplicate it.",
+			"Retry safety depends on whether the caller keys the probe with a correlation id.",
 	},
 	agent: {
 		useWhen: ["A configured endpoint and signing secret must be verified end to end."],
@@ -563,7 +581,7 @@ export const webhookTestOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.dispatch"],
 		retryGuidance:
-			"Inspect the delivery log and endpoint system before sending another test.",
+			"Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery and reports replayed: true; without one, inspect webhooks.delivery.list before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_test",
@@ -581,7 +599,7 @@ export const webhookTestOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

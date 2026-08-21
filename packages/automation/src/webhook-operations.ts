@@ -5,7 +5,7 @@ import {
 	parseOperationInput,
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
 	bindWebhookCreateOperationSpec,
 	bindWebhookDeleteOperationSpec,
@@ -399,6 +399,7 @@ const webhookDispatchOutputSchema = z.object({
 const webhookTestOutputSchema = z.object({
 	event_id: z.uuid(),
 	delivery_id: z.uuid().optional(),
+	replayed: z.boolean(),
 	dispatch: webhookDispatchOutputSchema,
 });
 const webhookEventSummarySchema = z.object({
@@ -722,14 +723,34 @@ export async function executeWebhookDeleteOperation(
 	}
 }
 
+// A keyed test derives a deterministic event id so the outbox dedup
+// (event id + endpoint id) collapses an ambiguous retry onto the
+// already-queued delivery instead of sending a second ping.
+function testEventUuid(endpointId: string, correlationId: string): string {
+	const digest = createHash("sha256")
+		.update(`webhook.test:${endpointId}:${correlationId}`)
+		.digest("hex");
+	const bytes = Uint8Array.from(
+		digest.slice(0, 32).match(/../g)!.map((h) => Number.parseInt(h, 16)),
+	);
+	bytes[6] = (bytes[6]! & 0x0f) | 0x50; // uuid v5 marker
+	bytes[8] = (bytes[8]! & 0x3f) | 0x80; // rfc 4122 variant
+	const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export async function executeWebhookTestOperation(
 	context: WebhookOperationContext,
 	input: z.output<typeof webhookTestInputSchema>,
 ) {
 	const store = resolveWebhookOperationStore(context);
 	const endpoint = await getOutboundWebhookEndpoint(input.id, store);
+	const keyed = input.correlation_id !== undefined;
 	const queued = await enqueueOutboundWebhookEvent(
 		{
+			id: keyed
+				? testEventUuid(endpoint.id, input.correlation_id!)
+				: randomUUID(),
 			type: "webhook.test",
 			source: "webhook",
 			correlationId: input.correlation_id,
@@ -742,7 +763,25 @@ export async function executeWebhookTestOperation(
 			bypassEventFilters: true,
 		},
 	);
+	const replayed = queued.duplicateDeliveries > 0;
 	const deliveryId = queued.deliveryIds[0];
+	if (replayed) {
+		// The dedup collapsed the retry onto the already-queued delivery; the
+		// original call dispatched it, so the retry reports without sending.
+		return {
+			event_id: queued.event.id,
+			delivery_id: queued.deliveryIds[0],
+			replayed: true,
+			dispatch: toDispatchOutput({
+				claimed: 0,
+				succeeded: 0,
+				exhausted: 0,
+				retried: 0,
+				skipped: 0,
+				results: [],
+			}),
+		};
+	}
 	const dispatch = await dispatchOutboundWebhooks({
 		store,
 		fetcher: context.fetcher,
@@ -754,6 +793,7 @@ export async function executeWebhookTestOperation(
 	return {
 		event_id: queued.event.id,
 		delivery_id: deliveryId,
+		replayed: false,
 		dispatch: toDispatchOutput(dispatch),
 	};
 }
