@@ -663,9 +663,12 @@ export async function executeSequenceEnrollOperation(
 			active !== undefined &&
 			active.retryCount === 0 &&
 			active.lastTransitionAt === active.createdAt &&
-			// The replay must pin the same revision a fresh enroll would;
-			// otherwise the request targets newer steps than the record.
-			active.revision === enrollment.revision;
+			// The replay must pin the same revision a fresh enroll would and
+			// still sit on that revision's first step; an advanced step means
+			// the engine has progressed the record even when a fixed clock
+			// leaves the transition timestamp equal to creation.
+			active.revision === enrollment.revision &&
+			active.currentStepId === enrollment.currentStepId;
 		const startMatches =
 			input.start_at === undefined || active?.nextRunAt === input.start_at;
 		if (
