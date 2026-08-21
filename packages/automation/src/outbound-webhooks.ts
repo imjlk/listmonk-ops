@@ -252,6 +252,8 @@ export type OutboundWebhookDeliveryListOptions = Readonly<{
 	endpointId?: string;
 	status?: OutboundWebhookDeliveryStatus;
 	eventType?: OutboundWebhookEventType;
+	/** Resolves a single delivery by its originating event without a paginated scan. */
+	eventId?: string;
 	limit?: number;
 }>;
 
@@ -1303,6 +1305,7 @@ export async function listOutboundWebhookDeliveries(
 			endpointId: options.endpointId,
 			status: options.status,
 			eventType: options.eventType,
+			eventId: options.eventId,
 			limit,
 		});
 	}
@@ -1314,6 +1317,8 @@ export async function listOutboundWebhookDeliveries(
 			(delivery) =>
 				(options.endpointId === undefined ||
 					delivery.endpointId === options.endpointId) &&
+				(options.eventId === undefined ||
+					delivery.eventId === options.eventId) &&
 				(options.status === undefined ||
 					delivery.status === options.status) &&
 				(options.eventType === undefined ||

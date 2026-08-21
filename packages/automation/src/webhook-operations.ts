@@ -765,17 +765,25 @@ export async function executeWebhookTestOperation(
 	);
 	const deliveryId = queued.deliveryIds[0];
 	if (deliveryId === undefined) {
+		if (!keyed) {
+			// Only enabled endpoints receive deliveries, so an unkeyed probe
+			// with nothing queued means the endpoint is unavailable.
+			throw new OutboundWebhookConflictError(
+				`Webhook endpoint ${input.id} is disabled or missing`,
+				"endpoint_unavailable",
+			);
+		}
 		// The dedup collapsed the retry onto an already-queued delivery. The
 		// original call may have failed before dispatching it, so resolve the
-		// persisted delivery: a still-claimable one is dispatched now, and a
-		// terminal one reports its persisted outcome without resending.
-		const existing = (
-			await listOutboundWebhookDeliveries({
-				...store,
-				endpointId: endpoint.id,
-				limit: 1_000,
-			})
-		).find((delivery) => delivery.eventId === queued.event.id);
+		// persisted delivery directly by event: a still-claimable one (or one
+		// whose lease expired) is dispatched now, and a terminal one reports
+		// its persisted outcome without resending.
+		const [existing] = await listOutboundWebhookDeliveries({
+			...store,
+			endpointId: endpoint.id,
+			eventId: queued.event.id,
+			limit: 1,
+		});
 		if (!existing) {
 			return {
 				event_id: queued.event.id,
@@ -791,7 +799,15 @@ export async function executeWebhookTestOperation(
 				}),
 			};
 		}
-		if (existing.status === "pending" || existing.status === "retry") {
+		const leaseExpired =
+			existing.status === "delivering" &&
+			(existing.leaseExpiresAt === undefined ||
+				Date.parse(existing.leaseExpiresAt) <= Date.now());
+		if (
+			existing.status === "pending" ||
+			existing.status === "retry" ||
+			leaseExpired
+		) {
 			const dispatch = await dispatchOutboundWebhooks({
 				store,
 				fetcher: context.fetcher,
