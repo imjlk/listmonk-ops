@@ -784,22 +784,27 @@ export function createPostgresOutboundWebhookRepository(
 					)
 					RETURNING id
 				`;
+				// Rows skipped by SKIP LOCKED are concurrent no-ops, not
+				// failures; report as unavailable only exhausted rows whose
+				// endpoint is genuinely disabled or missing.
 				const failedRows = await transaction<{ id: string }[]>`
-					SELECT id
-					FROM listmonk_ops.webhook_deliveries
-					WHERE status = 'exhausted'
+					SELECT d.id
+					FROM listmonk_ops.webhook_deliveries d
+					WHERE d.status = 'exhausted'
+						AND NOT EXISTS (
+							SELECT 1
+							FROM listmonk_ops.webhook_endpoints e
+							WHERE e.id = d.endpoint_id AND e.enabled
+						)
 						${endpointFilter}
 						${idFilter}
-					ORDER BY next_attempt_at DESC, id DESC
+					ORDER BY d.next_attempt_at DESC, d.id DESC
 					LIMIT ${replayOptions.limit}
 				`;
-				const replayedIds = new Set(updatedRows.map((row) => row.id));
-				const errors = failedRows
-					.filter((row) => !replayedIds.has(row.id))
-					.map((row) => ({
-						deliveryId: row.id,
-						errorCode: "endpoint_unavailable" as const,
-					}));
+				const errors = failedRows.map((row) => ({
+					deliveryId: row.id,
+					errorCode: "endpoint_unavailable" as const,
+				}));
 				return {
 					eligible: updatedRows.length + errors.length,
 					replayed: updatedRows.length,

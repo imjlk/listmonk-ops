@@ -1555,7 +1555,13 @@ export async function replayOutboundWebhookDeadLetters(
 	return options.repository.replayDeadLetters({
 		endpointId: options.endpointId,
 		deliveryIds: options.deliveryIds,
-		limit,
+		// An echoed set is replayed in full: the cap is the set's size so an
+		// independently smaller limit cannot silently replay only part of
+		// the reviewed set.
+		limit:
+			options.deliveryIds === undefined
+				? limit
+				: Math.max(options.deliveryIds.length, 1),
 		dryRun,
 		now: options.now ?? new Date(),
 	});
