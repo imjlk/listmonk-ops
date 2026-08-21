@@ -399,6 +399,7 @@ const webhookDispatchOutputSchema = z.object({
 const webhookTestOutputSchema = z.object({
 	event_id: z.uuid(),
 	delivery_id: z.uuid().optional(),
+	/** True when the call reused an already-queued delivery instead of enqueuing a new one. */
 	replayed: z.boolean(),
 	dispatch: webhookDispatchOutputSchema,
 });
@@ -726,9 +727,23 @@ export async function executeWebhookDeleteOperation(
 // A keyed test derives a deterministic event id so the outbox dedup
 // (event id + endpoint id) collapses an ambiguous retry onto the
 // already-queued delivery instead of sending a second ping.
-export function testEventUuid(endpointId: string, correlationId: string): string {
+// Bind the probe identity to the endpoint's configuration revision (its
+// updatedAt timestamp, bumped on every mutation) so a repeat after a URL
+// or secret change tests the new configuration rather than replaying the
+// old probe's terminal delivery.
+export function testConfigFingerprint(endpoint: {
+	updatedAt: string;
+}): string {
+	return endpoint.updatedAt;
+}
+
+export function testEventUuid(
+	endpointId: string,
+	correlationId: string,
+	configFingerprint = "",
+): string {
 	const digest = createHash("sha256")
-		.update(`webhook.test:${endpointId}:${correlationId}`)
+		.update(`webhook.test:${endpointId}:${correlationId}:${configFingerprint}`)
 		.digest("hex");
 	const bytes = Uint8Array.from(
 		digest.slice(0, 32).match(/../g)!.map((h) => Number.parseInt(h, 16)),
@@ -749,7 +764,11 @@ export async function executeWebhookTestOperation(
 	const queued = await enqueueOutboundWebhookEvent(
 		{
 			id: keyed
-				? testEventUuid(endpoint.id, input.correlation_id!)
+				? testEventUuid(
+						endpoint.id,
+						input.correlation_id!,
+						testConfigFingerprint(endpoint),
+					)
 				: randomUUID(),
 			type: "webhook.test",
 			source: "webhook",

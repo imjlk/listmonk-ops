@@ -25010,7 +25010,7 @@
               "$ref": "#/components/schemas/Uuid"
             },
             "replayed": {
-              "description": "True when a keyed retry collapsed onto the already-queued delivery without another ping.",
+              "description": "True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings).",
               "type": "boolean"
             }
           },
@@ -25037,7 +25037,7 @@
           "$ref": "#/components/schemas/Uuid"
         },
         "replayed": {
-          "description": "True when a keyed retry collapsed onto the already-queued delivery without another ping.",
+          "description": "True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings).",
           "type": "boolean"
         }
       },

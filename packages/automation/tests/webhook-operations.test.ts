@@ -25,9 +25,13 @@ import {
 import { ingestInboundDeliveryEvent } from "../src/inbound-delivery-events";
 import {
 	resolveWebhookOperationStore,
+	testConfigFingerprint,
 	testEventUuid,
 } from "../src/webhook-operations";
-import { enqueueOutboundWebhookEvent } from "../src/outbound-webhooks";
+import {
+	enqueueOutboundWebhookEvent,
+	getOutboundWebhookEndpoint,
+} from "../src/outbound-webhooks";
 
 const directories: string[] = [];
 
@@ -486,7 +490,16 @@ describe("webhook shared operations", () => {
 		// died between enqueue and dispatch.
 		await enqueueOutboundWebhookEvent(
 			{
-				id: testEventUuid(endpoint.endpoint.id, "resume-1"),
+				id: testEventUuid(
+					endpoint.endpoint.id,
+					"resume-1",
+					testConfigFingerprint(
+						await getOutboundWebhookEndpoint(
+							endpoint.endpoint.id,
+							resolveWebhookOperationStore(context),
+						),
+					),
+				),
 				type: "webhook.test",
 				source: "webhook",
 				correlationId: "resume-1",

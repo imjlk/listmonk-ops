@@ -227,7 +227,7 @@ export interface WebhookDispatchOutput {
 export interface WebhookTestOutput {
 	event_id: WebhookId;
 	delivery_id?: WebhookId | undefined;
-	/** True when a keyed retry collapsed onto the already-queued delivery without another ping. */
+	/** True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings). */
 	replayed: boolean;
 	dispatch: WebhookDispatchOutput;
 }
