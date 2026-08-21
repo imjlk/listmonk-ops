@@ -23401,10 +23401,65 @@
           "type": "integer"
         },
         "WebhookDlqReplayInput": {
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "dry_run": {
+                  "const": true,
+                  "description": "Dry runs preview the bounded newest batch and report the eligible ids. Defaults to true."
+                },
+                "endpoint_id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "limit": {
+                  "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "delivery_ids": {
+                  "description": "Exact dead-letter set reported by a dry run; a retry replays nothing new.",
+                  "items": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "maxItems": 1000,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "dry_run": {
+                  "const": false
+                },
+                "endpoint_id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "limit": {
+                  "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                }
+              },
+              "required": [
+                "delivery_ids",
+                "dry_run"
+              ],
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "oneOf": [
+        {
           "additionalProperties": false,
           "properties": {
             "dry_run": {
-              "type": "boolean"
+              "const": true,
+              "description": "Dry runs preview the bounded newest batch and report the eligible ids. Defaults to true."
             },
             "endpoint_id": {
               "$ref": "#/components/schemas/Uuid"
@@ -23415,25 +23470,36 @@
           },
           "required": [],
           "type": "object"
-        }
-      }
-    },
-    "dialect": "openapi-3.1",
-    "schema": {
-      "additionalProperties": false,
-      "properties": {
-        "dry_run": {
-          "type": "boolean"
         },
-        "endpoint_id": {
-          "$ref": "#/components/schemas/Uuid"
-        },
-        "limit": {
-          "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "delivery_ids": {
+              "description": "Exact dead-letter set reported by a dry run; a retry replays nothing new.",
+              "items": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "maxItems": 1000,
+              "minItems": 1,
+              "type": "array"
+            },
+            "dry_run": {
+              "const": false
+            },
+            "endpoint_id": {
+              "$ref": "#/components/schemas/Uuid"
+            },
+            "limit": {
+              "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+            }
+          },
+          "required": [
+            "delivery_ids",
+            "dry_run"
+          ],
+          "type": "object"
         }
-      },
-      "required": [],
-      "type": "object"
+      ]
     },
     "source": "typescript",
     "stage": "normalized"

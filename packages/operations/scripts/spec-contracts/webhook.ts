@@ -416,11 +416,20 @@ export interface WebhookDlqListInput {
 
 export type WebhookDlqListOutput = WebhookDeliveryListOutput;
 
-export interface WebhookDlqReplayInput {
-	endpoint_id?: WebhookId | undefined;
-	limit?: WebhookDeliveryListLimit | undefined;
-	dry_run?: boolean | undefined;
-}
+export type WebhookDlqReplayInput =
+	| {
+			endpoint_id?: WebhookId | undefined;
+			limit?: WebhookDeliveryListLimit | undefined;
+			/** Dry runs preview the bounded newest batch and report the eligible ids. Defaults to true. */
+			dry_run?: true | undefined;
+	  }
+	| {
+			endpoint_id?: WebhookId | undefined;
+			/** Exact dead-letter set reported by a dry run; a retry replays nothing new. */
+			delivery_ids: readonly WebhookId[] & tags.MinItems<1> & tags.MaxItems<1_000>;
+			limit?: WebhookDeliveryListLimit | undefined;
+			dry_run: false;
+	  };
 
 export interface WebhookDlqReplayOutput {
 	eligible: NonNegativeInteger;

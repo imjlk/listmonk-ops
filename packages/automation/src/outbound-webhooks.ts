@@ -254,6 +254,10 @@ export type OutboundWebhookDeliveryListOptions = Readonly<{
 	eventType?: OutboundWebhookEventType;
 	/** Resolves a single delivery by its originating event without a paginated scan. */
 	eventId?: string;
+	/** Resolves a single delivery by id without a paginated scan. */
+	deliveryId?: string;
+	/** Restricts the listing to exactly these deliveries before pagination. */
+	deliveryIds?: readonly string[];
 	limit?: number;
 }>;
 
@@ -362,6 +366,8 @@ export type PruneOutboundWebhooksResult = Readonly<{
 
 export type ReplayOutboundWebhookDeadLettersOptions = Readonly<{
 	endpointId?: string;
+	/** Exact dead-letter set reported by a dry run; supplied, exactly that set is replayed. */
+	deliveryIds?: readonly string[];
 	limit?: number;
 	dryRun?: boolean;
 	now?: Date;
@@ -449,6 +455,14 @@ export interface OutboundWebhookRepository {
 		id: string,
 		now: Date,
 	): Promise<RetryOutboundWebhookDeliveryResult>;
+	/** Atomically transitions still-exhausted deliveries back to pending. */
+	replayDeadLetters(options: {
+		endpointId?: string;
+		deliveryIds?: readonly string[];
+		limit: number;
+		dryRun: boolean;
+		now: Date;
+	}): Promise<ReplayOutboundWebhookDeadLettersResult>;
 	claimDeliveries(options: Readonly<{
 		limit: number;
 		now: Date;
@@ -818,6 +832,8 @@ export function createFileOutboundWebhookRepository(
 			listOutboundWebhookDeliveries({ ...fileOptions, ...listOptions }),
 		retryDelivery: (id, now) =>
 			retryOutboundWebhookDelivery(id, { ...fileOptions, now }),
+		replayDeadLetters: (replayOptions) =>
+			replayOutboundWebhookDeadLetters({ ...fileOptions, ...replayOptions }),
 		claimDeliveries: (claimOptions) =>
 			claimOutboundWebhookDeliveries({
 				...fileOptions,
@@ -1306,6 +1322,8 @@ export async function listOutboundWebhookDeliveries(
 			status: options.status,
 			eventType: options.eventType,
 			eventId: options.eventId,
+			deliveryId: options.deliveryId,
+			deliveryIds: options.deliveryIds,
 			limit,
 		});
 	}
@@ -1319,6 +1337,11 @@ export async function listOutboundWebhookDeliveries(
 					delivery.endpointId === options.endpointId) &&
 				(options.eventId === undefined ||
 					delivery.eventId === options.eventId) &&
+				(options.deliveryId === undefined ||
+					delivery.id === options.deliveryId) &&
+				(options.deliveryIds === undefined
+					? true
+					: options.deliveryIds.includes(delivery.id)) &&
 				(options.status === undefined ||
 					delivery.status === options.status) &&
 				(options.eventType === undefined ||
@@ -1433,17 +1456,34 @@ export async function replayOutboundWebhookDeadLetters(
 		const now = options.now ?? new Date();
 		const store = createOutboundWebhookStore(options.path);
 		return updateJsonFileStore(store, (current) => {
-			const deliveries = current.deliveries
-				.filter(
-					(delivery) =>
-						delivery.status === "exhausted" &&
-						(options.endpointId === undefined ||
-							delivery.endpointId === options.endpointId),
-				)
-				.sort((left, right) =>
-					right.nextAttemptAt.localeCompare(left.nextAttemptAt),
-				)
-				.slice(0, limit);
+			const requestedIds =
+				options.deliveryIds === undefined
+					? undefined
+					: new Set(options.deliveryIds);
+			const deliveries =
+				requestedIds === undefined
+					? current.deliveries
+							.filter(
+								(delivery) =>
+									delivery.status === "exhausted" &&
+									(options.endpointId === undefined ||
+										delivery.endpointId === options.endpointId),
+							)
+							.sort((left, right) =>
+								right.nextAttemptAt.localeCompare(left.nextAttemptAt),
+							)
+							.slice(0, limit)
+					: // An echoed set is matched against the same dead-letter
+						// criteria; records that left the dead-letter set
+						// (already replayed) are silently skipped so a retry is
+						// a documented no-op.
+						current.deliveries.filter(
+							(delivery) =>
+								requestedIds.has(delivery.id) &&
+								delivery.status === "exhausted" &&
+								(options.endpointId === undefined ||
+									delivery.endpointId === options.endpointId),
+						);
 			if (dryRun) {
 				return commitJsonFileStoreUpdate(current, {
 					eligible: deliveries.length,
@@ -1509,75 +1549,23 @@ export async function replayOutboundWebhookDeadLetters(
 			);
 		});
 	}
-	const deliveries = await listOutboundWebhookDeliveries({
-		...options,
+	// The repository performs the whole selection and transition
+	// atomically, so an overlapping replay or worker cannot double-claim a
+	// record that already left the dead-letter set.
+	return options.repository.replayDeadLetters({
 		endpointId: options.endpointId,
-		status: "exhausted",
-		limit,
+		deliveryIds: options.deliveryIds,
+		// An echoed set is replayed in full: the cap is the set's size so an
+		// independently smaller limit cannot silently replay only part of
+		// the reviewed set.
+		limit:
+			options.deliveryIds === undefined
+				? limit
+				: Math.max(options.deliveryIds.length, 1),
+		dryRun,
+		now: options.now ?? new Date(),
 	});
-	if (dryRun) {
-		return {
-			eligible: deliveries.length,
-			replayed: 0,
-			failed: 0,
-			dryRun: true,
-			deliveryIds: deliveries.map((delivery) => delivery.id),
-			errors: [],
-		};
-	}
-	const deliveryIds: string[] = [];
-	const errors: ReplayDeadLetterError[] = [];
-	const replayConcurrency = 10;
-	for (let offset = 0; offset < deliveries.length; offset += replayConcurrency) {
-		const batch = deliveries.slice(offset, offset + replayConcurrency);
-		const results = await Promise.all(
-			batch.map(async (delivery) => {
-				try {
-					const { retried } = await retryOutboundWebhookDelivery(
-						delivery.id,
-						{
-							...options,
-							now: options.now,
-						},
-					);
-					return {
-						deliveryId: delivery.id,
-						error: undefined,
-						errorCode: undefined,
-						// A concurrent replay may have requeued this delivery
-						// already; report it so the aggregate count stays honest.
-						retried,
-					};
-				} catch (error) {
-					return {
-						deliveryId: delivery.id,
-						error: truncateOutboundWebhookError(error),
-						errorCode: classifyReplayDeadLetterError(error),
-					};
-				}
-			}),
-		);
-		for (const result of results) {
-			if (result.error === undefined && result.retried) {
-				deliveryIds.push(result.deliveryId);
-			} else if (result.error === undefined) {
-				continue;
-			} else {
-				errors.push({
-					deliveryId: result.deliveryId,
-					errorCode: result.errorCode,
-				});
-			}
-		}
-	}
-	return {
-		eligible: deliveries.length,
-		replayed: deliveryIds.length,
-		failed: errors.length,
-		dryRun: false,
-		deliveryIds,
-		errors,
-	};
+
 }
 
 function resolveMaintenanceLimit(limit: number | undefined): number {

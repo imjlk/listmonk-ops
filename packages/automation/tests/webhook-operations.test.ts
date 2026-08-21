@@ -136,9 +136,10 @@ describe("webhook shared operations", () => {
 		);
 		expect(deadLetterJson).not.toContain("https://8.8.8.8/hooks");
 		expect(deadLetterJson).not.toContain("hidden@example.com");
-		expect(
-			await invokeWebhookDlqReplayOperation(context, { dry_run: true }),
-		).toMatchObject({ eligible: 1, replayed: 0, dry_run: true });
+		const dlqPreview = await invokeWebhookDlqReplayOperation(context, {
+			dry_run: true,
+		});
+		expect(dlqPreview).toMatchObject({ eligible: 1, replayed: 0, dry_run: true });
 		const exhaustedHealth = await invokeWebhookRuntimeStatusOperation(
 			context,
 			{},
@@ -172,8 +173,15 @@ describe("webhook shared operations", () => {
 			circuit_state: "closed",
 			consecutive_failures: 0,
 		});
+		const dlqIds = (
+			await invokeWebhookDlqReplayOperation(context, {
+				dry_run: true,
+				limit: 10,
+			})
+		).delivery_ids;
 		expect(
 			await invokeWebhookDlqReplayOperation(context, {
+				delivery_ids: dlqIds,
 				dry_run: false,
 				limit: 10,
 			}),
@@ -435,6 +443,58 @@ describe("webhook shared operations", () => {
 				url: "https://8.8.8.8/different",
 			}),
 		).rejects.toThrow(/already exists/);
+	});
+
+	test("replays exactly the echoed dead-letter set", async () => {
+		const context = await createContext();
+		const endpoint = await invokeWebhookCreateOperation(context, {
+			name: "dlq-echo",
+			url: "https://8.8.8.8/dlq-echo",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_DLQ",
+			event_filters: ["delivery.*"],
+		});
+		// Drive one delivery to exhausted via a failing dispatch.
+		await invokeWebhookInboundIngestOperation(context, {
+			provider: "ses",
+			provider_event_id: "dlq-echo-1",
+			kind: "rejected" as const,
+			message_id: "dlq-echo-msg",
+			metadata: { recipient_email: "hidden@example.com", reason: "policy" },
+		});
+		await invokeWebhookDispatchOperation(
+			{
+				...context,
+				fetcher: mock(
+					async () => new Response(null, { status: 400 }),
+				) as typeof fetch,
+			},
+			{ limit: 10 },
+		);
+
+		const preview = await invokeWebhookDlqReplayOperation(context, {
+			dry_run: true,
+		});
+		expect(preview.eligible).toBe(1);
+		expect(preview.delivery_ids).toHaveLength(1);
+
+		// Destructive runs without the echoed set are rejected.
+		await expect(
+			invokeWebhookDlqReplayOperation(context, { dry_run: false }),
+		).rejects.toThrow(/delivery_ids/);
+
+		const replayed = await invokeWebhookDlqReplayOperation(context, {
+			delivery_ids: preview.delivery_ids,
+			dry_run: false,
+		});
+		expect(replayed.replayed).toBe(1);
+
+		// The identical retry finds the records already requeued: no-op.
+		const retried = await invokeWebhookDlqReplayOperation(context, {
+			delivery_ids: preview.delivery_ids,
+			dry_run: false,
+		});
+		expect(retried.replayed).toBe(0);
+		expect(retried.eligible).toBe(0);
 	});
 
 	test("collapses keyed test retries onto the queued delivery", async () => {

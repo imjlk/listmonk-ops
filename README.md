@@ -605,7 +605,13 @@ the outbox collapses an identical retry onto the queued delivery and
 resumes or replays it (`replayed: true`) — but it stays experimental:
 a retry or expired lease whose first attempt reached the endpoint
 redelivers the ping, the same at-least-once ambiguity as the dispatch
-family. The remaining 22 descriptors are experimental.
+family. A sixteenth batch applied the prune echo pattern to
+`webhooks.dlq.replay`: destructive runs echo the exact dead-letter ids
+a dry run reported (modeled as a discriminated contract union) and
+already-requeued records are skipped in both stores — but it stays
+experimental, because a worker can re-exhaust a replayed record before
+the retry and make the identical echoed request eligible again. The
+remaining 22 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -936,7 +942,7 @@ listmonk-cli webhooks runtime status
 listmonk-cli webhooks runtime worker --interval-ms 5000 --confirm
 listmonk-cli webhooks dlq list
 listmonk-cli webhooks dlq replay --dry-run
-listmonk-cli webhooks dlq replay --no-dry-run --confirm
+listmonk-cli webhooks dlq replay --delivery-ids <ids-from-dry-run> --no-dry-run --confirm
 listmonk-cli webhooks circuit reset --id <endpoint-uuid> --confirm
 listmonk-cli webhooks inbound ingest \
   --provider ses \

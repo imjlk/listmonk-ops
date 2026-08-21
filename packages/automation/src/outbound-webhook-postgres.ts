@@ -677,6 +677,19 @@ export function createPostgresOutboundWebhookRepository(
 				listOptions.eventId === undefined
 					? sql``
 					: sql`AND event_id = ${listOptions.eventId}::uuid`;
+			const deliveryIdFilter =
+				listOptions.deliveryId === undefined
+					? sql``
+					: sql`AND id = ${listOptions.deliveryId}::uuid`;
+			const deliveryIdsFilter =
+				listOptions.deliveryIds === undefined
+					? sql``
+					: listOptions.deliveryIds.length === 0
+						? sql`AND false`
+						: sql`AND id = ANY(${sql.array(
+								[...listOptions.deliveryIds],
+								POSTGRES_UUID_TYPE_OID,
+							)})`;
 			const limit = listOptions.limit ?? 100;
 			const rows = await sql<DeliveryRow[]>`
 				SELECT
@@ -690,10 +703,117 @@ export function createPostgresOutboundWebhookRepository(
 				${statusFilter}
 				${eventTypeFilter}
 				${eventIdFilter}
+				${deliveryIdFilter}
+				${deliveryIdsFilter}
 				ORDER BY next_attempt_at DESC, id DESC
 				LIMIT ${limit}
 			`;
 			return rows.map(toDelivery);
+		},
+
+		async replayDeadLetters(replayOptions) {
+			await ensureInitialized();
+			return sql.begin(async (transaction) => {
+				await transaction`
+					SELECT pg_advisory_xact_lock(
+						hashtext('listmonk_ops'),
+						hashtext('webhook_delivery_capacity')
+					)
+				`;
+				const idFilter =
+					replayOptions.deliveryIds === undefined
+						? transaction``
+						: transaction`AND id = ANY(${transaction.array(
+								[...replayOptions.deliveryIds],
+								POSTGRES_UUID_TYPE_OID,
+							)})`;
+				const endpointFilter =
+					replayOptions.endpointId === undefined
+						? transaction``
+						: transaction`AND endpoint_id = ${replayOptions.endpointId}::uuid`;
+				if (replayOptions.dryRun) {
+					const previewRows = await transaction<{ id: string }[]>`
+						SELECT id
+						FROM listmonk_ops.webhook_deliveries
+						WHERE status = 'exhausted'
+							${endpointFilter}
+							${idFilter}
+						ORDER BY next_attempt_at DESC, id DESC
+						LIMIT ${replayOptions.limit}
+						FOR UPDATE
+					`;
+					return {
+						eligible: previewRows.length,
+						replayed: 0,
+						failed: 0,
+						dryRun: true,
+						deliveryIds: previewRows.map((row) => row.id),
+						errors: [],
+					};
+				}
+				// One atomic compare-and-transition: only records still in
+				// the dead-letter state move back to pending, so overlapping
+				// replays and workers cannot double-claim a record.
+				const updatedRows = await transaction<{ id: string }[]>`
+					UPDATE listmonk_ops.webhook_deliveries
+					SET
+						status = 'pending',
+						attempt_count = 0,
+						manual_retry_count = manual_retry_count + 1,
+						next_attempt_at = ${replayOptions.now},
+						last_attempt_at = NULL,
+						completed_at = NULL,
+						status_code = NULL,
+						last_error = NULL,
+						lease_token = NULL,
+						lease_expires_at = NULL
+					WHERE id IN (
+						SELECT id
+						FROM listmonk_ops.webhook_deliveries
+						WHERE status = 'exhausted'
+							AND endpoint_id IN (
+								SELECT id
+								FROM listmonk_ops.webhook_endpoints
+								WHERE enabled
+							)
+							${endpointFilter}
+							${idFilter}
+						ORDER BY next_attempt_at DESC, id DESC
+						LIMIT ${replayOptions.limit}
+						FOR UPDATE SKIP LOCKED
+					)
+					RETURNING id
+				`;
+				// Rows skipped by SKIP LOCKED are concurrent no-ops, not
+				// failures; report as unavailable only exhausted rows whose
+				// endpoint is genuinely disabled or missing.
+				const failedRows = await transaction<{ id: string }[]>`
+					SELECT d.id
+					FROM listmonk_ops.webhook_deliveries d
+					WHERE d.status = 'exhausted'
+						AND NOT EXISTS (
+							SELECT 1
+							FROM listmonk_ops.webhook_endpoints e
+							WHERE e.id = d.endpoint_id AND e.enabled
+						)
+						${endpointFilter}
+						${idFilter}
+					ORDER BY d.next_attempt_at DESC, d.id DESC
+					LIMIT ${replayOptions.limit}
+				`;
+				const errors = failedRows.map((row) => ({
+					deliveryId: row.id,
+					errorCode: "endpoint_unavailable" as const,
+				}));
+				return {
+					eligible: updatedRows.length + errors.length,
+					replayed: updatedRows.length,
+					failed: errors.length,
+					dryRun: false,
+					deliveryIds: updatedRows.map((row) => row.id),
+					errors,
+				};
+			});
 		},
 
 		async retryDelivery(id, now) {

@@ -593,7 +593,11 @@ batch에서는 조건부 retry 시맨틱의 `sequences.update`(최신 revision�
 재시도를 이미 큐된 delivery로 합치고 이어 dispatch하거나 재생합니다
 (`replayed: true`). 그러나 첫 시도가 endpoint에 도달한 후의 재시도나 만료된
 lease는 ping을 재전송하는 at-least-once 모호성 때문에 experimental로
-유지됩니다.
+유지됩니다. 열여섯 번째 batch에서는 prune echo 패턴을
+`webhooks.dlq.replay`에 적용했습니다. 파괴적 실행은 dry-run이 보고한 정확한
+dead-letter id 집합을 전달(판별 유니온 계약으로 모델링)하고 이미 재큐된
+레코드는 양쪽 저장소에서 건너뜁니다. 그러나 worker가 재생된 레코드를
+재시도 전에 다시 exhausted로 만들 수 있어 experimental로 유지됩니다.
 현재 stable baseline은 82개이며, 나머지 experimental descriptor는 22개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
@@ -913,7 +917,7 @@ listmonk-cli webhooks runtime status
 listmonk-cli webhooks runtime worker --interval-ms 5000 --confirm
 listmonk-cli webhooks dlq list
 listmonk-cli webhooks dlq replay --dry-run
-listmonk-cli webhooks dlq replay --no-dry-run --confirm
+listmonk-cli webhooks dlq replay --delivery-ids <ids-from-dry-run> --no-dry-run --confirm
 listmonk-cli webhooks circuit reset --id <endpoint-uuid> --confirm
 listmonk-cli webhooks inbound ingest \
   --provider ses \

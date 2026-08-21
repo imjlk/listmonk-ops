@@ -406,7 +406,7 @@ Prerequisites: `webhooks.dlq.list`, `webhooks.runtime.status`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Run dry_run first and list dead letters after an ambiguous replay.
+Retry guidance: Run dry_run first, then echo the reported delivery_ids; an identical repeat replays nothing new unless a worker re-exhausted a replayed record, so inspect webhooks.dlq.list before repeating.
 
 ## Reset outbound webhook circuit breaker (`webhooks.circuit.reset`)
 
