@@ -866,12 +866,12 @@ export async function invokeTemplateRegistryPromoteOperation(
 export async function invokeTemplateRegistryRollbackOperation(
 	context: OpsOperationContext,
 	input: unknown,
-): Promise<z.output<typeof templatePromoteOutputSchema>> {
+): Promise<z.output<typeof templateRollbackOutputSchema>> {
 	const parsedInput = parseOperationInput(
 		templateRegistryRollbackOperation.inputSchema,
 		input,
 	);
-	let output: TemplatePromoteResult;
+	let output: TemplateRollbackResult;
 	try {
 		output = await executeTemplateRegistryRollbackOperation(
 			context,
