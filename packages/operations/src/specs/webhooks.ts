@@ -1030,7 +1030,7 @@ export const webhookDlqReplayOperationSpec = defineOperationSpec({
 	verb: "replay",
 	title: "Replay outbound webhook dead letters",
 	description:
-		"Preview or requeue a bounded set of reviewed dead-letter deliveries.",
+		"Preview or requeue a bounded set of reviewed dead-letter deliveries. Destructive runs echo the exact delivery ids a dry run reported.",
 	contract: {
 		input: webhookDlqReplayInputContract,
 		output: webhookDlqReplayOutputContract,
@@ -1047,9 +1047,9 @@ export const webhookDlqReplayOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "reconcile",
 		reconcileWith: "webhooks.dlq.list",
-		idempotent: false,
+		idempotent: true,
 		reason:
-			"Replayed deliveries leave the dead-letter set, so inspect state after an ambiguous result.",
+			"Destructive runs replay exactly the echoed dead-letter set, and records that already left the dead-letter set are skipped, so an identical retry is a documented no-op; dry runs only preview the bounded newest batch.",
 	},
 	agent: {
 		useWhen: ["Reviewed dead letters should receive a fresh bounded attempt cycle."],
@@ -1058,7 +1058,7 @@ export const webhookDlqReplayOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.circuit.reset", "webhooks.dispatch"],
 		retryGuidance:
-			"Run dry_run first and list dead letters after an ambiguous replay.",
+			"Run dry_run first, then echo the reported delivery_ids; repeating the same destructive request replays nothing new.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_dlq_replay",
@@ -1076,7 +1076,7 @@ export const webhookDlqReplayOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookDlqReplayOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

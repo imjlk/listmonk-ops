@@ -418,6 +418,8 @@ export type WebhookDlqListOutput = WebhookDeliveryListOutput;
 
 export interface WebhookDlqReplayInput {
 	endpoint_id?: WebhookId | undefined;
+	/** Exact dead-letter set reported by a dry run; required for destructive runs so a retry replays nothing new. */
+	delivery_ids?: (readonly WebhookId[] & tags.MaxItems<1_000>) | undefined;
 	limit?: WebhookDeliveryListLimit | undefined;
 	dry_run?: boolean | undefined;
 }

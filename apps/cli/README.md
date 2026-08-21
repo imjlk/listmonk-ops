@@ -113,7 +113,7 @@ listmonk-cli webhooks deliveries retry --id <delivery-uuid> --confirm
 listmonk-cli webhooks runtime status
 listmonk-cli webhooks runtime worker --confirm
 listmonk-cli webhooks dlq list
-listmonk-cli webhooks dlq replay --no-dry-run --confirm
+listmonk-cli webhooks dlq replay --delivery-ids <ids-from-dry-run> --no-dry-run --confirm
 listmonk-cli webhooks circuit reset --id <endpoint-uuid> --confirm
 listmonk-cli webhooks inbound ingest --provider ses \
   --provider-event-id <event-id> --kind bounced

@@ -8348,6 +8348,14 @@
             "WebhookDlqReplayInput": {
               "additionalProperties": false,
               "properties": {
+                "delivery_ids": {
+                  "description": "Exact dead-letter set reported by a dry run; required for destructive runs so a retry replays nothing new.",
+                  "items": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "maxItems": 1000,
+                  "type": "array"
+                },
                 "dry_run": {
                   "type": "boolean"
                 },
@@ -8367,6 +8375,14 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "delivery_ids": {
+              "description": "Exact dead-letter set reported by a dry run; required for destructive runs so a retry replays nothing new.",
+              "items": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "maxItems": 1000,
+              "type": "array"
+            },
             "dry_run": {
               "type": "boolean"
             },
@@ -8537,13 +8553,13 @@
         "dryRun": true
       },
       "retry": {
-        "idempotent": false,
+        "idempotent": true,
         "kind": "reconcile",
-        "reason": "Replayed deliveries leave the dead-letter set, so inspect state after an ambiguous result.",
+        "reason": "Destructive runs replay exactly the echoed dead-letter set, and records that already left the dead-letter set are skipped, so an identical retry is a documented no-op; dry runs only preview the bounded newest batch.",
         "reconcileWith": "webhooks.dlq.list"
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.circuit.reset",

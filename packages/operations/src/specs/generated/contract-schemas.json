@@ -23403,6 +23403,14 @@
         "WebhookDlqReplayInput": {
           "additionalProperties": false,
           "properties": {
+            "delivery_ids": {
+              "description": "Exact dead-letter set reported by a dry run; required for destructive runs so a retry replays nothing new.",
+              "items": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "maxItems": 1000,
+              "type": "array"
+            },
             "dry_run": {
               "type": "boolean"
             },
@@ -23422,6 +23430,14 @@
     "schema": {
       "additionalProperties": false,
       "properties": {
+        "delivery_ids": {
+          "description": "Exact dead-letter set reported by a dry run; required for destructive runs so a retry replays nothing new.",
+          "items": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
         "dry_run": {
           "type": "boolean"
         },

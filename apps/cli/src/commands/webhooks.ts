@@ -567,6 +567,10 @@ const dlqReplayCommand = defineCommand({
 		"endpoint-id": option(z.uuid().optional(), {
 			description: "Filter by endpoint ID",
 		}),
+		"delivery-ids": option(z.string().trim().min(1).optional(), {
+			description:
+				"Comma-separated exact dead-letter ids a dry run reported; required with --no-dry-run",
+		}),
 		limit: option(z.coerce.number().int().min(1).max(1_000).default(100), {
 			description: "Maximum dead letters",
 		}),
@@ -580,6 +584,9 @@ const dlqReplayCommand = defineCommand({
 				{},
 				{
 					endpoint_id: flags["endpoint-id"],
+					delivery_ids: flags["delivery-ids"]
+						? parseDeliveryIds(flags["delivery-ids"])
+						: undefined,
 					limit: flags.limit,
 					dry_run: flags["dry-run"],
 				},

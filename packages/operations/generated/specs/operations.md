@@ -344,7 +344,7 @@ List exhausted delivery records that require operator review.
 
 ## `webhooks.dlq.replay`
 
-Preview or requeue a bounded set of reviewed dead-letter deliveries.
+Preview or requeue a bounded set of reviewed dead-letter deliveries. Destructive runs echo the exact delivery ids a dry run reported.
 
 - Resource / verb: `webhook.replay`
 - MCP tool: `listmonk_webhooks_dlq_replay`
@@ -352,7 +352,7 @@ Preview or requeue a bounded set of reviewed dead-letter deliveries.
 - Effects: `maintenance:replay:destructive`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.8.0`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.circuit.reset`
 

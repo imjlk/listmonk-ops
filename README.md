@@ -506,7 +506,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 82 are `stable` and 22 are `experimental`. The runtime-operation
+these, 83 are `stable` and 21 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -514,7 +514,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Eighty-two reviewed core operations are `stable`: the existing
+Eighty-three reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -605,7 +605,11 @@ the outbox collapses an identical retry onto the queued delivery and
 resumes or replays it (`replayed: true`) — but it stays experimental:
 a retry or expired lease whose first attempt reached the endpoint
 redelivers the ping, the same at-least-once ambiguity as the dispatch
-family. The remaining 22 descriptors are experimental.
+family. A sixteenth batch applied the prune echo pattern to
+`webhooks.dlq.replay` — destructive runs echo the exact dead-letter ids
+a dry run reported and already-requeued records are skipped, so an
+identical retry is a documented no-op — and promoted it. The remaining
+21 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -621,7 +625,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 82 stable compatibility baselines, and 317 direct
+runtime bridges, the 83 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are
@@ -936,7 +940,7 @@ listmonk-cli webhooks runtime status
 listmonk-cli webhooks runtime worker --interval-ms 5000 --confirm
 listmonk-cli webhooks dlq list
 listmonk-cli webhooks dlq replay --dry-run
-listmonk-cli webhooks dlq replay --no-dry-run --confirm
+listmonk-cli webhooks dlq replay --delivery-ids <ids-from-dry-run> --no-dry-run --confirm
 listmonk-cli webhooks circuit reset --id <endpoint-uuid> --confirm
 listmonk-cli webhooks inbound ingest \
   --provider ses \

@@ -308,11 +308,29 @@ const webhookDlqListInputSchema = z.object({
 	endpoint_id: endpointIdInput.optional(),
 	limit: webhookDeliveryListLimitInput.default(100),
 });
-const webhookDlqReplayInputSchema = z.object({
-	endpoint_id: endpointIdInput.optional(),
-	limit: webhookDeliveryListLimitInput.default(100),
-	dry_run: booleanInput.default(true),
-});
+const webhookDlqReplayInputSchema = z
+	.object({
+		endpoint_id: endpointIdInput.optional(),
+		delivery_ids: z
+			.array(z.uuid())
+			.max(1_000)
+			.optional()
+			.describe(
+				"Exact dead-letter set reported by a dry run; required for destructive runs so a retry replays nothing new",
+			),
+		limit: webhookDeliveryListLimitInput.default(100),
+		dry_run: booleanInput.default(true),
+	})
+	.superRefine((value, context) => {
+		if (!value.dry_run && value.delivery_ids === undefined) {
+			context.addIssue({
+				code: "custom",
+				path: ["delivery_ids"],
+				message:
+					"Destructive replay runs require the exact delivery ids a dry run reported; echo them so a retry replays nothing new",
+			});
+		}
+	});
 const webhookCircuitResetInputSchema = z.object({
 	id: endpointIdInput,
 });
@@ -1065,6 +1083,7 @@ export async function executeWebhookDlqReplayOperation(
 	const result = await replayOutboundWebhookDeadLetters({
 		...resolveWebhookOperationStore(context),
 		endpointId: input.endpoint_id,
+		deliveryIds: input.delivery_ids,
 		limit: input.limit,
 		dryRun: input.dry_run,
 	});
@@ -1362,13 +1381,13 @@ export const webhookDlqReplayOperation = defineOperation({
 	id: "webhooks.dlq.replay",
 	title: "Replay outbound webhook dead letters",
 	description:
-		"Preview or requeue a bounded set of reviewed dead-letter deliveries.",
+		"Preview or requeue a bounded set of reviewed dead-letter deliveries. Destructive runs echo the exact delivery ids a dry run reported.",
 	inputSchema: webhookDlqReplayInputSchema,
 	outputSchema: webhookDlqReplayOutputSchema,
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: false,
+		idempotentHint: true,
 		openWorldHint: false,
 	},
 	mcp: { name: "listmonk_webhooks_dlq_replay" },

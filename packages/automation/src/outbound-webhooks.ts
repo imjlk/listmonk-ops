@@ -362,6 +362,8 @@ export type PruneOutboundWebhooksResult = Readonly<{
 
 export type ReplayOutboundWebhookDeadLettersOptions = Readonly<{
 	endpointId?: string;
+	/** Exact dead-letter set reported by a dry run; supplied, exactly that set is replayed. */
+	deliveryIds?: readonly string[];
 	limit?: number;
 	dryRun?: boolean;
 	now?: Date;
@@ -1433,17 +1435,34 @@ export async function replayOutboundWebhookDeadLetters(
 		const now = options.now ?? new Date();
 		const store = createOutboundWebhookStore(options.path);
 		return updateJsonFileStore(store, (current) => {
-			const deliveries = current.deliveries
-				.filter(
-					(delivery) =>
-						delivery.status === "exhausted" &&
-						(options.endpointId === undefined ||
-							delivery.endpointId === options.endpointId),
-				)
-				.sort((left, right) =>
-					right.nextAttemptAt.localeCompare(left.nextAttemptAt),
-				)
-				.slice(0, limit);
+			const requestedIds =
+				options.deliveryIds === undefined
+					? undefined
+					: new Set(options.deliveryIds);
+			const deliveries =
+				requestedIds === undefined
+					? current.deliveries
+							.filter(
+								(delivery) =>
+									delivery.status === "exhausted" &&
+									(options.endpointId === undefined ||
+										delivery.endpointId === options.endpointId),
+							)
+							.sort((left, right) =>
+								right.nextAttemptAt.localeCompare(left.nextAttemptAt),
+							)
+							.slice(0, limit)
+					: // An echoed set is matched against the same dead-letter
+						// criteria; records that left the dead-letter set
+						// (already replayed) are silently skipped so a retry is
+						// a documented no-op.
+						current.deliveries.filter(
+							(delivery) =>
+								requestedIds.has(delivery.id) &&
+								delivery.status === "exhausted" &&
+								(options.endpointId === undefined ||
+									delivery.endpointId === options.endpointId),
+						);
 			if (dryRun) {
 				return commitJsonFileStoreUpdate(current, {
 					eligible: deliveries.length,
