@@ -22,6 +22,26 @@ async function writeTextFile(path: string, content: string) {
 	await writeFile(path, content, "utf8");
 }
 
+function parseStrictCsvNumbers(value: string): number[] {
+	const ids = value
+		.split(",")
+		.map((entry) => entry.trim())
+		.filter(Boolean)
+		.map((entry) => {
+			const parsed = Number(entry);
+			if (!Number.isInteger(parsed) || parsed <= 0) {
+				throw new Error(
+					`Invalid subscriber id in --subscriber-ids: ${entry}`,
+				);
+			}
+			return parsed;
+		});
+	if (ids.length === 0) {
+		throw new Error("Expected one or more comma-separated subscriber ids");
+	}
+	return ids;
+}
+
 export default defineGroup({
 	name: "ops",
 	description: "Operational automation and safety tooling",
@@ -182,7 +202,7 @@ export default defineGroup({
 							target_list_id: flags["target-list-id"],
 							blocklist: flags.blocklist,
 							subscriber_ids: flags["subscriber-ids"]
-								? parseCsvNumbers(flags["subscriber-ids"])
+								? parseStrictCsvNumbers(flags["subscriber-ids"])
 								: undefined,
 							dry_run: flags["dry-run"],
 							max_subscribers: flags["max-subscribers"],

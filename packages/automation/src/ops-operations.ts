@@ -587,7 +587,7 @@ export const subscriberHygieneOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: true,
+		idempotentHint: false,
 		openWorldHint: true,
 	},
 	mcp: { name: "listmonk_ops_subscriber_hygiene" },

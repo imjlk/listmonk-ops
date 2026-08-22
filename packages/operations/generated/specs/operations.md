@@ -1039,7 +1039,7 @@ Run the winback or sunset subscriber hygiene workflow
 - Effects: `write:subscriber, suppression:audience`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `reconcile`
-- Stability: `stable` since `0.9.0`
+- Stability: `experimental` since `0.9.0`
 
 ## `ops.templates.registry-sync`
 

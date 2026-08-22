@@ -26424,13 +26424,13 @@
         "dryRun": true
       },
       "retry": {
-        "idempotent": true,
+        "idempotent": false,
         "kind": "reconcile",
-        "reason": "Destructive runs process exactly the echoed subscriber set; subscribers that left the eligible set (blocklisted, reactivated, no longer inactive) are skipped, and winback list additions are per-subscriber idempotent memberships, so an identical retry applies no new effect. Dry runs only preview the bounded newest batch.",
+        "reason": "Destructive runs process exactly the echoed subscriber set — subscribers that left the eligible set are skipped and winback additions are idempotent memberships — but a subscriber that re-enters eligibility (for example unblocked and inactive again) is re-selected by the identical echoed request and receives a new effect; the run stays experimental until durable per-subscriber completion state exists.",
         "reconcileWith": "subscribers.list"
       },
       "since": "0.9.0",
-      "stability": "stable"
+      "stability": "experimental"
     },
     {
       "id": "ops.templates.registry-sync",

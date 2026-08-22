@@ -171,6 +171,7 @@ describe("automation workflows", () => {
 		const result = await runSubscriberHygiene(client, {
 			mode: "winback",
 			targetListId: 10,
+			subscriberIds: [999],
 			dryRun: false,
 		});
 		expect(result.errors).toEqual(["Subscriber mutation failed"]);

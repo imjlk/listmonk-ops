@@ -109,6 +109,21 @@ export async function runSubscriberHygiene(
 		options.subscriberIds === undefined
 			? undefined
 			: new Set(options.subscriberIds);
+	if (!dryRun && echoedIds === undefined) {
+		// The operation boundary enforces the echo for CLI and MCP callers;
+		// direct library consumers hit it here so the exported workflow can
+		// never mutate a mutable unechoed candidate batch.
+		throw new Error(
+			"Destructive hygiene runs require the exact subscriber ids a dry run reported",
+		);
+	}
+	if (echoedIds !== undefined && echoedIds.size > maxSubscribers) {
+		// An echoed set larger than the effective limit would be silently
+		// truncated, letting a retry mutate the next portion.
+		throw new Error(
+			`Echoed subscriber set (${echoedIds.size}) exceeds max_subscribers (${maxSubscribers}); raise max_subscribers to apply the full reviewed set`,
+		);
+	}
 	// An echoed set is matched against the same eligibility criteria;
 	// subscribers that left the eligible set (blocklisted, no longer
 	// inactive, changed status) are skipped so an identical retry never
@@ -121,7 +136,9 @@ export async function runSubscriberHygiene(
 			})
 		: candidates;
 	const selected = eligibleForEcho.slice(0, maxSubscribers);
-	const skippedDueToLimit = Math.max(0, candidates.length - selected.length);
+	const skippedDueToLimit = echoedIds
+		? Math.max(0, eligibleForEcho.length - selected.length)
+		: Math.max(0, candidates.length - selected.length);
 	let processedSubscribers = 0;
 
 	// Warn if winback + blocklist is set (blocklist is ignored in winback).

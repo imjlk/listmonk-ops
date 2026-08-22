@@ -209,9 +209,9 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "reconcile",
 		reconcileWith: "subscribers.list",
-		idempotent: true,
+		idempotent: false,
 		reason:
-			"Destructive runs process exactly the echoed subscriber set; subscribers that left the eligible set (blocklisted, reactivated, no longer inactive) are skipped, and winback list additions are per-subscriber idempotent memberships, so an identical retry applies no new effect. Dry runs only preview the bounded newest batch.",
+			"Destructive runs process exactly the echoed subscriber set — subscribers that left the eligible set are skipped and winback additions are idempotent memberships — but a subscriber that re-enters eligibility (for example unblocked and inactive again) is re-selected by the identical echoed request and receives a new effect; the run stays experimental until durable per-subscriber completion state exists.",
 	},
 	agent: {
 		useWhen: [
@@ -222,7 +222,7 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 		verifyWith: ["subscribers.list"],
 		related: [],
 		retryGuidance:
-			"Run dry_run first, then echo the reported subscriber_ids; repeating the same destructive request processes nothing new — left-set subscribers are skipped and list additions are idempotent memberships.",
+			"Run dry_run first, then echo the reported subscriber_ids; an identical repeat processes nothing new unless a subscriber re-entered eligibility, so inspect subscribers.list before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_subscriber_hygiene",
@@ -235,7 +235,7 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 			executorNode: "packages/automation/src/ops-operations.ts#executeSubscriberHygieneOperation:function",
 		},
 	},
-	stability: "stable",
+	stability: "experimental",
 	since: "0.9.0",
 });
 

@@ -210,7 +210,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(83);
+		).toHaveLength(82);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -534,7 +534,7 @@ describe("email operations specification", () => {
 		]);
 		expect(subscriberHygieneSpec?.retry).toMatchObject({
 			kind: "reconcile",
-			idempotent: true,
+			idempotent: false,
 		});
 		expect(subscriberHygieneSpec?.agent.retryGuidance).toStartWith(
 			"Run dry_run first, then echo the reported subscriber_ids;",
