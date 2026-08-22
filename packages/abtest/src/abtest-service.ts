@@ -390,6 +390,17 @@ export class AbTestService {
 		test: AbTest,
 		config: AbTestConfig,
 	): Promise<AbTest> {
+		// Apply the accepted orchestration metadata in the shared path so
+		// checkpoint adoption and fresh provisioning persist identically.
+		if (config.durationHours !== undefined) {
+			test.durationHours = config.durationHours;
+		}
+		if (config.minimumTestSampleSize !== undefined) {
+			test.minimumTestSampleSize = config.minimumTestSampleSize;
+		}
+		if (config.launchAt !== undefined) {
+			test.launchAt = config.launchAt;
+		}
 		// Auto-launch: schedule campaigns with a shared send_at and
 		// transition to 'scheduled'. When launchAt is provided, use it
 		// directly; otherwise use now + safety lead time.
@@ -581,7 +592,9 @@ export class AbTestService {
 					};
 					test.campaignMappings = campaignMappings;
 					test.status = "draft";
-					return this.finalizeProvisionedTest(test, config);
+					// Awaited inside the try so a failed auto-launch still
+					// triggers the rollback path below.
+					return await this.finalizeProvisionedTest(test, config);
 				}
 
 				// Use appropriate segmentation method based on testing mode

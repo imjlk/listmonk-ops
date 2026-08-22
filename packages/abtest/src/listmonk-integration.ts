@@ -108,8 +108,15 @@ export class ListmonkAbTestIntegration {
 	async findCampaignsByTestTag(
 		testId: string,
 	): Promise<Array<{ id: number; tags: string[] }>> {
+		// Scope the query server-side by the test tag so reconciliation
+		// never transfers the whole campaign history.
 		const response = await this.listmonkClient.campaign.list({
-			query: { page: 1, per_page: "all" },
+			query: {
+				page: 1,
+				per_page: "all",
+				tags: [`abtest:${testId}`],
+				no_body: true,
+			},
 		});
 		const campaigns = this.unwrapData(
 			response,
