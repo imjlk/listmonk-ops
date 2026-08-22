@@ -17788,6 +17788,15 @@
                   },
                   "type": "array"
                 },
+                "subscriber_ids": {
+                  "description": "Restricts a preview to this candidate subset without mutating anyone.",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "maxItems": 10000,
+                  "minItems": 1,
+                  "type": "array"
+                },
                 "target_list_id": {
                   "$ref": "#/components/schemas/ResourceId"
                 }
@@ -17890,6 +17899,15 @@
               "items": {
                 "$ref": "#/components/schemas/ResourceId"
               },
+              "type": "array"
+            },
+            "subscriber_ids": {
+              "description": "Restricts a preview to this candidate subset without mutating anyone.",
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "maxItems": 10000,
+              "minItems": 1,
               "type": "array"
             },
             "target_list_id": {

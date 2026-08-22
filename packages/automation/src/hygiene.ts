@@ -109,6 +109,14 @@ export async function runSubscriberHygiene(
 		options.subscriberIds === undefined
 			? undefined
 			: new Set(options.subscriberIds);
+	if (
+		[...(echoedIds ?? [])].some((id) => !Number.isSafeInteger(id) || id <= 0)
+	) {
+		// A partly invalid echoed set would be silently truncated by the
+		// candidate intersection; reject it before any mutation so a partial
+		// authorization set is never applied.
+		throw new Error("Echoed subscriber ids must be positive safe integers");
+	}
 	if (!dryRun && echoedIds === undefined) {
 		// The operation boundary enforces the echo for CLI and MCP callers;
 		// direct library consumers hit it here so the exported workflow can

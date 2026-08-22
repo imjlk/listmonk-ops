@@ -18,6 +18,9 @@ Public operation projections intentionally omit raw provider/store errors and
 subscriber identifiers. Webhook dispatches expose bounded error codes,
 subscriber bulk/hygiene and template registry workflows expose redacted
 failure summaries, and hygiene samples retain only masked email addresses.
+The one intentional exception is the hygiene echo set: numeric subscriber
+ids are returned so the reviewed dry-run candidates can be echoed verbatim
+for the destructive run; emails and other identifiers stay masked.
 
 ## Installation
 

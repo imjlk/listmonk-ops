@@ -172,6 +172,10 @@ export type SubscriberHygieneInput =
 			target_list_id?: ResourceId;
 			/** Blocklist sunset candidates. Defaults to false. */
 			blocklist?: boolean;
+			/** Restricts a preview to this candidate subset without mutating anyone. */
+			subscriber_ids?:
+				| (ResourceId[] & tags.MinItems<1> & tags.MaxItems<10_000>)
+				| undefined;
 			/** Preview candidates without mutating subscribers. Defaults to true. */
 			dry_run?: true | undefined;
 			/** Maximum candidates to process. Defaults to 500. */
