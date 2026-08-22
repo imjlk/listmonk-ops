@@ -43,6 +43,8 @@ export type ListName = NonEmptyString &
 
 export interface ListCreateInput {
 	name: ListName;
+	/** Caller-scoped create key; an identical retry with the same key replays the originally created list. */
+	idempotency_key?: NonEmptyString & tags.MaxLength<200>;
 	/**
 	 * List visibility. Optional on input and defaults to `"private"`, matching
 	 * the runtime Zod schema's `.default("private")`.
@@ -56,6 +58,11 @@ export interface ListCreateInput {
 	/** Optional description, defaults to `""`. */
 	description?: string;
 	tags?: string[];
+}
+
+export interface ListCreateOutput {
+	list: import("./subscriber").SubscriberListRecord;
+	created: boolean;
 }
 
 export interface ListUpdateFields {

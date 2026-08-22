@@ -1,6 +1,7 @@
 import { defineOperationSpec } from "../operation";
 import {
 	listCreateInputContract,
+	listCreateOutputContract,
 	listUpdateInputContract,
 	listDeleteInputContract,
 	listDeleteOutputContract,
@@ -15,14 +16,32 @@ export const listsCreateOperationSpec = defineOperationSpec({
 	description: "Create a new subscriber list",
 	contract: {
 		input: listCreateInputContract,
-		output: subscriberListRecordContract,
+		output: listCreateOutputContract,
 	},
 	effects: [{ kind: "write", resource: "list", reversible: true }],
 	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "conditional",
+		cases: [
+			{
+				when: "idempotency_key is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The key is atomically claimed in a durable store before the create is issued and then bound to the created list id; an identical retry (same key, same request payload, same Listmonk target) replays that list with created: false, a concurrent same-key create waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. A crashed attempt leaves a pending claim that a later retry recovers by adopting a uniquely named list instead of creating again.",
+				},
+			},
+			{
+				when: "idempotency_key is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"Listmonk list names are not unique, so a retry after an ambiguous create provisions a duplicate list.",
+				},
+			},
+		],
 		reason:
-			"A retry may create another list unless the original ID is known.",
+			"Retry safety depends on whether the caller supplies an idempotency key.",
 	},
 	agent: {
 		useWhen: ["A new subscriber list must be created."],
@@ -30,7 +49,8 @@ export const listsCreateOperationSpec = defineOperationSpec({
 		prerequisites: [],
 		verifyWith: ["lists.list"],
 		related: ["lists.update", "lists.delete"],
-		retryGuidance: "Inspect lists.list before retrying an ambiguous create.",
+		retryGuidance:
+			"Key the create with idempotency_key so an ambiguous retry replays the bound list; without a key, verify with lists.list before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_create_list",
@@ -48,7 +68,7 @@ export const listsCreateOperationSpec = defineOperationSpec({
 				"packages/operations/src/lists.ts#createSubscriberList:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

@@ -1,3 +1,8 @@
+import {
+	createFileBackedResourceCreateIdempotencyStore,
+} from "@listmonk-ops/common";
+import { createHash } from "node:crypto";
+
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	getListOperationByMcpName,
@@ -16,13 +21,37 @@ export function isListsToolName(name: string): boolean {
 	return getListOperationByMcpName(name) !== undefined;
 }
 
-export const handleListsTools: HandlerFunction = withErrorHandler(
+function hashCreatePayload(serialized: string): string {
+	return createHash("sha256").update(serialized).digest("hex");
+}
+
+/**
+ * Extended handler signature carrying the resolved Listmonk target so
+ * keyed list creates namespace their idempotency records by instance.
+ */
+export type ListsHandlerFunction = (
+	request: CallToolRequest,
+	client: ListmonkClient,
+	target?: { baseUrl?: string; username?: string },
+) => Promise<CallToolResult>;
+
+export const handleListsTools: ListsHandlerFunction = withErrorHandler(
 	async (
 	request: CallToolRequest,
 	client: ListmonkClient,
+	target: { baseUrl?: string; username?: string } = {},
 ): Promise<CallToolResult> => {
 		const invocation = await invokeListOperationByMcpName(
-			{ client },
+			{
+				client,
+				// Inject the file-backed resource-create idempotency store so
+				// keyed list creates replay instead of duplicating; the store
+				// path resolves via LISTMONK_OPS_RESOURCE_CREATE_STORE.
+				createIdempotencyStore:
+					createFileBackedResourceCreateIdempotencyStore(),
+				hashCreatePayload,
+				target,
+			},
 			request.params.name,
 			request.params.arguments ?? {},
 		);

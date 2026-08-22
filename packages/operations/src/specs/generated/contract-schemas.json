@@ -10741,6 +10741,12 @@
               "description": "Optional description, defaults to `\"\"`.",
               "type": "string"
             },
+            "idempotency_key": {
+              "description": "Caller-scoped create key; an identical retry with the same key replays the originally created list.",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
             "name": {
               "$ref": "#/components/schemas/ListName"
             },
@@ -10794,6 +10800,12 @@
           "description": "Optional description, defaults to `\"\"`.",
           "type": "string"
         },
+        "idempotency_key": {
+          "description": "Caller-scoped create key; an identical retry with the same key replays the originally created list.",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
         "name": {
           "$ref": "#/components/schemas/ListName"
         },
@@ -10828,6 +10840,92 @@
       },
       "required": [
         "name"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "listCreateOutputContract": {
+    "components": {
+      "schemas": {
+        "ListCreateOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "created": {
+              "type": "boolean"
+            },
+            "list": {
+              "$ref": "#/components/schemas/SubscriberListRecord"
+            }
+          },
+          "required": [
+            "list",
+            "created"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "SubscriberListRecord": {
+          "additionalProperties": {},
+          "properties": {
+            "created_at": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "name": {
+              "type": "string"
+            },
+            "optin": {
+              "type": "string"
+            },
+            "subscriber_count": {
+              "type": "number"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": {
+              "type": "string"
+            },
+            "updated_at": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "created": {
+          "type": "boolean"
+        },
+        "list": {
+          "$ref": "#/components/schemas/SubscriberListRecord"
+        }
+      },
+      "required": [
+        "list",
+        "created"
       ],
       "type": "object"
     },

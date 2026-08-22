@@ -118,6 +118,7 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	templateManifestReconcileInputContract: NormalizedContractSchema;
 	templateManifestReconcileOutputContract: NormalizedContractSchema;
 	listCreateInputContract: NormalizedContractSchema;
+	listCreateOutputContract: NormalizedContractSchema;
 	listUpdateInputContract: NormalizedContractSchema;
 	listDeleteInputContract: NormalizedContractSchema;
 	listDeleteOutputContract: NormalizedContractSchema;
@@ -357,6 +358,8 @@ export const templateManifestReconcileInputContract =
 export const templateManifestReconcileOutputContract =
 	contracts.templateManifestReconcileOutputContract;
 export const listCreateInputContract = contracts.listCreateInputContract;
+export const listCreateOutputContract =
+	contracts.listCreateOutputContract;
 export const listUpdateInputContract = contracts.listUpdateInputContract;
 export const listDeleteInputContract = contracts.listDeleteInputContract;
 export const listDeleteOutputContract = contracts.listDeleteOutputContract;

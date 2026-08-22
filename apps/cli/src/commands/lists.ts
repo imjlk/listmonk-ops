@@ -1,6 +1,11 @@
-import type { OutputUtils } from "@listmonk-ops/common";
+import {
+	createFileBackedResourceCreateIdempotencyStore,
+	type OutputUtils,
+	type ResourceCreateIdempotencyStore,
+} from "@listmonk-ops/common";
+import { createHash } from "node:crypto";
 import { getOutput } from "../lib/output";
-import type { ListmonkClient } from "@listmonk-ops/openapi";
+import type { List, ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	invokeCreateListOperation,
 	invokeDeleteListOperation,
@@ -17,13 +22,20 @@ import {
 	option,
 } from "../lib/command";
 import { toErrorMessage } from "../lib/command-utils";
-import { getListmonkClient } from "../lib/listmonk";
+import { getListmonkClient, resolveListmonkSession } from "../lib/listmonk";
 
 type ListsOutput = Pick<typeof OutputUtils, "info" | "json" | "success" | "table">;
+
+function hashCreatePayload(serialized: string): string {
+	return createHash("sha256").update(serialized).digest("hex");
+}
 
 export interface ListsCliContext {
 	client: Pick<ListmonkClient, "list">;
 	output: ListsOutput;
+	createIdempotencyStore?: ResourceCreateIdempotencyStore;
+	hashCreatePayload?: (serialized: string) => string;
+	target?: { baseUrl?: string; username?: string };
 }
 
 export interface ListListsInput {
@@ -37,6 +49,7 @@ export interface GetListInput {
 
 export interface CreateListInput {
 	name: string;
+	idempotency_key?: string;
 	type?: "public" | "private";
 	optin?: "single" | "double";
 	description?: string;
@@ -99,9 +112,15 @@ export async function renderCreateSubscriberList(
 	context: ListsCliContext,
 	input: CreateListInput,
 ): Promise<void> {
-	const list = await invokeCreateListOperation(context, input);
-	context.output.success(`List created: ${list.id ?? input.name}`);
-	context.output.json(list);
+	const result = await invokeCreateListOperation(context, input);
+	const list = result.list as List;
+	const created = result.created;
+	context.output.success(
+		created
+			? `List created: ${list.id ?? input.name}`
+			: `List already created: ${list.id ?? input.name}`,
+	);
+	context.output.json({ list, created });
 }
 
 export async function renderUpdateSubscriberList(
@@ -165,6 +184,7 @@ export async function handleGetListCommand({
 
 type CreateCommandFlags = {
 	name: string;
+	"idempotency-key"?: string;
 	type: "public" | "private";
 	optin: "single" | "double";
 	description?: string;
@@ -176,11 +196,25 @@ export async function handleCreateListCommand({
 	...args
 }: HandlerArgs<CreateCommandFlags>): Promise<void> {
 	try {
-		const client = await getListmonkClient(args);
+		const session = await resolveListmonkSession(args, {
+			requireAuth: true,
+		});
+		if (!session.client) {
+			throw new Error("Listmonk client is not available");
+		}
+		const client = session.client;
 		await renderCreateSubscriberList(
-			{ client, output: getOutput() },
+			{
+				client,
+				output: getOutput(),
+				createIdempotencyStore:
+					createFileBackedResourceCreateIdempotencyStore(),
+				hashCreatePayload,
+				target: { baseUrl: session.baseUrl, username: session.username },
+			},
 			{
 				name: flags.name,
+				idempotency_key: flags["idempotency-key"],
 				type: flags.type,
 				optin: flags.optin,
 				description: flags.description,
@@ -275,6 +309,13 @@ export default defineGroup({
 				name: option(z.string().trim().min(1), {
 					description: "List name",
 				}),
+				"idempotency-key": option(
+					z.string().trim().min(1).max(200).optional(),
+					{
+						description:
+							"Caller-scoped create key; an identical retry with the same key replays the originally created list",
+					},
+				),
 				type: option(z.enum(["public", "private"]).default("private"), {
 					description: "List visibility",
 				}),
