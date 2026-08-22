@@ -46,6 +46,7 @@
 		"prepublishOnly": "bun run build && bun run test"
 	},
 	"dependencies": {
+		"@listmonk-ops/common": "workspace:^0.5.1",
 		"@listmonk-ops/openapi": "workspace:^0.7.0",
 		"zod": "4.3.6"
 	},

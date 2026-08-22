@@ -1,4 +1,5 @@
 import type {
+	ResourceCreateClaimResult,
 	ResourceCreateIdempotencyStore,
 	StoredResourceCreateRecord,
 } from "@listmonk-ops/common";
@@ -10,6 +11,7 @@ import {
 	bindListsListOperationSpec,
 	bindListsUpdateOperationSpec,
 } from "./specs";
+import { isDefinitivePreDispatchError } from "./transactional-idempotency";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
 import {
@@ -29,7 +31,11 @@ export interface ListOperationContext {
 	createIdempotencyStore?: ResourceCreateIdempotencyStore;
 	/** SHA-256 digest helper paired with the store (runtime-neutral). */
 	hashCreatePayload?: (serialized: string) => string;
-	/** Resolved Listmonk identity namespacing idempotency records. */
+	/**
+	 * Resolved Listmonk identity namespacing idempotency records. Required
+	 * when `idempotency_key` is used so a key can never replay across
+	 * instances.
+	 */
 	target?: {
 		baseUrl?: string;
 		username?: string;
@@ -46,6 +52,7 @@ export interface ListPage {
 type DataResponse<T> = {
 	data?: T;
 	error?: unknown;
+	response?: { status?: number };
 };
 
 const subscriberListSchema = z.looseObject({
@@ -220,18 +227,28 @@ export async function getSubscriberList(
 	return unwrapData(response, "Failed to fetch list");
 }
 
-async function findCreatedList(
+/**
+ * Exact-name matches across list pages. Paging stops early once
+ * `maxMatches` are found, so single-match resolution does not scan the
+ * whole catalog while recovery still detects ambiguity.
+ */
+async function findListsByName(
 	client: Pick<ListmonkClient, "list">,
 	name: string,
-): Promise<List | undefined> {
+	options: { maxMatches?: number } = {},
+): Promise<List[]> {
+	const maxMatches = options.maxMatches ?? Number.POSITIVE_INFINITY;
 	const pageSize = 100;
+	const matches: List[] = [];
 	const firstResponse = await client.list.list({
 		query: { page: 1, per_page: pageSize, query: name },
 	});
 	const firstPage = unwrapData(firstResponse, "Failed to resolve created list");
-	const firstMatch = firstPage.results?.find((list) => list.name === name);
-	if (firstMatch) {
-		return firstMatch;
+	matches.push(
+		...(firstPage.results?.filter((list) => list.name === name) ?? []),
+	);
+	if (matches.length >= maxMatches) {
+		return matches;
 	}
 
 	const pageCount = Math.max(1, Math.ceil((firstPage.total ?? 0) / pageSize));
@@ -240,13 +257,15 @@ async function findCreatedList(
 			query: { page, per_page: pageSize, query: name },
 		});
 		const pageData = unwrapData(response, "Failed to resolve created list");
-		const match = pageData.results?.find((list) => list.name === name);
-		if (match) {
-			return match;
+		matches.push(
+			...(pageData.results?.filter((list) => list.name === name) ?? []),
+		);
+		if (matches.length >= maxMatches) {
+			return matches;
 		}
 	}
 
-	return undefined;
+	return matches;
 }
 
 export interface ListCreateResult {
@@ -266,71 +285,148 @@ function canonicalListCreatePayload(
 	};
 }
 
-export async function createSubscriberList(
-	{ client, createIdempotencyStore, hashCreatePayload, target }: ListOperationContext,
+/** Bounded wait for a live same-key create to finish before giving up. */
+const KEYED_CREATE_PENDING_WAIT_MS = 10_000;
+const KEYED_CREATE_PENDING_POLL_MS = 200;
+
+function delay(ms: number): Promise<void> {
+	return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
+}
+
+type SettledKeyedClaim =
+	| { kind: "new"; claimToken: string; recovered: boolean }
+	| { kind: "replay"; record: StoredResourceCreateRecord };
+
+/**
+ * Claim a keyed create, waiting out a live concurrent same-key claim for a
+ * bounded window. Conflicts (different payload, target, or resource kind)
+ * and a still-in-flight claim after the wait budget surface as explicit
+ * errors instead of a second POST.
+ */
+async function claimKeyedListCreate(
+	store: ResourceCreateIdempotencyStore,
+	options: { key: string; payloadHash: string; targetHash: string },
+): Promise<SettledKeyedClaim> {
+	const deadline = Date.now() + KEYED_CREATE_PENDING_WAIT_MS;
+	while (true) {
+		const claim: ResourceCreateClaimResult = await store.claim({
+			key: options.key,
+			payloadHash: options.payloadHash,
+			targetHash: options.targetHash,
+			resourceKind: "list",
+		});
+		if (claim.kind === "conflict") {
+			if (claim.reason === "payload") {
+				throw new Error(
+					`Idempotency key already used by a different create request: ${options.key}`,
+				);
+			}
+			if (claim.reason === "target") {
+				throw new Error(
+					`Idempotency key already used against a different Listmonk target: ${options.key}`,
+				);
+			}
+			throw new Error(
+				`Idempotency key is bound to a ${claim.existing.resourceKind} resource: ${options.key}`,
+			);
+		}
+		if (claim.kind === "replay") {
+			return { kind: "replay", record: claim.record };
+		}
+		if (claim.kind === "new") {
+			return {
+				kind: "new",
+				claimToken: claim.claimToken,
+				recovered: claim.recovered,
+			};
+		}
+		if (Date.now() >= deadline) {
+			throw new Error(
+				`Another create with idempotency key ${options.key} is still in flight; retry after it completes to replay its result`,
+			);
+		}
+		await delay(KEYED_CREATE_PENDING_POLL_MS);
+	}
+}
+
+async function replayRecordedList(
+	client: Pick<ListmonkClient, "list">,
+	record: StoredResourceCreateRecord,
+): Promise<ListCreateResult> {
+	try {
+		const list = await getSubscriberList(
+			{ client },
+			{ id: Number(record.resourceId) },
+		);
+		return { list, created: false };
+	} catch (error) {
+		throw new Error(
+			`Idempotency replay could not load list ${record.resourceId}: ${toErrorMessage(error)}`,
+			{ cause: error },
+		);
+	}
+}
+
+/**
+ * A stale claim takeover means a previous attempt's POST outcome is unknown.
+ * Reconcile by exact list name before creating: adopt a unique match, allow a
+ * fresh create when nothing matches, and refuse when several same-named
+ * lists make the previous attempt's target ambiguous.
+ */
+async function reconcileRecoveredClaim(
+	client: Pick<ListmonkClient, "list">,
+	name: string,
+): Promise<List | undefined> {
+	// Stop paging as soon as ambiguity is provable.
+	const matches = await findListsByName(client, name, { maxMatches: 2 });
+	if (matches.length > 1) {
+		throw new Error(
+			`Idempotency recovery found multiple lists named "${name}"; the crashed attempt's target is ambiguous. Reconcile the duplicates manually and retry with a new idempotency key.`,
+		);
+	}
+	return matches[0];
+}
+
+/**
+ * Best-effort release of a definitively failed claim: a persistence failure
+ * leaves the pending claim in place, which still blocks a duplicate POST
+ * until staleness recovery reconciles it.
+ */
+async function releaseKeyedListClaim(
+	store: ResourceCreateIdempotencyStore,
+	options: { key: string; claimToken: string },
+): Promise<void> {
+	try {
+		await store.release(options);
+	} catch (error) {
+		console.warn(
+			`Failed to release resource-create idempotency claim for key '${options.key}': ${toErrorMessage(error)}`,
+		);
+	}
+}
+
+/**
+ * Best-effort commit for a recovered adoption: the adopted list is the
+ * source of truth, and a pending claim still blocks duplicates when the
+ * commit cannot be persisted.
+ */
+async function commitKeyedListCreate(
+	store: ResourceCreateIdempotencyStore,
+	options: { key: string; claimToken: string; resourceId: string },
+): Promise<void> {
+	try {
+		await store.commit(options);
+	} catch (error) {
+		console.warn(
+			`Failed to persist resource-create idempotency record for key '${options.key}' (adopted list id ${options.resourceId}): ${toErrorMessage(error)}`,
+		);
+	}
+}
+
+async function createSubscriberListUnkeyed(
+	client: Pick<ListmonkClient, "list">,
 	input: z.output<typeof createListInputSchema>,
 ): Promise<ListCreateResult> {
-	let replayRecord: StoredResourceCreateRecord | undefined;
-	let bindKey:
-		| {
-				key: string;
-				payloadHash: string;
-				targetHash: string;
-				store: ResourceCreateIdempotencyStore;
-		  }
-		| undefined;
-	if (input.idempotency_key !== undefined) {
-		if (createIdempotencyStore === undefined || hashCreatePayload === undefined) {
-			throw new Error(
-				"idempotency_key requires a resource-create idempotency store on this surface",
-			);
-		}
-		const payloadHash = hashCreatePayload(
-			JSON.stringify(canonicalListCreatePayload(input)),
-		);
-		const targetHash = hashCreatePayload(
-			JSON.stringify([target?.baseUrl ?? "", target?.username ?? ""]),
-		);
-		const existing = await createIdempotencyStore.lookup({
-			key: input.idempotency_key,
-			targetHash,
-		});
-		if (existing) {
-			if (existing.payloadHash !== payloadHash) {
-				throw new Error(
-					`Idempotency key already used by a different create request: ${input.idempotency_key}`,
-				);
-			}
-			if (existing.resourceKind !== "list") {
-				throw new Error(
-					`Idempotency key is bound to a ${existing.resourceKind} resource: ${input.idempotency_key}`,
-				);
-			}
-			replayRecord = existing;
-		}
-		// Fall through: create, then bind the key to the created list.
-		bindKey = {
-			key: input.idempotency_key,
-			payloadHash,
-			targetHash,
-			store: createIdempotencyStore,
-		};
-	}
-
-	if (replayRecord) {
-		try {
-			const list = await getSubscriberList(
-				{ client },
-				{ id: Number(replayRecord.resourceId) },
-			);
-			return { list, created: false };
-		} catch {
-			throw new Error(
-				`Idempotency replay found no list ${replayRecord.resourceId}; the recorded resource may have been deleted`,
-			);
-		}
-	}
-
 	const response = await client.list.create({
 		body: {
 			name: input.name,
@@ -344,26 +440,172 @@ export async function createSubscriberList(
 	if (hasResponseError(response)) {
 		throw new Error(`Failed to create list: ${toErrorMessage(response.error)}`);
 	}
-	let created: List;
 	if (response.data !== undefined) {
-		created = response.data;
-	} else {
-		const createdList = await findCreatedList(client, input.name);
-		if (!createdList) {
+		return { list: response.data, created: true };
+	}
+	const matches = await findListsByName(client, input.name, { maxMatches: 1 });
+	const created = matches[0];
+	if (!created) {
+		throw new Error(
+			"List was created but the created record could not be resolved",
+		);
+	}
+	return { list: created, created: true };
+}
+
+export async function createSubscriberList(
+	{ client, createIdempotencyStore, hashCreatePayload, target }: ListOperationContext,
+	input: z.output<typeof createListInputSchema>,
+): Promise<ListCreateResult> {
+	if (input.idempotency_key === undefined) {
+		return createSubscriberListUnkeyed(client, input);
+	}
+	if (createIdempotencyStore === undefined || hashCreatePayload === undefined) {
+		throw new Error(
+			"idempotency_key requires a resource-create idempotency store on this surface",
+		);
+	}
+	if (!target?.baseUrl || !target?.username) {
+		throw new Error(
+			"idempotency_key requires a resolved Listmonk target (baseUrl and username) so the key cannot replay across instances",
+		);
+	}
+
+	const payloadHash = hashCreatePayload(
+		JSON.stringify(canonicalListCreatePayload(input)),
+	);
+	const targetHash = hashCreatePayload(
+		JSON.stringify([target.baseUrl, target.username]),
+	);
+	const claim = await claimKeyedListCreate(createIdempotencyStore, {
+		key: input.idempotency_key,
+		payloadHash,
+		targetHash,
+	});
+
+	if (claim.kind === "replay") {
+		return replayRecordedList(client, claim.record);
+	}
+
+	// claim.kind === "new" — this call owns the key from here on.
+	if (claim.recovered) {
+		// The previous attempt crashed with its POST outcome unknown. Adopt
+		// a unique same-named list instead of risking a duplicate POST.
+		const adopted = await reconcileRecoveredClaim(client, input.name);
+		if (adopted !== undefined) {
+			if (adopted.id === undefined) {
+				throw new Error(
+					`Idempotency recovery adopted a list named "${input.name}" without a resolvable id; the key was not bound`,
+				);
+			}
+			await commitKeyedListCreate(createIdempotencyStore, {
+				key: input.idempotency_key,
+				claimToken: claim.claimToken,
+				resourceId: String(adopted.id),
+			});
+			return { list: adopted, created: false };
+		}
+	}
+
+	let created: List | undefined;
+	let failure: { error: Error; definitive: boolean } | undefined;
+	try {
+		const response = await client.list.create({
+			body: {
+				name: input.name,
+				type: input.type,
+				optin: input.optin,
+				description: input.description,
+				tags: input.tags,
+			},
+		});
+		if (hasResponseError(response)) {
+			const status =
+				typeof response.response?.status === "number"
+					? response.response.status
+					: undefined;
+			failure = {
+				error: new Error(
+					`Failed to create list: ${toErrorMessage(response.error)}`,
+				),
+				// A 4xx answer rejected the request outright; a 5xx or a
+				// statusless error may have partially processed it.
+				definitive: status !== undefined && status >= 400 && status < 500,
+			};
+		} else if (response.data !== undefined) {
+			created = response.data;
+		} else {
+			created = (
+				await findListsByName(client, input.name, { maxMatches: 1 })
+			)[0];
+		}
+	} catch (error) {
+		failure = {
+			error: error instanceof Error ? error : new Error(String(error)),
+			// Proven pre-dispatch failures (ECONNREFUSED, ENOTFOUND, 4xx with
+			// a status) never reached Listmonk; everything else is ambiguous.
+			definitive: isDefinitivePreDispatchError(error),
+		};
+	}
+
+	if (failure !== undefined) {
+		if (failure.definitive) {
+			// No list was created, so the key can be released for a fresh
+			// retry. Best effort: an unreleased claim still blocks a
+			// duplicate until staleness recovery reconciles it.
+			await releaseKeyedListClaim(createIdempotencyStore, {
+				key: input.idempotency_key,
+				claimToken: claim.claimToken,
+			});
+			throw failure.error;
+		}
+		// Ambiguous failures keep the pending claim so an automatic retry
+		// cannot POST a duplicate; a later stale takeover reconciles by name.
+		throw new Error(
+			`Keyed list create failed ambiguously (${toErrorMessage(failure.error)}); the request may or may not have created a list. The idempotency key stays claimed; a retry replays or reconciles the outcome instead of creating again.`,
+			{ cause: failure.error },
+		);
+	}
+
+	if (created === undefined || created.id === undefined) {
+		// The POST was accepted but the created id is not yet resolvable; a
+		// same-name read-back gets one more chance to bind the key.
+		try {
+			const resolved = (
+				await findListsByName(client, input.name, { maxMatches: 1 })
+			).find((list) => list.id !== undefined);
+			if (resolved !== undefined) {
+				created = resolved;
+			}
+		} catch (error) {
 			throw new Error(
-				"List was created but the created record could not be resolved",
+				`Keyed list create was accepted but the created record could not be re-read: ${toErrorMessage(error)}`,
+				{ cause: error },
 			);
 		}
-		created = createdList;
 	}
-	if (bindKey !== undefined && created.id !== undefined) {
-		await bindKey.store.save({
-			key: bindKey.key,
-			payloadHash: bindKey.payloadHash,
-			targetHash: bindKey.targetHash,
-			resourceKind: "list",
-			resourceId: String(created.id),
+
+	if (created === undefined || created.id === undefined) {
+		// Keep the claim pending so a retry reconciles by name instead of
+		// silently issuing a second POST under the same key.
+		throw new Error(
+			`List was created but its id could not be resolved; the idempotency key was not bound and a retry will reconcile by list name "${input.name}" instead of creating again`,
+		);
+	}
+
+	const resourceId = String(created.id);
+	try {
+		await createIdempotencyStore.commit({
+			key: input.idempotency_key,
+			claimToken: claim.claimToken,
+			resourceId,
 		});
+	} catch (error) {
+		// The create is the source of truth. The pending claim still blocks a
+		// duplicate POST and a later stale takeover adopts the list by name.
+		console.warn(
+			`Failed to persist resource-create idempotency record for key '${input.idempotency_key}' (created list id ${resourceId}): ${toErrorMessage(error)}`,
+		);
 	}
 	return { list: created, created: true };
 }

@@ -89,6 +89,8 @@ export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry
 export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 # Optional: override the transactional idempotency store
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
+# Optional: override the keyed resource-create idempotency store
+export LISTMONK_OPS_RESOURCE_CREATE_STORE="$HOME/.listmonk-ops/ops/resource-creates.json"
 # Optional: override the signed outbound-webhook endpoint/outbox store
 export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
 # Optional alternative for multi-process/multi-worker webhook durability.
@@ -400,6 +402,7 @@ listmonk-cli lists list --page 1 --per-page 20
 listmonk-cli lists get --id 10
 listmonk-cli lists create --name "Product updates" --type private --optin single
 # Pass --idempotency-key so an ambiguous retry replays the same list.
+listmonk-cli lists create --name "Product updates" --idempotency-key "launch-2026-08-product-updates"
 listmonk-cli lists update --id 10 --name "Product updates" --confirm
 listmonk-cli lists delete --id 10 --confirm
 ```
@@ -622,10 +625,15 @@ exported workflow too) but it stays experimental: a subscriber that
 re-enters eligibility is re-selected by the identical echoed request,
 the same re-entry hazard that keeps dead-letter replay experimental.
 A nineteenth batch gave `lists.create` a durable
-`idempotency_key` (CLI `--idempotency-key`): the key binds to the
-created list id in a file-backed store namespaced by the Listmonk
-target, an identical retry replays that list as `created: false`, and
-conflicting payloads or targets under the same key are rejected —
+`idempotency_key` (CLI `--idempotency-key`): the key is atomically claimed
+in the file-backed resource-create store (configured with
+`LISTMONK_OPS_RESOURCE_CREATE_STORE`) before the create is issued and then
+bound to the created list id, namespaced by the Listmonk target. An
+identical retry replays that list as `created: false`, a concurrent
+same-key create waits for the in-flight one instead of issuing a second
+POST, and conflicting payloads or targets under the same key are rejected
+explicitly. A keyed create requires that store, so surfaces without one
+reject the key instead of silently dropping the guarantee —
 promoting the operation with testing-mode-independent conditional
 semantics (unkeyed creates stay honestly unsafe because Listmonk list
 names are not unique). The remaining 20 descriptors are experimental.

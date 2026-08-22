@@ -29,14 +29,57 @@ describe("Lists MCP Tools", () => {
 			tags: ["test", "e2e"],
 		});
 
-		const createdList = utils.assertSuccess(result, "Failed to create list");
+		const output = utils.assertSuccess<{
+			list?: { id?: number; name?: string; type?: string; optin?: string };
+			created?: boolean;
+		}>(result, "Failed to create list");
 
-		expect(createdList).toHaveProperty("id");
-		expect(createdList.name).toBe(listName);
-		expect(createdList.type).toBe("private");
-		expect(createdList.optin).toBe("single");
+		expect(output.created).toBe(true);
+		expect(output.list).toHaveProperty("id");
+		expect(output.list?.name).toBe(listName);
+		expect(output.list?.type).toBe("private");
+		expect(output.list?.optin).toBe("single");
 
-		testListId = (createdList as { id: number }).id;
+		testListId = output.list?.id ?? 0;
+	});
+
+	test("should replay an identical keyed create without duplicating", async () => {
+		const listName = buildTestName("keyed-list");
+		const idempotencyKey = `e2e:${listName}`;
+		const request = {
+			name: listName,
+			type: "private",
+			optin: "single",
+			description: "Keyed create E2E fixture",
+			idempotency_key: idempotencyKey,
+		};
+
+		const first = utils.assertSuccess<{
+			list?: { id?: number };
+			created?: boolean;
+		}>(
+			await client.callTool("listmonk_create_list", request),
+			"Failed to run the first keyed create",
+		);
+		expect(first.created).toBe(true);
+		expect(first.list?.id).toBeGreaterThan(0);
+
+		const retried = utils.assertSuccess<{
+			list?: { id?: number };
+			created?: boolean;
+		}>(
+			await client.callTool("listmonk_create_list", request),
+			"Failed to replay the keyed create",
+		);
+		expect(retried.created).toBe(false);
+		expect(retried.list?.id).toBe(first.list?.id);
+
+		// A different payload under the same key is rejected.
+		const conflicting = await client.callTool("listmonk_create_list", {
+			...request,
+			name: `${listName}-conflict`,
+		});
+		utils.assertError(conflicting, "different create request");
 	});
 
 	test("should get a specific list by ID", async () => {

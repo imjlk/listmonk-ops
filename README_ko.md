@@ -89,6 +89,8 @@ export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry
 export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 # 선택: 트랜잭션 멱등성(idempotency) 저장소 경로 재정의
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
+# 선택: 키 기반 resource-create 멱등성 저장소 경로 재정의
+export LISTMONK_OPS_RESOURCE_CREATE_STORE="$HOME/.listmonk-ops/ops/resource-creates.json"
 # 선택: 서명형 outbound webhook endpoint/outbox 저장소 경로 재정의
 export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
 # 선택 대안: 다중 프로세스/worker용 PostgreSQL durable 저장소
@@ -399,6 +401,7 @@ listmonk-cli lists list --page 1 --per-page 20
 listmonk-cli lists get --id 10
 listmonk-cli lists create --name "Product updates" --type private --optin single
 # --idempotency-key를 전달하면 애매한 재시도가 같은 리스트를 재생합니다.
+listmonk-cli lists create --name "Product updates" --idempotency-key "launch-2026-08-product-updates"
 listmonk-cli lists update --id 10 --name "Product updates" --confirm
 listmonk-cli lists delete --id 10 --confirm
 ```
@@ -609,10 +612,14 @@ dead-letter id 집합을 전달(판별 유니온 계약으로 모델링)하고 �
 experimental로 유지됩니다.
 열아홉 번째 batch에서는 `lists.create`에 지속성 있는
 `idempotency_key`(CLI `--idempotency-key`)를 추가해 승격했습니다. 키는
-생성된 리스트 id를 Listmonk 대상별로 이름공간이 분리된 파일 저장소에
-묶고, 동일한 재시도는 해당 리스트를 `created: false`로 재생하며, 같은
-키의 다른 payload/대상은 거부합니다. 키 없는 생성은 Listmonk 리스트
-이름이 유일하지 않아 여전히 unsafe로 유지됩니다.
+생성 요청 전에 파일 기반 resource-create 저장소
+(`LISTMONK_OPS_RESOURCE_CREATE_STORE`로 설정)에서 원자적으로 claim된 뒤
+생성된 리스트 id에 묶이며, Listmonk 대상별로 이름공간이 분리됩니다. 동일한
+재시도는 해당 리스트를 `created: false`로 재생하고, 같은 키의 동시 생성은
+두 번째 POST 대신 진행 중인 생성을 기다리며, 같은 키의 다른 payload/대상은
+명시적으로 거부합니다. 키 기반 생성에는 이 저장소가 필수이므로 저장소가
+없는 surface는 보장을 조용히 버리는 대신 키를 거부합니다. 키 없는 생성은
+Listmonk 리스트 이름이 유일하지 않아 여전히 unsafe로 유지됩니다.
 현재 stable baseline은 84개이며, 나머지 experimental descriptor는 20개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
