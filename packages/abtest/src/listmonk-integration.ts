@@ -1212,8 +1212,9 @@ export class ListmonkAbTestIntegration {
 				},
 			});
 			if (
-				"error" in result &&
-				(result as { error?: unknown }).error !== undefined
+				("error" in result &&
+					(result as { error?: unknown }).error !== undefined) ||
+				!(result as { data?: unknown }).data
 			) {
 				throw new Error(`Failed to remove stale members from list ${listId}`);
 			}

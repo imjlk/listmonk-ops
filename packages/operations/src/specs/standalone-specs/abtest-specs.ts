@@ -118,7 +118,8 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 		kind: "conditional",
 		cases: [
 			{
-				when: "testing_mode is holdout and auto_launch is false",
+				when:
+					"testing_mode is omitted or holdout and auto_launch is omitted or false",
 				semantics: {
 					kind: "reconcile",
 					reconcileWith: "abtest.list",
