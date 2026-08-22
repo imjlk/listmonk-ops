@@ -373,12 +373,25 @@ export class ListmonkAbTestIntegration {
 			);
 		}
 		const adoptedHoldout = holdoutMatches.at(0);
+		for (const list of options.existingLists ?? []) {
+			const variantTags = list.tags.filter((tag) =>
+				tag.startsWith("abtest-variant:"),
+			);
+			if (variantTags.length > 1) {
+				// One list carrying two variant tags would be adopted twice
+				// and its membership overwritten per variant.
+				throw new Error(
+					`List ${list.id} is tagged for multiple variants of test ${testId}; correct the tags before retrying`,
+				);
+			}
+		}
 		const adoptedVariantLists = new Map(
 			(options.existingLists ?? [])
 				.filter(
 					(list) =>
 						list.tags.includes(`abtest:${testId}`) &&
-						list.tags.includes("abtest-role:variant"),
+						list.tags.includes("abtest-role:variant") &&
+						list.tags.some((tag) => tag.startsWith("abtest-variant:")),
 				)
 				.flatMap((list) =>
 					list.tags
@@ -386,6 +399,19 @@ export class ListmonkAbTestIntegration {
 						.map((variantTag) => [variantTag.slice("abtest-variant:".length), list.id] as const),
 				),
 		);
+		const adoptedVariantListIds = [...adoptedVariantLists.values()];
+		if (new Set(adoptedVariantListIds).size !== adoptedVariantListIds.length) {
+			throw new Error(
+				`A list is adopted for multiple variants of test ${testId}; correct the tags before retrying`,
+			);
+		}
+		if (adoptedHoldout !== undefined && adoptedVariantListIds.includes(
+			adoptedHoldout.id,
+		)) {
+			throw new Error(
+				`List ${adoptedHoldout.id} is tagged as both holdout and variant for test ${testId}; correct the tags before retrying`,
+			);
+		}
 		const duplicateAdoptedVariants = new Set(
 			(options.existingLists ?? [])
 				.filter(
@@ -1178,13 +1204,19 @@ export class ListmonkAbTestIntegration {
 	): Promise<void> {
 		for (let offset = 0; offset < subscriberIds.length; offset += chunkSize) {
 			const chunk = subscriberIds.slice(offset, offset + chunkSize);
-			await this.listmonkClient.subscriber.manageLists({
+			const result = await this.listmonkClient.subscriber.manageLists({
 				body: {
 					action: "remove",
 					ids: chunk,
 					target_list_ids: [listId],
 				},
 			});
+			if (
+				"error" in result &&
+				(result as { error?: unknown }).error !== undefined
+			) {
+				throw new Error(`Failed to remove stale members from list ${listId}`);
+			}
 		}
 	}
 

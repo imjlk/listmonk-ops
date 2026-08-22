@@ -1302,7 +1302,7 @@ Prerequisites: none
 
 Verify with: `abtest.get`
 
-Retry guidance: Verify the outcome with abtest.list after an ambiguous create. Holdout creates converge on retry via the persisted seed and adopted tagged campaigns and lists; full-split creates need the remote lists inspected for duplicates before repeating.
+Retry guidance: Verify the outcome with abtest.list after an ambiguous create. Non-launching holdout creates converge on retry via the persisted seed and adopted tagged campaigns and lists; auto-launching and full-split creates need the remote campaigns and lists inspected before repeating.
 
 ## Analyze A/B test (`abtest.analyze`)
 

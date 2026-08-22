@@ -118,13 +118,21 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 		kind: "conditional",
 		cases: [
 			{
-				when: "testing_mode is holdout",
+				when: "testing_mode is holdout and auto_launch is false",
 				semantics: {
 					kind: "reconcile",
 					reconcileWith: "abtest.list",
 					idempotent: true,
 					reason:
-						"The intent, deterministic assignment seed, and auto-launch window are checkpointed before their remote effects, and campaigns and audience lists tagged abtest:<testId> are adopted on resume with membership re-synced from the persisted-seed manifest, so an identical retry converges on the same test.",
+						"The intent and deterministic assignment seed are checkpointed before their remote effects, and campaigns and audience lists tagged abtest:<testId> are adopted on resume with membership reconciled to the exact expected set, so an identical retry converges on the same test.",
+				},
+			},
+			{
+				when: "testing_mode is holdout and auto_launch is true",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"Campaigns schedule sequentially, so a crash after the first campaign scheduled can let that campaign deliver before the retry; delivery effects cannot converge without reconciling campaign delivery state.",
 				},
 			},
 			{
@@ -137,7 +145,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 			},
 		],
 		reason:
-			"Retry safety depends on the testing mode: holdout creates checkpoint and adopt; full-split creates remain at-least-once.",
+			"Retry safety depends on the testing mode and auto-launch: non-launching holdout creates checkpoint and adopt; auto-launching and full-split creates remain at-least-once.",
 	},
 	agent: {
 		useWhen: ["A new A/B test must be created."],
@@ -146,7 +154,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch", "abtest.delete"],
 		retryGuidance:
-			"Verify the outcome with abtest.list after an ambiguous create. Holdout creates converge on retry via the persisted seed and adopted tagged campaigns and lists; full-split creates need the remote lists inspected for duplicates before repeating.",
+			"Verify the outcome with abtest.list after an ambiguous create. Non-launching holdout creates converge on retry via the persisted seed and adopted tagged campaigns and lists; auto-launching and full-split creates need the remote campaigns and lists inspected before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_create",
