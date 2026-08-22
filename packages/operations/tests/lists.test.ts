@@ -462,6 +462,44 @@ describe("subscriber-list operations", () => {
 		expect(records.get("list-readback")?.status).toBe("pending");
 	});
 
+	test("refuses to bind a key when an empty-body create matches two same-named lists", async () => {
+		const { store, records } = createInMemoryResourceCreateStore();
+		// Listmonk names are not unique: with a pre-existing same-named
+		// list, the empty-body read-back cannot tell which list the create
+		// produced and must not bind the key to either.
+		const create = mock(async () => ({
+			data: undefined,
+		})) as unknown as ListClient["list"]["create"];
+		const list = mock(async () => ({
+			data: {
+				results: [
+					{ id: 71, name: "Duplicated" },
+					{ id: 72, name: "Duplicated" },
+				],
+				total: 2,
+				page: 1,
+				per_page: 100,
+			},
+		})) as unknown as ListClient["list"]["list"];
+		const ctx = {
+			client: { list: { create, list } } as unknown as Pick<
+				ListmonkClient,
+				"list"
+			>,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		await expect(
+			invokeCreateListOperation(ctx, {
+				name: "Duplicated",
+				idempotency_key: "list-duplicated",
+			}),
+		).rejects.toThrow(/multiple lists named "Duplicated"/);
+		expect(records.get("list-duplicated")?.status).toBe("pending");
+	});
+
 	test("recovers a stale claim by adopting a uniquely named list", async () => {
 		const commits: Array<{ key: string; claimToken: string; resourceId: string }> =
 			[];

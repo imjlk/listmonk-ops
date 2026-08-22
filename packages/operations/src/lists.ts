@@ -388,6 +388,25 @@ async function reconcileRecoveredClaim(
 }
 
 /**
+ * Resolve an accepted-but-unidentified keyed create by exact list name.
+ * Refuses ambiguous same-name matches: Listmonk names are not unique, so
+ * when several lists carry the name the created one cannot be identified
+ * and the key must stay pending for manual reconciliation.
+ */
+async function resolveCreatedListByName(
+	client: Pick<ListmonkClient, "list">,
+	name: string,
+): Promise<List | undefined> {
+	const matches = await findListsByName(client, name, { maxMatches: 2 });
+	if (matches.length > 1) {
+		throw new Error(
+			`Keyed list create found multiple lists named "${name}"; the created list is ambiguous and the idempotency key was not bound`,
+		);
+	}
+	return matches[0];
+}
+
+/**
  * Best-effort release of a definitively failed claim: a persistence failure
  * leaves the pending claim in place, which still blocks a duplicate POST
  * until staleness recovery reconciles it.
@@ -550,9 +569,7 @@ export async function createSubscriberList(
 		// so the claim must stay pending for reconciliation — releasing it
 		// would let a retry provision a duplicate.
 		try {
-			created = (
-				await findListsByName(client, input.name, { maxMatches: 1 })
-			)[0];
+			created = await resolveCreatedListByName(client, input.name);
 		} catch (error) {
 			throw new Error(
 				`Keyed list create was accepted but the created record could not be resolved: ${toErrorMessage(error)}`,
@@ -584,10 +601,8 @@ export async function createSubscriberList(
 		// The POST was accepted but the created id is not yet resolvable; a
 		// same-name read-back gets one more chance to bind the key.
 		try {
-			const resolved = (
-				await findListsByName(client, input.name, { maxMatches: 1 })
-			).find((list) => list.id !== undefined);
-			if (resolved !== undefined) {
+			const resolved = await resolveCreatedListByName(client, input.name);
+			if (resolved?.id !== undefined) {
 				created = resolved;
 			}
 		} catch (error) {
