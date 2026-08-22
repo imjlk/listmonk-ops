@@ -14,32 +14,16 @@ import {
 import { getOutput } from "../lib/output";
 import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
-import { parseCsvNumbers, toErrorMessage } from "../lib/command-utils";
+import {
+	parseCsvNumbers,
+	parseCsvNumbersStrict,
+	toErrorMessage,
+} from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
 
 async function writeTextFile(path: string, content: string) {
 	await mkdir(dirname(path), { recursive: true });
 	await writeFile(path, content, "utf8");
-}
-
-function parseStrictCsvNumbers(value: string): number[] {
-	const ids = value
-		.split(",")
-		.map((entry) => entry.trim())
-		.filter(Boolean)
-		.map((entry) => {
-			const parsed = Number(entry);
-			if (!Number.isInteger(parsed) || parsed <= 0) {
-				throw new Error(
-					`Invalid subscriber id in --subscriber-ids: ${entry}`,
-				);
-			}
-			return parsed;
-		});
-	if (ids.length === 0) {
-		throw new Error("Expected one or more comma-separated subscriber ids");
-	}
-	return ids;
 }
 
 export default defineGroup({
@@ -202,7 +186,7 @@ export default defineGroup({
 							target_list_id: flags["target-list-id"],
 							blocklist: flags.blocklist,
 							subscriber_ids: flags["subscriber-ids"]
-								? parseStrictCsvNumbers(flags["subscriber-ids"])
+								? parseCsvNumbersStrict(flags["subscriber-ids"], "subscriber ids")
 								: undefined,
 							dry_run: flags["dry-run"],
 							max_subscribers: flags["max-subscribers"],
