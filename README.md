@@ -506,7 +506,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 82 are `stable` and 22 are `experimental`. The runtime-operation
+these, 83 are `stable` and 21 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -514,7 +514,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Eighty-two reviewed core operations are `stable`: the existing
+Eighty-three reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -610,8 +610,13 @@ family. A sixteenth batch applied the prune echo pattern to
 a dry run reported (modeled as a discriminated contract union) and
 already-requeued records are skipped in both stores — but it stays
 experimental, because a worker can re-exhaust a replayed record before
-the retry and make the identical echoed request eligible again. The
-remaining 22 descriptors are experimental.
+the retry and make the identical echoed request eligible again. A
+seventeenth batch promoted `ops.subscribers.hygiene` — destructive
+runs echo the exact candidate subscriber set a dry run reported
+(CLI `--subscriber-ids`), left-set subscribers are skipped on retry,
+and winback list additions are per-subscriber idempotent memberships,
+so an identical retry applies no new effect. The remaining 21
+descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -627,7 +632,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 82 stable compatibility baselines, and 317 direct
+runtime bridges, the 83 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are
@@ -885,6 +890,7 @@ listmonk-cli ops guard --campaign-id 123 --pause-on-breach true --confirm
 
 # 3) Subscriber hygiene (preview)
 listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --confirm
+# Echo --subscriber-ids from the dry run for the destructive execution.
 
 # 4) Segment drift snapshot
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50

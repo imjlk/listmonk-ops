@@ -207,9 +207,11 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: true },
 	retry: {
-		kind: "unsafe",
+		kind: "reconcile",
+		reconcileWith: "subscribers.list",
+		idempotent: true,
 		reason:
-			"A retry re-fetches subscribers from mutable updated_at state and may process a different batch if candidates shifted.",
+			"Destructive runs process exactly the echoed subscriber set; subscribers that left the eligible set (blocklisted, reactivated, no longer inactive) are skipped, and winback list additions are per-subscriber idempotent memberships, so an identical retry applies no new effect. Dry runs only preview the bounded newest batch.",
 	},
 	agent: {
 		useWhen: [
@@ -220,7 +222,7 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 		verifyWith: ["subscribers.list"],
 		related: [],
 		retryGuidance:
-			"Do not automatically retry an ambiguous live run. Inspect subscribers.list, rerun a dry-run preview to recompute the mutable candidate set, and explicitly confirm any follow-up execution.",
+			"Run dry_run first, then echo the reported subscriber_ids; repeating the same destructive request processes nothing new — left-set subscribers are skipped and list additions are idempotent memberships.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_subscriber_hygiene",
@@ -233,7 +235,7 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 			executorNode: "packages/automation/src/ops-operations.ts#executeSubscriberHygieneOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

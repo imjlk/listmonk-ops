@@ -11,6 +11,8 @@ export interface SubscriberHygieneOptions {
 	sourceListIds?: number[];
 	targetListId?: number;
 	blocklist?: boolean;
+	/** Exact candidate set reported by a dry run; destructive runs process exactly this set. */
+	subscriberIds?: readonly number[];
 	dryRun?: boolean;
 	maxSubscribers?: number;
 }
@@ -23,6 +25,8 @@ export interface SubscriberHygieneResult {
 	candidateSubscribers: number;
 	processedSubscribers: number;
 	skippedDueToLimit: number;
+	/** The selected subscriber ids — echo them for the destructive run. */
+	subscriberIds: number[];
 	targetListId?: number;
 	blocklist: boolean;
 	sample: Array<{
@@ -101,7 +105,22 @@ export async function runSubscriberHygiene(
 		return true;
 	});
 
-	const selected = candidates.slice(0, maxSubscribers);
+	const echoedIds =
+		options.subscriberIds === undefined
+			? undefined
+			: new Set(options.subscriberIds);
+	// An echoed set is matched against the same eligibility criteria;
+	// subscribers that left the eligible set (blocklisted, no longer
+	// inactive, changed status) are skipped so an identical retry never
+	// re-applies a sunset blocklist, and winback list additions are
+	// per-subscriber idempotent memberships.
+	const eligibleForEcho = echoedIds
+		? candidates.filter((subscriber) => {
+				const id = toPositiveInt(subscriber.id);
+				return id !== undefined && echoedIds.has(id);
+			})
+		: candidates;
+	const selected = eligibleForEcho.slice(0, maxSubscribers);
 	const skippedDueToLimit = Math.max(0, candidates.length - selected.length);
 	let processedSubscribers = 0;
 
@@ -173,6 +192,9 @@ export async function runSubscriberHygiene(
 		candidateSubscribers: candidates.length,
 		processedSubscribers: dryRun ? 0 : processedSubscribers,
 		skippedDueToLimit,
+		subscriberIds: selected
+			.map((candidate) => toPositiveInt(candidate.id))
+			.filter((id): id is number => id !== undefined),
 		targetListId: options.targetListId,
 		blocklist,
 		sample: selected.slice(0, 20).map((candidate) => ({

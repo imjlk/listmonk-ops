@@ -156,6 +156,10 @@ export default defineGroup({
 				"dry-run": option(z.coerce.boolean().default(true), {
 					description: "Preview candidates without mutating subscribers",
 				}),
+				"subscriber-ids": option(z.string().trim().min(1).optional(), {
+					description:
+						"Comma-separated exact candidate ids a dry run reported; required with --no-dry-run",
+				}),
 				"max-subscribers": option(
 					z.coerce.number().int().positive().default(500),
 					{
@@ -177,6 +181,9 @@ export default defineGroup({
 							source_list_ids: sourceListIds,
 							target_list_id: flags["target-list-id"],
 							blocklist: flags.blocklist,
+							subscriber_ids: flags["subscriber-ids"]
+								? parseCsvNumbers(flags["subscriber-ids"])
+								: undefined,
 							dry_run: flags["dry-run"],
 							max_subscribers: flags["max-subscribers"],
 						},

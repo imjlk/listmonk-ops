@@ -22709,6 +22709,444 @@
         "input": {
           "components": {
             "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberHygieneInput": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "blocklist": {
+                        "description": "Blocklist sunset candidates. Defaults to false.",
+                        "type": "boolean"
+                      },
+                      "dry_run": {
+                        "const": true,
+                        "description": "Preview candidates without mutating subscribers. Defaults to true."
+                      },
+                      "inactivity_days": {
+                        "$ref": "#/components/schemas/PositiveInteger",
+                        "description": "Inactive threshold in days. Defaults to 90."
+                      },
+                      "max_subscribers": {
+                        "$ref": "#/components/schemas/PositiveInteger",
+                        "description": "Maximum candidates to process. Defaults to 500."
+                      },
+                      "mode": {
+                        "description": "Hygiene mode. Defaults to \"winback\".",
+                        "oneOf": [
+                          {
+                            "const": "sunset"
+                          },
+                          {
+                            "const": "winback"
+                          }
+                        ]
+                      },
+                      "source_list_ids": {
+                        "items": {
+                          "$ref": "#/components/schemas/ResourceId"
+                        },
+                        "type": "array"
+                      },
+                      "target_list_id": {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "blocklist": {
+                        "description": "Blocklist sunset candidates. Defaults to false.",
+                        "type": "boolean"
+                      },
+                      "dry_run": {
+                        "const": false
+                      },
+                      "inactivity_days": {
+                        "$ref": "#/components/schemas/PositiveInteger",
+                        "description": "Inactive threshold in days. Defaults to 90."
+                      },
+                      "max_subscribers": {
+                        "$ref": "#/components/schemas/PositiveInteger",
+                        "description": "Maximum candidates to process. Defaults to 500."
+                      },
+                      "mode": {
+                        "description": "Hygiene mode. Defaults to \"winback\".",
+                        "oneOf": [
+                          {
+                            "const": "sunset"
+                          },
+                          {
+                            "const": "winback"
+                          }
+                        ]
+                      },
+                      "source_list_ids": {
+                        "items": {
+                          "$ref": "#/components/schemas/ResourceId"
+                        },
+                        "type": "array"
+                      },
+                      "subscriber_ids": {
+                        "description": "Exact candidate set reported by a dry run; the run processes exactly this set.",
+                        "items": {
+                          "$ref": "#/components/schemas/ResourceId"
+                        },
+                        "maxItems": 10000,
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "target_list_id": {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    },
+                    "required": [
+                      "subscriber_ids",
+                      "dry_run"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "blocklist": {
+                    "description": "Blocklist sunset candidates. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "const": true,
+                    "description": "Preview candidates without mutating subscribers. Defaults to true."
+                  },
+                  "inactivity_days": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Inactive threshold in days. Defaults to 90."
+                  },
+                  "max_subscribers": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Maximum candidates to process. Defaults to 500."
+                  },
+                  "mode": {
+                    "description": "Hygiene mode. Defaults to \"winback\".",
+                    "oneOf": [
+                      {
+                        "const": "sunset"
+                      },
+                      {
+                        "const": "winback"
+                      }
+                    ]
+                  },
+                  "source_list_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "target_list_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "blocklist": {
+                    "description": "Blocklist sunset candidates. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "const": false
+                  },
+                  "inactivity_days": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Inactive threshold in days. Defaults to 90."
+                  },
+                  "max_subscribers": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Maximum candidates to process. Defaults to 500."
+                  },
+                  "mode": {
+                    "description": "Hygiene mode. Defaults to \"winback\".",
+                    "oneOf": [
+                      {
+                        "const": "sunset"
+                      },
+                      {
+                        "const": "winback"
+                      }
+                    ]
+                  },
+                  "source_list_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "subscriber_ids": {
+                    "description": "Exact candidate set reported by a dry run; the run processes exactly this set.",
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "maxItems": 10000,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "target_list_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "subscriber_ids",
+                  "dry_run"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberHygieneMode": {
+                "oneOf": [
+                  {
+                    "const": "sunset"
+                  },
+                  {
+                    "const": "winback"
+                  }
+                ]
+              },
+              "SubscriberHygieneOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "blocklist": {
+                    "type": "boolean"
+                  },
+                  "candidateSubscribers": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "cutoffAt": {
+                    "type": "string"
+                  },
+                  "dryRun": {
+                    "type": "boolean"
+                  },
+                  "errors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "mode": {
+                    "$ref": "#/components/schemas/SubscriberHygieneMode"
+                  },
+                  "processedSubscribers": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "sample": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "emailMasked": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "emailMasked"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "skippedDueToLimit": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "subscriberIds": {
+                    "description": "The selected subscriber ids — echo them for the destructive run.",
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "targetListId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "totalSubscribersScanned": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "mode",
+                  "cutoffAt",
+                  "dryRun",
+                  "totalSubscribersScanned",
+                  "candidateSubscribers",
+                  "processedSubscribers",
+                  "skippedDueToLimit",
+                  "subscriberIds",
+                  "blocklist",
+                  "sample",
+                  "errors"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "blocklist": {
+                "type": "boolean"
+              },
+              "candidateSubscribers": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "cutoffAt": {
+                "type": "string"
+              },
+              "dryRun": {
+                "type": "boolean"
+              },
+              "errors": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "mode": {
+                "$ref": "#/components/schemas/SubscriberHygieneMode"
+              },
+              "processedSubscribers": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "sample": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "emailMasked": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "emailMasked"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "skippedDueToLimit": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "subscriberIds": {
+                "description": "The selected subscriber ids — echo them for the destructive run.",
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "type": "array"
+              },
+              "targetListId": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "totalSubscribersScanned": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "mode",
+              "cutoffAt",
+              "dryRun",
+              "totalSubscribersScanned",
+              "candidateSubscribers",
+              "processedSubscribers",
+              "skippedDueToLimit",
+              "subscriberIds",
+              "blocklist",
+              "sample",
+              "errors"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "preview": true,
+          "resource": "subscriber",
+          "reversible": true
+        },
+        {
+          "kind": "suppression",
+          "preview": true,
+          "resource": "subscriber",
+          "reversible": false,
+          "scope": "audience"
+        }
+      ],
+      "id": "ops.subscribers.hygiene",
+      "mcpName": "listmonk_ops_subscriber_hygiene",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "resource": "subscriber",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Destructive runs process exactly the echoed subscriber set; subscribers that left the eligible set (blocklisted, reactivated, no longer inactive) are skipped, and winback list additions are per-subscriber idempotent memberships, so an identical retry applies no new effect. Dry runs only preview the bounded newest batch.",
+        "reconcileWith": "subscribers.list"
+      },
+      "verb": "hygiene"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "ResourceId": {
                 "maximum": 9007199254740991,
                 "minimum": 1,
