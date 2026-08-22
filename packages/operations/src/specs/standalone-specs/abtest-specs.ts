@@ -129,7 +129,8 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 				},
 			},
 			{
-				when: "testing_mode is holdout and auto_launch is true",
+				when:
+					"testing_mode is omitted or holdout and auto_launch is true",
 				semantics: {
 					kind: "unsafe",
 					reason:

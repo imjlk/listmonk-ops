@@ -25258,7 +25258,7 @@
               "kind": "unsafe",
               "reason": "Campaigns schedule sequentially, so a crash after the first campaign scheduled can let that campaign deliver before the retry; delivery effects cannot converge without reconciling campaign delivery state."
             },
-            "when": "testing_mode is holdout and auto_launch is true"
+            "when": "testing_mode is omitted or holdout and auto_launch is true"
           },
           {
             "semantics": {
