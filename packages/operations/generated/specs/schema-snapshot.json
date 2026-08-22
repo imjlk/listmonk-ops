@@ -29227,10 +29227,26 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": true,
-        "kind": "reconcile",
-        "reason": "Every create carries a replay key, the intent is committed before remote provisioning, the deterministic assignment seed and auto-launch window are checkpointed before their remote effects, campaigns and audience lists tagged abtest:<testId> are adopted on resume instead of re-created (membership re-sync is idempotent under the persisted seed), and rollback clears mappings only for confirmed deletions — an identical retry converges on the same test.",
-        "reconcileWith": "abtest.list"
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": true,
+              "kind": "reconcile",
+              "reason": "The intent, deterministic assignment seed, and auto-launch window are checkpointed before their remote effects, and campaigns and audience lists tagged abtest:<testId> are adopted on resume with membership re-synced from the persisted-seed manifest, so an identical retry converges on the same test.",
+              "reconcileWith": "abtest.list"
+            },
+            "when": "testing_mode is holdout"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "The legacy full-split path shuffles with a fresh seed and does not adopt its tagged lists, so a retry after a mid-segmentation crash duplicates the audience lists with a different assignment."
+            },
+            "when": "testing_mode is full-split"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on the testing mode: holdout creates checkpoint and adopt; full-split creates remain at-least-once."
       },
       "since": "0.10.0",
       "stability": "stable"

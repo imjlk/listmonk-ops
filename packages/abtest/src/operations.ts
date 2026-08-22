@@ -843,7 +843,7 @@ const readSafety = {
 const createSafety = {
 	readOnlyHint: false,
 	destructiveHint: true,
-	idempotentHint: true,
+	idempotentHint: false,
 	openWorldHint: true,
 } as const;
 

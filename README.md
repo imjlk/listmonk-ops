@@ -620,7 +620,7 @@ seventeenth batch gave `ops.subscribers.hygiene` echoed candidate sets
 exported workflow too) but it stays experimental: a subscriber that
 re-enters eligibility is re-selected by the identical echoed request,
 the same re-entry hazard that keeps dead-letter replay experimental.
-The remaining 22 descriptors are experimental.
+The remaining 21 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
