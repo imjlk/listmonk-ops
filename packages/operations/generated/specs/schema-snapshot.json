@@ -26027,6 +26027,11 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SubscriberHygieneBatchLimit": {
+              "maximum": 10000,
+              "minimum": 1,
+              "type": "integer"
+            },
             "SubscriberHygieneInput": {
               "oneOf": [
                 {
@@ -26045,8 +26050,8 @@
                       "description": "Inactive threshold in days. Defaults to 90."
                     },
                     "max_subscribers": {
-                      "$ref": "#/components/schemas/PositiveInteger",
-                      "description": "Maximum candidates to process. Defaults to 500."
+                      "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
+                      "description": "Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit."
                     },
                     "mode": {
                       "description": "Hygiene mode. Defaults to \"winback\".",
@@ -26096,8 +26101,8 @@
                       "description": "Inactive threshold in days. Defaults to 90."
                     },
                     "max_subscribers": {
-                      "$ref": "#/components/schemas/PositiveInteger",
-                      "description": "Maximum candidates to process. Defaults to 500."
+                      "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
+                      "description": "Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit."
                     },
                     "mode": {
                       "description": "Hygiene mode. Defaults to \"winback\".",
@@ -26158,8 +26163,8 @@
                   "description": "Inactive threshold in days. Defaults to 90."
                 },
                 "max_subscribers": {
-                  "$ref": "#/components/schemas/PositiveInteger",
-                  "description": "Maximum candidates to process. Defaults to 500."
+                  "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
+                  "description": "Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit."
                 },
                 "mode": {
                   "description": "Hygiene mode. Defaults to \"winback\".",
@@ -26209,8 +26214,8 @@
                   "description": "Inactive threshold in days. Defaults to 90."
                 },
                 "max_subscribers": {
-                  "$ref": "#/components/schemas/PositiveInteger",
-                  "description": "Maximum candidates to process. Defaults to 500."
+                  "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
+                  "description": "Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit."
                 },
                 "mode": {
                   "description": "Hygiene mode. Defaults to \"winback\".",

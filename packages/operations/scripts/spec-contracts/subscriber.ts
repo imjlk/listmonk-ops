@@ -162,6 +162,11 @@ export interface SubscriberBulkBlocklistInput {
 
 export type SubscriberHygieneMode = "winback" | "sunset";
 
+export type SubscriberHygieneBatchLimit = number &
+	tags.Type<"int64"> &
+	tags.Minimum<1> &
+	tags.Maximum<10_000>;
+
 export type SubscriberHygieneInput =
 	| {
 			/** Hygiene mode. Defaults to "winback". */
@@ -179,7 +184,7 @@ export type SubscriberHygieneInput =
 			/** Preview candidates without mutating subscribers. Defaults to true. */
 			dry_run?: true | undefined;
 			/** Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit. */
-			max_subscribers?: PositiveInteger & tags.Maximum<10_000>;
+			max_subscribers?: SubscriberHygieneBatchLimit;
 	  }
 	| {
 			/** Hygiene mode. Defaults to "winback". */
@@ -194,7 +199,7 @@ export type SubscriberHygieneInput =
 			subscriber_ids: ResourceId[] & tags.MinItems<1> & tags.MaxItems<10_000>;
 			dry_run: false;
 			/** Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit. */
-			max_subscribers?: PositiveInteger & tags.Maximum<10_000>;
+			max_subscribers?: SubscriberHygieneBatchLimit;
 	  };
 
 export interface SubscriberHygieneOutput {
