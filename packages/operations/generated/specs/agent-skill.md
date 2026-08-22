@@ -928,7 +928,7 @@ Retry guidance: Retry identical transient failures with bounded backoff, then ve
 
 ## Create subscriber list (`lists.create`)
 
-Contract maturity: `experimental`; effects: `write:list`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:list`; confirmation: `never`; retry: `conditional`.
 
 Use when: A new subscriber list must be created.
 
@@ -938,7 +938,7 @@ Prerequisites: none
 
 Verify with: `lists.list`
 
-Retry guidance: Inspect lists.list before retrying an ambiguous create.
+Retry guidance: Key the create with idempotency_key so an ambiguous retry replays the bound list; without a key, verify with lists.list before repeating.
 
 ## Update subscriber list (`lists.update`)
 

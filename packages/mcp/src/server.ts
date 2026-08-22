@@ -525,7 +525,10 @@ export class ListmonkMCPServer {
 			// Route to appropriate handler based on tool name prefix
 			let result: CallToolResult;
 			if (isListsToolName(name)) {
-				result = await handleListsTools(operationRequest, this.client);
+				result = await handleListsTools(operationRequest, this.client, {
+					baseUrl: this.baseUrl,
+					username: this.username,
+				});
 			} else if (toolNameSets.subscribers.has(name)) {
 				result = await handleSubscribersTools(operationRequest, this.client);
 			} else if (toolNameSets.campaigns.has(name)) {

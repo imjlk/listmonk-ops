@@ -135,8 +135,11 @@ export class MCPTestUtils {
 			type: "private",
 			description: "Managed by MCP E2E tests",
 		});
-
-		return this.assertSuccess(result, "Failed to create test list");
+		const output = this.assertSuccess(result, "Failed to create test list") as {
+			list?: unknown;
+		};
+		// The create result wraps the list record with a created flag.
+		return (output.list ?? output) as Record<string, unknown>;
 	}
 
 	/**

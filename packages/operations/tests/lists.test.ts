@@ -112,7 +112,10 @@ describe("subscriber-list operations", () => {
 			{ name: "Created" },
 		);
 
-		expect(output).toMatchObject({ id: 9, name: "Created" });
+		expect(output).toMatchObject({
+			created: true,
+			list: { id: 9, name: "Created" },
+		});
 		expect(create).toHaveBeenCalledWith({
 			body: {
 				name: "Created",
@@ -147,11 +150,91 @@ describe("subscriber-list operations", () => {
 			{ name: "Created" },
 		);
 
-		expect(output).toMatchObject({ id: 109 });
+		expect(output).toMatchObject({ created: true, list: { id: 109 } });
 		expect(list).toHaveBeenCalledTimes(2);
 		expect(list).toHaveBeenNthCalledWith(2, {
 			query: { page: 2, per_page: 100, query: "Created" },
 		});
+	});
+	test("replays a keyed create through the idempotency store", async () => {
+		const records = new Map<
+			string,
+			{
+				payloadHash: string;
+				targetHash: string;
+				resourceKind: string;
+				resourceId: string;
+				createdAt: string;
+			}
+		>();
+		const create = mock(async () => ({
+			data: { id: 31, name: "Keyed" },
+		})) as unknown as ListClient["list"]["create"];
+		const getById = mock(async () => ({
+			data: { id: 31, name: "Keyed" },
+		})) as unknown as ListClient["list"]["getById"];
+		const store = {
+			lookup: async ({ key }: { key: string }) => records.get(key),
+			save: async (options: {
+				key: string;
+				payloadHash: string;
+				targetHash: string;
+				resourceKind: string;
+				resourceId: string;
+			}) => {
+				records.set(options.key, {
+					payloadHash: options.payloadHash,
+					targetHash: options.targetHash,
+					resourceKind: options.resourceKind,
+					resourceId: options.resourceId,
+					createdAt: new Date().toISOString(),
+				});
+			},
+		};
+		const hash = (value: string) => `hash:${value.length}:${value}`;
+		const ctx = {
+			client: { list: { create, getById } } as unknown as Pick<
+				ListmonkClient,
+				"list"
+			>,
+			createIdempotencyStore: store,
+			hashCreatePayload: hash,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		const first = await invokeCreateListOperation(ctx, {
+			name: "Keyed",
+			idempotency_key: "list-key-1",
+		});
+		expect(first.created).toBe(true);
+		expect(first.list).toMatchObject({ id: 31 });
+		expect(create).toHaveBeenCalledTimes(1);
+
+		// The identical retry replays the bound list without creating.
+		const retried = await invokeCreateListOperation(ctx, {
+			name: "Keyed",
+			idempotency_key: "list-key-1",
+		});
+		expect(retried.created).toBe(false);
+		expect(retried.list).toMatchObject({ id: 31 });
+		expect(create).toHaveBeenCalledTimes(1);
+		expect(getById).toHaveBeenCalledWith({ path: { list_id: 31 } });
+
+		// A different request under the same key conflicts.
+		await expect(
+			invokeCreateListOperation(ctx, {
+				name: "Other",
+				idempotency_key: "list-key-1",
+			}),
+		).rejects.toThrow(/different create request/);
+
+		// A key without a store is rejected as unsupported.
+		await expect(
+			invokeCreateListOperation(
+				{ client: ctx.client },
+				{ name: "Keyed", idempotency_key: "list-key-2" },
+			),
+		).rejects.toThrow(/idempotency store/);
 	});
 
 	test("does not turn an update API error into success", async () => {

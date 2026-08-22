@@ -1,3 +1,7 @@
+import type {
+	ResourceCreateIdempotencyStore,
+	StoredResourceCreateRecord,
+} from "@listmonk-ops/common";
 import type { List, ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	bindListsCreateOperationSpec,
@@ -17,6 +21,19 @@ import {
 
 export interface ListOperationContext {
 	client: Pick<ListmonkClient, "list">;
+	/**
+	 * Adapter-supplied resource-create idempotency store. When absent, an
+	 * `idempotency_key` is rejected as unsupported on this surface; CLI and
+	 * MCP inject a file-backed implementation.
+	 */
+	createIdempotencyStore?: ResourceCreateIdempotencyStore;
+	/** SHA-256 digest helper paired with the store (runtime-neutral). */
+	hashCreatePayload?: (serialized: string) => string;
+	/** Resolved Listmonk identity namespacing idempotency records. */
+	target?: {
+		baseUrl?: string;
+		username?: string;
+	};
 }
 
 export interface ListPage {
@@ -44,6 +61,10 @@ const subscriberListSchema = z.looseObject({
 	description: z.string().optional(),
 });
 
+const listCreateOutputSchema = z.object({
+	list: subscriberListSchema,
+	created: z.boolean(),
+});
 const listPageSchema = z.object({
 	results: z.array(subscriberListSchema),
 	total: z.number(),
@@ -87,6 +108,15 @@ const listIdInputSchema = z.object({
 
 const createListInputSchema = z.object({
 	name: z.string().trim().min(1).describe("List name"),
+	idempotency_key: z
+		.string()
+		.trim()
+		.min(1)
+		.max(200)
+		.optional()
+		.describe(
+			"Caller-scoped create key; an identical retry with the same key replays the originally created list instead of creating a duplicate",
+		),
 	type: z
 		.enum(["public", "private"])
 		.default("private")
@@ -219,10 +249,88 @@ async function findCreatedList(
 	return undefined;
 }
 
-export async function createSubscriberList(
-	{ client }: ListOperationContext,
+export interface ListCreateResult {
+	list: List;
+	created: boolean;
+}
+
+function canonicalListCreatePayload(
 	input: z.output<typeof createListInputSchema>,
-): Promise<List> {
+): Record<string, unknown> {
+	return {
+		name: input.name,
+		type: input.type,
+		optin: input.optin,
+		description: input.description,
+		tags: [...input.tags].sort(),
+	};
+}
+
+export async function createSubscriberList(
+	{ client, createIdempotencyStore, hashCreatePayload, target }: ListOperationContext,
+	input: z.output<typeof createListInputSchema>,
+): Promise<ListCreateResult> {
+	let replayRecord: StoredResourceCreateRecord | undefined;
+	let bindKey:
+		| {
+				key: string;
+				payloadHash: string;
+				targetHash: string;
+				store: ResourceCreateIdempotencyStore;
+		  }
+		| undefined;
+	if (input.idempotency_key !== undefined) {
+		if (createIdempotencyStore === undefined || hashCreatePayload === undefined) {
+			throw new Error(
+				"idempotency_key requires a resource-create idempotency store on this surface",
+			);
+		}
+		const payloadHash = hashCreatePayload(
+			JSON.stringify(canonicalListCreatePayload(input)),
+		);
+		const targetHash = hashCreatePayload(
+			JSON.stringify([target?.baseUrl ?? "", target?.username ?? ""]),
+		);
+		const existing = await createIdempotencyStore.lookup({
+			key: input.idempotency_key,
+			targetHash,
+		});
+		if (existing) {
+			if (existing.payloadHash !== payloadHash) {
+				throw new Error(
+					`Idempotency key already used by a different create request: ${input.idempotency_key}`,
+				);
+			}
+			if (existing.resourceKind !== "list") {
+				throw new Error(
+					`Idempotency key is bound to a ${existing.resourceKind} resource: ${input.idempotency_key}`,
+				);
+			}
+			replayRecord = existing;
+		}
+		// Fall through: create, then bind the key to the created list.
+		bindKey = {
+			key: input.idempotency_key,
+			payloadHash,
+			targetHash,
+			store: createIdempotencyStore,
+		};
+	}
+
+	if (replayRecord) {
+		try {
+			const list = await getSubscriberList(
+				{ client },
+				{ id: Number(replayRecord.resourceId) },
+			);
+			return { list, created: false };
+		} catch {
+			throw new Error(
+				`Idempotency replay found no list ${replayRecord.resourceId}; the recorded resource may have been deleted`,
+			);
+		}
+	}
+
 	const response = await client.list.create({
 		body: {
 			name: input.name,
@@ -236,17 +344,28 @@ export async function createSubscriberList(
 	if (hasResponseError(response)) {
 		throw new Error(`Failed to create list: ${toErrorMessage(response.error)}`);
 	}
+	let created: List;
 	if (response.data !== undefined) {
-		return response.data;
+		created = response.data;
+	} else {
+		const createdList = await findCreatedList(client, input.name);
+		if (!createdList) {
+			throw new Error(
+				"List was created but the created record could not be resolved",
+			);
+		}
+		created = createdList;
 	}
-
-	const createdList = await findCreatedList(client, input.name);
-	if (!createdList) {
-		throw new Error(
-			"List was created but the created record could not be resolved",
-		);
+	if (bindKey !== undefined && created.id !== undefined) {
+		await bindKey.store.save({
+			key: bindKey.key,
+			payloadHash: bindKey.payloadHash,
+			targetHash: bindKey.targetHash,
+			resourceKind: "list",
+			resourceId: String(created.id),
+		});
 	}
-	return createdList;
+	return { list: created, created: true };
 }
 
 export async function updateSubscriberList(
@@ -310,7 +429,7 @@ export const createListOperation = defineOperation({
 	title: "Create subscriber list",
 	description: "Create a new subscriber list",
 	inputSchema: createListInputSchema,
-	outputSchema: subscriberListSchema,
+	outputSchema: listCreateOutputSchema,
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: false,
@@ -404,12 +523,12 @@ export async function invokeGetListOperation(
 export async function invokeCreateListOperation(
 	context: ListOperationContext,
 	input: unknown,
-): Promise<z.output<typeof subscriberListSchema>> {
+): Promise<z.output<typeof listCreateOutputSchema>> {
 	const parsedInput = parseOperationInput(
 		createListOperation.inputSchema,
 		input,
 	);
-	let output: List;
+	let output: ListCreateResult;
 	try {
 		output = await createSubscriberList(context, parsedInput);
 	} catch (error) {

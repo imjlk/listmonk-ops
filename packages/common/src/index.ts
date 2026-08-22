@@ -52,6 +52,16 @@ export type {
 	TransactionalSendRecord,
 	TransactionalSendStatus,
 } from "./transactional-idempotency-store";
+export {
+	createFileBackedResourceCreateIdempotencyStore,
+	getResourceCreateStorePath,
+	RESOURCE_CREATE_STORE_MAX_RECORDS,
+} from "./resource-create-idempotency-store";
+export type {
+	ResourceCreateIdempotencyStore,
+	ResourceCreateStoreDocument,
+	StoredResourceCreateRecord,
+} from "./resource-create-idempotency-store";
 
 // Common validation utilities
 export const ValidationUtils = {

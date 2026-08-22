@@ -15746,6 +15746,247 @@
         "input": {
           "components": {
             "schemas": {
+              "ListCreateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "description": "Optional description, defaults to `\"\"`.",
+                    "type": "string"
+                  },
+                  "idempotency_key": {
+                    "description": "Caller-scoped create key; an identical retry with the same key replays the originally created list.",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/ListName"
+                  },
+                  "optin": {
+                    "description": "Opt-in type. Optional on input and defaults to `\"single\"`, matching\nthe runtime Zod schema's `.default(\"single\")`.",
+                    "oneOf": [
+                      {
+                        "const": "double"
+                      },
+                      {
+                        "const": "single"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "description": "List visibility. Optional on input and defaults to `\"private\"`, matching\nthe runtime Zod schema's `.default(\"private\")`.",
+                    "oneOf": [
+                      {
+                        "const": "private"
+                      },
+                      {
+                        "const": "public"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              "ListName": {
+                "maxLength": 120,
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "description": "Optional description, defaults to `\"\"`.",
+                "type": "string"
+              },
+              "idempotency_key": {
+                "description": "Caller-scoped create key; an identical retry with the same key replays the originally created list.",
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "$ref": "#/components/schemas/ListName"
+              },
+              "optin": {
+                "description": "Opt-in type. Optional on input and defaults to `\"single\"`, matching\nthe runtime Zod schema's `.default(\"single\")`.",
+                "oneOf": [
+                  {
+                    "const": "double"
+                  },
+                  {
+                    "const": "single"
+                  }
+                ]
+              },
+              "tags": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": {
+                "description": "List visibility. Optional on input and defaults to `\"private\"`, matching\nthe runtime Zod schema's `.default(\"private\")`.",
+                "oneOf": [
+                  {
+                    "const": "private"
+                  },
+                  {
+                    "const": "public"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ListCreateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
+                  "list": {
+                    "$ref": "#/components/schemas/SubscriberListRecord"
+                  }
+                },
+                "required": [
+                  "list",
+                  "created"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SubscriberListRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "optin": {
+                    "type": "string"
+                  },
+                  "subscriber_count": {
+                    "type": "number"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "created": {
+                "type": "boolean"
+              },
+              "list": {
+                "$ref": "#/components/schemas/SubscriberListRecord"
+              }
+            },
+            "required": [
+              "list",
+              "created"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "list",
+          "reversible": true
+        }
+      ],
+      "id": "lists.create",
+      "mcpName": "listmonk_create_list",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "list",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The key is bound to the created list id in a durable store before the response returns; an identical retry (same key, same request payload, same Listmonk target) replays that list with created: false, and a different request or target under the same key is rejected."
+            },
+            "when": "idempotency_key is present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Listmonk list names are not unique, so a retry after an ambiguous create provisions a duplicate list."
+            },
+            "when": "idempotency_key is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller supplies an idempotency key."
+      },
+      "verb": "create"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "ListName": {
                 "maxLength": 120,
                 "minLength": 1,

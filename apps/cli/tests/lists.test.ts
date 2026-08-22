@@ -139,8 +139,8 @@ describe("lists CLI actions", () => {
 		});
 		expect(cliContext.output.success).toHaveBeenCalledWith("List created: 12");
 		expect(cliContext.output.json).toHaveBeenCalledWith({
-			id: 12,
-			name: "Product",
+			list: { id: 12, name: "Product" },
+			created: true,
 		});
 	});
 
