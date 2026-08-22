@@ -428,6 +428,40 @@ describe("subscriber-list operations", () => {
 		expect(records.get("list-unresolved")?.status).toBe("pending");
 	});
 
+	test("keeps the claim pending when a read-back fails after an accepted create", async () => {
+		const { store, records } = createInMemoryResourceCreateStore();
+		// The POST is accepted but returns an empty body; the subsequent
+		// name read-back dies with a connection error that would look
+		// pre-dispatch in isolation. The claim must not be released.
+		const create = mock(async () => ({
+			data: undefined,
+		})) as unknown as ListClient["list"]["create"];
+		const list = mock(async () => {
+			const error = new Error("fetch failed") as NodeJS.ErrnoException;
+			error.code = "ECONNREFUSED";
+			throw error;
+		}) as unknown as ListClient["list"]["list"];
+		const ctx = {
+			client: { list: { create, list } } as unknown as Pick<
+				ListmonkClient,
+				"list"
+			>,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		await expect(
+			invokeCreateListOperation(ctx, {
+				name: "Accepted",
+				idempotency_key: "list-readback",
+			}),
+		).rejects.toThrow(
+			/accepted but the created record could not be resolved/,
+		);
+		expect(records.get("list-readback")?.status).toBe("pending");
+	});
+
 	test("recovers a stale claim by adopting a uniquely named list", async () => {
 		const commits: Array<{ key: string; claimToken: string; resourceId: string }> =
 			[];

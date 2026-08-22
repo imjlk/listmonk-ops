@@ -534,10 +534,6 @@ export async function createSubscriberList(
 			};
 		} else if (response.data !== undefined) {
 			created = response.data;
-		} else {
-			created = (
-				await findListsByName(client, input.name, { maxMatches: 1 })
-			)[0];
 		}
 	} catch (error) {
 		failure = {
@@ -546,6 +542,23 @@ export async function createSubscriberList(
 			// a status) never reached Listmonk; everything else is ambiguous.
 			definitive: isDefinitivePreDispatchError(error),
 		};
+	}
+
+	if (failure === undefined && created === undefined) {
+		// The POST was accepted with an empty body; resolve the created list
+		// by name. Any failure here happened after the create was accepted,
+		// so the claim must stay pending for reconciliation — releasing it
+		// would let a retry provision a duplicate.
+		try {
+			created = (
+				await findListsByName(client, input.name, { maxMatches: 1 })
+			)[0];
+		} catch (error) {
+			throw new Error(
+				`Keyed list create was accepted but the created record could not be resolved: ${toErrorMessage(error)}`,
+				{ cause: error },
+			);
+		}
 	}
 
 	if (failure !== undefined) {
