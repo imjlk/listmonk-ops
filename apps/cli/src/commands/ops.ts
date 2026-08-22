@@ -165,7 +165,12 @@ export default defineGroup({
 						"Comma-separated exact candidate ids a dry run reported; required with --no-dry-run",
 				}),
 				"max-subscribers": option(
-					z.coerce.number().int().positive().default(500),
+					z.coerce
+						.number()
+						.int()
+						.positive()
+						.max(10_000)
+						.default(500),
 					{
 						description: "Max candidates to process in one run",
 					},

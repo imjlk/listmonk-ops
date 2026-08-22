@@ -150,6 +150,10 @@ const subscriberHygieneInputSchema = z
 			.default(true)
 			.describe("Preview candidates without mutating subscribers"),
 		max_subscribers: positiveIntegerInput
+			.refine(
+				(value) => value <= 10_000,
+				"max_subscribers must be at most 10000, matching the echoed subscriber_ids limit",
+			)
 			.default(500)
 			.describe("Maximum candidates to process"),
 	})

@@ -178,8 +178,8 @@ export type SubscriberHygieneInput =
 				| undefined;
 			/** Preview candidates without mutating subscribers. Defaults to true. */
 			dry_run?: true | undefined;
-			/** Maximum candidates to process. Defaults to 500. */
-			max_subscribers?: PositiveInteger;
+			/** Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit. */
+			max_subscribers?: PositiveInteger & tags.Maximum<10_000>;
 	  }
 	| {
 			/** Hygiene mode. Defaults to "winback". */
@@ -193,8 +193,8 @@ export type SubscriberHygieneInput =
 			/** Exact candidate set reported by a dry run; the run processes exactly this set. */
 			subscriber_ids: ResourceId[] & tags.MinItems<1> & tags.MaxItems<10_000>;
 			dry_run: false;
-			/** Maximum candidates to process. Defaults to 500. */
-			max_subscribers?: PositiveInteger;
+			/** Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit. */
+			max_subscribers?: PositiveInteger & tags.Maximum<10_000>;
 	  };
 
 export interface SubscriberHygieneOutput {
