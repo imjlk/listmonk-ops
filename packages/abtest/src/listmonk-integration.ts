@@ -109,13 +109,21 @@ export class ListmonkAbTestIntegration {
 		testId: string,
 	): Promise<Array<{ id: number; tags: string[] }>> {
 		// Scope the query server-side by the test tag so reconciliation
-		// never transfers the whole campaign history.
-		const response = await this.listmonkClient.campaign.list({
+		// never transfers the whole campaign history. The generated SDK
+		// types the plural `tags` parameter, but Listmonk 6.2 ignores it
+		// (verified against the local stack and documented in the package
+		// README); the server filters on the singular `tag` parameter, so
+		// emit it through a narrow unchecked cast at this boundary.
+		type CampaignListByTag = (options: {
+			query: { page: number; per_page: string; tag: string };
+		}) => Promise<{ data?: unknown; error?: unknown }>;
+		const listCampaignsByTag = this.listmonkClient.campaign
+			.list as unknown as CampaignListByTag;
+		const response = await listCampaignsByTag({
 			query: {
 				page: 1,
 				per_page: "all",
-				tags: [`abtest:${testId}`],
-				no_body: true,
+				tag: `abtest:${testId}`,
 			},
 		});
 		const campaigns = this.unwrapData(

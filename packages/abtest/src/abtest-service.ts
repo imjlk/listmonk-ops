@@ -560,9 +560,12 @@ export class AbTestService {
 		}
 		// Create Listmonk campaigns if integration is available
 		if (this.listmonkIntegration) {
+			// Rollback only what THIS invocation created: resources committed
+			// by earlier checkpoint phases belong to the persisted record and
+			// must survive a failed finalization so the retry can resume.
 			let provisionedResources: ProvisionedAbTestResources = {
 				testId: test.id,
-				campaignIds: test.campaignMappings.map((m) => m.campaignId),
+				campaignIds: [],
 				testListIds: [],
 			};
 
@@ -570,6 +573,9 @@ export class AbTestService {
 				// The phased executor checkpoints each stage; when the
 				// campaign checkpoint is already present, adopt it instead of
 				// re-creating (and reconciling protects the crash window).
+				const adoptedCampaignIds = new Set(
+					test.campaignMappings.map((mapping) => mapping.campaignId),
+				);
 				const campaignMappings =
 					test.campaignMappings.length > 0
 						? test.campaignMappings
@@ -579,7 +585,12 @@ export class AbTestService {
 							);
 				provisionedResources = {
 					...provisionedResources,
-					campaignIds: campaignMappings.map((mapping) => mapping.campaignId),
+					// Only resources created in THIS invocation roll back;
+					// adopted checkpoint mappings survive a failed
+					// finalization so the retry can resume them.
+					campaignIds: campaignMappings
+						.map((mapping) => mapping.campaignId)
+						.filter((id) => !adoptedCampaignIds.has(id)),
 				};
 
 				if (test.testListMappings.length > 0) {
