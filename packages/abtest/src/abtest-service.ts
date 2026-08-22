@@ -468,7 +468,15 @@ export class AbTestService {
 				);
 			}
 			if (matches.length === 1) {
-				mappings.push({ variantId: variant.id, campaignId: matches[0]!.id });
+				const campaignId = matches[0]!.id;
+				if (mappings.some((m) => m.campaignId === campaignId)) {
+					// A malformed campaign tagged for two variants would be
+					// adopted twice, silently stranding one variant.
+					throw new Error(
+						`Campaign ${campaignId} is tagged for multiple variants of test ${test.id}; correct the tags before retrying`,
+					);
+				}
+				mappings.push({ variantId: variant.id, campaignId });
 			}
 		}
 		if (mappings.length < test.variants.length) {
