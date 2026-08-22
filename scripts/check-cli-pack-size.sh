@@ -5,7 +5,7 @@ set -euo pipefail
 # the single-file CLI bundle. Keep modest headroom above the reviewed baseline
 # while retaining the stricter compressed distribution budget below. Each
 # standalone contract migration adds a few KB of generated JSON.
-MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1470000}"
+MAX_UNPACKED_SIZE_BYTES="${MAX_UNPACKED_SIZE_BYTES:-1480000}"
 MAX_TARBALL_SIZE_BYTES="${MAX_TARBALL_SIZE_BYTES:-250000}"
 
 pack_json="$(npm pack --dry-run --json --workspace @listmonk-ops/cli)"
