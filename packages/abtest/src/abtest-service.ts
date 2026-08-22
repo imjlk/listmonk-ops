@@ -403,13 +403,18 @@ export class AbTestService {
 		}
 		// Auto-launch: schedule campaigns with a shared send_at and
 		// transition to 'scheduled'. When launchAt is provided, use it
-		// directly; otherwise use now + safety lead time.
+		// directly; otherwise use now + safety lead time. The chosen window
+		// is stamped on the record BEFORE the remote schedule so a crash
+		// mid-launch leaves the window inspectable (the phased executor
+		// commits this stamp in its own checkpoint step).
 		if (config.autoLaunch) {
 			const sendAt =
+				test.launchAt ??
 				config.launchAt ??
 				new Date(
 					Date.now() + ABTEST_SAFETY_LEAD_SECONDS * 1000,
 				).toISOString();
+			test.launchAt = sendAt;
 			const integration = this.listmonkIntegration;
 			if (!integration) {
 				throw new Error("Listmonk integration not available");
@@ -497,6 +502,29 @@ export class AbTestService {
 			mappings.push(...created);
 		}
 		test.campaignMappings = mappings;
+		return test;
+	}
+
+	/**
+	 * Auto-launch window checkpoint: stamps the deterministic sendAt on the
+	 * record (preferring an already-stamped window so retries never
+	 * recompute it) so the phased executor can commit it before any remote
+	 * scheduling runs.
+	 */
+	async recordAutoLaunchWindowPhase(test: AbTest): Promise<AbTest> {
+		if (test.provisionedAt !== undefined) {
+			return test;
+		}
+		const config = test.pendingCreate?.config;
+		if (config === undefined || !config.autoLaunch) {
+			return test;
+		}
+		test.launchAt =
+			test.launchAt ??
+			config.launchAt ??
+			new Date(
+				Date.now() + ABTEST_SAFETY_LEAD_SECONDS * 1000,
+			).toISOString();
 		return test;
 	}
 
@@ -607,12 +635,9 @@ export class AbTestService {
 
 				if (test.testListMappings.length > 0) {
 					// Segmentation checkpoint already committed by the phased
-					// executor; adopt it instead of re-splitting.
-					provisionedResources = {
-						...provisionedResources,
-						testListIds: test.testListMappings.map((mapping) => mapping.listId),
-						holdoutListId: test.holdoutListId,
-					};
+					// executor; adopt it instead of re-splitting. Adopted
+					// lists belong to the persisted checkpoint and never roll
+					// back, so the rollback set stays empty here.
 					test.campaignMappings = campaignMappings;
 					test.status = "draft";
 					// Awaited inside the try so a failed auto-launch still
@@ -735,6 +760,17 @@ export class AbTestService {
 				try {
 					await this.listmonkIntegration.rollbackProvisioning(
 						provisionedResources,
+					);
+					// The rolled-back resources no longer exist remotely;
+					// clear their mappings so an identical retry reconciles or
+					// re-creates instead of adopting dead ids.
+					const rolledBackCampaigns = new Set(provisionedResources.campaignIds);
+					const rolledBackLists = new Set(provisionedResources.testListIds);
+					test.campaignMappings = test.campaignMappings.filter(
+						(mapping) => !rolledBackCampaigns.has(mapping.campaignId),
+					);
+					test.testListMappings = test.testListMappings.filter(
+						(mapping) => !rolledBackLists.has(mapping.listId),
 					);
 				} catch (rollbackError) {
 					console.error(

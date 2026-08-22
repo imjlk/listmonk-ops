@@ -630,6 +630,12 @@ export async function executeCreateAbTestOperation(
 		await withStoredOperation<AbTest>(context, "write", (executors) =>
 			executors.provisionAbTestSegmentationPhase(intent.id),
 		);
+		// Phase 3.5 stamps the deterministic auto-launch send window and
+		// commits it before any remote scheduling, so a crash mid-launch
+		// leaves the window inspectable and a retry reuses it.
+		await withStoredOperation<AbTest>(context, "write", (executors) =>
+			executors.recordAbTestAutoLaunchWindowPhase(intent.id),
+		);
 	}
 	// Phase 4 finalizes (and auto-launches when configured) the same record.
 	const test = await withStoredOperation<AbTest>(
