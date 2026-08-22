@@ -134,7 +134,12 @@ const subscriberHygieneInputSchema = z
 			.default(false)
 			.describe("Blocklist sunset candidates"),
 		subscriber_ids: z
-			.array(positiveIntegerInput)
+			.array(
+				positiveIntegerInput.refine(
+					(value) => Number.isSafeInteger(value),
+					"subscriber ids must be safe integers",
+				),
+			)
 			.min(1)
 			.max(10_000)
 			.optional()
