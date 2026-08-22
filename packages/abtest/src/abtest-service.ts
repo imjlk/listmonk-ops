@@ -1,3 +1,4 @@
+import { generateAssignmentSeed } from "./assignment";
 import { createHash } from "node:crypto";
 import type {
 	ListmonkAbTestIntegration,
@@ -506,6 +507,23 @@ export class AbTestService {
 	}
 
 	/**
+	 * Segmentation seed checkpoint: stamps the deterministic assignment seed
+	 * on the record so the phased executor can commit it before any
+	 * segmentation list is created — a retry then re-splits identically.
+	 */
+	async recordSegmentationSeedPhase(test: AbTest): Promise<AbTest> {
+		if (
+			test.provisionedAt !== undefined ||
+			test.assignmentSeed !== undefined ||
+			test.testingMode !== "holdout"
+		) {
+			return test;
+		}
+		test.assignmentSeed = generateAssignmentSeed();
+		return test;
+	}
+
+	/**
 	 * Auto-launch window checkpoint: stamps the deterministic sendAt on the
 	 * record (preferring an already-stamped window so retries never
 	 * recompute it) so the phased executor can commit it before any remote
@@ -546,6 +564,11 @@ export class AbTestService {
 			return test;
 		}
 		if (test.testingMode === "holdout") {
+			// Adopt lists a prior crashed attempt tagged for this test and
+			// reuse the persisted seed so the re-split is identical and the
+			// membership re-sync is idempotent.
+			const existingLists =
+				await this.listmonkIntegration.findListsByTestTag(test.id);
 			const segmentationResult =
 				await this.listmonkIntegration.segmentSubscribersForHoldout(
 					config.baseConfig.lists,
@@ -553,7 +576,9 @@ export class AbTestService {
 					test.testGroupPercentage,
 					{
 						testId: test.id,
+						assignmentSeed: test.assignmentSeed,
 						stratificationPolicy: config.stratificationPolicy,
+						existingLists,
 					},
 				);
 			test.testListMappings = segmentationResult.testListMappings;

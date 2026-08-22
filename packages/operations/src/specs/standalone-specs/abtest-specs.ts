@@ -115,9 +115,11 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "reconcile",
+		reconcileWith: "abtest.list",
+		idempotent: true,
 		reason:
-			"The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning, the campaign mapping is checkpointed after each phase, and campaigns tagged abtest:<testId> are reconciled by tag on resume instead of re-created; a crash mid-segmentation still re-splits the audience with a fresh seed and can leak the first split's tagged lists, so an ambiguous failure needs operator inspection of the remote resources before retrying.",
+			"Every create carries a replay key, the intent is committed before remote provisioning, the deterministic assignment seed and auto-launch window are checkpointed before their remote effects, campaigns and audience lists tagged abtest:<testId> are adopted on resume instead of re-created (membership re-sync is idempotent under the persisted seed), and rollback clears mappings only for confirmed deletions — an identical retry converges on the same test.",
 	},
 	agent: {
 		useWhen: ["A new A/B test must be created."],
@@ -126,7 +128,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch", "abtest.delete"],
 		retryGuidance:
-			"An ambiguous failure gives no test id and abtest.get reads only the local checkpoint; search the remote campaigns and lists tagged abtest:<test id> from the store for leaked resources before repeating the create.",
+			"Verify the outcome with abtest.list after an ambiguous create; the persisted seed, adopted tagged campaigns and lists, and confirmed-deletion rollback make an identical retry converge on the same test.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_create",
@@ -139,7 +141,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeCreateAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 

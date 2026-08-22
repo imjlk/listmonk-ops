@@ -271,6 +271,8 @@ export class ListmonkAbTestIntegration {
 			testId?: string;
 			assignmentSeed?: string;
 			stratificationPolicy?: StratificationPolicyV1;
+			/** Lists tagged for this test by a prior crashed attempt; adopted instead of re-created. */
+			existingLists?: ReadonlyArray<{ id: number; tags: string[] }>;
 		} = {},
 	): Promise<{
 		testListMappings: { variantId: string; listId: number }[];
@@ -348,29 +350,80 @@ export class ListmonkAbTestIntegration {
 			.slice(cursor)
 			.map((entry) => entry.member.subscriberId);
 
+		// Lists tagged by a prior crashed attempt are adopted instead of
+		// re-created: membership sync is deterministic under the persisted
+		// seed, so re-applying the same ranked slices is idempotent.
+		const adoptedHoldout = options.existingLists
+			?.filter(
+				(list) =>
+					list.tags.includes(`abtest:${testId}`) &&
+					list.tags.includes("abtest-role:holdout"),
+			)
+			.at(0);
+		const adoptedVariantLists = new Map(
+			(options.existingLists ?? [])
+				.filter(
+					(list) =>
+						list.tags.includes(`abtest:${testId}`) &&
+						list.tags.includes("abtest-role:variant"),
+				)
+				.flatMap((list) =>
+					list.tags
+						.filter((tag) => tag.startsWith("abtest-variant:"))
+						.map((variantTag) => [variantTag.slice("abtest-variant:".length), list.id] as const),
+				),
+		);
+		const duplicateAdoptedVariants = new Set(
+			(options.existingLists ?? [])
+				.filter(
+					(list) =>
+						list.tags.includes(`abtest:${testId}`) &&
+						list.tags.includes("abtest-role:variant"),
+				)
+				.flatMap((list) =>
+					list.tags
+						.filter((tag) => tag.startsWith("abtest-variant:"))
+						.map((tag) => tag.slice("abtest-variant:".length)),
+				),
+		);
+		for (const variantTag of duplicateAdoptedVariants) {
+			const matches = (options.existingLists ?? []).filter((list) =>
+				list.tags.includes(`abtest-variant:${variantTag}`),
+			);
+			if (matches.length > 1) {
+				throw new Error(
+					`Ambiguous lists tagged abtest-variant:${variantTag} for test ${testId}; resolve the duplicates before retrying`,
+				);
+			}
+		}
+
 		// Create holdout list with canonical tags so reconcile can discover
 		// it by abtest:<id> + abtest-role:holdout even if local mapping is lost.
 		try {
-			const holdoutListResult = await this.listmonkClient.list.create({
-				body: {
-					name: `A/B Test Holdout - ${Date.now()}`,
-					type: "private",
-					optin: "single",
-					description:
-						"Holdout group for A/B test - will receive winner variant",
-					tags: [`abtest:${testId}`, "abtest-role:holdout"],
-				},
-			});
+			if (adoptedHoldout === undefined) {
+				const holdoutListResult = await this.listmonkClient.list.create({
+					body: {
+						name: `A/B Test Holdout - ${Date.now()}`,
+						type: "private",
+						optin: "single",
+						description:
+							"Holdout group for A/B test - will receive winner variant",
+						tags: [`abtest:${testId}`, "abtest-role:holdout"],
+					},
+				});
 
-			const createdHoldoutList = this.unwrapData(
-				holdoutListResult,
-				"Failed to create holdout list",
-			);
-			holdoutListId = this.requireNumericId(
-				createdHoldoutList.id,
-				"Failed to create holdout list",
-			);
-			createdListIds.push(holdoutListId);
+				const createdHoldoutList = this.unwrapData(
+					holdoutListResult,
+					"Failed to create holdout list",
+				);
+				holdoutListId = this.requireNumericId(
+					createdHoldoutList.id,
+					"Failed to create holdout list",
+				);
+				createdListIds.push(holdoutListId);
+			} else {
+				holdoutListId = adoptedHoldout.id;
+			}
 
 			// Bulk-add the holdout group (ranked slice) via manageLists chunks.
 			await this.addSubscribersToListBulk(holdoutSubscriberIds, holdoutListId);
@@ -383,29 +436,35 @@ export class ListmonkAbTestIntegration {
 					continue;
 				}
 
-				const testListResult = await this.listmonkClient.list.create({
-					body: {
-						name: `A/B Test - ${variant.name} - ${Date.now()}`,
-						type: "private",
-						optin: "single",
-						description: `Test group for A/B test variant ${variant.name}`,
-						tags: [
-							`abtest:${testId}`,
-							"abtest-role:variant",
-							`abtest-variant:${variant.id}`,
-						],
-					},
-				});
+				const adoptedTestListId = adoptedVariantLists.get(variant.id);
+				let testListId: number;
+				if (adoptedTestListId !== undefined) {
+					testListId = adoptedTestListId;
+				} else {
+					const testListResult = await this.listmonkClient.list.create({
+						body: {
+							name: `A/B Test - ${variant.name} - ${Date.now()}`,
+							type: "private",
+							optin: "single",
+							description: `Test group for A/B test variant ${variant.name}`,
+							tags: [
+								`abtest:${testId}`,
+								"abtest-role:variant",
+								`abtest-variant:${variant.id}`,
+							],
+						},
+					});
 
-				const createdTestList = this.unwrapData(
-					testListResult,
-					`Failed to create test list for variant ${variant.name}`,
-				);
-				const testListId = this.requireNumericId(
-					createdTestList.id,
-					`Failed to create test list for variant ${variant.name}`,
-				);
-				createdListIds.push(testListId);
+					const createdTestList = this.unwrapData(
+						testListResult,
+						`Failed to create test list for variant ${variant.name}`,
+					);
+					testListId = this.requireNumericId(
+						createdTestList.id,
+						`Failed to create test list for variant ${variant.name}`,
+					);
+					createdListIds.push(testListId);
+				}
 
 				// Bulk-add this variant's ranked slice via manageLists chunks.
 				await this.addSubscribersToListBulk(

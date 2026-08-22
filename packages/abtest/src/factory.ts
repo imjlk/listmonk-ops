@@ -508,6 +508,16 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 			return abTestService.provisionSegmentationPhase(test);
 		},
 
+		recordAbTestSegmentationSeedPhase: async (
+			testId: string,
+		): Promise<AbTest> => {
+			const test = await abTestService.getTest(testId);
+			if (!test) {
+				throw new AbTestNotFoundError(testId);
+			}
+			return abTestService.recordSegmentationSeedPhase(test);
+		},
+
 		recordAbTestAutoLaunchWindowPhase: async (
 			testId: string,
 		): Promise<AbTest> => {

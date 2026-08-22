@@ -29227,11 +29227,13 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning, the campaign mapping is checkpointed after each phase, and campaigns tagged abtest:<testId> are reconciled by tag on resume instead of re-created; a crash mid-segmentation still re-splits the audience with a fresh seed and can leak the first split's tagged lists, so an ambiguous failure needs operator inspection of the remote resources before retrying."
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Every create carries a replay key, the intent is committed before remote provisioning, the deterministic assignment seed and auto-launch window are checkpointed before their remote effects, campaigns and audience lists tagged abtest:<testId> are adopted on resume instead of re-created (membership re-sync is idempotent under the persisted seed), and rollback clears mappings only for confirmed deletions — an identical retry converges on the same test.",
+        "reconcileWith": "abtest.list"
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.analyze",
