@@ -625,6 +625,12 @@ export async function executeCreateAbTestOperation(
 		(executors) => executors.provisionAbTestCampaignsPhase(intent.id),
 	);
 	if (campaignPhase.pendingCreate !== undefined) {
+		// Phase 3.25 stamps the deterministic assignment seed and commits it
+		// before any segmentation list is created, so a retry re-splits
+		// identically and adopts the crashed attempt's tagged lists.
+		await withStoredOperation<AbTest>(context, "write", (executors) =>
+			executors.recordAbTestSegmentationSeedPhase(intent.id),
+		);
 		// Phase 3 computes the audience split and commits the list-mapping
 		// checkpoint before any launch side effects.
 		await withStoredOperation<AbTest>(context, "write", (executors) =>

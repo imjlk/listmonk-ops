@@ -399,7 +399,9 @@ test("repeats recorded launches and completed stops as no-ops", async () => {
 		await saveStoredAbTests([], storePath);
 
 		const createdCampaigns: Array<{ id: number; tags: string[] }> = [];
+		const createdLists: Array<{ id: number; tags: string[] }> = [];
 		let campaignCreates = 0;
+		let listCreates = 0;
 		let segmentationShouldFail = true;
 		const client = {
 			subscriber: {
@@ -418,13 +420,28 @@ test("repeats recorded launches and completed stops as no-ops", async () => {
 				manageLists: async () => ({ data: true }),
 			},
 			list: {
-				list: async () => ({ data: { results: [] } }),
-				create: async () => {
-					if (segmentationShouldFail) {
+				list: async () => ({
+					data: {
+						// Both lists created by the first attempt are
+						// discoverable by their abtest tags on retry.
+						results: createdLists,
+					},
+				}),
+				create: async ({
+					body,
+				}: {
+					body?: { name?: string; tags?: string[] };
+				}) => {
+					listCreates += 1;
+					const id = 860 + listCreates;
+					createdLists.push({ id, tags: body?.tags ?? [] });
+					if (segmentationShouldFail && listCreates === 3) {
+						// Crash after the holdout and first variant lists were
+						// tagged but before the checkpoint committed.
 						segmentationShouldFail = false;
 						throw new Error("transient segmentation failure");
 					}
-					return { data: { id: 860, name: "split" } };
+					return { data: { id, name: body?.name } };
 				},
 				delete: async () => ({ data: true }),
 			},
@@ -466,14 +483,19 @@ test("repeats recorded launches and completed stops as no-ops", async () => {
 		).rejects.toThrow();
 		expect(campaignCreates).toBe(2);
 
-		// The retry reconciles the tagged campaigns instead of re-creating.
+		// The retry reconciles the tagged campaigns and adopts the tagged
+		// lists (seeded identically by the committed seed checkpoint)
+		// instead of re-creating either.
+		const listCreatesBefore = listCreates;
 		const resumed = await invokeCreateAbTestOperation(
 			{ client, storePath },
 			createInput,
 		);
 		expect(resumed.created).toBe(true);
 		expect(campaignCreates).toBe(2);
+		expect(listCreates).toBe(listCreatesBefore);
 		expect(resumed.test.campaignMappings).toHaveLength(2);
+		expect(resumed.test.testListMappings.length).toBeGreaterThan(0);
 		expect(resumed.test.provisionedAt).toBeDefined();
 	});
 
@@ -501,6 +523,7 @@ test("resumes an ambiguous create from its persisted intent", async () => {
 			manageLists: async () => ({ data: true }),
 		},
 		list: {
+			list: async () => ({ data: { results: [] } }),
 			create: async ({ body }: { body?: { name?: string } }) => ({
 				data: { id: 800 + Math.floor(Math.random() * 100), name: body?.name },
 			}),
@@ -608,6 +631,7 @@ test("replays an identical create through its derived replay key", async () => {
 			manageLists: async () => ({ data: true }),
 		},
 		list: {
+			list: async () => ({ data: { results: [] } }),
 			create: async ({ body }: { body?: { name?: string } }) => ({
 				data: { id: 900 + Math.floor(Math.random() * 100), name: body?.name },
 			}),

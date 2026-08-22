@@ -160,7 +160,16 @@ export class ListmonkAbTestIntegration {
 	): Promise<
 		Array<{ id: number; tags: string[] }>
 	> {
-		const response = await this.listmonkClient.list.list();
+		// Scope server-side by the test tag (Listmonk lists filter on the
+		// singular `tag` parameter with repeat support).
+		type ListListByTag = (options: {
+			query: { page: number; per_page: string; tag: string };
+		}) => Promise<{ data?: unknown; error?: unknown }>;
+		const listListsByTag = this.listmonkClient.list
+			.list as unknown as ListListByTag;
+		const response = await listListsByTag({
+			query: { page: 1, per_page: "all", tag: `abtest:${testId}` },
+		});
 		const lists = this.unwrapData(
 			response,
 			`Failed to list lists for test ${testId} reconciliation`,
@@ -271,6 +280,8 @@ export class ListmonkAbTestIntegration {
 			testId?: string;
 			assignmentSeed?: string;
 			stratificationPolicy?: StratificationPolicyV1;
+			/** Lists tagged for this test by a prior crashed attempt; adopted instead of re-created. */
+			existingLists?: ReadonlyArray<{ id: number; tags: string[] }>;
 		} = {},
 	): Promise<{
 		testListMappings: { variantId: string; listId: number }[];
@@ -348,32 +359,122 @@ export class ListmonkAbTestIntegration {
 			.slice(cursor)
 			.map((entry) => entry.member.subscriberId);
 
+		// Lists tagged by a prior crashed attempt are adopted instead of
+		// re-created: membership sync is deterministic under the persisted
+		// seed, so re-applying the same ranked slices is idempotent.
+		const holdoutMatches = (options.existingLists ?? []).filter(
+			(list) =>
+				list.tags.includes(`abtest:${testId}`) &&
+				list.tags.includes("abtest-role:holdout"),
+		);
+		if (holdoutMatches.length > 1) {
+			throw new Error(
+				`Ambiguous lists tagged abtest-role:holdout for test ${testId}; resolve the duplicates before retrying`,
+			);
+		}
+		const adoptedHoldout = holdoutMatches.at(0);
+		for (const list of options.existingLists ?? []) {
+			const variantTags = list.tags.filter((tag) =>
+				tag.startsWith("abtest-variant:"),
+			);
+			if (variantTags.length > 1) {
+				// One list carrying two variant tags would be adopted twice
+				// and its membership overwritten per variant.
+				throw new Error(
+					`List ${list.id} is tagged for multiple variants of test ${testId}; correct the tags before retrying`,
+				);
+			}
+		}
+		const adoptedVariantLists = new Map(
+			(options.existingLists ?? [])
+				.filter(
+					(list) =>
+						list.tags.includes(`abtest:${testId}`) &&
+						list.tags.includes("abtest-role:variant") &&
+						list.tags.some((tag) => tag.startsWith("abtest-variant:")),
+				)
+				.flatMap((list) =>
+					list.tags
+						.filter((tag) => tag.startsWith("abtest-variant:"))
+						.map((variantTag) => [variantTag.slice("abtest-variant:".length), list.id] as const),
+				),
+		);
+		const adoptedVariantListIds = [...adoptedVariantLists.values()];
+		if (new Set(adoptedVariantListIds).size !== adoptedVariantListIds.length) {
+			throw new Error(
+				`A list is adopted for multiple variants of test ${testId}; correct the tags before retrying`,
+			);
+		}
+		if (adoptedHoldout !== undefined && adoptedVariantListIds.includes(
+			adoptedHoldout.id,
+		)) {
+			throw new Error(
+				`List ${adoptedHoldout.id} is tagged as both holdout and variant for test ${testId}; correct the tags before retrying`,
+			);
+		}
+		const duplicateAdoptedVariants = new Set(
+			(options.existingLists ?? [])
+				.filter(
+					(list) =>
+						list.tags.includes(`abtest:${testId}`) &&
+						list.tags.includes("abtest-role:variant"),
+				)
+				.flatMap((list) =>
+					list.tags
+						.filter((tag) => tag.startsWith("abtest-variant:"))
+						.map((tag) => tag.slice("abtest-variant:".length)),
+				),
+		);
+		for (const variantTag of duplicateAdoptedVariants) {
+			const matches = (options.existingLists ?? []).filter((list) =>
+				list.tags.includes(`abtest-variant:${variantTag}`),
+			);
+			if (matches.length > 1) {
+				throw new Error(
+					`Ambiguous lists tagged abtest-variant:${variantTag} for test ${testId}; resolve the duplicates before retrying`,
+				);
+			}
+		}
+
 		// Create holdout list with canonical tags so reconcile can discover
 		// it by abtest:<id> + abtest-role:holdout even if local mapping is lost.
 		try {
-			const holdoutListResult = await this.listmonkClient.list.create({
-				body: {
-					name: `A/B Test Holdout - ${Date.now()}`,
-					type: "private",
-					optin: "single",
-					description:
-						"Holdout group for A/B test - will receive winner variant",
-					tags: [`abtest:${testId}`, "abtest-role:holdout"],
-				},
-			});
+			if (adoptedHoldout === undefined) {
+				const holdoutListResult = await this.listmonkClient.list.create({
+					body: {
+						name: `A/B Test Holdout - ${Date.now()}`,
+						type: "private",
+						optin: "single",
+						description:
+							"Holdout group for A/B test - will receive winner variant",
+						tags: [`abtest:${testId}`, "abtest-role:holdout"],
+					},
+				});
 
-			const createdHoldoutList = this.unwrapData(
-				holdoutListResult,
-				"Failed to create holdout list",
-			);
-			holdoutListId = this.requireNumericId(
-				createdHoldoutList.id,
-				"Failed to create holdout list",
-			);
-			createdListIds.push(holdoutListId);
+				const createdHoldoutList = this.unwrapData(
+					holdoutListResult,
+					"Failed to create holdout list",
+				);
+				holdoutListId = this.requireNumericId(
+					createdHoldoutList.id,
+					"Failed to create holdout list",
+				);
+				createdListIds.push(holdoutListId);
+			} else {
+				holdoutListId = adoptedHoldout.id;
+			}
 
-			// Bulk-add the holdout group (ranked slice) via manageLists chunks.
-			await this.addSubscribersToListBulk(holdoutSubscriberIds, holdoutListId);
+			// Adopted lists reconcile membership to the exact expected set
+			// (a crashed attempt may have written members under a different
+			// snapshot); fresh lists just bulk-add.
+			if (adoptedHoldout === undefined) {
+				await this.addSubscribersToListBulk(
+					holdoutSubscriberIds,
+					holdoutListId,
+				);
+			} else {
+				await this.reconcileListMembership(holdoutSubscriberIds, holdoutListId);
+			}
 
 			const testListMappings: { variantId: string; listId: number }[] = [];
 
@@ -383,35 +484,49 @@ export class ListmonkAbTestIntegration {
 					continue;
 				}
 
-				const testListResult = await this.listmonkClient.list.create({
-					body: {
-						name: `A/B Test - ${variant.name} - ${Date.now()}`,
-						type: "private",
-						optin: "single",
-						description: `Test group for A/B test variant ${variant.name}`,
-						tags: [
-							`abtest:${testId}`,
-							"abtest-role:variant",
-							`abtest-variant:${variant.id}`,
-						],
-					},
-				});
+				const adoptedTestListId = adoptedVariantLists.get(variant.id);
+				let testListId: number;
+				if (adoptedTestListId !== undefined) {
+					testListId = adoptedTestListId;
+				} else {
+					const testListResult = await this.listmonkClient.list.create({
+						body: {
+							name: `A/B Test - ${variant.name} - ${Date.now()}`,
+							type: "private",
+							optin: "single",
+							description: `Test group for A/B test variant ${variant.name}`,
+							tags: [
+								`abtest:${testId}`,
+								"abtest-role:variant",
+								`abtest-variant:${variant.id}`,
+							],
+						},
+					});
 
-				const createdTestList = this.unwrapData(
-					testListResult,
-					`Failed to create test list for variant ${variant.name}`,
-				);
-				const testListId = this.requireNumericId(
-					createdTestList.id,
-					`Failed to create test list for variant ${variant.name}`,
-				);
-				createdListIds.push(testListId);
+					const createdTestList = this.unwrapData(
+						testListResult,
+						`Failed to create test list for variant ${variant.name}`,
+					);
+					testListId = this.requireNumericId(
+						createdTestList.id,
+						`Failed to create test list for variant ${variant.name}`,
+					);
+					createdListIds.push(testListId);
+				}
 
-				// Bulk-add this variant's ranked slice via manageLists chunks.
-				await this.addSubscribersToListBulk(
-					variantSlice.subscriberIds,
-					testListId,
-				);
+				// Adopted variant lists reconcile to the exact slice; fresh
+				// lists just bulk-add.
+				if (adoptedTestListId !== undefined) {
+					await this.reconcileListMembership(
+						variantSlice.subscriberIds,
+						testListId,
+					);
+				} else {
+					await this.addSubscribersToListBulk(
+						variantSlice.subscriberIds,
+						testListId,
+					);
+				}
 
 				testListMappings.push({
 					variantId: variant.id,
@@ -1082,6 +1197,61 @@ export class ListmonkAbTestIntegration {
 	 * The caller may pass an onProgress callback to checkpoint after each
 	 * chunk, so a provisioning retry can resume from the last committed chunk.
 	 */
+	private async removeSubscribersFromListBulk(
+		subscriberIds: number[],
+		listId: number,
+		chunkSize = 500,
+	): Promise<void> {
+		for (let offset = 0; offset < subscriberIds.length; offset += chunkSize) {
+			const chunk = subscriberIds.slice(offset, offset + chunkSize);
+			const result = await this.listmonkClient.subscriber.manageLists({
+				body: {
+					action: "remove",
+					ids: chunk,
+					target_list_ids: [listId],
+				},
+			});
+			if (
+				("error" in result &&
+					(result as { error?: unknown }).error !== undefined) ||
+				!(result as { data?: unknown }).data
+			) {
+				throw new Error(`Failed to remove stale members from list ${listId}`);
+			}
+		}
+	}
+
+	/**
+	 * Reconciles an adopted list's membership to the exact expected member
+	 * set: members written by a crashed attempt that no longer belong (per
+	 * the persisted-seed manifest over the current audience) are removed,
+	 * and missing members are added. Idempotent under a stable audience.
+	 */
+	private async reconcileListMembership(
+		expectedSubscriberIds: readonly number[],
+		listId: number,
+	): Promise<void> {
+		const expected = new Set(expectedSubscriberIds);
+		const response = await this.listmonkClient.subscriber.list({
+			query: { page: 1, per_page: "all", list_id: [listId] },
+		});
+		const page = this.unwrapData(
+			response,
+			`Failed to list members of list ${listId} for reconciliation`,
+		);
+		const rows = Array.isArray(page)
+			? page
+			: ((page as { results?: unknown[] })?.results ?? []);
+		const currentIds = (rows as Array<{ id?: unknown }>)
+			.map((row) => (typeof row.id === "number" ? row.id : undefined))
+			.filter((id): id is number => id !== undefined);
+		const stale = currentIds.filter((id) => !expected.has(id));
+		await this.removeSubscribersFromListBulk(stale, listId);
+		const current = new Set(currentIds);
+		const missing = [...expected].filter((id) => !current.has(id));
+		await this.addSubscribersToListBulk(missing, listId);
+	}
+
 	async addSubscribersToListBulk(
 		subscriberIds: number[],
 		listId: number,

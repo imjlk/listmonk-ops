@@ -1122,8 +1122,8 @@ Create a new A/B test with variants and configuration
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:experiment, write:campaign, delivery:bulk:scheduled`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.10.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.10.0`
 
 ## `abtest.analyze`
 

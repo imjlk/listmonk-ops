@@ -115,9 +115,39 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "conditional",
+		cases: [
+			{
+				when:
+					"testing_mode is omitted or holdout and auto_launch is omitted or false",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "abtest.list",
+					idempotent: true,
+					reason:
+						"The intent and deterministic assignment seed are checkpointed before their remote effects, and campaigns and audience lists tagged abtest:<testId> are adopted on resume with membership reconciled to the exact expected set, so an identical retry converges on the same test.",
+				},
+			},
+			{
+				when:
+					"testing_mode is omitted or holdout and auto_launch is true",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"Campaigns schedule sequentially, so a crash after the first campaign scheduled can let that campaign deliver before the retry; delivery effects cannot converge without reconciling campaign delivery state.",
+				},
+			},
+			{
+				when: "testing_mode is full-split",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"The legacy full-split path shuffles with a fresh seed and does not adopt its tagged lists, so a retry after a mid-segmentation crash duplicates the audience lists with a different assignment.",
+				},
+			},
+		],
 		reason:
-			"The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning, the campaign mapping is checkpointed after each phase, and campaigns tagged abtest:<testId> are reconciled by tag on resume instead of re-created; a crash mid-segmentation still re-splits the audience with a fresh seed and can leak the first split's tagged lists, so an ambiguous failure needs operator inspection of the remote resources before retrying.",
+			"Retry safety depends on the testing mode and auto-launch: non-launching holdout creates checkpoint and adopt; auto-launching and full-split creates remain at-least-once.",
 	},
 	agent: {
 		useWhen: ["A new A/B test must be created."],
@@ -126,7 +156,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch", "abtest.delete"],
 		retryGuidance:
-			"An ambiguous failure gives no test id and abtest.get reads only the local checkpoint; search the remote campaigns and lists tagged abtest:<test id> from the store for leaked resources before repeating the create.",
+			"Verify the outcome with abtest.list after an ambiguous create. Non-launching holdout creates converge on retry via the persisted seed and adopted tagged campaigns and lists; auto-launching and full-split creates need the remote campaigns and lists inspected before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_create",
@@ -139,7 +169,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeCreateAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 

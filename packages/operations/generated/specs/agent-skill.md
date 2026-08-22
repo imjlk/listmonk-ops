@@ -1292,7 +1292,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Create A/B test (`abtest.create`)
 
-Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `conditional`.
 
 Use when: A new A/B test must be created.
 
@@ -1302,7 +1302,7 @@ Prerequisites: none
 
 Verify with: `abtest.get`
 
-Retry guidance: An ambiguous failure gives no test id and abtest.get reads only the local checkpoint; search the remote campaigns and lists tagged abtest:<test id> from the store for leaked resources before repeating the create.
+Retry guidance: Verify the outcome with abtest.list after an ambiguous create. Non-launching holdout creates converge on retry via the persisted seed and adopted tagged campaigns and lists; auto-launching and full-split creates need the remote campaigns and lists inspected before repeating.
 
 ## Analyze A/B test (`abtest.analyze`)
 

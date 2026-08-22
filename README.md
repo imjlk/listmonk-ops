@@ -506,7 +506,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 82 are `stable` and 22 are `experimental`. The runtime-operation
+these, 83 are `stable` and 21 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -514,7 +514,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Eighty-two reviewed core operations are `stable`: the existing
+Eighty-three reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -577,11 +577,12 @@ configured existing name as `created: false` (a conflicting
 configuration still fails). A tenth batch made `abtest.create` commit
 its replay intent (key, request fingerprint, and payload) before any
 remote provisioning, so ambiguous retries resume the same test. A
-follow-up checkpointed each provisioning phase and reconciles campaigns
-by their deterministic `abtest:` tags on resume instead of re-creating
-them (and stamps the auto-launch window before scheduling); it stays
-experimental because a crash mid-segmentation still re-splits the
-audience with a fresh seed. An eleventh batch promoted `subscribers.create` — subscriber
+follow-up checkpointed each provisioning phase, reconciles campaigns by
+their deterministic `abtest:` tags on resume, stamps the assignment
+seed and auto-launch window before their remote effects, adopts the
+crashed attempt's tagged audience lists under the persisted seed, and
+rolls back only confirmed deletions — closing the crash windows and
+promoting the operation. An eleventh batch promoted `subscribers.create` — subscriber
 emails are unique in Listmonk, so an ambiguous retry replays an
 identically configured subscriber as `created: false` (verified
 against the local stack). A twelfth batch promoted `ops.segments.drift` with
@@ -619,7 +620,7 @@ seventeenth batch gave `ops.subscribers.hygiene` echoed candidate sets
 exported workflow too) but it stays experimental: a subscriber that
 re-enters eligibility is re-selected by the identical echoed request,
 the same re-entry hazard that keeps dead-letter replay experimental.
-The remaining 22 descriptors are experimental.
+The remaining 21 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -635,7 +636,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 82 stable compatibility baselines, and 317 direct
+runtime bridges, the 83 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are
