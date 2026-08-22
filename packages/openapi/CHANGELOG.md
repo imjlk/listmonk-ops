@@ -1,5 +1,11 @@
 # @listmonk-ops/openapi
 
+## 0.7.1 — 2026-08-22
+
+### Fixed
+
+- [ae54654](https://github.com/imjlk/listmonk-ops/commit/ae54654dab146b2bbbf8e7ef09061573a66757b0) Use manual redirect handling for Cloudflare Workers transactional delivery — Thanks @imjlk!
+
 ## 0.7.0 — 2026-08-13
 
 ### Added
