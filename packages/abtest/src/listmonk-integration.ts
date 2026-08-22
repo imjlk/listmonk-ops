@@ -70,12 +70,14 @@ export class ListmonkAbTestIntegration {
 
 	private async deleteCampaignsBestEffort(
 		campaignIds: number[],
-	): Promise<void> {
+	): Promise<number[]> {
+		const deleted: number[] = [];
 		for (const campaignId of campaignIds) {
 			try {
 				await this.listmonkClient.campaign.delete({
 					path: { id: campaignId },
 				});
+				deleted.push(campaignId);
 			} catch (error) {
 				console.warn(
 					`Failed to delete rollback campaign ${campaignId}:`,
@@ -83,18 +85,22 @@ export class ListmonkAbTestIntegration {
 				);
 			}
 		}
+		return deleted;
 	}
 
-	private async deleteListsBestEffort(listIds: number[]): Promise<void> {
+	private async deleteListsBestEffort(listIds: number[]): Promise<number[]> {
+		const deleted: number[] = [];
 		for (const listId of listIds) {
 			try {
 				await this.listmonkClient.list.delete({
 					path: { list_id: listId },
 				});
+				deleted.push(listId);
 			} catch (error) {
 				console.warn(`Failed to delete rollback list ${listId}:`, error);
 			}
 		}
+		return deleted;
 	}
 
 	/**
@@ -706,14 +712,17 @@ export class ListmonkAbTestIntegration {
 
 	async rollbackProvisioning(
 		resources: ProvisionedAbTestResources,
-	): Promise<void> {
+	): Promise<{ deletedCampaignIds: number[]; deletedListIds: number[] }> {
 		const listIds = [...resources.testListIds];
 		if (resources.holdoutListId !== undefined) {
 			listIds.push(resources.holdoutListId);
 		}
 
-		await this.deleteCampaignsBestEffort([...resources.campaignIds].reverse());
-		await this.deleteListsBestEffort(listIds.reverse());
+		const deletedCampaignIds = await this.deleteCampaignsBestEffort([
+			...resources.campaignIds,
+		].reverse());
+		const deletedListIds = await this.deleteListsBestEffort(listIds.reverse());
+		return { deletedCampaignIds, deletedListIds };
 	}
 
 	/**

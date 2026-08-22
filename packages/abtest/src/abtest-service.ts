@@ -758,14 +758,16 @@ export class AbTestService {
 				}
 			} catch (error) {
 				try {
-					await this.listmonkIntegration.rollbackProvisioning(
-						provisionedResources,
-					);
-					// The rolled-back resources no longer exist remotely;
-					// clear their mappings so an identical retry reconciles or
-					// re-creates instead of adopting dead ids.
-					const rolledBackCampaigns = new Set(provisionedResources.campaignIds);
-					const rolledBackLists = new Set(provisionedResources.testListIds);
+					const { deletedCampaignIds, deletedListIds } =
+						await this.listmonkIntegration.rollbackProvisioning(
+							provisionedResources,
+						);
+					// Only confirmed deletions leave the mapping table; a
+					// best-effort delete that failed keeps its mapping so the
+					// retry reconciles the surviving tagged resource instead
+					// of creating a duplicate.
+					const rolledBackCampaigns = new Set(deletedCampaignIds);
+					const rolledBackLists = new Set(deletedListIds);
 					test.campaignMappings = test.campaignMappings.filter(
 						(mapping) => !rolledBackCampaigns.has(mapping.campaignId),
 					);
