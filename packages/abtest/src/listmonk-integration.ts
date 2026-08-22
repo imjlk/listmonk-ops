@@ -519,6 +519,7 @@ export class ListmonkAbTestIntegration {
 	async segmentSubscribers(
 		originalLists: number[],
 		variants: Variant[],
+		testId?: string,
 	): Promise<{ variantId: string; listId: number }[]> {
 		const segmentedLists: { variantId: string; listId: number }[] = [];
 		const createdListIds: number[] = [];
@@ -553,6 +554,16 @@ export class ListmonkAbTestIntegration {
 						type: "private",
 						optin: "single",
 						description: `Temporary list for A/B test variant ${variant.name}`,
+						// Carry the canonical test and variant tags so a
+						// crashed full-split create leaves findable lists.
+						...(testId === undefined
+							? {}
+							: {
+									tags: [
+										`abtest:${testId}`,
+										`abtest-variant:${variant.id}`,
+									],
+								}),
 					},
 				});
 

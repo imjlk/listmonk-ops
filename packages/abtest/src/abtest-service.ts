@@ -536,6 +536,7 @@ export class AbTestService {
 				await this.listmonkIntegration.segmentSubscribers(
 					config.baseConfig.lists,
 					test.variants,
+					test.id,
 				);
 			const totalSubscribers =
 				await this.listmonkIntegration.getTotalSubscribers(
@@ -563,6 +564,9 @@ export class AbTestService {
 			// Rollback only what THIS invocation created: resources committed
 			// by earlier checkpoint phases belong to the persisted record and
 			// must survive a failed finalization so the retry can resume.
+			const adoptedListIds = new Set(
+				test.testListMappings.map((mapping) => mapping.listId),
+			);
 			let provisionedResources: ProvisionedAbTestResources = {
 				testId: test.id,
 				campaignIds: [],
@@ -646,10 +650,12 @@ export class AbTestService {
 					}
 				} else {
 					// Use full-split methodology (legacy)
-					testListMappings = await this.listmonkIntegration.segmentSubscribers(
-						config.baseConfig.lists,
-						test.variants,
-					);
+					testListMappings =
+						await this.listmonkIntegration.segmentSubscribers(
+							config.baseConfig.lists,
+							test.variants,
+							test.id,
+						);
 
 					// Calculate group sizes for full-split
 					const totalSubscribers =
@@ -663,8 +669,14 @@ export class AbTestService {
 				}
 				provisionedResources = {
 					...provisionedResources,
-					testListIds: testListMappings.map((mapping) => mapping.listId),
-					holdoutListId,
+					// Adopted checkpoint mappings survive a failed
+					// finalization; only this invocation's new lists roll back.
+					testListIds: testListMappings
+						.map((mapping) => mapping.listId)
+						.filter((id) => !adoptedListIds.has(id)),
+					holdoutListId: adoptedListIds.has(holdoutListId ?? -1)
+						? undefined
+						: holdoutListId,
 				};
 
 				test.campaignMappings = campaignMappings;
