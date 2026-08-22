@@ -1292,7 +1292,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Create A/B test (`abtest.create`)
 
-Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `experimental`; effects: `write:experiment, write:campaign, delivery:bulk:scheduled`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A new A/B test must be created.
 

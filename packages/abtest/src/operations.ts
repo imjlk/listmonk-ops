@@ -616,7 +616,22 @@ export async function executeCreateAbTestOperation(
 	if (replayed) {
 		return { test: serializeAbTest(intent), created: false };
 	}
-	// Phase 2 provisions campaigns and lists and finalizes the same record.
+	// Phase 2 reconciles or creates the variant campaigns and commits the
+	// mapping checkpoint, so a crash before segmentation never re-creates
+	// campaigns — the `abtest:`/`variant:` tags reconcile them instead.
+	const campaignPhase = await withStoredOperation<AbTest>(
+		context,
+		"write",
+		(executors) => executors.provisionAbTestCampaignsPhase(intent.id),
+	);
+	if (campaignPhase.pendingCreate !== undefined) {
+		// Phase 3 computes the audience split and commits the list-mapping
+		// checkpoint before any launch side effects.
+		await withStoredOperation<AbTest>(context, "write", (executors) =>
+			executors.provisionAbTestSegmentationPhase(intent.id),
+		);
+	}
+	// Phase 4 finalizes (and auto-launches when configured) the same record.
 	const test = await withStoredOperation<AbTest>(
 		context,
 		"write",

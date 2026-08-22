@@ -68,6 +68,7 @@ describe("mcp abtest persistence", () => {
 				}),
 			},
 			campaign: {
+				list: async () => ({ data: { results: [] } }),
 				create: async () => ({ error: "campaign creation failed" }),
 			},
 		} as unknown as ListmonkClient;

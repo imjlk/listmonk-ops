@@ -490,6 +490,24 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		provisionAbTestIntent: (testId: string): Promise<AbTest> =>
 			new CreateAbTestCommand(abTestService).provision(testId),
 
+		provisionAbTestCampaignsPhase: async (testId: string): Promise<AbTest> => {
+			const test = await abTestService.getTest(testId);
+			if (!test) {
+				throw new AbTestNotFoundError(testId);
+			}
+			return abTestService.provisionCampaignsPhase(test);
+		},
+
+		provisionAbTestSegmentationPhase: async (
+			testId: string,
+		): Promise<AbTest> => {
+			const test = await abTestService.getTest(testId);
+			if (!test) {
+				throw new AbTestNotFoundError(testId);
+			}
+			return abTestService.provisionSegmentationPhase(test);
+		},
+
 		deleteAbTest: (testId: string): Promise<boolean> =>
 			new DeleteAbTestCommand(abTestService).execute(testId),
 

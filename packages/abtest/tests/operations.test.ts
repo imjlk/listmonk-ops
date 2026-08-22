@@ -393,6 +393,90 @@ test("repeats recorded launches and completed stops as no-ops", async () => {
 	expect(stoppedAgain.test.updatedAt).toBe(stopped.test.updatedAt);
 });
 
+	test("reconciles tagged campaigns on create resume instead of duplicating", async () => {
+		tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-reconcile-"));
+		const storePath = join(tempDir, "abtests.json");
+		await saveStoredAbTests([], storePath);
+
+		const createdCampaigns: Array<{ id: number; tags: string[] }> = [];
+		let campaignCreates = 0;
+		let segmentationShouldFail = true;
+		const client = {
+			subscriber: {
+				list: async () => ({
+					data: {
+						results: [
+							{
+								id: 1,
+								uuid: "33333333-3333-4333-8333-333333333333",
+								email: "member@example.com",
+								status: "enabled",
+							},
+						],
+					},
+				}),
+				manageLists: async () => ({ data: true }),
+			},
+			list: {
+				list: async () => ({ data: { results: [] } }),
+				create: async () => {
+					if (segmentationShouldFail) {
+						segmentationShouldFail = false;
+						throw new Error("transient segmentation failure");
+					}
+					return { data: { id: 860, name: "split" } };
+				},
+				delete: async () => ({ data: true }),
+			},
+			campaign: {
+				list: async () => ({ data: { results: createdCampaigns } }),
+				create: async ({
+					body,
+				}: {
+					body?: { name?: string; tags?: string[] };
+				}) => {
+					campaignCreates += 1;
+					const id = 950 + campaignCreates;
+					createdCampaigns.push({ id, tags: body?.tags ?? [] });
+					return { data: { id, name: body?.name } };
+				},
+				update: async () => ({ data: true }),
+				delete: async () => ({ data: true }),
+			},
+			template: {
+				getById: async () => ({
+					data: { id: 1, name: "Base", type: "campaign", body: "<p>x</p>" },
+				}),
+			},
+		} as unknown as ListmonkClient;
+
+		const createInput = {
+			name: "reconcile-test",
+			lists: [1],
+			variants: [
+				{ name: "A", percentage: 50, campaign_config: { subject: "A", body: "a" } },
+				{ name: "B", percentage: 50, campaign_config: { subject: "B", body: "b" } },
+			],
+		};
+
+		// First attempt creates both campaigns, then fails at segmentation
+		// after the campaign checkpoint committed.
+		await expect(
+			invokeCreateAbTestOperation({ client, storePath }, createInput),
+		).rejects.toThrow();
+		expect(campaignCreates).toBe(2);
+
+		// The retry reconciles the tagged campaigns instead of re-creating.
+		const resumed = await invokeCreateAbTestOperation(
+			{ client, storePath },
+			createInput,
+		);
+		expect(resumed.created).toBe(true);
+		expect(campaignCreates).toBe(2);
+		expect(resumed.test.campaignMappings).toHaveLength(2);
+		expect(resumed.test.provisionedAt).toBeDefined();
+	});
+
 test("resumes an ambiguous create from its persisted intent", async () => {
 	tempDir = await mkdtemp(join(tmpdir(), "listmonk-ops-abtest-intent-"));
 	const storePath = join(tempDir, "abtests.json");
@@ -423,6 +507,7 @@ test("resumes an ambiguous create from its persisted intent", async () => {
 			delete: async () => ({ data: true }),
 		},
 		campaign: {
+			list: async () => ({ data: { results: [] } }),
 			create: async ({ body }: { body?: { name?: string } }) => {
 				campaignCreates += 1;
 				if (provisioningShouldFail && campaignCreates === 1) {
@@ -529,6 +614,7 @@ test("replays an identical create through its derived replay key", async () => {
 			delete: async () => ({ data: true }),
 		},
 		campaign: {
+			list: async () => ({ data: { results: [] } }),
 			create: async ({ body }: { body?: { name?: string } }) => ({
 				data: { id: 900 + Math.floor(Math.random() * 100), name: body?.name },
 			}),

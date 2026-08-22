@@ -29227,8 +29227,10 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning and an ambiguous retry resumes it, but a crash between successful provisioning and the provisioned commit can still re-provision remote resources; creation stays experimental until remote resource ids are checkpointed or reconciled on resume."
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning, the campaign mapping is checkpointed after each phase, and campaigns tagged abtest:<testId> are reconciled by tag on resume instead of re-created; a crash mid-segmentation still re-splits the audience with a fresh seed, so creation stays experimental until the segmentation checkpoint reconciles tagged lists the same way.",
+        "reconcileWith": "abtest.get"
       },
       "since": "0.10.0",
       "stability": "experimental"
