@@ -207,9 +207,11 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: true },
 	retry: {
-		kind: "unsafe",
+		kind: "reconcile",
+		reconcileWith: "subscribers.list",
+		idempotent: false,
 		reason:
-			"A retry re-fetches subscribers from mutable updated_at state and may process a different batch if candidates shifted.",
+			"Destructive runs process exactly the echoed subscriber set — subscribers that left the eligible set are skipped and winback additions are idempotent memberships — but a subscriber that re-enters eligibility (for example unblocked and inactive again) is re-selected by the identical echoed request and receives a new effect; the run stays experimental until durable per-subscriber completion state exists.",
 	},
 	agent: {
 		useWhen: [
@@ -220,7 +222,7 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 		verifyWith: ["subscribers.list"],
 		related: [],
 		retryGuidance:
-			"Do not automatically retry an ambiguous live run. Inspect subscribers.list, rerun a dry-run preview to recompute the mutable candidate set, and explicitly confirm any follow-up execution.",
+			"Run dry_run first, then echo the reported subscriber_ids; an identical repeat processes nothing new unless a subscriber re-entered eligibility, so inspect subscribers.list before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_subscriber_hygiene",

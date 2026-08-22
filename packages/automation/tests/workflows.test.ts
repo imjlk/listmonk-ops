@@ -81,6 +81,69 @@ describe("automation workflows", () => {
 		);
 	});
 
+	test("processes exactly the echoed hygiene set and retries as no-ops", async () => {
+		const blocklisted: number[] = [];
+		const client = {
+			subscriber: {
+				list: async () => ({
+					data: {
+						results: [
+							{
+								id: 101,
+								email: "a@old.test",
+								status: "enabled",
+								updated_at: "2020-01-01T00:00:00Z",
+							},
+							{
+								id: 102,
+								email: "b@old.test",
+								status: "enabled",
+								updated_at: "2020-01-01T00:00:00Z",
+							},
+							{
+								id: 103,
+								email: "c@recent.test",
+								status: "enabled",
+								updated_at: new Date().toISOString(),
+							},
+						],
+					},
+				}),
+				manageBlocklistById: async ({ path }: { path: { id: number } }) => {
+					blocklisted.push(path.id);
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+
+		const { runSubscriberHygiene } = await import("../src/hygiene");
+		const preview = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			dryRun: true,
+		});
+		expect(preview.subscriberIds).toEqual([101, 102]);
+
+		const applied = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			subscriberIds: preview.subscriberIds,
+			dryRun: false,
+		});
+		expect(applied.processedSubscribers).toBe(2);
+		expect(blocklisted).toEqual([101, 102]);
+
+		// The identical retry blocklists the same subscribers again — a
+		// per-subscriber idempotent effect with no new outcome.
+		const retried = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			subscriberIds: preview.subscriberIds,
+			dryRun: false,
+		});
+		expect(retried.processedSubscribers).toBe(2);
+		expect(blocklisted).toEqual([101, 102, 101, 102]);
+	});
+
 	test("redacts subscriber identifiers and remote mutation errors from hygiene results", async () => {
 		const client = createWorkflowClient({
 			subscriber: {
@@ -108,6 +171,7 @@ describe("automation workflows", () => {
 		const result = await runSubscriberHygiene(client, {
 			mode: "winback",
 			targetListId: 10,
+			subscriberIds: [999],
 			dryRun: false,
 		});
 		expect(result.errors).toEqual(["Subscriber mutation failed"]);

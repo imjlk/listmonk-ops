@@ -114,28 +114,59 @@ const deliverabilityGuardInputSchema = z.object({
 		.describe("Pause a running or scheduled campaign when breached"),
 });
 
-const subscriberHygieneInputSchema = z.object({
-	mode: z.enum(["winback", "sunset"]).default("winback"),
-	inactivity_days: positiveIntegerInput
-		.default(90)
-		.describe("Inactive threshold in days"),
-	source_list_ids: z
-		.array(positiveIntegerInput)
-		.optional()
-		.describe("Optional source list IDs"),
-	target_list_id: positiveIntegerInput
-		.optional()
-		.describe("Target list ID for subscriber tagging"),
-	blocklist: booleanInput
-		.default(false)
-		.describe("Blocklist sunset candidates"),
-	dry_run: booleanInput
-		.default(true)
-		.describe("Preview candidates without mutating subscribers"),
-	max_subscribers: positiveIntegerInput
-		.default(500)
-		.describe("Maximum candidates to process"),
-});
+// The object root is required by the operation schema system; the
+// destructive variant's subscriber_ids requirement is enforced by
+// superRefine at the boundary (the standalone contract models a union).
+const subscriberHygieneInputSchema = z
+	.object({
+		mode: z.enum(["winback", "sunset"]).default("winback"),
+		inactivity_days: positiveIntegerInput
+			.default(90)
+			.describe("Inactive threshold in days"),
+		source_list_ids: z
+			.array(positiveIntegerInput)
+			.optional()
+			.describe("Optional source list IDs"),
+		target_list_id: positiveIntegerInput
+			.optional()
+			.describe("Target list ID for subscriber tagging"),
+		blocklist: booleanInput
+			.default(false)
+			.describe("Blocklist sunset candidates"),
+		subscriber_ids: z
+			.array(
+				positiveIntegerInput.refine(
+					(value) => Number.isSafeInteger(value),
+					"subscriber ids must be safe integers",
+				),
+			)
+			.min(1)
+			.max(10_000)
+			.optional()
+			.describe(
+				"Exact candidate set reported by a dry run; required when dry_run is false so a retry processes nothing new",
+			),
+		dry_run: booleanInput
+			.default(true)
+			.describe("Preview candidates without mutating subscribers"),
+		max_subscribers: positiveIntegerInput
+			.refine(
+				(value) => value <= 10_000,
+				"max_subscribers must be at most 10000, matching the echoed subscriber_ids limit",
+			)
+			.default(500)
+			.describe("Maximum candidates to process"),
+	})
+	.superRefine((value, context) => {
+		if (!value.dry_run && value.subscriber_ids === undefined) {
+			context.addIssue({
+				code: "custom",
+				path: ["subscriber_ids"],
+				message:
+					"Destructive hygiene runs require the exact subscriber ids a dry run reported; echo them so a retry processes nothing new",
+			});
+		}
+	});
 
 const templateRollbackInputSchema = z.object({
 	template_id: positiveIntegerInput,
@@ -270,6 +301,7 @@ const subscriberHygieneOutputSchema = z.object({
 	candidateSubscribers: z.number().int().nonnegative(),
 	processedSubscribers: z.number().int().nonnegative(),
 	skippedDueToLimit: z.number().int().nonnegative(),
+	subscriberIds: z.array(z.number().int().positive()),
 	targetListId: z.number().int().positive().optional(),
 	blocklist: z.boolean(),
 	sample: z.array(
@@ -452,6 +484,7 @@ export async function executeSubscriberHygieneOperation(
 		sourceListIds: input.source_list_ids,
 		targetListId: input.target_list_id,
 		blocklist: input.blocklist,
+		subscriberIds: input.subscriber_ids,
 		dryRun: input.dry_run,
 		maxSubscribers: input.max_subscribers,
 	});

@@ -532,9 +532,12 @@ describe("email operations specification", () => {
 				preview: true,
 			},
 		]);
-		expect(subscriberHygieneSpec?.retry.kind).toBe("unsafe");
+		expect(subscriberHygieneSpec?.retry).toMatchObject({
+			kind: "reconcile",
+			idempotent: false,
+		});
 		expect(subscriberHygieneSpec?.agent.retryGuidance).toStartWith(
-			"Do not automatically retry an ambiguous live run.",
+			"Run dry_run first, then echo the reported subscriber_ids;",
 		);
 		expect(
 			emailOperationsSpec.operations.find((o) => o.id === "abtest.deploy-winner")?.effects,

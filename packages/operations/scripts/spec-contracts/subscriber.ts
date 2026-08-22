@@ -162,20 +162,45 @@ export interface SubscriberBulkBlocklistInput {
 
 export type SubscriberHygieneMode = "winback" | "sunset";
 
-export interface SubscriberHygieneInput {
-	/** Hygiene mode. Defaults to "winback". */
-	mode?: SubscriberHygieneMode;
-	/** Inactive threshold in days. Defaults to 90. */
-	inactivity_days?: PositiveInteger;
-	source_list_ids?: ResourceId[];
-	target_list_id?: ResourceId;
-	/** Blocklist sunset candidates. Defaults to false. */
-	blocklist?: boolean;
-	/** Preview candidates without mutating subscribers. Defaults to true. */
-	dry_run?: boolean;
-	/** Maximum candidates to process. Defaults to 500. */
-	max_subscribers?: PositiveInteger;
-}
+export type SubscriberHygieneBatchLimit = number &
+	tags.Type<"int64"> &
+	tags.Minimum<1> &
+	tags.Maximum<10_000>;
+
+export type SubscriberHygieneInput =
+	| {
+			/** Hygiene mode. Defaults to "winback". */
+			mode?: SubscriberHygieneMode;
+			/** Inactive threshold in days. Defaults to 90. */
+			inactivity_days?: PositiveInteger;
+			source_list_ids?: ResourceId[];
+			target_list_id?: ResourceId;
+			/** Blocklist sunset candidates. Defaults to false. */
+			blocklist?: boolean;
+			/** Restricts a preview to this candidate subset without mutating anyone. */
+			subscriber_ids?:
+				| (ResourceId[] & tags.MinItems<1> & tags.MaxItems<10_000>)
+				| undefined;
+			/** Preview candidates without mutating subscribers. Defaults to true. */
+			dry_run?: true | undefined;
+			/** Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit. */
+			max_subscribers?: SubscriberHygieneBatchLimit;
+	  }
+	| {
+			/** Hygiene mode. Defaults to "winback". */
+			mode?: SubscriberHygieneMode;
+			/** Inactive threshold in days. Defaults to 90. */
+			inactivity_days?: PositiveInteger;
+			source_list_ids?: ResourceId[];
+			target_list_id?: ResourceId;
+			/** Blocklist sunset candidates. Defaults to false. */
+			blocklist?: boolean;
+			/** Exact candidate set reported by a dry run; the run processes exactly this set. */
+			subscriber_ids: ResourceId[] & tags.MinItems<1> & tags.MaxItems<10_000>;
+			dry_run: false;
+			/** Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit. */
+			max_subscribers?: SubscriberHygieneBatchLimit;
+	  };
 
 export interface SubscriberHygieneOutput {
 	mode: SubscriberHygieneMode;
@@ -185,6 +210,8 @@ export interface SubscriberHygieneOutput {
 	candidateSubscribers: NonNegativeInteger;
 	processedSubscribers: NonNegativeInteger;
 	skippedDueToLimit: NonNegativeInteger;
+	/** The selected subscriber ids — echo them for the destructive run. */
+	subscriberIds: ResourceId[];
 	targetListId?: ResourceId;
 	blocklist: boolean;
 	sample: Array<{

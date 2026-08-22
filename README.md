@@ -610,8 +610,13 @@ family. A sixteenth batch applied the prune echo pattern to
 a dry run reported (modeled as a discriminated contract union) and
 already-requeued records are skipped in both stores — but it stays
 experimental, because a worker can re-exhaust a replayed record before
-the retry and make the identical echoed request eligible again. The
-remaining 22 descriptors are experimental.
+the retry and make the identical echoed request eligible again. A
+seventeenth batch gave `ops.subscribers.hygiene` echoed candidate sets
+(CLI `--subscriber-ids`, required for destructive runs, enforced in the
+exported workflow too) but it stays experimental: a subscriber that
+re-enters eligibility is re-selected by the identical echoed request,
+the same re-entry hazard that keeps dead-letter replay experimental.
+The remaining 22 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -885,6 +890,7 @@ listmonk-cli ops guard --campaign-id 123 --pause-on-breach true --confirm
 
 # 3) Subscriber hygiene (preview)
 listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --confirm
+# Echo --subscriber-ids from the dry run for the destructive execution.
 
 # 4) Segment drift snapshot
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50

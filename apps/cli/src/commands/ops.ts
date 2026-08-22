@@ -14,7 +14,11 @@ import {
 import { getOutput } from "../lib/output";
 import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
-import { parseCsvNumbers, toErrorMessage } from "../lib/command-utils";
+import {
+	parseCsvNumbers,
+	parseCsvNumbersStrict,
+	toErrorMessage,
+} from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
 
 async function writeTextFile(path: string, content: string) {
@@ -156,8 +160,17 @@ export default defineGroup({
 				"dry-run": option(z.coerce.boolean().default(true), {
 					description: "Preview candidates without mutating subscribers",
 				}),
+				"subscriber-ids": option(z.string().trim().min(1).optional(), {
+					description:
+						"Comma-separated exact candidate ids a dry run reported; required with --no-dry-run",
+				}),
 				"max-subscribers": option(
-					z.coerce.number().int().positive().default(500),
+					z.coerce
+						.number()
+						.int()
+						.positive()
+						.max(10_000)
+						.default(500),
 					{
 						description: "Max candidates to process in one run",
 					},
@@ -177,6 +190,9 @@ export default defineGroup({
 							source_list_ids: sourceListIds,
 							target_list_id: flags["target-list-id"],
 							blocklist: flags.blocklist,
+							subscriber_ids: flags["subscriber-ids"]
+								? parseCsvNumbersStrict(flags["subscriber-ids"], "subscriber ids")
+								: undefined,
 							dry_run: flags["dry-run"],
 							max_subscribers: flags["max-subscribers"],
 						},

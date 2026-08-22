@@ -26027,7 +26027,127 @@
               "minimum": 1,
               "type": "integer"
             },
+            "SubscriberHygieneBatchLimit": {
+              "maximum": 10000,
+              "minimum": 1,
+              "type": "integer"
+            },
             "SubscriberHygieneInput": {
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "blocklist": {
+                      "description": "Blocklist sunset candidates. Defaults to false.",
+                      "type": "boolean"
+                    },
+                    "dry_run": {
+                      "const": true,
+                      "description": "Preview candidates without mutating subscribers. Defaults to true."
+                    },
+                    "inactivity_days": {
+                      "$ref": "#/components/schemas/PositiveInteger",
+                      "description": "Inactive threshold in days. Defaults to 90."
+                    },
+                    "max_subscribers": {
+                      "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
+                      "description": "Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit."
+                    },
+                    "mode": {
+                      "description": "Hygiene mode. Defaults to \"winback\".",
+                      "oneOf": [
+                        {
+                          "const": "sunset"
+                        },
+                        {
+                          "const": "winback"
+                        }
+                      ]
+                    },
+                    "source_list_ids": {
+                      "items": {
+                        "$ref": "#/components/schemas/ResourceId"
+                      },
+                      "type": "array"
+                    },
+                    "subscriber_ids": {
+                      "description": "Restricts a preview to this candidate subset without mutating anyone.",
+                      "items": {
+                        "$ref": "#/components/schemas/ResourceId"
+                      },
+                      "maxItems": 10000,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "target_list_id": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    }
+                  },
+                  "required": [],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "blocklist": {
+                      "description": "Blocklist sunset candidates. Defaults to false.",
+                      "type": "boolean"
+                    },
+                    "dry_run": {
+                      "const": false
+                    },
+                    "inactivity_days": {
+                      "$ref": "#/components/schemas/PositiveInteger",
+                      "description": "Inactive threshold in days. Defaults to 90."
+                    },
+                    "max_subscribers": {
+                      "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
+                      "description": "Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit."
+                    },
+                    "mode": {
+                      "description": "Hygiene mode. Defaults to \"winback\".",
+                      "oneOf": [
+                        {
+                          "const": "sunset"
+                        },
+                        {
+                          "const": "winback"
+                        }
+                      ]
+                    },
+                    "source_list_ids": {
+                      "items": {
+                        "$ref": "#/components/schemas/ResourceId"
+                      },
+                      "type": "array"
+                    },
+                    "subscriber_ids": {
+                      "description": "Exact candidate set reported by a dry run; the run processes exactly this set.",
+                      "items": {
+                        "$ref": "#/components/schemas/ResourceId"
+                      },
+                      "maxItems": 10000,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "target_list_id": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    }
+                  },
+                  "required": [
+                    "subscriber_ids",
+                    "dry_run"
+                  ],
+                  "type": "object"
+                }
+              ]
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "oneOf": [
+            {
               "additionalProperties": false,
               "properties": {
                 "blocklist": {
@@ -26035,16 +26155,16 @@
                   "type": "boolean"
                 },
                 "dry_run": {
-                  "description": "Preview candidates without mutating subscribers. Defaults to true.",
-                  "type": "boolean"
+                  "const": true,
+                  "description": "Preview candidates without mutating subscribers. Defaults to true."
                 },
                 "inactivity_days": {
                   "$ref": "#/components/schemas/PositiveInteger",
                   "description": "Inactive threshold in days. Defaults to 90."
                 },
                 "max_subscribers": {
-                  "$ref": "#/components/schemas/PositiveInteger",
-                  "description": "Maximum candidates to process. Defaults to 500."
+                  "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
+                  "description": "Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit."
                 },
                 "mode": {
                   "description": "Hygiene mode. Defaults to \"winback\".",
@@ -26063,58 +26183,77 @@
                   },
                   "type": "array"
                 },
+                "subscriber_ids": {
+                  "description": "Restricts a preview to this candidate subset without mutating anyone.",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "maxItems": 10000,
+                  "minItems": 1,
+                  "type": "array"
+                },
                 "target_list_id": {
                   "$ref": "#/components/schemas/ResourceId"
                 }
               },
               "required": [],
               "type": "object"
-            }
-          }
-        },
-        "dialect": "openapi-3.1",
-        "schema": {
-          "additionalProperties": false,
-          "properties": {
-            "blocklist": {
-              "description": "Blocklist sunset candidates. Defaults to false.",
-              "type": "boolean"
             },
-            "dry_run": {
-              "description": "Preview candidates without mutating subscribers. Defaults to true.",
-              "type": "boolean"
-            },
-            "inactivity_days": {
-              "$ref": "#/components/schemas/PositiveInteger",
-              "description": "Inactive threshold in days. Defaults to 90."
-            },
-            "max_subscribers": {
-              "$ref": "#/components/schemas/PositiveInteger",
-              "description": "Maximum candidates to process. Defaults to 500."
-            },
-            "mode": {
-              "description": "Hygiene mode. Defaults to \"winback\".",
-              "oneOf": [
-                {
-                  "const": "sunset"
+            {
+              "additionalProperties": false,
+              "properties": {
+                "blocklist": {
+                  "description": "Blocklist sunset candidates. Defaults to false.",
+                  "type": "boolean"
                 },
-                {
-                  "const": "winback"
+                "dry_run": {
+                  "const": false
+                },
+                "inactivity_days": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "Inactive threshold in days. Defaults to 90."
+                },
+                "max_subscribers": {
+                  "$ref": "#/components/schemas/SubscriberHygieneBatchLimit",
+                  "description": "Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit."
+                },
+                "mode": {
+                  "description": "Hygiene mode. Defaults to \"winback\".",
+                  "oneOf": [
+                    {
+                      "const": "sunset"
+                    },
+                    {
+                      "const": "winback"
+                    }
+                  ]
+                },
+                "source_list_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "type": "array"
+                },
+                "subscriber_ids": {
+                  "description": "Exact candidate set reported by a dry run; the run processes exactly this set.",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "maxItems": 10000,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "target_list_id": {
+                  "$ref": "#/components/schemas/ResourceId"
                 }
-              ]
-            },
-            "source_list_ids": {
-              "items": {
-                "$ref": "#/components/schemas/ResourceId"
               },
-              "type": "array"
-            },
-            "target_list_id": {
-              "$ref": "#/components/schemas/ResourceId"
+              "required": [
+                "subscriber_ids",
+                "dry_run"
+              ],
+              "type": "object"
             }
-          },
-          "required": [],
-          "type": "object"
+          ]
         },
         "source": "typescript",
         "stage": "normalized"
@@ -26190,6 +26329,13 @@
                 "skippedDueToLimit": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
                 },
+                "subscriberIds": {
+                  "description": "The selected subscriber ids — echo them for the destructive run.",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "type": "array"
+                },
                 "targetListId": {
                   "$ref": "#/components/schemas/ResourceId"
                 },
@@ -26205,6 +26351,7 @@
                 "candidateSubscribers",
                 "processedSubscribers",
                 "skippedDueToLimit",
+                "subscriberIds",
                 "blocklist",
                 "sample",
                 "errors"
@@ -26262,6 +26409,13 @@
             "skippedDueToLimit": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             },
+            "subscriberIds": {
+              "description": "The selected subscriber ids — echo them for the destructive run.",
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
             "targetListId": {
               "$ref": "#/components/schemas/ResourceId"
             },
@@ -26277,6 +26431,7 @@
             "candidateSubscribers",
             "processedSubscribers",
             "skippedDueToLimit",
+            "subscriberIds",
             "blocklist",
             "sample",
             "errors"
@@ -26292,8 +26447,10 @@
         "dryRun": true
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry re-fetches subscribers from mutable updated_at state and may process a different batch if candidates shifted."
+        "idempotent": false,
+        "kind": "reconcile",
+        "reason": "Destructive runs process exactly the echoed subscriber set — subscribers that left the eligible set are skipped and winback additions are idempotent memberships — but a subscriber that re-enters eligibility (for example unblocked and inactive again) is re-selected by the identical echoed request and receives a new effect; the run stays experimental until durable per-subscriber completion state exists.",
+        "reconcileWith": "subscribers.list"
       },
       "since": "0.9.0",
       "stability": "experimental"

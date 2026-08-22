@@ -598,6 +598,11 @@ lease는 ping을 재전송하는 at-least-once 모호성 때문에 experimental�
 dead-letter id 집합을 전달(판별 유니온 계약으로 모델링)하고 이미 재큐된
 레코드는 양쪽 저장소에서 건너뜁니다. 그러나 worker가 재생된 레코드를
 재시도 전에 다시 exhausted로 만들 수 있어 experimental로 유지됩니다.
+열일곱 번째 batch에서는 `ops.subscribers.hygiene`에 후보 집합 echo를
+추가했습니다(CLI `--subscriber-ids`, 파괴적 실행 필수, 내보낸 워크플로에서도
+강제). 그러나 자격에 재진입한 구독자는 동일한 echo 요청에 다시 선택되는
+재진입 위험(dead-letter replay를 experimental로 유지하는 것과 같은 이유) 때문에
+experimental로 유지됩니다.
 현재 stable baseline은 82개이며, 나머지 experimental descriptor는 22개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
@@ -862,6 +867,7 @@ listmonk-cli ops guard --campaign-id 123 --pause-on-breach true --confirm
 
 # 3) 구독자 위생 관리 (프리뷰)
 listmonk-cli ops hygiene --mode winback --dry-run true --inactivity-days 90 --confirm
+# 파괴적 실행에는 dry-run이 보고한 --subscriber-ids를 echo합니다.
 
 # 4) 세그먼트 드리프트 스냅샷
 listmonk-cli ops segment-drift --threshold 0.2 --min-absolute-change 50
