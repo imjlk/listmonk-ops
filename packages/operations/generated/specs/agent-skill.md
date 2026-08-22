@@ -1302,7 +1302,7 @@ Prerequisites: none
 
 Verify with: `abtest.get`
 
-Retry guidance: Verify the test with abtest.get before repeating an ambiguous create; an identical retry resumes an unfinished intent or replays a completed one, and the remote campaigns and lists should be inspected for duplicates.
+Retry guidance: An ambiguous failure gives no test id and abtest.get reads only the local checkpoint; search the remote campaigns and lists tagged abtest:<test id> from the store for leaked resources before repeating the create.
 
 ## Analyze A/B test (`abtest.analyze`)
 

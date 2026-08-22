@@ -70,12 +70,14 @@ export class ListmonkAbTestIntegration {
 
 	private async deleteCampaignsBestEffort(
 		campaignIds: number[],
-	): Promise<void> {
+	): Promise<number[]> {
+		const deleted: number[] = [];
 		for (const campaignId of campaignIds) {
 			try {
 				await this.listmonkClient.campaign.delete({
 					path: { id: campaignId },
 				});
+				deleted.push(campaignId);
 			} catch (error) {
 				console.warn(
 					`Failed to delete rollback campaign ${campaignId}:`,
@@ -83,23 +85,125 @@ export class ListmonkAbTestIntegration {
 				);
 			}
 		}
+		return deleted;
 	}
 
-	private async deleteListsBestEffort(listIds: number[]): Promise<void> {
+	private async deleteListsBestEffort(listIds: number[]): Promise<number[]> {
+		const deleted: number[] = [];
 		for (const listId of listIds) {
 			try {
 				await this.listmonkClient.list.delete({
 					path: { list_id: listId },
 				});
+				deleted.push(listId);
 			} catch (error) {
 				console.warn(`Failed to delete rollback list ${listId}:`, error);
 			}
 		}
+		return deleted;
 	}
 
 	/**
 	 * Creates actual Listmonk campaigns for A/B test variants
 	 */
+	/**
+	 * Campaigns tagged for this test — including ones whose mapping was lost
+	 * to a crash between remote creation and the local checkpoint commit.
+	 * Each campaign carries `abtest:<testId>` plus `variant:<variantId>`.
+	 */
+	async findCampaignsByTestTag(
+		testId: string,
+	): Promise<Array<{ id: number; tags: string[] }>> {
+		// Scope the query server-side by the test tag so reconciliation
+		// never transfers the whole campaign history. The generated SDK
+		// types the plural `tags` parameter, but Listmonk 6.2 ignores it
+		// (verified against the local stack and documented in the package
+		// README); the server filters on the singular `tag` parameter, so
+		// emit it through a narrow unchecked cast at this boundary.
+		type CampaignListByTag = (options: {
+			query: { page: number; per_page: string; tag: string };
+		}) => Promise<{ data?: unknown; error?: unknown }>;
+		const listCampaignsByTag = this.listmonkClient.campaign
+			.list as unknown as CampaignListByTag;
+		const response = await listCampaignsByTag({
+			query: {
+				page: 1,
+				per_page: "all",
+				tag: `abtest:${testId}`,
+			},
+		});
+		const campaigns = this.unwrapData(
+			response,
+			`Failed to list campaigns for test ${testId} reconciliation`,
+		);
+		const rows = Array.isArray(campaigns)
+			? campaigns
+			: ((campaigns as { results?: unknown[] })?.results ?? []);
+		return (rows as Array<{ id?: unknown; tags?: string[] }>)
+			.filter((campaign) => campaign?.tags?.includes(`abtest:${testId}`))
+			.map((campaign) => ({
+				id: this.requireNumericId(
+					campaign.id,
+					`Failed to resolve campaign id for test ${testId}`,
+				),
+				tags: campaign.tags ?? [],
+			}));
+	}
+
+	/**
+	 * Lists tagged for this test — holdout and variant audiences whose
+	 * mapping may have been lost the same way. Adoption is by role and
+	 * variant tags, never by timestamped names.
+	 */
+	async findListsByTestTag(
+		testId: string,
+	): Promise<
+		Array<{ id: number; tags: string[] }>
+	> {
+		const response = await this.listmonkClient.list.list();
+		const lists = this.unwrapData(
+			response,
+			`Failed to list lists for test ${testId} reconciliation`,
+		);
+		const rows = Array.isArray(lists)
+			? lists
+			: ((lists as { results?: unknown[] })?.results ?? []);
+		return (rows as Array<{ id?: unknown; tags?: string[] }>)
+			.filter((list) => list?.tags?.includes(`abtest:${testId}`))
+			.map((list) => ({
+				id: this.requireNumericId(
+					list.id,
+					`Failed to resolve list id for test ${testId}`,
+				),
+				tags: list.tags ?? [],
+			}));
+	}
+
+		/**
+	 * Creates campaigns only for the listed variants, using the same
+	 * deterministic naming and `abtest:`/`variant:` tags as the full
+	 * createTestCampaigns path so reconciliation stays uniform.
+	 */
+	async createTestCampaignsForVariants(
+		abTest: AbTest,
+		baseConfig: {
+			subject: string;
+			body: string;
+			lists: number[];
+			template_id?: number;
+		},
+		variantIds: readonly string[],
+	): Promise<{ variantId: string; campaignId: number }[]> {
+		const selected = abTest.variants.filter((variant) =>
+			variantIds.includes(variant.id),
+		);
+		if (selected.length !== variantIds.length) {
+			throw new Error("Unknown variant ids in campaign provisioning");
+		}
+		const scoped: AbTest = { ...abTest, variants: selected };
+		return this.createTestCampaigns(scoped, baseConfig);
+	}
+
 	async createTestCampaigns(
 		abTest: AbTest,
 		baseConfig: {
@@ -421,6 +525,7 @@ export class ListmonkAbTestIntegration {
 	async segmentSubscribers(
 		originalLists: number[],
 		variants: Variant[],
+		testId?: string,
 	): Promise<{ variantId: string; listId: number }[]> {
 		const segmentedLists: { variantId: string; listId: number }[] = [];
 		const createdListIds: number[] = [];
@@ -455,6 +560,16 @@ export class ListmonkAbTestIntegration {
 						type: "private",
 						optin: "single",
 						description: `Temporary list for A/B test variant ${variant.name}`,
+						// Carry the canonical test and variant tags so a
+						// crashed full-split create leaves findable lists.
+						...(testId === undefined
+							? {}
+							: {
+									tags: [
+										`abtest:${testId}`,
+										`abtest-variant:${variant.id}`,
+									],
+								}),
 					},
 				});
 
@@ -597,14 +712,17 @@ export class ListmonkAbTestIntegration {
 
 	async rollbackProvisioning(
 		resources: ProvisionedAbTestResources,
-	): Promise<void> {
+	): Promise<{ deletedCampaignIds: number[]; deletedListIds: number[] }> {
 		const listIds = [...resources.testListIds];
 		if (resources.holdoutListId !== undefined) {
 			listIds.push(resources.holdoutListId);
 		}
 
-		await this.deleteCampaignsBestEffort([...resources.campaignIds].reverse());
-		await this.deleteListsBestEffort(listIds.reverse());
+		const deletedCampaignIds = await this.deleteCampaignsBestEffort([
+			...resources.campaignIds,
+		].reverse());
+		const deletedListIds = await this.deleteListsBestEffort(listIds.reverse());
+		return { deletedCampaignIds, deletedListIds };
 	}
 
 	/**

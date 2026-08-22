@@ -576,9 +576,12 @@ rescheduling delivery or repeating remote cleanup. A ninth batch promoted the pu
 configured existing name as `created: false` (a conflicting
 configuration still fails). A tenth batch made `abtest.create` commit
 its replay intent (key, request fingerprint, and payload) before any
-remote provisioning, so ambiguous retries resume the same test; it
-stays experimental until remote resource ids are checkpointed on
-resume. An eleventh batch promoted `subscribers.create` — subscriber
+remote provisioning, so ambiguous retries resume the same test. A
+follow-up checkpointed each provisioning phase and reconciles campaigns
+by their deterministic `abtest:` tags on resume instead of re-creating
+them (and stamps the auto-launch window before scheduling); it stays
+experimental because a crash mid-segmentation still re-splits the
+audience with a fresh seed. An eleventh batch promoted `subscribers.create` — subscriber
 emails are unique in Listmonk, so an ambiguous retry replays an
 identically configured subscriber as `created: false` (verified
 against the local stack). A twelfth batch promoted `ops.segments.drift` with

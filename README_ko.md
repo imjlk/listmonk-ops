@@ -569,8 +569,10 @@ plan-then-apply 방식의 manifest 수렴이 idempotent로 선언되고 dry-run�
 구성된 기존 이름을 `created: false`로 재생하고(충돌하는 구성은 여전히 실패)
 합니다. 열 번째 batch에서는 `abtest.create`가 원격 provisioning 전에 replay
 intent(key, 요청 fingerprint, payload)를 커밋해 애매한 재시도가 같은 테스트를
-이어 완성하도록 만들었습니다. 재개 시 원격 자원 ID를 checkpointing하기 전까지는
-experimental로 유지합니다. 열한 번째 batch에서는 `subscribers.create`를
+이어 완성하도록 만들었습니다. 후속 작업으로 각 provisioning 단계를
+checkpointing하고 재개 시 결정적인 `abtest:` 태그로 campaign을 재생성 대신
+조정하며(auto-launch 창도 스케줄 전에 기록) 자원을 조정합니다. segmentation
+중간 크래시가 여전히 새 seed로 재분할할 수 있어 experimental로 유지합니다. 열한 번째 batch에서는 `subscribers.create`를
 승격했습니다. 구독자 이메일은 Listmonk에서 고유하므로(로컬 스택으로 검증),
 애매한 재시도가 동일하게 구성된 구독자를 `created: false`로 재생합니다. 열두
 번째 batch에서는 조건부 retry 시맨틱의 `ops.segments.drift`(완전히 동일한 키 요청은

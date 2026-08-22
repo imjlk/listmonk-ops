@@ -117,7 +117,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 	retry: {
 		kind: "unsafe",
 		reason:
-			"The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning and an ambiguous retry resumes it, but a crash between successful provisioning and the provisioned commit can still re-provision remote resources; creation stays experimental until remote resource ids are checkpointed or reconciled on resume.",
+			"The create intent (replay key, request fingerprint, and payload) is committed before remote provisioning, the campaign mapping is checkpointed after each phase, and campaigns tagged abtest:<testId> are reconciled by tag on resume instead of re-created; a crash mid-segmentation still re-splits the audience with a fresh seed and can leak the first split's tagged lists, so an ambiguous failure needs operator inspection of the remote resources before retrying.",
 	},
 	agent: {
 		useWhen: ["A new A/B test must be created."],
@@ -126,7 +126,7 @@ export const abTestCreateOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch", "abtest.delete"],
 		retryGuidance:
-			"Verify the test with abtest.get before repeating an ambiguous create; an identical retry resumes an unfinished intent or replays a completed one, and the remote campaigns and lists should be inspected for duplicates.",
+			"An ambiguous failure gives no test id and abtest.get reads only the local checkpoint; search the remote campaigns and lists tagged abtest:<test id> from the store for leaked resources before repeating the create.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_create",

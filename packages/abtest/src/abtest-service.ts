@@ -379,6 +379,212 @@ export class AbTestService {
 	 * Run remote provisioning for a persisted create intent and finalize it.
 	 * A test whose provisioning already completed is returned unchanged.
 	 */
+
+	/**
+	 * Shared finalization for the provision flow: applies orchestration
+	 * metadata, auto-launches when configured, and marks the record
+	 * provisioned. Split out so the phased executor's checkpoint-adoption
+	 * path converges with the fresh-provisioning path.
+	 */
+	private async finalizeProvisionedTest(
+		test: AbTest,
+		config: AbTestConfig,
+	): Promise<AbTest> {
+		// Apply the accepted orchestration metadata in the shared path so
+		// checkpoint adoption and fresh provisioning persist identically.
+		if (config.durationHours !== undefined) {
+			test.durationHours = config.durationHours;
+		}
+		if (config.minimumTestSampleSize !== undefined) {
+			test.minimumTestSampleSize = config.minimumTestSampleSize;
+		}
+		if (config.launchAt !== undefined) {
+			test.launchAt = config.launchAt;
+		}
+		// Auto-launch: schedule campaigns with a shared send_at and
+		// transition to 'scheduled'. When launchAt is provided, use it
+		// directly; otherwise use now + safety lead time. The chosen window
+		// is stamped on the record BEFORE the remote schedule so a crash
+		// mid-launch leaves the window inspectable (the phased executor
+		// commits this stamp in its own checkpoint step).
+		if (config.autoLaunch) {
+			const sendAt =
+				test.launchAt ??
+				config.launchAt ??
+				new Date(
+					Date.now() + ABTEST_SAFETY_LEAD_SECONDS * 1000,
+				).toISOString();
+			test.launchAt = sendAt;
+			const integration = this.listmonkIntegration;
+			if (!integration) {
+				throw new Error("Listmonk integration not available");
+			}
+			await integration.launchTest(
+				test.campaignMappings,
+				test.testListMappings,
+				{ sendAt },
+			);
+			test.status = "scheduled";
+			test.launchAt = sendAt;
+			test.startedAt = new Date().toISOString();
+			if (test.durationHours !== undefined) {
+				test.endsAt = new Date(
+					new Date(sendAt).getTime() +
+						test.durationHours * 3600 * 1000,
+				).toISOString();
+			}
+		}
+		test.provisionedAt = new Date().toISOString();
+		test.updatedAt = new Date();
+		delete test.pendingCreate;
+		this.tests.set(test.id, test);
+		return test;
+	}
+
+	/**
+	 * Campaign provisioning phase: reconciles campaigns already tagged for
+	 * this test (including ones whose mapping was lost to a crash between
+	 * remote creation and the checkpoint commit), creates only the missing
+	 * variants, and records the mapping on the in-memory record — the
+	 * executor commits this checkpoint before segmentation runs.
+	 */
+	async provisionCampaignsPhase(test: AbTest): Promise<AbTest> {
+		if (test.provisionedAt !== undefined || test.campaignMappings.length > 0) {
+			return test;
+		}
+		const config = test.pendingCreate?.config;
+		if (config === undefined) {
+			return test;
+		}
+		if (!this.listmonkIntegration) {
+			return test;
+		}
+		const tagged = await this.listmonkIntegration.findCampaignsByTestTag(
+			test.id,
+		);
+		const mappings: Array<{ variantId: string; campaignId: number }> = [];
+		for (const variant of test.variants) {
+			const matches = tagged.filter((campaign) =>
+				campaign.tags.includes(`variant:${variant.id}`),
+			);
+			if (matches.length > 1) {
+				throw new Error(
+					`Ambiguous campaigns tagged variant:${variant.id} for test ${test.id}; resolve the duplicates before retrying`,
+				);
+			}
+			if (matches.length === 1) {
+				const campaignId = matches[0]!.id;
+				if (mappings.some((m) => m.campaignId === campaignId)) {
+					// A malformed campaign tagged for two variants would be
+					// adopted twice, silently stranding one variant.
+					throw new Error(
+						`Campaign ${campaignId} is tagged for multiple variants of test ${test.id}; correct the tags before retrying`,
+					);
+				}
+				mappings.push({ variantId: variant.id, campaignId });
+			}
+		}
+		if (mappings.length < test.variants.length) {
+			// Create only variants with no reconciled campaign; the
+			// deterministic `abtest:` and `variant:` tags make any later
+			// retry re-reconcile these too.
+			const created =
+				await this.listmonkIntegration.createTestCampaignsForVariants(
+					test,
+					config.baseConfig,
+					test.variants
+						.filter(
+							(variant) =>
+								!mappings.some((m) => m.variantId === variant.id),
+						)
+						.map((variant) => variant.id),
+				);
+			mappings.push(...created);
+		}
+		test.campaignMappings = mappings;
+		return test;
+	}
+
+	/**
+	 * Auto-launch window checkpoint: stamps the deterministic sendAt on the
+	 * record (preferring an already-stamped window so retries never
+	 * recompute it) so the phased executor can commit it before any remote
+	 * scheduling runs.
+	 */
+	async recordAutoLaunchWindowPhase(test: AbTest): Promise<AbTest> {
+		if (test.provisionedAt !== undefined) {
+			return test;
+		}
+		const config = test.pendingCreate?.config;
+		if (config === undefined || !config.autoLaunch) {
+			return test;
+		}
+		test.launchAt =
+			test.launchAt ??
+			config.launchAt ??
+			new Date(
+				Date.now() + ABTEST_SAFETY_LEAD_SECONDS * 1000,
+			).toISOString();
+		return test;
+	}
+
+	/**
+	 * Segmentation phase: computes (or, when the checkpoint already carries
+	 * the split, reuses) the audience split and records the test-list
+	 * mappings and deterministic assignment metadata — the executor commits
+	 * this checkpoint before finalization.
+	 */
+	async provisionSegmentationPhase(test: AbTest): Promise<AbTest> {
+		if (test.provisionedAt !== undefined || test.campaignMappings.length === 0) {
+			return test;
+		}
+		if (test.testListMappings.length > 0) {
+			return test;
+		}
+		const config = test.pendingCreate?.config;
+		if (config === undefined || !this.listmonkIntegration) {
+			return test;
+		}
+		if (test.testingMode === "holdout") {
+			const segmentationResult =
+				await this.listmonkIntegration.segmentSubscribersForHoldout(
+					config.baseConfig.lists,
+					test.variants,
+					test.testGroupPercentage,
+					{
+						testId: test.id,
+						stratificationPolicy: config.stratificationPolicy,
+					},
+				);
+			test.testListMappings = segmentationResult.testListMappings;
+			test.holdoutListId = segmentationResult.holdoutListId;
+			test.testGroupSize = segmentationResult.testGroupSize;
+			test.holdoutGroupSize = segmentationResult.holdoutGroupSize;
+			test.assignmentSeed = segmentationResult.assignmentSeed;
+			test.audienceSnapshot = segmentationResult.audienceSnapshot;
+			test.assignmentManifest = segmentationResult.assignmentManifest;
+			test.assignmentProvenance = "manifest_v1";
+			if (segmentationResult.stratification) {
+				test.stratification = segmentationResult.stratification;
+			}
+		} else {
+			test.testListMappings =
+				await this.listmonkIntegration.segmentSubscribers(
+					config.baseConfig.lists,
+					test.variants,
+					test.id,
+				);
+			const totalSubscribers =
+				await this.listmonkIntegration.getTotalSubscribers(
+					config.baseConfig.lists,
+				);
+			test.testGroupSize = totalSubscribers;
+			test.holdoutGroupSize = 0;
+			test.assignmentProvenance = "legacy_unavailable";
+		}
+		return test;
+	}
+
 	async provisionTest(test: AbTest): Promise<AbTest> {
 		if (test.provisionedAt !== undefined) {
 			return test;
@@ -391,6 +597,12 @@ export class AbTestService {
 		}
 		// Create Listmonk campaigns if integration is available
 		if (this.listmonkIntegration) {
+			// Rollback only what THIS invocation created: resources committed
+			// by earlier checkpoint phases belong to the persisted record and
+			// must survive a failed finalization so the retry can resume.
+			const adoptedListIds = new Set(
+				test.testListMappings.map((mapping) => mapping.listId),
+			);
 			let provisionedResources: ProvisionedAbTestResources = {
 				testId: test.id,
 				campaignIds: [],
@@ -398,15 +610,40 @@ export class AbTestService {
 			};
 
 			try {
+				// The phased executor checkpoints each stage; when the
+				// campaign checkpoint is already present, adopt it instead of
+				// re-creating (and reconciling protects the crash window).
+				const adoptedCampaignIds = new Set(
+					test.campaignMappings.map((mapping) => mapping.campaignId),
+				);
 				const campaignMappings =
-					await this.listmonkIntegration.createTestCampaigns(
-						test,
-						config.baseConfig,
-					);
+					test.campaignMappings.length > 0
+						? test.campaignMappings
+						: await this.listmonkIntegration.createTestCampaigns(
+								test,
+								config.baseConfig,
+							);
 				provisionedResources = {
 					...provisionedResources,
-					campaignIds: campaignMappings.map((mapping) => mapping.campaignId),
+					// Only resources created in THIS invocation roll back;
+					// adopted checkpoint mappings survive a failed
+					// finalization so the retry can resume them.
+					campaignIds: campaignMappings
+						.map((mapping) => mapping.campaignId)
+						.filter((id) => !adoptedCampaignIds.has(id)),
 				};
+
+				if (test.testListMappings.length > 0) {
+					// Segmentation checkpoint already committed by the phased
+					// executor; adopt it instead of re-splitting. Adopted
+					// lists belong to the persisted checkpoint and never roll
+					// back, so the rollback set stays empty here.
+					test.campaignMappings = campaignMappings;
+					test.status = "draft";
+					// Awaited inside the try so a failed auto-launch still
+					// triggers the rollback path below.
+					return await this.finalizeProvisionedTest(test, config);
+				}
 
 				// Use appropriate segmentation method based on testing mode
 				let testListMappings: { variantId: string; listId: number }[];
@@ -446,10 +683,12 @@ export class AbTestService {
 					}
 				} else {
 					// Use full-split methodology (legacy)
-					testListMappings = await this.listmonkIntegration.segmentSubscribers(
-						config.baseConfig.lists,
-						test.variants,
-					);
+					testListMappings =
+						await this.listmonkIntegration.segmentSubscribers(
+							config.baseConfig.lists,
+							test.variants,
+							test.id,
+						);
 
 					// Calculate group sizes for full-split
 					const totalSubscribers =
@@ -463,8 +702,14 @@ export class AbTestService {
 				}
 				provisionedResources = {
 					...provisionedResources,
-					testListIds: testListMappings.map((mapping) => mapping.listId),
-					holdoutListId,
+					// Adopted checkpoint mappings survive a failed
+					// finalization; only this invocation's new lists roll back.
+					testListIds: testListMappings
+						.map((mapping) => mapping.listId)
+						.filter((id) => !adoptedListIds.has(id)),
+					holdoutListId: adoptedListIds.has(holdoutListId ?? -1)
+						? undefined
+						: holdoutListId,
 				};
 
 				test.campaignMappings = campaignMappings;
@@ -513,8 +758,21 @@ export class AbTestService {
 				}
 			} catch (error) {
 				try {
-					await this.listmonkIntegration.rollbackProvisioning(
-						provisionedResources,
+					const { deletedCampaignIds, deletedListIds } =
+						await this.listmonkIntegration.rollbackProvisioning(
+							provisionedResources,
+						);
+					// Only confirmed deletions leave the mapping table; a
+					// best-effort delete that failed keeps its mapping so the
+					// retry reconciles the surviving tagged resource instead
+					// of creating a duplicate.
+					const rolledBackCampaigns = new Set(deletedCampaignIds);
+					const rolledBackLists = new Set(deletedListIds);
+					test.campaignMappings = test.campaignMappings.filter(
+						(mapping) => !rolledBackCampaigns.has(mapping.campaignId),
+					);
+					test.testListMappings = test.testListMappings.filter(
+						(mapping) => !rolledBackLists.has(mapping.listId),
 					);
 				} catch (rollbackError) {
 					console.error(
