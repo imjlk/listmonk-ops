@@ -91,6 +91,9 @@ export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
 # Optional: override the keyed resource-create idempotency store
 export LISTMONK_OPS_RESOURCE_CREATE_STORE="$HOME/.listmonk-ops/ops/resource-creates.json"
+# Optional: raise the store's soft record cap (bindings are durable replays
+# with no automatic expiry; archive or rotate the store file when full)
+# export LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS=10000
 # Optional: override the signed outbound-webhook endpoint/outbox store
 export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
 # Optional alternative for multi-process/multi-worker webhook durability.
@@ -632,11 +635,16 @@ bound to the created list id, namespaced by the Listmonk target. An
 identical retry replays that list as `created: false`, a concurrent
 same-key create waits for the in-flight one instead of issuing a second
 POST, and conflicting payloads or targets under the same key are rejected
-explicitly. A keyed create requires that store, so surfaces without one
-reject the key instead of silently dropping the guarantee —
-promoting the operation with testing-mode-independent conditional
-semantics (unkeyed creates stay honestly unsafe because Listmonk list
-names are not unique). The remaining 20 descriptors are experimental.
+explicitly. A live same-host claim is never stolen by age, and a crashed
+attempt's pending claim is recovered by adopting a same-named list only
+when its attributes and creation time prove it was the attempt's product
+(the first claim time is persisted before any POST), settling briefly
+before recreating when no list is observable. A keyed create requires
+that store, so surfaces without one reject the key instead of silently
+dropping the guarantee — promoting the operation with
+testing-mode-independent conditional semantics (unkeyed creates stay
+honestly unsafe because Listmonk list names are not unique). The
+remaining 20 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,

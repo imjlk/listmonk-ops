@@ -546,7 +546,10 @@ describe("subscriber-list operations", () => {
 					return {
 						kind: "new" as const,
 						claimToken: "token-recovered",
-						record: {} as never,
+						record: {
+							createdAt: "2026-08-01T00:00:00Z",
+							firstClaimedAt: "2026-08-01T00:00:00Z",
+						} as never,
 						recovered: true,
 					};
 				}
@@ -597,6 +600,182 @@ describe("subscriber-list operations", () => {
 		]);
 	});
 
+	test("creates fresh during recovery when a matching list predates the claim", async () => {
+		const commits: Array<{ resourceId: string }> = [];
+		const store = {
+			claim: async () => ({
+				kind: "new" as const,
+				claimToken: "token-recovered",
+				record: {
+					createdAt: "2026-08-01T00:00:00Z",
+					firstClaimedAt: "2026-08-01T00:00:00Z",
+				} as never,
+				recovered: true,
+			}),
+			commit: async (options: { resourceId: string }) => {
+				commits.push(options);
+			},
+			release: async () => {},
+		};
+		const create = mock(async () => ({
+			data: { id: 99, name: "Preexisting", type: "private" },
+		})) as unknown as ListClient["list"]["create"];
+		const list = mock(async () => ({
+			data: {
+				// Same name and default attributes as the request, but created
+				// long before the key was first claimed: it cannot be the
+				// crashed attempt's product, and the attempt's own create
+				// would have shown up as a second match.
+				results: [
+					{
+						id: 55,
+						name: "Preexisting",
+						type: "private",
+						created_at: "2026-01-01T00:00:00Z",
+					},
+				],
+				total: 1,
+				page: 1,
+				per_page: 100,
+			},
+		})) as unknown as ListClient["list"]["list"];
+		const ctx = {
+			client: { list: { create, list } } as unknown as Pick<
+				ListmonkClient,
+				"list"
+			>,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		const result = await invokeCreateListOperation(ctx, {
+			name: "Preexisting",
+			idempotency_key: "list-preexisting",
+		});
+
+		expect(result).toMatchObject({ created: true, list: { id: 99 } });
+		expect(commits).toEqual([
+			{
+				key: "list-preexisting",
+				claimToken: "token-recovered",
+				resourceId: "99",
+			},
+		]);
+	});
+
+	test("settles and re-queries before recreating on a recovered claim", async () => {
+		let recoverOnce = true;
+		let commits = 0;
+		const store = {
+			claim: async () => {
+				if (recoverOnce) {
+					recoverOnce = false;
+					return {
+						kind: "new" as const,
+						claimToken: "token-recovered",
+						record: {
+							createdAt: "2026-08-01T00:00:00Z",
+							firstClaimedAt: "2026-08-01T00:00:00Z",
+						} as never,
+						recovered: true,
+					};
+				}
+				return { kind: "replay" as const, record: {} as never };
+			},
+			commit: async () => {
+				commits += 1;
+			},
+			release: async () => {},
+		};
+		const create = mock(async () => ({
+			data: { id: 99, name: "Settled" },
+		})) as unknown as ListClient["list"]["create"];
+		// The crashed POST is still committing server-side: the first
+		// lookup misses, the post-settle re-query observes the list.
+		let queries = 0;
+		const list = mock(async () => {
+			queries += 1;
+			return {
+				data:
+					queries === 1
+						? { results: [], total: 0, page: 1, per_page: 100 }
+						: {
+								results: [
+									{
+										id: 55,
+										name: "Settled",
+										created_at: "2026-08-02T00:00:00Z",
+									},
+								],
+								total: 1,
+								page: 1,
+								per_page: 100,
+							},
+			};
+		}) as unknown as ListClient["list"]["list"];
+		const ctx = {
+			client: { list: { create, list } } as unknown as Pick<
+				ListmonkClient,
+				"list"
+			>,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		const result = await invokeCreateListOperation(ctx, {
+			name: "Settled",
+			idempotency_key: "list-settled",
+		});
+
+		expect(result).toMatchObject({ created: false, list: { id: 55 } });
+		expect(create).not.toHaveBeenCalled();
+		expect(list).toHaveBeenCalledTimes(2);
+		expect(commits).toBe(1);
+	}, 10_000);
+
+	test("refuses to resolve an empty-body create onto a match that predates the claim", async () => {
+		const { store, records } = createInMemoryResourceCreateStore();
+		const create = mock(async () => ({
+			data: undefined,
+		})) as unknown as ListClient["list"]["create"];
+		const list = mock(async () => ({
+			data: {
+				// Attribute-compatible but created long before this call's
+				// claim: this call's create is not observable, so the match
+				// cannot be identified as the created list.
+				results: [
+					{
+						id: 71,
+						name: "Existing",
+						created_at: "2020-01-01T00:00:00Z",
+					},
+				],
+				total: 1,
+				page: 1,
+				per_page: 100,
+			},
+		})) as unknown as ListClient["list"]["list"];
+		const ctx = {
+			client: { list: { create, list } } as unknown as Pick<
+				ListmonkClient,
+				"list"
+			>,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		await expect(
+			invokeCreateListOperation(ctx, {
+				name: "Existing",
+				idempotency_key: "list-predates",
+			}),
+		).rejects.toThrow(/predates the request/);
+		expect(records.get("list-predates")?.status).toBe("pending");
+	});
+
 	test("releases the claim when Listmonk definitively rejects a keyed create", async () => {
 		const { store, records } = createInMemoryResourceCreateStore();
 		const create = mock(async () => ({
@@ -631,7 +810,10 @@ describe("subscriber-list operations", () => {
 					return {
 						kind: "new" as const,
 						claimToken: "token-recovered",
-						record: {} as never,
+						record: {
+							createdAt: "2020-01-01T00:00:00Z",
+							firstClaimedAt: "2020-01-01T00:00:00Z",
+						} as never,
 						recovered: true,
 					};
 				}
@@ -646,7 +828,20 @@ describe("subscriber-list operations", () => {
 			data: { id: 99, name: "Recovered" },
 		})) as unknown as ListClient["list"]["create"];
 		const list = mock(async () => ({
-			data: { results: [{ id: 55, name: "Recovered" }], total: 1, page: 1, per_page: 100 },
+			data: {
+				results: [
+					{
+						id: 55,
+						name: "Recovered",
+						// Created after the key was first claimed: proof the
+						// crashed attempt produced it.
+						created_at: "2021-01-01T00:00:00Z",
+					},
+				],
+				total: 1,
+				page: 1,
+				per_page: 100,
+			},
 		})) as unknown as ListClient["list"]["list"];
 		const ctx = {
 			client: { list: { create, list } } as unknown as Pick<

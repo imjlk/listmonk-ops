@@ -56,6 +56,7 @@ export {
 	claimResourceCreate,
 	commitResourceCreate,
 	createFileBackedResourceCreateIdempotencyStore,
+	getResourceCreateStoreMaxRecords,
 	getResourceCreateStorePath,
 	RESOURCE_CREATE_CLAIM_STALE_MS,
 	RESOURCE_CREATE_STORE_MAX_RECORDS,

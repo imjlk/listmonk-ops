@@ -91,6 +91,9 @@ export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
 # 선택: 키 기반 resource-create 멱등성 저장소 경로 재정의
 export LISTMONK_OPS_RESOURCE_CREATE_STORE="$HOME/.listmonk-ops/ops/resource-creates.json"
+# 선택: 저장소 레코드 상한 상향(바인딩은 자동 만료가 없는 지속 재생 매핑이며,
+# 가득 차면 저장소 파일을 보관/순환해야 합니다)
+# export LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS=10000
 # 선택: 서명형 outbound webhook endpoint/outbox 저장소 경로 재정의
 export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
 # 선택 대안: 다중 프로세스/worker용 PostgreSQL durable 저장소
@@ -617,9 +620,13 @@ experimental로 유지됩니다.
 생성된 리스트 id에 묶이며, Listmonk 대상별로 이름공간이 분리됩니다. 동일한
 재시도는 해당 리스트를 `created: false`로 재생하고, 같은 키의 동시 생성은
 두 번째 POST 대신 진행 중인 생성을 기다리며, 같은 키의 다른 payload/대상은
-명시적으로 거부합니다. 키 기반 생성에는 이 저장소가 필수이므로 저장소가
-없는 surface는 보장을 조용히 버리는 대신 키를 거부합니다. 키 없는 생성은
-Listmonk 리스트 이름이 유일하지 않아 여전히 unsafe로 유지됩니다.
+명시적으로 거부합니다. 살아있는 same-host claim은 나이만으로 빼앗기지
+않고, 크래시한 시도의 pending claim은 속성과 생성 시각이 해당 시도의
+산물임을 증명할 때만 동명 리스트를 채택하며(첫 claim 시각은 모든 POST
+이전에 영속화), 관측되는 리스트가 없으면 짧게 settle한 뒤 재생성합니다.
+키 기반 생성에는 이 저장소가 필수이므로 저장소가 없는 surface는 보장을
+조용히 버리는 대신 키를 거부합니다. 키 없는 생성은 Listmonk 리스트
+이름이 유일하지 않아 여전히 unsafe로 유지됩니다.
 현재 stable baseline은 84개이며, 나머지 experimental descriptor는 20개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,

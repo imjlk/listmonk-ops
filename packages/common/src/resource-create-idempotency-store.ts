@@ -27,6 +27,12 @@ export interface StoredResourceCreateRecord {
 	resourceId?: string;
 	claimToken: string;
 	owner: { pid: number; hostname: string };
+	/**
+	 * Time of the FIRST claim on this key, preserved across stale takeovers.
+	 * It is persisted before any POST is issued, so a created resource's
+	 * timestamp can be compared against it as pre-create evidence.
+	 */
+	firstClaimedAt?: string;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -87,9 +93,31 @@ export interface ResourceCreateIdempotencyStore {
 export const RESOURCE_CREATE_STORE_MAX_RECORDS = 10_000;
 
 /**
- * A pending claim older than this (or whose same-host owner process is dead)
- * is considered crashed and may be taken over by a later claim, which then
- * has to reconcile the previous attempt's unknown outcome.
+ * Override the soft cap via the environment. Bindings are durable replays,
+ * so there is no automatic expiry; when the cap is reached, new claims are
+ * rejected until the operator archives or rotates the store file (losing
+ * replay protection for pre-rotation keys).
+ */
+export function getResourceCreateStoreMaxRecords(): number {
+	const raw = process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS?.trim();
+	if (!raw) {
+		return RESOURCE_CREATE_STORE_MAX_RECORDS;
+	}
+	const parsed = Number.parseInt(raw, 10);
+	if (!Number.isInteger(parsed) || parsed <= 0) {
+		throw new Error(
+			`LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS must be a positive integer (received '${raw}')`,
+		);
+	}
+	return parsed;
+}
+
+/**
+ * A pending claim is considered crashed — and may be taken over by a later
+ * claim, which then has to reconcile the previous attempt's unknown
+ * outcome — when its same-host owner process is provably dead. A foreign
+ * host cannot be probed locally, so only the age threshold can mark such
+ * a claim stale.
  */
 export const RESOURCE_CREATE_CLAIM_STALE_MS = 10 * 60 * 1000;
 
@@ -149,6 +177,12 @@ export function isStoredResourceCreateRecord(
 	}
 	if (value.status === "pending" && value.resourceId !== undefined) return false;
 	if (value.resourceId !== undefined && typeof value.resourceId !== "string") {
+		return false;
+	}
+	if (
+		value.firstClaimedAt !== undefined &&
+		!isIsoTimestampValue(value.firstClaimedAt)
+	) {
 		return false;
 	}
 	if (typeof value.claimToken !== "string" || value.claimToken.length === 0) {
@@ -257,7 +291,14 @@ function isClaimStale(
 	record: StoredResourceCreateRecord,
 	now: Date,
 ): boolean {
-	if (isOwnerProcessDead(record.owner)) return true;
+	if (record.owner.hostname === STORE_HOSTNAME) {
+		// Same-host liveness is authoritative: a live owner keeps its claim
+		// regardless of age, so a legitimately slow create can never be
+		// stolen into a concurrent second POST.
+		return isOwnerProcessDead(record.owner);
+	}
+	// A foreign-host owner cannot be probed locally; only age can mark the
+	// claim stale.
 	return now.getTime() - new Date(record.createdAt).getTime() >= RESOURCE_CREATE_CLAIM_STALE_MS;
 }
 
@@ -274,9 +315,10 @@ function conflictReason(
  * Atomically claim (or replay) a create key. The locked update serializes
  * concurrent claimants across processes: exactly one receives `new`, and
  * every other same-key caller observes the pending claim. A stale pending
- * claim (dead same-host owner, or older than the age threshold) is replaced
- * for the caller with `recovered: true` so it can reconcile the previous
- * attempt's unknown outcome before creating.
+ * claim (dead same-host owner, or a foreign-host claim past the age
+ * threshold) is replaced for the caller with `recovered: true` so it can
+ * reconcile the previous attempt's unknown outcome before creating. The
+ * original claim time survives the takeover as `firstClaimedAt`.
  */
 export async function claimResourceCreate(options: {
 	storePath?: string;
@@ -329,10 +371,10 @@ export async function claimResourceCreate(options: {
 
 		if (
 			existing === undefined &&
-			Object.keys(document.records).length >= RESOURCE_CREATE_STORE_MAX_RECORDS
+			Object.keys(document.records).length >= getResourceCreateStoreMaxRecords()
 		) {
 			throw new Error(
-				"Resource create idempotency store is full; expire old records before claiming new ones",
+				"Resource create idempotency store is full; archive or rotate the store file (or raise LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS) before claiming new keys",
 			);
 		}
 
@@ -344,6 +386,11 @@ export async function claimResourceCreate(options: {
 			status: "pending",
 			claimToken: newClaimToken(),
 			owner: { pid: process.pid, hostname: STORE_HOSTNAME },
+			// Preserve the first claim time across takeovers: it predates
+			// every POST issued for this key and is the evidence baseline
+			// for reconciling a recovered claim.
+			firstClaimedAt:
+				existing?.firstClaimedAt ?? existing?.createdAt ?? now.toISOString(),
 			createdAt: now.toISOString(),
 			updatedAt: now.toISOString(),
 		};

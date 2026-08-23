@@ -205,8 +205,48 @@ describe("resource create idempotency file-backed store", () => {
 		expect(persisted.records["key-1"]?.status).toBe("pending");
 	});
 
-	test("takes over an aged-out claim from a live owner", async () => {
+	test("takes over a stale foreign-host claim past the age threshold", async () => {
 		const storePath = await createStorePath();
+		const startedAt = new Date(Date.now() - RESOURCE_CREATE_CLAIM_STALE_MS - 1000);
+		await writeRawJsonFileStore(createResourceCreateStore(storePath), {
+			version: 1,
+			records: {
+				"key-1": pendingRecord({
+					createdAt: startedAt.toISOString(),
+					owner: { pid: process.pid, hostname: "other-host.example" },
+				}),
+			},
+		});
+
+		const claim = await claimResourceCreate({
+			storePath,
+			key: "key-1",
+			payloadHash: "payload-1",
+			targetHash: "target-a",
+			resourceKind: "list",
+		});
+		expect(claim).toMatchObject({ kind: "new", recovered: true });
+		if (claim.kind !== "new") throw new Error("expected a takeover");
+		// The first claim time survives the takeover as adoption evidence.
+		expect(claim.record.firstClaimedAt).toBe(startedAt.toISOString());
+
+		// The replaced claim's token can no longer commit or release.
+		await commitResourceCreate({
+			storePath,
+			key: "key-1",
+			claimToken: "token-old",
+			resourceId: "31",
+		});
+		const persisted = JSON.parse(await readFile(storePath, "utf8")) as {
+			records: Record<string, { status: string }>;
+		};
+		expect(persisted.records["key-1"]?.status).toBe("pending");
+	});
+
+	test("never steals a live same-host claim by age alone", async () => {
+		const storePath = await createStorePath();
+		// A legitimately slow in-flight create: the owner is this live
+		// process, so no age threshold may hand the claim to a retry.
 		const startedAt = new Date(Date.now() - RESOURCE_CREATE_CLAIM_STALE_MS - 1000);
 		await writeRawJsonFileStore(createResourceCreateStore(storePath), {
 			version: 1,
@@ -223,7 +263,20 @@ describe("resource create idempotency file-backed store", () => {
 				targetHash: "target-a",
 				resourceKind: "list",
 			}),
-		).resolves.toMatchObject({ kind: "new", recovered: true });
+		).resolves.toMatchObject({ kind: "pending" });
+	});
+
+	test("fresh claims record their own first-claim evidence time", async () => {
+		const storePath = await createStorePath();
+		const claim = await claimResourceCreate({
+			storePath,
+			key: "key-1",
+			payloadHash: "payload-1",
+			targetHash: "target-a",
+			resourceKind: "list",
+		});
+		if (claim.kind !== "new") throw new Error("expected a new claim");
+		expect(claim.record.firstClaimedAt).toBe(claim.record.createdAt);
 	});
 
 	test("release drops a pending claim but never a bound record", async () => {

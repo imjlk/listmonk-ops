@@ -20886,7 +20886,7 @@
           {
             "semantics": {
               "kind": "safe",
-              "reason": "The key is atomically claimed in a durable store before the create is issued and then bound to the created list id; an identical retry (same key, same request payload, same Listmonk target) replays that list with created: false, a concurrent same-key create waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. A crashed attempt leaves a pending claim that a later retry recovers by adopting a uniquely named list instead of creating again."
+              "reason": "The key is atomically claimed in a durable store before the create is issued and then bound to the created list id; an identical retry (same key, same request payload, same Listmonk target) replays that list with created: false, a concurrent same-key create waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. A crashed attempt leaves a pending claim that a later retry recovers by adopting a same-named list only when its attributes and creation time prove it was the attempt's product, settling briefly before recreating when no list is observable."
             },
             "when": "idempotency_key is present"
           },
