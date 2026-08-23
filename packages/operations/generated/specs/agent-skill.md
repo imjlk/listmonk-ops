@@ -1414,7 +1414,7 @@ Prerequisites: `abtest.list`
 
 Verify with: `abtest.list`
 
-Retry guidance: Echo a prior tick's claim_steps output as recovery_set so an ambiguous retry runs a convergent status-bound recovery pass over exactly that set; without the echoed set, inspect abtest.list before another tick.
+Retry guidance: Echo a failed tick's claim_steps output (or the structured recovery_set on its error) so an ambiguous retry re-attempts exactly the originally due tests at their pre-tick statuses; winner deployment is externally visible, so verify the test's campaigns before repeating. Without the echoed set, inspect abtest.list before another tick.
 
 ## Reconcile A/B test state (`abtest.reconcile`)
 

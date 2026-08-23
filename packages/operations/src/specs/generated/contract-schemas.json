@@ -3076,11 +3076,10 @@
               "type": "boolean"
             },
             "recovery_set": {
-              "description": "Echoed claim set from a prior tick's claim_steps output: recover\nexactly these tests at their pre-tick statuses instead of sweeping\nall due tests.",
+              "description": "Echoed claim set from a prior tick's claim_steps output: recover\nexactly these tests at their pre-tick statuses instead of sweeping\nall due tests. Test ids must be unique; the runtime schema rejects\nduplicates.",
               "items": {
                 "$ref": "#/components/schemas/AbTestRecoveryClaim"
               },
-              "maxItems": 100,
               "minItems": 1,
               "type": "array"
             }
@@ -3102,11 +3101,10 @@
           "type": "boolean"
         },
         "recovery_set": {
-          "description": "Echoed claim set from a prior tick's claim_steps output: recover\nexactly these tests at their pre-tick statuses instead of sweeping\nall due tests.",
+          "description": "Echoed claim set from a prior tick's claim_steps output: recover\nexactly these tests at their pre-tick statuses instead of sweeping\nall due tests. Test ids must be unique; the runtime schema rejects\nduplicates.",
           "items": {
             "$ref": "#/components/schemas/AbTestRecoveryClaim"
           },
-          "maxItems": 100,
           "minItems": 1,
           "type": "array"
         }

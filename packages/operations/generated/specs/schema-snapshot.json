@@ -31775,11 +31775,10 @@
                   "type": "boolean"
                 },
                 "recovery_set": {
-                  "description": "Echoed claim set from a prior tick's claim_steps output: recover\nexactly these tests at their pre-tick statuses instead of sweeping\nall due tests.",
+                  "description": "Echoed claim set from a prior tick's claim_steps output: recover\nexactly these tests at their pre-tick statuses instead of sweeping\nall due tests. Test ids must be unique; the runtime schema rejects\nduplicates.",
                   "items": {
                     "$ref": "#/components/schemas/AbTestRecoveryClaim"
                   },
-                  "maxItems": 100,
                   "minItems": 1,
                   "type": "array"
                 }
@@ -31801,11 +31800,10 @@
               "type": "boolean"
             },
             "recovery_set": {
-              "description": "Echoed claim set from a prior tick's claim_steps output: recover\nexactly these tests at their pre-tick statuses instead of sweeping\nall due tests.",
+              "description": "Echoed claim set from a prior tick's claim_steps output: recover\nexactly these tests at their pre-tick statuses instead of sweeping\nall due tests. Test ids must be unique; the runtime schema rejects\nduplicates.",
               "items": {
                 "$ref": "#/components/schemas/AbTestRecoveryClaim"
               },
-              "maxItems": 100,
               "minItems": 1,
               "type": "array"
             }
@@ -31987,8 +31985,10 @@
         "cases": [
           {
             "semantics": {
-              "kind": "safe",
-              "reason": "The recovery pass processes exactly the echoed tests, and only while each still sits at its echoed pre-tick status: members that advanced to a later status, completed, or vanished since the echo are skipped as already moved on, and the sweep never touches tests that became due after the original request — so an identical retry converges over the set. Every transition is a status-guarded, time-gated state-machine step with no external at-least-once side effect in the tick path itself."
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "The recovery pass processes exactly the echoed tests — only those that were due at the original tick and still sit at their echoed pre-tick status — so members that advanced, completed, vanished, or became due only after the original request are skipped and an identical retry converges over the set without sweeping new work. The advancing transition itself can carry an external side effect: an analyzing holdout test with autoDeployWinner creates and starts a Listmonk winner campaign before the local commit, so an accepted-but-unobserved attempt can deploy a second winner campaign on recovery — inspect the test and its campaigns (the deterministic provisioning tags identify a test's campaigns) before repeating.",
+              "reconcileWith": "abtest.list"
             },
             "when": "recovery_set (an echoed claim set of test ids and their pre-tick statuses) is present"
           },
@@ -32001,7 +32001,7 @@
           }
         ],
         "kind": "conditional",
-        "reason": "Retry safety depends on whether the caller echoes a prior tick's claim set."
+        "reason": "A/B tick transitions can deploy winner campaigns externally, so every mode needs inspection; the echoed claim set bounds the retry to the originally due tests."
       },
       "since": "0.10.0",
       "stability": "stable"

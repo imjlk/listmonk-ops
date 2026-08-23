@@ -19,7 +19,8 @@ async function createStorePath(): Promise<string> {
 }
 
 function scheduledFixture(id: string, launchAtPast = true): AbTest {
-	const now = new Date("2026-01-01T00:00:00.000Z");
+	// Relative to the wall clock: eligibility is judged against Date.now().
+	const now = new Date();
 	const launchAt = launchAtPast
 		? new Date(now.getTime() - 60_000)
 		: new Date(now.getTime() + 3_600_000);
@@ -155,6 +156,23 @@ describe("abtest tick echoed-set recovery", () => {
 		// The untouched member stays scheduled.
 		expect(
 			(await invokeGetAbTestOperation(context, { test_id: outside.id })).test
+				.status,
+		).toBe("scheduled");
+	});
+
+	test("does not echo or advance not-yet-due tests", async () => {
+		const storePath = await createStorePath();
+		const future = scheduledFixture("test-future", false);
+		await saveStoredAbTests([future], storePath);
+		const context = { client: noopClient(), storePath };
+
+		const tick = await invokeTickAbTestsOperation(context, {});
+		// A scheduled test with a future launchAt is a no-op and is not
+		// echoed: its claim cannot later advance it once due.
+		expect(tick.claim_steps).toEqual([]);
+		expect(tick.results[0]?.action).toBe("noop:scheduled");
+		expect(
+			(await invokeGetAbTestOperation(context, { test_id: future.id })).test
 				.status,
 		).toBe("scheduled");
 	});

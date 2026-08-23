@@ -509,9 +509,11 @@ export const abTestTickOperationSpec = defineOperationSpec({
 			{
 				when: "recovery_set (an echoed claim set of test ids and their pre-tick statuses) is present",
 				semantics: {
-					kind: "safe",
+					kind: "reconcile",
+					reconcileWith: "abtest.list",
+					idempotent: false,
 					reason:
-						"The recovery pass processes exactly the echoed tests, and only while each still sits at its echoed pre-tick status: members that advanced to a later status, completed, or vanished since the echo are skipped as already moved on, and the sweep never touches tests that became due after the original request — so an identical retry converges over the set. Every transition is a status-guarded, time-gated state-machine step with no external at-least-once side effect in the tick path itself.",
+						"The recovery pass processes exactly the echoed tests — only those that were due at the original tick and still sit at their echoed pre-tick status — so members that advanced, completed, vanished, or became due only after the original request are skipped and an identical retry converges over the set without sweeping new work. The advancing transition itself can carry an external side effect: an analyzing holdout test with autoDeployWinner creates and starts a Listmonk winner campaign before the local commit, so an accepted-but-unobserved attempt can deploy a second winner campaign on recovery — inspect the test and its campaigns (the deterministic provisioning tags identify a test's campaigns) before repeating.",
 				},
 			},
 			{
@@ -524,7 +526,7 @@ export const abTestTickOperationSpec = defineOperationSpec({
 			},
 		],
 		reason:
-			"Retry safety depends on whether the caller echoes a prior tick's claim set.",
+			"A/B tick transitions can deploy winner campaigns externally, so every mode needs inspection; the echoed claim set bounds the retry to the originally due tests.",
 	},
 	agent: {
 		useWhen: ["Non-terminal A/B tests must be advanced by one lifecycle step."],
@@ -533,7 +535,7 @@ export const abTestTickOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.list"],
 		related: ["abtest.reconcile"],
 		retryGuidance:
-			"Echo a prior tick's claim_steps output as recovery_set so an ambiguous retry runs a convergent status-bound recovery pass over exactly that set; without the echoed set, inspect abtest.list before another tick.",
+			"Echo a failed tick's claim_steps output (or the structured recovery_set on its error) so an ambiguous retry re-attempts exactly the originally due tests at their pre-tick statuses; winner deployment is externally visible, so verify the test's campaigns before repeating. Without the echoed set, inspect abtest.list before another tick.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_tick",

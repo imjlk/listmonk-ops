@@ -525,7 +525,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Ninety reviewed core operations are `stable`: the existing
+Ninety-one reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -661,7 +661,12 @@ replay), and a twenty-third promoted `campaigns.clone` (the key binds
 the source campaign and clone name; the unkeyed name-snapshot fallback
 is never used for keyed clones). Twenty-fourth and twenty-fifth
 batches promoted `sequences.tick` and `webhooks.tick` with the same
-echoed-claim-set recovery contract: the output echoes the exact claimed
+echoed-claim-set recovery contract, and a twenty-sixth promoted
+`abtest.tick` (the echo carries each originally-due test's pre-tick
+status, a retry re-attempts exactly that set, and a failed tick
+surfaces its claim set as structured error details — winner
+deployment is externally visible, so that recovery case still
+classifies as reconcile): the output echoes the exact claimed
 records with their originally claimed position (step for sequences,
 attempt count for webhooks), and a retry carrying that echoed set as
 `recovery_set` (CLI `--recovery-set`) runs a convergent position-bound
@@ -690,7 +695,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 90 stable compatibility baselines, and 317 direct
+runtime bridges, the 91 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are

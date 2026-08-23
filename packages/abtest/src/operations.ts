@@ -440,7 +440,6 @@ const tickAbTestsInputSchema = z.object({
 			}),
 		)
 		.min(1)
-		.max(100)
 		.refine(
 			(set) => new Set(set.map((member) => member.test_id)).size === set.length,
 			"recovery_set test ids must be unique",
@@ -807,53 +806,139 @@ export async function executeRunAbTestOperation(
 	};
 }
 
+/**
+ * A tick that captured its claim positions but could not complete — the
+ * commit failed after the sweep ran. Carries the recovery handle so the
+ * caller can run the documented recovery pass instead of a fresh sweep.
+ */
+export class AbTestTickFailureError extends Error {
+	public readonly claimSteps: ReadonlyArray<
+		Readonly<{ test_id: string; status: AbTest["status"] }>
+	>;
+
+	constructor(
+		cause: unknown,
+		claimSteps: ReadonlyArray<
+			Readonly<{ test_id: string; status: AbTest["status"] }>
+		>,
+	) {
+		super(cause instanceof Error ? cause.message : String(cause), { cause });
+		this.name = "AbTestTickFailureError";
+		this.claimSteps = claimSteps;
+	}
+
+	toStructuredDetails(): Record<string, unknown> {
+		return {
+			recovery_set: this.claimSteps.map((step) => ({
+				test_id: step.test_id,
+				status: step.status,
+			})),
+		};
+	}
+}
+
+/**
+ * Whether a non-terminal, non-draft test was due for progression at tick
+ * time — the eligibility the echoed claim certifies. Not-yet-due tests
+ * (scheduled before launchAt, running before endsAt) and transitional
+ * statuses the stub does not drive are excluded, so a recovery can never
+ * advance a test that became due only after the original request.
+ */
+function isDueAtTickTime(test: AbTest): boolean {
+	const now = Date.now();
+	switch (test.status) {
+		case "scheduled":
+			return (
+				test.launchAt !== undefined &&
+				now >= new Date(test.launchAt).getTime()
+			);
+		case "running":
+			return (
+				test.endsAt !== undefined && now >= new Date(test.endsAt).getTime()
+			);
+		case "analyzing":
+			return true;
+		default:
+			return false;
+	}
+}
+
 export async function executeTickAbTestsOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof tickAbTestsInputSchema>,
 ): Promise<TickAbTestsOperationOutput> {
 	const dryRun = input.dry_run === true;
-	const snapshot = await withStoredOperation<readonly AbTest[]>(
-		context,
-		"read",
-		(executors) => executors.listAbTests(),
-	);
-	const tickResults = await withStoredOperation<
-		Awaited<ReturnType<AbTestExecutors["tickAbTests"]>>
-	>(context, dryRun ? "read" : "write", (executors) =>
-		executors.tickAbTests(
-			dryRun,
-			input.recovery_set?.map((member) => ({
-				testId: member.test_id,
-				status: member.status,
-			})),
-		),
-	);
-	// Echo the pre-tick claim positions of every non-terminal test the
-	// sweep considered, captured before any mutation.
-	const claimSteps = snapshot
-		.filter(
-			(test) =>
-				!TERMINAL_STATUSES.has(test.status) && test.status !== "draft",
-		)
-		.map((test) => ({ test_id: test.id, status: test.status }));
-	const recoverySet = input.recovery_set;
-	const requested = recoverySet?.length;
-	const alreadyDone =
-		recoverySet === undefined
-			? undefined
-			: recoverySet.filter((member) => {
-					const current = snapshot.find(
-						(candidate) => candidate.id === member.test_id,
-					);
-					return current === undefined || current.status !== member.status;
-				}).length;
-	return {
-		processed: tickResults.length,
-		results: tickResults,
-		claim_steps: claimSteps,
-		requested,
-		already_done: alreadyDone,
-	};
+	// Claim positions are captured inside the same store transaction as
+	// the sweep, so the echo always reflects the state the tick actually
+	// processed, and survive a failed commit on the typed error below.
+	let capturedClaims: ReadonlyArray<
+		Readonly<{ test_id: string; status: AbTest["status"] }>
+	> = [];
+	try {
+		return await withStoredOperation<TickAbTestsOperationOutput>(
+			context,
+			dryRun ? "read" : "write",
+			async (executors) => {
+				const snapshot = await executors.listAbTests();
+				// The service mutates test objects in place, so capture the
+				// pre-tick statuses before the sweep runs.
+				const preTickStatusById = new Map(
+					snapshot.map((test) => [test.id, test.status] as const),
+				);
+				const recoverySet = input.recovery_set;
+				// Echo only tests that were due at tick time (the exact set
+				// the sweep could act on), bounded to the recovery set when
+				// one was supplied.
+				capturedClaims = snapshot
+					.filter(
+						(test) =>
+							!TERMINAL_STATUSES.has(test.status) &&
+							test.status !== "draft" &&
+							isDueAtTickTime(test),
+					)
+					.filter(
+						(test) =>
+							recoverySet === undefined ||
+							recoverySet.some(
+								(member) =>
+									member.test_id === test.id &&
+									member.status === test.status,
+							),
+					)
+					.map((test) => ({ test_id: test.id, status: test.status }));
+				const tickResults = await executors.tickAbTests(
+					dryRun,
+					recoverySet?.map((member) => ({
+						testId: member.test_id,
+						status: member.status,
+					})),
+				);
+				const requested = recoverySet?.length;
+				const alreadyDone =
+					recoverySet === undefined
+						? undefined
+						: recoverySet.filter((member) => {
+							const status = preTickStatusById.get(member.test_id);
+							return status === undefined || status !== member.status;
+						}).length;
+				return {
+					processed: tickResults.length,
+					results: tickResults,
+					claim_steps: capturedClaims.map((step) => ({
+						test_id: step.test_id,
+						status: step.status,
+					})),
+					requested,
+					already_done: alreadyDone,
+				};
+			},
+		);
+	} catch (error) {
+		if (capturedClaims.length > 0) {
+			throw new AbTestTickFailureError(error, capturedClaims);
+		}
+		throw error;
+	}
 }
 
 export async function executeReconcileAbTestOperation(

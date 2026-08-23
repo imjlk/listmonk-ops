@@ -222,9 +222,10 @@ export interface AbTestTickInput {
 	/**
 	 * Echoed claim set from a prior tick's claim_steps output: recover
 	 * exactly these tests at their pre-tick statuses instead of sweeping
-	 * all due tests.
+	 * all due tests. Test ids must be unique; the runtime schema rejects
+	 * duplicates.
 	 */
-	recovery_set?: AbTestRecoveryClaim[] & tags.MinItems<1> & tags.MaxItems<100>;
+	recovery_set?: AbTestRecoveryClaim[] & tags.MinItems<1>;
 }
 
 /** One echoed A/B tick claim position: the test plus its pre-tick status. */
