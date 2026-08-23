@@ -153,7 +153,10 @@ describe("campaign, subscriber, template, and media operation adapters", () => {
 		);
 
 		expect(result.isError).toBeFalsy();
-		expect(result.structuredContent).toMatchObject({ id: 12, name: "Campaign" });
+		expect(result.structuredContent).toMatchObject({
+			created: true,
+			template: { id: 12, name: "Campaign" },
+		});
 	});
 
 	test("routes default template changes through the shared operation", async () => {

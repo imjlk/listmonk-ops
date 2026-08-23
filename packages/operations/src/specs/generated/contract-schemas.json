@@ -19505,6 +19505,12 @@
             "body_source": {
               "type": "string"
             },
+            "idempotency_key": {
+              "description": "Caller-scoped create key; an identical retry with the same key replays the originally created template.",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
             "name": {
               "$ref": "#/components/schemas/NonEmptyString"
             },
@@ -19545,6 +19551,12 @@
         "body_source": {
           "type": "string"
         },
+        "idempotency_key": {
+          "description": "Caller-scoped create key; an identical retry with the same key replays the originally created template.",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
         "name": {
           "$ref": "#/components/schemas/NonEmptyString"
         },
@@ -19570,6 +19582,93 @@
       "required": [
         "name",
         "body"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "templateCreateOutputContract": {
+    "components": {
+      "schemas": {
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "TemplateCreateOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "created": {
+              "type": "boolean"
+            },
+            "template": {
+              "$ref": "#/components/schemas/TemplateRecord"
+            }
+          },
+          "required": [
+            "template",
+            "created"
+          ],
+          "type": "object"
+        },
+        "TemplateRecord": {
+          "additionalProperties": {},
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "body_source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "is_default": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "updated_at": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "created": {
+          "type": "boolean"
+        },
+        "template": {
+          "$ref": "#/components/schemas/TemplateRecord"
+        }
+      },
+      "required": [
+        "template",
+        "created"
       ],
       "type": "object"
     },

@@ -779,7 +779,10 @@ describe("shared CRUD resource operations", () => {
 				}),
 				{ name: "Created template", type: "campaign", body: "<p>Created</p>" },
 			),
-		).resolves.toMatchObject({ id: 12 });
+		).resolves.toMatchObject({
+			template: { id: 12 },
+			created: true,
+		});
 		expect(listTemplates).toHaveBeenCalledTimes(2);
 	});
 

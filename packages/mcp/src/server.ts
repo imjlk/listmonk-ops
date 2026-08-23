@@ -537,7 +537,10 @@ export class ListmonkMCPServer {
 					username: this.username,
 				});
 			} else if (toolNameSets.templates.has(name)) {
-				result = await handleTemplatesTools(operationRequest, this.client);
+				result = await handleTemplatesTools(operationRequest, this.client, {
+					baseUrl: this.baseUrl,
+					username: this.username,
+				});
 			} else if (toolNameSets.catalog.has(name)) {
 				result = await handleOperationCatalogTools(
 					operationRequest,

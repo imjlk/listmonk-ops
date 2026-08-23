@@ -74,6 +74,7 @@ import type {
 	SubscriberRecord,
 	TemplateCollectionOutput,
 	TemplateCreateInput,
+	TemplateCreateOutput,
 	TemplateDeleteOutput,
 	TemplateListInput,
 	TemplateRecord,
@@ -303,6 +304,9 @@ const contracts = {
 	templateRecordContract: contractSchema(typia.json.schema<TemplateRecord>()),
 	templateCreateInputContract: contractSchema(
 		typia.json.schema<TemplateCreateInput>(),
+	),
+	templateCreateOutputContract: contractSchema(
+		typia.json.schema<TemplateCreateOutput>(),
 	),
 	templateUpdateInputContract: inclusiveUnionContractSchema(
 		typia.json.schema<TemplateUpdateInput>(),

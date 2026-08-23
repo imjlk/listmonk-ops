@@ -32,10 +32,11 @@ describe("Transactional MCP Tool", () => {
 			subject,
 			body: "<p>Transactional delivery through the shared operation.</p>",
 		});
-		const template = utils.assertSuccess<{ id: number }>(
+		const template = utils.assertSuccess<{ template?: { id?: number } }>(
 			createResult,
 			"Failed to create transactional template",
-		);
+		).template as { id: number };
+		expect(template?.id).toBeDefined();
 
 		const sendResult = await client.callTool("listmonk_send_transactional", {
 			template_id: template.id,
@@ -92,10 +93,11 @@ describe("Transactional MCP Tool", () => {
 			subject,
 			body: "<p>External transactional delivery through the generated SDK.</p>",
 		});
-		const template = utils.assertSuccess<{ id: number }>(
+		const template = utils.assertSuccess<{ template?: { id?: number } }>(
 			createResult,
 			"Failed to create external transactional template",
-		);
+		).template as { id: number };
+		expect(template?.id).toBeDefined();
 		try {
 			if (!TEST_CONFIG.apiToken) {
 				throw new Error("External SDK smoke requires a Listmonk API token");
@@ -177,10 +179,11 @@ describe("Transactional MCP Tool", () => {
 			subject,
 			body,
 		});
-		const template = utils.assertSuccess<{ id: number }>(
+		const template = utils.assertSuccess<{ template?: { id?: number } }>(
 			createResult,
 			"Failed to create transactional idempotency template",
-		);
+		).template as { id: number };
+		expect(template?.id).toBeDefined();
 
 		const payload = {
 			template_id: template.id,

@@ -3,6 +3,7 @@ import {
 	resourceIdInputContract,
 	templateSetDefaultOutputContract,
 	templateCreateInputContract,
+	templateCreateOutputContract,
 	templateUpdateInputContract,
 	templateDeleteOutputContract,
 	templateManifestReconcileInputContract,
@@ -18,7 +19,7 @@ export const templatesCreateOperationSpec = defineOperationSpec({
 	description: "Create a template in Listmonk",
 	contract: {
 		input: templateCreateInputContract,
-		output: templateRecordContract,
+		output: templateCreateOutputContract,
 	},
 	effects: [{ kind: "write", resource: "template", reversible: true }],
 	policy: {
@@ -27,9 +28,27 @@ export const templatesCreateOperationSpec = defineOperationSpec({
 		dryRun: false,
 	},
 	retry: {
-		kind: "unsafe",
+		kind: "conditional",
+		cases: [
+			{
+				when: "idempotency_key is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The key is atomically claimed in a durable store before the create is issued and then bound to the created template id; an identical retry (same key, same request payload, same Listmonk target) replays that template with created: false, a concurrent same-key create waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. An attempt that ends ambiguously — or whose accepted response carries no id (template records have no uuid to correlate) — marks its claim unknown, and later same-key creates fail fast with reconciliation guidance: the key is intentionally not reused, because no name-based check can prove which same-named template a create produced.",
+				},
+			},
+			{
+				when: "idempotency_key is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"Listmonk template names are not unique, so a retry after an ambiguous create provisions a duplicate template.",
+				},
+			},
+		],
 		reason:
-			"A transport failure can be ambiguous after Listmonk creates the template; inspect templates.list before retrying.",
+			"Retry safety depends on whether the caller supplies an idempotency key.",
 	},
 	agent: {
 		useWhen: ["A new Listmonk template must be created."],
@@ -40,7 +59,7 @@ export const templatesCreateOperationSpec = defineOperationSpec({
 		verifyWith: ["templates.list"],
 		related: ["templates.reconcile"],
 		retryGuidance:
-			"Do not automatically retry an ambiguous failure; inspect templates.list for the intended name first.",
+			"Key the create with idempotency_key so an ambiguous retry replays the bound template; without a key, verify with templates.list before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_create_template",
@@ -58,7 +77,7 @@ export const templatesCreateOperationSpec = defineOperationSpec({
 				"packages/operations/src/templates.ts#createTemplate:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
