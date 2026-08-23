@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+	mkdtemp,
+	readdir,
+	readFile,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -215,5 +222,49 @@ describe("JSON file store", () => {
 			count: 7,
 		});
 		expect(await readdir(dirname(store.path))).toEqual(["counter.json"]);
+	});
+
+	test("skips the atomic rewrite when an update returns the value unchanged", async () => {
+		const base = await createCounterStore();
+		// Opt-in stores whose callbacks never mutate in place may skip the
+		// rewrite; the default behavior always writes.
+		const store: JsonFileStore<CounterStore> = {
+			...base,
+			skipUnchangedWrites: true,
+		};
+		await writeJsonFileStore(store, { version: 1, count: 7 });
+		// Let the filesystem clock advance so a real rewrite is detectable.
+		await new Promise((resolvePause) => setTimeout(resolvePause, 10));
+
+		const before = await stat(store.path);
+		const observed = await updateJsonFileStore(store, (current) =>
+			// Read-only outcome: return the same document by reference, the
+			// way a lost claim race does.
+			commitJsonFileStoreUpdate(current, current.count),
+		);
+		expect(observed).toBe(7);
+		// No rewrite: the modification time is untouched.
+		expect((await stat(store.path)).mtimeMs).toBe(before.mtimeMs);
+
+		// Without the opt-in, an unchanged reference still rewrites the file.
+		await writeJsonFileStore(base, { version: 1, count: 7 });
+		await new Promise((resolvePause) => setTimeout(resolvePause, 10));
+		const beforeDefault = await stat(base.path);
+		await updateJsonFileStore(base, (current) =>
+			commitJsonFileStoreUpdate(current, current.count),
+		);
+		expect((await stat(base.path)).mtimeMs).not.toBe(beforeDefault.mtimeMs);
+
+		// A real change on the opt-in store rewrites too.
+		await new Promise((resolvePause) => setTimeout(resolvePause, 10));
+		const beforeWrite = await stat(store.path);
+		await updateJsonFileStore(store, (current) =>
+			commitJsonFileStoreUpdate({ ...current, count: current.count + 1 }, undefined),
+		);
+		expect((await stat(store.path)).mtimeMs).not.toBe(beforeWrite.mtimeMs);
+		expect(JSON.parse(await readFile(store.path, "utf8"))).toEqual({
+			version: 1,
+			count: 8,
+		});
 	});
 });

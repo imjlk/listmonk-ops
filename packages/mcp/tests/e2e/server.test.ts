@@ -145,11 +145,11 @@ describe("MCP Server Integration", () => {
 			type: "private",
 		});
 
-		const createdList = utils.assertSuccess<{ id: number }>(
-			createResult,
-			"Failed to create list",
-		);
-		const listId = createdList.id;
+		const createdList = utils.assertSuccess<{
+			list?: { id?: number };
+		}>(createResult, "Failed to create list");
+		const listId = createdList.list?.id ?? 0;
+		expect(listId).toBeGreaterThan(0);
 
 		// Update it
 		const updateResult = await client.callTool("listmonk_update_list", {

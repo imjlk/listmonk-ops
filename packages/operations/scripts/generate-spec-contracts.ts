@@ -118,6 +118,7 @@ import type {
 	TemplateManifestReconcileInput,
 	TemplateManifestReconcileOutput,
 	ListCreateInput,
+	ListCreateOutput,
 	ListUpdateInput,
 	ListDeleteInput,
 	ListDeleteOutput,
@@ -591,6 +592,9 @@ const contracts = {
 		typia.json.schema<TemplateManifestReconcileOutput>(),
 	),
 	listCreateInputContract: contractSchema(typia.json.schema<ListCreateInput>()),
+	listCreateOutputContract: contractSchema(
+		typia.json.schema<ListCreateOutput>(),
+	),
 	listUpdateInputContract: inclusiveUnionContractSchema(
 		typia.json.schema<ListUpdateInput>(),
 		"ListUpdateInput",

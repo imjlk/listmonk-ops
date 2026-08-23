@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { link, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { hostname } from "node:os";
@@ -19,6 +20,15 @@ export interface JsonFileStore<T> {
 	createDefault: () => T;
 	parse: (value: unknown) => T;
 	lock?: JsonFileLockOptions;
+	/**
+	 * Opt-in: when an update returns the current document by reference, skip
+	 * the serialize/rename/fsync cycle entirely. Only safe for stores whose
+	 * mutating callbacks NEVER modify the current document in place — they
+	 * must build and return a new document. Stores with in-place mutating
+	 * callbacks (for example the template registry) must not enable this,
+	 * because their unchanged reference would silently skip the write.
+	 */
+	skipUnchangedWrites?: boolean;
 }
 
 export interface JsonFileStoreUpdate<T, Result> {
@@ -30,7 +40,112 @@ interface LockMetadata {
 	token: string;
 	pid: number;
 	hostname: string;
+	startedAt?: string;
+	bootTicks?: number;
 	createdAt: string;
+}
+
+function readLinuxStartTicks(pid: number): number | undefined {
+	if (process.platform !== "linux") return undefined;
+	try {
+		const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+		const closing = stat.lastIndexOf(")");
+		const fields = stat.slice(closing + 2).split(" ");
+		// Field 22 overall; after "comm)" the remaining fields start at 3.
+		const ticks = Number(fields[19]);
+		return Number.isFinite(ticks) ? ticks : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/** Wall-clock estimate of this process's start, captured once. */
+export const PROCESS_STARTED_AT = new Date(
+	Math.round(Date.now() - performance.now()),
+).toISOString();
+
+/**
+ * Boot-relative start of this process from /proc/<pid>/stat (clock ticks
+ * since boot), captured once. Unlike the wall-clock estimate it is immune
+ * to wall-clock steps (VM resume, NTP corrections), so Linux identity
+ * comparisons never misjudge a live owner. Undefined elsewhere.
+ */
+export const PROCESS_BOOT_TICKS = readLinuxStartTicks(process.pid);
+
+/** How far apart two process-start estimates may be and still match. */
+const PROCESS_START_TOLERANCE_MS = 5_000;
+
+/**
+ * True when a recorded owner is this same live process. A recycled PID
+ * (for example a container restarting into PID 1) is a different process.
+ * On Linux the boot-relative /proc start ticks decide — clock-stable —
+ * with the wall-clock estimate as the fallback on other platforms, where
+ * unverifiable foreign PIDs are assumed alive. Shared by the store locks
+ * and the resource-create claim records.
+ */
+export function isSameLiveProcess(owner: {
+	pid: number;
+	startedAt?: string;
+	bootTicks?: number;
+}): boolean {
+	try {
+		process.kill(owner.pid, 0);
+	} catch (error) {
+		if (isErrnoException(error, "ESRCH")) return false;
+		return true;
+	}
+	if (owner.bootTicks !== undefined && process.platform === "linux") {
+		const currentTicks = readLinuxStartTicks(owner.pid);
+		if (currentTicks !== undefined) {
+			return currentTicks === owner.bootTicks;
+		}
+	}
+	if (owner.startedAt === undefined) {
+		// Legacy lock/claim metadata without a start identity: fall back to
+		// pid liveness alone.
+		return true;
+	}
+	if (owner.pid === process.pid) {
+		return timestampsMatch(owner.startedAt, PROCESS_STARTED_AT);
+	}
+	const procStartedAt = readLinuxProcessStart(owner.pid);
+	if (procStartedAt !== undefined) {
+		return timestampsMatch(owner.startedAt, procStartedAt);
+	}
+	return true;
+}
+
+function timestampsMatch(a: string, b: string): boolean {
+	return (
+		Math.abs(new Date(a).getTime() - new Date(b).getTime()) <=
+		PROCESS_START_TOLERANCE_MS
+	);
+}
+
+/**
+ * Best-effort Linux-only start time for another process, from
+ * /proc/<pid>/stat field 22 (clock ticks since boot) plus /proc/uptime.
+ * Returns undefined anywhere else or when unreadable.
+ */
+function readLinuxProcessStart(pid: number): string | undefined {
+	if (process.platform !== "linux") return undefined;
+	try {
+		const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+		const closing = stat.lastIndexOf(")");
+		const fields = stat.slice(closing + 2).split(" ");
+		// Field 22 overall; after "comm)" the remaining fields start at 3.
+		const starttimeTicks = Number(fields[19]);
+		const uptimeSeconds = Number(
+			readFileSync("/proc/uptime", "utf8").split(" ")[0],
+		);
+		if (!Number.isFinite(starttimeTicks) || !Number.isFinite(uptimeSeconds)) {
+			return undefined;
+		}
+		const startedSecondsAgo = uptimeSeconds - starttimeTicks / 100; /* USER_HZ */
+		return new Date(Math.round(Date.now() - startedSecondsAgo * 1000)).toISOString();
+	} catch {
+		return undefined;
+	}
 }
 
 export class JsonFileLockTimeoutError extends Error {
@@ -74,19 +189,19 @@ function parseLockMetadata(value: string): LockMetadata | undefined {
 		) {
 			return undefined;
 		}
+		if (
+			(parsed.startedAt !== undefined && typeof parsed.startedAt !== "string") ||
+			(parsed.bootTicks !== undefined &&
+				(typeof parsed.bootTicks !== "number" || !Number.isFinite(
+					parsed.bootTicks,
+				)))
+		) {
+			return undefined;
+		}
 
 		return parsed as LockMetadata;
 	} catch {
 		return undefined;
-	}
-}
-
-function isProcessAlive(pid: number): boolean {
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch (error) {
-		return !isErrnoException(error, "ESRCH");
 	}
 }
 
@@ -95,6 +210,8 @@ function createLockMetadata(token = randomUUID()): LockMetadata {
 		token,
 		pid: process.pid,
 		hostname: LOCK_HOSTNAME,
+		startedAt: PROCESS_STARTED_AT,
+		bootTicks: PROCESS_BOOT_TICKS,
 		createdAt: new Date().toISOString(),
 	};
 }
@@ -227,7 +344,9 @@ async function removeDeadOwnerFile(path: string): Promise<boolean> {
 
 	const knownAbandonedToken = knownAbandonedLockTokens.get(path);
 	const isKnownAbandoned = knownAbandonedToken === metadata.token;
-	if (!isKnownAbandoned && isProcessAlive(metadata.pid)) {
+	// A live pid is not enough: a killed container can restart into the
+	// same pid, so verify the recorded process actually is still running.
+	if (!isKnownAbandoned && isSameLiveProcess(metadata)) {
 		return false;
 	}
 
@@ -497,7 +616,10 @@ export async function writeJsonFileStore<T>(
  * Runs a read/modify/write callback while holding the store's exclusive lock.
  * Keep callback work bounded. If it performs remote side effects, callers must
  * surface reconciliation guidance because a later local write or lock-release
- * failure cannot automatically roll the remote action back.
+ * failure cannot automatically roll the remote action back. For stores that
+ * opt into `skipUnchangedWrites` and never mutate the current document in
+ * place, an update returning the current value by reference skips the write
+ * entirely, so read-only outcomes under the lock cost no fsync or rename.
  */
 export async function updateJsonFileStore<T, Result>(
 	store: JsonFileStore<T>,
@@ -509,8 +631,10 @@ export async function updateJsonFileStore<T, Result>(
 	return withJsonFileLock(path, store.lock, async () => {
 		const currentValue = await readJsonFileStore({ ...store, path });
 		const next = await update(currentValue);
-		const serializedValue = serializeJsonFileStoreValue(store, next.value);
-		await writeJsonFileAtomic(path, serializedValue);
+		if (next.value !== currentValue || !store.skipUnchangedWrites) {
+			const serializedValue = serializeJsonFileStoreValue(store, next.value);
+			await writeJsonFileAtomic(path, serializedValue);
+		}
 		return next.result;
 	});
 }

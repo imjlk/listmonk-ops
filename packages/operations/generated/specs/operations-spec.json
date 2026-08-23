@@ -20644,7 +20644,7 @@
           "lists.update",
           "lists.delete"
         ],
-        "retryGuidance": "Inspect lists.list before retrying an ambiguous create.",
+        "retryGuidance": "Key the create with idempotency_key so an ambiguous retry replays the bound list; without a key, verify with lists.list before repeating.",
         "useWhen": [
           "A new subscriber list must be created."
         ],
@@ -20661,6 +20661,12 @@
                 "properties": {
                   "description": {
                     "description": "Optional description, defaults to `\"\"`.",
+                    "type": "string"
+                  },
+                  "idempotency_key": {
+                    "description": "Caller-scoped create key; an identical retry with the same key replays the originally created list.",
+                    "maxLength": 200,
+                    "minLength": 1,
                     "type": "string"
                   },
                   "name": {
@@ -20716,6 +20722,12 @@
                 "description": "Optional description, defaults to `\"\"`.",
                 "type": "string"
               },
+              "idempotency_key": {
+                "description": "Caller-scoped create key; an identical retry with the same key replays the originally created list.",
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
               "name": {
                 "$ref": "#/components/schemas/ListName"
               },
@@ -20759,6 +20771,22 @@
         "output": {
           "components": {
             "schemas": {
+              "ListCreateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
+                  "list": {
+                    "$ref": "#/components/schemas/SubscriberListRecord"
+                  }
+                },
+                "required": [
+                  "list",
+                  "created"
+                ],
+                "type": "object"
+              },
               "ResourceId": {
                 "maximum": 9007199254740991,
                 "minimum": 1,
@@ -20808,43 +20836,19 @@
           },
           "dialect": "openapi-3.1",
           "schema": {
-            "additionalProperties": {},
+            "additionalProperties": false,
             "properties": {
-              "created_at": {
-                "type": "string"
+              "created": {
+                "type": "boolean"
               },
-              "description": {
-                "type": "string"
-              },
-              "id": {
-                "$ref": "#/components/schemas/ResourceId"
-              },
-              "name": {
-                "type": "string"
-              },
-              "optin": {
-                "type": "string"
-              },
-              "subscriber_count": {
-                "type": "number"
-              },
-              "tags": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "type": {
-                "type": "string"
-              },
-              "updated_at": {
-                "type": "string"
-              },
-              "uuid": {
-                "type": "string"
+              "list": {
+                "$ref": "#/components/schemas/SubscriberListRecord"
               }
             },
-            "required": [],
+            "required": [
+              "list",
+              "created"
+            ],
             "type": "object"
           },
           "source": "typescript",
@@ -20878,11 +20882,27 @@
       },
       "resource": "list",
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may create another list unless the original ID is known."
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The key is atomically claimed in a durable store before the create is issued and then bound to the created list id; an identical retry (same key, same request payload, same Listmonk target) replays that list with created: false, a concurrent same-key create waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. An attempt that ends ambiguously — or whose accepted response carries neither an id nor an immutable uuid to correlate — marks its claim unknown, and later same-key creates fail fast with reconciliation guidance: the key is intentionally not reused, because no name-based check can prove which same-named list the create produced."
+            },
+            "when": "idempotency_key is present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Listmonk list names are not unique, so a retry after an ambiguous create provisions a duplicate list."
+            },
+            "when": "idempotency_key is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller supplies an idempotency key."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Create subscriber list",
       "verb": "create"
     },

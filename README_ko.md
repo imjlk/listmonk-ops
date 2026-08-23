@@ -89,6 +89,11 @@ export LISTMONK_OPS_TEMPLATE_REGISTRY="$HOME/.listmonk-ops/ops/template-registry
 export LISTMONK_OPS_AUDIT_STORE="$HOME/.listmonk-ops/operation-audit.json"
 # 선택: 트랜잭션 멱등성(idempotency) 저장소 경로 재정의
 export LISTMONK_OPS_TRANSACTIONAL_STORE="$HOME/.listmonk-ops/transactional.json"
+# 선택: 키 기반 resource-create 멱등성 저장소 경로 재정의
+export LISTMONK_OPS_RESOURCE_CREATE_STORE="$HOME/.listmonk-ops/ops/resource-creates.json"
+# 선택: 저장소 레코드 상한 상향(바인딩은 자동 만료가 없는 지속 재생 매핑이며,
+# 가득 차면 저장소 파일을 보관/순환해야 합니다)
+# export LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS=10000
 # 선택: 서명형 outbound webhook endpoint/outbox 저장소 경로 재정의
 export LISTMONK_OPS_WEBHOOK_STORE="$HOME/.listmonk-ops/outbound-webhooks.json"
 # 선택 대안: 다중 프로세스/worker용 PostgreSQL durable 저장소
@@ -398,6 +403,8 @@ CLI는 MCP 서버와 동일한 타입드 구독자 리스트 Operation을 제공
 listmonk-cli lists list --page 1 --per-page 20
 listmonk-cli lists get --id 10
 listmonk-cli lists create --name "Product updates" --type private --optin single
+# --idempotency-key를 전달하면 애매한 재시도가 같은 리스트를 재생합니다.
+listmonk-cli lists create --name "Product updates" --idempotency-key "launch-2026-08-product-updates"
 listmonk-cli lists update --id 10 --name "Product updates" --confirm
 listmonk-cli lists delete --id 10 --confirm
 ```
@@ -504,14 +511,14 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 83개는
-`stable`, 21개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 84개는
+`stable`, 20개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
-검토를 마친 핵심 83개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 84개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -606,7 +613,22 @@ dead-letter id 집합을 전달(판별 유니온 계약으로 모델링)하고 �
 강제). 그러나 자격에 재진입한 구독자는 동일한 echo 요청에 다시 선택되는
 재진입 위험(dead-letter replay를 experimental로 유지하는 것과 같은 이유) 때문에
 experimental로 유지됩니다.
-현재 stable baseline은 83개이며, 나머지 experimental descriptor는 21개입니다.
+열아홉 번째 batch에서는 `lists.create`에 지속성 있는
+`idempotency_key`(CLI `--idempotency-key`)를 추가해 승격했습니다. 키는
+생성 요청 전에 파일 기반 resource-create 저장소
+(`LISTMONK_OPS_RESOURCE_CREATE_STORE`로 설정)에서 원자적으로 claim된 뒤
+생성된 리스트 id에 묶이며, Listmonk 대상별로 이름공간이 분리됩니다. 동일한
+재시도는 해당 리스트를 `created: false`로 재생하고, 같은 키의 동시 생성은
+두 번째 POST 대신 진행 중인 생성을 기다리며, 같은 키의 다른 payload/대상은
+명시적으로 거부합니다. 살아있는 same-host claim(PID 재사용까지 검증)은
+나이만으로 빼앗기지 않고, 애매하게 끝난 시도는 자신의 claim을 unknown으로
+표시해 이후 같은 키의 생성은 조정 안내와 함께 즉시 실패합니다 — 이름
+기반 검사로는 동명 리스트 중 어느 것이 생성물인지 증명할 수 없으므로(불변
+uuid 상관만 유일하게 허용) 키는 의도적으로 재사용하지 않습니다. 키 기반
+생성에는 이 저장소가 필수이므로 저장소가 없는 surface는 보장을
+조용히 버리는 대신 키를 거부합니다. 키 없는 생성은 Listmonk 리스트
+이름이 유일하지 않아 여전히 unsafe로 유지됩니다.
+현재 stable baseline은 84개이며, 나머지 experimental descriptor는 20개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
@@ -620,7 +642,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 83개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 84개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 317개를
 검증합니다.
 

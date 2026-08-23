@@ -22,6 +22,10 @@ export const MCP_TEST_TRANSACTIONAL_STORE_PATH = resolve(
 	tmpdir(),
 	`listmonk-ops-mcp-transactional-${process.pid}.json`,
 );
+export const MCP_TEST_RESOURCE_CREATE_STORE_PATH = resolve(
+	tmpdir(),
+	`listmonk-ops-mcp-resource-creates-${process.pid}.json`,
+);
 
 // E2E must not append local test activity to an operator's configured audit
 // file, even when their shell loads LISTMONK_OPS_AUDIT_STORE.
@@ -30,6 +34,10 @@ process.env.LISTMONK_OPS_AUDIT_STORE = MCP_TEST_AUDIT_STORE_PATH;
 // transactional store, and must not collide with a concurrent run.
 process.env.LISTMONK_OPS_TRANSACTIONAL_STORE =
 	MCP_TEST_TRANSACTIONAL_STORE_PATH;
+// Keyed E2E creates must not leak into an operator's configured
+// resource-create store either.
+process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE =
+	MCP_TEST_RESOURCE_CREATE_STORE_PATH;
 
 export const TEST_RESOURCE_PREFIX = "lmops-e2e";
 
@@ -399,5 +407,7 @@ afterAll(async () => {
 		rm(`${MCP_TEST_AUDIT_STORE_PATH}.lock`, { force: true }),
 		rm(MCP_TEST_TRANSACTIONAL_STORE_PATH, { force: true }),
 		rm(`${MCP_TEST_TRANSACTIONAL_STORE_PATH}.lock`, { force: true }),
+		rm(MCP_TEST_RESOURCE_CREATE_STORE_PATH, { force: true }),
+		rm(`${MCP_TEST_RESOURCE_CREATE_STORE_PATH}.lock`, { force: true }),
 	]);
 });
