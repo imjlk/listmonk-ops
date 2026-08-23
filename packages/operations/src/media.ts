@@ -443,8 +443,11 @@ function canonicalMediaUploadPayload(
 	const normalized = normalizeBase64Payload(input.base64) ?? input.base64;
 	return {
 		filename: input.filename,
-		content_type:
-			input.content_type ?? inferContentTypeFromFilename(input.filename) ?? "",
+		// The schema accepts content_type case-insensitively, so the hash
+		// must normalize the casing or an equivalent retry would conflict.
+		content_type: (
+			input.content_type ?? inferContentTypeFromFilename(input.filename) ?? ""
+		).toLowerCase(),
 		base64: normalized,
 	};
 }

@@ -11879,6 +11879,7 @@
               "description": "Caller-scoped upload key; an identical retry with the same key replays the originally uploaded media file.",
               "maxLength": 200,
               "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
               "type": "string"
             }
           },
@@ -11917,6 +11918,7 @@
           "description": "Caller-scoped upload key; an identical retry with the same key replays the originally uploaded media file.",
           "maxLength": 200,
           "minLength": 1,
+          "pattern": "^\\s*\\S[\\s\\S]*$",
           "type": "string"
         }
       },

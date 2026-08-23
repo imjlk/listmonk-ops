@@ -516,7 +516,7 @@ Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
 104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 87개는
-`stable`, 20개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
+`stable`, 17개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적

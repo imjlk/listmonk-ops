@@ -1138,7 +1138,7 @@ Retry guidance: Verify the file is gone with media.list before retrying.
 
 ## Upload media file (`media.upload`)
 
-Contract maturity: `stable`; effects: `write:media`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:media`; confirmation: `never`; retry: `conditional`.
 
 Use when: A new media file must be uploaded.
 
@@ -1148,7 +1148,7 @@ Prerequisites: none
 
 Verify with: `media.list`
 
-Retry guidance: Inspect media.list before retrying an ambiguous upload.
+Retry guidance: Key the upload with idempotency_key so an ambiguous retry replays the bound media file; without a key, verify with media.list before repeating.
 
 ## Detect segment drift (`ops.segments.drift`)
 

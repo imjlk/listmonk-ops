@@ -3,6 +3,7 @@ import {
 	mediaDeleteInputContract,
 	mediaDeleteOutputContract,
 	mediaUploadInputContract,
+	mediaUploadOutputContract,
 	mediaRecordContract,
 } from "../contract-schemas";
 
@@ -62,14 +63,32 @@ export const mediaUploadOperationSpec = defineOperationSpec({
 		"Upload a media file to Listmonk from base64-encoded contents. Validates an allowlist of MIME types and a 10 MiB size cap before sending.",
 	contract: {
 		input: mediaUploadInputContract,
-		output: mediaRecordContract,
+		output: mediaUploadOutputContract,
 	},
 	effects: [{ kind: "write", resource: "media", reversible: true }],
 	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "conditional",
+		cases: [
+			{
+				when: "idempotency_key is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The key is atomically claimed in a durable store before the upload is issued and then bound to the uploaded media id; an identical retry (same key, same filename, effective MIME type, and normalized base64 content, same Listmonk target) replays that media file with created: false, a concurrent same-key upload waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. An attempt that ends ambiguously — or whose accepted response carries neither an id nor an immutable uuid to correlate — marks its claim unknown, and later same-key uploads fail fast with reconciliation guidance: the key is intentionally not reused, because no filename-based check can prove which same-named file an upload produced.",
+				},
+			},
+			{
+				when: "idempotency_key is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"Listmonk media filenames are not unique, so a retry after an ambiguous upload provisions a duplicate file.",
+				},
+			},
+		],
 		reason:
-			"A retry may upload another file unless the original media ID is known.",
+			"Retry safety depends on whether the caller supplies an idempotency key.",
 	},
 	agent: {
 		useWhen: ["A new media file must be uploaded."],
@@ -77,7 +96,8 @@ export const mediaUploadOperationSpec = defineOperationSpec({
 		prerequisites: [],
 		verifyWith: ["media.list"],
 		related: ["media.delete"],
-		retryGuidance: "Inspect media.list before retrying an ambiguous upload.",
+		retryGuidance:
+			"Key the upload with idempotency_key so an ambiguous retry replays the bound media file; without a key, verify with media.list before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_upload_media",
