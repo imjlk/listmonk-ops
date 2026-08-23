@@ -1110,7 +1110,7 @@ Retry guidance: Retry identical transient failures with bounded backoff, then ve
 
 ## Clone campaign (`campaigns.clone`)
 
-Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `conditional`.
 
 Use when: A new campaign should reuse an existing campaign's content.
 
@@ -1120,7 +1120,7 @@ Prerequisites: `campaigns.get`
 
 Verify with: `campaigns.list`
 
-Retry guidance: Inspect campaigns.list before retrying an ambiguous clone.
+Retry guidance: Key the clone with idempotency_key so an ambiguous retry replays the bound campaign; without a key, verify with campaigns.list before repeating.
 
 ## Delete media file (`media.delete`)
 

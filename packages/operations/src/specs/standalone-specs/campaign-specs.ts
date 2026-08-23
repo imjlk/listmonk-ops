@@ -6,6 +6,7 @@ import {
 	campaignDeleteInputContract,
 	campaignDeleteOutputContract,
 	campaignCloneInputContract,
+	campaignCloneOutputContract,
 	campaignGetOutputContract,
 	campaignLifecycleInputContract,
 	campaignLifecycleOutputContract,
@@ -231,14 +232,32 @@ export const campaignsCloneOperationSpec = defineOperationSpec({
 		"Create a new campaign by copying the body, lists, template, and metadata of an existing campaign under a new name. The clone starts in draft status.",
 	contract: {
 		input: campaignCloneInputContract,
-		output: campaignGetOutputContract,
+		output: campaignCloneOutputContract,
 	},
 	effects: [{ kind: "write", resource: "campaign", reversible: true }],
 	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "conditional",
+		cases: [
+			{
+				when: "idempotency_key is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The key is atomically claimed in a durable store before the clone create is issued and then bound to the cloned campaign id; an identical retry (same key, same source campaign and clone name, same Listmonk target) replays that campaign with created: false, a concurrent same-key clone waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. An attempt that ends ambiguously — or whose accepted response carries neither an id nor an immutable uuid to correlate — marks its claim unknown, and later same-key clones fail fast with reconciliation guidance: the key is intentionally not reused, because no name-based check can prove which same-named campaign a clone produced.",
+				},
+			},
+			{
+				when: "idempotency_key is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"Listmonk campaign names are not unique, so a retry after an ambiguous clone provisions a duplicate campaign.",
+				},
+			},
+		],
 		reason:
-			"A retry may create another cloned campaign unless the original clone ID is known.",
+			"Retry safety depends on whether the caller supplies an idempotency key.",
 	},
 	agent: {
 		useWhen: ["A new campaign should reuse an existing campaign's content."],
@@ -246,7 +265,8 @@ export const campaignsCloneOperationSpec = defineOperationSpec({
 		prerequisites: ["campaigns.get"],
 		verifyWith: ["campaigns.list"],
 		related: ["campaigns.create"],
-		retryGuidance: "Inspect campaigns.list before retrying an ambiguous clone.",
+		retryGuidance:
+			"Key the clone with idempotency_key so an ambiguous retry replays the bound campaign; without a key, verify with campaigns.list before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_clone_campaign",

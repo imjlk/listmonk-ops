@@ -1094,85 +1094,13 @@ async function cloneCampaignUnkeyed(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof cloneCampaignInputSchema>,
 ): Promise<CampaignCreateResult> {
-	const sourceResponse = await ctx.client.campaign.getById({
-		path: { id: input.id },
-	});
-	const source = asCampaign(
-		unwrapResourceResponse(
-			sourceResponse,
-			`Failed to load campaign ${input.id} for clone`,
-		),
-	);
 	// Snapshot the IDs of campaigns that already share the clone's name
 	// BEFORE we create the clone. Names are not unique, so after the create
 	// the only reliable way to identify the new record (when Listmonk
 	// returns no body) is "a campaign with this name whose id was not in
 	// the pre-create snapshot".
 	const preExistingIds = await collectCampaignIdsByName(ctx.client, input.name);
-	// Pick only the create-compatible fields from the source, then validate
-	// the resulting body through createCampaignInputSchema. This catches
-	// drafts that are missing required create fields (subject, from_email,
-	// body, lists) before they reach the API, and it fills in defaults
-	// (type=regular, messenger=email, content_type=html) consistently with
-	// the regular create flow. Identity, runtime, and stats fields are
-	// deliberately omitted so the clone starts in a clean draft state.
-	// `send_at` is reset so the clone does not inherit the source schedule.
-	//
-	// `source.lists` is typed as `Array<looseObject>` because the schema
-	// only asserts the entries are objects. Listmonk returns each list as
-	// `{ id, name }`, but we read the id defensively and surface a clear
-	// error if a single entry does not match that shape. If the source has
-	// no lists, parseOperationInput will reject the body against
-	// createCampaignInputSchema (which requires `lists.min(1)`) with a
-	// standard validation message.
-	const sourceLists = (source.lists ?? []).map((entry, index) => {
-		const listId = (entry as { id?: unknown }).id;
-		if (typeof listId !== "number" || !Number.isFinite(listId)) {
-			throw new Error(
-				`Campaign ${input.id} cannot be cloned: list entry at index ${index} is missing a numeric id`,
-			);
-		}
-		return listId;
-	});
-	// `source.media` is also typed as an array of loose objects (Listmonk
-	// returns `{ id, filename, ... }`), but createCampaignInputSchema needs
-	// numeric IDs. Map defensively, mirroring the lists extraction above.
-	const sourceMediaIds = (source.media ?? []).map((entry, index) => {
-		const mediaId = (entry as { id?: unknown }).id;
-		if (typeof mediaId !== "number" || !Number.isFinite(mediaId)) {
-			throw new Error(
-				`Campaign ${input.id} cannot be cloned: media entry at index ${index} is missing a numeric id`,
-			);
-		}
-		return mediaId;
-	});
-	const body = parseOperationInput(createCampaignInputSchema, {
-		name: input.name,
-		subject: source.subject,
-		from_email: source.from_email,
-		body: source.body,
-		// Preserve the visual-editor source so a clone of a `visual`
-		// campaign can still be edited in Listmonk's visual builder. The
-		// create schema allows null here for non-visual campaigns.
-		body_source: source.body_source ?? undefined,
-		altbody: source.altbody ?? undefined,
-		type: source.type,
-		content_type: source.content_type,
-		messenger: source.messenger,
-		tags: source.tags,
-		// Normalize undefined to null so campaigns that omit the field
-		// entirely also clone cleanly.
-		template_id: source.template_id ?? null,
-		lists: sourceLists,
-		headers: source.headers,
-		attribs: source.attribs,
-		archive: source.archive,
-		archive_slug: source.archive_slug ?? undefined,
-		archive_template_id: source.archive_template_id ?? undefined,
-		archive_meta: source.archive_meta,
-		media: sourceMediaIds,
-		send_at: null,
-	}) as CampaignCreateBody;
+	const body = await buildCloneCreateBody(ctx.client, input);
 	const createResponse = await ctx.client.campaign.create({ body });
 	if ("error" in createResponse && createResponse.error !== undefined) {
 		throw new Error(

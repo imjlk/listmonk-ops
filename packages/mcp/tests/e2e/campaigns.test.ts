@@ -115,10 +115,22 @@ describe("Campaigns MCP Tools", () => {
 	});
 
 	test("should replay an identical keyed clone without duplicating", async () => {
-		const sourceId = testCampaignId;
-		if (!sourceId) {
-			throw new Error("A campaign fixture is required for the clone test");
-		}
+		// Create the clone source inside the test so the case also runs when
+		// the suite is selected independently.
+		const sourceName = buildTestName("keyed-clone-source");
+		const sourceCreate = utils.assertSuccess<{ campaign?: { id?: number } }>(
+			await client.callTool("listmonk_create_campaign", {
+				name: sourceName,
+				subject: "Keyed clone source",
+				from_email: "ops@example.com",
+				body: "<p>Keyed clone source</p>",
+				template_id: testTemplateId,
+				lists: [testListId],
+			}),
+			"Failed to create the clone source",
+		);
+		const sourceId = sourceCreate.campaign?.id ?? 0;
+		expect(sourceId).toBeGreaterThan(0);
 		const cloneName = buildTestName("keyed-clone");
 		const idempotencyKey = `e2e:${cloneName}`;
 		const request = {
@@ -155,9 +167,13 @@ describe("Campaigns MCP Tools", () => {
 		});
 		utils.assertError(conflicting, "different create request");
 
-		// Clean up the clone.
+		// Clean up the clone and the source.
 		await client.callTool("listmonk_delete_campaign", {
 			id: String(first.campaign?.id),
+			confirm: true,
+		});
+		await client.callTool("listmonk_delete_campaign", {
+			id: String(sourceId),
 			confirm: true,
 		});
 	});
