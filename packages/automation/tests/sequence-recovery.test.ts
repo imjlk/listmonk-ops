@@ -6,7 +6,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { recoverSequenceTick, runSequenceTick } from "../src/sequence-engine";
+import {
+	SequenceTickFailureError,
+	recoverSequenceTick,
+	runSequenceTick,
+} from "../src/sequence-engine";
 import {
 	createFileSequenceRepository,
 	createSequenceDefinition,
@@ -97,34 +101,33 @@ describe("sequence tick echoed-set recovery", () => {
 			}, now),
 		);
 
-		// A fresh tick claims both due enrollments and echoes their ids.
+		// A fresh tick claims both due enrollments and echoes their claim
+		// positions (enrollment id + originally claimed step).
 		const first = await runSequenceTick(context, { now });
 		expect(first.claimed).toBe(2);
 		expect([...first.claimedIds].sort()).toEqual(
 			[enrollmentA.id, enrollmentB.id].sort(),
 		);
+		expect(first.claimedSteps).toHaveLength(2);
+		for (const step of first.claimedSteps) {
+			expect(step.stepId).toBe("send");
+		}
 
-		// The retried request carries the echoed set: the recovery pass
-		// works only that set (each member runs its remaining step), and a
-		// second identical retry converges with nothing left to claim.
+		// The retried request carries the echoed set: both members already
+		// advanced past the claimed step, so the step-bound recovery pass
+		// skips them — one retry converges with no re-execution.
 		const recovery = await recoverSequenceTick(context, {
-			ids: first.claimedIds,
+			claims: first.claimedSteps,
 			now,
 		});
-		expect(recovery.requested).toBe(2);
-		expect(recovery.claimed + recovery.alreadyDone).toBe(2);
-		const converged = await recoverSequenceTick(context, {
-			ids: first.claimedIds,
-			now,
-		});
-		expect(converged).toMatchObject({
+		expect(recovery).toMatchObject({
 			requested: 2,
 			claimed: 0,
 			alreadyDone: 2,
 		});
 	});
 
-	test("re-claims only still-due members of the echoed set", async () => {
+	test("re-claims only still-due members at their originally claimed step", async () => {
 		const { repository, idempotencyStore } = await createStores();
 		const context = executionContext(repository, idempotencyStore);
 		const now = new Date("2026-08-01T09:00:00.000Z");
@@ -146,16 +149,17 @@ describe("sequence tick echoed-set recovery", () => {
 				subscriberId: 2,
 			}, now),
 		);
+		const claims = [
+			{ id: enrollmentA.id, stepId: "send" },
+			{ id: enrollmentB.id, stepId: "send" },
+		];
 
 		// Hold a live lease over both enrollments directly against the
 		// store, as a concurrent worker would.
 		const leased = await repository.claimDue({ limit: 2, now, leaseMs: 60_000 });
 		expect(leased).toHaveLength(2);
 
-		const recovery = await recoverSequenceTick(context, {
-			ids: [enrollmentA.id, enrollmentB.id],
-			now,
-		});
+		const recovery = await recoverSequenceTick(context, { claims, now });
 		// Live leases are skipped; the pass never claims anything outside
 		// the echoed set.
 		expect(recovery).toMatchObject({
@@ -164,10 +168,11 @@ describe("sequence tick echoed-set recovery", () => {
 			alreadyDone: 2,
 		});
 
-		// After the lease expires, the same echoed set re-claims both.
+		// After the lease expires, the same echoed set re-claims both at
+		// their original steps.
 		const later = new Date(now.getTime() + 120_000);
 		const expiredRecovery = await recoverSequenceTick(context, {
-			ids: [enrollmentA.id, enrollmentB.id],
+			claims,
 			now: later,
 		});
 		expect(expiredRecovery).toMatchObject({
@@ -183,9 +188,55 @@ describe("sequence tick echoed-set recovery", () => {
 
 		await expect(
 			recoverSequenceTick(context, {
-				ids: ["0aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+				claims: [
+					{
+						id: "0aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+						stepId: "send",
+					},
+				],
 				now,
 			}),
 		).rejects.toThrow(/no longer exists/);
+	});
+
+	test("surfaces the claim set on a failed tick for recovery", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const context = executionContext(repository, idempotencyStore);
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{ name: "failing", steps: singleSendSteps },
+				now,
+			),
+		);
+		const enrollment = await repository.createEnrollment(
+			createSequenceEnrollment(definition, {
+				sequenceId: definition.id,
+				subscriberId: 1,
+			}, now),
+		);
+
+		// Deterministic rejection: persisting the completed claim fails
+		// after the send succeeded — the ambiguous-outcome window the
+		// failure contract exists for.
+		const originalComplete = repository.completeClaim.bind(repository);
+		(repository as { completeClaim: unknown }).completeClaim = async () => {
+			throw new Error("store write failed");
+		};
+		let failure: unknown;
+		try {
+			await runSequenceTick(context, { now });
+		} catch (error) {
+			failure = error;
+		} finally {
+			(repository as { completeClaim: unknown }).completeClaim =
+				originalComplete;
+		}
+		expect(failure).toBeInstanceOf(SequenceTickFailureError);
+		const tickFailure = failure as SequenceTickFailureError;
+		// The claim set survives the failure so the caller can recover it.
+		expect(tickFailure.claimedSteps).toEqual([
+			{ id: enrollment.id, stepId: "send" },
+		]);
 	});
 });

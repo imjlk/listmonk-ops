@@ -16388,29 +16388,50 @@
   "sequenceTickInputContract": {
     "components": {
       "schemas": {
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
         "PositiveInteger": {
           "maximum": 9007199254740991,
           "minimum": 1,
           "type": "integer"
         },
+        "SequenceRecoveryClaim": {
+          "additionalProperties": false,
+          "description": "One echoed claim position: the enrollment plus its originally claimed step.",
+          "properties": {
+            "enrollment_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "step_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "enrollment_id",
+            "step_id"
+          ],
+          "type": "object"
+        },
         "SequenceTickInput": {
           "additionalProperties": false,
           "properties": {
-            "claimed_ids": {
-              "description": "Echoed claim set from a prior tick's output: recover exactly these\nenrollments instead of claiming new due work.",
-              "items": {
-                "format": "uuid",
-                "type": "string"
-              },
-              "maxItems": 100,
-              "minItems": 1,
-              "type": "array"
-            },
             "lease_ms": {
               "$ref": "#/components/schemas/PositiveInteger"
             },
             "limit": {
               "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "recovery_set": {
+              "description": "Echoed claim set from a prior tick's claimed_steps output: recover\nexactly these enrollments at their originally claimed steps instead\nof claiming new due work.",
+              "items": {
+                "$ref": "#/components/schemas/SequenceRecoveryClaim"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "type": "array"
             }
           },
           "required": [
@@ -16425,21 +16446,20 @@
     "schema": {
       "additionalProperties": false,
       "properties": {
-        "claimed_ids": {
-          "description": "Echoed claim set from a prior tick's output: recover exactly these\nenrollments instead of claiming new due work.",
-          "items": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "maxItems": 100,
-          "minItems": 1,
-          "type": "array"
-        },
         "lease_ms": {
           "$ref": "#/components/schemas/PositiveInteger"
         },
         "limit": {
           "$ref": "#/components/schemas/PositiveInteger"
+        },
+        "recovery_set": {
+          "description": "Echoed claim set from a prior tick's claimed_steps output: recover\nexactly these enrollments at their originally claimed steps instead\nof claiming new due work.",
+          "items": {
+            "$ref": "#/components/schemas/SequenceRecoveryClaim"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
         }
       },
       "required": [
@@ -16458,10 +16478,32 @@
           "format": "date-time",
           "type": "string"
         },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
         "NonNegativeInteger": {
           "maximum": 9007199254740991,
           "minimum": 0,
           "type": "integer"
+        },
+        "SequenceRecoveryClaim": {
+          "additionalProperties": false,
+          "description": "One echoed claim position: the enrollment plus its originally claimed step.",
+          "properties": {
+            "enrollment_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "step_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "enrollment_id",
+            "step_id"
+          ],
+          "type": "object"
         },
         "SequenceTickOutput": {
           "additionalProperties": false,
@@ -16490,6 +16532,13 @@
               },
               "type": "array"
             },
+            "claimed_steps": {
+              "description": "Echoed claim positions for a convergent recovery retry.",
+              "items": {
+                "$ref": "#/components/schemas/SequenceRecoveryClaim"
+              },
+              "type": "array"
+            },
             "completed": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             },
@@ -16510,6 +16559,7 @@
           "required": [
             "claimed",
             "claimed_ids",
+            "claimed_steps",
             "advanced",
             "waiting",
             "completed",
@@ -16550,6 +16600,13 @@
           },
           "type": "array"
         },
+        "claimed_steps": {
+          "description": "Echoed claim positions for a convergent recovery retry.",
+          "items": {
+            "$ref": "#/components/schemas/SequenceRecoveryClaim"
+          },
+          "type": "array"
+        },
         "completed": {
           "$ref": "#/components/schemas/NonNegativeInteger"
         },
@@ -16570,6 +16627,7 @@
       "required": [
         "claimed",
         "claimed_ids",
+        "claimed_steps",
         "advanced",
         "waiting",
         "completed",

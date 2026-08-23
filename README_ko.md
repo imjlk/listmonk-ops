@@ -643,10 +643,12 @@ envelope, id 없는 응답의 uuid 상관). 스물한 번째 batch에서는
 batch에서는 `campaigns.clone`을 승격했습니다(키는 원본 캠페인과 클론
 이름에 묶이며, keyed 클론에는 이름 스냅샷 폴백을 쓰지 않습니다).
 스물네 번째 batch에서는 `sequences.tick`을 승격했습니다 — 출력이 정확한
-클레임 enrollment id 집합을 echo하고, 그 집합을 실은 재시도는 새 작업을
-클레임하는 대신 정확히 해당 집합만 대상으로 수렴형 복구 패스를
-실행합니다(이미 진행/완료/ambiguous이거나 살아있는 lease를 가진 항목은
-건너뜁니다). 현재 stable baseline은 89개이며, 나머지 experimental
+클레임 enrollment와 원래 클레임된 단계를 echo하고, 그 집합을
+`recovery_set`(CLI `--recovery-set`)으로 실은 재시도는 새 작업을
+클레임하는 대신 정확히 해당 위치만 대상으로 단계 바인딩 수렴형 복구
+패스를 실행합니다(이후 단계로 진행/완료/ambiguous이거나 살아있는 lease를
+가진 항목은 건너뜁니다). 실패한 틱은 이 복구를 위해 에러에 클레임
+집합을 노출합니다. 현재 stable baseline은 89개이며, 나머지 experimental
 descriptor는 15개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,

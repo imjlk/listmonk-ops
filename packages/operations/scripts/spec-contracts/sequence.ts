@@ -194,16 +194,25 @@ export interface SequenceTickInput {
 	limit: PositiveInteger;
 	lease_ms: PositiveInteger;
 	/**
-	 * Echoed claim set from a prior tick's output: recover exactly these
-	 * enrollments instead of claiming new due work.
+	 * Echoed claim set from a prior tick's claimed_steps output: recover
+	 * exactly these enrollments at their originally claimed steps instead
+	 * of claiming new due work.
 	 */
-	claimed_ids?: (string & tags.Format<"uuid">)[] & tags.MinItems<1> & tags.MaxItems<100>;
+	recovery_set?: SequenceRecoveryClaim[] & tags.MinItems<1> & tags.MaxItems<100>;
+}
+
+/** One echoed claim position: the enrollment plus its originally claimed step. */
+export interface SequenceRecoveryClaim {
+	enrollment_id: string & tags.Format<"uuid">;
+	step_id: NonEmptyString;
 }
 
 export interface SequenceTickOutput {
 	claimed: NonNegativeInteger;
 	/** Echoed ids of the exact enrollments this tick claimed. */
 	claimed_ids: (string & tags.Format<"uuid">)[];
+	/** Echoed claim positions for a convergent recovery retry. */
+	claimed_steps: SequenceRecoveryClaim[];
 	advanced: NonNegativeInteger;
 	waiting: NonNegativeInteger;
 	completed: NonNegativeInteger;

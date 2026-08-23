@@ -478,15 +478,15 @@ export const sequenceTickOperationSpec = defineOperationSpec({
 		kind: "conditional",
 		cases: [
 			{
-				when: "claimed_ids (an echoed claim set) is present",
+				when: "recovery_set (an echoed claim set of enrollment ids and their originally claimed steps) is present",
 				semantics: {
 					kind: "safe",
 					reason:
-						"The recovery pass claims exactly the echoed enrollment ids under the same eligibility rule as a fresh tick: members that already advanced, completed, turned ambiguous, or hold a live lease are skipped, so an identical retry converges over the set instead of doing new work, and transactional idempotency prevents duplicate sends for re-executed steps. Ambiguous members stay skipped until an operator reconciles them.",
+						"The recovery pass claims exactly the echoed enrollments, and only while each still sits at its originally claimed step: members that already advanced to a later step, completed, turned ambiguous, or hold a live lease are skipped, so an identical retry converges over the set instead of doing new work or executing a later step, and transactional idempotency prevents duplicate sends for re-executed steps. Ambiguous members stay skipped until an operator reconciles them.",
 				},
 			},
 			{
-				when: "claimed_ids is absent",
+				when: "recovery_set is absent",
 				semantics: {
 					kind: "reconcile",
 					reconcileWith: "sequences.reconcile",
@@ -506,7 +506,7 @@ export const sequenceTickOperationSpec = defineOperationSpec({
 		verifyWith: ["sequences.status"],
 		related: ["sequences.reconcile", "sequences.pause"],
 		retryGuidance:
-			"Echo a prior tick's claimed_ids output so an ambiguous retry runs a convergent recovery pass over exactly that set; without the echoed set, run reconcile and inspect status before repeating.",
+			"Echo a failed tick's claimed_steps output as recovery_set so an ambiguous retry runs a convergent step-bound recovery pass over exactly that set; without the echoed set, run reconcile and inspect status before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_sequences_tick",

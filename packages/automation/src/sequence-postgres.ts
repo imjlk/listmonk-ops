@@ -913,7 +913,14 @@ export function createPostgresSequenceRepository(
 			await ready();
 			return sql.begin(async (transaction) => {
 				const claimed: ClaimedSequenceEnrollment[] = [];
-				for (const id of options.ids) {
+				// Deterministic order (plus dedupe) so concurrent recovery
+				// requests with overlapping sets cannot deadlock.
+				const requests = [
+					...new Map(
+						options.claims.map((request) => [request.id, request]),
+					).values(),
+				].sort((left, right) => left.id.localeCompare(right.id));
+				for (const requested of requests) {
 					const rows = await transaction<
 						(EnrollmentRow & { definition: unknown })[]
 					>`
@@ -921,19 +928,25 @@ export function createPostgresSequenceRepository(
 						FROM listmonk_ops.sequence_enrollments e
 						JOIN listmonk_ops.sequence_definitions d
 							ON d.id = e.sequence_id
-						WHERE e.id = ${id}::uuid
+						WHERE e.id = ${requested.id}::uuid
 						FOR UPDATE OF e
 					`;
 					const row = rows[0];
 					if (!row) {
 						throw new Error(
-							`Sequence enrollment ${id} from the echoed claim set no longer exists`,
+							`Sequence enrollment ${requested.id} from the echoed claim set no longer exists`,
 						);
 					}
 					const definition = parsePersistedSequenceDefinition(
 						row.definition,
 					);
 					const enrollment = toEnrollment(row);
+					// Bind recovery to the originally claimed step: an
+					// enrollment that already advanced executes a different
+					// step now, so it must be skipped, not re-executed.
+					if (enrollment.currentStepId !== requested.stepId) {
+						continue;
+					}
 					if (
 						!["pending", "running", "waiting"].includes(enrollment.status) ||
 						Date.parse(enrollment.nextRunAt) > options.now.getTime() ||

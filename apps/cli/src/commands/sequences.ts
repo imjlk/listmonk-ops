@@ -307,21 +307,30 @@ const tickCommand = defineCommand({
 			z.coerce.number().int().min(1_000).max(900_000).default(90_000),
 			{ description: "Enrollment claim lease duration" },
 		),
-		"claimed-ids": option(z.array(z.uuid()).min(1).max(100).optional(), {
+		"recovery-set": option(z.string().optional(), {
 			description:
-				"Echoed claim set from a prior tick's claimed_ids output: recover exactly these enrollments instead of claiming new due work",
+				"Echoed claim set from a prior tick (JSON array of enrollment_id and step_id pairs): recover exactly these enrollments at their originally claimed steps instead of claiming new due work",
 		}),
 	},
 	handler: async ({ flags, ...args }) => {
+		let recoverySet:
+			| Array<{ enrollment_id: string; step_id: string }>
+			| undefined;
+		if (flags["recovery-set"] !== undefined) {
+			try {
+				recoverySet = JSON.parse(flags["recovery-set"]);
+			} catch (error) {
+				throw new Error(
+					`--recovery-set must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}
 		getOutput().json(
-			await invokeSequenceTickOperation(
-				await executionContext(args),
-				{
-					limit: flags.limit,
-					lease_ms: flags["lease-ms"],
-					claimed_ids: flags["claimed-ids"],
-				},
-			),
+			await invokeSequenceTickOperation(await executionContext(args), {
+				limit: flags.limit,
+				lease_ms: flags["lease-ms"],
+				recovery_set: recoverySet,
+			}),
 		);
 	},
 });

@@ -162,6 +162,8 @@ export type SequenceTickSummary = Readonly<{
 	claimed: number;
 	/** Echoed ids of the exact enrollments this tick claimed. */
 	claimedIds: readonly string[];
+	/** Echoed claim positions: enrollment id plus its originally claimed step. */
+	claimedSteps: readonly Readonly<{ id: string; stepId: string }>[];
 	advanced: number;
 	waiting: number;
 	completed: number;
@@ -282,7 +284,7 @@ export interface SequenceRepository {
 	 * instead of doing new work; unknown ids are rejected.
 	 */
 	claimSpecific(options: Readonly<{
-		ids: readonly string[];
+		claims: readonly Readonly<{ id: string; stepId: string }>[];
 		now: Date;
 		leaseMs: number;
 	}>): Promise<readonly ClaimedSequenceEnrollment[]>;
@@ -366,7 +368,12 @@ const enrollmentSchema = z.object({
 });
 const tickSummarySchema = z.object({
 	claimed: z.number().int().nonnegative(),
-	claimedIds: z.array(sequenceIdSchema),
+	claimedIds: z.array(sequenceIdSchema).default([]),
+	claimedSteps: z
+		.array(
+			z.object({ id: sequenceIdSchema, stepId: z.string().min(1) }),
+		)
+		.default([]),
 	advanced: z.number().int().nonnegative(),
 	waiting: z.number().int().nonnegative(),
 	completed: z.number().int().nonnegative(),
@@ -902,12 +909,23 @@ export function createFileSequenceRepository(
 				const claimed: ClaimedSequenceEnrollment[] = [];
 				let enrollments = [...current.enrollments];
 				const byId = new Map(current.enrollments.map((e) => [e.id, e]));
-				for (const id of options.ids) {
-					const candidate = byId.get(id);
+				const seen = new Set<string>();
+				for (const requested of options.claims) {
+					if (seen.has(requested.id)) {
+						continue;
+					}
+					seen.add(requested.id);
+					const candidate = byId.get(requested.id);
 					if (!candidate) {
 						throw new Error(
-							`Sequence enrollment ${id} from the echoed claim set no longer exists`,
+							`Sequence enrollment ${requested.id} from the echoed claim set no longer exists`,
 						);
+					}
+					// Bind recovery to the originally claimed step: an
+					// enrollment that already advanced executes a different
+					// step now, so it must be skipped, not re-executed.
+					if (candidate.currentStepId !== requested.stepId) {
+						continue;
 					}
 					if (
 						!["pending", "running", "waiting"].includes(candidate.status) ||

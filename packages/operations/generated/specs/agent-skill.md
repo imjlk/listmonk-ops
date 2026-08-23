@@ -588,7 +588,7 @@ Prerequisites: `sequences.status`
 
 Verify with: `sequences.status`
 
-Retry guidance: Echo a prior tick's claimed_ids output so an ambiguous retry runs a convergent recovery pass over exactly that set; without the echoed set, run reconcile and inspect status before repeating.
+Retry guidance: Echo a failed tick's claimed_steps output as recovery_set so an ambiguous retry runs a convergent step-bound recovery pass over exactly that set; without the echoed set, run reconcile and inspect status before repeating.
 
 ## Reconcile sequence runtime (`sequences.reconcile`)
 

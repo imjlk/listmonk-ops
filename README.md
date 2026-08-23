@@ -660,11 +660,13 @@ canonical form (so equivalent encodings, including pad-bit variants,
 replay), and a twenty-third promoted `campaigns.clone` (the key binds
 the source campaign and clone name; the unkeyed name-snapshot fallback
 is never used for keyed clones). A twenty-fourth promoted
-`sequences.tick`: its output now echoes the exact claimed enrollment
-ids, and a retry carrying that echoed set runs a convergent recovery
-pass over exactly those enrollments (skipping ones that already
-advanced, completed, turned ambiguous, or hold a live lease) instead of
-claiming new due work. The remaining 15 descriptors are experimental.
+`sequences.tick`: its output echoes the exact claimed enrollments with
+their originally claimed steps, and a retry carrying that echoed set as
+`recovery_set` (CLI `--recovery-set`) runs a convergent step-bound
+recovery pass over exactly those positions — entries that already
+advanced to a later step, completed, turned ambiguous, or hold a live
+lease are skipped — instead of claiming new due work; a failed tick
+surfaces the claim set on its error for exactly this recovery. The remaining 15 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,

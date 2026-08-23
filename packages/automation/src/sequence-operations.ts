@@ -194,13 +194,22 @@ const sequenceTickInputSchema = z.object({
 			"lease_ms must be between 1000 and 900000",
 		)
 		.default(90_000),
-	claimed_ids: z
-		.array(sequenceIdInput)
+	recovery_set: z
+		.array(
+			z.object({
+				enrollment_id: sequenceIdInput,
+				step_id: z.string().trim().min(1),
+			}),
+		)
 		.min(1)
 		.max(100)
+		.refine(
+			(set) => new Set(set.map((member) => member.enrollment_id)).size === set.length,
+			"recovery_set enrollment ids must be unique",
+		)
 		.optional()
 		.describe(
-			"Echoed claim set from a prior tick's output: recover exactly these enrollments (skipping ones that already advanced, completed, turned ambiguous, or hold a live lease) instead of claiming new due work",
+			"Echoed claim set from a prior tick's claimed_steps output: recover exactly these enrollments at their originally claimed steps (entries that already advanced, completed, turned ambiguous, or hold a live lease are skipped) instead of claiming new due work",
 		),
 });
 const sequenceReconcileInputSchema = z
@@ -310,6 +319,12 @@ const sequenceEnrollmentListOutputSchema = z.object({
 const sequenceTickOutputSchema = z.object({
 	claimed: z.number().int().nonnegative(),
 	claimed_ids: z.array(sequenceIdInput),
+	claimed_steps: z.array(
+		z.object({
+			enrollment_id: sequenceIdInput,
+			step_id: z.string().min(1),
+		}),
+	),
 	advanced: z.number().int().nonnegative(),
 	waiting: z.number().int().nonnegative(),
 	completed: z.number().int().nonnegative(),
@@ -746,14 +761,21 @@ export async function executeSequenceTickOperation(
 	context: SequenceOperationContext,
 	input: z.output<typeof sequenceTickInputSchema>,
 ) {
-	if (input.claimed_ids !== undefined) {
+	if (input.recovery_set !== undefined) {
 		const result = await recoverSequenceTick(executionContext(context), {
-			ids: input.claimed_ids,
+			claims: input.recovery_set.map((member) => ({
+				id: member.enrollment_id,
+				stepId: member.step_id,
+			})),
 			leaseMs: input.lease_ms,
 		});
 		return {
 			claimed: result.claimed,
-			claimed_ids: [...input.claimed_ids],
+			claimed_ids: [...result.claimedIds],
+			claimed_steps: result.claimedSteps.map((step) => ({
+				enrollment_id: step.id,
+				step_id: step.stepId,
+			})),
 			advanced: result.advanced,
 			waiting: result.waiting,
 			completed: result.completed,
@@ -772,6 +794,10 @@ export async function executeSequenceTickOperation(
 	return {
 		claimed: result.claimed,
 		claimed_ids: [...result.claimedIds],
+		claimed_steps: result.claimedSteps.map((step) => ({
+			enrollment_id: step.id,
+			step_id: step.stepId,
+		})),
 		advanced: result.advanced,
 		waiting: result.waiting,
 		completed: result.completed,

@@ -492,6 +492,24 @@ function countOutcome(
 	}
 }
 
+/** A tick that claimed enrollments but failed to complete them all. */
+export class SequenceTickFailureError extends AggregateError {
+	public readonly claimedSteps: readonly Readonly<{
+		id: string;
+		stepId: string;
+	}>[];
+
+	constructor(
+		failures: readonly unknown[],
+		message: string,
+		claimedSteps: readonly Readonly<{ id: string; stepId: string }>[],
+	) {
+		super(failures, message);
+		this.name = "SequenceTickFailureError";
+		this.claimedSteps = claimedSteps;
+	}
+}
+
 /**
  * Recovery pass over an echoed claim set: claim exactly the requested
  * enrollment ids when they are still claimable and execute them, skipping
@@ -502,14 +520,14 @@ function countOutcome(
 export async function recoverSequenceTick(
 	context: SequenceExecutionContext,
 	options: {
-		ids: readonly string[];
+		claims: readonly Readonly<{ id: string; stepId: string }>[];
 		leaseMs?: number;
 		now?: Date;
 	},
 ): Promise<SequenceTickSummary & { requested: number; alreadyDone: number }> {
 	const now = options.now ?? context.now?.() ?? new Date();
 	const claimed = await context.repository.claimSpecific({
-		ids: options.ids,
+		claims: options.claims,
 		now,
 		leaseMs: options.leaseMs ?? DEFAULT_SEQUENCE_LEASE_MS,
 	});
@@ -536,16 +554,21 @@ export async function recoverSequenceTick(
 		)
 		.map((result) => result.reason);
 	if (failures.length > 0) {
-		throw new AggregateError(
+		throw new SequenceTickFailureError(
 			failures,
 			`Failed to complete ${failures.length} claimed sequence enrollment(s)`,
+			options.claims,
 		);
 	}
 	return {
-		requested: options.ids.length,
+		requested: options.claims.length,
 		claimed: claimed.length,
 		claimedIds: claimed.map((entry) => entry.enrollment.id),
-		alreadyDone: options.ids.length - claimed.length,
+		claimedSteps: claimed.map((entry) => ({
+			id: entry.enrollment.id,
+			stepId: entry.enrollment.currentStepId,
+		})),
+		alreadyDone: options.claims.length - claimed.length,
 		...counts,
 		completedAt: now.toISOString(),
 	};
@@ -584,14 +607,22 @@ export async function runSequenceTick(
 		)
 		.map((result) => result.reason);
 	if (failures.length > 0) {
-		throw new AggregateError(
+		throw new SequenceTickFailureError(
 			failures,
 			`Failed to complete ${failures.length} claimed sequence enrollment(s)`,
+			claimed.map((entry) => ({
+				id: entry.enrollment.id,
+				stepId: entry.enrollment.currentStepId,
+			})),
 		);
 	}
 	return {
 		claimed: claimed.length,
 		claimedIds: claimed.map((entry) => entry.enrollment.id),
+		claimedSteps: claimed.map((entry) => ({
+			id: entry.enrollment.id,
+			stepId: entry.enrollment.currentStepId,
+		})),
 		...counts,
 		completedAt: now.toISOString(),
 	};
