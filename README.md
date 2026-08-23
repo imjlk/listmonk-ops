@@ -517,7 +517,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 84 are `stable` and 20 are `experimental`. The runtime-operation
+these, 85 are `stable` and 19 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -668,7 +668,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 84 stable compatibility baselines, and 317 direct
+runtime bridges, the 85 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are

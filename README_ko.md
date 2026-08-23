@@ -403,7 +403,7 @@ CLI는 MCP 서버와 동일한 타입드 구독자 리스트 Operation을 제공
 listmonk-cli lists list --page 1 --per-page 20
 listmonk-cli lists get --id 10
 listmonk-cli lists create --name "Product updates" --type private --optin single
-# --idempotency-key를 전달하면 애매한 재시도가 같은 리스트를 재생합니다.
+# --idempotency-key를 전달하면 애매한 재시도가 같은 캠페인을 재생합니다.
 listmonk-cli lists create --name "Product updates" --idempotency-key "launch-2026-08-product-updates"
 listmonk-cli lists update --id 10 --name "Product updates" --confirm
 listmonk-cli lists delete --id 10 --confirm
@@ -649,7 +649,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 84개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 85개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 317개를
 검증합니다.
 

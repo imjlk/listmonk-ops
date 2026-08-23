@@ -918,7 +918,7 @@ Create a campaign in Listmonk
 - Effects: `write:campaign`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `conditional`
-- Stability: `stable` since `0.15.0`
+- Stability: `stable` since `0.9.0`
 
 ## `campaigns.update`
 

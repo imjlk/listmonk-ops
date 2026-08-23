@@ -32,7 +32,7 @@ import {
 	assertCampaignTransition,
 	type CampaignLifecycleTarget,
 } from "./campaign-lifecycle";
-import { executeKeyedCreate } from "./keyed-create";
+import { canonicalJsonStringify, executeKeyedCreate } from "./keyed-create";
 import { isDefinitivePreDispatchError } from "./transactional-idempotency";
 import { CAMPAIGN_SEND_AT_PATTERN } from "./campaign-send-at";
 import {
@@ -440,7 +440,9 @@ function canonicalCampaignCreatePayload(
 		messenger: input.messenger,
 		content_type: input.content_type,
 		send_at: input.send_at ?? null,
-		headers: (input.headers ?? []).map((header) => JSON.stringify(header)).sort(),
+		headers: [...(input.headers ?? [])].sort((a, b) =>
+			canonicalJsonStringify(a) < canonicalJsonStringify(b) ? -1 : 1,
+		),
 		attribs: input.attribs ?? {},
 		archive: input.archive ?? false,
 		archive_slug: input.archive_slug ?? null,

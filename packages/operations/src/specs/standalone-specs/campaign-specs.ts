@@ -72,7 +72,7 @@ export const campaignsCreateOperationSpec = defineOperationSpec({
 		},
 	},
 	stability: "stable",
-	since: "0.15.0",
+	since: "0.9.0",
 });
 
 export const campaignsUpdateOperationSpec = defineOperationSpec({

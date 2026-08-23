@@ -20332,7 +20332,7 @@
         "kind": "conditional",
         "reason": "Retry safety depends on whether the caller supplies an idempotency key."
       },
-      "since": "0.15.0",
+      "since": "0.9.0",
       "stability": "stable"
     },
     {

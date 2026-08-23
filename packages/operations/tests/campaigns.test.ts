@@ -175,6 +175,42 @@ describe("campaign create operations", () => {
 		});
 	});
 
+	test("replays a keyed retry whose nested objects merely reorder keys", async () => {
+		const { store } = createInMemoryResourceCreateStore();
+		const create = mock(async () => ({
+			data: { id: 41, name: "Launch" },
+		})) as unknown as CampaignClient["campaign"]["create"];
+		const getById = mock(async () => ({
+			data: { id: 41, name: "Launch" },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		const ctx = {
+			client: { campaign: { create, getById } } as unknown as CampaignClient,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		const first = await invokeCreateCampaignOperation(ctx, {
+			...baseInput,
+			headers: [{ "X-A": "1", "X-B": "2" }],
+			attribs: { theme: "dark", locale: "ko" },
+			idempotency_key: "campaign-reorder",
+		});
+		expect(first.created).toBe(true);
+
+		// Same request, same nested values, different insertion order: the
+		// canonical hash must not treat it as a different create.
+		const retried = await invokeCreateCampaignOperation(ctx, {
+			...baseInput,
+			headers: [{ "X-B": "2", "X-A": "1" }],
+			attribs: { locale: "ko", theme: "dark" },
+			idempotency_key: "campaign-reorder",
+		});
+		expect(retried.created).toBe(false);
+		expect(retried.campaign).toMatchObject({ id: 41 });
+		expect(create).toHaveBeenCalledTimes(1);
+	});
+
 	test("serializes concurrent keyed creates into one POST and one replay", async () => {
 		const { store } = createInMemoryResourceCreateStore();
 		const create = mock(async () => {

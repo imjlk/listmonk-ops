@@ -11,6 +11,32 @@ function delay(ms: number): Promise<void> {
 	return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
 }
 
+/**
+ * Deterministic canonicalization for payload hashing: object keys are
+ * sorted recursively so an identical retry that merely reconstructs nested
+ * objects (`headers` entries, `attribs`, ...) in a different insertion
+ * order still hashes identically instead of conflicting. Array order is
+ * preserved — it is semantically meaningful unless the caller sorts it.
+ */
+/** Deterministic JSON form: nested object keys sorted recursively. */
+export function canonicalJsonStringify(value: unknown): string {
+	return JSON.stringify(sortKeysDeep(value));
+}
+
+function sortKeysDeep(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(sortKeysDeep);
+	}
+	if (typeof value === "object" && value !== null) {
+		const sorted: Record<string, unknown> = {};
+		for (const key of Object.keys(value).sort()) {
+			sorted[key] = sortKeysDeep((value as Record<string, unknown>)[key]);
+		}
+		return sorted;
+	}
+	return value;
+}
+
 export type SettledKeyedClaim =
 	| { kind: "new"; claimToken: string }
 	| { kind: "replay"; resourceId: string };
@@ -178,7 +204,7 @@ export async function executeKeyedCreate<Resource>(
 	options: KeyedCreateOptions<Resource>,
 ): Promise<KeyedCreateResult<Resource>> {
 	const payloadHash = options.hashCreatePayload(
-		JSON.stringify(options.canonicalPayload),
+		canonicalJsonStringify(options.canonicalPayload),
 	);
 	const targetHash = options.hashCreatePayload(
 		JSON.stringify([options.target.baseUrl, options.target.username]),
