@@ -7,8 +7,11 @@ import {
 	commitResourceCreate,
 	createFileBackedResourceCreateIdempotencyStore,
 	createResourceCreateStore,
+	getResourceCreateStoreMaxRecords,
+	markResourceCreateUnknown,
 	releaseResourceCreate,
 	RESOURCE_CREATE_CLAIM_STALE_MS,
+	RESOURCE_CREATE_STORE_MAX_RECORDS,
 	type StoredResourceCreateRecord,
 } from "../src/resource-create-idempotency-store";
 import { writeJsonFileStore as writeRawJsonFileStore } from "../src/json-file-store";
@@ -241,6 +244,89 @@ describe("resource create idempotency file-backed store", () => {
 			records: Record<string, { status: string }>;
 		};
 		expect(persisted.records["key-1"]?.status).toBe("pending");
+	});
+
+	test("marks an ambiguous claim unknown and recovers it on a live host", async () => {
+		const storePath = await createStorePath();
+		const store = createFileBackedResourceCreateIdempotencyStore({ storePath });
+
+		const claim = await claimResourceCreate({
+			storePath,
+			key: "key-1",
+			payloadHash: "payload-1",
+			targetHash: "target-a",
+			resourceKind: "list",
+		});
+		if (claim.kind !== "new") throw new Error("expected a new claim");
+		const firstClaimedAt = claim.record.firstClaimedAt ?? claim.record.createdAt;
+
+		// The owner is this live process, so the pending claim is not stale.
+		await expect(
+			store.claim({
+				key: "key-1",
+				payloadHash: "payload-1",
+				targetHash: "target-a",
+				resourceKind: "list",
+			}),
+		).resolves.toMatchObject({ kind: "pending" });
+
+		// The attempt ends without a definitive outcome: markUnknown lets a
+		// later retry recover immediately despite the live owner pid.
+		await markResourceCreateUnknown({
+			storePath,
+			key: "key-1",
+			claimToken: claim.claimToken,
+		});
+		// A foreign token cannot mark the claim, and an unknown claim is
+		// never released or committed.
+		await markResourceCreateUnknown({
+			storePath,
+			key: "key-1",
+			claimToken: "wrong-token",
+		});
+
+		const takeover = await claimResourceCreate({
+			storePath,
+			key: "key-1",
+			payloadHash: "payload-1",
+			targetHash: "target-a",
+			resourceKind: "list",
+		});
+		expect(takeover).toMatchObject({ kind: "new", recovered: true });
+		if (takeover.kind !== "new") throw new Error("expected a takeover");
+		expect(takeover.record.firstClaimedAt).toBe(firstClaimedAt);
+	});
+
+	test("validates the record-cap override strictly", async () => {
+		const previous = process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS;
+		try {
+			delete process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS;
+			expect(getResourceCreateStoreMaxRecords()).toBe(
+				RESOURCE_CREATE_STORE_MAX_RECORDS,
+			);
+
+			process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS = "500";
+			expect(getResourceCreateStoreMaxRecords()).toBe(500);
+
+			// Blank falls back to the default like an unset variable.
+			process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS = "  ";
+			expect(getResourceCreateStoreMaxRecords()).toBe(
+				RESOURCE_CREATE_STORE_MAX_RECORDS,
+			);
+
+			for (const garbage of ["10k", "10000oops", "1e4", "-5", "0"]) {
+				process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS = garbage;
+				expect(() => getResourceCreateStoreMaxRecords()).toThrow(
+					/positive integer/,
+				);
+			}
+		} finally {
+			if (previous === undefined) {
+				delete process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS;
+			} else {
+				process.env.LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS = previous;
+			}
+		}
 	});
 
 	test("never steals a live same-host claim by age alone", async () => {

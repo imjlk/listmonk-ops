@@ -58,6 +58,7 @@ export {
 	createFileBackedResourceCreateIdempotencyStore,
 	getResourceCreateStoreMaxRecords,
 	getResourceCreateStorePath,
+	markResourceCreateUnknown,
 	RESOURCE_CREATE_CLAIM_STALE_MS,
 	RESOURCE_CREATE_STORE_MAX_RECORDS,
 	releaseResourceCreate,

@@ -424,24 +424,28 @@ function createdDuringAttempt(
 
 /**
  * A stale claim takeover means a previous attempt's POST outcome is unknown.
- * Reconcile by exact list name before creating:
- * - adopt a unique match only when its attributes match the request AND its
- *   creation time proves it was produced after the key was first claimed
- *   (persisted pre-create evidence — names and default attributes alone are
- *   not proof because they are not unique);
- * - treat a unique disproven match (wrong attributes, or created before the
- *   claim) as an unrelated pre-existing list and create fresh — the crashed
- *   attempt's own create would appear as a second match;
- * - settle and re-query once when nothing matches, because the crashed POST
- *   may still be committing server-side;
- * - refuse when several same-named lists make the target ambiguous or the
- *   match cannot be proven either way.
+ * Reconcile by exact list name before creating, without ever inferring
+ * OWNERSHIP of a matched list — names and attributes are not unique and
+ * another caller may have created a same-named list after the claim, so a
+ * match is never proof that the crashed attempt produced it:
+ * - several matches make the outcome unresolvable (paging stopped early, so
+ *   the candidate set is not even enumerable);
+ * - a unique match that could plausibly be the attempt's product (matching
+ *   attributes, and created at or after the first claim within clock skew,
+ *   or lacking a creation time) leaves the key unresolved for manual
+ *   reconciliation;
+ * - a unique match that is disproven (wrong attributes, or provably created
+ *   before the key was first claimed) is an unrelated pre-existing list,
+ *   and the crashed attempt's own create is not observable — creating fresh
+ *   cannot duplicate it;
+ * - nothing matches: settle and re-query once, because the crashed POST may
+ *   still be committing server-side.
  */
 async function reconcileRecoveredClaim(
 	client: Pick<ListmonkClient, "list">,
 	input: z.output<typeof createListInputSchema>,
 	firstClaimedAt: string,
-): Promise<List | undefined> {
+): Promise<void> {
 	// Stop paging as soon as ambiguity is provable.
 	let matches = await findListsByName(client, input.name, { maxMatches: 2 });
 	if (matches.length === 0) {
@@ -450,28 +454,25 @@ async function reconcileRecoveredClaim(
 	}
 	if (matches.length > 1) {
 		throw new Error(
-			`Idempotency recovery found multiple lists named "${input.name}"; the crashed attempt's target is ambiguous. Reconcile the duplicates manually and retry with a new idempotency key.`,
+			`Idempotency recovery found multiple lists named "${input.name}"; the crashed attempt's outcome is ambiguous. Reconcile the duplicates manually and retry with a new idempotency key.`,
 		);
 	}
 	const candidate = matches[0];
 	if (candidate === undefined) {
 		// Settled miss: the crashed attempt's create is not observable, so a
 		// fresh POST cannot duplicate it.
-		return undefined;
+		return;
 	}
 	if (!matchesRequestedCreate(candidate, input)) {
-		return undefined;
+		return;
 	}
 	const createdDuring = createdDuringAttempt(candidate, firstClaimedAt);
-	if (createdDuring === undefined) {
-		throw new Error(
-			`Idempotency recovery cannot prove the list named "${input.name}" was created by the crashed attempt (no creation time); reconcile manually and retry with a new idempotency key.`,
-		);
+	if (createdDuring === false) {
+		return;
 	}
-	if (!createdDuring) {
-		return undefined;
-	}
-	return candidate;
+	throw new Error(
+		`Idempotency recovery cannot prove whether the list named "${input.name}" (id ${String(candidate.id ?? "?")}) was created by the crashed attempt; a same-named match is not ownership proof. The key stays unresolved — reconcile manually and retry with a new idempotency key.`,
+	);
 }
 
 /**
@@ -529,19 +530,19 @@ async function releaseKeyedListClaim(
 }
 
 /**
- * Best-effort commit for a recovered adoption: the adopted list is the
- * source of truth, and a pending claim still blocks duplicates when the
- * commit cannot be persisted.
+ * Best-effort transition of an unfinished claim to unknown: the attempt is
+ * over without a definitive outcome, so later retries must recover it
+ * immediately instead of waiting on a live owner that will never finish.
  */
-async function commitKeyedListCreate(
+async function markKeyedClaimUnknown(
 	store: ResourceCreateIdempotencyStore,
-	options: { key: string; claimToken: string; resourceId: string },
+	options: { key: string; claimToken: string },
 ): Promise<void> {
 	try {
-		await store.commit(options);
+		await store.markUnknown(options);
 	} catch (error) {
 		console.warn(
-			`Failed to persist resource-create idempotency record for key '${options.key}' (adopted list id ${options.resourceId}): ${toErrorMessage(error)}`,
+			`Failed to mark resource-create idempotency claim unknown for key '${options.key}': ${toErrorMessage(error)}`,
 		);
 	}
 }
@@ -612,25 +613,17 @@ export async function createSubscriberList(
 
 	// claim.kind === "new" — this call owns the key from here on.
 	if (claim.recovered) {
-		// The previous attempt crashed with its POST outcome unknown. Adopt
-		// a proven same-named list instead of risking a duplicate POST.
-		const adopted = await reconcileRecoveredClaim(
-			client,
-			input,
-			claim.firstClaimedAt,
-		);
-		if (adopted !== undefined) {
-			if (adopted.id === undefined) {
-				throw new Error(
-					`Idempotency recovery adopted a list named "${input.name}" without a resolvable id; the key was not bound`,
-				);
-			}
-			await commitKeyedListCreate(createIdempotencyStore, {
+		// The previous attempt ended without a definitive outcome. Verify
+		// the crashed attempt's create is not observable before issuing a
+		// POST of our own; a same-named match is never adopted as proof.
+		try {
+			await reconcileRecoveredClaim(client, input, claim.firstClaimedAt);
+		} catch (error) {
+			await markKeyedClaimUnknown(createIdempotencyStore, {
 				key: input.idempotency_key,
 				claimToken: claim.claimToken,
-				resourceId: String(adopted.id),
 			});
-			return { list: adopted, created: false };
+			throw error;
 		}
 	}
 
@@ -674,11 +667,15 @@ export async function createSubscriberList(
 	if (failure === undefined && created === undefined) {
 		// The POST was accepted with an empty body; resolve the created list
 		// by name. Any failure here happened after the create was accepted,
-		// so the claim must stay pending for reconciliation — releasing it
-		// would let a retry provision a duplicate.
+		// so the claim must stay for reconciliation — releasing it would let
+		// a retry provision a duplicate.
 		try {
 			created = await resolveCreatedListByName(client, input, claim.claimedAt);
 		} catch (error) {
+			await markKeyedClaimUnknown(createIdempotencyStore, {
+				key: input.idempotency_key,
+				claimToken: claim.claimToken,
+			});
 			throw new Error(
 				`Keyed list create was accepted but the created record could not be resolved: ${toErrorMessage(error)}`,
 				{ cause: error },
@@ -697,10 +694,15 @@ export async function createSubscriberList(
 			});
 			throw failure.error;
 		}
-		// Ambiguous failures keep the pending claim so an automatic retry
-		// cannot POST a duplicate; a later stale takeover reconciles by name.
+		// Ambiguous failures mark the claim unknown so an automatic retry
+		// cannot POST a duplicate but recovers immediately (instead of
+		// waiting on a live owner that will never finish) to reconcile.
+		await markKeyedClaimUnknown(createIdempotencyStore, {
+			key: input.idempotency_key,
+			claimToken: claim.claimToken,
+		});
 		throw new Error(
-			`Keyed list create failed ambiguously (${toErrorMessage(failure.error)}); the request may or may not have created a list. The idempotency key stays claimed; a retry replays or reconciles the outcome instead of creating again.`,
+			`Keyed list create failed ambiguously (${toErrorMessage(failure.error)}); the request may or may not have created a list. The idempotency key is marked unknown; a retry reconciles the outcome instead of creating again.`,
 			{ cause: failure.error },
 		);
 	}
@@ -718,6 +720,10 @@ export async function createSubscriberList(
 				created = resolved;
 			}
 		} catch (error) {
+			await markKeyedClaimUnknown(createIdempotencyStore, {
+				key: input.idempotency_key,
+				claimToken: claim.claimToken,
+			});
 			throw new Error(
 				`Keyed list create was accepted but the created record could not be re-read: ${toErrorMessage(error)}`,
 				{ cause: error },
@@ -726,10 +732,14 @@ export async function createSubscriberList(
 	}
 
 	if (created === undefined || created.id === undefined) {
-		// Keep the claim pending so a retry reconciles by name instead of
+		// Mark the claim unknown so a retry reconciles by name instead of
 		// silently issuing a second POST under the same key.
+		await markKeyedClaimUnknown(createIdempotencyStore, {
+			key: input.idempotency_key,
+			claimToken: claim.claimToken,
+		});
 		throw new Error(
-			`List was created but its id could not be resolved; the idempotency key was not bound and a retry will reconcile by list name "${input.name}" instead of creating again`,
+			`List was created but its id could not be resolved; the idempotency key was not bound and is marked unknown so a retry reconciles by list name "${input.name}" instead of creating again`,
 		);
 	}
 
@@ -741,11 +751,16 @@ export async function createSubscriberList(
 			resourceId,
 		});
 	} catch (error) {
-		// The create is the source of truth. The pending claim still blocks a
-		// duplicate POST and a later stale takeover adopts the list by name.
+		// The create is the source of truth. The claim still blocks a
+		// duplicate POST; marking it unknown lets a retry recover and
+		// reconcile immediately instead of waiting on this live process.
 		console.warn(
 			`Failed to persist resource-create idempotency record for key '${input.idempotency_key}' (created list id ${resourceId}): ${toErrorMessage(error)}`,
 		);
+		await markKeyedClaimUnknown(createIdempotencyStore, {
+			key: input.idempotency_key,
+			claimToken: claim.claimToken,
+		});
 	}
 	return { list: created, created: true };
 }

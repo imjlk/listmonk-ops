@@ -13,9 +13,11 @@ import {
  * was created, so an ambiguous create retry replays the original instead
  * of provisioning a duplicate. Keys are claimed atomically before the
  * remote create: a concurrent same-key caller observes the pending claim
- * instead of racing a second POST. Schema-versioned and written atomically.
+ * instead of racing a second POST. A claim whose owning attempt ended
+ * without a definitive outcome is marked `unknown`, which later retries
+ * recover immediately. Schema-versioned and written atomically.
  */
-export type ResourceCreateStatus = "pending" | "created";
+export type ResourceCreateStatus = "pending" | "created" | "unknown";
 
 export interface StoredResourceCreateRecord {
 	key: string;
@@ -85,6 +87,16 @@ export interface ResourceCreateIdempotencyStore {
 		resourceId: string;
 		now?: () => Date;
 	}): Promise<void>;
+	/**
+	 * Mark a pending claim unknown: the owning attempt finished without a
+	 * definitive outcome, so later same-key claims recover immediately
+	 * instead of waiting on a live owner that will never finish.
+	 */
+	markUnknown(options: {
+		key: string;
+		claimToken: string;
+		now?: () => Date;
+	}): Promise<void>;
 	/** Drop a pending claim whose remote create definitively never happened. */
 	release(options: { key: string; claimToken: string; now?: () => Date }): Promise<void>;
 }
@@ -103,8 +115,13 @@ export function getResourceCreateStoreMaxRecords(): number {
 	if (!raw) {
 		return RESOURCE_CREATE_STORE_MAX_RECORDS;
 	}
+	if (!/^[0-9]+$/.test(raw)) {
+		throw new Error(
+			`LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS must be a positive integer (received '${raw}')`,
+		);
+	}
 	const parsed = Number.parseInt(raw, 10);
-	if (!Number.isInteger(parsed) || parsed <= 0) {
+	if (parsed <= 0) {
 		throw new Error(
 			`LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS must be a positive integer (received '${raw}')`,
 		);
@@ -171,11 +188,13 @@ export function isStoredResourceCreateRecord(
 	if (typeof value.resourceKind !== "string" || value.resourceKind.length === 0) {
 		return false;
 	}
-	if (value.status !== "pending" && value.status !== "created") return false;
+	if (value.status !== "pending" && value.status !== "created" && value.status !== "unknown") {
+		return false;
+	}
 	if (value.status === "created" && typeof value.resourceId !== "string") {
 		return false;
 	}
-	if (value.status === "pending" && value.resourceId !== undefined) return false;
+	if (value.status !== "created" && value.resourceId !== undefined) return false;
 	if (value.resourceId !== undefined && typeof value.resourceId !== "string") {
 		return false;
 	}
@@ -291,10 +310,17 @@ function isClaimStale(
 	record: StoredResourceCreateRecord,
 	now: Date,
 ): boolean {
+	if (record.status === "unknown") {
+		// The owning attempt explicitly declared its outcome unknown; it is
+		// finished and will never commit or release. Recover immediately
+		// even on a live host like a long-running MCP server.
+		return true;
+	}
 	if (record.owner.hostname === STORE_HOSTNAME) {
 		// Same-host liveness is authoritative: a live owner keeps its claim
 		// regardless of age, so a legitimately slow create can never be
-		// stolen into a concurrent second POST.
+		// stolen into a concurrent second POST. An attempt that ends
+		// without a definitive outcome marks itself unknown instead.
 		return isOwnerProcessDead(record.owner);
 	}
 	// A foreign-host owner cannot be probed locally; only age can mark the
@@ -447,6 +473,49 @@ export async function commitResourceCreate(options: {
 }
 
 /**
+ * Transition a pending claim to `unknown`: the owning attempt finished
+ * without a definitive outcome, so a later same-key claim recovers it
+ * immediately (reconciliation with the preserved first-claim evidence)
+ * instead of waiting on an owner that will never complete. A mismatched
+ * `claimToken` (the claim was already taken over) is a no-op.
+ */
+export async function markResourceCreateUnknown(options: {
+	storePath?: string;
+	key: string;
+	claimToken: string;
+	now?: () => Date;
+}): Promise<void> {
+	const store = createResourceCreateStore(
+		options.storePath ?? getResourceCreateStorePath(),
+	);
+	const now = (options.now ?? (() => new Date()))();
+
+	await updateJsonFileStore<ResourceCreateStoreDocument, undefined>(
+		store,
+		(document) => {
+			const existing = Object.hasOwn(document.records, options.key)
+				? document.records[options.key]
+				: undefined;
+			if (
+				existing === undefined ||
+				existing.claimToken !== options.claimToken ||
+				existing.status !== "pending"
+			) {
+				return commitJsonFileStoreUpdate(document, undefined);
+			}
+			const updated: StoredResourceCreateRecord = {
+				...existing,
+				status: "unknown",
+				updatedAt: now.toISOString(),
+			};
+			const records = copyRecords(document.records);
+			records[options.key] = updated;
+			return commitJsonFileStoreUpdate({ version: 1, records }, undefined);
+		},
+	);
+}
+
+/**
  * Drop a pending claim whose remote create definitively never happened so a
  * retry can claim fresh. A claim already bound to a resource is never
  * removed; a mismatched `claimToken` is a no-op.
@@ -490,6 +559,8 @@ export function createFileBackedResourceCreateIdempotencyStore(
 			claimResourceCreate({ storePath, ...claimOptions }),
 		commit: (commitOptions) =>
 			commitResourceCreate({ storePath, ...commitOptions }),
+		markUnknown: (markOptions) =>
+			markResourceCreateUnknown({ storePath, ...markOptions }),
 		release: (releaseOptions) =>
 			releaseResourceCreate({ storePath, ...releaseOptions }),
 	};

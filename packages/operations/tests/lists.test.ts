@@ -31,7 +31,8 @@ function context(list: Partial<ListClient["list"]>) {
 /**
  * In-memory mirror of the file-backed claim/commit/release semantics with a
  * promise-chain mutex so concurrent claims serialize like the real store.
- * Owner liveness is not modeled: a pending claim never goes stale here.
+ * Owner liveness is not modeled: only an explicitly marked-unknown claim
+ * goes stale here.
  */
 function createInMemoryResourceCreateStore() {
 	const records = new Map<string, StoredResourceCreateRecord>();
@@ -65,7 +66,10 @@ function createInMemoryResourceCreateStore() {
 					if (existing.status === "created") {
 						return { kind: "replay" as const, record: existing };
 					}
-					return { kind: "pending" as const, record: existing };
+					if (existing.status === "pending") {
+						return { kind: "pending" as const, record: existing };
+					}
+					// unknown: recoverable immediately
 				}
 				const now = new Date().toISOString();
 				const record: StoredResourceCreateRecord = {
@@ -76,6 +80,7 @@ function createInMemoryResourceCreateStore() {
 					status: "pending",
 					claimToken: `token-${records.size + 1}-${Math.random()}`,
 					owner: { pid: process.pid, hostname: "test" },
+					firstClaimedAt: existing?.firstClaimedAt ?? now,
 					createdAt: now,
 					updatedAt: now,
 				};
@@ -84,7 +89,7 @@ function createInMemoryResourceCreateStore() {
 					kind: "new" as const,
 					claimToken: record.claimToken,
 					record,
-					recovered: false,
+					recovered: existing !== undefined,
 				};
 			}),
 		commit: (options) =>
@@ -99,6 +104,21 @@ function createInMemoryResourceCreateStore() {
 						...existing,
 						status: "created",
 						resourceId: options.resourceId,
+						updatedAt: new Date().toISOString(),
+					});
+				}
+			}),
+		markUnknown: (options) =>
+			serialized(() => {
+				const existing = records.get(options.key);
+				if (
+					existing !== undefined &&
+					existing.claimToken === options.claimToken &&
+					existing.status === "pending"
+				) {
+					records.set(options.key, {
+						...existing,
+						status: "unknown",
 						updatedAt: new Date().toISOString(),
 					});
 				}
@@ -425,7 +445,7 @@ describe("subscriber-list operations", () => {
 		).rejects.toThrow(/could not be resolved/);
 		// The pending claim survives so a retry reconciles instead of
 		// issuing a second POST under the same key.
-		expect(records.get("list-unresolved")?.status).toBe("pending");
+		expect(records.get("list-unresolved")?.status).toBe("unknown");
 	});
 
 	test("keeps the claim pending when a read-back fails after an accepted create", async () => {
@@ -459,7 +479,7 @@ describe("subscriber-list operations", () => {
 		).rejects.toThrow(
 			/accepted but the created record could not be resolved/,
 		);
-		expect(records.get("list-readback")?.status).toBe("pending");
+		expect(records.get("list-readback")?.status).toBe("unknown");
 	});
 
 	test("refuses to bind a key when an empty-body create matches two same-named lists", async () => {
@@ -497,7 +517,7 @@ describe("subscriber-list operations", () => {
 				idempotency_key: "list-duplicated",
 			}),
 		).rejects.toThrow(/multiple lists named "Duplicated"/);
-		expect(records.get("list-duplicated")?.status).toBe("pending");
+		expect(records.get("list-duplicated")?.status).toBe("unknown");
 	});
 
 	test("refuses to bind an empty-body create onto a mismatched same-named list", async () => {
@@ -533,7 +553,7 @@ describe("subscriber-list operations", () => {
 				idempotency_key: "list-mismatched",
 			}),
 		).rejects.toThrow(/could not identify a list named "Existing"/);
-		expect(records.get("list-mismatched")?.status).toBe("pending");
+		expect(records.get("list-mismatched")?.status).toBe("unknown");
 	});
 
 	test("creates fresh during recovery when the only same-named list mismatches the request", async () => {
@@ -558,6 +578,7 @@ describe("subscriber-list operations", () => {
 			commit: async (options: { resourceId: string }) => {
 				commits.push(options);
 			},
+			markUnknown: async () => {},
 			release: async () => {},
 		};
 		const create = mock(async () => ({
@@ -615,6 +636,7 @@ describe("subscriber-list operations", () => {
 			commit: async (options: { resourceId: string }) => {
 				commits.push(options);
 			},
+			markUnknown: async () => {},
 			release: async () => {},
 		};
 		const create = mock(async () => ({
@@ -664,9 +686,9 @@ describe("subscriber-list operations", () => {
 		]);
 	});
 
-	test("settles and re-queries before recreating on a recovered claim", async () => {
+	test("settles and observes a late list instead of recreating", async () => {
 		let recoverOnce = true;
-		let commits = 0;
+		let marksUnknown = 0;
 		const store = {
 			claim: async () => {
 				if (recoverOnce) {
@@ -683,16 +705,18 @@ describe("subscriber-list operations", () => {
 				}
 				return { kind: "replay" as const, record: {} as never };
 			},
-			commit: async () => {
-				commits += 1;
+			commit: async () => {},
+			markUnknown: async () => {
+				marksUnknown += 1;
 			},
 			release: async () => {},
 		};
 		const create = mock(async () => ({
 			data: { id: 99, name: "Settled" },
 		})) as unknown as ListClient["list"]["create"];
-		// The crashed POST is still committing server-side: the first
-		// lookup misses, the post-settle re-query observes the list.
+		// The crashed POST is still committing server-side: the first lookup
+		// misses, the post-settle re-query observes the list. The match is
+		// plausible but unproven, so recovery must not recreate.
 		let queries = 0;
 		const list = mock(async () => {
 			queries += 1;
@@ -724,15 +748,62 @@ describe("subscriber-list operations", () => {
 			target: { baseUrl: "https://listmonk.example", username: "admin" },
 		};
 
-		const result = await invokeCreateListOperation(ctx, {
-			name: "Settled",
-			idempotency_key: "list-settled",
-		});
-
-		expect(result).toMatchObject({ created: false, list: { id: 55 } });
+		await expect(
+			invokeCreateListOperation(ctx, {
+				name: "Settled",
+				idempotency_key: "list-settled",
+			}),
+		).rejects.toThrow(/not ownership proof/);
 		expect(create).not.toHaveBeenCalled();
 		expect(list).toHaveBeenCalledTimes(2);
-		expect(commits).toBe(1);
+		expect(marksUnknown).toBe(1);
+	}, 10_000);
+
+	test("creates fresh during recovery after a settled miss", async () => {
+		let recoverOnce = true;
+		const store = {
+			claim: async () => {
+				if (recoverOnce) {
+					recoverOnce = false;
+					return {
+						kind: "new" as const,
+						claimToken: "token-recovered",
+						record: {
+							createdAt: "2026-08-01T00:00:00Z",
+							firstClaimedAt: "2026-08-01T00:00:00Z",
+						} as never,
+						recovered: true,
+					};
+				}
+				return { kind: "replay" as const, record: {} as never };
+			},
+			commit: async () => {},
+			markUnknown: async () => {},
+			release: async () => {},
+		};
+		const create = mock(async () => ({
+			data: { id: 99, name: "Settled" },
+		})) as unknown as ListClient["list"]["create"];
+		const list = mock(async () => ({
+			data: { results: [], total: 0, page: 1, per_page: 100 },
+		})) as unknown as ListClient["list"]["list"];
+		const ctx = {
+			client: { list: { create, list } } as unknown as Pick<
+				ListmonkClient,
+				"list"
+			>,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		const result = await invokeCreateListOperation(ctx, {
+			name: "Settled",
+			idempotency_key: "list-settled-miss",
+		});
+
+		expect(result).toMatchObject({ created: true, list: { id: 99 } });
+		expect(list).toHaveBeenCalledTimes(2);
 	}, 10_000);
 
 	test("refuses to resolve an empty-body create onto a match that predates the claim", async () => {
@@ -773,7 +844,7 @@ describe("subscriber-list operations", () => {
 				idempotency_key: "list-predates",
 			}),
 		).rejects.toThrow(/predates the request/);
-		expect(records.get("list-predates")?.status).toBe("pending");
+		expect(records.get("list-predates")?.status).toBe("unknown");
 	});
 
 	test("releases the claim when Listmonk definitively rejects a keyed create", async () => {
@@ -799,10 +870,9 @@ describe("subscriber-list operations", () => {
 		expect(records.has("list-rejected")).toBe(false);
 	});
 
-	test("recovers a stale claim by adopting a uniquely named list", async () => {
-		const commits: Array<{ key: string; claimToken: string; resourceId: string }> =
-			[];
+	test("leaves recovery unresolved when a same-named match could be the attempt's product", async () => {
 		let recoverOnce = true;
+		let marksUnknown = 0;
 		const store = {
 			claim: async () => {
 				if (recoverOnce) {
@@ -819,8 +889,9 @@ describe("subscriber-list operations", () => {
 				}
 				return { kind: "replay" as const, record: {} as never };
 			},
-			commit: async (options: { key: string; claimToken: string; resourceId: string }) => {
-				commits.push(options);
+			commit: async () => {},
+			markUnknown: async () => {
+				marksUnknown += 1;
 			},
 			release: async () => {},
 		};
@@ -829,12 +900,13 @@ describe("subscriber-list operations", () => {
 		})) as unknown as ListClient["list"]["create"];
 		const list = mock(async () => ({
 			data: {
+				// Created after the key was first claimed, so it is plausible
+				// — but names and attributes are not unique, and another
+				// caller may have created it, so it is not ownership proof.
 				results: [
 					{
 						id: 55,
 						name: "Recovered",
-						// Created after the key was first claimed: proof the
-						// crashed attempt produced it.
 						created_at: "2021-01-01T00:00:00Z",
 					},
 				],
@@ -853,17 +925,62 @@ describe("subscriber-list operations", () => {
 			target: { baseUrl: "https://listmonk.example", username: "admin" },
 		};
 
-		const result = await invokeCreateListOperation(ctx, {
-			name: "Recovered",
-			idempotency_key: "list-recovered",
-		});
-
-		expect(result).toMatchObject({ created: false, list: { id: 55 } });
+		await expect(
+			invokeCreateListOperation(ctx, {
+				name: "Recovered",
+				idempotency_key: "list-recovered",
+			}),
+		).rejects.toThrow(/not ownership proof/);
 		expect(create).not.toHaveBeenCalled();
-		expect(commits).toEqual([
-			{ key: "list-recovered", claimToken: "token-recovered", resourceId: "55" },
-		]);
+		expect(marksUnknown).toBe(1);
 	});
+
+	test("recovers an unknown claim immediately on the next retry", async () => {
+		const { store, records } = createInMemoryResourceCreateStore();
+		let calls = 0;
+		const create = mock(async () => {
+			calls += 1;
+			if (calls === 1) {
+				// Ambiguous transport failure: the POST outcome is unknown.
+				const error = new Error("fetch failed") as NodeJS.ErrnoException;
+				error.code = "ECONNRESET";
+				throw error;
+			}
+			return { data: { id: 77, name: "Cycle" } };
+		}) as unknown as ListClient["list"]["create"];
+		const list = mock(async () => ({
+			// Recovery sees no list: the first POST never landed.
+			data: { results: [], total: 0, page: 1, per_page: 100 },
+		})) as unknown as ListClient["list"]["list"];
+		const ctx = {
+			client: { list: { create, list } } as unknown as Pick<
+				ListmonkClient,
+				"list"
+			>,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		await expect(
+			invokeCreateListOperation(ctx, {
+				name: "Cycle",
+				idempotency_key: "list-cycle",
+			}),
+		).rejects.toThrow(/failed ambiguously/);
+		expect(records.get("list-cycle")?.status).toBe("unknown");
+
+		// The retry takes over the unknown claim right away (a live MCP
+		// owner would otherwise block it forever) and creates fresh after
+		// the settled miss confirms the first POST never landed.
+		const retried = await invokeCreateListOperation(ctx, {
+			name: "Cycle",
+			idempotency_key: "list-cycle",
+		});
+		expect(retried).toMatchObject({ created: true, list: { id: 77 } });
+		expect(create).toHaveBeenCalledTimes(2);
+		expect(records.get("list-cycle")?.status).toBe("created");
+	}, 10_000);
 
 	test("does not turn an update API error into success", async () => {
 		const update = mock(async () => ({ error: { error: "conflict" } }));

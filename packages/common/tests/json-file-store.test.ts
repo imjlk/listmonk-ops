@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+	mkdtemp,
+	readdir,
+	readFile,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -215,5 +222,32 @@ describe("JSON file store", () => {
 			count: 7,
 		});
 		expect(await readdir(dirname(store.path))).toEqual(["counter.json"]);
+	});
+
+	test("skips the atomic rewrite when an update returns the value unchanged", async () => {
+		const store = await createCounterStore();
+		await writeJsonFileStore(store, { version: 1, count: 7 });
+
+		const statBefore = await stat(store.path);
+		const observed = await updateJsonFileStore(store, (current) =>
+			// Read-only outcome: return the same document by reference, the
+			// way a lost claim race does.
+			commitJsonFileStoreUpdate(current, current.count),
+		);
+		expect(observed).toBe(7);
+		const statAfterNoop = await stat(store.path);
+		// No rewrite means the atomic rename never happened: same inode.
+		expect(statAfterNoop.ino).toBe(statBefore.ino);
+
+		await updateJsonFileStore(store, (current) =>
+			commitJsonFileStoreUpdate({ ...current, count: current.count + 1 }, undefined),
+		);
+		const statAfterWrite = await stat(store.path);
+		expect(JSON.parse(await readFile(store.path, "utf8"))).toEqual({
+			version: 1,
+			count: 8,
+		});
+		// A real change rewrites the file through a fresh inode.
+		expect(statAfterWrite.ino).not.toBe(statBefore.ino);
 	});
 });
