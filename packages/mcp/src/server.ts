@@ -552,7 +552,10 @@ export class ListmonkMCPServer {
 					auth: "token",
 				});
 			} else if (toolNameSets.media.has(name)) {
-				result = await handleMediaTools(operationRequest, this.client);
+				result = await handleMediaTools(operationRequest, this.client, {
+					baseUrl: this.baseUrl,
+					username: this.username,
+				});
 			} else if (toolNameSets.bounces.has(name)) {
 				result = await handleBouncesTools(operationRequest, this.client);
 			} else if (toolNameSets.settings.has(name)) {

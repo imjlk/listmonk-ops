@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMCPTestSuite } from "../mcp-helper.js";
@@ -137,7 +138,106 @@ async function deleteMediaIfPresent(mediaId: number | undefined): Promise<void> 
 }
 
 describe("Media CLI and MCP parity", () => {
+
 	const { client, utils } = createMCPTestSuite();
+
+	test("should replay a CLI-keyed upload through MCP", async () => {
+		const filename = `${buildTestName("media-cross")}.gif`;
+		const idempotencyKey = `e2e:${filename}`;
+		// The CLI subprocess runs with cwd set to apps/cli, so the fixture
+		// must live at an absolute path. The file keeps its .gif name: the
+		// shared operation infers the MIME type from the extension and
+		// rejects a bare .tmp suffix.
+		const tempFile = resolve(tmpdir(), filename);
+		await Bun.write(tempFile, TRANSPARENT_GIF);
+		try {
+			// Upload through the CLI adapter with a key.
+			const cliResult = Bun.spawnSync(
+				[
+					"bun",
+					CLI_ENTRY,
+					"media",
+					"upload",
+					"--file",
+					tempFile,
+					"--idempotency-key",
+					idempotencyKey,
+				],
+				{
+					cwd: CLI_DIRECTORY,
+					env: {
+						...process.env,
+						BUN_FORCE_COLOR: "0",
+						LISTMONK_API_URL: TEST_CONFIG.baseUrl,
+						LISTMONK_USERNAME: TEST_CONFIG.username,
+					LISTMONK_API_TOKEN: resolveCliE2eCredential(TEST_CONFIG),
+					},
+				},
+			);
+			expect(cliResult.exitCode).toBe(0);
+			// The success line comes first; the pretty-printed JSON envelope
+			// follows from the first line that opens an object.
+			const stdout = cliResult.stdout.toString();
+			const envelopeStart = stdout.indexOf("{");
+			const cliEnvelope = JSON.parse(
+				envelopeStart >= 0 ? stdout.slice(envelopeStart) : "{}",
+			) as { created?: boolean; media?: { id?: number } };
+			expect(cliEnvelope.created).toBe(true);
+			expect(cliEnvelope.media?.id).toBeGreaterThan(0);
+
+			// The identical upload replayed through the MCP adapter must
+			// resolve to the same media record via the shared store.
+			const replayed = utils.assertSuccess<{
+				media?: { id?: number };
+				created?: boolean;
+			}>(
+				await client.callTool("listmonk_upload_media", {
+					base64: Buffer.from(TRANSPARENT_GIF).toString("base64"),
+					filename,
+					content_type: "image/gif",
+					idempotency_key: idempotencyKey,
+				}),
+				"Failed to replay the CLI-keyed upload through MCP",
+			);
+			expect(replayed.created).toBe(false);
+			expect(replayed.media?.id).toBe(cliEnvelope.media?.id);
+		} finally {
+			await Bun.file(tempFile).delete();
+		}
+	});
+
+	test("should replay an identical keyed upload without duplicating", async () => {
+		const filename = `${buildTestName("media-keyed")}.gif`;
+		const idempotencyKey = `e2e:${filename}`;
+		const base64 = Buffer.from(TRANSPARENT_GIF).toString("base64");
+		const request = {
+			base64,
+			filename,
+			content_type: "image/gif",
+			idempotency_key: idempotencyKey,
+		};
+
+		const first = utils.assertSuccess<{ media?: { id?: number }; created?: boolean }>(
+			await client.callTool("listmonk_upload_media", request),
+			"Failed to run the first keyed media upload",
+		);
+		expect(first.created).toBe(true);
+		expect(first.media?.id).toBeGreaterThan(0);
+
+		const retried = utils.assertSuccess<{ media?: { id?: number }; created?: boolean }>(
+			await client.callTool("listmonk_upload_media", request),
+			"Failed to replay the keyed media upload",
+		);
+		expect(retried.created).toBe(false);
+		expect(retried.media?.id).toBe(first.media?.id);
+
+		// A different payload under the same key is rejected.
+		const conflicting = await client.callTool("listmonk_upload_media", {
+			...request,
+			filename: `${buildTestName("media-keyed-conflict")}.gif`,
+		});
+		utils.assertError(conflicting, "different create request");
+	});
 
 	test("reads the same fixture through both adapters and enforces destructive confirmation", async () => {
 		let cliMediaId: number | undefined;

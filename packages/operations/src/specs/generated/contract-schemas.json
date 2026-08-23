@@ -11874,6 +11874,13 @@
               "minLength": 1,
               "pattern": "^\\s*\\S[\\s\\S]*$",
               "type": "string"
+            },
+            "idempotency_key": {
+              "description": "Caller-scoped upload key; an identical retry with the same key replays the originally uploaded media file.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
             }
           },
           "required": [
@@ -11906,11 +11913,108 @@
           "minLength": 1,
           "pattern": "^\\s*\\S[\\s\\S]*$",
           "type": "string"
+        },
+        "idempotency_key": {
+          "description": "Caller-scoped upload key; an identical retry with the same key replays the originally uploaded media file.",
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^\\s*\\S[\\s\\S]*$",
+          "type": "string"
         }
       },
       "required": [
         "base64",
         "filename"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "mediaUploadOutputContract": {
+    "components": {
+      "schemas": {
+        "MediaRecord": {
+          "additionalProperties": {},
+          "properties": {
+            "content_type": {
+              "type": "string"
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "filename": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "meta": {
+              "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "provider": {
+              "type": "string"
+            },
+            "thumb_uri": {
+              "type": "string"
+            },
+            "thumb_url": {
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "MediaUploadOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "created": {
+              "type": "boolean"
+            },
+            "media": {
+              "$ref": "#/components/schemas/MediaRecord"
+            }
+          },
+          "required": [
+            "media",
+            "created"
+          ],
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "created": {
+          "type": "boolean"
+        },
+        "media": {
+          "$ref": "#/components/schemas/MediaRecord"
+        }
+      },
+      "required": [
+        "media",
+        "created"
       ],
       "type": "object"
     },

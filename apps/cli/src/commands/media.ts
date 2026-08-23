@@ -1,4 +1,9 @@
-import type { OutputUtils } from "@listmonk-ops/common";
+import {
+	createFileBackedResourceCreateIdempotencyStore,
+	type OutputUtils,
+	type ResourceCreateIdempotencyStore,
+} from "@listmonk-ops/common";
+import { createHash } from "node:crypto";
 import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
@@ -17,11 +22,18 @@ import {
 	option,
 } from "../lib/command";
 import { toErrorMessage } from "../lib/command-utils";
-import { getListmonkClient } from "../lib/listmonk";
+import { getListmonkClient, resolveListmonkSession } from "../lib/listmonk";
 
 type MediaOutput = Pick<typeof OutputUtils, "info" | "json" | "success" | "table">;
 
+function hashCreatePayload(serialized: string): string {
+	return createHash("sha256").update(serialized).digest("hex");
+}
+
 export interface MediaCliContext {
+	createIdempotencyStore?: ResourceCreateIdempotencyStore;
+	hashCreatePayload?: (serialized: string) => string;
+	target?: { baseUrl?: string; username?: string };
 	client: Pick<ListmonkClient, "media">;
 	output: MediaOutput;
 }
@@ -68,15 +80,18 @@ export async function renderUploadMedia(
 	context: MediaCliContext,
 	input: {
 		base64: string;
+		idempotency_key?: string;
 		filename: string;
 		content_type?: string;
 	},
 ): Promise<void> {
-	const uploaded = await invokeUploadMediaOperation(context, input);
+	const result = await invokeUploadMediaOperation(context, input);
 	context.output.success(
-		`Media file uploaded: ${uploaded.filename ?? input.filename}`,
+		result.created
+			? `Media file uploaded: ${result.media.filename ?? input.filename}`
+			: `Media file already uploaded: ${result.media.filename ?? input.filename}`,
 	);
-	context.output.json(uploaded);
+	context.output.json(result);
 }
 
 type ListMediaCommandFlags = { page?: number; "per-page"?: number };
@@ -123,9 +138,19 @@ export async function handleDeleteMediaCommand({
 export async function handleUploadMediaCommand({
 	flags,
 	...args
-}: HandlerArgs<{ file: string; "content-type"?: string }>): Promise<void> {
+}: HandlerArgs<{
+	file: string;
+	"idempotency-key"?: string;
+	"content-type"?: string;
+}>): Promise<void> {
 	try {
-		const client = await getListmonkClient(args);
+		const session = await resolveListmonkSession(args, {
+			requireAuth: true,
+		});
+		if (!session.client) {
+			throw new Error("Listmonk client is not available");
+		}
+		const client = session.client;
 		const file = Bun.file(flags.file);
 		// Bun.file() does not throw when the path is missing — it returns a
 		// File whose later reads fail. Probe existence explicitly so we can
@@ -151,9 +176,17 @@ export async function handleUploadMediaCommand({
 		const basename = flags.file.split(/[\\/]/).pop();
 		const filename = basename && basename.length > 0 ? basename : "upload";
 		await renderUploadMedia(
-				{ client, output: getOutput() },
+				{
+					client,
+					output: getOutput(),
+					createIdempotencyStore:
+						createFileBackedResourceCreateIdempotencyStore(),
+					hashCreatePayload,
+					target: { baseUrl: session.baseUrl, username: session.username },
+				},
 				{
 					base64,
+					idempotency_key: flags["idempotency-key"],
 					filename,
 					// Prefer the caller's explicit override. Otherwise omit
 					// the type so the shared operation can infer it from the
@@ -219,6 +252,13 @@ export default defineGroup({
 					description: "Path to the media file to upload",
 					fileType: "path",
 				}),
+				"idempotency-key": option(
+					z.string().trim().min(1).max(200).optional(),
+					{
+						description:
+							"Caller-scoped upload key; an identical retry with the same key replays the originally uploaded media file",
+					},
+				),
 				"content-type": option(z.string().trim().min(1).optional(), {
 					description:
 						"MIME content type override (inferred from the file when omitted)",

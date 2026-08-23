@@ -28537,7 +28537,7 @@
         "related": [
           "media.delete"
         ],
-        "retryGuidance": "Inspect media.list before retrying an ambiguous upload.",
+        "retryGuidance": "Key the upload with idempotency_key so an ambiguous retry replays the bound media file; without a key, verify with media.list before repeating.",
         "useWhen": [
           "A new media file must be uploaded."
         ],
@@ -28570,6 +28570,13 @@
                     "minLength": 1,
                     "pattern": "^\\s*\\S[\\s\\S]*$",
                     "type": "string"
+                  },
+                  "idempotency_key": {
+                    "description": "Caller-scoped upload key; an identical retry with the same key replays the originally uploaded media file.",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "pattern": "^\\s*\\S[\\s\\S]*$",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -28599,6 +28606,13 @@
               },
               "filename": {
                 "maxLength": 255,
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              },
+              "idempotency_key": {
+                "description": "Caller-scoped upload key; an identical retry with the same key replays the originally uploaded media file.",
+                "maxLength": 200,
                 "minLength": 1,
                 "pattern": "^\\s*\\S[\\s\\S]*$",
                 "type": "string"
@@ -28656,6 +28670,22 @@
                 "required": [],
                 "type": "object"
               },
+              "MediaUploadOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
+                  "media": {
+                    "$ref": "#/components/schemas/MediaRecord"
+                  }
+                },
+                "required": [
+                  "media",
+                  "created"
+                ],
+                "type": "object"
+              },
               "Recordstringunknown": {
                 "additionalProperties": {},
                 "type": "object"
@@ -28669,43 +28699,19 @@
           },
           "dialect": "openapi-3.1",
           "schema": {
-            "additionalProperties": {},
+            "additionalProperties": false,
             "properties": {
-              "content_type": {
-                "type": "string"
+              "created": {
+                "type": "boolean"
               },
-              "created_at": {
-                "type": "string"
-              },
-              "filename": {
-                "type": "string"
-              },
-              "id": {
-                "$ref": "#/components/schemas/ResourceId"
-              },
-              "meta": {
-                "$ref": "#/components/schemas/Recordstringunknown"
-              },
-              "provider": {
-                "type": "string"
-              },
-              "thumb_uri": {
-                "type": "string"
-              },
-              "thumb_url": {
-                "type": "string"
-              },
-              "uri": {
-                "type": "string"
-              },
-              "url": {
-                "type": "string"
-              },
-              "uuid": {
-                "type": "string"
+              "media": {
+                "$ref": "#/components/schemas/MediaRecord"
               }
             },
-            "required": [],
+            "required": [
+              "media",
+              "created"
+            ],
             "type": "object"
           },
           "source": "typescript",
@@ -28739,11 +28745,27 @@
       },
       "resource": "media",
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may upload another file unless the original media ID is known."
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The key is atomically claimed in a durable store before the upload is issued and then bound to the uploaded media id; an identical retry (same key, same filename, effective MIME type, and normalized base64 content, same Listmonk target) replays that media file with created: false, a concurrent same-key upload waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. An attempt that ends ambiguously — or whose accepted response carries neither an id nor an immutable uuid to correlate — marks its claim unknown, and later same-key uploads fail fast with reconciliation guidance: the key is intentionally not reused, because no filename-based check can prove which same-named file an upload produced."
+            },
+            "when": "idempotency_key is present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Listmonk media filenames are not unique, so a retry after an ambiguous upload provisions a duplicate file."
+            },
+            "when": "idempotency_key is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller supplies an idempotency key."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Upload media file",
       "verb": "upload"
     },

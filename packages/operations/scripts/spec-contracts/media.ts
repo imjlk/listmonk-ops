@@ -31,9 +31,16 @@ export interface MediaCollectionOutput {
 export interface MediaUploadInput {
 	/** Base64-encoded file contents. Max length matches the runtime 10 MiB decoded cap plus padding/slack. */
 	base64: NonEmptyString & tags.MaxLength<14981014>;
+	/** Caller-scoped upload key; an identical retry with the same key replays the originally uploaded media file. */
+	idempotency_key?: TrimmedNonEmptyString & tags.MaxLength<200>;
 	filename: TrimmedNonEmptyString & tags.MaxLength<255>;
 	/** Optional MIME content type. When omitted, the operation infers it from the filename. */
 	content_type?: TrimmedNonEmptyString & tags.MaxLength<127>;
+}
+
+export interface MediaUploadOutput {
+	media: MediaRecord;
+	created: boolean;
 }
 
 export interface MediaDeleteInput {
