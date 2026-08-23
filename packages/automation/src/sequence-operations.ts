@@ -335,6 +335,8 @@ const sequenceTickOutputSchema = z.object({
 	/** Recovery passes only: members of the echoed set left untouched. */
 	requested: z.number().int().nonnegative().optional(),
 	already_done: z.number().int().nonnegative().optional(),
+	/** Recovery passes only: skipped members still at their claimed step under a live lease — retry after that lease expires. */
+	pending_ids: z.array(sequenceIdInput).optional(),
 });
 const sequenceReconcileOutputSchema = z.object({
 	scanned: z.number().int().nonnegative(),
@@ -785,6 +787,7 @@ export async function executeSequenceTickOperation(
 			completed_at: result.completedAt,
 			requested: result.requested,
 			already_done: result.alreadyDone,
+			pending_ids: [...result.pendingIds],
 		};
 	}
 	const result = await runSequenceTick(executionContext(context), {

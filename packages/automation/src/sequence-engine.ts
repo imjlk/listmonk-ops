@@ -508,6 +508,16 @@ export class SequenceTickFailureError extends AggregateError {
 		this.name = "SequenceTickFailureError";
 		this.claimedSteps = claimedSteps;
 	}
+
+	/** Recovery handle for adapters: the echoed claim set this failure leaves. */
+	toStructuredDetails(): Record<string, unknown> {
+		return {
+			recovery_set: this.claimedSteps.map((step) => ({
+				enrollment_id: step.id,
+				step_id: step.stepId,
+			})),
+		};
+	}
 }
 
 /**
@@ -524,13 +534,36 @@ export async function recoverSequenceTick(
 		leaseMs?: number;
 		now?: Date;
 	},
-): Promise<SequenceTickSummary & { requested: number; alreadyDone: number }> {
+): Promise<
+	SequenceTickSummary & {
+		requested: number;
+		alreadyDone: number;
+		pendingIds: readonly string[];
+	}
+> {
 	const now = options.now ?? context.now?.() ?? new Date();
 	const claimed = await context.repository.claimSpecific({
 		claims: options.claims,
 		now,
 		leaseMs: options.leaseMs ?? DEFAULT_SEQUENCE_LEASE_MS,
 	});
+	// Snapshot the current state of every echoed member so skipped ones
+	// can be classified as pending (still at the claimed step, leased by
+	// another worker) versus already moved on.
+	const claimedStateByIds = new Map(
+		await Promise.all(
+			options.claims.map(async (request) => {
+				try {
+					return [
+						request.id,
+						await context.repository.getEnrollment(request.id),
+					] as const;
+				} catch {
+					return [request.id, undefined] as const;
+				}
+			}),
+		),
+	);
 	const counts = {
 		advanced: 0,
 		waiting: 0,
@@ -560,6 +593,22 @@ export async function recoverSequenceTick(
 			options.claims,
 		);
 	}
+	const claimedIds = new Set(claimed.map((entry) => entry.enrollment.id));
+	// Members skipped while still at their claimed step but not claimable
+	// now (a live foreign lease) are pending, not done: they become
+	// recoverable when that lease expires, so the caller must know to
+	// retry. Anything else skipped already moved on.
+	const pending = options.claims.filter((request) => {
+		if (claimedIds.has(request.id)) return false;
+		const enrollment = claimedStateByIds.get(request.id);
+		return (
+			enrollment !== undefined &&
+			enrollment.status !== "completed" &&
+			enrollment.status !== "ambiguous" &&
+			enrollment.status !== "cancelled" &&
+			enrollment.currentStepId === request.stepId
+		);
+	}).map((request) => request.id);
 	return {
 		requested: options.claims.length,
 		claimed: claimed.length,
@@ -568,7 +617,8 @@ export async function recoverSequenceTick(
 			id: entry.enrollment.id,
 			stepId: entry.enrollment.currentStepId,
 		})),
-		alreadyDone: options.claims.length - claimed.length,
+		pendingIds: pending,
+		alreadyDone: options.claims.length - claimed.length - pending.length,
 		...counts,
 		completedAt: now.toISOString(),
 	};

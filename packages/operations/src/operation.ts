@@ -63,12 +63,40 @@ export class OperationOutputError extends Error {
 
 export class OperationExecutionError extends Error {
 	public readonly operationId: string;
+	/**
+	 * Structured retry handle from the domain error, when it carries one
+	 * (for example a failed tick's claimed steps). Serialized by adapters
+	 * so callers can construct a documented recovery request instead of
+	 * parsing the message.
+	 */
+	public readonly details: Record<string, unknown> | undefined;
 
 	public constructor(operationId: string, cause: unknown) {
 		super(toErrorMessage(cause), { cause });
 		this.name = "OperationExecutionError";
 		this.operationId = operationId;
+		this.details = extractStructuredErrorDetails(cause);
 	}
+}
+
+function extractStructuredErrorDetails(
+	cause: unknown,
+): Record<string, unknown> | undefined {
+	if (
+		typeof cause === "object" &&
+		cause !== null &&
+		"toStructuredDetails" in cause &&
+		typeof (cause as { toStructuredDetails?: unknown }).toStructuredDetails ===
+			"function"
+	) {
+		const details = (
+			cause as { toStructuredDetails: () => Record<string, unknown> }
+		).toStructuredDetails();
+		return typeof details === "object" && details !== null
+			? details
+			: undefined;
+	}
+	return undefined;
 }
 
 function toErrorMessage(error: unknown): string {

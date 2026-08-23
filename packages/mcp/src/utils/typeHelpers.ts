@@ -58,6 +58,27 @@ export function parseId(id: unknown): number {
 /**
  * Helper function to create a standardized error handler wrapper
  */
+/**
+ * Error message plus any structured retry handle the domain error carries
+ * (OperationExecutionError.details), so callers can construct a documented
+ * recovery request without parsing prose.
+ */
+function formatErrorWithDetails(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	const details =
+		typeof error === "object" && error !== null && "details" in error
+			? (error as { details?: unknown }).details
+			: undefined;
+	if (
+		typeof details !== "object" ||
+		details === null ||
+		Object.keys(details).length === 0
+	) {
+		return message;
+	}
+	return `${message} [details: ${JSON.stringify(details)}]`;
+}
+
 export function withErrorHandler<T extends unknown[]>(
 	handler: (...args: T) => Promise<CallToolResult>,
 ): (...args: T) => Promise<CallToolResult> {
@@ -65,9 +86,7 @@ export function withErrorHandler<T extends unknown[]>(
 		try {
 			return await handler(...args);
 		} catch (error) {
-			return createErrorResult(
-				error instanceof Error ? error.message : String(error),
-			);
+			return createErrorResult(formatErrorWithDetails(error));
 		}
 	};
 }

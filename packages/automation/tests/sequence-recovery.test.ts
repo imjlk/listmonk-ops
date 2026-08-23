@@ -123,6 +123,7 @@ describe("sequence tick echoed-set recovery", () => {
 		expect(recovery).toMatchObject({
 			requested: 2,
 			claimed: 0,
+			pendingIds: [],
 			alreadyDone: 2,
 		});
 	});
@@ -160,12 +161,14 @@ describe("sequence tick echoed-set recovery", () => {
 		expect(leased).toHaveLength(2);
 
 		const recovery = await recoverSequenceTick(context, { claims, now });
-		// Live leases are skipped; the pass never claims anything outside
-		// the echoed set.
+		// Live leases are skipped and reported as pending (still at their
+		// claimed step, retryable after the lease expires), never folded
+		// into already_done.
 		expect(recovery).toMatchObject({
 			requested: 2,
 			claimed: 0,
-			alreadyDone: 2,
+			pendingIds: [enrollmentA.id, enrollmentB.id],
+			alreadyDone: 0,
 		});
 
 		// After the lease expires, the same echoed set re-claims both at

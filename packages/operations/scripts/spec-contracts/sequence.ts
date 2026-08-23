@@ -224,6 +224,8 @@ export interface SequenceTickOutput {
 	requested?: NonNegativeInteger;
 	/** Recovery passes only: echoed-set members left untouched. */
 	already_done?: NonNegativeInteger;
+	/** Recovery passes only: skipped members still at their claimed step under a live lease — retry after that lease expires. */
+	pending_ids?: (string & tags.Format<"uuid">)[];
 }
 
 export interface SequenceReconcileInput {

@@ -482,7 +482,7 @@ export const sequenceTickOperationSpec = defineOperationSpec({
 				semantics: {
 					kind: "safe",
 					reason:
-						"The recovery pass claims exactly the echoed enrollments, and only while each still sits at its originally claimed step: members that already advanced to a later step, completed, turned ambiguous, or hold a live lease are skipped, so an identical retry converges over the set instead of doing new work or executing a later step, and transactional idempotency prevents duplicate sends for re-executed steps. Ambiguous members stay skipped until an operator reconciles them.",
+						"The recovery pass claims exactly the echoed enrollments, and only while each still sits at its originally claimed step: members that already advanced to a later step, completed, turned ambiguous, or hold a live lease are skipped — live-lease members are reported as pending_ids so the caller knows to retry after that lease expires, while everything else skipped has already moved on — so an identical retry converges over the set instead of doing new work or executing a later step, and transactional idempotency prevents duplicate sends for re-executed steps. A failed tick surfaces its claim set as structured error details for exactly this recovery.",
 				},
 			},
 			{
