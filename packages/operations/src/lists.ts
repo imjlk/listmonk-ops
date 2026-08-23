@@ -288,24 +288,13 @@ function canonicalListCreatePayload(
 /** Bounded wait for a live same-key create to finish before giving up. */
 const KEYED_CREATE_PENDING_WAIT_MS = 10_000;
 const KEYED_CREATE_PENDING_POLL_MS = 200;
-/**
- * Wall-clock tolerance between the locally persisted claim time and
- * Listmonk's server-side `created_at` when proving a list was produced by
- * the claimed attempt.
- */
-const CREATE_TIME_SKEW_MS = 60_000;
 
 function delay(ms: number): Promise<void> {
 	return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
 }
 
 type SettledKeyedClaim =
-	| {
-			kind: "new";
-			claimToken: string;
-			/** Claim time of the attempt this POST belongs to. */
-			claimedAt: string;
-	  }
+	| { kind: "new"; claimToken: string }
 	| { kind: "replay"; record: StoredResourceCreateRecord };
 
 /**
@@ -345,11 +334,7 @@ async function claimKeyedListCreate(
 			return { kind: "replay", record: claim.record };
 		}
 		if (claim.kind === "new") {
-			return {
-				kind: "new",
-				claimToken: claim.claimToken,
-				claimedAt: claim.record.createdAt,
-			};
+			return { kind: "new", claimToken: claim.claimToken };
 		}
 		if (claim.kind === "unresolved") {
 			throw new Error(
@@ -384,73 +369,24 @@ async function replayRecordedList(
 }
 
 /**
- * A name-matched list can only be the product of the requested create when
- * the server-stable enum attributes agree. `description` and `tags` are
- * excluded because Listmonk may normalize them in stored records.
+ * Correlate an accepted keyed create that came back without a usable id to
+ * the list it produced. A name match is never proof — names are not unique
+ * and another caller may have created a same-named list — so binding is
+ * authorized only by immutable identity: the created record's `uuid` from
+ * the create response matching exactly one list in the name-scoped search.
  */
-function matchesRequestedCreate(
-	list: List,
-	input: z.output<typeof createListInputSchema>,
-): boolean {
-	return (
-		(list.type === undefined || list.type === input.type) &&
-		(list.optin === undefined || list.optin === input.optin)
-	);
-}
-
-/**
- * Prove from Listmonk's server-side `created_at` that the list was created
- * during the claimed attempt. Returns undefined when either timestamp is
- * absent or unparsable and the outcome is unprovable either way.
- */
-function createdDuringAttempt(
-	list: List,
-	attemptClaimedAt: string,
-): boolean | undefined {
-	const listCreatedMs = list.created_at !== undefined
-		? new Date(list.created_at).getTime()
-		: Number.NaN;
-	const claimedMs = new Date(attemptClaimedAt).getTime();
-	if (Number.isNaN(listCreatedMs) || Number.isNaN(claimedMs)) {
-		return undefined;
-	}
-	return listCreatedMs >= claimedMs - CREATE_TIME_SKEW_MS;
-}
-
-/**
- * Resolve an accepted-but-unidentified keyed create by exact list name.
- * Refuses ambiguous, attribute-mismatched, or creation-time-disproven
- * matches: this call's create definitely landed, so a same-named list the
- * request would not — or could not — have produced cannot be identified as
- * the created one, and the key must stay pending for manual reconciliation.
- */
-async function resolveCreatedListByName(
+async function correlateCreatedList(
 	client: Pick<ListmonkClient, "list">,
-	input: z.output<typeof createListInputSchema>,
-	claimedAt: string,
+	name: string,
+	createdUuid: string,
 ): Promise<List | undefined> {
-	const matches = await findListsByName(client, input.name, { maxMatches: 2 });
-	if (matches.length > 1) {
-		throw new Error(
-			`Keyed list create found multiple lists named "${input.name}"; the created list is ambiguous and the idempotency key was not bound`,
-		);
+	const matches = await findListsByName(client, name);
+	const correlated = matches.filter((list) => list.uuid === createdUuid);
+	const candidate = correlated[0];
+	if (correlated.length === 1 && candidate !== undefined && candidate.id !== undefined) {
+		return candidate;
 	}
-	const match = matches[0];
-	if (match === undefined) {
-		return undefined;
-	}
-	if (!matchesRequestedCreate(match, input)) {
-		throw new Error(
-			`Keyed list create could not identify a list named "${input.name}" matching the requested create; the idempotency key was not bound`,
-		);
-	}
-	const createdDuring = createdDuringAttempt(match, claimedAt);
-	if (createdDuring !== undefined && !createdDuring) {
-		throw new Error(
-			`Keyed list create could not identify a list named "${input.name}" matching the requested create (the match predates the request); the idempotency key was not bound`,
-		);
-	}
-	return match;
+	return undefined;
 }
 
 /**
@@ -559,6 +495,7 @@ export async function createSubscriberList(
 	// crashed create did not land (a list can even have been renamed).
 
 	let created: List | undefined;
+	let createdUuid: string | undefined;
 	let failure: { error: Error; definitive: boolean } | undefined;
 	try {
 		const response = await client.list.create({
@@ -585,6 +522,7 @@ export async function createSubscriberList(
 			};
 		} else if (response.data !== undefined) {
 			created = response.data;
+			createdUuid = response.data.uuid;
 		}
 	} catch (error) {
 		failure = {
@@ -595,20 +533,25 @@ export async function createSubscriberList(
 		};
 	}
 
-	if (failure === undefined && created === undefined) {
-		// The POST was accepted with an empty body; resolve the created list
-		// by name. Any failure here happened after the create was accepted,
-		// so the claim must stay for reconciliation — releasing it would let
-		// a retry provision a duplicate.
+	if (failure === undefined && created?.id === undefined) {
+		// The POST was accepted but did not carry a usable id: an empty body,
+		// or a record without one. Only immutable correlation may bind the
+		// key — a name match alone is never proof — so correlate the created
+		// record's uuid, when the response supplied one, against the
+		// name-scoped lists.
 		try {
-			created = await resolveCreatedListByName(client, input, claim.claimedAt);
+			if (createdUuid !== undefined) {
+				created = await correlateCreatedList(client, input.name, createdUuid);
+			} else {
+				created = undefined;
+			}
 		} catch (error) {
 			await markKeyedClaimUnknown(createIdempotencyStore, {
 				key: input.idempotency_key,
 				claimToken: claim.claimToken,
 			});
 			throw new Error(
-				`Keyed list create was accepted but the created record could not be resolved: ${toErrorMessage(error)}`,
+				`Keyed list create was accepted but the created record could not be re-read: ${toErrorMessage(error)}`,
 				{ cause: error },
 			);
 		}
@@ -625,52 +568,29 @@ export async function createSubscriberList(
 			});
 			throw failure.error;
 		}
-		// Ambiguous failures mark the claim unknown so an automatic retry
-		// cannot POST a duplicate but recovers immediately (instead of
-		// waiting on a live owner that will never finish) to reconcile.
+		// Ambiguous failures mark the claim unknown: retries with this key
+		// fail fast and the outcome must be reconciled manually.
 		await markKeyedClaimUnknown(createIdempotencyStore, {
 			key: input.idempotency_key,
 			claimToken: claim.claimToken,
 		});
 		throw new Error(
-			`Keyed list create failed ambiguously (${toErrorMessage(failure.error)}); the request may or may not have created a list. The idempotency key is marked unknown; a retry reconciles the outcome instead of creating again.`,
+			`Keyed list create failed ambiguously (${toErrorMessage(failure.error)}); the request may or may not have created a list. The idempotency key is marked unknown and needs manual reconciliation: inspect the Listmonk lists for the intended result and use a new idempotency key — retries with this key fail fast.`,
 			{ cause: failure.error },
 		);
 	}
 
 	if (created === undefined || created.id === undefined) {
-		// The POST was accepted but the created id is not yet resolvable; a
-		// same-name read-back gets one more chance to bind the key.
-		try {
-			const resolved = await resolveCreatedListByName(
-				client,
-				input,
-				claim.claimedAt,
-			);
-			if (resolved?.id !== undefined) {
-				created = resolved;
-			}
-		} catch (error) {
-			await markKeyedClaimUnknown(createIdempotencyStore, {
-				key: input.idempotency_key,
-				claimToken: claim.claimToken,
-			});
-			throw new Error(
-				`Keyed list create was accepted but the created record could not be re-read: ${toErrorMessage(error)}`,
-				{ cause: error },
-			);
-		}
-	}
-
-	if (created === undefined || created.id === undefined) {
-		// Mark the claim unknown so a retry reconciles by name instead of
-		// silently issuing a second POST under the same key.
+		// The create was accepted but cannot be immutably correlated to a
+		// list id. Mark the claim unknown: binding a name-matched list could
+		// permanently replay an unrelated list, and a silent second POST is
+		// exactly what the key exists to prevent.
 		await markKeyedClaimUnknown(createIdempotencyStore, {
 			key: input.idempotency_key,
 			claimToken: claim.claimToken,
 		});
 		throw new Error(
-			`List was created but its id could not be resolved; the idempotency key was not bound and is marked unknown so a retry reconciles by list name "${input.name}" instead of creating again`,
+			`List was created but its id could not be correlated (no id or immutable uuid in the response). The idempotency key is marked unknown and needs manual reconciliation: inspect the Listmonk lists named "${input.name}" and use a new idempotency key — retries with this key fail fast.`,
 		);
 	}
 
@@ -683,8 +603,8 @@ export async function createSubscriberList(
 		});
 	} catch (error) {
 		// The create is the source of truth. The claim still blocks a
-		// duplicate POST; marking it unknown lets a retry recover and
-		// reconcile immediately instead of waiting on this live process.
+		// duplicate POST; marking it unknown makes later same-key calls fail
+		// fast with reconciliation guidance instead of timing out.
 		console.warn(
 			`Failed to persist resource-create idempotency record for key '${input.idempotency_key}' (created list id ${resourceId}): ${toErrorMessage(error)}`,
 		);

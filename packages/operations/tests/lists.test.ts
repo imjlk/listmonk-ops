@@ -418,8 +418,10 @@ describe("subscriber-list operations", () => {
 		expect(outcomes[1]).toMatchObject({ created: true, list: { id: 41 } });
 	});
 
-	test("keeps the claim pending when a keyed create cannot resolve an id", async () => {
+	test("burns the key when an accepted create cannot be immutably correlated", async () => {
 		const { store, records } = createInMemoryResourceCreateStore();
+		// The create landed but returned neither an id nor a uuid: no name
+		// match — unique or not — can prove which list it produced.
 		const create = mock(async () => ({
 			data: { name: "Unresolved" },
 		})) as unknown as ListClient["list"]["create"];
@@ -441,19 +443,19 @@ describe("subscriber-list operations", () => {
 				name: "Unresolved",
 				idempotency_key: "list-unresolved",
 			}),
-		).rejects.toThrow(/could not be resolved/);
-		// The pending claim survives so a retry reconciles instead of
-		// issuing a second POST under the same key.
+		).rejects.toThrow(/could not be correlated/);
 		expect(records.get("list-unresolved")?.status).toBe("unknown");
+		// The name search is never even consulted for binding.
+		expect(list).not.toHaveBeenCalled();
 	});
 
-	test("keeps the claim pending when a read-back fails after an accepted create", async () => {
+	test("marks the claim unknown when the uuid read-back fails after an accepted create", async () => {
 		const { store, records } = createInMemoryResourceCreateStore();
-		// The POST is accepted but returns an empty body; the subsequent
-		// name read-back dies with a connection error that would look
-		// pre-dispatch in isolation. The claim must not be released.
+		// The POST is accepted with a uuid but no id; the correlation
+		// read-back dies with a connection error. The claim must not be
+		// released — the create definitely landed.
 		const create = mock(async () => ({
-			data: undefined,
+			data: { name: "Accepted", uuid: "uuid-accepted" },
 		})) as unknown as ListClient["list"]["create"];
 		const list = mock(async () => {
 			const error = new Error("fetch failed") as NodeJS.ErrnoException;
@@ -476,24 +478,23 @@ describe("subscriber-list operations", () => {
 				idempotency_key: "list-readback",
 			}),
 		).rejects.toThrow(
-			/accepted but the created record could not be resolved/,
+			/accepted but the created record could not be re-read/,
 		);
 		expect(records.get("list-readback")?.status).toBe("unknown");
 	});
 
-	test("refuses to bind a key when an empty-body create matches two same-named lists", async () => {
+	test("binds an id-less created record through its immutable uuid", async () => {
 		const { store, records } = createInMemoryResourceCreateStore();
-		// Listmonk names are not unique: with a pre-existing same-named
-		// list, the empty-body read-back cannot tell which list the create
-		// produced and must not bind the key to either.
+		// Two same-named lists exist, but the created record's uuid
+		// identifies its product unambiguously.
 		const create = mock(async () => ({
-			data: undefined,
+			data: { name: "Duplicated", uuid: "uuid-new" },
 		})) as unknown as ListClient["list"]["create"];
 		const list = mock(async () => ({
 			data: {
 				results: [
-					{ id: 71, name: "Duplicated" },
-					{ id: 72, name: "Duplicated" },
+					{ id: 71, name: "Duplicated", uuid: "uuid-old" },
+					{ id: 72, name: "Duplicated", uuid: "uuid-new" },
 				],
 				total: 2,
 				page: 1,
@@ -510,68 +511,29 @@ describe("subscriber-list operations", () => {
 			target: { baseUrl: "https://listmonk.example", username: "admin" },
 		};
 
-		await expect(
-			invokeCreateListOperation(ctx, {
-				name: "Duplicated",
-				idempotency_key: "list-duplicated",
-			}),
-		).rejects.toThrow(/multiple lists named "Duplicated"/);
-		expect(records.get("list-duplicated")?.status).toBe("unknown");
+		const result = await invokeCreateListOperation(ctx, {
+			name: "Duplicated",
+			idempotency_key: "list-uuid",
+		});
+
+		expect(result).toMatchObject({ created: true, list: { id: 72 } });
+		expect(records.get("list-uuid")).toMatchObject({
+			status: "created",
+			resourceId: "72",
+		});
 	});
 
-	test("refuses to bind an empty-body create onto a mismatched same-named list", async () => {
+	test("burns the key when no name-scoped list carries the created uuid", async () => {
 		const { store, records } = createInMemoryResourceCreateStore();
-		// The create landed but returned no body; the only same-named list
-		// carries attributes this request would not have produced, so it
-		// cannot be identified as the created list.
+		// The created record has a uuid, but the search finds no list with
+		// it (for example the created list was already renamed): the key
+		// cannot be bound to anything visible.
 		const create = mock(async () => ({
-			data: undefined,
+			data: { name: "Existing", uuid: "uuid-missing" },
 		})) as unknown as ListClient["list"]["create"];
 		const list = mock(async () => ({
 			data: {
-				results: [{ id: 71, name: "Existing", type: "public" }],
-				total: 1,
-				page: 1,
-				per_page: 100,
-			},
-		})) as unknown as ListClient["list"]["list"];
-		const ctx = {
-			client: { list: { create, list } } as unknown as Pick<
-				ListmonkClient,
-				"list"
-			>,
-			createIdempotencyStore: store,
-			hashCreatePayload: (value: string) => `hash:${value}`,
-			target: { baseUrl: "https://listmonk.example", username: "admin" },
-		};
-
-		// The default request type is private; the match is public.
-		await expect(
-			invokeCreateListOperation(ctx, {
-				name: "Existing",
-				idempotency_key: "list-mismatched",
-			}),
-		).rejects.toThrow(/could not identify a list named "Existing"/);
-		expect(records.get("list-mismatched")?.status).toBe("unknown");
-	});
-
-	test("refuses to resolve an empty-body create onto a match that predates the claim", async () => {
-		const { store, records } = createInMemoryResourceCreateStore();
-		const create = mock(async () => ({
-			data: undefined,
-		})) as unknown as ListClient["list"]["create"];
-		const list = mock(async () => ({
-			data: {
-				// Attribute-compatible but created long before this call's
-				// claim: this call's create is not observable, so the match
-				// cannot be identified as the created list.
-				results: [
-					{
-						id: 71,
-						name: "Existing",
-						created_at: "2020-01-01T00:00:00Z",
-					},
-				],
+				results: [{ id: 71, name: "Existing", uuid: "uuid-other" }],
 				total: 1,
 				page: 1,
 				per_page: 100,
@@ -590,10 +552,10 @@ describe("subscriber-list operations", () => {
 		await expect(
 			invokeCreateListOperation(ctx, {
 				name: "Existing",
-				idempotency_key: "list-predates",
+				idempotency_key: "list-uuid-missing",
 			}),
-		).rejects.toThrow(/predates the request/);
-		expect(records.get("list-predates")?.status).toBe("unknown");
+		).rejects.toThrow(/could not be correlated/);
+		expect(records.get("list-uuid-missing")?.status).toBe("unknown");
 	});
 
 	test("releases the claim when Listmonk definitively rejects a keyed create", async () => {
@@ -705,41 +667,6 @@ describe("subscriber-list operations", () => {
 		).rejects.toThrow(/unresolved previous attempt/);
 		expect(create).toHaveBeenCalledTimes(1);
 		expect(records.get("list-cycle")?.status).toBe("unknown");
-	});
-
-	test("resolves an empty-body create whose match carries an unparsable timestamp", async () => {
-		const { store, records } = createInMemoryResourceCreateStore();
-		const create = mock(async () => ({
-			data: undefined,
-		})) as unknown as ListClient["list"]["create"];
-		const list = mock(async () => ({
-			data: {
-				// Attribute-compatible single match, but the server returned a
-				// timestamp that cannot be parsed: the outcome stays
-				// unprovable and must not be read as predating the request.
-				results: [{ id: 71, name: "Existing", created_at: "" }],
-				total: 1,
-				page: 1,
-				per_page: 100,
-			},
-		})) as unknown as ListClient["list"]["list"];
-		const ctx = {
-			client: { list: { create, list } } as unknown as Pick<
-				ListmonkClient,
-				"list"
-			>,
-			createIdempotencyStore: store,
-			hashCreatePayload: (value: string) => `hash:${value}`,
-			target: { baseUrl: "https://listmonk.example", username: "admin" },
-		};
-
-		const result = await invokeCreateListOperation(ctx, {
-			name: "Existing",
-			idempotency_key: "list-unparsable",
-		});
-
-		expect(result).toMatchObject({ created: true, list: { id: 71 } });
-		expect(records.get("list-unparsable")?.status).toBe("created");
 	});
 
 	test("does not turn an update API error into success", async () => {

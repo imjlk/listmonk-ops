@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { link, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { hostname } from "node:os";
@@ -39,7 +40,81 @@ interface LockMetadata {
 	token: string;
 	pid: number;
 	hostname: string;
+	startedAt?: string;
 	createdAt: string;
+}
+
+/** Wall-clock estimate of this process's start, captured once. */
+export const PROCESS_STARTED_AT = new Date(
+	Math.round(Date.now() - performance.now()),
+).toISOString();
+
+/** How far apart two process-start estimates may be and still match. */
+const PROCESS_START_TOLERANCE_MS = 5_000;
+
+/**
+ * True when a recorded owner is this same live process. A recycled PID
+ * (for example a container restarting into PID 1) is a different process:
+ * the pid exists, but the recorded start time no longer matches. Foreign
+ * PIDs are compared through /proc on Linux and assumed alive elsewhere.
+ * Shared by the store locks and the resource-create claim records.
+ */
+export function isSameLiveProcess(owner: {
+	pid: number;
+	startedAt?: string;
+}): boolean {
+	try {
+		process.kill(owner.pid, 0);
+	} catch (error) {
+		if (isErrnoException(error, "ESRCH")) return false;
+		return true;
+	}
+	if (owner.startedAt === undefined) {
+		// Legacy lock/claim metadata without a start identity: fall back to
+		// pid liveness alone.
+		return true;
+	}
+	if (owner.pid === process.pid) {
+		return timestampsMatch(owner.startedAt, PROCESS_STARTED_AT);
+	}
+	const procStartedAt = readLinuxProcessStart(owner.pid);
+	if (procStartedAt !== undefined) {
+		return timestampsMatch(owner.startedAt, procStartedAt);
+	}
+	return true;
+}
+
+function timestampsMatch(a: string, b: string): boolean {
+	return (
+		Math.abs(new Date(a).getTime() - new Date(b).getTime()) <=
+		PROCESS_START_TOLERANCE_MS
+	);
+}
+
+/**
+ * Best-effort Linux-only start time for another process, from
+ * /proc/<pid>/stat field 22 (clock ticks since boot) plus /proc/uptime.
+ * Returns undefined anywhere else or when unreadable.
+ */
+function readLinuxProcessStart(pid: number): string | undefined {
+	if (process.platform !== "linux") return undefined;
+	try {
+		const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+		const closing = stat.lastIndexOf(")");
+		const fields = stat.slice(closing + 2).split(" ");
+		// Field 22 overall; after "comm)" the remaining fields start at 3.
+		const starttimeTicks = Number(fields[19]);
+		const uptimeSeconds = Number(
+			readFileSync("/proc/uptime", "utf8").split(" ")[0],
+		);
+		if (!Number.isFinite(starttimeTicks) || !Number.isFinite(uptimeSeconds)) {
+			return undefined;
+		}
+		const startedSecondsAgo = uptimeSeconds - starttimeTicks / 100; /* USER_HZ */
+		return new Date(Math.round(Date.now() - startedSecondsAgo * 1000)).toISOString();
+	} catch {
+		return undefined;
+	}
 }
 
 export class JsonFileLockTimeoutError extends Error {
@@ -83,19 +158,16 @@ function parseLockMetadata(value: string): LockMetadata | undefined {
 		) {
 			return undefined;
 		}
+		if (
+			parsed.startedAt !== undefined &&
+			typeof parsed.startedAt !== "string"
+		) {
+			return undefined;
+		}
 
 		return parsed as LockMetadata;
 	} catch {
 		return undefined;
-	}
-}
-
-function isProcessAlive(pid: number): boolean {
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch (error) {
-		return !isErrnoException(error, "ESRCH");
 	}
 }
 
@@ -104,6 +176,7 @@ function createLockMetadata(token = randomUUID()): LockMetadata {
 		token,
 		pid: process.pid,
 		hostname: LOCK_HOSTNAME,
+		startedAt: PROCESS_STARTED_AT,
 		createdAt: new Date().toISOString(),
 	};
 }
@@ -236,7 +309,9 @@ async function removeDeadOwnerFile(path: string): Promise<boolean> {
 
 	const knownAbandonedToken = knownAbandonedLockTokens.get(path);
 	const isKnownAbandoned = knownAbandonedToken === metadata.token;
-	if (!isKnownAbandoned && isProcessAlive(metadata.pid)) {
+	// A live pid is not enough: a killed container can restart into the
+	// same pid, so verify the recorded process actually is still running.
+	if (!isKnownAbandoned && isSameLiveProcess(metadata)) {
 		return false;
 	}
 

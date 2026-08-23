@@ -639,8 +639,8 @@ explicitly. A live same-host claim (verified past PID reuse) is never
 stolen by age, and an attempt that ends ambiguously marks its claim
 unknown so later same-key creates fail fast with reconciliation guidance
 — the key is intentionally not reused, because no name-based check can
-prove the crashed create did not land (a list can even have been
-renamed). A keyed create requires
+prove which same-named list a create produced (only an immutable uuid
+correlates one). A keyed create requires
 that store, so surfaces without one reject the key instead of silently
 dropping the guarantee — promoting the operation with
 testing-mode-independent conditional semantics (unkeyed creates stay

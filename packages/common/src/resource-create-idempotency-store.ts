@@ -1,9 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
-import { readFileSync } from "node:fs";
 import {
 	commitJsonFileStoreUpdate,
+	isSameLiveProcess,
+	PROCESS_STARTED_AT,
 	readJsonFileStore,
 	type JsonFileStore,
 	updateJsonFileStore,
@@ -275,14 +276,6 @@ export function createResourceCreateStore(
 	};
 }
 
-/** Wall-clock estimate of this process's start, captured once. */
-const PROCESS_STARTED_AT = new Date(
-	Math.round(Date.now() - performance.now()),
-).toISOString();
-
-/** How far apart two process-start estimates may be and still match. */
-const PROCESS_START_TOLERANCE_MS = 5_000;
-
 function newClaimToken(): string {
 	return createHash("sha256")
 		.update(`${Date.now()}-${Math.random()}-${randomUUID()}`)
@@ -298,18 +291,6 @@ function copyRecords(
 	return next;
 }
 
-function isErrnoException(
-	error: unknown,
-	code: string,
-): error is NodeJS.ErrnoException {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		error.code === code
-	);
-}
-
 function isOwnerProcessDead(
 	owner: StoredResourceCreateRecord["owner"],
 ): boolean {
@@ -318,62 +299,9 @@ function isOwnerProcessDead(
 		// threshold can mark such a claim stale.
 		return false;
 	}
-	try {
-		process.kill(owner.pid, 0);
-	} catch (error) {
-		return isErrnoException(error, "ESRCH");
-	}
-	// The PID exists, but a crashed service can restart into a reused PID
-	// (for example PID 1 in a restarted container). Compare the recorded
-	// process start against this process, or against /proc on Linux.
-	if (owner.pid === process.pid) {
-		return !timestampsMatch(owner.startedAt, PROCESS_STARTED_AT);
-	}
-	const procStartedAt = readLinuxProcessStart(owner.pid);
-	if (procStartedAt !== undefined) {
-		return !timestampsMatch(owner.startedAt, procStartedAt);
-	}
-	// Not verifiable on this platform for a foreign PID: assume live.
-	return false;
-}
-
-function timestampsMatch(a: string, b: string): boolean {
-	return (
-		Math.abs(new Date(a).getTime() - new Date(b).getTime()) <=
-		PROCESS_START_TOLERANCE_MS
-	);
-}
-
-/**
- * Best-effort Linux-only start time for another process, from
- * /proc/<pid>/stat field 22 (clock ticks since boot) plus /proc/uptime.
- * Returns undefined anywhere else or when unreadable.
- */
-function readLinuxProcessStart(pid: number): string | undefined {
-	if (process.platform !== "linux") return undefined;
-	try {
-		const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
-		const closing = stat.lastIndexOf(")");
-		const fields = stat.slice(closing + 2).split(" ");
-		// Field 22 overall; after "comm)" the remaining fields start at 3.
-		const starttimeTicks = Number(fields[19]);
-		const uptimeSeconds = Number(
-			readFileSync("/proc/uptime", "utf8").split(" ")[0],
-		);
-		if (
-			!Number.isFinite(starttimeTicks) ||
-			!Number.isFinite(uptimeSeconds)
-		) {
-			return undefined;
-		}
-		const startedSecondsAgo =
-			uptimeSeconds - starttimeTicks / 100 /* USER_HZ */;
-		return new Date(
-			Math.round(Date.now() - startedSecondsAgo * 1000),
-		).toISOString();
-	} catch {
-		return undefined;
-	}
+	// A live pid is not enough: a killed service can restart into a reused
+	// pid, so the recorded process start must match as well.
+	return !isSameLiveProcess(owner);
 }
 
 function isClaimStale(
