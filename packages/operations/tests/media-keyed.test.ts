@@ -94,6 +94,41 @@ describe("media upload operations", () => {
 		).rejects.toThrow(/resolved Listmonk target/);
 	});
 
+	test("treats encodings differing only in pad bits as identical", async () => {
+		const { store } = createInMemoryResourceCreateStore();
+		const upload = mock(async () => ({
+			data: { id: 7, filename: "byte.png", uuid: "uuid-7" },
+		})) as unknown as MediaClient["media"]["upload"];
+		const getById = mock(async () => ({
+			data: { id: 7, filename: "byte.png" },
+		})) as unknown as MediaClient["media"]["getById"];
+		const ctx = {
+			client: { media: { upload, getById } } as unknown as MediaClient,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		// Both decode to the single byte 0x61; only the pad bits differ.
+		const first = await invokeUploadMediaOperation(ctx, {
+			base64: "YQ==",
+			filename: "byte.png",
+			content_type: "image/png",
+			idempotency_key: "media-pad-bits",
+		});
+		expect(first.created).toBe(true);
+
+		const retried = await invokeUploadMediaOperation(ctx, {
+			base64: "YR==",
+			filename: "byte.png",
+			content_type: "image/png",
+			idempotency_key: "media-pad-bits",
+		});
+		expect(retried.created).toBe(false);
+		expect(retried.media).toMatchObject({ id: 7 });
+		expect(upload).toHaveBeenCalledTimes(1);
+	});
+
 	test("binds an id-less uploaded record through its immutable uuid", async () => {
 		const { store, records } = createInMemoryResourceCreateStore();
 		const upload = mock(async () => ({

@@ -170,7 +170,7 @@ describe("Media CLI and MCP parity", () => {
 						BUN_FORCE_COLOR: "0",
 						LISTMONK_API_URL: TEST_CONFIG.baseUrl,
 						LISTMONK_USERNAME: TEST_CONFIG.username,
-					LISTMONK_PASSWORD: TEST_CONFIG.password,
+					LISTMONK_API_TOKEN: resolveCliE2eCredential(TEST_CONFIG),
 					},
 				},
 			);

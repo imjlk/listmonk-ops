@@ -440,7 +440,12 @@ export interface MediaUploadResult {
 function canonicalMediaUploadPayload(
 	input: z.output<typeof uploadMediaInputSchema>,
 ): Record<string, unknown> {
-	const normalized = normalizeBase64Payload(input.base64) ?? input.base64;
+	// Canonicalize by the DECODED bytes re-encoded through the web-platform
+	// encoder: string normalization alone preserves non-zero pad bits
+	// (e.g. `YQ==` vs `YR==` both decode to 0x61), which would hash
+	// equivalent uploads differently.
+	const bytes = decodeBase64ToBytes(input.base64);
+	const canonical = bytes !== null ? encodeBytesToBase64(bytes) : input.base64;
 	return {
 		filename: input.filename,
 		// The schema accepts content_type case-insensitively, so the hash
@@ -448,8 +453,19 @@ function canonicalMediaUploadPayload(
 		content_type: (
 			input.content_type ?? inferContentTypeFromFilename(input.filename) ?? ""
 		).toLowerCase(),
-		base64: normalized,
+		base64: canonical,
 	};
+}
+
+/** Runtime-neutral base64 encoder over `btoa` (no `Buffer` global). */
+function encodeBytesToBase64(bytes: Uint8Array): string {
+	let binary = "";
+	const chunkSize = 8192;
+	for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+		const chunk = bytes.subarray(offset, offset + chunkSize);
+		binary += String.fromCharCode(...chunk);
+	}
+	return btoa(binary);
 }
 
 /**
