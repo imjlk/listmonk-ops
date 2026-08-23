@@ -853,11 +853,31 @@ export const webhookTickOperationSpec = defineOperationSpec({
 	effects: [{ kind: "webhook", resource: "webhook", audience: "bulk" }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "webhooks.delivery.list",
-		idempotent: false,
+		kind: "conditional",
+		cases: [
+			{
+				when: "recovery_set (an echoed claim set of delivery ids and their attempt counts at claim) is present",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "webhooks.delivery.list",
+					idempotent: false,
+					reason:
+						"The recovery pass claims exactly the echoed deliveries, and only while each still sits at its originally claimed attempt count: members that anyone has attempted since the echo, already succeeded or exhausted, hold a live lease, sit in backoff, or face an open circuit are skipped — live-lease, backoff, and circuit members are reported as pending_ids so the caller knows they are retryable later, while everything else skipped has moved on — so an identical retry converges over the set and never claims new due work. The POST itself remains at least once: an accepted-but-unobserved attempt leaves the delivery at the echoed count and the recovery sends it again, with the stable event-id header available for cooperative receiver deduplication — so the outcome still needs inspection, not a blind repeat.",
+				},
+			},
+			{
+				when: "recovery_set is absent",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "webhooks.delivery.list",
+					idempotent: false,
+					reason:
+						"Delivery is at least once and a fresh tick claims whatever is due at request time, so inspect lease and delivery state after an ambiguous worker result.",
+				},
+			},
+		],
 		reason:
-			"Delivery is at least once, so inspect lease and delivery state after an ambiguous worker result.",
+			"Webhook delivery is at least once in every mode; the echoed claim set bounds the retry to the originally claimed records.",
 	},
 	agent: {
 		useWhen: ["A scheduler or operator should process one durable outbox batch."],
@@ -866,7 +886,7 @@ export const webhookTickOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.reconcile", "webhooks.prune"],
 		retryGuidance:
-			"Inspect delivery state after a timeout before running another tick.",
+			"Echo a prior tick's dispatch.claim_steps output as recovery_set so an ambiguous retry re-attempts exactly that set at its originally claimed positions and never claims new due work; delivery stays at least once, so verify receiver state (the event-id header enables deduplication) before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_tick",
@@ -884,7 +904,7 @@ export const webhookTickOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookTickOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

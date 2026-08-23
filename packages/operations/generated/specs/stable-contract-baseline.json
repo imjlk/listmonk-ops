@@ -6180,6 +6180,417 @@
         "input": {
           "components": {
             "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "WebhookDeliveryListLimit": {
+                "maximum": 1000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookDispatchLimit": {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed webhook claim position: the delivery plus its attempt count at claim.",
+                "properties": {
+                  "attempt_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "delivery_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "delivery_id",
+                  "attempt_count"
+                ],
+                "type": "object"
+              },
+              "WebhookTickInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dispatch_limit": {
+                    "$ref": "#/components/schemas/WebhookDispatchLimit"
+                  },
+                  "reconcile_limit": {
+                    "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                  },
+                  "recovery_set": {
+                    "description": "Echoed claim set from a prior tick's dispatch.claim_steps output: recover exactly these deliveries at their originally claimed attempt counts.",
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dispatch_limit": {
+                "$ref": "#/components/schemas/WebhookDispatchLimit"
+              },
+              "reconcile_limit": {
+                "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+              },
+              "recovery_set": {
+                "description": "Echoed claim set from a prior tick's dispatch.claim_steps output: recover exactly these deliveries at their originally claimed attempt counts.",
+                "items": {
+                  "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "Uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "WebhookDispatchErrorCode": {
+                "oneOf": [
+                  {
+                    "const": "delivery_failed"
+                  },
+                  {
+                    "const": "delivery_state_conflict"
+                  },
+                  {
+                    "const": "delivery_unavailable"
+                  },
+                  {
+                    "const": "endpoint_unavailable"
+                  },
+                  {
+                    "const": "http_rejected"
+                  },
+                  {
+                    "const": "lease_conflict"
+                  },
+                  {
+                    "const": "signing_secret_unavailable"
+                  },
+                  {
+                    "const": "url_policy_blocked"
+                  }
+                ]
+              },
+              "WebhookDispatchOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "already_done": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claim_steps": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                    },
+                    "type": "array"
+                  },
+                  "claimed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claimed_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "pending_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "requested": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookDispatchResult"
+                    },
+                    "type": "array"
+                  },
+                  "retried": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "skipped": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "claimed",
+                  "succeeded",
+                  "retried",
+                  "exhausted",
+                  "skipped",
+                  "claimed_ids",
+                  "claim_steps",
+                  "results"
+                ],
+                "type": "object"
+              },
+              "WebhookDispatchResult": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "error_code": {
+                        "oneOf": [
+                          {
+                            "const": "delivery_failed"
+                          },
+                          {
+                            "const": "delivery_state_conflict"
+                          },
+                          {
+                            "const": "delivery_unavailable"
+                          },
+                          {
+                            "const": "endpoint_unavailable"
+                          },
+                          {
+                            "const": "http_rejected"
+                          },
+                          {
+                            "const": "lease_conflict"
+                          },
+                          {
+                            "const": "signing_secret_unavailable"
+                          },
+                          {
+                            "const": "url_policy_blocked"
+                          }
+                        ]
+                      },
+                      "status": {
+                        "oneOf": [
+                          {
+                            "const": "exhausted"
+                          },
+                          {
+                            "const": "retry"
+                          },
+                          {
+                            "const": "succeeded"
+                          }
+                        ]
+                      },
+                      "status_code": {
+                        "$ref": "#/components/schemas/PositiveInteger"
+                      }
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "error_code": {
+                        "$ref": "#/components/schemas/WebhookDispatchErrorCode"
+                      },
+                      "status": {
+                        "const": "skipped"
+                      }
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status",
+                      "error_code"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "WebhookReconcileOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "recovered": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "scanned": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "unchanged": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "scanned",
+                  "recovered",
+                  "exhausted",
+                  "unchanged",
+                  "dry_run"
+                ],
+                "type": "object"
+              },
+              "WebhookRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed webhook claim position: the delivery plus its attempt count at claim.",
+                "properties": {
+                  "attempt_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "delivery_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "delivery_id",
+                  "attempt_count"
+                ],
+                "type": "object"
+              },
+              "WebhookTickOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dispatch": {
+                    "$ref": "#/components/schemas/WebhookDispatchOutput"
+                  },
+                  "reconcile": {
+                    "$ref": "#/components/schemas/WebhookReconcileOutput"
+                  }
+                },
+                "required": [
+                  "reconcile",
+                  "dispatch"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dispatch": {
+                "$ref": "#/components/schemas/WebhookDispatchOutput"
+              },
+              "reconcile": {
+                "$ref": "#/components/schemas/WebhookReconcileOutput"
+              }
+            },
+            "required": [
+              "reconcile",
+              "dispatch"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "audience": "bulk",
+          "kind": "webhook",
+          "resource": "webhook"
+        }
+      ],
+      "id": "webhooks.tick",
+      "mcpName": "listmonk_webhooks_tick",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "webhook",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "The recovery pass claims exactly the echoed deliveries, and only while each still sits at its originally claimed attempt count: members that anyone has attempted since the echo, already succeeded or exhausted, hold a live lease, sit in backoff, or face an open circuit are skipped — live-lease, backoff, and circuit members are reported as pending_ids so the caller knows they are retryable later, while everything else skipped has moved on — so an identical retry converges over the set and never claims new due work. The POST itself remains at least once: an accepted-but-unobserved attempt leaves the delivery at the echoed count and the recovery sends it again, with the stable event-id header available for cooperative receiver deduplication — so the outcome still needs inspection, not a blind repeat.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "recovery_set (an echoed claim set of delivery ids and their attempt counts at claim) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Delivery is at least once and a fresh tick claims whatever is due at request time, so inspect lease and delivery state after an ambiguous worker result.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Webhook delivery is at least once in every mode; the echoed claim set bounds the retry to the originally claimed records."
+      },
+      "verb": "tick"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "WebhookRuntimeStatusInput": {
                 "additionalProperties": false,
                 "properties": {

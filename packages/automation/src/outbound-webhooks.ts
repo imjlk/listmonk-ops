@@ -272,6 +272,17 @@ export type DispatchOutboundWebhooksOptions = Readonly<{
 	concurrency?: number;
 	deliveryIds?: readonly string[];
 	bypassCircuitBreaker?: boolean;
+	/**
+	 * Echoed claim set from a prior dispatch: each delivery id paired with
+	 * its attempt count at that claim. Recovery claims exactly these
+	 * deliveries, and only while their current attempt count still matches
+	 * — a delivery anyone has attempted since the echo is skipped, so the
+	 * retry cannot deliver past the originally claimed position.
+	 */
+	recoveryClaims?: readonly Readonly<{
+		id: string;
+		attemptCount: number;
+	}>[];
 }>;
 
 export type OutboundWebhookDispatchErrorCode =
@@ -314,6 +325,16 @@ export type DispatchOutboundWebhooksResult = Readonly<{
 	exhausted: number;
 	skipped: number;
 	results: readonly OutboundWebhookDispatchResultEntry[];
+	/** Echoed ids of the exact deliveries this dispatch claimed. */
+	claimedIds: readonly string[];
+	/** Echoed claim positions: delivery id plus its attempt count at claim. */
+	claimSteps: readonly Readonly<{ id: string; attemptCount: number }>[];
+	/** Recovery passes only: size of the echoed claim set. */
+	requested?: number;
+	/** Recovery passes only: skipped members still at their claimed attempt under a lease, backoff, or open circuit — retryable later. */
+	pendingIds?: readonly string[];
+	/** Recovery passes only: echoed members that already moved on. */
+	alreadyDone?: number;
 }>;
 
 export type ClaimedOutboundWebhookDelivery = Readonly<{
@@ -470,6 +491,8 @@ export interface OutboundWebhookRepository {
 		deliveryIds?: readonly string[];
 		excludeDeliveryIds?: readonly string[];
 		bypassCircuitBreaker?: boolean;
+		/** Recovery binding: only claim a targeted delivery while its current attempt count matches. */
+		expectedAttemptCounts?: ReadonlyMap<string, number>;
 	}>): Promise<readonly ClaimedOutboundWebhookDelivery[]>;
 	completeDelivery(
 		claimed: OutboundWebhookDelivery,
@@ -1752,6 +1775,7 @@ async function claimOutboundWebhookDeliveries(
 		deliveryIds?: readonly string[];
 		excludeDeliveryIds?: readonly string[];
 		bypassCircuitBreaker?: boolean;
+		expectedAttemptCounts?: ReadonlyMap<string, number>;
 	},
 ): Promise<readonly ClaimedOutboundWebhookDelivery[]> {
 	if (options.repository) {
@@ -1762,6 +1786,7 @@ async function claimOutboundWebhookDeliveries(
 			deliveryIds: options.deliveryIds,
 			excludeDeliveryIds: options.excludeDeliveryIds,
 			bypassCircuitBreaker: options.bypassCircuitBreaker,
+			expectedAttemptCounts: options.expectedAttemptCounts,
 		});
 	}
 	const store = createOutboundWebhookStore(options.path);
@@ -1799,6 +1824,13 @@ async function claimOutboundWebhookDeliveries(
 					return false;
 				}
 				if (selected !== undefined && !selected.has(delivery.id)) {
+					return false;
+				}
+				if (
+					options.expectedAttemptCounts !== undefined &&
+					options.expectedAttemptCounts.get(delivery.id) !==
+						delivery.attemptCount
+				) {
 					return false;
 				}
 				if (delivery.status === "delivering") {
@@ -2503,8 +2535,25 @@ export async function dispatchOutboundWebhooks(
 	const resolveSecret =
 		options.resolveSecret ?? ((secretRef: string) => process.env[secretRef]);
 	const results: DispatchOutboundWebhooksResult["results"][number][] = [];
+	const claimSteps: { id: string; attemptCount: number }[] = [];
 	const processedDeliveryIds = new Set<string>();
 	let claimedCount = 0;
+	const recoveryClaims = options.recoveryClaims;
+	if (recoveryClaims !== undefined) {
+		const seen = new Set<string>();
+		for (const claim of recoveryClaims) {
+			if (seen.has(claim.id)) {
+				throw new RangeError(
+					`Duplicate recovery claim for delivery ${claim.id}: echoed claim sets must contain unique delivery ids`,
+				);
+			}
+			seen.add(claim.id);
+		}
+	}
+	const recoveryIds = recoveryClaims?.map((claim) => claim.id);
+	const expectedAttemptCounts = recoveryClaims
+		? new Map(recoveryClaims.map((claim) => [claim.id, claim.attemptCount]))
+		: undefined;
 	while (claimedCount < limit) {
 		const claimNow = options.now ?? new Date();
 		const claimed = await claimOutboundWebhookDeliveries({
@@ -2512,9 +2561,10 @@ export async function dispatchOutboundWebhooks(
 			limit: Math.min(concurrency, limit - claimedCount),
 			now: claimNow,
 			leaseMs,
-			deliveryIds: options.deliveryIds,
+			deliveryIds: recoveryIds ?? options.deliveryIds,
 			excludeDeliveryIds: [...processedDeliveryIds],
 			bypassCircuitBreaker: options.bypassCircuitBreaker,
+			expectedAttemptCounts,
 		});
 		if (claimed.length === 0) {
 			break;
@@ -2522,6 +2572,10 @@ export async function dispatchOutboundWebhooks(
 		claimedCount += claimed.length;
 		for (const entry of claimed) {
 			processedDeliveryIds.add(entry.delivery.id);
+			claimSteps.push({
+				id: entry.delivery.id,
+				attemptCount: entry.delivery.attemptCount,
+			});
 		}
 		const batchResults = await Promise.all(
 			claimed.map(async (entry) => {
@@ -2563,12 +2617,63 @@ export async function dispatchOutboundWebhooks(
 		);
 		results.push(...batchResults);
 	}
-	return {
+	const base = {
 		claimed: claimedCount,
 		succeeded: results.filter((result) => result.status === "succeeded").length,
 		retried: results.filter((result) => result.status === "retry").length,
 		exhausted: results.filter((result) => result.status === "exhausted").length,
 		skipped: results.filter((result) => result.status === "skipped").length,
 		results,
+	};
+	if (options.recoveryClaims === undefined) {
+		return {
+			...base,
+			claimedIds: claimSteps.map((step) => step.id),
+			claimSteps,
+		};
+	}
+	// Classify each unclaimed echoed member by its current state: entries
+	// still at their claimed attempt count but not claimable now (a live
+	// lease, backoff not elapsed, or an open circuit) are pending and
+	// retryable later; anything else has moved on.
+	const claimedNow = new Set(results.map((result) => result.deliveryId));
+	const unclaimedIds = options.recoveryClaims
+		.map((claim) => claim.id)
+		.filter((id) => !claimedNow.has(id));
+	const statesById = new Map(
+		unclaimedIds.length === 0
+			? []
+			: (
+					await listOutboundWebhookDeliveries({
+						...store,
+						deliveryIds: unclaimedIds,
+						limit: unclaimedIds.length,
+					})
+				).map((delivery) => [delivery.id, delivery] as const),
+	);
+	const pendingIds: string[] = [];
+	let alreadyDone = 0;
+	for (const claim of options.recoveryClaims) {
+		if (claimedNow.has(claim.id)) {
+			continue;
+		}
+		const current = statesById.get(claim.id);
+		if (
+			current !== undefined &&
+			current.attemptCount === claim.attemptCount &&
+			["pending", "retry", "delivering"].includes(current.status)
+		) {
+			pendingIds.push(claim.id);
+		} else {
+			alreadyDone += 1;
+		}
+	}
+	return {
+		...base,
+		claimedIds: claimSteps.map((step) => step.id),
+		claimSteps,
+		requested: options.recoveryClaims.length,
+		pendingIds,
+		alreadyDone,
 	};
 }

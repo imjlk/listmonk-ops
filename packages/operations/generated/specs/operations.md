@@ -303,8 +303,8 @@ Reconcile expired leases, claim due outbox records, and send one bounded deliver
 - Contract source: input `typescript`, output `typescript`
 - Effects: `webhook:bulk`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `reconcile`
-- Stability: `experimental` since `0.8.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.runtime.status`
 

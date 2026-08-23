@@ -515,14 +515,14 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 89개는
-`stable`, 15개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 90개는
+`stable`, 14개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
-검토를 마친 핵심 89개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 90개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -642,14 +642,19 @@ envelope, id 없는 응답의 uuid 상관). 스물한 번째 batch에서는
 계산해 동등한 인코딩(pad-bit 변형 포함)을 재생합니다. 스물세 번째
 batch에서는 `campaigns.clone`을 승격했습니다(키는 원본 캠페인과 클론
 이름에 묶이며, keyed 클론에는 이름 스냅샷 폴백을 쓰지 않습니다).
-스물네 번째 batch에서는 `sequences.tick`을 승격했습니다 — 출력이 정확한
-클레임 enrollment와 원래 클레임된 단계를 echo하고, 그 집합을
-`recovery_set`(CLI `--recovery-set`)으로 실은 재시도는 새 작업을
-클레임하는 대신 정확히 해당 위치만 대상으로 단계 바인딩 수렴형 복구
-패스를 실행합니다(이후 단계로 진행/완료/ambiguous이거나 살아있는 lease를
-가진 항목은 건너뜁니다). 실패한 틱은 이 복구를 위해 에러에 클레임
-집합을 노출합니다. 현재 stable baseline은 89개이며, 나머지 experimental
-descriptor는 15개입니다.
+스물네·스물다섯 번째 batch에서는 `sequences.tick`과 `webhooks.tick`을
+같은 echoed-claim-set 복구 계약으로 승격했습니다 — 출력이 정확한 클레임
+레코드와 원래 클레임된 위치(시퀀스는 단계, 웹훅은 시도 횟수)를 echo하고,
+그 집합을 `recovery_set`(CLI `--recovery-set`)으로 실은 재시도는 새
+작업을 클레임하는 대신 정확히 해당 레코드만 대상으로 위치 바인딩 수렴형
+복구 패스를 실행합니다(이미 진행된 항목, 살아있는 lease, 백오프 중,
+서킷 오픈은 건너뛰며 살아있는 것은 pending으로 보고). 실패한 시퀀스
+틱은 이 복구를 위해 에러에 클레임 집합을 노출합니다. 웹훅 전달은 모든
+모드에서 여전히 정직하게 at-least-once입니다 — echoed 집합은 재시도를
+원래 클레임된 전달로 한정하지만 POST 자체는 수락됐지만 관측되지 않은
+시도를 중복할 수 있어(event-id 헤더로 수신 측 중복 제거 가능) 두 재시도
+경우 모두 reconcile로 분류합니다. 현재 stable baseline은 90개이며,
+나머지 experimental descriptor는 14개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
@@ -663,7 +668,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 89개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 90개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 317개를
 검증합니다.
 

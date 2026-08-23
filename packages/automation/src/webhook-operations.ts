@@ -263,6 +263,25 @@ const webhookPruneInputSchema = z
 const webhookTickInputSchema = z.object({
 	dispatch_limit: webhookDispatchLimitInput.default(25),
 	reconcile_limit: webhookDeliveryListLimitInput.default(100),
+	recovery_set: z
+		.array(
+			z.object({
+				delivery_id: z.uuid(),
+				attempt_count: z.number().int().nonnegative(),
+			}),
+		)
+		.min(1)
+		.max(100)
+		.refine(
+			(set) =>
+				new Set(set.map((member) => member.delivery_id)).size ===
+				set.length,
+			"recovery_set delivery ids must be unique",
+		)
+		.optional()
+		.describe(
+			"Echoed claim set from a prior tick's dispatch.claim_steps output: recover exactly these deliveries at their originally claimed attempt counts (entries that moved on, hold a live lease, sit in backoff, or face an open circuit are skipped) instead of claiming new due work",
+		),
 });
 const webhookRuntimeStatusInputSchema = z.object({
 	worker_stale_ms: positiveIntegerInput
@@ -412,11 +431,21 @@ const dispatchResultSchema = z.discriminatedUnion("status", [
 ]);
 const webhookDispatchOutputSchema = z.object({
 	claimed: z.number().int().nonnegative(),
+	claimed_ids: z.array(z.uuid()),
+	claim_steps: z.array(
+		z.object({
+			delivery_id: z.uuid(),
+			attempt_count: z.number().int().nonnegative(),
+		}),
+	),
 	succeeded: z.number().int().nonnegative(),
 	retried: z.number().int().nonnegative(),
 	exhausted: z.number().int().nonnegative(),
 	skipped: z.number().int().nonnegative(),
 	results: z.array(dispatchResultSchema),
+	requested: z.number().int().nonnegative().optional(),
+	pending_ids: z.array(z.uuid()).optional(),
+	already_done: z.number().int().nonnegative().optional(),
 });
 const webhookTestOutputSchema = z.object({
 	event_id: z.uuid(),
@@ -607,6 +636,14 @@ function toDispatchOutput(
 ) {
 	return webhookDispatchOutputSchema.parse({
 		claimed: result.claimed,
+		claimed_ids: [...result.claimedIds],
+		claim_steps: result.claimSteps.map((step) => ({
+			delivery_id: step.id,
+			attempt_count: step.attemptCount,
+		})),
+		requested: result.requested,
+		pending_ids: result.pendingIds ? [...result.pendingIds] : undefined,
+		already_done: result.alreadyDone,
 		succeeded: result.succeeded,
 		retried: result.retried,
 		exhausted: result.exhausted,
@@ -870,6 +907,8 @@ export async function executeWebhookTestOperation(
 			bound_revision: endpoint.updatedAt,
 			dispatch: toDispatchOutput({
 				claimed: 0,
+				claimedIds: [],
+				claimSteps: [],
 				succeeded: 0,
 				exhausted: 0,
 				retried: 0,
@@ -989,6 +1028,10 @@ export async function executeWebhookTickOperation(
 		fetcher: context.fetcher,
 		resolveSecret: context.resolveSecret,
 		limit: input.dispatch_limit,
+		recoveryClaims: input.recovery_set?.map((member) => ({
+			id: member.delivery_id,
+			attemptCount: member.attempt_count,
+		})),
 	});
 	return {
 		reconcile: {

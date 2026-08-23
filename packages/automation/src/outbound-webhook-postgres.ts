@@ -27,6 +27,7 @@ import {
 
 export const OUTBOUND_WEBHOOK_POSTGRES_SCHEMA_VERSION = 3;
 const POSTGRES_UUID_TYPE_OID = 2950;
+const POSTGRES_INT4_TYPE_OID = 23;
 
 export interface PostgresOutboundWebhookRepositoryOptions {
 	connectionString: string;
@@ -371,6 +372,7 @@ async function initializeSchema(sql: Sql): Promise<void> {
  * Create a normalized Postgres endpoint/outbox repository. Schema creation is
  * lazy and idempotent so CLI and MCP processes can start concurrently.
  */
+
 export function createPostgresOutboundWebhookRepository(
 	options: PostgresOutboundWebhookRepositoryOptions,
 ): OutboundWebhookRepository {
@@ -918,6 +920,24 @@ export function createPostgresOutboundWebhookRepository(
 							AND lease_expires_at <= ${claimOptions.now}
 						)
 					)
+					AND (
+						${claimOptions.expectedAttemptCounts === undefined ||
+						claimOptions.expectedAttemptCounts.size === 0
+							? transaction`true`
+							: transaction`(id, attempt_count) IN (
+								SELECT *
+								FROM unnest(
+									${transaction.array(
+										[...claimOptions.expectedAttemptCounts.keys()],
+										POSTGRES_UUID_TYPE_OID,
+									)},
+									${transaction.array(
+										[...claimOptions.expectedAttemptCounts.values()],
+										POSTGRES_INT4_TYPE_OID,
+									)}
+								) AS t(id, attempt_count)
+							)`}
+					)
 					AND endpoint_id IN (
 						SELECT id
 						FROM listmonk_ops.webhook_endpoints
@@ -930,7 +950,7 @@ export function createPostgresOutboundWebhookRepository(
 					FOR UPDATE SKIP LOCKED
 					LIMIT ${claimOptions.limit}
 				`;
-				const claimed: OutboundWebhookDelivery[] = [];
+						const claimed: OutboundWebhookDelivery[] = [];
 				for (const row of rows) {
 					const leaseToken = randomUUID();
 					const leaseExpiresAt = new Date(

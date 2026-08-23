@@ -6304,10 +6304,36 @@
               "WebhookDispatchOutput": {
                 "additionalProperties": false,
                 "properties": {
+                  "already_done": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claim_steps": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                    },
+                    "type": "array"
+                  },
                   "claimed": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
+                  "claimed_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "pending_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "requested": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
                   "results": {
@@ -6332,6 +6358,8 @@
                   "retried",
                   "exhausted",
                   "skipped",
+                  "claimed_ids",
+                  "claim_steps",
                   "results"
                 ],
                 "type": "object"
@@ -6424,6 +6452,24 @@
                     "type": "object"
                   }
                 ]
+              },
+              "WebhookRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed webhook claim position: the delivery plus its attempt count at claim.",
+                "properties": {
+                  "attempt_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "delivery_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "delivery_id",
+                  "attempt_count"
+                ],
+                "type": "object"
               },
               "WebhookTestOutput": {
                 "additionalProperties": false,
@@ -6628,10 +6674,36 @@
               "WebhookDispatchOutput": {
                 "additionalProperties": false,
                 "properties": {
+                  "already_done": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claim_steps": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                    },
+                    "type": "array"
+                  },
                   "claimed": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
+                  "claimed_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "pending_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "requested": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
                   "results": {
@@ -6656,6 +6728,8 @@
                   "retried",
                   "exhausted",
                   "skipped",
+                  "claimed_ids",
+                  "claim_steps",
                   "results"
                 ],
                 "type": "object"
@@ -6748,6 +6822,24 @@
                     "type": "object"
                   }
                 ]
+              },
+              "WebhookRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed webhook claim position: the delivery plus its attempt count at claim.",
+                "properties": {
+                  "attempt_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "delivery_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "delivery_id",
+                  "attempt_count"
+                ],
+                "type": "object"
               }
             }
           },
@@ -6755,10 +6847,36 @@
           "schema": {
             "additionalProperties": false,
             "properties": {
+              "already_done": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "claim_steps": {
+                "items": {
+                  "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                },
+                "type": "array"
+              },
               "claimed": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
               },
+              "claimed_ids": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
               "exhausted": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "pending_ids": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "requested": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
               },
               "results": {
@@ -6783,6 +6901,8 @@
               "retried",
               "exhausted",
               "skipped",
+              "claimed_ids",
+              "claim_steps",
               "results"
             ],
             "type": "object"
@@ -8298,7 +8418,7 @@
           "webhooks.reconcile",
           "webhooks.prune"
         ],
-        "retryGuidance": "Inspect delivery state after a timeout before running another tick.",
+        "retryGuidance": "Echo a prior tick's dispatch.claim_steps output as recovery_set so an ambiguous retry re-attempts exactly that set at its originally claimed positions and never claims new due work; delivery stays at least once, so verify receiver state (the event-id header enables deduplication) before repeating.",
         "useWhen": [
           "A scheduler or operator should process one durable outbox batch."
         ],
@@ -8310,6 +8430,11 @@
         "input": {
           "components": {
             "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
               "WebhookDeliveryListLimit": {
                 "maximum": 1000,
                 "minimum": 1,
@@ -8320,6 +8445,24 @@
                 "minimum": 1,
                 "type": "integer"
               },
+              "WebhookRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed webhook claim position: the delivery plus its attempt count at claim.",
+                "properties": {
+                  "attempt_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "delivery_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "delivery_id",
+                  "attempt_count"
+                ],
+                "type": "object"
+              },
               "WebhookTickInput": {
                 "additionalProperties": false,
                 "properties": {
@@ -8328,6 +8471,15 @@
                   },
                   "reconcile_limit": {
                     "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                  },
+                  "recovery_set": {
+                    "description": "Echoed claim set from a prior tick's dispatch.claim_steps output: recover exactly these deliveries at their originally claimed attempt counts.",
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "type": "array"
                   }
                 },
                 "required": [],
@@ -8344,6 +8496,15 @@
               },
               "reconcile_limit": {
                 "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+              },
+              "recovery_set": {
+                "description": "Echoed claim set from a prior tick's dispatch.claim_steps output: recover exactly these deliveries at their originally claimed attempt counts.",
+                "items": {
+                  "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array"
               }
             },
             "required": [],
@@ -8400,10 +8561,36 @@
               "WebhookDispatchOutput": {
                 "additionalProperties": false,
                 "properties": {
+                  "already_done": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claim_steps": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                    },
+                    "type": "array"
+                  },
                   "claimed": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
+                  "claimed_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "pending_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "requested": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
                   "results": {
@@ -8428,6 +8615,8 @@
                   "retried",
                   "exhausted",
                   "skipped",
+                  "claimed_ids",
+                  "claim_steps",
                   "results"
                 ],
                 "type": "object"
@@ -8549,6 +8738,24 @@
                 ],
                 "type": "object"
               },
+              "WebhookRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed webhook claim position: the delivery plus its attempt count at claim.",
+                "properties": {
+                  "attempt_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "delivery_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "delivery_id",
+                  "attempt_count"
+                ],
+                "type": "object"
+              },
               "WebhookTickOutput": {
                 "additionalProperties": false,
                 "properties": {
@@ -8615,13 +8822,31 @@
       },
       "resource": "webhook",
       "retry": {
-        "idempotent": false,
-        "kind": "reconcile",
-        "reason": "Delivery is at least once, so inspect lease and delivery state after an ambiguous worker result.",
-        "reconcileWith": "webhooks.delivery.list"
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "The recovery pass claims exactly the echoed deliveries, and only while each still sits at its originally claimed attempt count: members that anyone has attempted since the echo, already succeeded or exhausted, hold a live lease, sit in backoff, or face an open circuit are skipped — live-lease, backoff, and circuit members are reported as pending_ids so the caller knows they are retryable later, while everything else skipped has moved on — so an identical retry converges over the set and never claims new due work. The POST itself remains at least once: an accepted-but-unobserved attempt leaves the delivery at the echoed count and the recovery sends it again, with the stable event-id header available for cooperative receiver deduplication — so the outcome still needs inspection, not a blind repeat.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "recovery_set (an echoed claim set of delivery ids and their attempt counts at claim) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Delivery is at least once and a fresh tick claims whatever is due at request time, so inspect lease and delivery state after an ambiguous worker result.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Webhook delivery is at least once in every mode; the echoed claim set bounds the retry to the originally claimed records."
       },
       "since": "0.8.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Run one outbound webhook worker tick",
       "verb": "tick"
     },

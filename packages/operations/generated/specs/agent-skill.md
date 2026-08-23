@@ -340,7 +340,7 @@ Retry guidance: Run dry_run first, then echo the reported ids and before cutoff;
 
 ## Run one outbound webhook worker tick (`webhooks.tick`)
 
-Contract maturity: `experimental`; effects: `webhook:bulk`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `webhook:bulk`; confirmation: `required`; retry: `conditional`.
 
 Use when: A scheduler or operator should process one durable outbox batch.
 
@@ -350,7 +350,7 @@ Prerequisites: `webhooks.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Inspect delivery state after a timeout before running another tick.
+Retry guidance: Echo a prior tick's dispatch.claim_steps output as recovery_set so an ambiguous retry re-attempts exactly that set at its originally claimed positions and never claims new due work; delivery stays at least once, so verify receiver state (the event-id header enables deduplication) before repeating.
 
 ## Inspect outbound webhook runtime health (`webhooks.runtime.status`)
 
