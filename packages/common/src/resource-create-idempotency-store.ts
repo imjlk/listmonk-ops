@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
 import {
 	commitJsonFileStoreUpdate,
 	readJsonFileStore,
@@ -14,8 +15,9 @@ import {
  * of provisioning a duplicate. Keys are claimed atomically before the
  * remote create: a concurrent same-key caller observes the pending claim
  * instead of racing a second POST. A claim whose owning attempt ended
- * without a definitive outcome is marked `unknown`, which later retries
- * recover immediately. Schema-versioned and written atomically.
+ * without a definitive outcome is marked `unknown`, and later same-key
+ * claims fail fast as unresolved — the key is never reused automatically.
+ * Schema-versioned and written atomically.
  */
 export type ResourceCreateStatus = "pending" | "created" | "unknown";
 
@@ -28,12 +30,13 @@ export interface StoredResourceCreateRecord {
 	/** Bound once the remote create is known to have succeeded. */
 	resourceId?: string;
 	claimToken: string;
-	owner: { pid: number; hostname: string };
-	/**
-	 * Time of the FIRST claim on this key, preserved across stale takeovers.
-	 * It is persisted before any POST is issued, so a created resource's
-	 * timestamp can be compared against it as pre-create evidence.
-	 */
+	owner: {
+		pid: number;
+		hostname: string;
+		/** Wall-clock process start time; distinguishes reused PIDs. */
+		startedAt: string;
+	};
+	/** Time of the first claim on this key; precedes every POST for it. */
 	firstClaimedAt?: string;
 	createdAt: string;
 	updatedAt: string;
@@ -47,23 +50,25 @@ export interface ResourceCreateStoreDocument {
 export type ResourceCreateClaimConflictReason = "payload" | "target" | "resourceKind";
 
 export type ResourceCreateClaimResult =
-	| {
-			kind: "new";
-			claimToken: string;
-			record: StoredResourceCreateRecord;
-			/**
-			 * True when a stale claim from a dead or aged-out owner was taken
-			 * over. The previous attempt's remote outcome is unknown, so the
-			 * caller must reconcile before issuing a fresh create.
-			 */
-			recovered: boolean;
-	  }
+	| { kind: "new"; claimToken: string; record: StoredResourceCreateRecord }
 	| { kind: "replay"; record: StoredResourceCreateRecord }
 	| { kind: "pending"; record: StoredResourceCreateRecord }
 	| {
 			kind: "conflict";
 			reason: ResourceCreateClaimConflictReason;
 			existing: StoredResourceCreateRecord;
+	  }
+	| {
+			/**
+			 * The previous attempt under this key ended without a definitive
+			 * outcome (marked unknown, or its owner died mid-flight). Its
+			 * create may or may not have landed, and no immutable server-side
+			 * correlation exists to prove it either way, so the claim is
+			 * never taken over automatically: the caller must reconcile
+			 * manually and use a new key.
+			 */
+			kind: "unresolved";
+			record: StoredResourceCreateRecord;
 	  };
 
 /**
@@ -89,7 +94,7 @@ export interface ResourceCreateIdempotencyStore {
 	}): Promise<void>;
 	/**
 	 * Mark a pending claim unknown: the owning attempt finished without a
-	 * definitive outcome, so later same-key claims recover immediately
+	 * definitive outcome, so later same-key claims fail fast as unresolved
 	 * instead of waiting on a live owner that will never finish.
 	 */
 	markUnknown(options: {
@@ -213,7 +218,8 @@ export function isStoredResourceCreateRecord(
 		typeof owner.pid !== "number" ||
 		!Number.isInteger(owner.pid) ||
 		typeof owner.hostname !== "string" ||
-		owner.hostname.length === 0
+		owner.hostname.length === 0 ||
+		!isIsoTimestampValue(owner.startedAt)
 	) {
 		return false;
 	}
@@ -262,8 +268,20 @@ export function createResourceCreateStore(
 		createDefault: () => ({ version: 1, records: Object.create(null) }),
 		parse: parseResourceCreateStoreDocument,
 		lock: { timeoutMs: RESOURCE_CREATE_STORE_LOCK_TIMEOUT_MS },
+		// Every mutating callback in this store builds and returns a new
+		// document; returning the current one by reference is a genuinely
+		// unchanged (read-only) outcome, so the rewrite can be skipped.
+		skipUnchangedWrites: true,
 	};
 }
+
+/** Wall-clock estimate of this process's start, captured once. */
+const PROCESS_STARTED_AT = new Date(
+	Math.round(Date.now() - performance.now()),
+).toISOString();
+
+/** How far apart two process-start estimates may be and still match. */
+const PROCESS_START_TOLERANCE_MS = 5_000;
 
 function newClaimToken(): string {
 	return createHash("sha256")
@@ -292,17 +310,69 @@ function isErrnoException(
 	);
 }
 
-function isOwnerProcessDead(owner: { pid: number; hostname: string }): boolean {
+function isOwnerProcessDead(
+	owner: StoredResourceCreateRecord["owner"],
+): boolean {
 	if (owner.hostname !== STORE_HOSTNAME) {
 		// Cross-host owner liveness cannot be verified locally; only the age
-		// threshold below can mark such a claim stale.
+		// threshold can mark such a claim stale.
 		return false;
 	}
 	try {
 		process.kill(owner.pid, 0);
-		return false;
 	} catch (error) {
 		return isErrnoException(error, "ESRCH");
+	}
+	// The PID exists, but a crashed service can restart into a reused PID
+	// (for example PID 1 in a restarted container). Compare the recorded
+	// process start against this process, or against /proc on Linux.
+	if (owner.pid === process.pid) {
+		return !timestampsMatch(owner.startedAt, PROCESS_STARTED_AT);
+	}
+	const procStartedAt = readLinuxProcessStart(owner.pid);
+	if (procStartedAt !== undefined) {
+		return !timestampsMatch(owner.startedAt, procStartedAt);
+	}
+	// Not verifiable on this platform for a foreign PID: assume live.
+	return false;
+}
+
+function timestampsMatch(a: string, b: string): boolean {
+	return (
+		Math.abs(new Date(a).getTime() - new Date(b).getTime()) <=
+		PROCESS_START_TOLERANCE_MS
+	);
+}
+
+/**
+ * Best-effort Linux-only start time for another process, from
+ * /proc/<pid>/stat field 22 (clock ticks since boot) plus /proc/uptime.
+ * Returns undefined anywhere else or when unreadable.
+ */
+function readLinuxProcessStart(pid: number): string | undefined {
+	if (process.platform !== "linux") return undefined;
+	try {
+		const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+		const closing = stat.lastIndexOf(")");
+		const fields = stat.slice(closing + 2).split(" ");
+		// Field 22 overall; after "comm)" the remaining fields start at 3.
+		const starttimeTicks = Number(fields[19]);
+		const uptimeSeconds = Number(
+			readFileSync("/proc/uptime", "utf8").split(" ")[0],
+		);
+		if (
+			!Number.isFinite(starttimeTicks) ||
+			!Number.isFinite(uptimeSeconds)
+		) {
+			return undefined;
+		}
+		const startedSecondsAgo =
+			uptimeSeconds - starttimeTicks / 100 /* USER_HZ */;
+		return new Date(
+			Math.round(Date.now() - startedSecondsAgo * 1000),
+		).toISOString();
+	} catch {
+		return undefined;
 	}
 }
 
@@ -310,17 +380,12 @@ function isClaimStale(
 	record: StoredResourceCreateRecord,
 	now: Date,
 ): boolean {
-	if (record.status === "unknown") {
-		// The owning attempt explicitly declared its outcome unknown; it is
-		// finished and will never commit or release. Recover immediately
-		// even on a live host like a long-running MCP server.
-		return true;
-	}
 	if (record.owner.hostname === STORE_HOSTNAME) {
-		// Same-host liveness is authoritative: a live owner keeps its claim
-		// regardless of age, so a legitimately slow create can never be
-		// stolen into a concurrent second POST. An attempt that ends
-		// without a definitive outcome marks itself unknown instead.
+		// Same-host liveness is authoritative: a live owner (verified past
+		// PID reuse) keeps its claim regardless of age, so a legitimately
+		// slow create can never be stolen into a concurrent second POST.
+		// An attempt that ends without a definitive outcome marks itself
+		// unknown instead.
 		return isOwnerProcessDead(record.owner);
 	}
 	// A foreign-host owner cannot be probed locally; only age can mark the
@@ -340,11 +405,12 @@ function conflictReason(
 /**
  * Atomically claim (or replay) a create key. The locked update serializes
  * concurrent claimants across processes: exactly one receives `new`, and
- * every other same-key caller observes the pending claim. A stale pending
- * claim (dead same-host owner, or a foreign-host claim past the age
- * threshold) is replaced for the caller with `recovered: true` so it can
- * reconcile the previous attempt's unknown outcome before creating. The
- * original claim time survives the takeover as `firstClaimedAt`.
+ * every other same-key caller observes the pending claim. A claim whose
+ * previous attempt ended without a definitive outcome — explicitly marked
+ * unknown, or owned by a provably dead/aged-out process — is never taken
+ * over: the caller receives `unresolved` and must reconcile manually,
+ * because nothing can prove the crashed create did not land (a list can
+ * even be renamed, so a name miss is not absence).
  */
 export async function claimResourceCreate(options: {
 	storePath?: string;
@@ -386,24 +452,31 @@ export async function claimResourceCreate(options: {
 					record: existing,
 				});
 			}
-			if (!isClaimStale(existing, now)) {
+			if (
+				existing.status === "unknown" ||
+				isClaimStale(existing, now)
+			) {
+				// The previous attempt's create may or may not have landed;
+				// there is no immutable correlation to prove either way, so
+				// the key is never reused automatically.
 				return commitJsonFileStoreUpdate(document, {
-					kind: "pending",
+					kind: "unresolved",
 					record: existing,
 				});
 			}
-			// Stale claim: fall through and replace it for this caller.
+			return commitJsonFileStoreUpdate(document, {
+				kind: "pending",
+				record: existing,
+			});
 		}
 
-		if (
-			existing === undefined &&
-			Object.keys(document.records).length >= getResourceCreateStoreMaxRecords()
-		) {
+		if (Object.keys(document.records).length >= getResourceCreateStoreMaxRecords()) {
 			throw new Error(
 				"Resource create idempotency store is full; archive or rotate the store file (or raise LISTMONK_OPS_RESOURCE_CREATE_STORE_MAX_RECORDS) before claiming new keys",
 			);
 		}
 
+		const nowIso = now.toISOString();
 		const record: StoredResourceCreateRecord = {
 			key: options.key,
 			payloadHash: options.payloadHash,
@@ -411,20 +484,20 @@ export async function claimResourceCreate(options: {
 			resourceKind: options.resourceKind,
 			status: "pending",
 			claimToken: newClaimToken(),
-			owner: { pid: process.pid, hostname: STORE_HOSTNAME },
-			// Preserve the first claim time across takeovers: it predates
-			// every POST issued for this key and is the evidence baseline
-			// for reconciling a recovered claim.
-			firstClaimedAt:
-				existing?.firstClaimedAt ?? existing?.createdAt ?? now.toISOString(),
-			createdAt: now.toISOString(),
-			updatedAt: now.toISOString(),
+			owner: {
+				pid: process.pid,
+				hostname: STORE_HOSTNAME,
+				startedAt: PROCESS_STARTED_AT,
+			},
+			firstClaimedAt: nowIso,
+			createdAt: nowIso,
+			updatedAt: nowIso,
 		};
 		const records = copyRecords(document.records);
 		records[options.key] = record;
 		return commitJsonFileStoreUpdate(
 			{ version: 1, records },
-			{ kind: "new", claimToken: record.claimToken, record, recovered: existing !== undefined },
+			{ kind: "new", claimToken: record.claimToken, record },
 		);
 	});
 }

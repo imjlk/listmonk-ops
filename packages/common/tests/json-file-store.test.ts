@@ -225,7 +225,13 @@ describe("JSON file store", () => {
 	});
 
 	test("skips the atomic rewrite when an update returns the value unchanged", async () => {
-		const store = await createCounterStore();
+		const base = await createCounterStore();
+		// Opt-in stores whose callbacks never mutate in place may skip the
+		// rewrite; the default behavior always writes.
+		const store: JsonFileStore<CounterStore> = {
+			...base,
+			skipUnchangedWrites: true,
+		};
 		await writeJsonFileStore(store, { version: 1, count: 7 });
 
 		const statBefore = await stat(store.path);
@@ -238,6 +244,14 @@ describe("JSON file store", () => {
 		const statAfterNoop = await stat(store.path);
 		// No rewrite means the atomic rename never happened: same inode.
 		expect(statAfterNoop.ino).toBe(statBefore.ino);
+
+		// Without the opt-in, an unchanged reference still rewrites the file.
+		const statBeforeDefault = await stat(base.path);
+		await updateJsonFileStore(base, (current) =>
+			commitJsonFileStoreUpdate(current, current.count),
+		);
+		const statAfterDefault = await stat(base.path);
+		expect(statAfterDefault.ino).not.toBe(statBeforeDefault.ino);
 
 		await updateJsonFileStore(store, (current) =>
 			commitJsonFileStoreUpdate({ ...current, count: current.count + 1 }, undefined),

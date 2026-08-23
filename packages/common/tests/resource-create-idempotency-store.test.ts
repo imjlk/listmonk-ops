@@ -26,6 +26,11 @@ async function createStorePath() {
 	return join(directory, "resource-creates.json");
 }
 
+/** Wall-clock estimate of this test process's start, mirroring the store. */
+const testProcessStartedAt = new Date(
+	Math.round(Date.now() - performance.now()),
+).toISOString();
+
 function pendingRecord(overrides: Partial<StoredResourceCreateRecord> = {}) {
 	return {
 		key: "key-1",
@@ -34,7 +39,11 @@ function pendingRecord(overrides: Partial<StoredResourceCreateRecord> = {}) {
 		resourceKind: "list",
 		status: "pending" as const,
 		claimToken: "token-old",
-		owner: { pid: process.pid, hostname: hostname() },
+		owner: {
+			pid: process.pid,
+			hostname: hostname(),
+			startedAt: testProcessStartedAt,
+		},
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString(),
 		...overrides,
@@ -54,7 +63,6 @@ describe("resource create idempotency file-backed store", () => {
 		});
 		expect(claim.kind).toBe("new");
 		if (claim.kind !== "new") throw new Error("unreachable");
-		expect(claim.recovered).toBe(false);
 
 		await store.commit({
 			key: "key-1",
@@ -173,7 +181,7 @@ describe("resource create idempotency file-backed store", () => {
 		).resolves.toMatchObject({ kind: "replay" });
 	});
 
-	test("takes over a stale claim whose owner process died", async () => {
+	test("reports a dead-owner claim as unresolved without taking it over", async () => {
 		const storePath = await createStorePath();
 		const exited = Bun.spawn(["true"]);
 		await exited.exited;
@@ -182,33 +190,64 @@ describe("resource create idempotency file-backed store", () => {
 		await writeRawJsonFileStore(createResourceCreateStore(storePath), {
 			version: 1,
 			records: {
-				"key-1": pendingRecord({ owner: { pid: exited.pid, hostname: hostname() } }),
+				"key-1": pendingRecord({
+					owner: {
+						pid: exited.pid,
+						hostname: hostname(),
+						startedAt: testProcessStartedAt,
+					},
+				}),
 			},
 		});
 
-		const claim = await claimResourceCreate({
-			storePath,
-			key: "key-1",
-			payloadHash: "payload-1",
-			targetHash: "target-a",
-			resourceKind: "list",
-		});
-		expect(claim).toMatchObject({ kind: "new", recovered: true });
+		await expect(
+			claimResourceCreate({
+				storePath,
+				key: "key-1",
+				payloadHash: "payload-1",
+				targetHash: "target-a",
+				resourceKind: "list",
+			}),
+		).resolves.toMatchObject({ kind: "unresolved" });
 
-		// The replaced claim's token can no longer commit or release.
-		await commitResourceCreate({
-			storePath,
-			key: "key-1",
-			claimToken: "token-old",
-			resourceId: "31",
-		});
+		// The record is left untouched for manual reconciliation.
 		const persisted = JSON.parse(await readFile(storePath, "utf8")) as {
-			records: Record<string, { status: string }>;
+			records: Record<string, { status: string; claimToken: string }>;
 		};
 		expect(persisted.records["key-1"]?.status).toBe("pending");
+		expect(persisted.records["key-1"]?.claimToken).toBe("token-old");
 	});
 
-	test("takes over a stale foreign-host claim past the age threshold", async () => {
+	test("reports a reused-PID owner as unresolved after a crash and restart", async () => {
+		const storePath = await createStorePath();
+		// A restarted service inherits a recycled PID (for example PID 1 in a
+		// container): the pid is alive again, but it is not the claim's
+		// process. The recorded start time does not match this process.
+		await writeRawJsonFileStore(createResourceCreateStore(storePath), {
+			version: 1,
+			records: {
+				"key-1": pendingRecord({
+					owner: {
+						pid: process.pid,
+						hostname: hostname(),
+						startedAt: "2020-01-01T00:00:00Z",
+					},
+				}),
+			},
+		});
+
+		await expect(
+			claimResourceCreate({
+				storePath,
+				key: "key-1",
+				payloadHash: "payload-1",
+				targetHash: "target-a",
+				resourceKind: "list",
+			}),
+		).resolves.toMatchObject({ kind: "unresolved" });
+	});
+
+	test("reports an aged foreign-host claim as unresolved without taking it over", async () => {
 		const storePath = await createStorePath();
 		const startedAt = new Date(Date.now() - RESOURCE_CREATE_CLAIM_STALE_MS - 1000);
 		await writeRawJsonFileStore(createResourceCreateStore(storePath), {
@@ -216,7 +255,11 @@ describe("resource create idempotency file-backed store", () => {
 			records: {
 				"key-1": pendingRecord({
 					createdAt: startedAt.toISOString(),
-					owner: { pid: process.pid, hostname: "other-host.example" },
+					owner: {
+						pid: process.pid,
+						hostname: "other-host.example",
+						startedAt: testProcessStartedAt,
+					},
 				}),
 			},
 		});
@@ -228,25 +271,18 @@ describe("resource create idempotency file-backed store", () => {
 			targetHash: "target-a",
 			resourceKind: "list",
 		});
-		expect(claim).toMatchObject({ kind: "new", recovered: true });
-		if (claim.kind !== "new") throw new Error("expected a takeover");
-		// The first claim time survives the takeover as adoption evidence.
-		expect(claim.record.firstClaimedAt).toBe(startedAt.toISOString());
+		expect(claim).toMatchObject({ kind: "unresolved" });
 
-		// The replaced claim's token can no longer commit or release.
-		await commitResourceCreate({
-			storePath,
-			key: "key-1",
-			claimToken: "token-old",
-			resourceId: "31",
-		});
+		// The record and its first-claim evidence are preserved for manual
+		// reconciliation; the claim is never silently replaced.
 		const persisted = JSON.parse(await readFile(storePath, "utf8")) as {
-			records: Record<string, { status: string }>;
+			records: Record<string, { claimToken: string; createdAt: string }>;
 		};
-		expect(persisted.records["key-1"]?.status).toBe("pending");
+		expect(persisted.records["key-1"]?.claimToken).toBe("token-old");
+		expect(persisted.records["key-1"]?.createdAt).toBe(startedAt.toISOString());
 	});
 
-	test("marks an ambiguous claim unknown and recovers it on a live host", async () => {
+	test("marks an ambiguous claim unknown and fails fast on a live host", async () => {
 		const storePath = await createStorePath();
 		const store = createFileBackedResourceCreateIdempotencyStore({ storePath });
 
@@ -258,7 +294,6 @@ describe("resource create idempotency file-backed store", () => {
 			resourceKind: "list",
 		});
 		if (claim.kind !== "new") throw new Error("expected a new claim");
-		const firstClaimedAt = claim.record.firstClaimedAt ?? claim.record.createdAt;
 
 		// The owner is this live process, so the pending claim is not stale.
 		await expect(
@@ -270,31 +305,29 @@ describe("resource create idempotency file-backed store", () => {
 			}),
 		).resolves.toMatchObject({ kind: "pending" });
 
-		// The attempt ends without a definitive outcome: markUnknown lets a
-		// later retry recover immediately despite the live owner pid.
+		// The attempt ends without a definitive outcome: markUnknown makes a
+		// later same-key claim fail fast as unresolved instead of waiting on
+		// a live owner that will never finish.
 		await markResourceCreateUnknown({
 			storePath,
 			key: "key-1",
 			claimToken: claim.claimToken,
 		});
-		// A foreign token cannot mark the claim, and an unknown claim is
-		// never released or committed.
+		// A foreign token cannot mark the claim.
 		await markResourceCreateUnknown({
 			storePath,
 			key: "key-1",
 			claimToken: "wrong-token",
 		});
 
-		const takeover = await claimResourceCreate({
-			storePath,
-			key: "key-1",
-			payloadHash: "payload-1",
-			targetHash: "target-a",
-			resourceKind: "list",
-		});
-		expect(takeover).toMatchObject({ kind: "new", recovered: true });
-		if (takeover.kind !== "new") throw new Error("expected a takeover");
-		expect(takeover.record.firstClaimedAt).toBe(firstClaimedAt);
+		await expect(
+			store.claim({
+				key: "key-1",
+				payloadHash: "payload-1",
+				targetHash: "target-a",
+				resourceKind: "list",
+			}),
+		).resolves.toMatchObject({ kind: "unresolved" });
 	});
 
 	test("validates the record-cap override strictly", async () => {
@@ -407,7 +440,6 @@ describe("resource create idempotency file-backed store", () => {
 			resourceKind: "list",
 		});
 		if (second.kind !== "new") throw new Error("expected a new claim");
-		expect(second.recovered).toBe(false);
 		await store.commit({
 			key: "key-1",
 			claimToken: second.claimToken,

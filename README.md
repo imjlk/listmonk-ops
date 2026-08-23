@@ -635,13 +635,12 @@ bound to the created list id, namespaced by the Listmonk target. An
 identical retry replays that list as `created: false`, a concurrent
 same-key create waits for the in-flight one instead of issuing a second
 POST, and conflicting payloads or targets under the same key are rejected
-explicitly. A live same-host claim is never stolen by age, and an attempt
-that ends ambiguously marks its claim unknown so the next retry recovers
-immediately and reconciles by list name, attributes, and creation time —
-creating fresh only after a settled miss proves the crashed create is not
-observable, and leaving the key unresolved for manual reconciliation when
-a same-named match could be the attempt's product (a name is never
-ownership proof). A keyed create requires
+explicitly. A live same-host claim (verified past PID reuse) is never
+stolen by age, and an attempt that ends ambiguously marks its claim
+unknown so later same-key creates fail fast with reconciliation guidance
+— the key is intentionally not reused, because no name-based check can
+prove the crashed create did not land (a list can even have been
+renamed). A keyed create requires
 that store, so surfaces without one reject the key instead of silently
 dropping the guarantee — promoting the operation with
 testing-mode-independent conditional semantics (unkeyed creates stay

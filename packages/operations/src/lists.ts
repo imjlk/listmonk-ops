@@ -289,12 +289,6 @@ function canonicalListCreatePayload(
 const KEYED_CREATE_PENDING_WAIT_MS = 10_000;
 const KEYED_CREATE_PENDING_POLL_MS = 200;
 /**
- * Settle window before recreating on a recovered claim with no observable
- * list: the crashed POST may still be committing server-side, so an
- * immediate miss is not yet evidence of absence.
- */
-const KEYED_CREATE_RECOVERY_SETTLE_MS = 2_000;
-/**
  * Wall-clock tolerance between the locally persisted claim time and
  * Listmonk's server-side `created_at` when proving a list was produced by
  * the claimed attempt.
@@ -309,11 +303,8 @@ type SettledKeyedClaim =
 	| {
 			kind: "new";
 			claimToken: string;
-			recovered: boolean;
 			/** Claim time of the attempt this POST belongs to. */
 			claimedAt: string;
-			/** First claim time on this key, predating every POST for it. */
-			firstClaimedAt: string;
 	  }
 	| { kind: "replay"; record: StoredResourceCreateRecord };
 
@@ -357,10 +348,13 @@ async function claimKeyedListCreate(
 			return {
 				kind: "new",
 				claimToken: claim.claimToken,
-				recovered: claim.recovered,
 				claimedAt: claim.record.createdAt,
-				firstClaimedAt: claim.record.firstClaimedAt ?? claim.record.createdAt,
 			};
+		}
+		if (claim.kind === "unresolved") {
+			throw new Error(
+				`Idempotency key '${options.key}' has an unresolved previous attempt (status ${claim.record.status}); its create outcome cannot be determined automatically — a list can even have been renamed after creation. Inspect the Listmonk lists for the intended result, reconcile manually, and use a new idempotency key.`,
+			);
 		}
 		if (Date.now() >= deadline) {
 			throw new Error(
@@ -406,73 +400,21 @@ function matchesRequestedCreate(
 
 /**
  * Prove from Listmonk's server-side `created_at` that the list was created
- * during the claimed attempt. Returns undefined when the timestamp is
- * absent and the outcome is unprovable either way.
+ * during the claimed attempt. Returns undefined when either timestamp is
+ * absent or unparsable and the outcome is unprovable either way.
  */
 function createdDuringAttempt(
 	list: List,
 	attemptClaimedAt: string,
 ): boolean | undefined {
-	if (list.created_at === undefined) {
+	const listCreatedMs = list.created_at !== undefined
+		? new Date(list.created_at).getTime()
+		: Number.NaN;
+	const claimedMs = new Date(attemptClaimedAt).getTime();
+	if (Number.isNaN(listCreatedMs) || Number.isNaN(claimedMs)) {
 		return undefined;
 	}
-	return (
-		new Date(list.created_at).getTime() >=
-		new Date(attemptClaimedAt).getTime() - CREATE_TIME_SKEW_MS
-	);
-}
-
-/**
- * A stale claim takeover means a previous attempt's POST outcome is unknown.
- * Reconcile by exact list name before creating, without ever inferring
- * OWNERSHIP of a matched list — names and attributes are not unique and
- * another caller may have created a same-named list after the claim, so a
- * match is never proof that the crashed attempt produced it:
- * - several matches make the outcome unresolvable (paging stopped early, so
- *   the candidate set is not even enumerable);
- * - a unique match that could plausibly be the attempt's product (matching
- *   attributes, and created at or after the first claim within clock skew,
- *   or lacking a creation time) leaves the key unresolved for manual
- *   reconciliation;
- * - a unique match that is disproven (wrong attributes, or provably created
- *   before the key was first claimed) is an unrelated pre-existing list,
- *   and the crashed attempt's own create is not observable — creating fresh
- *   cannot duplicate it;
- * - nothing matches: settle and re-query once, because the crashed POST may
- *   still be committing server-side.
- */
-async function reconcileRecoveredClaim(
-	client: Pick<ListmonkClient, "list">,
-	input: z.output<typeof createListInputSchema>,
-	firstClaimedAt: string,
-): Promise<void> {
-	// Stop paging as soon as ambiguity is provable.
-	let matches = await findListsByName(client, input.name, { maxMatches: 2 });
-	if (matches.length === 0) {
-		await delay(KEYED_CREATE_RECOVERY_SETTLE_MS);
-		matches = await findListsByName(client, input.name, { maxMatches: 2 });
-	}
-	if (matches.length > 1) {
-		throw new Error(
-			`Idempotency recovery found multiple lists named "${input.name}"; the crashed attempt's outcome is ambiguous. Reconcile the duplicates manually and retry with a new idempotency key.`,
-		);
-	}
-	const candidate = matches[0];
-	if (candidate === undefined) {
-		// Settled miss: the crashed attempt's create is not observable, so a
-		// fresh POST cannot duplicate it.
-		return;
-	}
-	if (!matchesRequestedCreate(candidate, input)) {
-		return;
-	}
-	const createdDuring = createdDuringAttempt(candidate, firstClaimedAt);
-	if (createdDuring === false) {
-		return;
-	}
-	throw new Error(
-		`Idempotency recovery cannot prove whether the list named "${input.name}" (id ${String(candidate.id ?? "?")}) was created by the crashed attempt; a same-named match is not ownership proof. The key stays unresolved — reconcile manually and retry with a new idempotency key.`,
-	);
+	return listCreatedMs >= claimedMs - CREATE_TIME_SKEW_MS;
 }
 
 /**
@@ -611,21 +553,10 @@ export async function createSubscriberList(
 		return replayRecordedList(client, claim.record);
 	}
 
-	// claim.kind === "new" — this call owns the key from here on.
-	if (claim.recovered) {
-		// The previous attempt ended without a definitive outcome. Verify
-		// the crashed attempt's create is not observable before issuing a
-		// POST of our own; a same-named match is never adopted as proof.
-		try {
-			await reconcileRecoveredClaim(client, input, claim.firstClaimedAt);
-		} catch (error) {
-			await markKeyedClaimUnknown(createIdempotencyStore, {
-				key: input.idempotency_key,
-				claimToken: claim.claimToken,
-			});
-			throw error;
-		}
-	}
+	// claim.kind === "new" — this call owns the key from here on. An
+	// unresolved previous attempt never reaches this point: the claim fails
+	// fast instead, because no name-based reconciliation can prove the
+	// crashed create did not land (a list can even have been renamed).
 
 	let created: List | undefined;
 	let failure: { error: Error; definitive: boolean } | undefined;

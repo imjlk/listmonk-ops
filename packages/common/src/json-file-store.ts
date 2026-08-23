@@ -19,6 +19,15 @@ export interface JsonFileStore<T> {
 	createDefault: () => T;
 	parse: (value: unknown) => T;
 	lock?: JsonFileLockOptions;
+	/**
+	 * Opt-in: when an update returns the current document by reference, skip
+	 * the serialize/rename/fsync cycle entirely. Only safe for stores whose
+	 * mutating callbacks NEVER modify the current document in place — they
+	 * must build and return a new document. Stores with in-place mutating
+	 * callbacks (for example the template registry) must not enable this,
+	 * because their unchanged reference would silently skip the write.
+	 */
+	skipUnchangedWrites?: boolean;
 }
 
 export interface JsonFileStoreUpdate<T, Result> {
@@ -497,10 +506,10 @@ export async function writeJsonFileStore<T>(
  * Runs a read/modify/write callback while holding the store's exclusive lock.
  * Keep callback work bounded. If it performs remote side effects, callers must
  * surface reconciliation guidance because a later local write or lock-release
- * failure cannot automatically roll the remote action back. When the callback
- * returns the current value by reference, the store is left untouched — no
- * serialization, atomic rename, or fsync — so read-only outcomes under the
- * lock (for example a lost claim race) cost no writes.
+ * failure cannot automatically roll the remote action back. For stores that
+ * opt into `skipUnchangedWrites` and never mutate the current document in
+ * place, an update returning the current value by reference skips the write
+ * entirely, so read-only outcomes under the lock cost no fsync or rename.
  */
 export async function updateJsonFileStore<T, Result>(
 	store: JsonFileStore<T>,
@@ -512,7 +521,7 @@ export async function updateJsonFileStore<T, Result>(
 	return withJsonFileLock(path, store.lock, async () => {
 		const currentValue = await readJsonFileStore({ ...store, path });
 		const next = await update(currentValue);
-		if (next.value !== currentValue) {
+		if (next.value !== currentValue || !store.skipUnchangedWrites) {
 			const serializedValue = serializeJsonFileStoreValue(store, next.value);
 			await writeJsonFileAtomic(path, serializedValue);
 		}

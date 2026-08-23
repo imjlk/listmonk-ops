@@ -20886,7 +20886,7 @@
           {
             "semantics": {
               "kind": "safe",
-              "reason": "The key is atomically claimed in a durable store before the create is issued and then bound to the created list id; an identical retry (same key, same request payload, same Listmonk target) replays that list with created: false, a concurrent same-key create waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. An attempt that ends ambiguously marks its claim unknown; a later retry recovers it immediately and reconciles by list name, attributes, and creation time — creating fresh only after a settled miss proves the crashed create is not observable, and leaving the key unresolved for manual reconciliation whenever a same-named match could be the attempt's product, because a name is never ownership proof."
+              "reason": "The key is atomically claimed in a durable store before the create is issued and then bound to the created list id; an identical retry (same key, same request payload, same Listmonk target) replays that list with created: false, a concurrent same-key create waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. An attempt that ends ambiguously marks its claim unknown, and later same-key creates fail fast with reconciliation guidance — the key is intentionally not reused, because no name-based check can prove the crashed create did not land (a list can even have been renamed)."
             },
             "when": "idempotency_key is present"
           },
