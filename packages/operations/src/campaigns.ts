@@ -32,7 +32,7 @@ import {
 	assertCampaignTransition,
 	type CampaignLifecycleTarget,
 } from "./campaign-lifecycle";
-import { canonicalJsonStringify, executeKeyedCreate } from "./keyed-create";
+import { executeKeyedCreate } from "./keyed-create";
 import { isDefinitivePreDispatchError } from "./transactional-idempotency";
 import { CAMPAIGN_SEND_AT_PATTERN } from "./campaign-send-at";
 import {
@@ -440,9 +440,10 @@ function canonicalCampaignCreatePayload(
 		messenger: input.messenger,
 		content_type: input.content_type,
 		send_at: input.send_at ?? null,
-		headers: [...(input.headers ?? [])].sort((a, b) =>
-			canonicalJsonStringify(a) < canonicalJsonStringify(b) ? -1 : 1,
-		),
+		// Array order is preserved — the contract accepts an ordered array
+		// and does not declare header order insignificant — while each
+		// entry's keys are canonicalized by the executor's recursive sort.
+		headers: input.headers ?? [],
 		attribs: input.attribs ?? {},
 		archive: input.archive ?? false,
 		archive_slug: input.archive_slug ?? null,

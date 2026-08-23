@@ -209,6 +209,16 @@ describe("campaign create operations", () => {
 		expect(retried.created).toBe(false);
 		expect(retried.campaign).toMatchObject({ id: 41 });
 		expect(create).toHaveBeenCalledTimes(1);
+
+		// The header ARRAY order is part of the payload: reusing the same
+		// key with reordered headers is a different create request.
+		await expect(
+			invokeCreateCampaignOperation(ctx, {
+				...baseInput,
+				headers: [{ "X-B": "2" }, { "X-A": "1" }],
+				idempotency_key: "campaign-reorder",
+			}),
+		).rejects.toThrow(/different create request/);
 	});
 
 	test("serializes concurrent keyed creates into one POST and one replay", async () => {
