@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import {
 	commitJsonFileStoreUpdate,
 	isSameLiveProcess,
+	PROCESS_BOOT_TICKS,
 	PROCESS_STARTED_AT,
 	readJsonFileStore,
 	type JsonFileStore,
@@ -36,6 +37,12 @@ export interface StoredResourceCreateRecord {
 		hostname: string;
 		/** Wall-clock process start time; distinguishes reused PIDs. */
 		startedAt: string;
+		/**
+		 * Boot-relative /proc start ticks on Linux — clock-stable, so a
+		 * wall-clock step can never make a live owner look recycled.
+		 * Undefined elsewhere.
+		 */
+		bootTicks?: number;
 	};
 	/** Time of the first claim on this key; precedes every POST for it. */
 	firstClaimedAt?: string;
@@ -221,6 +228,12 @@ export function isStoredResourceCreateRecord(
 		typeof owner.hostname !== "string" ||
 		owner.hostname.length === 0 ||
 		!isIsoTimestampValue(owner.startedAt)
+	) {
+		return false;
+	}
+	if (
+		owner.bootTicks !== undefined &&
+		(typeof owner.bootTicks !== "number" || !Number.isFinite(owner.bootTicks))
 	) {
 		return false;
 	}
@@ -416,6 +429,7 @@ export async function claimResourceCreate(options: {
 				pid: process.pid,
 				hostname: STORE_HOSTNAME,
 				startedAt: PROCESS_STARTED_AT,
+				bootTicks: PROCESS_BOOT_TICKS,
 			},
 			firstClaimedAt: nowIso,
 			createdAt: nowIso,

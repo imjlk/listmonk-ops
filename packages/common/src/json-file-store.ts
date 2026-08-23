@@ -41,7 +41,22 @@ interface LockMetadata {
 	pid: number;
 	hostname: string;
 	startedAt?: string;
+	bootTicks?: number;
 	createdAt: string;
+}
+
+function readLinuxStartTicks(pid: number): number | undefined {
+	if (process.platform !== "linux") return undefined;
+	try {
+		const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+		const closing = stat.lastIndexOf(")");
+		const fields = stat.slice(closing + 2).split(" ");
+		// Field 22 overall; after "comm)" the remaining fields start at 3.
+		const ticks = Number(fields[19]);
+		return Number.isFinite(ticks) ? ticks : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 /** Wall-clock estimate of this process's start, captured once. */
@@ -49,25 +64,41 @@ export const PROCESS_STARTED_AT = new Date(
 	Math.round(Date.now() - performance.now()),
 ).toISOString();
 
+/**
+ * Boot-relative start of this process from /proc/<pid>/stat (clock ticks
+ * since boot), captured once. Unlike the wall-clock estimate it is immune
+ * to wall-clock steps (VM resume, NTP corrections), so Linux identity
+ * comparisons never misjudge a live owner. Undefined elsewhere.
+ */
+export const PROCESS_BOOT_TICKS = readLinuxStartTicks(process.pid);
+
 /** How far apart two process-start estimates may be and still match. */
 const PROCESS_START_TOLERANCE_MS = 5_000;
 
 /**
  * True when a recorded owner is this same live process. A recycled PID
- * (for example a container restarting into PID 1) is a different process:
- * the pid exists, but the recorded start time no longer matches. Foreign
- * PIDs are compared through /proc on Linux and assumed alive elsewhere.
- * Shared by the store locks and the resource-create claim records.
+ * (for example a container restarting into PID 1) is a different process.
+ * On Linux the boot-relative /proc start ticks decide — clock-stable —
+ * with the wall-clock estimate as the fallback on other platforms, where
+ * unverifiable foreign PIDs are assumed alive. Shared by the store locks
+ * and the resource-create claim records.
  */
 export function isSameLiveProcess(owner: {
 	pid: number;
 	startedAt?: string;
+	bootTicks?: number;
 }): boolean {
 	try {
 		process.kill(owner.pid, 0);
 	} catch (error) {
 		if (isErrnoException(error, "ESRCH")) return false;
 		return true;
+	}
+	if (owner.bootTicks !== undefined && process.platform === "linux") {
+		const currentTicks = readLinuxStartTicks(owner.pid);
+		if (currentTicks !== undefined) {
+			return currentTicks === owner.bootTicks;
+		}
 	}
 	if (owner.startedAt === undefined) {
 		// Legacy lock/claim metadata without a start identity: fall back to
@@ -159,8 +190,11 @@ function parseLockMetadata(value: string): LockMetadata | undefined {
 			return undefined;
 		}
 		if (
-			parsed.startedAt !== undefined &&
-			typeof parsed.startedAt !== "string"
+			(parsed.startedAt !== undefined && typeof parsed.startedAt !== "string") ||
+			(parsed.bootTicks !== undefined &&
+				(typeof parsed.bootTicks !== "number" || !Number.isFinite(
+					parsed.bootTicks,
+				)))
 		) {
 			return undefined;
 		}
@@ -177,6 +211,7 @@ function createLockMetadata(token = randomUUID()): LockMetadata {
 		pid: process.pid,
 		hostname: LOCK_HOSTNAME,
 		startedAt: PROCESS_STARTED_AT,
+		bootTicks: PROCESS_BOOT_TICKS,
 		createdAt: new Date().toISOString(),
 	};
 }
