@@ -137,7 +137,41 @@ async function deleteMediaIfPresent(mediaId: number | undefined): Promise<void> 
 }
 
 describe("Media CLI and MCP parity", () => {
+
 	const { client, utils } = createMCPTestSuite();
+
+	test("should replay an identical keyed upload without duplicating", async () => {
+		const filename = `${buildTestName("media-keyed")}.gif`;
+		const idempotencyKey = `e2e:${filename}`;
+		const base64 = Buffer.from(TRANSPARENT_GIF).toString("base64");
+		const request = {
+			base64,
+			filename,
+			content_type: "image/gif",
+			idempotency_key: idempotencyKey,
+		};
+
+		const first = utils.assertSuccess<{ media?: { id?: number }; created?: boolean }>(
+			await client.callTool("listmonk_upload_media", request),
+			"Failed to run the first keyed media upload",
+		);
+		expect(first.created).toBe(true);
+		expect(first.media?.id).toBeGreaterThan(0);
+
+		const retried = utils.assertSuccess<{ media?: { id?: number }; created?: boolean }>(
+			await client.callTool("listmonk_upload_media", request),
+			"Failed to replay the keyed media upload",
+		);
+		expect(retried.created).toBe(false);
+		expect(retried.media?.id).toBe(first.media?.id);
+
+		// A different payload under the same key is rejected.
+		const conflicting = await client.callTool("listmonk_upload_media", {
+			...request,
+			filename: `${buildTestName("media-keyed-conflict")}.gif`,
+		});
+		utils.assertError(conflicting, "different create request");
+	});
 
 	test("reads the same fixture through both adapters and enforces destructive confirmation", async () => {
 		let cliMediaId: number | undefined;

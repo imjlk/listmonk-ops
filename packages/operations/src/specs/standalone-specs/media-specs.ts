@@ -95,7 +95,7 @@ export const mediaUploadOperationSpec = defineOperationSpec({
 				"packages/operations/src/media.ts#uploadMediaFile:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

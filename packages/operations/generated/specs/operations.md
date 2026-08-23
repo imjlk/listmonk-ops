@@ -991,7 +991,7 @@ Upload a media file to Listmonk from base64-encoded contents. Validates an allow
 - Effects: `write:media`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `ops.segments.drift`
 

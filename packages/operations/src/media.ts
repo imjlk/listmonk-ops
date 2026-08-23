@@ -1,3 +1,4 @@
+import type { ResourceCreateIdempotencyStore } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	bindMediaDeleteOperationSpec,
@@ -20,11 +21,31 @@ import {
 	normalizeResourceList,
 	readResourceSafety,
 	resourceIdSchema,
+	toResourceErrorMessage,
 	unwrapResourceResponse,
 } from "./resource-helpers";
+import { executeKeyedCreate } from "./keyed-create";
+import { isDefinitivePreDispatchError } from "./transactional-idempotency";
 
 export interface MediaOperationContext {
 	client: Pick<ListmonkClient, "media">;
+	/**
+	 * Adapter-supplied resource-create idempotency store. When absent, an
+	 * `idempotency_key` is rejected as unsupported on this surface; CLI and
+	 * MCP inject a file-backed implementation.
+	 */
+	createIdempotencyStore?: ResourceCreateIdempotencyStore;
+	/** SHA-256 digest helper paired with the store (runtime-neutral). */
+	hashCreatePayload?: (serialized: string) => string;
+	/**
+	 * Resolved Listmonk identity namespacing idempotency records. Required
+	 * when `idempotency_key` is used so a key can never replay across
+	 * instances.
+	 */
+	target?: {
+		baseUrl?: string;
+		username?: string;
+	};
 }
 
 const mediaFileSchema = z.looseObject({
@@ -257,6 +278,15 @@ const uploadMediaInputSchema = z
 			.string()
 			.min(1)
 			.describe("Base64-encoded file contents (RFC 4648)"),
+		idempotency_key: z
+			.string()
+			.trim()
+			.min(1)
+			.max(200)
+			.optional()
+			.describe(
+				"Caller-scoped upload key; an identical retry with the same key replays the originally uploaded media file instead of uploading a duplicate",
+			),
 		filename: z
 			.string()
 			.trim()
@@ -385,16 +415,85 @@ const uploadMediaInputSchema = z
 
 export type UploadMediaInput = z.output<typeof uploadMediaInputSchema>;
 
+const mediaUploadOutputSchema = z.object({
+	media: mediaFileSchema,
+	created: z.boolean(),
+});
+
+export interface MediaUploadResult {
+	media: z.output<typeof mediaFileSchema>;
+	created: boolean;
+}
+
 /**
  * Upload a media file to Listmonk from base64-encoded contents. Decodes
  * the base64 payload, resolves the effective MIME type (explicit value or
  * inferred from the filename), and constructs a `File` so Listmonk
  * registers the upload under the caller's filename.
  */
-export async function uploadMediaFile(
-	{ client }: MediaOperationContext,
+/**
+ * Canonical upload payload for idempotency hashing: the filename, the
+ * effective MIME type, and the base64 content in its normalized standard
+ * padded form, so equivalent encodings (data-URL prefixes, whitespace
+ * wrapping, URL-safe alphabet, missing padding) hash identically.
+ */
+function canonicalMediaUploadPayload(
 	input: z.output<typeof uploadMediaInputSchema>,
-): Promise<z.output<typeof mediaFileSchema>> {
+): Record<string, unknown> {
+	const normalized = normalizeBase64Payload(input.base64) ?? input.base64;
+	return {
+		filename: input.filename,
+		content_type:
+			input.content_type ?? inferContentTypeFromFilename(input.filename) ?? "",
+		base64: normalized,
+	};
+}
+
+/**
+ * Normalize a base64 payload to its canonical standard-alphabet padded
+ * form (the exact string `decodeBase64ToBytes` decodes). Returns null for
+ * inputs that are not valid base64; the schema's superRefine has already
+ * rejected those by the time this runs.
+ */
+function normalizeBase64Payload(value: string): string | null {
+	const trimmed = stripBase64Wrapper(value);
+	if (!BASE64_ALPHABET_PATTERN.test(trimmed)) return null;
+	let standard = trimmed.replaceAll("-", "+").replaceAll("_", "/");
+	const remainder = standard.length % 4;
+	if (remainder === 1) return null;
+	if (remainder === 2) standard += "==";
+	else if (remainder === 3) standard += "=";
+	return standard;
+}
+
+/**
+ * Correlate an accepted keyed upload that came back without a usable id to
+ * the media file it produced. Filenames are not unique in Listmonk, so
+ * binding is authorized only by immutable identity: the uploaded record's
+ * `uuid` from the upload response matching exactly one listed media file.
+ */
+async function findMediaByUuid(
+	client: Pick<ListmonkClient, "media">,
+	createdUuid: string,
+): Promise<MediaFileRecord | undefined> {
+	const response = await client.media.list();
+	const files = unwrapResourceResponse(response, "Failed to list media files");
+	const correlated = (files.results ?? []).filter(
+		(file) => file.uuid === createdUuid && file.id !== undefined,
+	);
+	const candidate = correlated[0];
+	if (correlated.length === 1 && candidate !== undefined) {
+		return candidate;
+	}
+	return undefined;
+}
+
+type MediaFileRecord = z.output<typeof mediaFileSchema>;
+
+async function uploadMediaUnkeyed(
+	client: Pick<ListmonkClient, "media">,
+	input: z.output<typeof uploadMediaInputSchema>,
+): Promise<MediaUploadResult> {
 	// The schema's superRefine guarantees decode succeeds; re-derive the
 	// bytes here using the runtime-neutral decoder (no `Buffer` global).
 	const bytes = decodeBase64ToBytes(input.base64);
@@ -422,7 +521,128 @@ export async function uploadMediaFile(
 		response,
 		"Failed to upload media file",
 	);
-	return uploaded as z.output<typeof mediaFileSchema>;
+	return { media: uploaded as MediaFileRecord, created: true };
+}
+
+export async function uploadMediaFile(
+	{
+		client,
+		createIdempotencyStore,
+		hashCreatePayload,
+		target,
+	}: MediaOperationContext,
+	input: z.output<typeof uploadMediaInputSchema>,
+): Promise<MediaUploadResult> {
+	if (input.idempotency_key === undefined) {
+		return uploadMediaUnkeyed(client, input);
+	}
+	if (createIdempotencyStore === undefined || hashCreatePayload === undefined) {
+		throw new Error(
+			"idempotency_key requires a resource-create idempotency store on this surface",
+		);
+	}
+	if (!target?.baseUrl || !target?.username) {
+		throw new Error(
+			"idempotency_key requires a resolved Listmonk target (baseUrl and username) so the key cannot replay across instances",
+		);
+	}
+
+	const bytes = decodeBase64ToBytes(input.base64);
+	if (bytes === null) {
+		// Defensive: schema validation should have caught this already.
+		throw new Error("media upload payload is not valid base64");
+	}
+	const effectiveContentType =
+		input.content_type ?? inferContentTypeFromFilename(input.filename);
+	const file = new File([bytes as BlobPart], input.filename, {
+		type: effectiveContentType ?? "application/octet-stream",
+	});
+
+	const result = await executeKeyedCreate<MediaFileRecord>({
+		store: createIdempotencyStore,
+		hashCreatePayload,
+		target: { baseUrl: target.baseUrl, username: target.username },
+		key: input.idempotency_key,
+		resourceKind: "media",
+		resourceLabel: "media upload",
+		canonicalPayload: canonicalMediaUploadPayload(input),
+		resourceIdOf: (media) =>
+			media.id !== undefined ? String(media.id) : undefined,
+		describeResource: (media) =>
+			`id ${String(media.id ?? media.filename ?? "?")}`,
+		replay: async (resourceId) => {
+			const response = await client.media.getById({
+				path: { id: Number(resourceId) },
+			});
+			try {
+				return unwrapResourceResponse(
+					response,
+					`Failed to replay media file ${resourceId}`,
+				) as MediaFileRecord;
+			} catch (error) {
+				throw new Error(
+					`Idempotency replay could not load media file ${resourceId}: ${toResourceErrorMessage(error)}`,
+					{ cause: error },
+				);
+			}
+		},
+		issue: async () => {
+			let response: Awaited<ReturnType<typeof client.media.upload>>;
+			try {
+				response = await client.media.upload({ body: file });
+			} catch (error) {
+				return {
+					failure: {
+						error,
+						definitive: isDefinitivePreDispatchError(error),
+					},
+				};
+			}
+			if ("error" in response && response.error !== undefined) {
+				const status =
+					typeof response.response?.status === "number"
+						? response.response.status
+						: undefined;
+				return {
+					failure: {
+						error: new Error(
+							`Failed to upload media file: ${toResourceErrorMessage(response.error)}`,
+						),
+						definitive: status !== undefined && status >= 400 && status < 500,
+					},
+				};
+			}
+			if (response.data?.id !== undefined) {
+				return { resource: response.data as MediaFileRecord };
+			}
+			// No usable id: only immutable correlation may bind the key — a
+			// filename match alone is never proof — so correlate the uploaded
+			// record's uuid, when the response supplied one.
+			if (response.data?.uuid !== undefined) {
+				try {
+					const correlated = await findMediaByUuid(
+						client,
+						response.data.uuid,
+					);
+					if (correlated !== undefined) {
+						return { resource: correlated };
+					}
+				} catch (error) {
+					return {
+						failure: {
+							error: new Error(
+								`Keyed media upload was accepted but the uploaded record could not be re-read: ${toResourceErrorMessage(error)}`,
+								{ cause: error },
+							),
+							definitive: false,
+						},
+					};
+				}
+			}
+			return {};
+		},
+	});
+	return { media: result.resource, created: result.created };
 }
 
 export const getMediaOperation = defineOperation({
@@ -473,7 +693,7 @@ export const uploadMediaOperation = defineOperation({
 	description:
 		"Upload a media file to Listmonk from base64-encoded contents. Validates an allowlist of MIME types and a 10 MiB size cap before sending.",
 	inputSchema: uploadMediaInputSchema,
-	outputSchema: mediaFileSchema,
+	outputSchema: mediaUploadOutputSchema,
 	safety: createResourceSafety,
 	mcp: {
 		name: "listmonk_upload_media",
@@ -546,12 +766,12 @@ export async function invokeDeleteMediaOperation(
 export async function invokeUploadMediaOperation(
 	context: MediaOperationContext,
 	input: unknown,
-): Promise<z.output<typeof mediaFileSchema>> {
+): Promise<z.output<typeof mediaUploadOutputSchema>> {
 	const parsedInput = parseOperationInput(
 		uploadMediaOperation.inputSchema,
 		input,
 	);
-	let output: z.output<typeof mediaFileSchema>;
+	let output: MediaUploadResult;
 	try {
 		output = await uploadMediaFile(context, parsedInput);
 	} catch (error) {

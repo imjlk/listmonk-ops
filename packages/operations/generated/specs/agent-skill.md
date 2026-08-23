@@ -1138,7 +1138,7 @@ Retry guidance: Verify the file is gone with media.list before retrying.
 
 ## Upload media file (`media.upload`)
 
-Contract maturity: `experimental`; effects: `write:media`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:media`; confirmation: `never`; retry: `unsafe`.
 
 Use when: A new media file must be uploaded.
 

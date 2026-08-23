@@ -133,6 +133,7 @@ import type {
 	CampaignDeleteInput,
 	CampaignDeleteOutput,
 	MediaUploadInput,
+	MediaUploadOutput,
 	MediaDeleteInput,
 	MediaDeleteOutput,
 	CampaignCloneInput,
@@ -642,6 +643,9 @@ const contracts = {
 	),
 	mediaUploadInputContract: contractSchema(
 		typia.json.schema<MediaUploadInput>(),
+	),
+	mediaUploadOutputContract: contractSchema(
+		typia.json.schema<MediaUploadOutput>(),
 	),
 	mediaDeleteInputContract: contractSchema(
 		typia.json.schema<MediaDeleteInput>(),

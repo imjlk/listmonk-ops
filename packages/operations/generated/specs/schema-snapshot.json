@@ -24903,6 +24903,12 @@
                   "minLength": 1,
                   "pattern": "^\\s*\\S[\\s\\S]*$",
                   "type": "string"
+                },
+                "idempotency_key": {
+                  "description": "Caller-scoped upload key; an identical retry with the same key replays the originally uploaded media file.",
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
                 }
               },
               "required": [
@@ -24934,6 +24940,12 @@
               "maxLength": 255,
               "minLength": 1,
               "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
+            },
+            "idempotency_key": {
+              "description": "Caller-scoped upload key; an identical retry with the same key replays the originally uploaded media file.",
+              "maxLength": 200,
+              "minLength": 1,
               "type": "string"
             }
           },
@@ -25054,7 +25066,7 @@
         "reason": "A retry may upload another file unless the original media ID is known."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "ops.segments.drift",

@@ -1509,9 +1509,12 @@ describe("shared CRUD resource operations", () => {
 			},
 		);
 		expect(uploaded).toMatchObject({
-			id: 42,
-			filename: "pixel.png",
-			content_type: "image/png",
+			created: true,
+			media: {
+				id: 42,
+				filename: "pixel.png",
+				content_type: "image/png",
+			},
 		});
 		expect(upload).toHaveBeenCalledTimes(1);
 	});
@@ -1539,7 +1542,10 @@ describe("shared CRUD resource operations", () => {
 				content_type: "image/png",
 			},
 		);
-		expect(uploaded).toMatchObject({ id: 43, filename: "pixel.png" });
+		expect(uploaded).toMatchObject({
+			created: true,
+			media: { id: 43, filename: "pixel.png" },
+		});
 		expect(upload).toHaveBeenCalledTimes(1);
 	});
 
