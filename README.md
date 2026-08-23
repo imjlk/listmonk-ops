@@ -419,6 +419,10 @@ listmonk-cli campaigns list --page 1 --per-page 20
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \
   --template-id 1 --lists 10
+# Pass --idempotency-key so an ambiguous retry replays the same campaign.
+listmonk-cli campaigns create --name "Weekly update" --subject "News" \
+  --from-email ops@example.com --body "<p>Hello</p>" \
+  --template-id 1 --lists 10 --idempotency-key "newsletter-2026-08-weekly"
 listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
 listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z \
@@ -521,7 +525,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Eighty-four reviewed core operations are `stable`: the existing
+Eighty-five reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -644,8 +648,11 @@ correlates one). A keyed create requires
 that store, so surfaces without one reject the key instead of silently
 dropping the guarantee — promoting the operation with
 testing-mode-independent conditional semantics (unkeyed creates stay
-honestly unsafe because Listmonk list names are not unique). The
-remaining 20 descriptors are experimental.
+honestly unsafe because Listmonk list names are not unique). A twentieth
+batch promoted `campaigns.create` with the same contract through a shared
+keyed-create executor (CLI `--idempotency-key`, `{campaign, created}`
+envelope, uuid correlation for id-less responses). The remaining 19
+descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,

@@ -48,11 +48,12 @@ describe("Ops MCP Tools", () => {
 				type: "regular",
 			},
 		);
-		const createdCampaign = utils.assertSuccess<{ id: number }>(
+		const createdCampaign = utils.assertSuccess<{ campaign?: { id?: number } }>(
 			campaignCreateResult,
 			"Failed to create campaign",
 		);
-		campaignId = createdCampaign.id;
+		campaignId = createdCampaign.campaign?.id ?? 0;
+		expect(campaignId).toBeGreaterThan(0);
 
 		const preflightResult = await client.callTool("listmonk_ops_preflight", {
 			campaign_id: String(campaignId),

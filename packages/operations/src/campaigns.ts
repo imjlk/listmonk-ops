@@ -1,3 +1,4 @@
+import type { ResourceCreateIdempotencyStore } from "@listmonk-ops/common";
 import type { Campaign, ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	bindCampaignCancelOperationSpec,
@@ -31,6 +32,8 @@ import {
 	assertCampaignTransition,
 	type CampaignLifecycleTarget,
 } from "./campaign-lifecycle";
+import { executeKeyedCreate } from "./keyed-create";
+import { isDefinitivePreDispatchError } from "./transactional-idempotency";
 import { CAMPAIGN_SEND_AT_PATTERN } from "./campaign-send-at";
 import {
 	defineOperation,
@@ -41,6 +44,23 @@ import {
 
 export interface CampaignOperationContext {
 	client: Pick<ListmonkClient, "campaign">;
+	/**
+	 * Adapter-supplied resource-create idempotency store. When absent, an
+	 * `idempotency_key` is rejected as unsupported on this surface; CLI and
+	 * MCP inject a file-backed implementation.
+	 */
+	createIdempotencyStore?: ResourceCreateIdempotencyStore;
+	/** SHA-256 digest helper paired with the store (runtime-neutral). */
+	hashCreatePayload?: (serialized: string) => string;
+	/**
+	 * Resolved Listmonk identity namespacing idempotency records. Required
+	 * when `idempotency_key` is used so a key can never replay across
+	 * instances.
+	 */
+	target?: {
+		baseUrl?: string;
+		username?: string;
+	};
 }
 
 const campaignTypeSchema = z.enum(["regular", "optin"]);
@@ -159,7 +179,25 @@ const campaignBodyFields = {
 	subscribers: z.array(z.string()).optional(),
 };
 
-const createCampaignInputSchema = z.object(campaignBodyFields);
+const idempotencyKeySchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(200)
+	.optional()
+	.describe(
+		"Caller-scoped create key; an identical retry with the same key replays the originally created campaign instead of creating a duplicate",
+	);
+
+const createCampaignInputSchema = z.object({
+	...campaignBodyFields,
+	idempotency_key: idempotencyKeySchema,
+});
+
+const campaignCreateOutputSchema = z.object({
+	campaign: campaignSchema,
+	created: z.boolean(),
+});
 
 const updateCampaignInputSchema = z
 	.object({
@@ -363,26 +401,199 @@ async function findCreatedCampaignNotInSet(
 	return undefined;
 }
 
-export async function createCampaign(
-	{ client }: CampaignOperationContext,
+/**
+ * Correlate an accepted keyed create that came back without a usable id to
+ * the campaign it produced. A name match is never proof — names are not
+ * unique and another caller may have created a same-named campaign — so
+ * binding is authorized only by immutable identity: the created record's
+ * `uuid` from the create response matching exactly one campaign.
+ */
+async function findCampaignByUuid(
+	client: Pick<ListmonkClient, "campaign">,
+	createdUuid: string,
+): Promise<Campaign | undefined> {
+	let found: Campaign | undefined;
+	await scanCampaignPages(client, (campaign) => {
+		if (campaign.uuid === createdUuid && campaign.id !== undefined) {
+			found = campaign;
+			return true;
+		}
+		return false;
+	});
+	return found;
+}
+
+function canonicalCampaignCreatePayload(
 	input: z.output<typeof createCampaignInputSchema>,
-): Promise<z.output<typeof campaignSchema>> {
-	const body = input as CampaignCreateBody;
+): Record<string, unknown> {
+	return {
+		name: input.name,
+		subject: input.subject,
+		from_email: input.from_email,
+		body: input.body,
+		body_source: input.body_source ?? null,
+		altbody: input.altbody ?? "",
+		type: input.type,
+		template_id: input.template_id,
+		lists: [...input.lists].sort((a, b) => a - b),
+		tags: [...input.tags].sort(),
+		messenger: input.messenger,
+		content_type: input.content_type,
+		send_at: input.send_at ?? null,
+		headers: (input.headers ?? []).map((header) => JSON.stringify(header)).sort(),
+		attribs: input.attribs ?? {},
+		archive: input.archive ?? false,
+		archive_slug: input.archive_slug ?? null,
+		archive_template_id: input.archive_template_id ?? null,
+		archive_meta: input.archive_meta ?? {},
+		media: [...(input.media ?? [])].sort((a, b) => a - b),
+		subscribers: [...(input.subscribers ?? [])].sort(),
+	};
+}
+
+export interface CampaignCreateResult {
+	campaign: z.output<typeof campaignSchema>;
+	created: boolean;
+}
+
+async function createCampaignUnkeyed(
+	client: Pick<ListmonkClient, "campaign">,
+	body: CampaignCreateBody,
+	name: string,
+): Promise<CampaignCreateResult> {
 	const response = await client.campaign.create({ body });
 	if ("error" in response && response.error !== undefined) {
 		throw new Error(
 			`Failed to create campaign: ${toResourceErrorMessage(response.error)}`,
 		);
 	}
-	if (response.data !== undefined) return asCampaign(response.data);
+	if (response.data !== undefined) {
+		return { campaign: asCampaign(response.data), created: true };
+	}
 
-	const created = await findCreatedCampaign(client, input.name);
+	const created = await findCreatedCampaign(client, name);
 	if (!created) {
 		throw new Error(
 			"Campaign was created but the created record could not be resolved",
 		);
 	}
-	return asCampaign(created);
+	return { campaign: asCampaign(created), created: true };
+}
+
+export async function createCampaign(
+	{
+		client,
+		createIdempotencyStore,
+		hashCreatePayload,
+		target,
+	}: CampaignOperationContext,
+	input: z.output<typeof createCampaignInputSchema>,
+): Promise<CampaignCreateResult> {
+	const { idempotency_key, ...bodyFields } = input;
+	const body = bodyFields as CampaignCreateBody;
+	if (idempotency_key === undefined) {
+		return createCampaignUnkeyed(client, body, input.name);
+	}
+	if (createIdempotencyStore === undefined || hashCreatePayload === undefined) {
+		throw new Error(
+			"idempotency_key requires a resource-create idempotency store on this surface",
+		);
+	}
+	if (!target?.baseUrl || !target?.username) {
+		throw new Error(
+			"idempotency_key requires a resolved Listmonk target (baseUrl and username) so the key cannot replay across instances",
+		);
+	}
+
+	const result = await executeKeyedCreate<Campaign>({
+		store: createIdempotencyStore,
+		hashCreatePayload,
+		target: { baseUrl: target.baseUrl, username: target.username },
+		key: idempotency_key,
+		resourceKind: "campaign",
+		resourceLabel: "campaign",
+		canonicalPayload: canonicalCampaignCreatePayload(input),
+		resourceIdOf: (campaign) =>
+			campaign.id !== undefined ? String(campaign.id) : undefined,
+		describeResource: (campaign) =>
+			`id ${String(campaign.id ?? campaign.name ?? "?")}`,
+		replay: async (resourceId) => {
+			const response = await client.campaign.getById({
+				path: { id: Number(resourceId) },
+			});
+			try {
+				return unwrapResourceResponse(
+					response,
+					`Failed to replay campaign ${resourceId}`,
+				);
+			} catch (error) {
+				throw new Error(
+					`Idempotency replay could not load campaign ${resourceId}: ${toResourceErrorMessage(error)}`,
+					{ cause: error },
+				);
+			}
+		},
+		issue: async () => {
+			let response: Awaited<ReturnType<typeof client.campaign.create>>;
+			try {
+				response = await client.campaign.create({ body });
+			} catch (error) {
+				return {
+					failure: {
+						error,
+						// Proven pre-dispatch failures never reached Listmonk;
+						// everything else is ambiguous.
+						definitive: isDefinitivePreDispatchError(error),
+					},
+				};
+			}
+			if ("error" in response && response.error !== undefined) {
+				const status =
+					typeof response.response?.status === "number"
+						? response.response.status
+						: undefined;
+				return {
+					failure: {
+						error: new Error(
+							`Failed to create campaign: ${toResourceErrorMessage(response.error)}`,
+						),
+						// A 4xx answer rejected the request outright; a 5xx or a
+						// statusless error may have partially processed it.
+						definitive: status !== undefined && status >= 400 && status < 500,
+					},
+				};
+			}
+			if (response.data?.id !== undefined) {
+				return { resource: response.data };
+			}
+			// No usable id: only immutable correlation may bind the key — a
+			// name match alone is never proof — so correlate the created
+			// record's uuid, when the response supplied one.
+			if (response.data?.uuid !== undefined) {
+				try {
+					const correlated = await findCampaignByUuid(
+						client,
+						response.data.uuid,
+					);
+					if (correlated !== undefined) {
+						return { resource: correlated };
+					}
+				} catch (error) {
+					return {
+						failure: {
+							error: new Error(
+								`Keyed campaign create was accepted but the created record could not be re-read: ${toResourceErrorMessage(error)}`,
+								{ cause: error },
+							),
+							definitive: false,
+						},
+					};
+				}
+			}
+			return {};
+		},
+	});
+	return { campaign: asCampaign(result.resource), created: result.created };
 }
 
 export async function updateCampaign(
@@ -849,7 +1060,7 @@ export const createCampaignOperation = defineOperation({
 	title: "Create campaign",
 	description: "Create a campaign in Listmonk",
 	inputSchema: createCampaignInputSchema,
-	outputSchema: campaignSchema,
+	outputSchema: campaignCreateOutputSchema,
 	safety: createResourceSafety,
 	mcp: {
 		name: "listmonk_create_campaign",
@@ -1030,12 +1241,12 @@ export async function invokeGetCampaignOperation(
 export async function invokeCreateCampaignOperation(
 	context: CampaignOperationContext,
 	input: unknown,
-): Promise<z.output<typeof campaignSchema>> {
+): Promise<z.output<typeof campaignCreateOutputSchema>> {
 	const parsedInput = parseOperationInput(
 		createCampaignOperation.inputSchema,
 		input,
 	);
-	let output: z.output<typeof campaignSchema>;
+	let output: CampaignCreateResult;
 	try {
 		output = await createCampaign(context, parsedInput);
 	} catch (error) {

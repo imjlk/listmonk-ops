@@ -19801,6 +19801,12 @@
                   },
                   "type": "array"
                 },
+                "idempotency_key": {
+                  "description": "Caller-scoped create key; an identical retry with the same key replays the originally created campaign.",
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
                 "lists": {
                   "items": {
                     "$ref": "#/components/schemas/ResourceId"
@@ -19978,6 +19984,12 @@
               },
               "type": "array"
             },
+            "idempotency_key": {
+              "description": "Caller-scoped create key; an identical retry with the same key replays the originally created campaign.",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
             "lists": {
               "items": {
                 "$ref": "#/components/schemas/ResourceId"
@@ -20061,6 +20073,22 @@
       "output": {
         "components": {
           "schemas": {
+            "CampaignCreateOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "campaign": {
+                  "$ref": "#/components/schemas/CampaignGetOutput"
+                },
+                "created": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "campaign",
+                "created"
+              ],
+              "type": "object"
+            },
             "CampaignGetOutput": {
               "additionalProperties": {},
               "properties": {
@@ -20261,190 +20289,19 @@
         },
         "dialect": "openapi-3.1",
         "schema": {
-          "additionalProperties": {},
+          "additionalProperties": false,
           "properties": {
-            "altbody": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "type": "string"
-                }
-              ]
+            "campaign": {
+              "$ref": "#/components/schemas/CampaignGetOutput"
             },
-            "archive": {
+            "created": {
               "type": "boolean"
-            },
-            "body": {
-              "type": "string"
-            },
-            "body_source": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "type": "string"
-                }
-              ]
-            },
-            "bounces": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "type": "number"
-                }
-              ]
-            },
-            "clicks": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "type": "number"
-                }
-              ]
-            },
-            "content_type": {
-              "oneOf": [
-                {
-                  "const": "html"
-                },
-                {
-                  "const": "markdown"
-                },
-                {
-                  "const": "plain"
-                },
-                {
-                  "const": "richtext"
-                },
-                {
-                  "const": "visual"
-                }
-              ]
-            },
-            "created_at": {
-              "type": "string"
-            },
-            "from_email": {
-              "type": "string"
-            },
-            "id": {
-              "$ref": "#/components/schemas/ResourceId"
-            },
-            "lists": {
-              "items": {
-                "$ref": "#/components/schemas/Recordstringunknown"
-              },
-              "type": "array"
-            },
-            "media": {
-              "items": {
-                "$ref": "#/components/schemas/Recordstringunknown"
-              },
-              "type": "array"
-            },
-            "messenger": {
-              "type": "string"
-            },
-            "name": {
-              "type": "string"
-            },
-            "send_at": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "type": "string"
-                }
-              ]
-            },
-            "sent": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "type": "number"
-                }
-              ]
-            },
-            "started_at": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "type": "string"
-                }
-              ]
-            },
-            "status": {
-              "type": "string"
-            },
-            "subject": {
-              "type": "string"
-            },
-            "tags": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "template_id": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/components/schemas/ResourceId"
-                }
-              ]
-            },
-            "to_send": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "type": "number"
-                }
-              ]
-            },
-            "type": {
-              "oneOf": [
-                {
-                  "const": "optin"
-                },
-                {
-                  "const": "regular"
-                }
-              ]
-            },
-            "updated_at": {
-              "type": "string"
-            },
-            "uuid": {
-              "type": "string"
-            },
-            "views": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "type": "number"
-                }
-              ]
             }
           },
-          "required": [],
+          "required": [
+            "campaign",
+            "created"
+          ],
           "type": "object"
         },
         "source": "typescript",
@@ -20456,11 +20313,27 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may create another campaign unless the original ID is known."
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The key is atomically claimed in a durable store before the create is issued and then bound to the created campaign id; an identical retry (same key, same request payload, same Listmonk target) replays that campaign with created: false, a concurrent same-key create waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. An attempt that ends ambiguously — or whose accepted response carries neither an id nor an immutable uuid to correlate — marks its claim unknown, and later same-key creates fail fast with reconciliation guidance: the key is intentionally not reused, because no name-based check can prove which same-named campaign a create produced."
+            },
+            "when": "idempotency_key is present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Listmonk campaign names are not unique, so a retry after an ambiguous create provisions a duplicate campaign."
+            },
+            "when": "idempotency_key is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller supplies an idempotency key."
       },
-      "since": "0.9.0",
-      "stability": "experimental"
+      "since": "0.15.0",
+      "stability": "stable"
     },
     {
       "id": "campaigns.update",

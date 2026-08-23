@@ -1,3 +1,7 @@
+import {
+	createFileBackedResourceCreateIdempotencyStore,
+} from "@listmonk-ops/common";
+import { createHash } from "node:crypto";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	campaignOperations,
@@ -221,14 +225,38 @@ export const campaignsTools: MCPTool[] = [
 	),
 ];
 
-export const handleCampaignsTools: HandlerFunction = withErrorHandler(
+function hashCreatePayload(serialized: string): string {
+	return createHash("sha256").update(serialized).digest("hex");
+}
+
+/**
+ * Extended handler signature carrying the resolved Listmonk target so
+ * keyed campaign creates namespace their idempotency records by instance.
+ */
+export type CampaignsHandlerFunction = (
+	request: CallToolRequest,
+	client: ListmonkClient,
+	target?: { baseUrl?: string; username?: string },
+) => Promise<CallToolResult>;
+
+export const handleCampaignsTools: CampaignsHandlerFunction = withErrorHandler(
 	async (
 		request: CallToolRequest,
 		client: ListmonkClient,
+		target: { baseUrl?: string; username?: string } = {},
 	): Promise<CallToolResult> => {
 		const { name, arguments: args = {} } = request.params;
 		const operationInvocation = await invokeCampaignOperationByMcpName(
-			{ client },
+			{
+				client,
+				// Inject the file-backed resource-create idempotency store so
+				// keyed campaign creates replay instead of duplicating; the
+				// store path resolves via LISTMONK_OPS_RESOURCE_CREATE_STORE.
+				createIdempotencyStore:
+					createFileBackedResourceCreateIdempotencyStore(),
+				hashCreatePayload,
+				target,
+			},
 			name,
 			args,
 		);

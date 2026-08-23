@@ -202,7 +202,15 @@ export interface CampaignBodyFields {
 	subscribers?: string[];
 }
 
-export interface CampaignCreateInput extends CampaignBodyFields {}
+export interface CampaignCreateInput extends CampaignBodyFields {
+	/** Caller-scoped create key; an identical retry with the same key replays the originally created campaign. */
+	idempotency_key?: NonEmptyString & tags.MaxLength<200>;
+}
+
+export interface CampaignCreateOutput {
+	campaign: CampaignGetOutput;
+	created: boolean;
+}
 
 export interface CampaignUpdateFields {
 	name?: TrimmedNonEmptyString;

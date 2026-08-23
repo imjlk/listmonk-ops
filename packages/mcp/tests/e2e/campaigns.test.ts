@@ -63,17 +63,23 @@ describe("Campaigns MCP Tools", () => {
 			tags: ["test", "e2e"],
 		});
 
-		const createdCampaign = utils.assertSuccess(
-			result,
-			"Failed to create campaign",
-		);
+		const createdCampaign = utils.assertSuccess<{
+			campaign?: {
+				id?: number;
+				name?: string;
+				subject?: string;
+				status?: string;
+			};
+			created?: boolean;
+		}>(result, "Failed to create campaign");
 
-		expect(createdCampaign).toHaveProperty("id");
-		expect(createdCampaign.name).toBe(campaignName);
-		expect(createdCampaign.subject).toBe("Test Campaign Subject");
-		expect(createdCampaign.status).toBe("draft");
+		expect(createdCampaign.created).toBe(true);
+		expect(createdCampaign.campaign).toHaveProperty("id");
+		expect(createdCampaign.campaign?.name).toBe(campaignName);
+		expect(createdCampaign.campaign?.subject).toBe("Test Campaign Subject");
+		expect(createdCampaign.campaign?.status).toBe("draft");
 
-		testCampaignId = (createdCampaign as { id: number }).id;
+		testCampaignId = createdCampaign.campaign?.id ?? 0;
 	});
 
 	test("should get a specific campaign by ID", async () => {
@@ -88,8 +94,11 @@ describe("Campaigns MCP Tools", () => {
 			lists: [testListId],
 		});
 
-		const createdCampaign = utils.assertSuccess(createResult);
-		testCampaignId = (createdCampaign as { id: number }).id;
+		const createdCampaign = utils.assertSuccess<{ campaign?: { id?: number } }>(
+			createResult,
+		);
+		testCampaignId = createdCampaign.campaign?.id ?? 0;
+		expect(testCampaignId).toBeGreaterThan(0);
 
 		// Then get it by ID
 		const result = await client.callTool("listmonk_get_campaign", {
@@ -105,6 +114,49 @@ describe("Campaigns MCP Tools", () => {
 		expect(retrievedCampaign.name).toBe(campaignName);
 	});
 
+	test("should replay an identical keyed create without duplicating", async () => {
+		const campaignName = buildTestName("keyed-campaign");
+		const idempotencyKey = `e2e:${campaignName}`;
+		const request = {
+			name: campaignName,
+			subject: "Keyed create E2E fixture",
+			from_email: "ops@example.com",
+			body: "<p>Keyed campaign fixture</p>",
+			template_id: testTemplateId,
+			lists: [testListId],
+			idempotency_key: idempotencyKey,
+		};
+
+		const first = utils.assertSuccess<{
+			campaign?: { id?: number };
+			created?: boolean;
+		}>(
+			await client.callTool("listmonk_create_campaign", request),
+			"Failed to run the first keyed campaign create",
+		);
+		expect(first.created).toBe(true);
+		expect(first.campaign?.id).toBeGreaterThan(0);
+
+		const retried = utils.assertSuccess<{
+			campaign?: { id?: number };
+			created?: boolean;
+		}>(
+			await client.callTool("listmonk_create_campaign", request),
+			"Failed to replay the keyed campaign create",
+		);
+		expect(retried.created).toBe(false);
+		expect(retried.campaign?.id).toBe(first.campaign?.id);
+
+		// A different payload under the same key is rejected.
+		const conflicting = await client.callTool("listmonk_create_campaign", {
+			...request,
+			name: `${campaignName}-conflict`,
+		});
+		utils.assertError(conflicting, "different create request");
+
+		testCampaignId = first.campaign?.id ?? 0;
+	});
+
 	test("should send test campaign", async () => {
 			// First create a campaign
 			const createResult = await client.callTool("listmonk_create_campaign", {
@@ -116,8 +168,11 @@ describe("Campaigns MCP Tools", () => {
 			lists: [testListId],
 		});
 
-			const createdCampaign = utils.assertSuccess(createResult);
-			testCampaignId = (createdCampaign as { id: number }).id;
+			const createdCampaign = utils.assertSuccess<{
+				campaign?: { id?: number };
+			}>(createResult);
+			testCampaignId = createdCampaign.campaign?.id ?? 0;
+			expect(testCampaignId).toBeGreaterThan(0);
 
 			const testEmail = buildTestEmail("campaign-test");
 			const subscriberResult = await client.callTool(
@@ -151,8 +206,11 @@ describe("Campaigns MCP Tools", () => {
 			lists: [testListId],
 		});
 
-		const createdCampaign = utils.assertSuccess(createResult);
-		testCampaignId = (createdCampaign as { id: number }).id;
+		const createdCampaign = utils.assertSuccess<{ campaign?: { id?: number } }>(
+			createResult,
+		);
+		testCampaignId = createdCampaign.campaign?.id ?? 0;
+		expect(testCampaignId).toBeGreaterThan(0);
 
 		// Delete it
 		const result = await client.callTool("listmonk_delete_campaign", {
