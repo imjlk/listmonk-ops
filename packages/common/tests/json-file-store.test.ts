@@ -233,35 +233,38 @@ describe("JSON file store", () => {
 			skipUnchangedWrites: true,
 		};
 		await writeJsonFileStore(store, { version: 1, count: 7 });
+		// Let the filesystem clock advance so a real rewrite is detectable.
+		await new Promise((resolvePause) => setTimeout(resolvePause, 10));
 
-		const statBefore = await stat(store.path);
+		const before = await stat(store.path);
 		const observed = await updateJsonFileStore(store, (current) =>
 			// Read-only outcome: return the same document by reference, the
 			// way a lost claim race does.
 			commitJsonFileStoreUpdate(current, current.count),
 		);
 		expect(observed).toBe(7);
-		const statAfterNoop = await stat(store.path);
-		// No rewrite means the atomic rename never happened: same inode.
-		expect(statAfterNoop.ino).toBe(statBefore.ino);
+		// No rewrite: the modification time is untouched.
+		expect((await stat(store.path)).mtimeMs).toBe(before.mtimeMs);
 
 		// Without the opt-in, an unchanged reference still rewrites the file.
-		const statBeforeDefault = await stat(base.path);
+		await writeJsonFileStore(base, { version: 1, count: 7 });
+		await new Promise((resolvePause) => setTimeout(resolvePause, 10));
+		const beforeDefault = await stat(base.path);
 		await updateJsonFileStore(base, (current) =>
 			commitJsonFileStoreUpdate(current, current.count),
 		);
-		const statAfterDefault = await stat(base.path);
-		expect(statAfterDefault.ino).not.toBe(statBeforeDefault.ino);
+		expect((await stat(base.path)).mtimeMs).not.toBe(beforeDefault.mtimeMs);
 
+		// A real change on the opt-in store rewrites too.
+		await new Promise((resolvePause) => setTimeout(resolvePause, 10));
+		const beforeWrite = await stat(store.path);
 		await updateJsonFileStore(store, (current) =>
 			commitJsonFileStoreUpdate({ ...current, count: current.count + 1 }, undefined),
 		);
-		const statAfterWrite = await stat(store.path);
+		expect((await stat(store.path)).mtimeMs).not.toBe(beforeWrite.mtimeMs);
 		expect(JSON.parse(await readFile(store.path, "utf8"))).toEqual({
 			version: 1,
 			count: 8,
 		});
-		// A real change rewrites the file through a fresh inode.
-		expect(statAfterWrite.ino).not.toBe(statBefore.ino);
 	});
 });
