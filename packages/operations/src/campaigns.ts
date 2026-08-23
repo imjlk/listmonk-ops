@@ -1039,7 +1039,10 @@ async function issueCloneCreate(
 	try {
 		body = await buildCloneCreateBody(client, input);
 	} catch (error) {
-		return { failure: { error, definitive: false } };
+		// Building the body only reads and validates the source campaign —
+		// no create has been issued — so the claim can be released for a
+		// fresh retry regardless of why the preparation failed.
+		return { failure: { error, definitive: true } };
 	}
 	let createResponse: Awaited<ReturnType<typeof client.campaign.create>>;
 	try {

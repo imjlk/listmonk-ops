@@ -178,6 +178,35 @@ describe("campaign clone operations", () => {
 		expect(list).not.toHaveBeenCalled();
 	});
 
+	test("releases the claim when clone preparation fails before any POST", async () => {
+		const { store, records } = createInMemoryResourceCreateStore();
+		const getById = mock(async () => ({
+			error: { message: "not found" },
+			response: { status: 404 },
+		})) as unknown as CampaignClient["campaign"]["getById"];
+		const create = mock(async () => ({
+			data: { id: 21, name: "Copy" },
+		})) as unknown as CampaignClient["campaign"]["create"];
+		const ctx = {
+			client: { campaign: { getById, create } } as unknown as CampaignClient,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		await expect(
+			invokeCloneCampaignOperation(ctx, {
+				id: 11,
+				name: "Copy",
+				idempotency_key: "clone-prep-failed",
+			}),
+		).rejects.toThrow(/Failed to load campaign 11/);
+		// No POST was issued, so the key is released for a fresh retry —
+		// not burned as unknown.
+		expect(create).not.toHaveBeenCalled();
+		expect(records.has("clone-prep-failed")).toBe(false);
+	});
+
 	test("releases the claim when Listmonk definitively rejects a keyed clone", async () => {
 		const { store, records } = createInMemoryResourceCreateStore();
 		const getById = mock(async () => ({ data: source })) as unknown as CampaignClient["campaign"]["getById"];
