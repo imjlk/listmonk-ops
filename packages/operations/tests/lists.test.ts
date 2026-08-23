@@ -500,6 +500,126 @@ describe("subscriber-list operations", () => {
 		expect(records.get("list-duplicated")?.status).toBe("pending");
 	});
 
+	test("refuses to bind an empty-body create onto a mismatched same-named list", async () => {
+		const { store, records } = createInMemoryResourceCreateStore();
+		// The create landed but returned no body; the only same-named list
+		// carries attributes this request would not have produced, so it
+		// cannot be identified as the created list.
+		const create = mock(async () => ({
+			data: undefined,
+		})) as unknown as ListClient["list"]["create"];
+		const list = mock(async () => ({
+			data: {
+				results: [{ id: 71, name: "Existing", type: "public" }],
+				total: 1,
+				page: 1,
+				per_page: 100,
+			},
+		})) as unknown as ListClient["list"]["list"];
+		const ctx = {
+			client: { list: { create, list } } as unknown as Pick<
+				ListmonkClient,
+				"list"
+			>,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		// The default request type is private; the match is public.
+		await expect(
+			invokeCreateListOperation(ctx, {
+				name: "Existing",
+				idempotency_key: "list-mismatched",
+			}),
+		).rejects.toThrow(/could not identify a list named "Existing"/);
+		expect(records.get("list-mismatched")?.status).toBe("pending");
+	});
+
+	test("creates fresh during recovery when the only same-named list mismatches the request", async () => {
+		const commits: Array<{ resourceId: string }> = [];
+		let recoverOnce = true;
+		const store = {
+			claim: async () => {
+				if (recoverOnce) {
+					recoverOnce = false;
+					return {
+						kind: "new" as const,
+						claimToken: "token-recovered",
+						record: {} as never,
+						recovered: true,
+					};
+				}
+				return { kind: "replay" as const, record: {} as never };
+			},
+			commit: async (options: { resourceId: string }) => {
+				commits.push(options);
+			},
+			release: async () => {},
+		};
+		const create = mock(async () => ({
+			data: { id: 99, name: "Recovered", type: "private" },
+		})) as unknown as ListClient["list"]["create"];
+		const list = mock(async () => ({
+			data: {
+				// An unrelated pre-existing list with a different type: the
+				// crashed attempt's create is not observable, so recovery
+				// must not adopt it and must POST fresh.
+				results: [{ id: 55, name: "Recovered", type: "public" }],
+				total: 1,
+				page: 1,
+				per_page: 100,
+			},
+		})) as unknown as ListClient["list"]["list"];
+		const ctx = {
+			client: { list: { create, list } } as unknown as Pick<
+				ListmonkClient,
+				"list"
+			>,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		const result = await invokeCreateListOperation(ctx, {
+			name: "Recovered",
+			idempotency_key: "list-recovered-mismatch",
+		});
+
+		expect(result).toMatchObject({ created: true, list: { id: 99 } });
+		expect(create).toHaveBeenCalledTimes(1);
+		expect(commits).toEqual([
+			{
+				key: "list-recovered-mismatch",
+				claimToken: "token-recovered",
+				resourceId: "99",
+			},
+		]);
+	});
+
+	test("releases the claim when Listmonk definitively rejects a keyed create", async () => {
+		const { store, records } = createInMemoryResourceCreateStore();
+		const create = mock(async () => ({
+			error: { error: "invalid name" },
+			response: { status: 400 },
+		})) as unknown as ListClient["list"]["create"];
+		const ctx = {
+			client: { list: { create } } as unknown as Pick<ListmonkClient, "list">,
+			createIdempotencyStore: store,
+			hashCreatePayload: (value: string) => `hash:${value}`,
+			target: { baseUrl: "https://listmonk.example", username: "admin" },
+		};
+
+		await expect(
+			invokeCreateListOperation(ctx, {
+				name: "Rejected",
+				idempotency_key: "list-rejected",
+			}),
+		).rejects.toThrow(/Failed to create list/);
+		// The claim was released, so a retry can create fresh.
+		expect(records.has("list-rejected")).toBe(false);
+	});
+
 	test("recovers a stale claim by adopting a uniquely named list", async () => {
 		const commits: Array<{ key: string; claimToken: string; resourceId: string }> =
 			[];

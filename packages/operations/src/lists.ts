@@ -368,42 +368,71 @@ async function replayRecordedList(
 }
 
 /**
+ * A name-matched list can only be the product of the requested create when
+ * the server-stable enum attributes agree. `description` and `tags` are
+ * excluded because Listmonk may normalize them in stored records.
+ */
+function matchesRequestedCreate(
+	list: List,
+	input: z.output<typeof createListInputSchema>,
+): boolean {
+	return (
+		(list.type === undefined || list.type === input.type) &&
+		(list.optin === undefined || list.optin === input.optin)
+	);
+}
+
+/**
  * A stale claim takeover means a previous attempt's POST outcome is unknown.
- * Reconcile by exact list name before creating: adopt a unique match, allow a
- * fresh create when nothing matches, and refuse when several same-named
- * lists make the previous attempt's target ambiguous.
+ * Reconcile by exact list name before creating: adopt a unique match that
+ * carries the requested attributes, treat a unique attribute-mismatched
+ * match as an unrelated pre-existing list (the crashed attempt's create is
+ * not observable, so a fresh POST cannot duplicate it), allow a fresh
+ * create when nothing matches, and refuse when several same-named lists
+ * make the crashed attempt's target ambiguous.
  */
 async function reconcileRecoveredClaim(
 	client: Pick<ListmonkClient, "list">,
-	name: string,
+	input: z.output<typeof createListInputSchema>,
 ): Promise<List | undefined> {
 	// Stop paging as soon as ambiguity is provable.
-	const matches = await findListsByName(client, name, { maxMatches: 2 });
+	const matches = await findListsByName(client, input.name, { maxMatches: 2 });
 	if (matches.length > 1) {
 		throw new Error(
-			`Idempotency recovery found multiple lists named "${name}"; the crashed attempt's target is ambiguous. Reconcile the duplicates manually and retry with a new idempotency key.`,
+			`Idempotency recovery found multiple lists named "${input.name}"; the crashed attempt's target is ambiguous. Reconcile the duplicates manually and retry with a new idempotency key.`,
 		);
 	}
-	return matches[0];
+	const candidate = matches[0];
+	if (candidate !== undefined && !matchesRequestedCreate(candidate, input)) {
+		return undefined;
+	}
+	return candidate;
 }
 
 /**
  * Resolve an accepted-but-unidentified keyed create by exact list name.
- * Refuses ambiguous same-name matches: Listmonk names are not unique, so
- * when several lists carry the name the created one cannot be identified
- * and the key must stay pending for manual reconciliation.
+ * Refuses ambiguous or attribute-mismatched matches: Listmonk names are not
+ * unique and this call's create definitely landed, so a same-named list the
+ * request would not have produced cannot be identified as the created one —
+ * the key must stay pending for manual reconciliation.
  */
 async function resolveCreatedListByName(
 	client: Pick<ListmonkClient, "list">,
-	name: string,
+	input: z.output<typeof createListInputSchema>,
 ): Promise<List | undefined> {
-	const matches = await findListsByName(client, name, { maxMatches: 2 });
+	const matches = await findListsByName(client, input.name, { maxMatches: 2 });
 	if (matches.length > 1) {
 		throw new Error(
-			`Keyed list create found multiple lists named "${name}"; the created list is ambiguous and the idempotency key was not bound`,
+			`Keyed list create found multiple lists named "${input.name}"; the created list is ambiguous and the idempotency key was not bound`,
 		);
 	}
-	return matches[0];
+	const match = matches[0];
+	if (match !== undefined && !matchesRequestedCreate(match, input)) {
+		throw new Error(
+			`Keyed list create could not identify a list named "${input.name}" matching the requested create; the idempotency key was not bound`,
+		);
+	}
+	return match;
 }
 
 /**
@@ -510,7 +539,7 @@ export async function createSubscriberList(
 	if (claim.recovered) {
 		// The previous attempt crashed with its POST outcome unknown. Adopt
 		// a unique same-named list instead of risking a duplicate POST.
-		const adopted = await reconcileRecoveredClaim(client, input.name);
+		const adopted = await reconcileRecoveredClaim(client, input);
 		if (adopted !== undefined) {
 			if (adopted.id === undefined) {
 				throw new Error(
@@ -569,7 +598,7 @@ export async function createSubscriberList(
 		// so the claim must stay pending for reconciliation — releasing it
 		// would let a retry provision a duplicate.
 		try {
-			created = await resolveCreatedListByName(client, input.name);
+			created = await resolveCreatedListByName(client, input);
 		} catch (error) {
 			throw new Error(
 				`Keyed list create was accepted but the created record could not be resolved: ${toErrorMessage(error)}`,
@@ -601,7 +630,7 @@ export async function createSubscriberList(
 		// The POST was accepted but the created id is not yet resolvable; a
 		// same-name read-back gets one more chance to bind the key.
 		try {
-			const resolved = await resolveCreatedListByName(client, input.name);
+			const resolved = await resolveCreatedListByName(client, input);
 			if (resolved?.id !== undefined) {
 				created = resolved;
 			}
