@@ -160,6 +160,10 @@ export type SequenceWorker = Readonly<{
 
 export type SequenceTickSummary = Readonly<{
 	claimed: number;
+	/** Echoed ids of the exact enrollments this tick claimed. */
+	claimedIds: readonly string[];
+	/** Echoed claim positions: enrollment id plus its originally claimed step. */
+	claimedSteps: readonly Readonly<{ id: string; stepId: string }>[];
 	advanced: number;
 	waiting: number;
 	completed: number;
@@ -272,6 +276,18 @@ export interface SequenceRepository {
 		now: Date;
 		leaseMs: number;
 	}>): Promise<readonly ClaimedSequenceEnrollment[]>;
+	/**
+	 * Claim exactly the requested enrollment ids when they are still
+	 * claimable (same eligibility rule as claimDue). Entries that exist but
+	 * are not claimable — already advanced, completed, ambiguous, or leased
+	 * by a live worker — are skipped so an echoed-set retry converges
+	 * instead of doing new work; unknown ids are rejected.
+	 */
+	claimSpecific(options: Readonly<{
+		claims: readonly Readonly<{ id: string; stepId: string }>[];
+		now: Date;
+		leaseMs: number;
+	}>): Promise<readonly ClaimedSequenceEnrollment[]>;
 	completeClaim(
 		enrollment: SequenceEnrollment,
 		next: Omit<SequenceEnrollment, "leaseToken" | "leaseExpiresAt">,
@@ -352,6 +368,12 @@ const enrollmentSchema = z.object({
 });
 const tickSummarySchema = z.object({
 	claimed: z.number().int().nonnegative(),
+	claimedIds: z.array(sequenceIdSchema).default([]),
+	claimedSteps: z
+		.array(
+			z.object({ id: sequenceIdSchema, stepId: z.string().min(1) }),
+		)
+		.default([]),
 	advanced: z.number().int().nonnegative(),
 	waiting: z.number().int().nonnegative(),
 	completed: z.number().int().nonnegative(),
@@ -842,6 +864,68 @@ export function createFileSequenceRepository(
 				for (const candidate of candidates) {
 					if (claimed.length >= options.limit) {
 						break;
+					}
+					if (
+						!["pending", "running", "waiting"].includes(candidate.status) ||
+						new Date(candidate.nextRunAt).getTime() > nowMs ||
+						(candidate.leaseExpiresAt !== undefined &&
+							new Date(candidate.leaseExpiresAt).getTime() > nowMs)
+					) {
+						continue;
+					}
+					const definition = current.definitions.find(
+						(item) => item.id === candidate.sequenceId,
+					);
+					if (!definition || definition.status !== "active") {
+						continue;
+					}
+					const revision = definition.revisions.find(
+						(item) => item.revision === candidate.revision,
+					);
+					if (!revision) {
+						continue;
+					}
+					const leased = parseSequenceEnrollment({
+						...candidate,
+						status: "running",
+						leaseToken: randomUUID(),
+						leaseExpiresAt: new Date(
+							nowMs + options.leaseMs,
+						).toISOString(),
+						updatedAt: options.now.toISOString(),
+					});
+					enrollments = replaceById(enrollments, leased) as SequenceEnrollment[];
+					claimed.push({ enrollment: leased, definition, revision });
+				}
+				return commitJsonFileStoreUpdate(
+					{ ...current, enrollments },
+					claimed,
+				);
+			});
+		},
+		async claimSpecific(options) {
+			return updateJsonFileStore(store, (current) => {
+				const nowMs = options.now.getTime();
+				const claimed: ClaimedSequenceEnrollment[] = [];
+				let enrollments = [...current.enrollments];
+				const byId = new Map(current.enrollments.map((e) => [e.id, e]));
+				const seen = new Set<string>();
+				for (const requested of options.claims) {
+					if (seen.has(requested.id)) {
+						continue;
+					}
+					seen.add(requested.id);
+					const candidate = byId.get(requested.id);
+					if (!candidate) {
+						throw new Error(
+							`Sequence enrollment ${requested.id} from the echoed claim set no longer exists`,
+						);
+					}
+					// Bind recovery to the originally claimed step: an
+					// enrollment that already advanced executes a different
+					// step now, so it must be skipped, not re-executed.
+					if (candidate.currentStepId !== requested.stepId) {
+						continue;
 					}
 					if (
 						!["pending", "running", "waiting"].includes(candidate.status) ||

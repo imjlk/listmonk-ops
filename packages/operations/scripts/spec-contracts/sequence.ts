@@ -193,10 +193,26 @@ export interface SequenceEnrollmentGetInput {
 export interface SequenceTickInput {
 	limit: PositiveInteger;
 	lease_ms: PositiveInteger;
+	/**
+	 * Echoed claim set from a prior tick's claimed_steps output: recover
+	 * exactly these enrollments at their originally claimed steps instead
+	 * of claiming new due work.
+	 */
+	recovery_set?: SequenceRecoveryClaim[] & tags.MinItems<1> & tags.MaxItems<100>;
+}
+
+/** One echoed claim position: the enrollment plus its originally claimed step. */
+export interface SequenceRecoveryClaim {
+	enrollment_id: string & tags.Format<"uuid">;
+	step_id: NonEmptyString;
 }
 
 export interface SequenceTickOutput {
 	claimed: NonNegativeInteger;
+	/** Echoed ids of the exact enrollments this tick claimed. */
+	claimed_ids: (string & tags.Format<"uuid">)[];
+	/** Echoed claim positions for a convergent recovery retry. */
+	claimed_steps: SequenceRecoveryClaim[];
 	advanced: NonNegativeInteger;
 	waiting: NonNegativeInteger;
 	completed: NonNegativeInteger;
@@ -204,6 +220,12 @@ export interface SequenceTickOutput {
 	ambiguous: NonNegativeInteger;
 	cancelled: NonNegativeInteger;
 	completed_at: IsoDateTime;
+	/** Recovery passes only: size of the echoed claim set. */
+	requested?: NonNegativeInteger;
+	/** Recovery passes only: echoed-set members left untouched. */
+	already_done?: NonNegativeInteger;
+	/** Recovery passes only: skipped members still at their claimed step under a live lease — retry after that lease expires. */
+	pending_ids?: (string & tags.Format<"uuid">)[];
 }
 
 export interface SequenceReconcileInput {

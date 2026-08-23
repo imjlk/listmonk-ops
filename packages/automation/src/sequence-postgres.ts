@@ -909,6 +909,83 @@ export function createPostgresSequenceRepository(
 				return claimed;
 			});
 		},
+				async claimSpecific(options) {
+			await ready();
+			return sql.begin(async (transaction) => {
+				const claimed: ClaimedSequenceEnrollment[] = [];
+				// Deterministic order (plus dedupe) so concurrent recovery
+				// requests with overlapping sets cannot deadlock.
+				const requests = [
+					...new Map(
+						options.claims.map((request) => [request.id, request]),
+					).values(),
+				].sort((left, right) => left.id.localeCompare(right.id));
+				for (const requested of requests) {
+					const rows = await transaction<
+						(EnrollmentRow & { definition: unknown })[]
+					>`
+						SELECT e.id, e.enrollment, e.lease_token, d.definition
+						FROM listmonk_ops.sequence_enrollments e
+						JOIN listmonk_ops.sequence_definitions d
+							ON d.id = e.sequence_id
+						WHERE e.id = ${requested.id}::uuid
+						FOR UPDATE OF e
+					`;
+					const row = rows[0];
+					if (!row) {
+						throw new Error(
+							`Sequence enrollment ${requested.id} from the echoed claim set no longer exists`,
+						);
+					}
+					const definition = parsePersistedSequenceDefinition(
+						row.definition,
+					);
+					const enrollment = toEnrollment(row);
+					// Bind recovery to the originally claimed step: an
+					// enrollment that already advanced executes a different
+					// step now, so it must be skipped, not re-executed.
+					if (enrollment.currentStepId !== requested.stepId) {
+						continue;
+					}
+					if (
+						!["pending", "running", "waiting"].includes(enrollment.status) ||
+						Date.parse(enrollment.nextRunAt) > options.now.getTime() ||
+						(enrollment.leaseExpiresAt !== undefined &&
+							Date.parse(enrollment.leaseExpiresAt) > options.now.getTime()) ||
+						definition.status !== "active"
+					) {
+						continue;
+					}
+					const revision = definition.revisions.find(
+						(candidate) => candidate.revision === enrollment.revision,
+					);
+					if (!revision) {
+						continue;
+					}
+					const leased = parseSequenceEnrollment({
+						...enrollment,
+						status: "running",
+						leaseToken: randomUUID(),
+						leaseExpiresAt: new Date(
+							options.now.getTime() + options.leaseMs,
+						).toISOString(),
+						updatedAt: options.now.toISOString(),
+					});
+					await transaction`
+						UPDATE listmonk_ops.sequence_enrollments
+						SET
+							status = ${leased.status},
+							lease_token = ${leased.leaseToken ?? null}::uuid,
+							lease_expires_at = ${leased.leaseExpiresAt ?? null}::timestamptz,
+							enrollment = ${transaction.json(leased as never)},
+							updated_at = ${leased.updatedAt}::timestamptz
+						WHERE id = ${leased.id}::uuid
+					`;
+					claimed.push({ enrollment: leased, definition, revision });
+				}
+				return claimed;
+			});
+		},
 		async completeClaim(enrollment, next) {
 			await ready();
 			const completed = parseSequenceEnrollment(next);
