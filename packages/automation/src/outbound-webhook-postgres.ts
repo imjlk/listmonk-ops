@@ -883,6 +883,11 @@ export function createPostgresOutboundWebhookRepository(
 		async claimDeliveries(claimOptions) {
 			await ensureInitialized();
 			return sql.begin(async (transaction) => {
+				// Recovery binding: rows are filtered after selection (the SQL
+				// shape stays simple) and before leasing, inside the same
+				// transaction, so a delivery whose attempt count moved past
+				// the echoed claim is never leased.
+				const expectedCounts = claimOptions.expectedAttemptCounts;
 				const selectedFilter =
 					claimOptions.deliveryIds === undefined
 						? transaction``
@@ -930,7 +935,16 @@ export function createPostgresOutboundWebhookRepository(
 					FOR UPDATE SKIP LOCKED
 					LIMIT ${claimOptions.limit}
 				`;
-				const claimed: OutboundWebhookDelivery[] = [];
+				if (expectedCounts !== undefined) {
+					const filtered = rows.filter(
+						(row) =>
+							expectedCounts.get(row.id) === undefined ||
+							expectedCounts.get(row.id) === row.attempt_count,
+					);
+					rows.length = 0;
+					rows.push(...filtered);
+				}
+						const claimed: OutboundWebhookDelivery[] = [];
 				for (const row of rows) {
 					const leaseToken = randomUUID();
 					const leaseExpiresAt = new Date(

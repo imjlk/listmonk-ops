@@ -333,14 +333,31 @@ const tickCommand = defineCommand({
 			z.coerce.number().int().min(1).max(1_000).default(100),
 			{ description: "Maximum delivering records to reconcile first" },
 		),
+		"recovery-set": option(z.string().optional(), {
+			description:
+				"Echoed claim set from a prior tick (JSON array of delivery_id and attempt_count pairs): recover exactly these deliveries at their originally claimed attempt counts instead of claiming new due work",
+		}),
 	},
 	handler: async ({ flags }) => {
+		let recoverySet:
+			| Array<{ delivery_id: string; attempt_count: number }>
+			| undefined;
+		if (flags["recovery-set"] !== undefined) {
+			try {
+				recoverySet = JSON.parse(flags["recovery-set"]);
+			} catch (error) {
+				throw new Error(
+					`--recovery-set must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}
 		getOutput().json(
 			await invokeWebhookTickOperation(
 				{},
 				{
 					dispatch_limit: flags["dispatch-limit"],
 					reconcile_limit: flags["reconcile-limit"],
+					recovery_set: recoverySet,
 				},
 			),
 		);

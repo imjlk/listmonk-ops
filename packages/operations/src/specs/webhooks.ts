@@ -884,7 +884,7 @@ export const webhookTickOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookTickOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

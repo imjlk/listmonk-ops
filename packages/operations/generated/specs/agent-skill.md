@@ -340,7 +340,7 @@ Retry guidance: Run dry_run first, then echo the reported ids and before cutoff;
 
 ## Run one outbound webhook worker tick (`webhooks.tick`)
 
-Contract maturity: `experimental`; effects: `webhook:bulk`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `webhook:bulk`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A scheduler or operator should process one durable outbox batch.
 

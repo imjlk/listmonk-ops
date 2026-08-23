@@ -71,7 +71,7 @@ Listmonk OpenAPI transport
 
 All 104 contracts are authored as TypeScript types and projected with Typia.
 The runtime-operation bridge infrastructure is now empty — all operations
-have standalone product-domain contracts. Eighty-nine reviewed core operations
+have standalone product-domain contracts. Ninety reviewed core operations
 are `stable`, including the first
 read-only promotion batch for list, subscriber, campaign, template, and media
 inspection plus the static `specs.*`, `playbooks.*`, and agent control-plane

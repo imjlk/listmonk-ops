@@ -215,12 +215,23 @@ export type WebhookDispatchResult =
 			error_code: WebhookDispatchErrorCode;
 	  };
 
+/** One echoed webhook claim position: the delivery plus its attempt count at claim. */
+export interface WebhookRecoveryClaim {
+	delivery_id: string & tags.Format<"uuid">;
+	attempt_count: NonNegativeInteger;
+}
+
 export interface WebhookDispatchOutput {
 	claimed: NonNegativeInteger;
 	succeeded: NonNegativeInteger;
 	retried: NonNegativeInteger;
 	exhausted: NonNegativeInteger;
 	skipped: NonNegativeInteger;
+	claimed_ids: (string & tags.Format<"uuid">)[];
+	claim_steps: WebhookRecoveryClaim[];
+	requested?: NonNegativeInteger;
+	pending_ids?: (string & tags.Format<"uuid">)[];
+	already_done?: NonNegativeInteger;
 	results: WebhookDispatchResult[];
 }
 
@@ -336,6 +347,9 @@ export interface WebhookPruneOutput {
 export interface WebhookTickInput {
 	dispatch_limit?: WebhookDispatchLimit | undefined;
 	reconcile_limit?: WebhookDeliveryListLimit | undefined;
+
+	/** Echoed claim set from a prior tick's dispatch.claim_steps output: recover exactly these deliveries at their originally claimed attempt counts. */
+	recovery_set?: WebhookRecoveryClaim[] & tags.MinItems<1> & tags.MaxItems<100>;
 }
 
 export interface WebhookTickOutput {
