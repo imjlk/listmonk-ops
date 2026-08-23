@@ -2538,11 +2538,21 @@ export async function dispatchOutboundWebhooks(
 	const claimSteps: { id: string; attemptCount: number }[] = [];
 	const processedDeliveryIds = new Set<string>();
 	let claimedCount = 0;
-	const recoveryIds = options.recoveryClaims?.map((claim) => claim.id);
-	const expectedAttemptCounts = options.recoveryClaims
-		? new Map(
-				options.recoveryClaims.map((claim) => [claim.id, claim.attemptCount]),
-			)
+	const recoveryClaims = options.recoveryClaims;
+	if (recoveryClaims !== undefined) {
+		const seen = new Set<string>();
+		for (const claim of recoveryClaims) {
+			if (seen.has(claim.id)) {
+				throw new RangeError(
+					`Duplicate recovery claim for delivery ${claim.id}: echoed claim sets must contain unique delivery ids`,
+				);
+			}
+			seen.add(claim.id);
+		}
+	}
+	const recoveryIds = recoveryClaims?.map((claim) => claim.id);
+	const expectedAttemptCounts = recoveryClaims
+		? new Map(recoveryClaims.map((claim) => [claim.id, claim.attemptCount]))
 		: undefined;
 	while (claimedCount < limit) {
 		const claimNow = options.now ?? new Date();
@@ -2627,13 +2637,27 @@ export async function dispatchOutboundWebhooks(
 	// lease, backoff not elapsed, or an open circuit) are pending and
 	// retryable later; anything else has moved on.
 	const claimedNow = new Set(results.map((result) => result.deliveryId));
+	const unclaimedIds = options.recoveryClaims
+		.map((claim) => claim.id)
+		.filter((id) => !claimedNow.has(id));
+	const statesById = new Map(
+		unclaimedIds.length === 0
+			? []
+			: (
+					await listOutboundWebhookDeliveries({
+						...store,
+						deliveryIds: unclaimedIds,
+						limit: unclaimedIds.length,
+					})
+				).map((delivery) => [delivery.id, delivery] as const),
+	);
 	const pendingIds: string[] = [];
 	let alreadyDone = 0;
 	for (const claim of options.recoveryClaims) {
 		if (claimedNow.has(claim.id)) {
 			continue;
 		}
-		const current = await readOutboundWebhookDeliveryById(store, claim.id);
+		const current = statesById.get(claim.id);
 		if (
 			current !== undefined &&
 			current.attemptCount === claim.attemptCount &&
@@ -2652,16 +2676,4 @@ export async function dispatchOutboundWebhooks(
 		pendingIds,
 		alreadyDone,
 	};
-}
-
-async function readOutboundWebhookDeliveryById(
-	store: OutboundWebhookStoreOptions,
-	id: string,
-): Promise<OutboundWebhookDelivery | undefined> {
-	const found = await listOutboundWebhookDeliveries({
-		...store,
-		deliveryIds: [id],
-		limit: 1,
-	});
-	return found[0];
 }

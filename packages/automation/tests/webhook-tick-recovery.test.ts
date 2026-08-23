@@ -136,6 +136,26 @@ describe("webhook tick echoed-set recovery", () => {
 		});
 	});
 
+	test("rejects duplicate echoed claims", async () => {
+		const path = await createStorePath();
+		await createHookEndpoint(path);
+		const ids = await enqueueDueDeliveries(path, 1);
+		const now = new Date("2026-08-01T09:00:05.000Z");
+
+		await expect(
+			dispatchOutboundWebhooks({
+				store: { path },
+				now,
+				fetcher: okFetcher,
+				resolveSecret: () => "whsec",
+				recoveryClaims: [
+					{ id: ids[0], attemptCount: 0 },
+					{ id: ids[0], attemptCount: 0 },
+				],
+			}),
+		).rejects.toThrow(/unique delivery ids/);
+	});
+
 	test("reports backoff members as pending, not done", async () => {
 		const path = await createStorePath();
 		await createHookEndpoint(path);
