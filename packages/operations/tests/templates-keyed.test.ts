@@ -143,3 +143,23 @@ describe("template create operations", () => {
 		expect(list).not.toHaveBeenCalled();
 	});
 });
+
+describe("template reconcile manifest", () => {
+	test("rejects an idempotency key inside a manifest entry", async () => {
+		const { invokeReconcileTemplateManifestOperation } = await import(
+			"../src"
+		);
+		await expect(
+			invokeReconcileTemplateManifestOperation(undefined as never, {
+				schema_version: 1,
+				templates: [
+					{
+						name: "Manifest",
+						body: "<p>Hello</p>",
+						idempotency_key: "manifest-key",
+					},
+				],
+			}),
+		).rejects.toThrow();
+	});
+});

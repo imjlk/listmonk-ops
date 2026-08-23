@@ -110,12 +110,22 @@ const templateCreateOutputSchema = z.object({
 	created: z.boolean(),
 });
 
+/**
+ * Create fields valid inside a reconcile manifest. The idempotency key is
+ * deliberately excluded: the reconcile flow drives unkeyed creates and its
+ * CLI surface does not inject the keyed-create store, so accepting the key
+ * there would only produce a runtime rejection partway through a manifest.
+ */
+const manifestTemplateEntrySchema = createTemplateInputSchema.omit({
+	idempotency_key: true,
+});
+
 export const MAX_TEMPLATE_MANIFEST_BYTES = 1024 * 1024;
 const TEMPLATE_MANIFEST_OPERATION_ID = "templates.reconcile";
 
 function templateManifestByteLength(manifest: {
 	schema_version: 1;
-	templates: readonly z.output<typeof createTemplateInputSchema>[];
+	templates: readonly z.output<typeof manifestTemplateEntrySchema>[];
 }): number {
 	return new TextEncoder().encode(
 		JSON.stringify({
@@ -128,7 +138,7 @@ function templateManifestByteLength(manifest: {
 const templateManifestSchema = z
 	.object({
 		schema_version: z.literal(1),
-		templates: z.array(createTemplateInputSchema).min(1),
+		templates: z.array(manifestTemplateEntrySchema).min(1),
 	})
 	.superRefine((manifest, context) => {
 		if (templateManifestByteLength(manifest) > MAX_TEMPLATE_MANIFEST_BYTES) {
@@ -154,7 +164,7 @@ const templateManifestSchema = z
 // Manifest entries are constrained to the 120-character name bound declared
 // by the standalone contract. The shared createTemplateInputSchema stays
 // unbounded so templates.create/update keep accepting longer Listmonk names.
-const templateManifestEntrySchema = createTemplateInputSchema.extend({
+const templateManifestEntrySchema = manifestTemplateEntrySchema.extend({
 	name: z.string().trim().min(1).max(120),
 });
 
@@ -175,7 +185,7 @@ const templateManifestOperationOutputSchema = z.object({
 	results: z.array(templateReconcileSummarySchema),
 });
 
-export type TemplateDesiredState = z.input<typeof createTemplateInputSchema>;
+export type TemplateDesiredState = z.input<typeof manifestTemplateEntrySchema>;
 export type TemplateManifest = z.input<typeof templateManifestSchema>;
 
 export interface TemplateReconcileOptions {
