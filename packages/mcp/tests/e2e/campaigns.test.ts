@@ -114,6 +114,54 @@ describe("Campaigns MCP Tools", () => {
 		expect(retrievedCampaign.name).toBe(campaignName);
 	});
 
+	test("should replay an identical keyed clone without duplicating", async () => {
+		const sourceId = testCampaignId;
+		if (!sourceId) {
+			throw new Error("A campaign fixture is required for the clone test");
+		}
+		const cloneName = buildTestName("keyed-clone");
+		const idempotencyKey = `e2e:${cloneName}`;
+		const request = {
+			id: sourceId,
+			name: cloneName,
+			idempotency_key: idempotencyKey,
+		};
+
+		const first = utils.assertSuccess<{
+			campaign?: { id?: number };
+			created?: boolean;
+		}>(
+			await client.callTool("listmonk_clone_campaign", request),
+			"Failed to run the first keyed clone",
+		);
+		expect(first.created).toBe(true);
+		expect(first.campaign?.id).toBeGreaterThan(0);
+		expect(first.campaign?.id).not.toBe(sourceId);
+
+		const retried = utils.assertSuccess<{
+			campaign?: { id?: number };
+			created?: boolean;
+		}>(
+			await client.callTool("listmonk_clone_campaign", request),
+			"Failed to replay the keyed clone",
+		);
+		expect(retried.created).toBe(false);
+		expect(retried.campaign?.id).toBe(first.campaign?.id);
+
+		// A different request under the same key is rejected.
+		const conflicting = await client.callTool("listmonk_clone_campaign", {
+			...request,
+			name: `${cloneName}-conflict`,
+		});
+		utils.assertError(conflicting, "different create request");
+
+		// Clean up the clone.
+		await client.callTool("listmonk_delete_campaign", {
+			id: String(first.campaign?.id),
+			confirm: true,
+		});
+	});
+
 	test("should replay an identical keyed create without duplicating", async () => {
 		const campaignName = buildTestName("keyed-campaign");
 		const idempotencyKey = `e2e:${campaignName}`;

@@ -24331,6 +24331,12 @@
                 "id": {
                   "$ref": "#/components/schemas/ResourceId"
                 },
+                "idempotency_key": {
+                  "description": "Caller-scoped clone key; an identical retry with the same key replays the originally cloned campaign.",
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
                 "name": {
                   "$ref": "#/components/schemas/TrimmedNonEmptyString"
                 }
@@ -24359,6 +24365,12 @@
           "properties": {
             "id": {
               "$ref": "#/components/schemas/ResourceId"
+            },
+            "idempotency_key": {
+              "description": "Caller-scoped clone key; an identical retry with the same key replays the originally cloned campaign.",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
             },
             "name": {
               "$ref": "#/components/schemas/TrimmedNonEmptyString"
@@ -24775,7 +24787,7 @@
         "reason": "A retry may create another cloned campaign unless the original clone ID is known."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "media.delete",

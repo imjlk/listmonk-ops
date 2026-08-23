@@ -138,6 +138,7 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	mediaDeleteInputContract: NormalizedContractSchema;
 	mediaDeleteOutputContract: NormalizedContractSchema;
 	campaignCloneInputContract: NormalizedContractSchema;
+	campaignCloneOutputContract: NormalizedContractSchema;
 	subscriberBulkListsInputContract: NormalizedContractSchema;
 	subscriberBulkBlocklistInputContract: NormalizedContractSchema;
 	segmentDriftInputContract: NormalizedContractSchema;
@@ -393,6 +394,8 @@ export const mediaUploadOutputContract =
 export const mediaUploadInputContract = contracts.mediaUploadInputContract;
 export const mediaDeleteInputContract = contracts.mediaDeleteInputContract;
 export const mediaDeleteOutputContract = contracts.mediaDeleteOutputContract;
+export const campaignCloneOutputContract =
+	contracts.campaignCloneOutputContract;
 export const campaignCloneInputContract =
 	contracts.campaignCloneInputContract;
 export const subscriberBulkListsInputContract =

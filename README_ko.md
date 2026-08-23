@@ -515,14 +515,14 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 87개는
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 88개는
 `stable`, 17개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
-검토를 마친 핵심 87개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 88개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -638,9 +638,11 @@ envelope, id 없는 응답의 uuid 상관). 스물한 번째 batch에서는
 `templates.create`를 같은 방식으로 승격했습니다(템플릿 레코드에는 uuid가
 없어 생성 응답의 id가 바인딩에 필요). 스물두 번째 batch에서는
 `media.upload`(CLI `--idempotency-key`)를 승격했습니다 — payload hash는
-파일명, 유효 MIME 타입, 표준형으로 정규화한 base64 내용에 대해 계산해
-동등한 인코딩을 재생합니다. 현재 stable baseline은 87개이며, 나머지
-experimental descriptor는 17개입니다.
+파일명, 유효 MIME 타입, 디코딩 후 재인코딩한 표준형 base64 내용에 대해
+계산해 동등한 인코딩(pad-bit 변형 포함)을 재생합니다. 스물세 번째
+batch에서는 `campaigns.clone`을 승격했습니다(키는 원본 캠페인과 클론
+이름에 묶이며, keyed 클론에는 이름 스냅샷 폴백을 쓰지 않습니다). 현재
+stable baseline은 88개이며, 나머지 experimental descriptor는 16개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
@@ -654,7 +656,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 87개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 88개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 317개를
 검증합니다.
 

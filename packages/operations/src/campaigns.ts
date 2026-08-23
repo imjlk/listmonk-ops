@@ -665,6 +665,9 @@ const campaignLifecycleInputSchema = z.object({
 
 const cloneCampaignInputSchema = z.object({
 	id: resourceIdSchema,
+	idempotency_key: idempotencyKeySchema.describe(
+		"Caller-scoped clone key; an identical retry with the same key replays the originally cloned campaign instead of cloning again",
+	),
 	name: z
 		.string()
 		.trim()
@@ -900,7 +903,197 @@ export async function cancelCampaign(
 export async function cloneCampaign(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof cloneCampaignInputSchema>,
-): Promise<z.output<typeof campaignSchema>> {
+): Promise<CampaignCreateResult> {
+	if (input.idempotency_key === undefined) {
+		return cloneCampaignUnkeyed(ctx, input);
+	}
+	const { createIdempotencyStore, hashCreatePayload, target } = ctx;
+	if (createIdempotencyStore === undefined || hashCreatePayload === undefined) {
+		throw new Error(
+			"idempotency_key requires a resource-create idempotency store on this surface",
+		);
+	}
+	if (!target?.baseUrl || !target?.username) {
+		throw new Error(
+			"idempotency_key requires a resolved Listmonk target (baseUrl and username) so the key cannot replay across instances",
+		);
+	}
+
+	const result = await executeKeyedCreate<Campaign>({
+		store: createIdempotencyStore,
+		hashCreatePayload,
+		target: { baseUrl: target.baseUrl, username: target.username },
+		key: input.idempotency_key,
+		resourceKind: "campaign",
+		resourceLabel: "campaign clone",
+		// The clone is identified by its source campaign and target name;
+		// the derived create body follows from them.
+		canonicalPayload: { source_id: input.id, name: input.name },
+		resourceIdOf: (campaign) =>
+			campaign.id !== undefined ? String(campaign.id) : undefined,
+		describeResource: (campaign) =>
+			`id ${String(campaign.id ?? campaign.name ?? "?")}`,
+		replay: async (resourceId) => {
+			const response = await ctx.client.campaign.getById({
+				path: { id: Number(resourceId) },
+			});
+			try {
+				return unwrapResourceResponse(
+					response,
+					`Failed to replay campaign ${resourceId}`,
+				);
+			} catch (error) {
+				throw new Error(
+					`Idempotency replay could not load campaign ${resourceId}: ${toResourceErrorMessage(error)}`,
+					{ cause: error },
+				);
+			}
+		},
+		issue: async () => {
+			const issued = await issueCloneCreate(ctx.client, input);
+			if (issued.campaign !== undefined) {
+				return { resource: issued.campaign };
+			}
+			return { failure: issued.failure };
+		},
+	});
+	return { campaign: asCampaign(result.resource), created: result.created };
+}
+
+interface CloneIssueOutcome {
+	campaign?: Campaign;
+	failure?: { error: unknown; definitive: boolean };
+}
+
+/**
+ * Build the create body for a clone from its source campaign. Shared by
+ * the keyed and unkeyed paths; throws on load/parse failures.
+ */
+async function buildCloneCreateBody(
+	client: Pick<ListmonkClient, "campaign">,
+	input: { id: number; name: string },
+): Promise<CampaignCreateBody> {
+	const sourceResponse = await client.campaign.getById({
+		path: { id: input.id },
+	});
+	const source = asCampaign(
+		unwrapResourceResponse(
+			sourceResponse,
+			`Failed to load campaign ${input.id} for clone`,
+		),
+	);
+	const sourceLists = (source.lists ?? []).map((entry, index) => {
+		const listId = (entry as { id?: unknown }).id;
+		if (typeof listId !== "number" || !Number.isFinite(listId)) {
+			throw new Error(
+				`Campaign ${input.id} cannot be cloned: list entry at index ${index} is missing a numeric id`,
+			);
+		}
+		return listId;
+	});
+	const sourceMediaIds = (source.media ?? []).map((entry, index) => {
+		const mediaId = (entry as { id?: unknown }).id;
+		if (typeof mediaId !== "number" || !Number.isFinite(mediaId)) {
+			throw new Error(
+				`Campaign ${input.id} cannot be cloned: media entry at index ${index} is missing a numeric id`,
+			);
+		}
+		return mediaId;
+	});
+	return parseOperationInput(createCampaignInputSchema, {
+		name: input.name,
+		subject: source.subject,
+		from_email: source.from_email,
+		body: source.body,
+		body_source: source.body_source ?? undefined,
+		altbody: source.altbody ?? undefined,
+		type: source.type,
+		content_type: source.content_type,
+		messenger: source.messenger,
+		tags: source.tags,
+		template_id: source.template_id ?? null,
+		lists: sourceLists,
+		headers: source.headers,
+		attribs: source.attribs,
+		archive: source.archive,
+		archive_slug: source.archive_slug ?? undefined,
+		archive_template_id: source.archive_template_id ?? undefined,
+		archive_meta: source.archive_meta,
+		media: sourceMediaIds,
+		send_at: null,
+	}) as CampaignCreateBody;
+}
+
+/**
+ * Perform the clone POST and classify its outcome for the keyed executor:
+ * bind through the created record's id, correlate an id-less record
+ * through its immutable uuid, and otherwise leave the key unbound — the
+ * pre-existing name-snapshot fallback is deliberately NOT used for keyed
+ * clones, because it cannot prove ownership.
+ */
+async function issueCloneCreate(
+	client: Pick<ListmonkClient, "campaign">,
+	input: z.output<typeof cloneCampaignInputSchema>,
+): Promise<CloneIssueOutcome> {
+	let body: CampaignCreateBody;
+	try {
+		body = await buildCloneCreateBody(client, input);
+	} catch (error) {
+		return { failure: { error, definitive: false } };
+	}
+	let createResponse: Awaited<ReturnType<typeof client.campaign.create>>;
+	try {
+		createResponse = await client.campaign.create({ body });
+	} catch (error) {
+		return {
+			failure: { error, definitive: isDefinitivePreDispatchError(error) },
+		};
+	}
+	if ("error" in createResponse && createResponse.error !== undefined) {
+		const status =
+			typeof createResponse.response?.status === "number"
+				? createResponse.response.status
+				: undefined;
+		return {
+			failure: {
+				error: new Error(
+					`Failed to clone campaign: ${toResourceErrorMessage(createResponse.error)}`,
+				),
+				definitive: status !== undefined && status >= 400 && status < 500,
+			},
+		};
+	}
+	if (createResponse.data?.id !== undefined) {
+		return { campaign: createResponse.data };
+	}
+	if (createResponse.data?.uuid !== undefined) {
+		try {
+			const correlated = await findCampaignByUuid(
+				client,
+				createResponse.data.uuid,
+			);
+			if (correlated !== undefined) {
+				return { campaign: correlated };
+			}
+		} catch (error) {
+			return {
+				failure: {
+					error: new Error(
+						`Keyed campaign clone was accepted but the cloned record could not be re-read: ${toResourceErrorMessage(error)}`,
+						{ cause: error },
+					),
+					definitive: false,
+				},
+			};
+		}
+	}
+	return {};
+}
+
+async function cloneCampaignUnkeyed(
+	ctx: CampaignOperationContext,
+	input: z.output<typeof cloneCampaignInputSchema>,
+): Promise<CampaignCreateResult> {
 	const sourceResponse = await ctx.client.campaign.getById({
 		path: { id: input.id },
 	});
@@ -986,7 +1179,9 @@ export async function cloneCampaign(
 			`Failed to clone campaign: ${toResourceErrorMessage(createResponse.error)}`,
 		);
 	}
-	if (createResponse.data !== undefined) return asCampaign(createResponse.data);
+	if (createResponse.data !== undefined) {
+		return { campaign: asCampaign(createResponse.data), created: true };
+	}
 	// Listmonk occasionally accepts the create but returns no body. The
 	// clone is identifiable as the campaign with this name whose id was
 	// not in the pre-create snapshot.
@@ -1000,7 +1195,7 @@ export async function cloneCampaign(
 			"Campaign was cloned but the created record could not be resolved unambiguously. Run `campaigns list --query` to locate it.",
 		);
 	}
-	return asCampaign(candidate);
+	return { campaign: asCampaign(candidate), created: true };
 }
 
 /**
@@ -1173,7 +1368,7 @@ export const cloneCampaignOperation = defineOperation({
 	description:
 		"Create a new campaign by copying the body, lists, template, and metadata of an existing campaign under a new name. The clone starts in draft status.",
 	inputSchema: cloneCampaignInputSchema,
-	outputSchema: campaignSchema,
+	outputSchema: campaignCreateOutputSchema,
 	safety: createResourceSafety,
 	mcp: {
 		name: "listmonk_clone_campaign",
@@ -1391,12 +1586,12 @@ export async function invokeCancelCampaignOperation(
 export async function invokeCloneCampaignOperation(
 	context: CampaignOperationContext,
 	input: unknown,
-): Promise<z.output<typeof campaignSchema>> {
+): Promise<z.output<typeof campaignCreateOutputSchema>> {
 	const parsedInput = parseOperationInput(
 		cloneCampaignOperation.inputSchema,
 		input,
 	);
-	let output: z.output<typeof campaignSchema>;
+	let output: CampaignCreateResult;
 	try {
 		output = await cloneCampaign(context, parsedInput);
 	} catch (error) {

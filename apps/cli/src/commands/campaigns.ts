@@ -212,11 +212,15 @@ export async function renderCancelCampaign(
 
 export async function renderCloneCampaign(
 	context: CampaignsCliContext,
-	input: { id: number; name: string },
+	input: { id: number; idempotency_key?: string; name: string },
 ): Promise<void> {
-	const campaign = await invokeCloneCampaignOperation(context, input);
-	context.output.success(`Campaign ${input.id} cloned as '${input.name}'`);
-	context.output.json(campaign);
+	const result = await invokeCloneCampaignOperation(context, input);
+	context.output.success(
+		result.created
+			? `Campaign ${input.id} cloned as '${input.name}'`
+			: `Campaign ${input.id} already cloned as '${input.name}'`,
+	);
+	context.output.json(result);
 }
 
 export async function renderGetCampaignStats(
@@ -533,12 +537,29 @@ export async function handleCancelCampaignCommand({
 export async function handleCloneCampaignCommand({
 	flags,
 	...args
-}: HandlerArgs<{ id: number; name: string }>): Promise<void> {
+}: HandlerArgs<{ id: number; "idempotency-key"?: string; name: string }>): Promise<void> {
 	try {
-		const client = await getListmonkClient(args);
+		const session = await resolveListmonkSession(args, {
+			requireAuth: true,
+		});
+		if (!session.client) {
+			throw new Error("Listmonk client is not available");
+		}
+		const client = session.client;
 		await renderCloneCampaign(
-			{ client, output: getOutput() },
-			{ id: flags.id, name: flags.name },
+			{
+				client,
+				output: getOutput(),
+				createIdempotencyStore:
+					createFileBackedResourceCreateIdempotencyStore(),
+				hashCreatePayload,
+				target: { baseUrl: session.baseUrl, username: session.username },
+			},
+			{
+				id: flags.id,
+				idempotency_key: flags["idempotency-key"],
+				name: flags.name,
+			},
 		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to clone campaign", error);
@@ -846,6 +867,13 @@ export default defineGroup({
 				name: option(z.string().trim().min(1), {
 					description: "Name for the cloned campaign",
 				}),
+				"idempotency-key": option(
+					z.string().trim().min(1).max(200).optional(),
+					{
+						description:
+							"Caller-scoped clone key; an identical retry with the same key replays the originally cloned campaign",
+					},
+				),
 			},
 			handler: handleCloneCampaignCommand,
 		}),

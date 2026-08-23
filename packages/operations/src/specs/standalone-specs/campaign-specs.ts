@@ -264,7 +264,7 @@ export const campaignsCloneOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#cloneCampaign:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

@@ -967,7 +967,7 @@ Create a new campaign by copying the body, lists, template, and metadata of an e
 - Effects: `write:campaign`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `media.delete`
 
