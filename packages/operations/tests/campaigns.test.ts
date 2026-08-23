@@ -192,17 +192,17 @@ describe("campaign create operations", () => {
 
 		const first = await invokeCreateCampaignOperation(ctx, {
 			...baseInput,
-			headers: [{ "X-A": "1", "X-B": "2" }],
+			headers: [{ "X-A": "1", "X-B": "2" }, { "X-C": "3" }],
 			attribs: { theme: "dark", locale: "ko" },
 			idempotency_key: "campaign-reorder",
 		});
 		expect(first.created).toBe(true);
 
-		// Same request, same nested values, different insertion order: the
-		// canonical hash must not treat it as a different create.
+		// Same request, same nested values, different insertion order within
+		// entries: the canonical hash must not treat it as a different create.
 		const retried = await invokeCreateCampaignOperation(ctx, {
 			...baseInput,
-			headers: [{ "X-B": "2", "X-A": "1" }],
+			headers: [{ "X-B": "2", "X-A": "1" }, { "X-C": "3" }],
 			attribs: { locale: "ko", theme: "dark" },
 			idempotency_key: "campaign-reorder",
 		});
@@ -211,11 +211,13 @@ describe("campaign create operations", () => {
 		expect(create).toHaveBeenCalledTimes(1);
 
 		// The header ARRAY order is part of the payload: reusing the same
-		// key with reordered headers is a different create request.
+		// key with the same two elements in reversed order — and nothing
+		// else changed — is a different create request.
 		await expect(
 			invokeCreateCampaignOperation(ctx, {
 				...baseInput,
-				headers: [{ "X-B": "2" }, { "X-A": "1" }],
+				headers: [{ "X-C": "3" }, { "X-A": "1", "X-B": "2" }],
+				attribs: { theme: "dark", locale: "ko" },
 				idempotency_key: "campaign-reorder",
 			}),
 		).rejects.toThrow(/different create request/);
