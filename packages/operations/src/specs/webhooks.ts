@@ -853,11 +853,29 @@ export const webhookTickOperationSpec = defineOperationSpec({
 	effects: [{ kind: "webhook", resource: "webhook", audience: "bulk" }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "webhooks.delivery.list",
-		idempotent: false,
+		kind: "conditional",
+		cases: [
+			{
+				when: "recovery_set (an echoed claim set of delivery ids and their attempt counts at claim) is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The recovery pass claims exactly the echoed deliveries, and only while each still sits at its originally claimed attempt count: members that anyone has attempted since the echo, already succeeded or exhausted, hold a live lease, sit in backoff, or face an open circuit are skipped — live-lease, backoff, and circuit members are reported as pending_ids so the caller knows they are retryable later, while everything else skipped has moved on — so an identical retry converges over the set instead of doing new work, and the reconcile phase of the tick remains idempotent lease maintenance.",
+				},
+			},
+			{
+				when: "recovery_set is absent",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "webhooks.delivery.list",
+					idempotent: false,
+					reason:
+						"Delivery is at least once and a fresh tick claims whatever is due at request time, so inspect lease and delivery state after an ambiguous worker result.",
+				},
+			},
+		],
 		reason:
-			"Delivery is at least once, so inspect lease and delivery state after an ambiguous worker result.",
+			"Retry safety depends on whether the caller echoes a prior tick's claim set.",
 	},
 	agent: {
 		useWhen: ["A scheduler or operator should process one durable outbox batch."],
@@ -866,7 +884,7 @@ export const webhookTickOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.reconcile", "webhooks.prune"],
 		retryGuidance:
-			"Inspect delivery state after a timeout before running another tick.",
+			"Echo a prior tick's dispatch.claim_steps output as recovery_set so an ambiguous retry runs a convergent attempt-bound recovery pass over exactly that set; without the echoed set, inspect delivery state before another tick.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_tick",

@@ -371,6 +371,7 @@ async function initializeSchema(sql: Sql): Promise<void> {
  * Create a normalized Postgres endpoint/outbox repository. Schema creation is
  * lazy and idempotent so CLI and MCP processes can start concurrently.
  */
+
 export function createPostgresOutboundWebhookRepository(
 	options: PostgresOutboundWebhookRepositoryOptions,
 ): OutboundWebhookRepository {
@@ -883,11 +884,6 @@ export function createPostgresOutboundWebhookRepository(
 		async claimDeliveries(claimOptions) {
 			await ensureInitialized();
 			return sql.begin(async (transaction) => {
-				// Recovery binding: rows are filtered after selection (the SQL
-				// shape stays simple) and before leasing, inside the same
-				// transaction, so a delivery whose attempt count moved past
-				// the echoed claim is never leased.
-				const expectedCounts = claimOptions.expectedAttemptCounts;
 				const selectedFilter =
 					claimOptions.deliveryIds === undefined
 						? transaction``
@@ -923,6 +919,23 @@ export function createPostgresOutboundWebhookRepository(
 							AND lease_expires_at <= ${claimOptions.now}
 						)
 					)
+					AND (
+						${claimOptions.expectedAttemptCounts === undefined ||
+						claimOptions.expectedAttemptCounts.size === 0
+							? transaction`true`
+							: transaction`(id, attempt_count) IN (
+								SELECT *
+								FROM unnest(
+									${transaction.array(
+										[...claimOptions.expectedAttemptCounts.keys()],
+										POSTGRES_UUID_TYPE_OID,
+									)},
+									${transaction.array(
+										[...claimOptions.expectedAttemptCounts.values()],
+									)}
+								) AS t(id, attempt_count)
+							)`}
+					)
 					AND endpoint_id IN (
 						SELECT id
 						FROM listmonk_ops.webhook_endpoints
@@ -935,15 +948,6 @@ export function createPostgresOutboundWebhookRepository(
 					FOR UPDATE SKIP LOCKED
 					LIMIT ${claimOptions.limit}
 				`;
-				if (expectedCounts !== undefined) {
-					const filtered = rows.filter(
-						(row) =>
-							expectedCounts.get(row.id) === undefined ||
-							expectedCounts.get(row.id) === row.attempt_count,
-					);
-					rows.length = 0;
-					rows.push(...filtered);
-				}
 						const claimed: OutboundWebhookDelivery[] = [];
 				for (const row of rows) {
 					const leaseToken = randomUUID();

@@ -20,7 +20,7 @@ async function createHookEndpoint(path: string): Promise<string> {
 	const endpoint = await createOutboundWebhookEndpoint(
 		{
 			name: "recovery",
-			url: "https://example.com/hook",
+			url: "https://8.8.8.8/hook",
 			secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_RECOVERY",
 			eventFilters: ["operation.*"],
 		},
