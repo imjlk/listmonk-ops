@@ -761,8 +761,8 @@ Create a template in Listmonk
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:template`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.9.0`
 
 ## `templates.update`
 

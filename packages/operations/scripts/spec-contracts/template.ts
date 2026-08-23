@@ -26,12 +26,19 @@ export type TemplateType = "campaign" | "campaign_visual" | "tx";
 
 export interface TemplateCreateInput {
 	name: NonEmptyString;
+	/** Caller-scoped create key; an identical retry with the same key replays the originally created template. */
+	idempotency_key?: NonEmptyString & tags.MaxLength<200>;
 	/** Omitted values default to `"campaign"` at the runtime boundary. */
 	type?: TemplateType | undefined;
 	/** Omitted values default to an empty subject at the runtime boundary. */
 	subject?: string | undefined;
 	body_source?: string | undefined;
 	body: NonEmptyString;
+}
+
+export interface TemplateCreateOutput {
+	template: TemplateRecord;
+	created: boolean;
 }
 
 export interface TemplateUpdateFields {

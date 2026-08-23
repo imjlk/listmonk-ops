@@ -172,7 +172,14 @@ export class MCPTestUtils {
 			subject: "Test Template Subject",
 		});
 
-		return this.assertSuccess(result, "Failed to create test template");
+		const output = this.assertSuccess(
+			result,
+			"Failed to create test template",
+		) as {
+			template?: unknown;
+		};
+		// The create result wraps the template record with a created flag.
+		return (output.template ?? output) as Record<string, unknown>;
 	}
 
 	/**

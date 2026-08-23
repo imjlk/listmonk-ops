@@ -210,7 +210,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(85);
+		).toHaveLength(86);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -379,7 +379,7 @@ describe("email operations specification", () => {
 					operation.contract.output.source === "typescript",
 			),
 		).toBe(true);
-		expect(templatesCreateOperationSpec.stability).toBe("experimental");
+		expect(templatesCreateOperationSpec.stability).toBe("stable");
 		expect(templatesDeleteOperationSpec.stability).toBe("stable");
 		expect(templatesUpdateOperationSpec.stability).toBe("stable");
 		expect(templatesSetDefaultOperationSpec.stability).toBe("stable");
@@ -389,7 +389,7 @@ describe("email operations specification", () => {
 				(operation) => !runtimeBridgeIds.has(operation.id),
 			),
 		).toBe(true);
-		expect(templatesCreateOperationSpec.retry.kind).toBe("unsafe");
+		expect(templatesCreateOperationSpec.retry.kind).toBe("conditional");
 		expect(templatesDeleteOperationSpec.policy.confirmation).toBe("required");
 		expect(templatesDeleteOperationSpec.retry).toEqual({
 			kind: "reconcile",

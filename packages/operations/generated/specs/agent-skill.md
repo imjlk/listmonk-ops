@@ -872,7 +872,7 @@ Retry guidance: Re-run reconcile in dry-run mode after a partial apply to verify
 
 ## Create template (`templates.create`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:template`; confirmation: `never`; retry: `conditional`.
 
 Use when: A new Listmonk template must be created.
 
@@ -882,7 +882,7 @@ Prerequisites: none
 
 Verify with: `templates.list`
 
-Retry guidance: Do not automatically retry an ambiguous failure; inspect templates.list for the intended name first.
+Retry guidance: Key the create with idempotency_key so an ambiguous retry replays the bound template; without a key, verify with templates.list before repeating.
 
 ## Update template (`templates.update`)
 

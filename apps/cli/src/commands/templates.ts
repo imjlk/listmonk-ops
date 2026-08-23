@@ -1,4 +1,9 @@
-import type { OutputUtils } from "@listmonk-ops/common";
+import {
+	createFileBackedResourceCreateIdempotencyStore,
+	type OutputUtils,
+	type ResourceCreateIdempotencyStore,
+} from "@listmonk-ops/common";
+import { createHash } from "node:crypto";
 import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
@@ -20,14 +25,21 @@ import {
 	option,
 } from "../lib/command";
 import { parseJson, toErrorMessage } from "../lib/command-utils";
-import { getListmonkClient } from "../lib/listmonk";
+import { getListmonkClient, resolveListmonkSession } from "../lib/listmonk";
 
 type TemplatesOutput = Pick<
 	typeof OutputUtils,
 	"info" | "json" | "success" | "table"
 >;
 
+function hashCreatePayload(serialized: string): string {
+	return createHash("sha256").update(serialized).digest("hex");
+}
+
 export interface TemplatesCliContext {
+	createIdempotencyStore?: ResourceCreateIdempotencyStore;
+	hashCreatePayload?: (serialized: string) => string;
+	target?: { baseUrl?: string; username?: string };
 	client: Pick<ListmonkClient, "template">;
 	output: TemplatesOutput;
 }
@@ -40,6 +52,7 @@ export interface ListTemplatesInput {
 
 export interface CreateTemplateInput {
 	name: string;
+	idempotency_key?: string;
 	type?: "campaign" | "campaign_visual" | "tx";
 	subject?: string;
 	body_source?: string;
@@ -76,9 +89,13 @@ export async function renderCreateTemplate(
 	context: TemplatesCliContext,
 	input: CreateTemplateInput,
 ): Promise<void> {
-	const template = await invokeCreateTemplateOperation(context, input);
-	context.output.success(`Template created: ${template.id ?? input.name}`);
-	context.output.json(template);
+	const result = await invokeCreateTemplateOperation(context, input);
+	context.output.success(
+		result.created
+			? `Template created: ${result.template.id ?? input.name}`
+			: `Template already created: ${result.template.id ?? input.name}`,
+	);
+	context.output.json(result);
 }
 
 export async function renderUpdateTemplate(
@@ -162,6 +179,7 @@ export async function handleGetTemplateCommand({
 
 type CreateCommandFlags = {
 	name: string;
+	"idempotency-key"?: string;
 	type: "campaign" | "campaign_visual" | "tx";
 	subject?: string;
 	body: string;
@@ -173,11 +191,25 @@ export async function handleCreateTemplateCommand({
 	...args
 }: HandlerArgs<CreateCommandFlags>): Promise<void> {
 	try {
-		const client = await getListmonkClient(args);
+		const session = await resolveListmonkSession(args, {
+			requireAuth: true,
+		});
+		if (!session.client) {
+			throw new Error("Listmonk client is not available");
+		}
+		const client = session.client;
 		await renderCreateTemplate(
-			{ client, output: getOutput() },
+			{
+				client,
+				output: getOutput(),
+				createIdempotencyStore:
+					createFileBackedResourceCreateIdempotencyStore(),
+				hashCreatePayload,
+				target: { baseUrl: session.baseUrl, username: session.username },
+			},
 			{
 				name: flags.name,
+				idempotency_key: flags["idempotency-key"],
 				type: flags.type,
 				subject: flags.subject,
 				body: flags.body,
@@ -335,6 +367,13 @@ export default defineGroup({
 			description: "Create a template",
 			options: {
 				name: option(z.string().trim().min(1), { description: "Template name" }),
+				"idempotency-key": option(
+					z.string().trim().min(1).max(200).optional(),
+					{
+						description:
+							"Caller-scoped create key; an identical retry with the same key replays the originally created template",
+					},
+				),
 				type: option(templateTypeOption, { description: "Template type" }),
 				subject: option(z.string().trim().optional(), {
 					description: "Email subject",

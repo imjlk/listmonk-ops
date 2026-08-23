@@ -141,14 +141,14 @@ describe("Sequence CLI and MCP parity", () => {
 			}),
 		);
 		const subscriber = subscriberCreate.subscriber;
-		const template = parseMcpResult<{ id: number }>(
+		const template = parseMcpResult<{ template?: { id?: number } }>(
 			await request("listmonk_create_template", {
 				name: buildTestName("sequence-template"),
 				type: "tx",
 				subject,
 				body: "<p>Sequence parity delivery.</p>",
 			}),
-		);
+		).template as { id: number };
 
 		const created = parseCliResult<{
 			sequence: { id: string; current_revision: number };

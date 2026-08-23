@@ -175,10 +175,11 @@ describe("Transactional CLI and MCP parity", () => {
 			subject,
 			body: `<p>${body}</p>`,
 		});
-		const template = utils.assertSuccess<{ id: number }>(
+		const template = utils.assertSuccess<{ template?: { id?: number } }>(
 			createResult,
 			"Failed to create transactional parity template",
-		);
+		).template as { id: number };
+		expect(template?.id).toBeDefined();
 
 		const cliSent = parseCliSentOutput(
 			runCliTransactionalSend({

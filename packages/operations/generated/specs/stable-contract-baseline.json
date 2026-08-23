@@ -15155,6 +15155,232 @@
                 "minLength": 1,
                 "type": "string"
               },
+              "TemplateCreateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "body_source": {
+                    "type": "string"
+                  },
+                  "idempotency_key": {
+                    "description": "Caller-scoped create key; an identical retry with the same key replays the originally created template.",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "subject": {
+                    "description": "Omitted values default to an empty subject at the runtime boundary.",
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Omitted values default to `\"campaign\"` at the runtime boundary.",
+                    "oneOf": [
+                      {
+                        "const": "campaign"
+                      },
+                      {
+                        "const": "campaign_visual"
+                      },
+                      {
+                        "const": "tx"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "body"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "body_source": {
+                "type": "string"
+              },
+              "idempotency_key": {
+                "description": "Caller-scoped create key; an identical retry with the same key replays the originally created template.",
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "subject": {
+                "description": "Omitted values default to an empty subject at the runtime boundary.",
+                "type": "string"
+              },
+              "type": {
+                "description": "Omitted values default to `\"campaign\"` at the runtime boundary.",
+                "oneOf": [
+                  {
+                    "const": "campaign"
+                  },
+                  {
+                    "const": "campaign_visual"
+                  },
+                  {
+                    "const": "tx"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "body"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateCreateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
+                  "template": {
+                    "$ref": "#/components/schemas/TemplateRecord"
+                  }
+                },
+                "required": [
+                  "template",
+                  "created"
+                ],
+                "type": "object"
+              },
+              "TemplateRecord": {
+                "additionalProperties": {},
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "is_default": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "created": {
+                "type": "boolean"
+              },
+              "template": {
+                "$ref": "#/components/schemas/TemplateRecord"
+              }
+            },
+            "required": [
+              "template",
+              "created"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": true
+        }
+      ],
+      "id": "templates.create",
+      "mcpName": "listmonk_create_template",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "template",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The key is atomically claimed in a durable store before the create is issued and then bound to the created template id; an identical retry (same key, same request payload, same Listmonk target) replays that template with created: false, a concurrent same-key create waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. An attempt that ends ambiguously — or whose accepted response carries no id (template records have no uuid to correlate) — marks its claim unknown, and later same-key creates fail fast with reconciliation guidance: the key is intentionally not reused, because no name-based check can prove which same-named template a create produced."
+            },
+            "when": "idempotency_key is present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Listmonk template names are not unique, so a retry after an ambiguous create provisions a duplicate template."
+            },
+            "when": "idempotency_key is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller supplies an idempotency key."
+      },
+      "verb": "create"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
               "ResourceId": {
                 "maximum": 9007199254740991,
                 "minimum": 1,

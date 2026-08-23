@@ -1,3 +1,4 @@
+import type { ResourceCreateIdempotencyStore } from "@listmonk-ops/common";
 import type { ListmonkClient, Template } from "@listmonk-ops/openapi";
 import {
 	bindTemplatesCreateOperationSpec,
@@ -24,6 +25,8 @@ import {
 	updateResourceSafety,
 } from "./resource-helpers";
 import { defineOperationCatalog } from "./catalog";
+import { executeKeyedCreate } from "./keyed-create";
+import { isDefinitivePreDispatchError } from "./transactional-idempotency";
 import {
 	defineOperation,
 	normalizeOperationExecutionError,
@@ -35,6 +38,23 @@ import {
 
 export interface TemplateOperationContext {
 	client: Pick<ListmonkClient, "template">;
+	/**
+	 * Adapter-supplied resource-create idempotency store. When absent, an
+	 * `idempotency_key` is rejected as unsupported on this surface; CLI and
+	 * MCP inject a file-backed implementation.
+	 */
+	createIdempotencyStore?: ResourceCreateIdempotencyStore;
+	/** SHA-256 digest helper paired with the store (runtime-neutral). */
+	hashCreatePayload?: (serialized: string) => string;
+	/**
+	 * Resolved Listmonk identity namespacing idempotency records. Required
+	 * when `idempotency_key` is used so a key can never replay across
+	 * instances.
+	 */
+	target?: {
+		baseUrl?: string;
+		username?: string;
+	};
 }
 
 const templateTypeSchema = z.enum(["campaign", "campaign_visual", "tx"]);
@@ -70,10 +90,34 @@ const templateListInputSchema = z.object({
 
 const createTemplateInputSchema = z.object({
 	name: z.string().trim().min(1),
+	idempotency_key: z
+		.string()
+		.trim()
+		.min(1)
+		.max(200)
+		.optional()
+		.describe(
+			"Caller-scoped create key; an identical retry with the same key replays the originally created template instead of creating a duplicate",
+		),
 	type: templateTypeSchema.default("campaign"),
 	subject: z.string().optional().default(""),
 	body_source: z.string().optional(),
 	body: z.string().min(1),
+});
+
+const templateCreateOutputSchema = z.object({
+	template: templateSchema,
+	created: z.boolean(),
+});
+
+/**
+ * Create fields valid inside a reconcile manifest. The idempotency key is
+ * deliberately excluded: the reconcile flow drives unkeyed creates and its
+ * CLI surface does not inject the keyed-create store, so accepting the key
+ * there would only produce a runtime rejection partway through a manifest.
+ */
+const manifestTemplateEntrySchema = createTemplateInputSchema.omit({
+	idempotency_key: true,
 });
 
 export const MAX_TEMPLATE_MANIFEST_BYTES = 1024 * 1024;
@@ -81,7 +125,7 @@ const TEMPLATE_MANIFEST_OPERATION_ID = "templates.reconcile";
 
 function templateManifestByteLength(manifest: {
 	schema_version: 1;
-	templates: readonly z.output<typeof createTemplateInputSchema>[];
+	templates: readonly z.output<typeof manifestTemplateEntrySchema>[];
 }): number {
 	return new TextEncoder().encode(
 		JSON.stringify({
@@ -94,7 +138,7 @@ function templateManifestByteLength(manifest: {
 const templateManifestSchema = z
 	.object({
 		schema_version: z.literal(1),
-		templates: z.array(createTemplateInputSchema).min(1),
+		templates: z.array(manifestTemplateEntrySchema).min(1),
 	})
 	.superRefine((manifest, context) => {
 		if (templateManifestByteLength(manifest) > MAX_TEMPLATE_MANIFEST_BYTES) {
@@ -120,7 +164,7 @@ const templateManifestSchema = z
 // Manifest entries are constrained to the 120-character name bound declared
 // by the standalone contract. The shared createTemplateInputSchema stays
 // unbounded so templates.create/update keep accepting longer Listmonk names.
-const templateManifestEntrySchema = createTemplateInputSchema.extend({
+const templateManifestEntrySchema = manifestTemplateEntrySchema.extend({
 	name: z.string().trim().min(1).max(120),
 });
 
@@ -141,7 +185,7 @@ const templateManifestOperationOutputSchema = z.object({
 	results: z.array(templateReconcileSummarySchema),
 });
 
-export type TemplateDesiredState = z.input<typeof createTemplateInputSchema>;
+export type TemplateDesiredState = z.input<typeof manifestTemplateEntrySchema>;
 export type TemplateManifest = z.input<typeof templateManifestSchema>;
 
 export interface TemplateReconcileOptions {
@@ -377,27 +421,135 @@ async function findCreatedTemplate(
 	return undefined;
 }
 
-export async function createTemplate(
-	{ client }: TemplateOperationContext,
+export interface TemplateCreateResult {
+	template: z.output<typeof templateSchema>;
+	created: boolean;
+}
+
+function canonicalTemplateCreatePayload(
 	input: z.output<typeof createTemplateInputSchema>,
-): Promise<z.output<typeof templateSchema>> {
-	const response = await client.template.create({
-		body: input as TemplateCreateBody,
-	});
+): Record<string, unknown> {
+	return {
+		name: input.name,
+		type: input.type,
+		subject: input.subject,
+		body_source: input.body_source ?? null,
+		body: input.body,
+	};
+}
+
+async function createTemplateUnkeyed(
+	client: Pick<ListmonkClient, "template">,
+	body: TemplateCreateBody,
+	name: string,
+): Promise<TemplateCreateResult> {
+	const response = await client.template.create({ body });
 	if ("error" in response && response.error !== undefined) {
 		throw new Error(
 			`Failed to create template: ${toResourceErrorMessage(response.error)}`,
 		);
 	}
-	if (response.data !== undefined) return asTemplate(response.data);
+	if (response.data !== undefined) {
+		return { template: asTemplate(response.data), created: true };
+	}
 
-	const created = await findCreatedTemplate(client, input.name);
+	const created = await findCreatedTemplate(client, name);
 	if (!created) {
 		throw new Error(
 			"Template was created but the created record could not be resolved",
 		);
 	}
-	return asTemplate(created);
+	return { template: asTemplate(created), created: true };
+}
+
+export async function createTemplate(
+	{
+		client,
+		createIdempotencyStore,
+		hashCreatePayload,
+		target,
+	}: TemplateOperationContext,
+	input: z.output<typeof createTemplateInputSchema>,
+): Promise<TemplateCreateResult> {
+	const { idempotency_key, ...bodyFields } = input;
+	const body = bodyFields as TemplateCreateBody;
+	if (idempotency_key === undefined) {
+		return createTemplateUnkeyed(client, body, input.name);
+	}
+	if (createIdempotencyStore === undefined || hashCreatePayload === undefined) {
+		throw new Error(
+			"idempotency_key requires a resource-create idempotency store on this surface",
+		);
+	}
+	if (!target?.baseUrl || !target?.username) {
+		throw new Error(
+			"idempotency_key requires a resolved Listmonk target (baseUrl and username) so the key cannot replay across instances",
+		);
+	}
+
+	const result = await executeKeyedCreate<Template>({
+		store: createIdempotencyStore,
+		hashCreatePayload,
+		target: { baseUrl: target.baseUrl, username: target.username },
+		key: idempotency_key,
+		resourceKind: "template",
+		resourceLabel: "template",
+		canonicalPayload: canonicalTemplateCreatePayload(input),
+		// Template records carry no uuid: binding is authorized only by the
+		// id in the create response, never by a name match.
+		resourceIdOf: (template) =>
+			template.id !== undefined ? String(template.id) : undefined,
+		describeResource: (template) =>
+			`id ${String(template.id ?? template.name ?? "?")}`,
+		replay: async (resourceId) => {
+			const response = await client.template.getById({
+				path: { id: Number(resourceId) },
+			});
+			try {
+				return unwrapResourceResponse(
+					response,
+					`Failed to replay template ${resourceId}`,
+				);
+			} catch (error) {
+				throw new Error(
+					`Idempotency replay could not load template ${resourceId}: ${toResourceErrorMessage(error)}`,
+					{ cause: error },
+				);
+			}
+		},
+		issue: async () => {
+			let response: Awaited<ReturnType<typeof client.template.create>>;
+			try {
+				response = await client.template.create({ body });
+			} catch (error) {
+				return {
+					failure: {
+						error,
+						definitive: isDefinitivePreDispatchError(error),
+					},
+				};
+			}
+			if ("error" in response && response.error !== undefined) {
+				const status =
+					typeof response.response?.status === "number"
+						? response.response.status
+						: undefined;
+				return {
+					failure: {
+						error: new Error(
+							`Failed to create template: ${toResourceErrorMessage(response.error)}`,
+						),
+						definitive: status !== undefined && status >= 400 && status < 500,
+					},
+				};
+			}
+			if (response.data?.id !== undefined) {
+				return { resource: response.data };
+			}
+			return {};
+		},
+	});
+	return { template: asTemplate(result.resource), created: result.created };
 }
 
 export async function updateTemplate(
@@ -504,7 +656,7 @@ async function applyTemplateReconcilePlan(
 		return {
 			...plan,
 			applied: true,
-			template: await createTemplate(context, desired),
+			template: (await createTemplate(context, desired)).template,
 		};
 	}
 
@@ -737,7 +889,7 @@ export const createTemplateOperation = defineOperation({
 	title: "Create template",
 	description: "Create a template in Listmonk",
 	inputSchema: createTemplateInputSchema,
-	outputSchema: templateSchema,
+	outputSchema: templateCreateOutputSchema,
 	safety: createResourceSafety,
 	mcp: {
 		name: "listmonk_create_template",
@@ -863,12 +1015,12 @@ export async function invokeGetTemplateOperation(
 export async function invokeCreateTemplateOperation(
 	context: TemplateOperationContext,
 	input: unknown,
-): Promise<z.output<typeof templateSchema>> {
+): Promise<z.output<typeof templateCreateOutputSchema>> {
 	const parsedInput = parseOperationInput(
 		createTemplateOperation.inputSchema,
 		input,
 	);
-	let output: z.output<typeof templateSchema>;
+	let output: TemplateCreateResult;
 	try {
 		output = await createTemplate(context, parsedInput);
 	} catch (error) {

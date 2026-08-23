@@ -188,10 +188,14 @@ describe("Template default CLI and MCP parity", () => {
 			subject: "CLI/MCP default template parity",
 			body: '<html><body>{{ template "content" . }}</body></html>',
 		});
-		const created = utils.assertSuccess<TemplateSummary>(
+		const createdEnvelope = utils.assertSuccess<{
+			template?: TemplateSummary;
+		}>(
 			createdResult,
 			"Failed to create template for CLI/MCP default parity",
 		);
+		const created = createdEnvelope.template as TemplateSummary;
+		expect(created?.id).toBeDefined();
 
 		try {
 			const cliTemplate = parseCliTemplateOutput(
