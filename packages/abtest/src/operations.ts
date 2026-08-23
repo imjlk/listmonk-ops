@@ -1,4 +1,5 @@
 import { buildAbTestConfig } from "./basic";
+import { TERMINAL_STATUSES } from "./types";
 import { fingerprintAbTestConfig } from "./abtest-service";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
@@ -431,6 +432,23 @@ const tickAbTestsInputSchema = z.object({
 	dry_run: optionalBooleanSchema.describe(
 		"Report the actions a tick would take without executing them",
 	),
+	recovery_set: z
+		.array(
+			z.object({
+				test_id: z.string().trim().min(1),
+				status: abTestStatusSchema,
+			}),
+		)
+		.min(1)
+		.max(100)
+		.refine(
+			(set) => new Set(set.map((member) => member.test_id)).size === set.length,
+			"recovery_set test ids must be unique",
+		)
+		.optional()
+		.describe(
+			"Echoed claim set from a prior tick's claim_steps output: recover exactly these tests at their pre-tick statuses (tests that advanced, completed, or vanished since the echo are skipped) instead of sweeping all due tests",
+		),
 });
 
 const reconcileAbTestInputSchema = z.object({
@@ -487,6 +505,15 @@ export type TickAbTestsOperationOutput = {
 		status: AbTestOperationRecord["status"];
 		action: string;
 	}>;
+	/** Echoed pre-tick claim positions of the non-terminal tests swept. */
+	claim_steps: Array<{
+		test_id: string;
+		status: AbTestOperationRecord["status"];
+	}>;
+	/** Recovery passes only: size of the echoed claim set. */
+	requested?: number;
+	/** Recovery passes only: echoed members that already moved on. */
+	already_done?: number;
 };
 export type ReconcileAbTestOperationOutput = {
 	reconciled: number;
@@ -785,14 +812,47 @@ export async function executeTickAbTestsOperation(
 	input: z.output<typeof tickAbTestsInputSchema>,
 ): Promise<TickAbTestsOperationOutput> {
 	const dryRun = input.dry_run === true;
+	const snapshot = await withStoredOperation<readonly AbTest[]>(
+		context,
+		"read",
+		(executors) => executors.listAbTests(),
+	);
 	const tickResults = await withStoredOperation<
 		Awaited<ReturnType<AbTestExecutors["tickAbTests"]>>
 	>(context, dryRun ? "read" : "write", (executors) =>
-		executors.tickAbTests(dryRun),
+		executors.tickAbTests(
+			dryRun,
+			input.recovery_set?.map((member) => ({
+				testId: member.test_id,
+				status: member.status,
+			})),
+		),
 	);
+	// Echo the pre-tick claim positions of every non-terminal test the
+	// sweep considered, captured before any mutation.
+	const claimSteps = snapshot
+		.filter(
+			(test) =>
+				!TERMINAL_STATUSES.has(test.status) && test.status !== "draft",
+		)
+		.map((test) => ({ test_id: test.id, status: test.status }));
+	const recoverySet = input.recovery_set;
+	const requested = recoverySet?.length;
+	const alreadyDone =
+		recoverySet === undefined
+			? undefined
+			: recoverySet.filter((member) => {
+					const current = snapshot.find(
+						(candidate) => candidate.id === member.test_id,
+					);
+					return current === undefined || current.status !== member.status;
+				}).length;
 	return {
 		processed: tickResults.length,
 		results: tickResults,
+		claim_steps: claimSteps,
+		requested,
+		already_done: alreadyDone,
 	};
 }
 
@@ -1042,6 +1102,14 @@ export const tickAbTestsOperation = defineOperation({
 	outputSchema: z.object({
 		processed: z.number().int().nonnegative(),
 		results: z.array(tickResultSchema),
+		claim_steps: z.array(
+			z.object({
+				test_id: z.string().min(1),
+				status: abTestStatusSchema,
+			}),
+		),
+		requested: z.number().int().nonnegative().optional(),
+		already_done: z.number().int().nonnegative().optional(),
 	}),
 	safety: destructiveNonIdempotentSafety,
 	mcp: {

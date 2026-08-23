@@ -301,6 +301,7 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 
 	const tickAbTestsImpl = async (
 		dryRun: boolean,
+		recoverySet?: ReadonlyArray<Readonly<{ testId: string; status: AbTest["status"] }>>,
 	): Promise<
 		Array<{
 			test_id: string;
@@ -308,7 +309,34 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 			action: string;
 		}>
 	> => {
-		const tests = await abTestService.getAllTests();
+		if (recoverySet !== undefined) {
+			const seen = new Set<string>();
+			for (const member of recoverySet) {
+				if (seen.has(member.testId)) {
+					throw new RangeError(
+						`Duplicate recovery claim for A/B test ${member.testId}: echoed claim sets must contain unique test ids`,
+					);
+				}
+				seen.add(member.testId);
+			}
+		}
+		const allTests = await abTestService.getAllTests();
+		// Recovery bound to an echoed claim set: process only set members
+		// still at their echoed pre-tick status. Anything that advanced,
+		// completed, or vanished since the echo is skipped, so the retry
+		// never sweeps tests that became due after the original request.
+		const tests =
+			recoverySet === undefined
+				? allTests
+				: recoverySet.flatMap((member) => {
+						const current = allTests.find(
+							(candidate) => candidate.id === member.testId,
+						);
+						if (current === undefined || current.status !== member.status) {
+							return [];
+						}
+						return [current];
+					});
 		const results: Array<{
 			test_id: string;
 			status: AbTest["status"];
@@ -570,7 +598,12 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 
 		// Orchestration operations exposed to the shared operation executors.
 		runAbTest: runAbTestImpl,
-		tickAbTests: (dryRun: boolean = false) => tickAbTestsImpl(dryRun),
+		tickAbTests: (
+			dryRun: boolean = false,
+			recoverySet?: ReadonlyArray<
+				Readonly<{ testId: string; status: AbTest["status"] }>
+			>,
+		) => tickAbTestsImpl(dryRun, recoverySet),
 		reconcileAbTest: (testId?: string, repair: boolean = false) =>
 			reconcileAbTestImpl(testId, repair),
 

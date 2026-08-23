@@ -674,7 +674,7 @@ every mode — the echoed set bounds a retry to the originally claimed
 deliveries, but the POST itself can still duplicate an
 accepted-but-unobserved attempt (the event-id header enables receiver
 deduplication), so both webhook retry cases classify as reconcile. The
-remaining 14 descriptors are experimental.
+remaining 13 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,

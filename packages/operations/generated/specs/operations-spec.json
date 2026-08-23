@@ -36216,7 +36216,7 @@
         "related": [
           "abtest.reconcile"
         ],
-        "retryGuidance": "Inspect abtest.list before retrying an ambiguous tick.",
+        "retryGuidance": "Echo a prior tick's claim_steps output as recovery_set so an ambiguous retry runs a convergent status-bound recovery pass over exactly that set; without the echoed set, inspect abtest.list before another tick.",
         "useWhen": [
           "Non-terminal A/B tests must be advanced by one lifecycle step."
         ],
@@ -36228,15 +36228,82 @@
         "input": {
           "components": {
             "schemas": {
+              "AbTestRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed A/B tick claim position: the test plus its pre-tick status.",
+                "properties": {
+                  "status": {
+                    "$ref": "#/components/schemas/AbTestStatus"
+                  },
+                  "test_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "test_id",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "AbTestStatus": {
+                "oneOf": [
+                  {
+                    "const": "analyzing"
+                  },
+                  {
+                    "const": "cancelled"
+                  },
+                  {
+                    "const": "cancelling"
+                  },
+                  {
+                    "const": "completed"
+                  },
+                  {
+                    "const": "deploying"
+                  },
+                  {
+                    "const": "draft"
+                  },
+                  {
+                    "const": "failed"
+                  },
+                  {
+                    "const": "inconclusive"
+                  },
+                  {
+                    "const": "running"
+                  },
+                  {
+                    "const": "scheduled"
+                  },
+                  {
+                    "const": "testing"
+                  }
+                ]
+              },
               "AbTestTickInput": {
                 "additionalProperties": false,
                 "properties": {
                   "dry_run": {
                     "type": "boolean"
+                  },
+                  "recovery_set": {
+                    "description": "Echoed claim set from a prior tick's claim_steps output: recover\nexactly these tests at their pre-tick statuses instead of sweeping\nall due tests.",
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestRecoveryClaim"
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "type": "array"
                   }
                 },
                 "required": [],
                 "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
               }
             }
           },
@@ -36246,6 +36313,15 @@
             "properties": {
               "dry_run": {
                 "type": "boolean"
+              },
+              "recovery_set": {
+                "description": "Echoed claim set from a prior tick's claim_steps output: recover\nexactly these tests at their pre-tick statuses instead of sweeping\nall due tests.",
+                "items": {
+                  "$ref": "#/components/schemas/AbTestRecoveryClaim"
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array"
               }
             },
             "required": [],
@@ -36257,6 +36333,23 @@
         "output": {
           "components": {
             "schemas": {
+              "AbTestRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed A/B tick claim position: the test plus its pre-tick status.",
+                "properties": {
+                  "status": {
+                    "$ref": "#/components/schemas/AbTestStatus"
+                  },
+                  "test_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "test_id",
+                  "status"
+                ],
+                "type": "object"
+              },
               "AbTestStatus": {
                 "oneOf": [
                   {
@@ -36297,8 +36390,23 @@
               "AbTestTickOutput": {
                 "additionalProperties": false,
                 "properties": {
+                  "already_done": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Recovery passes only: echoed members that already moved on."
+                  },
+                  "claim_steps": {
+                    "description": "Echoed pre-tick claim positions of the non-terminal tests swept.",
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestRecoveryClaim"
+                    },
+                    "type": "array"
+                  },
                   "processed": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "requested": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Recovery passes only: size of the echoed claim set."
                   },
                   "results": {
                     "items": {
@@ -36309,7 +36417,8 @@
                 },
                 "required": [
                   "processed",
-                  "results"
+                  "results",
+                  "claim_steps"
                 ],
                 "type": "object"
               },
@@ -36333,6 +36442,10 @@
                 ],
                 "type": "object"
               },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
               "NonNegativeInteger": {
                 "maximum": 9007199254740991,
                 "minimum": 0,
@@ -36344,8 +36457,23 @@
           "schema": {
             "additionalProperties": false,
             "properties": {
+              "already_done": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Recovery passes only: echoed members that already moved on."
+              },
+              "claim_steps": {
+                "description": "Echoed pre-tick claim positions of the non-terminal tests swept.",
+                "items": {
+                  "$ref": "#/components/schemas/AbTestRecoveryClaim"
+                },
+                "type": "array"
+              },
               "processed": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "requested": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Recovery passes only: size of the echoed claim set."
               },
               "results": {
                 "items": {
@@ -36356,7 +36484,8 @@
             },
             "required": [
               "processed",
-              "results"
+              "results",
+              "claim_steps"
             ],
             "type": "object"
           },
@@ -36398,11 +36527,27 @@
       },
       "resource": "experiment",
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may advance tests that already transitioned on the previous tick."
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The recovery pass processes exactly the echoed tests, and only while each still sits at its echoed pre-tick status: members that advanced to a later status, completed, or vanished since the echo are skipped as already moved on, and the sweep never touches tests that became due after the original request — so an identical retry converges over the set. Every transition is a status-guarded, time-gated state-machine step with no external at-least-once side effect in the tick path itself."
+            },
+            "when": "recovery_set (an echoed claim set of test ids and their pre-tick statuses) is present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "A fresh tick sweeps whatever is non-terminal at request time, so a retry may advance tests that already transitioned on the previous tick or newly became due."
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller echoes a prior tick's claim set."
       },
       "since": "0.10.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Tick A/B tests",
       "verb": "tick"
     },

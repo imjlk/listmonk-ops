@@ -1404,7 +1404,7 @@ Retry guidance: Inspect abtest.get before retrying an ambiguous run.
 
 ## Tick A/B tests (`abtest.tick`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `conditional`.
 
 Use when: Non-terminal A/B tests must be advanced by one lifecycle step.
 
@@ -1414,7 +1414,7 @@ Prerequisites: `abtest.list`
 
 Verify with: `abtest.list`
 
-Retry guidance: Inspect abtest.list before retrying an ambiguous tick.
+Retry guidance: Echo a prior tick's claim_steps output as recovery_set so an ambiguous retry runs a convergent status-bound recovery pass over exactly that set; without the echoed set, inspect abtest.list before another tick.
 
 ## Reconcile A/B test state (`abtest.reconcile`)
 

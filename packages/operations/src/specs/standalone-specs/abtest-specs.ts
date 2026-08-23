@@ -504,8 +504,27 @@ export const abTestTickOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: true },
 	retry: {
-		kind: "unsafe",
-		reason: "A retry may advance tests that already transitioned on the previous tick.",
+		kind: "conditional",
+		cases: [
+			{
+				when: "recovery_set (an echoed claim set of test ids and their pre-tick statuses) is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The recovery pass processes exactly the echoed tests, and only while each still sits at its echoed pre-tick status: members that advanced to a later status, completed, or vanished since the echo are skipped as already moved on, and the sweep never touches tests that became due after the original request — so an identical retry converges over the set. Every transition is a status-guarded, time-gated state-machine step with no external at-least-once side effect in the tick path itself.",
+				},
+			},
+			{
+				when: "recovery_set is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"A fresh tick sweeps whatever is non-terminal at request time, so a retry may advance tests that already transitioned on the previous tick or newly became due.",
+				},
+			},
+		],
+		reason:
+			"Retry safety depends on whether the caller echoes a prior tick's claim set.",
 	},
 	agent: {
 		useWhen: ["Non-terminal A/B tests must be advanced by one lifecycle step."],
@@ -513,7 +532,8 @@ export const abTestTickOperationSpec = defineOperationSpec({
 		prerequisites: ["abtest.list"],
 		verifyWith: ["abtest.list"],
 		related: ["abtest.reconcile"],
-		retryGuidance: "Inspect abtest.list before retrying an ambiguous tick.",
+		retryGuidance:
+			"Echo a prior tick's claim_steps output as recovery_set so an ambiguous retry runs a convergent status-bound recovery pass over exactly that set; without the echoed set, inspect abtest.list before another tick.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_tick",
@@ -526,7 +546,7 @@ export const abTestTickOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeTickAbTestsOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
