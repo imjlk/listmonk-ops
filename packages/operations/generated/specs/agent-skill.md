@@ -1054,7 +1054,7 @@ Retry guidance: Retry identical transient failures with bounded backoff.
 
 ## Create campaign (`campaigns.create`)
 
-Contract maturity: `experimental`; effects: `write:campaign`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:campaign`; confirmation: `never`; retry: `conditional`.
 
 Use when: A new campaign must be created.
 
@@ -1064,7 +1064,7 @@ Prerequisites: none
 
 Verify with: `campaigns.list`
 
-Retry guidance: Inspect campaigns.list before retrying an ambiguous create.
+Retry guidance: Key the create with idempotency_key so an ambiguous retry replays the bound campaign; without a key, verify with campaigns.list before repeating.
 
 ## Update campaign (`campaigns.update`)
 

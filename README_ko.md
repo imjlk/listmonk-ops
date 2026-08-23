@@ -403,7 +403,7 @@ CLI는 MCP 서버와 동일한 타입드 구독자 리스트 Operation을 제공
 listmonk-cli lists list --page 1 --per-page 20
 listmonk-cli lists get --id 10
 listmonk-cli lists create --name "Product updates" --type private --optin single
-# --idempotency-key를 전달하면 애매한 재시도가 같은 리스트를 재생합니다.
+# --idempotency-key를 전달하면 애매한 재시도가 같은 캠페인을 재생합니다.
 listmonk-cli lists create --name "Product updates" --idempotency-key "launch-2026-08-product-updates"
 listmonk-cli lists update --id 10 --name "Product updates" --confirm
 listmonk-cli lists delete --id 10 --confirm
@@ -418,6 +418,10 @@ listmonk-cli campaigns list --page 1 --per-page 20
 listmonk-cli campaigns create --name "Weekly update" --subject "News" \
   --from-email ops@example.com --body "<p>Hello</p>" \
   --template-id 1 --lists 10
+# --idempotency-key를 전달하면 애매한 재시도가 같은 캠페인을 재생합니다.
+listmonk-cli campaigns create --name "Weekly update" --subject "News" \
+  --from-email ops@example.com --body "<p>Hello</p>" \
+  --template-id 1 --lists 10 --idempotency-key "newsletter-2026-08-weekly"
 listmonk-cli campaigns update --id 42 --subject "Updated news"
 listmonk-cli campaigns delete --id 42 --confirm
 listmonk-cli campaigns schedule --id 42 --send-at 2026-08-01T09:00:00Z \
@@ -511,14 +515,14 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 84개는
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 85개는
 `stable`, 20개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
-검토를 마친 핵심 84개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 85개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -628,7 +632,10 @@ uuid 상관만 유일하게 허용) 키는 의도적으로 재사용하지 않�
 생성에는 이 저장소가 필수이므로 저장소가 없는 surface는 보장을
 조용히 버리는 대신 키를 거부합니다. 키 없는 생성은 Listmonk 리스트
 이름이 유일하지 않아 여전히 unsafe로 유지됩니다.
-현재 stable baseline은 84개이며, 나머지 experimental descriptor는 20개입니다.
+스물 번째 batch에서는 공용 keyed-create 실행기로 `campaigns.create`를 같은
+계약으로 승격했습니다(CLI `--idempotency-key`, `{campaign, created}`
+envelope, id 없는 응답의 uuid 상관). 현재 stable baseline은 85개이며,
+나머지 experimental descriptor는 19개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
@@ -642,7 +649,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 84개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 85개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 317개를
 검증합니다.
 

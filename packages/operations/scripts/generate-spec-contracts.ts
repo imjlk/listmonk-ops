@@ -127,6 +127,7 @@ import type {
 	SubscriberDeleteInput,
 	SubscriberDeleteOutput,
 	CampaignCreateInput,
+	CampaignCreateOutput,
 	CampaignUpdateInput,
 	CampaignDeleteInput,
 	CampaignDeleteOutput,
@@ -621,6 +622,9 @@ const contracts = {
 	),
 	campaignCreateInputContract: contractSchema(
 		typia.json.schema<CampaignCreateInput>(),
+	),
+	campaignCreateOutputContract: contractSchema(
+		typia.json.schema<CampaignCreateOutput>(),
 	),
 	campaignUpdateInputContract: inclusiveUnionContractSchema(
 		typia.json.schema<CampaignUpdateInput>(),

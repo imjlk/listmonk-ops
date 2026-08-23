@@ -1,8 +1,4 @@
-import type {
-	ResourceCreateClaimResult,
-	ResourceCreateIdempotencyStore,
-	StoredResourceCreateRecord,
-} from "@listmonk-ops/common";
+import type { ResourceCreateIdempotencyStore } from "@listmonk-ops/common";
 import type { List, ListmonkClient } from "@listmonk-ops/openapi";
 import {
 	bindListsCreateOperationSpec,
@@ -11,6 +7,7 @@ import {
 	bindListsListOperationSpec,
 	bindListsUpdateOperationSpec,
 } from "./specs";
+import { executeKeyedCreate } from "./keyed-create";
 import { isDefinitivePreDispatchError } from "./transactional-idempotency";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
@@ -285,89 +282,6 @@ function canonicalListCreatePayload(
 	};
 }
 
-/** Bounded wait for a live same-key create to finish before giving up. */
-const KEYED_CREATE_PENDING_WAIT_MS = 10_000;
-const KEYED_CREATE_PENDING_POLL_MS = 200;
-
-function delay(ms: number): Promise<void> {
-	return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
-}
-
-type SettledKeyedClaim =
-	| { kind: "new"; claimToken: string }
-	| { kind: "replay"; record: StoredResourceCreateRecord };
-
-/**
- * Claim a keyed create, waiting out a live concurrent same-key claim for a
- * bounded window. Conflicts (different payload, target, or resource kind)
- * and a still-in-flight claim after the wait budget surface as explicit
- * errors instead of a second POST.
- */
-async function claimKeyedListCreate(
-	store: ResourceCreateIdempotencyStore,
-	options: { key: string; payloadHash: string; targetHash: string },
-): Promise<SettledKeyedClaim> {
-	const deadline = Date.now() + KEYED_CREATE_PENDING_WAIT_MS;
-	while (true) {
-		const claim: ResourceCreateClaimResult = await store.claim({
-			key: options.key,
-			payloadHash: options.payloadHash,
-			targetHash: options.targetHash,
-			resourceKind: "list",
-		});
-		if (claim.kind === "conflict") {
-			if (claim.reason === "payload") {
-				throw new Error(
-					`Idempotency key already used by a different create request: ${options.key}`,
-				);
-			}
-			if (claim.reason === "target") {
-				throw new Error(
-					`Idempotency key already used against a different Listmonk target: ${options.key}`,
-				);
-			}
-			throw new Error(
-				`Idempotency key is bound to a ${claim.existing.resourceKind} resource: ${options.key}`,
-			);
-		}
-		if (claim.kind === "replay") {
-			return { kind: "replay", record: claim.record };
-		}
-		if (claim.kind === "new") {
-			return { kind: "new", claimToken: claim.claimToken };
-		}
-		if (claim.kind === "unresolved") {
-			throw new Error(
-				`Idempotency key '${options.key}' has an unresolved previous attempt (status ${claim.record.status}); its create outcome cannot be determined automatically — a list can even have been renamed after creation. Inspect the Listmonk lists for the intended result, reconcile manually, and use a new idempotency key.`,
-			);
-		}
-		if (Date.now() >= deadline) {
-			throw new Error(
-				`Another create with idempotency key ${options.key} is still in flight; retry after it completes to replay its result`,
-			);
-		}
-		await delay(KEYED_CREATE_PENDING_POLL_MS);
-	}
-}
-
-async function replayRecordedList(
-	client: Pick<ListmonkClient, "list">,
-	record: StoredResourceCreateRecord,
-): Promise<ListCreateResult> {
-	try {
-		const list = await getSubscriberList(
-			{ client },
-			{ id: Number(record.resourceId) },
-		);
-		return { list, created: false };
-	} catch (error) {
-		throw new Error(
-			`Idempotency replay could not load list ${record.resourceId}: ${toErrorMessage(error)}`,
-			{ cause: error },
-		);
-	}
-}
-
 /**
  * Correlate an accepted keyed create that came back without a usable id to
  * the list it produced. A name match is never proof — names are not unique
@@ -383,46 +297,14 @@ async function correlateCreatedList(
 	const matches = await findListsByName(client, name);
 	const correlated = matches.filter((list) => list.uuid === createdUuid);
 	const candidate = correlated[0];
-	if (correlated.length === 1 && candidate !== undefined && candidate.id !== undefined) {
+	if (
+		correlated.length === 1 &&
+		candidate !== undefined &&
+		candidate.id !== undefined
+	) {
 		return candidate;
 	}
 	return undefined;
-}
-
-/**
- * Best-effort release of a definitively failed claim: a persistence failure
- * leaves the pending claim in place, which still blocks a duplicate POST
- * until staleness recovery reconciles it.
- */
-async function releaseKeyedListClaim(
-	store: ResourceCreateIdempotencyStore,
-	options: { key: string; claimToken: string },
-): Promise<void> {
-	try {
-		await store.release(options);
-	} catch (error) {
-		console.warn(
-			`Failed to release resource-create idempotency claim for key '${options.key}': ${toErrorMessage(error)}`,
-		);
-	}
-}
-
-/**
- * Best-effort transition of an unfinished claim to unknown: the attempt is
- * over without a definitive outcome, so later retries must recover it
- * immediately instead of waiting on a live owner that will never finish.
- */
-async function markKeyedClaimUnknown(
-	store: ResourceCreateIdempotencyStore,
-	options: { key: string; claimToken: string },
-): Promise<void> {
-	try {
-		await store.markUnknown(options);
-	} catch (error) {
-		console.warn(
-			`Failed to mark resource-create idempotency claim unknown for key '${options.key}': ${toErrorMessage(error)}`,
-		);
-	}
 }
 
 async function createSubscriberListUnkeyed(
@@ -473,147 +355,102 @@ export async function createSubscriberList(
 		);
 	}
 
-	const payloadHash = hashCreatePayload(
-		JSON.stringify(canonicalListCreatePayload(input)),
-	);
-	const targetHash = hashCreatePayload(
-		JSON.stringify([target.baseUrl, target.username]),
-	);
-	const claim = await claimKeyedListCreate(createIdempotencyStore, {
+	const result = await executeKeyedCreate<List>({
+		store: createIdempotencyStore,
+		hashCreatePayload,
+		target: { baseUrl: target.baseUrl, username: target.username },
 		key: input.idempotency_key,
-		payloadHash,
-		targetHash,
-	});
-
-	if (claim.kind === "replay") {
-		return replayRecordedList(client, claim.record);
-	}
-
-	// claim.kind === "new" — this call owns the key from here on. An
-	// unresolved previous attempt never reaches this point: the claim fails
-	// fast instead, because no name-based reconciliation can prove the
-	// crashed create did not land (a list can even have been renamed).
-
-	let created: List | undefined;
-	let createdUuid: string | undefined;
-	let failure: { error: Error; definitive: boolean } | undefined;
-	try {
-		const response = await client.list.create({
-			body: {
-				name: input.name,
-				type: input.type,
-				optin: input.optin,
-				description: input.description,
-				tags: input.tags,
-			},
-		});
-		if (hasResponseError(response)) {
-			const status =
-				typeof response.response?.status === "number"
-					? response.response.status
-					: undefined;
-			failure = {
-				error: new Error(
-					`Failed to create list: ${toErrorMessage(response.error)}`,
-				),
-				// A 4xx answer rejected the request outright; a 5xx or a
-				// statusless error may have partially processed it.
-				definitive: status !== undefined && status >= 400 && status < 500,
-			};
-		} else if (response.data !== undefined) {
-			created = response.data;
-			createdUuid = response.data.uuid;
-		}
-	} catch (error) {
-		failure = {
-			error: error instanceof Error ? error : new Error(String(error)),
-			// Proven pre-dispatch failures (ECONNREFUSED, ENOTFOUND, 4xx with
-			// a status) never reached Listmonk; everything else is ambiguous.
-			definitive: isDefinitivePreDispatchError(error),
-		};
-	}
-
-	if (failure === undefined && created?.id === undefined) {
-		// The POST was accepted but did not carry a usable id: an empty body,
-		// or a record without one. Only immutable correlation may bind the
-		// key — a name match alone is never proof — so correlate the created
-		// record's uuid, when the response supplied one, against the
-		// name-scoped lists.
-		try {
-			if (createdUuid !== undefined) {
-				created = await correlateCreatedList(client, input.name, createdUuid);
-			} else {
-				created = undefined;
+		resourceKind: "list",
+		resourceLabel: "list",
+		canonicalPayload: canonicalListCreatePayload(input),
+		resourceIdOf: (list) =>
+			list.id !== undefined ? String(list.id) : undefined,
+		describeResource: (list) => `id ${String(list.id ?? list.name ?? "?")}`,
+		replay: async (resourceId) => {
+			try {
+				return await getSubscriberList(
+					{ client },
+					{ id: Number(resourceId) },
+				);
+			} catch (error) {
+				throw new Error(
+					`Idempotency replay could not load list ${resourceId}: ${toErrorMessage(error)}`,
+					{ cause: error },
+				);
 			}
-		} catch (error) {
-			await markKeyedClaimUnknown(createIdempotencyStore, {
-				key: input.idempotency_key,
-				claimToken: claim.claimToken,
-			});
-			throw new Error(
-				`Keyed list create was accepted but the created record could not be re-read: ${toErrorMessage(error)}`,
-				{ cause: error },
-			);
-		}
-	}
-
-	if (failure !== undefined) {
-		if (failure.definitive) {
-			// No list was created, so the key can be released for a fresh
-			// retry. Best effort: an unreleased claim still blocks a
-			// duplicate until staleness recovery reconciles it.
-			await releaseKeyedListClaim(createIdempotencyStore, {
-				key: input.idempotency_key,
-				claimToken: claim.claimToken,
-			});
-			throw failure.error;
-		}
-		// Ambiguous failures mark the claim unknown: retries with this key
-		// fail fast and the outcome must be reconciled manually.
-		await markKeyedClaimUnknown(createIdempotencyStore, {
-			key: input.idempotency_key,
-			claimToken: claim.claimToken,
-		});
-		throw new Error(
-			`Keyed list create failed ambiguously (${toErrorMessage(failure.error)}); the request may or may not have created a list. The idempotency key is marked unknown and needs manual reconciliation: inspect the Listmonk lists for the intended result and use a new idempotency key — retries with this key fail fast.`,
-			{ cause: failure.error },
-		);
-	}
-
-	if (created === undefined || created.id === undefined) {
-		// The create was accepted but cannot be immutably correlated to a
-		// list id. Mark the claim unknown: binding a name-matched list could
-		// permanently replay an unrelated list, and a silent second POST is
-		// exactly what the key exists to prevent.
-		await markKeyedClaimUnknown(createIdempotencyStore, {
-			key: input.idempotency_key,
-			claimToken: claim.claimToken,
-		});
-		throw new Error(
-			`List was created but its id could not be correlated (no id or immutable uuid in the response). The idempotency key is marked unknown and needs manual reconciliation: inspect the Listmonk lists named "${input.name}" and use a new idempotency key — retries with this key fail fast.`,
-		);
-	}
-
-	const resourceId = String(created.id);
-	try {
-		await createIdempotencyStore.commit({
-			key: input.idempotency_key,
-			claimToken: claim.claimToken,
-			resourceId,
-		});
-	} catch (error) {
-		// The create is the source of truth. The claim still blocks a
-		// duplicate POST; marking it unknown makes later same-key calls fail
-		// fast with reconciliation guidance instead of timing out.
-		console.warn(
-			`Failed to persist resource-create idempotency record for key '${input.idempotency_key}' (created list id ${resourceId}): ${toErrorMessage(error)}`,
-		);
-		await markKeyedClaimUnknown(createIdempotencyStore, {
-			key: input.idempotency_key,
-			claimToken: claim.claimToken,
-		});
-	}
-	return { list: created, created: true };
+		},
+		issue: async () => {
+			let response: Awaited<ReturnType<typeof client.list.create>>;
+			try {
+				response = await client.list.create({
+					body: {
+						name: input.name,
+						type: input.type,
+						optin: input.optin,
+						description: input.description,
+						tags: input.tags,
+					},
+				});
+			} catch (error) {
+				return {
+					failure: {
+						error,
+						// Proven pre-dispatch failures (ECONNREFUSED, ENOTFOUND,
+						// 4xx with a status) never reached Listmonk; everything
+						// else is ambiguous.
+						definitive: isDefinitivePreDispatchError(error),
+					},
+				};
+			}
+			if (hasResponseError(response)) {
+				const status =
+					typeof response.response?.status === "number"
+						? response.response.status
+						: undefined;
+				return {
+					failure: {
+						error: new Error(
+							`Failed to create list: ${toErrorMessage(response.error)}`,
+						),
+						// A 4xx answer rejected the request outright; a 5xx or a
+						// statusless error may have partially processed it.
+						definitive: status !== undefined && status >= 400 && status < 500,
+					},
+				};
+			}
+			if (response.data?.id !== undefined) {
+				return { resource: response.data };
+			}
+			// No usable id: only immutable correlation may bind the key — a
+			// name match alone is never proof — so correlate the created
+			// record's uuid, when the response supplied one, against the
+			// name-scoped lists.
+			if (response.data?.uuid !== undefined) {
+				try {
+					const correlated = await correlateCreatedList(
+						client,
+						input.name,
+						response.data.uuid,
+					);
+					if (correlated !== undefined) {
+						return { resource: correlated };
+					}
+				} catch (error) {
+					return {
+						failure: {
+							error: new Error(
+								`Keyed list create was accepted but the created record could not be re-read: ${toErrorMessage(error)}`,
+								{ cause: error },
+							),
+							definitive: false,
+						},
+					};
+				}
+			}
+			return {};
+		},
+	});
+	return { list: result.resource, created: result.created };
 }
 
 export async function updateSubscriberList(

@@ -1,4 +1,9 @@
-import type { OutputUtils } from "@listmonk-ops/common";
+import {
+	createFileBackedResourceCreateIdempotencyStore,
+	type OutputUtils,
+	type ResourceCreateIdempotencyStore,
+} from "@listmonk-ops/common";
+import { createHash } from "node:crypto";
 import { getOutput } from "../lib/output";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
@@ -27,16 +32,23 @@ import {
 	parseJson,
 	toErrorMessage,
 } from "../lib/command-utils";
-import { getListmonkClient } from "../lib/listmonk";
+import { getListmonkClient, resolveListmonkSession } from "../lib/listmonk";
 
 type CampaignsOutput = Pick<
 	typeof OutputUtils,
 	"info" | "json" | "success" | "table"
 >;
 
+function hashCreatePayload(serialized: string): string {
+	return createHash("sha256").update(serialized).digest("hex");
+}
+
 export interface CampaignsCliContext {
 	client: Pick<ListmonkClient, "campaign">;
 	output: CampaignsOutput;
+	createIdempotencyStore?: ResourceCreateIdempotencyStore;
+	hashCreatePayload?: (serialized: string) => string;
+	target?: { baseUrl?: string; username?: string };
 }
 
 export interface ListCampaignsInput {
@@ -66,6 +78,7 @@ export interface ScheduleCampaignInput extends CampaignLifecycleInput {
 
 export interface CreateCampaignInput {
 	name: string;
+	idempotency_key?: string;
 	subject: string;
 	from_email: string;
 	body: string;
@@ -130,9 +143,13 @@ export async function renderCreateCampaign(
 	context: CampaignsCliContext,
 	input: CreateCampaignInput,
 ): Promise<void> {
-	const campaign = await invokeCreateCampaignOperation(context, input);
-	context.output.success(`Campaign created: ${campaign.id ?? input.name}`);
-	context.output.json(campaign);
+	const result = await invokeCreateCampaignOperation(context, input);
+	context.output.success(
+		result.created
+			? `Campaign created: ${result.campaign.id ?? input.name}`
+			: `Campaign already created: ${result.campaign.id ?? input.name}`,
+	);
+	context.output.json(result);
 }
 
 export async function renderUpdateCampaign(
@@ -277,6 +294,7 @@ function parseTemplateIdFlag(value: string | undefined): number | null | undefin
 
 type CreateCommandFlags = {
 	name: string;
+	"idempotency-key"?: string;
 	subject: string;
 	"from-email": string;
 	body: string;
@@ -304,11 +322,25 @@ export async function handleCreateCampaignCommand({
 	...args
 }: HandlerArgs<CreateCommandFlags>): Promise<void> {
 	try {
-		const client = await getListmonkClient(args);
+		const session = await resolveListmonkSession(args, {
+			requireAuth: true,
+		});
+		if (!session.client) {
+			throw new Error("Listmonk client is not available");
+		}
+		const client = session.client;
 		await renderCreateCampaign(
-			{ client, output: getOutput() },
+			{
+				client,
+				output: getOutput(),
+				createIdempotencyStore:
+					createFileBackedResourceCreateIdempotencyStore(),
+				hashCreatePayload,
+				target: { baseUrl: session.baseUrl, username: session.username },
+			},
 			{
 				name: flags.name,
+				idempotency_key: flags["idempotency-key"],
 				subject: flags.subject,
 				from_email: flags["from-email"],
 				body: flags.body,
@@ -597,6 +629,13 @@ export default defineGroup({
 			description: "Create a campaign",
 			options: {
 				name: option(z.string().trim().min(1), { description: "Campaign name" }),
+				"idempotency-key": option(
+					z.string().trim().min(1).max(200).optional(),
+					{
+						description:
+							"Caller-scoped create key; an identical retry with the same key replays the originally created campaign",
+					},
+				),
 				subject: option(z.string().trim().min(1), {
 					description: "Email subject",
 				}),

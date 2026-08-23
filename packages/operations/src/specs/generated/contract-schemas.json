@@ -3540,6 +3540,12 @@
               },
               "type": "array"
             },
+            "idempotency_key": {
+              "description": "Caller-scoped create key; an identical retry with the same key replays the originally created campaign.",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
             "lists": {
               "items": {
                 "$ref": "#/components/schemas/ResourceId"
@@ -3717,6 +3723,12 @@
           },
           "type": "array"
         },
+        "idempotency_key": {
+          "description": "Caller-scoped create key; an identical retry with the same key replays the originally created campaign.",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
         "lists": {
           "items": {
             "$ref": "#/components/schemas/ResourceId"
@@ -3791,6 +3803,243 @@
         "body",
         "template_id",
         "lists"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
+  "campaignCreateOutputContract": {
+    "components": {
+      "schemas": {
+        "CampaignCreateOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "campaign": {
+              "$ref": "#/components/schemas/CampaignGetOutput"
+            },
+            "created": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "campaign",
+            "created"
+          ],
+          "type": "object"
+        },
+        "CampaignGetOutput": {
+          "additionalProperties": {},
+          "properties": {
+            "altbody": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "archive": {
+              "type": "boolean"
+            },
+            "body": {
+              "type": "string"
+            },
+            "body_source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "bounces": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "clicks": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "content_type": {
+              "oneOf": [
+                {
+                  "const": "html"
+                },
+                {
+                  "const": "markdown"
+                },
+                {
+                  "const": "plain"
+                },
+                {
+                  "const": "richtext"
+                },
+                {
+                  "const": "visual"
+                }
+              ]
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "from_email": {
+              "type": "string"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            },
+            "lists": {
+              "items": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "type": "array"
+            },
+            "media": {
+              "items": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "type": "array"
+            },
+            "messenger": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "send_at": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "sent": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "started_at": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "template_id": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceId"
+                }
+              ]
+            },
+            "to_send": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "optin"
+                },
+                {
+                  "const": "regular"
+                }
+              ]
+            },
+            "updated_at": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            },
+            "views": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "Recordstringunknown": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "campaign": {
+          "$ref": "#/components/schemas/CampaignGetOutput"
+        },
+        "created": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "campaign",
+        "created"
       ],
       "type": "object"
     },

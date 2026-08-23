@@ -17933,6 +17933,632 @@
         "input": {
           "components": {
             "schemas": {
+              "CampaignCreateInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "altbody": {
+                    "type": "string"
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "archive_meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "archive_slug": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive_template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "attribs": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "body": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "description": "Content type. Optional on input and defaults to `\"html\"`, matching the\nruntime Zod schema's `.default(\"html\")`.",
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "headers": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringstring"
+                    },
+                    "type": "array"
+                  },
+                  "idempotency_key": {
+                    "description": "Caller-scoped create key; an identical retry with the same key replays the originally created campaign.",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                    "description": "Messenger. Optional on input and defaults to `\"email\"`, matching the\nruntime Zod schema's `.default(\"email\")`."
+                  },
+                  "name": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "description": "Campaign type. Optional on input and defaults to `\"regular\"`, matching\nthe runtime Zod schema's `.default(\"regular\")`.",
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "subject",
+                  "from_email",
+                  "body",
+                  "template_id",
+                  "lists"
+                ],
+                "type": "object"
+              },
+              "Recordstringstring": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TrimmedNonEmptyString": {
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "altbody": {
+                "type": "string"
+              },
+              "archive": {
+                "type": "boolean"
+              },
+              "archive_meta": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "archive_slug": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "archive_template_id": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                ]
+              },
+              "attribs": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "body": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString"
+              },
+              "body_source": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "content_type": {
+                "description": "Content type. Optional on input and defaults to `\"html\"`, matching the\nruntime Zod schema's `.default(\"html\")`.",
+                "oneOf": [
+                  {
+                    "const": "html"
+                  },
+                  {
+                    "const": "markdown"
+                  },
+                  {
+                    "const": "plain"
+                  },
+                  {
+                    "const": "richtext"
+                  },
+                  {
+                    "const": "visual"
+                  }
+                ]
+              },
+              "from_email": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString"
+              },
+              "headers": {
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringstring"
+                },
+                "type": "array"
+              },
+              "idempotency_key": {
+                "description": "Caller-scoped create key; an identical retry with the same key replays the originally created campaign.",
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "lists": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "media": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "type": "array"
+              },
+              "messenger": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                "description": "Messenger. Optional on input and defaults to `\"email\"`, matching the\nruntime Zod schema's `.default(\"email\")`."
+              },
+              "name": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString"
+              },
+              "send_at": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "subject": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString"
+              },
+              "subscribers": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "tags": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "template_id": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                ]
+              },
+              "type": {
+                "description": "Campaign type. Optional on input and defaults to `\"regular\"`, matching\nthe runtime Zod schema's `.default(\"regular\")`.",
+                "oneOf": [
+                  {
+                    "const": "optin"
+                  },
+                  {
+                    "const": "regular"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "subject",
+              "from_email",
+              "body",
+              "template_id",
+              "lists"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignCreateOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "campaign": {
+                    "$ref": "#/components/schemas/CampaignGetOutput"
+                  },
+                  "created": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "campaign",
+                  "created"
+                ],
+                "type": "object"
+              },
+              "CampaignGetOutput": {
+                "additionalProperties": {},
+                "properties": {
+                  "altbody": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "archive": {
+                    "type": "boolean"
+                  },
+                  "body": {
+                    "type": "string"
+                  },
+                  "body_source": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "bounces": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "clicks": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "content_type": {
+                    "oneOf": [
+                      {
+                        "const": "html"
+                      },
+                      {
+                        "const": "markdown"
+                      },
+                      {
+                        "const": "plain"
+                      },
+                      {
+                        "const": "richtext"
+                      },
+                      {
+                        "const": "visual"
+                      }
+                    ]
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "from_email": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "lists": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "media": {
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "messenger": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "send_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "sent": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "started_at": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ResourceId"
+                      }
+                    ]
+                  },
+                  "to_send": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "optin"
+                      },
+                      {
+                        "const": "regular"
+                      }
+                    ]
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "type": "string"
+                  },
+                  "views": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "campaign": {
+                "$ref": "#/components/schemas/CampaignGetOutput"
+              },
+              "created": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "campaign",
+              "created"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "campaign",
+          "reversible": true
+        }
+      ],
+      "id": "campaigns.create",
+      "mcpName": "listmonk_create_campaign",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "campaign",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The key is atomically claimed in a durable store before the create is issued and then bound to the created campaign id; an identical retry (same key, same request payload, same Listmonk target) replays that campaign with created: false, a concurrent same-key create waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. An attempt that ends ambiguously — or whose accepted response carries neither an id nor an immutable uuid to correlate — marks its claim unknown, and later same-key creates fail fast with reconciliation guidance: the key is intentionally not reused, because no name-based check can prove which same-named campaign a create produced."
+            },
+            "when": "idempotency_key is present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Listmonk campaign names are not unique, so a retry after an ambiguous create provisions a duplicate campaign."
+            },
+            "when": "idempotency_key is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller supplies an idempotency key."
+      },
+      "verb": "create"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "CampaignUpdateInput": {
                 "anyOf": [
                   {

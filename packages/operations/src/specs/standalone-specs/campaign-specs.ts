@@ -1,6 +1,7 @@
 import { defineOperationSpec } from "../operation";
 import {
 	campaignCreateInputContract,
+	campaignCreateOutputContract,
 	campaignUpdateInputContract,
 	campaignDeleteInputContract,
 	campaignDeleteOutputContract,
@@ -18,14 +19,32 @@ export const campaignsCreateOperationSpec = defineOperationSpec({
 	description: "Create a campaign in Listmonk",
 	contract: {
 		input: campaignCreateInputContract,
-		output: campaignGetOutputContract,
+		output: campaignCreateOutputContract,
 	},
 	effects: [{ kind: "write", resource: "campaign", reversible: true }],
 	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "conditional",
+		cases: [
+			{
+				when: "idempotency_key is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The key is atomically claimed in a durable store before the create is issued and then bound to the created campaign id; an identical retry (same key, same request payload, same Listmonk target) replays that campaign with created: false, a concurrent same-key create waits for the in-flight one instead of issuing a second POST, and a different request or target under the same key is rejected. An attempt that ends ambiguously — or whose accepted response carries neither an id nor an immutable uuid to correlate — marks its claim unknown, and later same-key creates fail fast with reconciliation guidance: the key is intentionally not reused, because no name-based check can prove which same-named campaign a create produced.",
+				},
+			},
+			{
+				when: "idempotency_key is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"Listmonk campaign names are not unique, so a retry after an ambiguous create provisions a duplicate campaign.",
+				},
+			},
+		],
 		reason:
-			"A retry may create another campaign unless the original ID is known.",
+			"Retry safety depends on whether the caller supplies an idempotency key.",
 	},
 	agent: {
 		useWhen: ["A new campaign must be created."],
@@ -34,7 +53,7 @@ export const campaignsCreateOperationSpec = defineOperationSpec({
 		verifyWith: ["campaigns.list"],
 		related: ["campaigns.update", "campaigns.clone"],
 		retryGuidance:
-			"Inspect campaigns.list before retrying an ambiguous create.",
+			"Key the create with idempotency_key so an ambiguous retry replays the bound campaign; without a key, verify with campaigns.list before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_create_campaign",
@@ -52,7 +71,7 @@ export const campaignsCreateOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#createCampaign:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

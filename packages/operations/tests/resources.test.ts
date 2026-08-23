@@ -580,7 +580,10 @@ describe("shared CRUD resource operations", () => {
 				lists: ["4"],
 			},
 		);
-		expect(campaign.output).toMatchObject({ id: 9, name: "Created campaign" });
+		expect(campaign.output).toMatchObject({
+			campaign: { id: 9, name: "Created campaign" },
+			created: true,
+		});
 
 		const createSubscriber = mock(async () => ({ data: undefined }));
 		const listSubscribers = mock(async () => ({
