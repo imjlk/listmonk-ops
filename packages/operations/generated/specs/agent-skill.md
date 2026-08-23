@@ -350,7 +350,7 @@ Prerequisites: `webhooks.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Echo a prior tick's dispatch.claim_steps output as recovery_set so an ambiguous retry runs a convergent attempt-bound recovery pass over exactly that set; without the echoed set, inspect delivery state before another tick.
+Retry guidance: Echo a prior tick's dispatch.claim_steps output as recovery_set so an ambiguous retry re-attempts exactly that set at its originally claimed positions and never claims new due work; delivery stays at least once, so verify receiver state (the event-id header enables deduplication) before repeating.
 
 ## Inspect outbound webhook runtime health (`webhooks.runtime.status`)
 

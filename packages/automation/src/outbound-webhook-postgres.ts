@@ -27,6 +27,7 @@ import {
 
 export const OUTBOUND_WEBHOOK_POSTGRES_SCHEMA_VERSION = 3;
 const POSTGRES_UUID_TYPE_OID = 2950;
+const POSTGRES_INT4_TYPE_OID = 23;
 
 export interface PostgresOutboundWebhookRepositoryOptions {
 	connectionString: string;
@@ -932,6 +933,7 @@ export function createPostgresOutboundWebhookRepository(
 									)},
 									${transaction.array(
 										[...claimOptions.expectedAttemptCounts.values()],
+										POSTGRES_INT4_TYPE_OID,
 									)}
 								) AS t(id, attempt_count)
 							)`}

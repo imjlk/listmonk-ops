@@ -649,8 +649,12 @@ batch에서는 `campaigns.clone`을 승격했습니다(키는 원본 캠페인�
 작업을 클레임하는 대신 정확히 해당 레코드만 대상으로 위치 바인딩 수렴형
 복구 패스를 실행합니다(이미 진행된 항목, 살아있는 lease, 백오프 중,
 서킷 오픈은 건너뛰며 살아있는 것은 pending으로 보고). 실패한 시퀀스
-틱은 이 복구를 위해 에러에 클레임 집합을 노출합니다. 현재 stable
-baseline은 90개이며, 나머지 experimental descriptor는 14개입니다.
+틱은 이 복구를 위해 에러에 클레임 집합을 노출합니다. 웹훅 전달은 모든
+모드에서 여전히 정직하게 at-least-once입니다 — echoed 집합은 재시도를
+원래 클레임된 전달로 한정하지만 POST 자체는 수락됐지만 관측되지 않은
+시도를 중복할 수 있어(event-id 헤더로 수신 측 중복 제거 가능) 두 재시도
+경우 모두 reconcile로 분류합니다. 현재 stable baseline은 90개이며,
+나머지 experimental descriptor는 14개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,

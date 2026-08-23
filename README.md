@@ -669,7 +669,12 @@ recovery pass over exactly those records — entries that already moved
 on, hold a live lease, sit in backoff, or face an open circuit are
 skipped (live ones reported as pending) — instead of claiming new due
 work; a failed sequence tick surfaces the claim set on its error for
-exactly this recovery. The remaining 14 descriptors are experimental.
+exactly this recovery. Webhook delivery stays honestly at least once in
+every mode — the echoed set bounds a retry to the originally claimed
+deliveries, but the POST itself can still duplicate an
+accepted-but-unobserved attempt (the event-id header enables receiver
+deduplication), so both webhook retry cases classify as reconcile. The
+remaining 14 descriptors are experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
