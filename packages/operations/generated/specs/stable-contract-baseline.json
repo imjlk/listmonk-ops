@@ -10139,6 +10139,247 @@
                 "minimum": 1,
                 "type": "integer"
               },
+              "SequenceTickInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "claimed_ids": {
+                    "description": "Echoed claim set from a prior tick's output: recover exactly these\nenrollments instead of claiming new due work.",
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "lease_ms": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "limit": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  }
+                },
+                "required": [
+                  "limit",
+                  "lease_ms"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "claimed_ids": {
+                "description": "Echoed claim set from a prior tick's output: recover exactly these\nenrollments instead of claiming new due work.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array"
+              },
+              "lease_ms": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              },
+              "limit": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              }
+            },
+            "required": [
+              "limit",
+              "lease_ms"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "SequenceTickOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "advanced": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "already_done": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Recovery passes only: echoed-set members left untouched."
+                  },
+                  "ambiguous": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "cancelled": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claimed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claimed_ids": {
+                    "description": "Echoed ids of the exact enrollments this tick claimed.",
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "completed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "completed_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "failed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "requested": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Recovery passes only: size of the echoed claim set."
+                  },
+                  "waiting": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "claimed",
+                  "claimed_ids",
+                  "advanced",
+                  "waiting",
+                  "completed",
+                  "failed",
+                  "ambiguous",
+                  "cancelled",
+                  "completed_at"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "advanced": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "already_done": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Recovery passes only: echoed-set members left untouched."
+              },
+              "ambiguous": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "cancelled": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "claimed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "claimed_ids": {
+                "description": "Echoed ids of the exact enrollments this tick claimed.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "completed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "completed_at": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "failed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "requested": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Recovery passes only: size of the echoed claim set."
+              },
+              "waiting": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "claimed",
+              "claimed_ids",
+              "advanced",
+              "waiting",
+              "completed",
+              "failed",
+              "ambiguous",
+              "cancelled",
+              "completed_at"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "audience": "bulk",
+          "kind": "delivery",
+          "resource": "sequence",
+          "timing": "immediate"
+        }
+      ],
+      "id": "sequences.tick",
+      "mcpName": "listmonk_sequences_tick",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The recovery pass claims exactly the echoed enrollment ids under the same eligibility rule as a fresh tick: members that already advanced, completed, turned ambiguous, or hold a live lease are skipped, so an identical retry converges over the set instead of doing new work, and transactional idempotency prevents duplicate sends for re-executed steps. Ambiguous members stay skipped until an operator reconciles them."
+            },
+            "when": "claimed_ids (an echoed claim set) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Transactional idempotency prevents duplicate sends, but a fresh tick claims whatever is due at request time, so a retry performs new work and expired leases and ambiguous results must be reconciled first.",
+              "reconcileWith": "sequences.reconcile"
+            },
+            "when": "claimed_ids is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller echoes a prior tick's claimed_ids set."
+      },
+      "verb": "tick"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
               "SequenceStatusInput": {
                 "additionalProperties": false,
                 "properties": {

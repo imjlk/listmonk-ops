@@ -492,6 +492,65 @@ function countOutcome(
 	}
 }
 
+/**
+ * Recovery pass over an echoed claim set: claim exactly the requested
+ * enrollment ids when they are still claimable and execute them, skipping
+ * entries that already advanced, completed, turned ambiguous, or hold a
+ * live lease. Retrying with the same echoed set converges — each retry
+ * only reworks still-claimable members and never claims new due work.
+ */
+export async function recoverSequenceTick(
+	context: SequenceExecutionContext,
+	options: {
+		ids: readonly string[];
+		leaseMs?: number;
+		now?: Date;
+	},
+): Promise<SequenceTickSummary & { requested: number; alreadyDone: number }> {
+	const now = options.now ?? context.now?.() ?? new Date();
+	const claimed = await context.repository.claimSpecific({
+		ids: options.ids,
+		now,
+		leaseMs: options.leaseMs ?? DEFAULT_SEQUENCE_LEASE_MS,
+	});
+	const counts = {
+		advanced: 0,
+		waiting: 0,
+		completed: 0,
+		failed: 0,
+		ambiguous: 0,
+		cancelled: 0,
+	};
+	const results = await Promise.allSettled(
+		claimed.map((entry) => executeClaimedEnrollment(context, entry, now)),
+	);
+	for (const result of results) {
+		if (result.status === "fulfilled") {
+			countOutcome(counts, result.value.status);
+		}
+	}
+	const failures = results
+		.filter(
+			(result): result is PromiseRejectedResult =>
+				result.status === "rejected",
+		)
+		.map((result) => result.reason);
+	if (failures.length > 0) {
+		throw new AggregateError(
+			failures,
+			`Failed to complete ${failures.length} claimed sequence enrollment(s)`,
+		);
+	}
+	return {
+		requested: options.ids.length,
+		claimed: claimed.length,
+		claimedIds: claimed.map((entry) => entry.enrollment.id),
+		alreadyDone: options.ids.length - claimed.length,
+		...counts,
+		completedAt: now.toISOString(),
+	};
+}
+
 export async function runSequenceTick(
 	context: SequenceExecutionContext,
 	options: RunSequenceTickOptions = {},
@@ -532,6 +591,7 @@ export async function runSequenceTick(
 	}
 	return {
 		claimed: claimed.length,
+		claimedIds: claimed.map((entry) => entry.enrollment.id),
 		...counts,
 		completedAt: now.toISOString(),
 	};

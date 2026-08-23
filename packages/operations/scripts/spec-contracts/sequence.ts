@@ -193,10 +193,17 @@ export interface SequenceEnrollmentGetInput {
 export interface SequenceTickInput {
 	limit: PositiveInteger;
 	lease_ms: PositiveInteger;
+	/**
+	 * Echoed claim set from a prior tick's output: recover exactly these
+	 * enrollments instead of claiming new due work.
+	 */
+	claimed_ids?: (string & tags.Format<"uuid">)[] & tags.MinItems<1> & tags.MaxItems<100>;
 }
 
 export interface SequenceTickOutput {
 	claimed: NonNegativeInteger;
+	/** Echoed ids of the exact enrollments this tick claimed. */
+	claimed_ids: (string & tags.Format<"uuid">)[];
 	advanced: NonNegativeInteger;
 	waiting: NonNegativeInteger;
 	completed: NonNegativeInteger;
@@ -204,6 +211,10 @@ export interface SequenceTickOutput {
 	ambiguous: NonNegativeInteger;
 	cancelled: NonNegativeInteger;
 	completed_at: IsoDateTime;
+	/** Recovery passes only: size of the echoed claim set. */
+	requested?: NonNegativeInteger;
+	/** Recovery passes only: echoed-set members left untouched. */
+	already_done?: NonNegativeInteger;
 }
 
 export interface SequenceReconcileInput {

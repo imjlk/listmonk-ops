@@ -578,7 +578,7 @@ Retry guidance: Retrying the same resume is safe.
 
 ## Run sequence worker tick (`sequences.tick`)
 
-Contract maturity: `experimental`; effects: `delivery:bulk:immediate`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `delivery:bulk:immediate`; confirmation: `required`; retry: `conditional`.
 
 Use when: Due sequence enrollments should execute in a bounded batch.
 
@@ -588,7 +588,7 @@ Prerequisites: `sequences.status`
 
 Verify with: `sequences.status`
 
-Retry guidance: Run reconcile and inspect status before retrying a failed tick.
+Retry guidance: Echo a prior tick's claimed_ids output so an ambiguous retry runs a convergent recovery pass over exactly that set; without the echoed set, run reconcile and inspect status before repeating.
 
 ## Reconcile sequence runtime (`sequences.reconcile`)
 

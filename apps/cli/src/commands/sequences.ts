@@ -307,12 +307,20 @@ const tickCommand = defineCommand({
 			z.coerce.number().int().min(1_000).max(900_000).default(90_000),
 			{ description: "Enrollment claim lease duration" },
 		),
+		"claimed-ids": option(z.array(z.uuid()).min(1).max(100).optional(), {
+			description:
+				"Echoed claim set from a prior tick's claimed_ids output: recover exactly these enrollments instead of claiming new due work",
+		}),
 	},
 	handler: async ({ flags, ...args }) => {
 		getOutput().json(
 			await invokeSequenceTickOperation(
 				await executionContext(args),
-				{ limit: flags.limit, lease_ms: flags["lease-ms"] },
+				{
+					limit: flags.limit,
+					lease_ms: flags["lease-ms"],
+					claimed_ids: flags["claimed-ids"],
+				},
 			),
 		);
 	},

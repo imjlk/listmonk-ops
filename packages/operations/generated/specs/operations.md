@@ -509,8 +509,8 @@ Claim a bounded due-enrollment batch and execute one typed step per enrollment.
 - Contract source: input `typescript`, output `typescript`
 - Effects: `delivery:bulk:immediate`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `reconcile`
-- Stability: `experimental` since `0.9.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.reconcile`
 

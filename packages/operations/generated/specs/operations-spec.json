@@ -13623,7 +13623,7 @@
           "sequences.reconcile",
           "sequences.pause"
         ],
-        "retryGuidance": "Run reconcile and inspect status before retrying a failed tick.",
+        "retryGuidance": "Echo a prior tick's claimed_ids output so an ambiguous retry runs a convergent recovery pass over exactly that set; without the echoed set, run reconcile and inspect status before repeating.",
         "useWhen": [
           "Due sequence enrollments should execute in a bounded batch."
         ],
@@ -13643,6 +13643,16 @@
               "SequenceTickInput": {
                 "additionalProperties": false,
                 "properties": {
+                  "claimed_ids": {
+                    "description": "Echoed claim set from a prior tick's output: recover exactly these\nenrollments instead of claiming new due work.",
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "type": "array"
+                  },
                   "lease_ms": {
                     "$ref": "#/components/schemas/PositiveInteger"
                   },
@@ -13662,6 +13672,16 @@
           "schema": {
             "additionalProperties": false,
             "properties": {
+              "claimed_ids": {
+                "description": "Echoed claim set from a prior tick's output: recover exactly these\nenrollments instead of claiming new due work.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array"
+              },
               "lease_ms": {
                 "$ref": "#/components/schemas/PositiveInteger"
               },
@@ -13696,6 +13716,10 @@
                   "advanced": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
+                  "already_done": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Recovery passes only: echoed-set members left untouched."
+                  },
                   "ambiguous": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
@@ -13704,6 +13728,14 @@
                   },
                   "claimed": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claimed_ids": {
+                    "description": "Echoed ids of the exact enrollments this tick claimed.",
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "completed": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
@@ -13714,12 +13746,17 @@
                   "failed": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
+                  "requested": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Recovery passes only: size of the echoed claim set."
+                  },
                   "waiting": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   }
                 },
                 "required": [
                   "claimed",
+                  "claimed_ids",
                   "advanced",
                   "waiting",
                   "completed",
@@ -13739,6 +13776,10 @@
               "advanced": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
               },
+              "already_done": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Recovery passes only: echoed-set members left untouched."
+              },
               "ambiguous": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
               },
@@ -13747,6 +13788,14 @@
               },
               "claimed": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "claimed_ids": {
+                "description": "Echoed ids of the exact enrollments this tick claimed.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
               },
               "completed": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
@@ -13757,12 +13806,17 @@
               "failed": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
               },
+              "requested": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Recovery passes only: size of the echoed claim set."
+              },
               "waiting": {
                 "$ref": "#/components/schemas/NonNegativeInteger"
               }
             },
             "required": [
               "claimed",
+              "claimed_ids",
               "advanced",
               "waiting",
               "completed",
@@ -13805,13 +13859,29 @@
       },
       "resource": "sequence",
       "retry": {
-        "idempotent": false,
-        "kind": "reconcile",
-        "reason": "Transactional idempotency prevents duplicate sends, but expired leases and ambiguous results must be reconciled first.",
-        "reconcileWith": "sequences.reconcile"
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The recovery pass claims exactly the echoed enrollment ids under the same eligibility rule as a fresh tick: members that already advanced, completed, turned ambiguous, or hold a live lease are skipped, so an identical retry converges over the set instead of doing new work, and transactional idempotency prevents duplicate sends for re-executed steps. Ambiguous members stay skipped until an operator reconciles them."
+            },
+            "when": "claimed_ids (an echoed claim set) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Transactional idempotency prevents duplicate sends, but a fresh tick claims whatever is due at request time, so a retry performs new work and expired leases and ambiguous results must be reconciled first.",
+              "reconcileWith": "sequences.reconcile"
+            },
+            "when": "claimed_ids is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller echoes a prior tick's claimed_ids set."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Run sequence worker tick",
       "verb": "tick"
     },

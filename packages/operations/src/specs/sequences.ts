@@ -475,11 +475,29 @@ export const sequenceTickOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "sequences.reconcile",
-		idempotent: false,
+		kind: "conditional",
+		cases: [
+			{
+				when: "claimed_ids (an echoed claim set) is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The recovery pass claims exactly the echoed enrollment ids under the same eligibility rule as a fresh tick: members that already advanced, completed, turned ambiguous, or hold a live lease are skipped, so an identical retry converges over the set instead of doing new work, and transactional idempotency prevents duplicate sends for re-executed steps. Ambiguous members stay skipped until an operator reconciles them.",
+				},
+			},
+			{
+				when: "claimed_ids is absent",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "sequences.reconcile",
+					idempotent: false,
+					reason:
+						"Transactional idempotency prevents duplicate sends, but a fresh tick claims whatever is due at request time, so a retry performs new work and expired leases and ambiguous results must be reconciled first.",
+				},
+			},
+		],
 		reason:
-			"Transactional idempotency prevents duplicate sends, but expired leases and ambiguous results must be reconciled first.",
+			"Retry safety depends on whether the caller echoes a prior tick's claimed_ids set.",
 	},
 	agent: {
 		useWhen: ["Due sequence enrollments should execute in a bounded batch."],
@@ -487,14 +505,15 @@ export const sequenceTickOperationSpec = defineOperationSpec({
 		prerequisites: ["sequences.status"],
 		verifyWith: ["sequences.status"],
 		related: ["sequences.reconcile", "sequences.pause"],
-		retryGuidance: "Run reconcile and inspect status before retrying a failed tick.",
+		retryGuidance:
+			"Echo a prior tick's claimed_ids output so an ambiguous retry runs a convergent recovery pass over exactly that set; without the echoed set, run reconcile and inspect status before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_sequences_tick",
 		openWorld: true,
 		graph: graphNodes("tick"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

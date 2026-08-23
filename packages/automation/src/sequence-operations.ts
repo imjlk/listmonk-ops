@@ -30,6 +30,7 @@ import {
 import { z } from "zod";
 import {
 	reconcileAmbiguousSequenceEnrollment,
+	recoverSequenceTick,
 	runSequenceTick,
 	type SequenceExecutionContext,
 } from "./sequence-engine";
@@ -193,6 +194,14 @@ const sequenceTickInputSchema = z.object({
 			"lease_ms must be between 1000 and 900000",
 		)
 		.default(90_000),
+	claimed_ids: z
+		.array(sequenceIdInput)
+		.min(1)
+		.max(100)
+		.optional()
+		.describe(
+			"Echoed claim set from a prior tick's output: recover exactly these enrollments (skipping ones that already advanced, completed, turned ambiguous, or hold a live lease) instead of claiming new due work",
+		),
 });
 const sequenceReconcileInputSchema = z
 	.object({
@@ -300,6 +309,7 @@ const sequenceEnrollmentListOutputSchema = z.object({
 });
 const sequenceTickOutputSchema = z.object({
 	claimed: z.number().int().nonnegative(),
+	claimed_ids: z.array(sequenceIdInput),
 	advanced: z.number().int().nonnegative(),
 	waiting: z.number().int().nonnegative(),
 	completed: z.number().int().nonnegative(),
@@ -307,6 +317,9 @@ const sequenceTickOutputSchema = z.object({
 	ambiguous: z.number().int().nonnegative(),
 	cancelled: z.number().int().nonnegative(),
 	completed_at: isoDateTimeInput,
+	/** Recovery passes only: members of the echoed set left untouched. */
+	requested: z.number().int().nonnegative().optional(),
+	already_done: z.number().int().nonnegative().optional(),
 });
 const sequenceReconcileOutputSchema = z.object({
 	scanned: z.number().int().nonnegative(),
@@ -733,12 +746,32 @@ export async function executeSequenceTickOperation(
 	context: SequenceOperationContext,
 	input: z.output<typeof sequenceTickInputSchema>,
 ) {
+	if (input.claimed_ids !== undefined) {
+		const result = await recoverSequenceTick(executionContext(context), {
+			ids: input.claimed_ids,
+			leaseMs: input.lease_ms,
+		});
+		return {
+			claimed: result.claimed,
+			claimed_ids: [...input.claimed_ids],
+			advanced: result.advanced,
+			waiting: result.waiting,
+			completed: result.completed,
+			failed: result.failed,
+			ambiguous: result.ambiguous,
+			cancelled: result.cancelled,
+			completed_at: result.completedAt,
+			requested: result.requested,
+			already_done: result.alreadyDone,
+		};
+	}
 	const result = await runSequenceTick(executionContext(context), {
 		limit: input.limit,
 		leaseMs: input.lease_ms,
 	});
 	return {
 		claimed: result.claimed,
+		claimed_ids: [...result.claimedIds],
 		advanced: result.advanced,
 		waiting: result.waiting,
 		completed: result.completed,
