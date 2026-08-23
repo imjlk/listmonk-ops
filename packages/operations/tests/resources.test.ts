@@ -1220,7 +1220,10 @@ describe("shared CRUD resource operations", () => {
 			campaignContext({ getById, create, list }),
 			{ id: 7, name: "Cloned" },
 		);
-		expect(cloned).toMatchObject({ id: 11, name: "Cloned" });
+		expect(cloned).toMatchObject({
+			campaign: { id: 11, name: "Cloned" },
+			created: true,
+		});
 		// The clone must not carry over the source identity or stats fields.
 		expect(create).toHaveBeenCalledWith({
 			body: expect.not.objectContaining({
@@ -1284,7 +1287,10 @@ describe("shared CRUD resource operations", () => {
 			campaignContext({ getById, create, list }),
 			{ id: sourceId, name: "Cloned" },
 		);
-		expect(cloned).toMatchObject({ id: 11, name: "Cloned" });
+		expect(cloned).toMatchObject({
+			campaign: { id: 11, name: "Cloned" },
+			created: true,
+		});
 	});
 
 	test("reads campaign stats through the shared operation", async () => {

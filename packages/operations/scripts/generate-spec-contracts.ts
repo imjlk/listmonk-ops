@@ -137,6 +137,7 @@ import type {
 	MediaDeleteInput,
 	MediaDeleteOutput,
 	CampaignCloneInput,
+	CampaignCloneOutput,
 	SubscriberBulkListsInput,
 	SubscriberBulkBlocklistInput,
 	SegmentDriftInput,
@@ -655,6 +656,9 @@ const contracts = {
 	),
 	campaignCloneInputContract: contractSchema(
 		typia.json.schema<CampaignCloneInput>(),
+	),
+	campaignCloneOutputContract: contractSchema(
+		typia.json.schema<CampaignCloneOutput>(),
 	),
 	subscriberBulkListsInputContract: contractSchema(
 		typia.json.schema<SubscriberBulkListsInput>(),

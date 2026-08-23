@@ -966,8 +966,8 @@ Create a new campaign by copying the body, lists, template, and metadata of an e
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:campaign`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.9.0`
 
 ## `media.delete`
 

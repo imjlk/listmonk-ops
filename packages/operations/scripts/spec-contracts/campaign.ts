@@ -273,4 +273,11 @@ export interface CampaignDeleteOutput {
 export interface CampaignCloneInput {
 	id: ResourceId;
 	name: TrimmedNonEmptyString;
+	/** Caller-scoped clone key; an identical retry with the same key replays the originally cloned campaign. */
+	idempotency_key?: NonEmptyString & tags.MaxLength<200>;
+}
+
+export interface CampaignCloneOutput {
+	campaign: CampaignGetOutput;
+	created: boolean;
 }

@@ -517,7 +517,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 87 are `stable` and 17 are `experimental`. The runtime-operation
+these, 88 are `stable` and 16 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -525,7 +525,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Eighty-seven reviewed core operations are `stable`: the existing
+Eighty-eight reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -653,11 +653,14 @@ batch promoted `campaigns.create` with the same contract through a shared
 keyed-create executor (CLI `--idempotency-key`, `{campaign, created}`
 envelope, uuid correlation for id-less responses), a twenty-first promoted
 `templates.create` the same way (template records carry no uuid, so
-binding requires the id in the create response), and a twenty-second
-promoted `media.upload` (CLI `--idempotency-key`) with the payload hash
-taken over the filename, effective MIME type, and the base64 content in
-its normalized standard form, so equivalent encodings replay. The
-remaining 17 descriptors are experimental.
+binding requires the id in the create response), a twenty-second promoted
+`media.upload` with the payload hash taken over the filename, effective
+MIME type, and the base64 content in its decoded-then-re-encoded
+canonical form (so equivalent encodings, including pad-bit variants,
+replay), and a twenty-third promoted `campaigns.clone` (the key binds
+the source campaign and clone name; the unkeyed name-snapshot fallback
+is never used for keyed clones). The remaining 16 descriptors are
+experimental.
 
 The spec publishes seven typed playbooks: `campaign.safe-start`,
 `campaign.safe-schedule`, `template.safe-promote`, `abtest.safe-run`,
@@ -673,7 +676,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 87 stable compatibility baselines, and 317 direct
+runtime bridges, the 88 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are
