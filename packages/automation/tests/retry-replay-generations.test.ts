@@ -85,13 +85,16 @@ describe("webhook delivery retry generation binding", () => {
 		expect(first.delivery.manualRetryCount).toBe(1);
 		expect(first.retryGeneration).toBe(0);
 
-		// The identical repeat while pending: no-op (effect satisfied).
-		const pending = await retryOutboundWebhookDelivery(id, {
-			repository,
-			now,
-			expectedManualRetryCount: 0,
-		});
-		expect(pending.retried).toBe(false);
+		// The identical repeat while pending is rejected: the echo was
+		// consumed by the still-in-flight retry, so a later repeat after a
+		// worker cycle cannot silently re-pass the same generation.
+		await expect(
+			retryOutboundWebhookDelivery(id, {
+				repository,
+				now,
+				expectedManualRetryCount: 0,
+			}),
+		).rejects.toThrow(/already pending at the echoed generation/);
 
 		// A dispatcher completes and re-exhausts it: the generation moved to
 		// 1, so the echoed-0 repeat reports unmodified instead of another

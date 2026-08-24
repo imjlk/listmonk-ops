@@ -700,7 +700,7 @@ export const webhookDeliveryRetryOperationSpec = defineOperationSpec({
 				semantics: {
 					kind: "safe",
 					reason:
-						"The retry only fires while the delivery still sits at the echoed pre-request generation (the retry_generation output, not the post-retry manual_retry_count): a repeat while the original retry's pending state holds reports retried: false (the requested effect is already satisfied), and a delivery a dispatcher already completed and returned to retry moved to a later generation and is reported unmodified instead of starting another delivery cycle — so an identical retry converges over the echoed generation.",
+						"The retry only fires while the delivery still sits at the echoed pre-request generation (the retry_generation output, not the post-retry manual_retry_count): a generation-bound repeat while the original retry's pending state holds (pending count = echo + 1) is rejected with a conflict — the echo was consumed by the still-in-flight effect, so a post-worker-cycle repeat cannot silently re-pass it, and a delivery a dispatcher already completed and returned to retry moved to a later generation and is reported unmodified instead of starting another delivery cycle — so an identical retry converges over the echoed generation.",
 				},
 			},
 			{

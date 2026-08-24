@@ -216,7 +216,7 @@ const webhookDeliveryRetryInputSchema = z.object({
 		.nonnegative()
 		.optional()
 		.describe(
-			"Echoed manual_retry_count from a prior retry's observed delivery: only retry while the delivery still sits at that generation — a delivery a dispatcher already completed and returned to retry is reported unmodified instead of starting another cycle",
+			"Echo the prior retry's retry_generation output (the PRE-request count — NOT the post-retry manual_retry_count on the returned delivery, which is already incremented): only retry while the delivery still sits at that generation — a delivery a dispatcher already completed and returned to retry is reported unmodified instead of starting another cycle",
 		),
 });
 const webhookReconcileInputSchema = z.object({

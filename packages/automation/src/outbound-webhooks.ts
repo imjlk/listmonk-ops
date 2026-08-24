@@ -1442,6 +1442,22 @@ export async function retryOutboundWebhookDelivery(
 		if (previous.status === "pending") {
 			// The requested effect — the delivery queued for dispatch — is
 			// already satisfied, so an ambiguous retry repeats as a no-op.
+			// A generation-bound repeat against the pending state CONSUMED
+			// its echo: a later repeat with the same generation is rejected
+			// (not silently re-passable once the dispatcher exhausts the
+			// delivery back to the same count).
+			// The pending state's count is one past the echo that produced
+			// it (echo N -> pending N+1), so a repeat echoing N against a
+			// pending count of N+1 is the consumed echo.
+			const consumedGeneration =
+				options.expectedManualRetryCount !== undefined &&
+				previous.manualRetryCount === options.expectedManualRetryCount + 1;
+			if (consumedGeneration) {
+				throw new OutboundWebhookConflictError(
+					`Delivery ${id} is already pending at the echoed generation ${previous.manualRetryCount}; the original retry's effect is still in flight`,
+					"delivery_state_conflict",
+				);
+			}
 			const result: RetryOutboundWebhookDeliveryResult = {
 				delivery: previous,
 				retried: false,

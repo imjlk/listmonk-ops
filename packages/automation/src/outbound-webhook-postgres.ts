@@ -820,7 +820,10 @@ export function createPostgresOutboundWebhookRepository(
 				// Rows skipped by SKIP LOCKED are concurrent no-ops, not
 				// failures; report as unavailable only exhausted rows whose
 				// endpoint is genuinely disabled or missing.
-				const failedRows = await transaction<{ id: string }[]>`
+				const failedRows = await transaction<{
+					id: string;
+					manual_retry_count: number;
+				 }[]>`
 					SELECT d.id
 					FROM listmonk_ops.webhook_deliveries d
 					WHERE d.status = 'exhausted'
@@ -845,7 +848,14 @@ export function createPostgresOutboundWebhookRepository(
 					failed: errors.length,
 					dryRun: false,
 					deliveryIds: updatedRows.map((row) => row.id),
-					replayedGenerations: updatedRows.map((row) => ({
+					// Echo the generations of EVERY selected candidate,
+					// failed endpoints included, so a repaired endpoint can
+					// still be recovered with the identical echoed set
+					// (matching the file store).
+					replayedGenerations: [
+						...updatedRows,
+						...failedRows,
+					].map((row) => ({
 						id: row.id,
 						manualRetryCount: row.manual_retry_count,
 					})),
@@ -874,7 +884,18 @@ export function createPostgresOutboundWebhookRepository(
 				if (row.status === "pending") {
 					// The requested effect — the delivery queued for dispatch —
 					// is already satisfied, so an ambiguous retry repeats as a
-					// documented no-op.
+					// documented no-op. A generation-bound repeat against the
+					// pending state consumed its echo and is rejected rather
+					// than silently re-passable after a worker cycle.
+					if (
+						expectedManualRetryCount !== undefined &&
+						row.manual_retry_count === expectedManualRetryCount + 1
+					) {
+						throw new OutboundWebhookConflictError(
+							`Delivery ${id} is already pending at the echoed generation ${row.manual_retry_count}; the original retry's effect is still in flight`,
+							"delivery_state_conflict",
+						);
+					}
 					return {
 						delivery: toDelivery(row),
 						retried: false,
