@@ -517,7 +517,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 94 are `stable` and 10 are `experimental`. The runtime-operation
+these, 96 are `stable` and 8 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -525,7 +525,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Ninety-four reviewed core operations are `stable`: the existing
+Ninety-six reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -678,8 +678,17 @@ exactly this recovery. Webhook delivery stays honestly at least once in
 every mode — the echoed set bounds a retry to the originally claimed
 deliveries, but the POST itself can still duplicate an
 accepted-but-unobserved attempt (the event-id header enables receiver
-deduplication), so both webhook retry cases classify as reconcile. The
-remaining 10 descriptors are experimental. A
+deduplication), so both webhook retry cases classify as reconcile. A
+twenty-eighth batch promoted `webhooks.delivery.retry` and
+`webhooks.dlq.replay` with generation-bound retries: the retry echoes
+the delivery's manual-retry generation (`manual_retry_count`) and a
+repeat bound to it only fires while the delivery still sits at that
+generation — a worker cycle in between moves the generation and the
+repeat reports the current state instead of starting another delivery
+cycle; the dead-letter replay echoes each candidate's generation and
+replays only records still exhausted at it, closing the re-exhaustion
+re-entry hazard. The
+remaining 8 descriptors are experimental. A
 twenty-seventh batch promoted all three reconcile operations
 (`sequences.reconcile`, `webhooks.reconcile`, `abtest.reconcile`) with
 echoed-scanned-set recovery: each scan echoes the exact ids it
@@ -704,7 +713,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 94 stable compatibility baselines, and 317 direct
+runtime bridges, the 96 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are

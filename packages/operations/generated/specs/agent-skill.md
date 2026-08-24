@@ -298,7 +298,7 @@ Retry guidance: Retrying the same read is safe.
 
 ## Retry outbound webhook delivery (`webhooks.delivery.retry`)
 
-Contract maturity: `experimental`; effects: `write:webhook`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `write:webhook`; confirmation: `required`; retry: `conditional`.
 
 Use when: An operator has reviewed a failed delivery and wants another attempt cycle.
 
@@ -308,7 +308,7 @@ Prerequisites: `webhooks.delivery.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Verify the delivery with webhooks.delivery.list before repeating an ambiguous retry; a repeat while the delivery is still pending reports retried: false, but a completed dispatch can make the repeat start another cycle.
+Retry guidance: Echo a prior retry's observed manual_retry_count as expected_manual_retry_count so an ambiguous repeat converges on the echoed generation; without the echo, verify the delivery with webhooks.delivery.list first — a completed dispatch can make an unechoed repeat start another cycle.
 
 ## Reconcile outbound webhook leases (`webhooks.reconcile`)
 
@@ -396,7 +396,7 @@ Retry guidance: Retrying the same read is safe.
 
 ## Replay outbound webhook dead letters (`webhooks.dlq.replay`)
 
-Contract maturity: `experimental`; effects: `maintenance:replay:destructive`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `maintenance:replay:destructive`; confirmation: `required`; retry: `conditional`.
 
 Use when: Reviewed dead letters should receive a fresh bounded attempt cycle.
 
@@ -406,7 +406,7 @@ Prerequisites: `webhooks.dlq.list`, `webhooks.runtime.status`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Run dry_run first, then echo the reported delivery_ids; an identical repeat replays nothing new unless a worker re-exhausted a replayed record, so inspect webhooks.dlq.list before repeating.
+Retry guidance: Run dry_run first, then echo the reported replayed_generations as recovery_generations so an identical repeat replays nothing new even after a worker re-exhausts a record; echoing only delivery_ids leaves the re-entry hazard open, so inspect webhooks.dlq.list before repeating in that case.
 
 ## Reset outbound webhook circuit breaker (`webhooks.circuit.reset`)
 

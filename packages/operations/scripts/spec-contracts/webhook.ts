@@ -449,9 +449,19 @@ export type WebhookDlqReplayInput =
 			endpoint_id?: WebhookId | undefined;
 			/** Exact dead-letter set reported by a dry run; a retry replays nothing new. */
 			delivery_ids: readonly WebhookId[] & tags.MinItems<1> & tags.MaxItems<1_000>;
+			/** Echoed dead-letter generations: replay a delivery only while it is still exhausted at that manual retry count. */
+			recovery_generations?: readonly WebhookDlqRecoveryGeneration[] &
+			tags.MinItems<1> &
+			tags.MaxItems<1_000>;
 			limit?: WebhookDeliveryListLimit | undefined;
 			dry_run: false;
 	  };
+
+/** One echoed dead-letter generation position. */
+export interface WebhookDlqRecoveryGeneration {
+	delivery_id: WebhookId;
+	manual_retry_count: NonNegativeInteger;
+}
 
 export interface WebhookDlqReplayOutput {
 	eligible: NonNegativeInteger;
@@ -459,6 +469,8 @@ export interface WebhookDlqReplayOutput {
 	failed: NonNegativeInteger;
 	dry_run: boolean;
 	delivery_ids: WebhookId[];
+	/** Echoed dead-letter generations observed before any replay moved them. */
+	replayed_generations: WebhookDlqRecoveryGeneration[];
 	errors: {
 		delivery_id: WebhookId;
 		error_code: WebhookDispatchErrorCode;

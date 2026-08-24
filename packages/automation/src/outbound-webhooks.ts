@@ -391,6 +391,14 @@ export type ReplayOutboundWebhookDeadLettersOptions = Readonly<{
 	endpointId?: string;
 	/** Exact dead-letter set reported by a dry run; supplied, exactly that set is replayed. */
 	deliveryIds?: readonly string[];
+	/**
+	 * Generation binding: replay a delivery only while it is still
+	 * exhausted at the echoed pre-request manual retry count. A record a
+	 * worker re-exhausted after a replay moved past the echoed generation
+	 * and is skipped, so an identical echoed request never starts another
+	 * attempt cycle.
+	 */
+	expectedManualRetryCounts?: ReadonlyMap<string, number>;
 	limit?: number;
 	dryRun?: boolean;
 	now?: Date;
@@ -402,6 +410,14 @@ export type ReplayOutboundWebhookDeadLettersResult = Readonly<{
 	failed: number;
 	dryRun: boolean;
 	deliveryIds: readonly string[];
+	/**
+	 * Echoed dead-letter generations: each candidate delivery paired with
+	 * its manual retry count as observed before any replay moved it.
+	 */
+	replayedGenerations: readonly Readonly<{
+		id: string;
+		manualRetryCount: number;
+	}>[];
 	errors: readonly ReplayDeadLetterError[];
 }>;
 
@@ -477,11 +493,13 @@ export interface OutboundWebhookRepository {
 	retryDelivery(
 		id: string,
 		now: Date,
+		expectedManualRetryCount?: number,
 	): Promise<RetryOutboundWebhookDeliveryResult>;
 	/** Atomically transitions still-exhausted deliveries back to pending. */
 	replayDeadLetters(options: {
 		endpointId?: string;
 		deliveryIds?: readonly string[];
+		expectedManualRetryCounts?: ReadonlyMap<string, number>;
 		limit: number;
 		dryRun: boolean;
 		now: Date;
@@ -1389,11 +1407,23 @@ export type RetryOutboundWebhookDeliveryResult = Readonly<{
 
 export async function retryOutboundWebhookDelivery(
 	id: string,
-	options: OutboundWebhookMutationOptions = {},
+	options: OutboundWebhookMutationOptions & {
+		/**
+		 * Generation binding: only retry when the delivery's current
+		 * manual retry count still matches this echoed pre-request value.
+		 * A delivery a dispatcher already completed and returned to retry
+		 * after the original request is skipped, not given another cycle.
+		 */
+		expectedManualRetryCount?: number;
+	} = {},
 ): Promise<RetryOutboundWebhookDeliveryResult> {
 	const now = options.now ?? new Date();
 	if (options.repository) {
-		return options.repository.retryDelivery(id, now);
+		return options.repository.retryDelivery(
+			id,
+			now,
+			options.expectedManualRetryCount,
+		);
 	}
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
@@ -1407,6 +1437,19 @@ export async function retryOutboundWebhookDelivery(
 		if (previous.status === "pending") {
 			// The requested effect — the delivery queued for dispatch — is
 			// already satisfied, so an ambiguous retry repeats as a no-op.
+			const result: RetryOutboundWebhookDeliveryResult = {
+				delivery: previous,
+				retried: false,
+			};
+			return commitJsonFileStoreUpdate(current, result);
+		}
+		if (
+			options.expectedManualRetryCount !== undefined &&
+			previous.manualRetryCount !== options.expectedManualRetryCount
+		) {
+			// The delivery moved past the echoed generation (another manual
+			// retry or replay acted on it); report the current state without
+			// starting another delivery cycle.
 			const result: RetryOutboundWebhookDeliveryResult = {
 				delivery: previous,
 				retried: false,
@@ -1487,6 +1530,7 @@ export async function replayOutboundWebhookDeadLetters(
 				options.deliveryIds === undefined
 					? undefined
 					: new Set(options.deliveryIds);
+			const generations = options.expectedManualRetryCounts;
 			const deliveries =
 				requestedIds === undefined
 					? current.deliveries
@@ -1508,6 +1552,9 @@ export async function replayOutboundWebhookDeadLetters(
 							(delivery) =>
 								requestedIds.has(delivery.id) &&
 								delivery.status === "exhausted" &&
+								(generations === undefined ||
+									generations.get(delivery.id) ===
+										delivery.manualRetryCount) &&
 								(options.endpointId === undefined ||
 									delivery.endpointId === options.endpointId),
 						);
@@ -1518,6 +1565,10 @@ export async function replayOutboundWebhookDeadLetters(
 					failed: 0,
 					dryRun: true,
 					deliveryIds: deliveries.map((delivery) => delivery.id),
+					replayedGenerations: deliveries.map((delivery) => ({
+						id: delivery.id,
+						manualRetryCount: delivery.manualRetryCount,
+					})),
 					errors: [],
 				});
 			}
@@ -1560,6 +1611,10 @@ export async function replayOutboundWebhookDeadLetters(
 				failed: errors.length,
 				dryRun: false,
 				deliveryIds,
+				replayedGenerations: deliveries.map((delivery) => ({
+					id: delivery.id,
+					manualRetryCount: delivery.manualRetryCount,
+				})),
 				errors,
 			};
 			return commitJsonFileStoreUpdate(
@@ -1582,6 +1637,7 @@ export async function replayOutboundWebhookDeadLetters(
 	return options.repository.replayDeadLetters({
 		endpointId: options.endpointId,
 		deliveryIds: options.deliveryIds,
+		expectedManualRetryCounts: options.expectedManualRetryCounts,
 		// An echoed set is replayed in full: the cap is the set's size so an
 		// independently smaller limit cannot silently replay only part of
 		// the reviewed set.

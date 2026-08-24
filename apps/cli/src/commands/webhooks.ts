@@ -421,9 +421,21 @@ const deliveryRetryCommand = defineCommand({
 	operationId: "webhooks.delivery.retry",
 	options: {
 		id: option(z.uuid(), { description: "Delivery ID" }),
+		"expected-manual-retry-count": option(
+			z.coerce.number().int().nonnegative().optional(),
+			{
+				description:
+					"Echoed manual_retry_count from a prior retry: only retry while the delivery still sits at that generation",
+			},
+		),
 	},
 	handler: async ({ flags }) => {
-		getOutput().json(await invokeWebhookDeliveryRetryOperation({}, flags));
+		getOutput().json(
+			await invokeWebhookDeliveryRetryOperation({}, {
+				id: flags.id,
+				expected_manual_retry_count: flags["expected-manual-retry-count"],
+			}),
+		);
 	},
 });
 
@@ -603,6 +615,10 @@ const dlqReplayCommand = defineCommand({
 			description:
 				"Comma-separated exact dead-letter ids a dry run reported; required with --no-dry-run",
 		}),
+		"recovery-generations": option(z.string().trim().min(1).optional(), {
+			description:
+				"Echoed dead-letter generations from a prior replay (JSON array of delivery_id and manual_retry_count pairs): replay a delivery only while it is still exhausted at that generation",
+		}),
 		limit: option(z.coerce.number().int().min(1).max(1_000).default(100), {
 			description: "Maximum dead letters",
 		}),
@@ -611,6 +627,18 @@ const dlqReplayCommand = defineCommand({
 		}),
 	},
 	handler: async ({ flags }) => {
+		let recoveryGenerations:
+			| Array<{ delivery_id: string; manual_retry_count: number }>
+			| undefined;
+		if (flags["recovery-generations"] !== undefined) {
+			try {
+				recoveryGenerations = JSON.parse(flags["recovery-generations"]);
+			} catch (error) {
+				throw new Error(
+					`--recovery-generations must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}
 		getOutput().json(
 			await invokeWebhookDlqReplayOperation(
 				{},
@@ -619,6 +647,7 @@ const dlqReplayCommand = defineCommand({
 					delivery_ids: flags["delivery-ids"]
 						? parseDeliveryIds(flags["delivery-ids"])
 						: undefined,
+					recovery_generations: recoveryGenerations,
 					limit: flags.limit,
 					dry_run: flags["dry-run"],
 				},

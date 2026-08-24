@@ -729,17 +729,40 @@ export function createPostgresOutboundWebhookRepository(
 								[...replayOptions.deliveryIds],
 								POSTGRES_UUID_TYPE_OID,
 							)})`;
+				const generations = replayOptions.expectedManualRetryCounts;
+				const generationFilter =
+					generations === undefined
+						? transaction``
+						: generations.size === 0
+							? transaction`AND false`
+							: transaction`AND (id, manual_retry_count) IN (
+									SELECT *
+									FROM unnest(
+										${transaction.array(
+											[...generations.keys()],
+											POSTGRES_UUID_TYPE_OID,
+										)},
+										${transaction.array(
+											[...generations.values()],
+											POSTGRES_INT4_TYPE_OID,
+										)}
+									) AS t(id, manual_retry_count)
+								)`;
 				const endpointFilter =
 					replayOptions.endpointId === undefined
 						? transaction``
 						: transaction`AND endpoint_id = ${replayOptions.endpointId}::uuid`;
 				if (replayOptions.dryRun) {
-					const previewRows = await transaction<{ id: string }[]>`
-						SELECT id
+					const previewRows = await transaction<{
+						id: string;
+						manual_retry_count: number;
+					 }[]>`
+						SELECT id, manual_retry_count
 						FROM listmonk_ops.webhook_deliveries
 						WHERE status = 'exhausted'
 							${endpointFilter}
 							${idFilter}
+							${generationFilter}
 						ORDER BY next_attempt_at DESC, id DESC
 						LIMIT ${replayOptions.limit}
 						FOR UPDATE
@@ -750,18 +773,25 @@ export function createPostgresOutboundWebhookRepository(
 						failed: 0,
 						dryRun: true,
 						deliveryIds: previewRows.map((row) => row.id),
+						replayedGenerations: previewRows.map((row) => ({
+							id: row.id,
+							manualRetryCount: row.manual_retry_count,
+						})),
 						errors: [],
 					};
 				}
 				// One atomic compare-and-transition: only records still in
 				// the dead-letter state move back to pending, so overlapping
 				// replays and workers cannot double-claim a record.
-				const updatedRows = await transaction<{ id: string }[]>`
-					UPDATE listmonk_ops.webhook_deliveries
+				const updatedRows = await transaction<{
+					id: string;
+					manual_retry_count: number;
+				 }[]>`
+					UPDATE listmonk_ops.webhook_deliveries d
 					SET
+						manual_retry_count = d.manual_retry_count + 1,
 						status = 'pending',
 						attempt_count = 0,
-						manual_retry_count = manual_retry_count + 1,
 						next_attempt_at = ${replayOptions.now},
 						last_attempt_at = NULL,
 						completed_at = NULL,
@@ -780,11 +810,12 @@ export function createPostgresOutboundWebhookRepository(
 							)
 							${endpointFilter}
 							${idFilter}
+							${generationFilter}
 						ORDER BY next_attempt_at DESC, id DESC
 						LIMIT ${replayOptions.limit}
 						FOR UPDATE SKIP LOCKED
 					)
-					RETURNING id
+					RETURNING id, manual_retry_count - 1 AS manual_retry_count
 				`;
 				// Rows skipped by SKIP LOCKED are concurrent no-ops, not
 				// failures; report as unavailable only exhausted rows whose
@@ -813,12 +844,16 @@ export function createPostgresOutboundWebhookRepository(
 					failed: errors.length,
 					dryRun: false,
 					deliveryIds: updatedRows.map((row) => row.id),
+					replayedGenerations: updatedRows.map((row) => ({
+						id: row.id,
+						manualRetryCount: row.manual_retry_count,
+					})),
 					errors,
 				};
 			});
 		},
 
-		async retryDelivery(id, now) {
+		async retryDelivery(id, now, expectedManualRetryCount) {
 			await ensureInitialized();
 			return sql.begin(async (transaction) => {
 				const deliveryRows = await transaction<DeliveryRow[]>`
@@ -839,6 +874,14 @@ export function createPostgresOutboundWebhookRepository(
 					// The requested effect — the delivery queued for dispatch —
 					// is already satisfied, so an ambiguous retry repeats as a
 					// documented no-op.
+					return { delivery: toDelivery(row), retried: false };
+				}
+				if (
+					expectedManualRetryCount !== undefined &&
+					row.manual_retry_count !== expectedManualRetryCount
+				) {
+					// The delivery moved past the echoed generation; report the
+					// current state without starting another cycle.
 					return { delivery: toDelivery(row), retried: false };
 				}
 				if (row.status !== "retry" && row.status !== "exhausted") {
