@@ -314,7 +314,7 @@ describe("automation persistence", () => {
 	test("serializes template versions, promotion, and rollback", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let requestCount = 0;
-		let remoteSubjectOverride: string | undefined;
+		const remote = { subjectOverride: undefined as string | undefined };
 		const updatedSubjects: string[] = [];
 		const client = {
 			template: {
@@ -330,7 +330,7 @@ describe("automation persistence", () => {
 							name: "Transactional template",
 							type: "campaign",
 							subject:
-								remoteSubjectOverride ??
+								remote.subjectOverride ??
 								(currentRequest === 1 ? "Subject 1" : "Subject 2"),
 							body: "<p>Body</p>",
 						},
@@ -371,7 +371,7 @@ describe("automation persistence", () => {
 		// Drift the remote off the captured content so promoting the latest
 		// version is a genuine write: with the remote already matching, the
 		// promote short-circuits as already-current.
-		remoteSubjectOverride = "Subject 2 externally touched";
+		remote.subjectOverride = "Subject 2 externally touched";
 		await promoteTemplateVersion(client, 1, lastVersion.versionId);
 		const rolledBack = await rollbackTemplateVersion(client, 1);
 

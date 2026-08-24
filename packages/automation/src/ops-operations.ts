@@ -200,7 +200,7 @@ const templateRollbackInputSchema = z.object({
 		.min(1)
 		.optional()
 		.describe(
-			"Remote template hash the caller observed (registry-history remote hash); a template mutated outside the registry conflicts instead of being rolled back over",
+			"Remote template hash the caller observed (the per-template hash from a fresh registry-sync, or a stored version's hash from registry-history); a template mutated outside the registry conflicts instead of being rolled back over",
 		),
 });
 const segmentDriftInputSchema = z.object({
