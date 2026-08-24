@@ -844,7 +844,10 @@ export async function executeSequenceReconcileOperation(
 	}
 	const result = await repository(context).reconcile({
 		now: context.now?.() ?? new Date(),
-		limit: input.limit,
+		// In recovery mode the echoed batch defines the scan scope, so the
+		// limit must never truncate it; a smaller caller limit cannot drop
+		// echoed members.
+		limit: input.recovery_set?.length ?? input.limit,
 		dryRun: input.dry_run,
 		enrollmentIds: input.recovery_set,
 	});

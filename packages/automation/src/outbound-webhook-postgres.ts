@@ -1097,13 +1097,14 @@ export function createPostgresOutboundWebhookRepository(
 			await ensureInitialized();
 			return sql.begin(async (transaction) => {
 				const boundedFilter =
-					reconcileOptions.deliveryIds === undefined ||
-					reconcileOptions.deliveryIds.length === 0
+					reconcileOptions.deliveryIds === undefined
 						? transaction``
-						: transaction`AND id = ANY(${transaction.array(
-								[...reconcileOptions.deliveryIds],
-								POSTGRES_UUID_TYPE_OID,
-							)})`;
+						: reconcileOptions.deliveryIds.length === 0
+							? transaction`AND false`
+							: transaction`AND id = ANY(${transaction.array(
+									[...reconcileOptions.deliveryIds],
+									POSTGRES_UUID_TYPE_OID,
+								)})`;
 				const rows = await transaction<DeliveryRow[]>`
 					SELECT
 						id, event_id, endpoint_id, event, status, attempt_count,
@@ -1115,7 +1116,12 @@ export function createPostgresOutboundWebhookRepository(
 						${boundedFilter}
 					ORDER BY lease_expires_at ASC NULLS FIRST
 					FOR UPDATE SKIP LOCKED
-					LIMIT ${reconcileOptions.limit}
+					LIMIT ${reconcileOptions.deliveryIds === undefined
+						? reconcileOptions.limit
+						: Math.max(
+								reconcileOptions.limit,
+								reconcileOptions.deliveryIds.length,
+							)}
 				`;
 				if (rows.length === 0) {
 					return {

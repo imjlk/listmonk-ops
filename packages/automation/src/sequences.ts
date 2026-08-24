@@ -1025,7 +1025,14 @@ export function createFileSequenceRepository(
 							!enrollmentIsTerminal(enrollment.status) &&
 							(bounded === undefined || bounded.has(enrollment.id)),
 					)
-					.slice(0, options.limit);
+					// In recovery mode the echoed batch defines the scan
+					// scope, so the limit must never truncate it.
+					.slice(
+						0,
+						bounded === undefined
+							? options.limit
+							: Math.max(options.limit, bounded.size),
+					);
 				if (options.dryRun) {
 					const result: SequenceReconcileResult = {
 						scannedIds: expired.map((entry) => entry.id),

@@ -29,6 +29,65 @@ describe("webhook reconcile echoed-set recovery", () => {
 		);
 	});
 
+	test("a retry with a smaller limit still covers the echoed batch", async () => {
+		const repository = await createRepository();
+		await createOutboundWebhookEndpoint(
+			{
+				name: "recon-limit",
+				url: "https://8.8.8.8/hook",
+				secretRef: "LISTMONK_OPS_WEBHOOK_SECRET_RECON",
+				eventFilters: ["operation.*"],
+			},
+			{ repository },
+		);
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		const ids: string[] = [];
+		for (let index = 0; index < 3; index += 1) {
+			const event = await enqueueOperationLifecycleEvent(
+				{
+					executionId: `exec-l${index}-${Math.random().toString(36).slice(2, 8)}`,
+					operationId: "lists.list",
+					event: "succeeded",
+					at: now.toISOString(),
+				},
+				{ repository, now },
+			);
+			ids.push(...event.deliveryIds);
+			await repository.claimDeliveries({
+				limit: 1,
+				now,
+				leaseMs: 60_000,
+				deliveryIds: event.deliveryIds,
+			});
+		}
+
+		const later = new Date(now.getTime() + 120_000);
+		const first = await reconcileOutboundWebhookDeliveries({
+			repository,
+			now: later,
+			limit: 100,
+		});
+		expect(first.scanned).toBe(3);
+
+		// Claim the second batch again so a retry has work to re-examine,
+		// then recover with the echoed set under a limit SMALLER than the
+		// batch — every echoed member must still be considered.
+		await repository.claimDeliveries({
+			limit: 3,
+			now: later,
+			leaseMs: 60_000,
+			deliveryIds: ids,
+		});
+		const muchLater = new Date(later.getTime() + 120_000);
+		const recovery = await reconcileOutboundWebhookDeliveries({
+			repository,
+			now: muchLater,
+			limit: 1,
+			deliveryIds: first.scannedIds,
+		});
+		expect(recovery).toMatchObject({ scanned: 3, recovered: 3 });
+	});
+
 	test("echoes scanned ids and a bounded retry converges", async () => {
 		const repository = await createRepository();
 		await createOutboundWebhookEndpoint(

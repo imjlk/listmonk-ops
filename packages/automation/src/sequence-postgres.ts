@@ -1041,13 +1041,14 @@ export function createPostgresSequenceRepository(
 			await ready();
 			return sql.begin(async (transaction) => {
 				const boundedFilter =
-					options.enrollmentIds === undefined ||
-					options.enrollmentIds.length === 0
+					options.enrollmentIds === undefined
 						? sql``
-						: sql`AND id = ANY(${transaction.array(
-								[...options.enrollmentIds],
-								POSTGRES_UUID_TYPE_OID,
-							)})`;
+						: options.enrollmentIds.length === 0
+							? sql`AND false`
+							: sql`AND id = ANY(${transaction.array(
+										[...options.enrollmentIds],
+										POSTGRES_UUID_TYPE_OID,
+									)})`;
 				const rows = await transaction<EnrollmentRow[]>`
 					SELECT id, enrollment, lease_token
 					FROM listmonk_ops.sequence_enrollments
@@ -1057,7 +1058,9 @@ export function createPostgresSequenceRepository(
 						${boundedFilter}
 					ORDER BY lease_expires_at ASC
 					FOR UPDATE SKIP LOCKED
-					LIMIT ${options.limit}
+					LIMIT ${options.enrollmentIds === undefined
+						? options.limit
+						: Math.max(options.limit, options.enrollmentIds.length)}
 				`;
 				if (!options.dryRun) {
 					for (const row of rows) {

@@ -991,7 +991,9 @@ export async function executeWebhookReconcileOperation(
 ) {
 	const result = await reconcileOutboundWebhookDeliveries({
 		...resolveWebhookOperationStore(context),
-		limit: input.limit,
+		// In recovery mode the echoed batch defines the scan scope, so the
+		// limit must never truncate it.
+		limit: input.recovery_set?.length ?? input.limit,
 		dryRun: input.dry_run,
 		deliveryIds: input.recovery_set,
 	});

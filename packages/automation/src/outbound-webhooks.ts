@@ -1619,7 +1619,12 @@ export async function reconcileOutboundWebhookDeliveries(
 ): Promise<ReconcileOutboundWebhooksResult> {
 	const resolved = {
 		now: options.now ?? new Date(),
-		limit: resolveMaintenanceLimit(options.limit),
+		// In recovery mode the echoed batch defines the scan scope, so the
+		// limit must never truncate it (mirrored at the operation layer).
+		limit:
+			options.deliveryIds !== undefined
+				? Math.max(resolveMaintenanceLimit(options.limit), options.deliveryIds.length)
+				: resolveMaintenanceLimit(options.limit),
 		dryRun: options.dryRun ?? false,
 		deliveryIds: options.deliveryIds,
 	};
