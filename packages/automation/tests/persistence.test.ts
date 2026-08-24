@@ -314,6 +314,7 @@ describe("automation persistence", () => {
 	test("serializes template versions, promotion, and rollback", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let requestCount = 0;
+		let remoteSubjectOverride: string | undefined;
 		const updatedSubjects: string[] = [];
 		const client = {
 			template: {
@@ -329,7 +330,8 @@ describe("automation persistence", () => {
 							name: "Transactional template",
 							type: "campaign",
 							subject:
-								currentRequest === 1 ? "Subject 1" : "Subject 2",
+								remoteSubjectOverride ??
+								(currentRequest === 1 ? "Subject 1" : "Subject 2"),
 							body: "<p>Body</p>",
 						},
 					};
@@ -366,6 +368,10 @@ describe("automation persistence", () => {
 		if (!firstVersion || !lastVersion) {
 			throw new Error("Expected a second persisted template version");
 		}
+		// Drift the remote off the captured content so promoting the latest
+		// version is a genuine write: with the remote already matching, the
+		// promote short-circuits as already-current.
+		remoteSubjectOverride = "Subject 2 externally touched";
 		await promoteTemplateVersion(client, 1, lastVersion.versionId);
 		const rolledBack = await rollbackTemplateVersion(client, 1);
 
@@ -585,7 +591,10 @@ describe("automation persistence", () => {
 		// A same-version re-promotion — the registry-managed way to restore
 		// drifted remote content — is still a write: it advances the head,
 		// so a stale pinned rollback from before it conflicts even though
-		// the active version never changed.
+		// the active version never changed. (Drift the remote first: with
+		// the remote still matching, the promote short-circuits as
+		// already-current instead of writing.)
+		body = "<p>drifted</p>";
 		const rePromote = await promoteTemplateVersion(
 			client,
 			12,
@@ -612,6 +621,49 @@ describe("automation persistence", () => {
 			expectedHeadRevision: currentHead,
 		});
 		expect(noop.rolledBack).toBe(false);
+	});
+
+	test("short-circuits an already-current promotion without writing", async () => {
+		await useTemporaryStores();
+		let body = "<p>v1</p>";
+		let updates = 0;
+		const client = {
+			template: {
+				getById: async () => ({
+					data: { id: 13, name: "Current", type: "campaign", body },
+				}),
+				update: async () => {
+					updates += 1;
+					return { data: true };
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const { syncTemplateRegistry, promoteTemplateVersion } =
+			await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [13] });
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [13] });
+
+		const history = await (
+			await import("../src/template-registry")
+		).getTemplateRegistryHistory(13);
+		const newer = history.versions.find(
+			(version) => version.versionId !== history.activeVersionId,
+		)!;
+
+		const promoted = await promoteTemplateVersion(client, 13, newer.versionId);
+		expect(promoted.promoted).toBe(true);
+		expect(promoted.headRevision).toBe(1);
+		expect(updates).toBe(1);
+
+		// The remote still carries the promoted content, so repeating the
+		// same promotion is an already-current no-op: no PUT, no head
+		// advance, and other callers' head pins stay valid.
+		const repeated = await promoteTemplateVersion(client, 13, newer.versionId);
+		expect(repeated.promoted).toBe(false);
+		expect(repeated.headRevision).toBe(1);
+		expect(updates).toBe(1);
 	});
 
 	test("conflicts rollbacks over remote drift through the hash pin", async () => {
@@ -659,6 +711,7 @@ describe("automation persistence", () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let remoteUpdates = 0;
 		let failLocalCommit = false;
+		let remoteSubject = "Subject A";
 		const client = {
 			template: {
 				getById: async () => ({
@@ -666,7 +719,7 @@ describe("automation persistence", () => {
 						id: 1,
 						name: "Transactional template",
 						type: "campaign",
-						subject: "Subject",
+						subject: remoteSubject,
 						body: "<p>Body</p>",
 					},
 				}),
@@ -687,6 +740,11 @@ describe("automation persistence", () => {
 		if (!version) {
 			throw new Error("Expected a persisted template version");
 		}
+		// Drift the remote off the captured content: with the remote already
+		// matching, promoting the same version short-circuits as
+		// already-current and never issues the remote update this test
+		// needs to leave uncommitted.
+		remoteSubject = "Subject B";
 		failLocalCommit = true;
 
 		let transactionError: unknown;

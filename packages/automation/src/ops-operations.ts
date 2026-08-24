@@ -403,9 +403,16 @@ const templatePromoteOutputSchema = z.object({
 	activeVersionId: z.string(),
 	headRevision: z.number().int().nonnegative(),
 	promotedAt: z.string(),
+	promoted: z.boolean(),
 });
 
-const templateRollbackOutputSchema = templatePromoteOutputSchema.extend({
+const templateRollbackOutputSchema = z.object({
+	templateId: z.number().int().positive(),
+	templateName: z.string(),
+	versionId: z.string(),
+	activeVersionId: z.string(),
+	headRevision: z.number().int().nonnegative(),
+	promotedAt: z.string(),
 	rolledBack: z.boolean(),
 });
 const dailyDigestOutputSchema = z.object({

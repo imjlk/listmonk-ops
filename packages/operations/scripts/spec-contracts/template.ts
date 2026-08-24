@@ -193,4 +193,6 @@ export interface TemplatePromoteOutput {
 	/** Registry head revision after this promotion; echo it to pin a later rollback retry. */
 	headRevision: NonNegativeInteger;
 	promotedAt: string;
+	/** False when the target version already matched the remote template (a no-op that issues no write). */
+	promoted: boolean;
 }

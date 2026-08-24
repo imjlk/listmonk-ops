@@ -20781,6 +20781,10 @@
               "$ref": "#/components/schemas/NonNegativeInteger",
               "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
             },
+            "promoted": {
+              "description": "False when the target version already matched the remote template (a no-op that issues no write).",
+              "type": "boolean"
+            },
             "promotedAt": {
               "type": "string"
             },
@@ -20800,7 +20804,8 @@
             "versionId",
             "activeVersionId",
             "headRevision",
-            "promotedAt"
+            "promotedAt",
+            "promoted"
           ],
           "type": "object"
         }
@@ -20816,6 +20821,10 @@
         "headRevision": {
           "$ref": "#/components/schemas/NonNegativeInteger",
           "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
+        },
+        "promoted": {
+          "description": "False when the target version already matched the remote template (a no-op that issues no write).",
+          "type": "boolean"
         },
         "promotedAt": {
           "type": "string"
@@ -20836,7 +20845,8 @@
         "versionId",
         "activeVersionId",
         "headRevision",
-        "promotedAt"
+        "promotedAt",
+        "promoted"
       ],
       "type": "object"
     },

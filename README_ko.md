@@ -684,8 +684,9 @@ variant 태그를 새로 분석된 winner와 대조해 검증하고, 모호하�
 독립 dispatch에 적용, dispatch limit과 같은 100개 상한), 그리고
 `ops.templates.registry-promote`/`-rollback`(승격은
 `expected_remote_hash` 핀에 조건부 — 다른 운영자의 승격을 포함한
-사이 간격 원격 변경이 조용히 덮어쓰이는 대신 충돌하며, 핀 없거나
-force 재시도는 정직하게 unsafe로 유지; rollback은 from_version_id
+사이 간격 원격 변경이 조용히 덮어쓰이는 대신 충돌하며, 이미 현재
+버전과 같은 대상은 쓰기나 head 증가 없이 `promoted: false`
+no-op이고, 핀 없거나 force 재시도는 정직하게 unsafe로 유지; rollback은 from_version_id
 소스 핀, 단조 registry-head 카운터에 대한 expected_head_revision
 핀 — registry 관리 쓰기마다 증가(drift된 원격 내용을 복원하는 같은
 버전 재승격 포함)하므로 버전 id와 원격 hash를 모두 복원하는

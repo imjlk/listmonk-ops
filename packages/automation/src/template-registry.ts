@@ -84,6 +84,8 @@ export interface TemplatePromoteResult {
 	/** Registry head revision after this promotion; echo it to pin a later rollback retry. */
 	headRevision: number;
 	promotedAt: string;
+	/** False when the target version already matched the remote template (a no-op that issues no write). */
+	promoted: boolean;
 }
 
 export interface TemplateRollbackResult {
@@ -458,6 +460,8 @@ async function promoteTemplateVersionInStore(
 	// Every registry-managed remote write advances the monotonic head
 	// revision — including a same-version re-promotion restoring drifted
 	// remote content, which an observer's older pins must not survive.
+	// Callers that already carry the target content never reach this write:
+	// promoteTemplateVersion short-circuits the already-current case.
 	record.headRevision = (record.headRevision ?? 0) + 1;
 	record.activeVersionId = versionId;
 	store.templates[String(templateId)] = record;
@@ -469,10 +473,13 @@ async function promoteTemplateVersionInStore(
 		activeVersionId: versionId,
 		headRevision: record.headRevision ?? 0,
 		promotedAt: new Date().toISOString(),
+		promoted: true,
 	};
 }
 
-async function commitRemoteTemplateMutation<Result extends TemplatePromoteResult>(
+async function commitRemoteTemplateMutation<
+	Result extends TemplatePromoteResult | TemplateRollbackResult,
+>(
 	storeDefinition: JsonFileStore<TemplateRegistryStore>,
 	templateId: number,
 	action: (
@@ -528,6 +535,37 @@ export async function promoteTemplateVersion(
 					);
 				}
 			}
+
+			// An already-current promotion is a no-op: when the active
+			// version's content still matches the remote template, the PUT
+			// and the head-revision advance would only invalidate other
+			// callers' pins without changing anything. A drifted remote
+			// (hash differs) still takes the write below. force skips this
+			// short-circuit because it asks for an unconditional write.
+			const record = store.templates[String(templateId)];
+			if (!options?.force && record?.activeVersionId === versionId) {
+				const activeVersion = record.versions.find(
+					(version) => version.versionId === versionId,
+				);
+				if (activeVersion) {
+					const remoteTemplate = await getTemplateById(client, templateId);
+					const remoteHash = createTemplateHash(
+						createTemplateSnapshot(remoteTemplate, templateId),
+					);
+					if (remoteHash === activeVersion.hash) {
+						return {
+							templateId,
+							templateName: record.templateName,
+							versionId,
+							activeVersionId: versionId,
+							headRevision: record.headRevision ?? 0,
+							promotedAt: new Date().toISOString(),
+							promoted: false,
+						};
+					}
+				}
+			}
+
 			return promoteTemplateVersionInStore(
 				client,
 				templateId,

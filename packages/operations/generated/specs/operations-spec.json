@@ -31278,7 +31278,7 @@
           "ops.templates.registry-sync",
           "ops.templates.registry-rollback"
         ],
-        "retryGuidance": "Echo the observed remote template hash as expected_remote_hash (the templates.get body or registry-history snapshot) so an ambiguous retry conflicts on any intervening remote change — another promotion included — instead of overwriting it; because a successful promotion changes the hash, a pinned retry of the original request conflicts even after its own success, so on conflict reconcile with templates.get and ops.templates.registry-history before deciding; without the pin (or with force), inspect templates.get first.",
+        "retryGuidance": "Echo the observed remote template hash as expected_remote_hash (the templates.get body or registry-history snapshot) so an ambiguous retry conflicts on any intervening remote change — another promotion included — instead of overwriting it; an already-current target is a documented `promoted: false` no-op that issues no write, while a promotion that changed the remote hash conflicts on its own echo — on conflict reconcile with templates.get and ops.templates.registry-history before deciding; without the pin (or with force), inspect templates.get first.",
         "useWhen": [
           "A previously captured template version must be restored to Listmonk."
         ],
@@ -31374,6 +31374,10 @@
                     "$ref": "#/components/schemas/NonNegativeInteger",
                     "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
                   },
+                  "promoted": {
+                    "description": "False when the target version already matched the remote template (a no-op that issues no write).",
+                    "type": "boolean"
+                  },
                   "promotedAt": {
                     "type": "string"
                   },
@@ -31393,7 +31397,8 @@
                   "versionId",
                   "activeVersionId",
                   "headRevision",
-                  "promotedAt"
+                  "promotedAt",
+                  "promoted"
                 ],
                 "type": "object"
               }
@@ -31409,6 +31414,10 @@
               "headRevision": {
                 "$ref": "#/components/schemas/NonNegativeInteger",
                 "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
+              },
+              "promoted": {
+                "description": "False when the target version already matched the remote template (a no-op that issues no write).",
+                "type": "boolean"
               },
               "promotedAt": {
                 "type": "string"
@@ -31429,7 +31438,8 @@
               "versionId",
               "activeVersionId",
               "headRevision",
-              "promotedAt"
+              "promotedAt",
+              "promoted"
             ],
             "type": "object"
           },
@@ -31469,7 +31479,7 @@
             "semantics": {
               "idempotent": false,
               "kind": "reconcile",
-              "reason": "The hash pin conflicts on any remote change — another operator promoting a different version between the attempt and the retry included — before the update is re-issued, so the pinned retry either lands the same content or refuses to overwrite the intervening change. A successful promotion changes the remote hash, so a retry echoing the original pin always conflicts after its own success; that conflict is the reconciliation signal, and the check itself stays best-effort because Listmonk offers no conditional update.",
+              "reason": "The hash pin conflicts on any remote change — another operator promoting a different version between the attempt and the retry included — before the update is re-issued. A retry therefore either lands the same content, is a documented no-op when the target version already matches the remote template (`promoted: false`, no write and no head-revision advance), or conflicts when the promotion changed the remote hash — that conflict is the reconciliation signal. The check stays best-effort because Listmonk offers no conditional update.",
               "reconcileWith": "templates.get"
             },
             "when": "expected_remote_hash is present and force is not set"

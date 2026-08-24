@@ -706,7 +706,9 @@ dispatch, capped at 100 entries like the dispatch limit), and
 `ops.templates.registry-promote`/`-rollback` (promotion is conditional on
 its `expected_remote_hash` pin — any intervening remote change, another
 operator's promotion included, conflicts instead of being silently
-overwritten, and an unpinned or forced retry keeps the honest unsafe
+overwritten, an already-current target is a `promoted: false` no-op that
+issues no write or head advance, and an unpinned or forced retry keeps
+the honest unsafe
 classification; rollback accepts a
 from_version_id source pin, an expected_head_revision pin over the
 monotonic registry-head counter — every registry-managed write advances

@@ -1246,7 +1246,7 @@ Prerequisites: `ops.templates.registry-history`
 
 Verify with: `templates.get`
 
-Retry guidance: Echo the observed remote template hash as expected_remote_hash (the templates.get body or registry-history snapshot) so an ambiguous retry conflicts on any intervening remote change — another promotion included — instead of overwriting it; because a successful promotion changes the hash, a pinned retry of the original request conflicts even after its own success, so on conflict reconcile with templates.get and ops.templates.registry-history before deciding; without the pin (or with force), inspect templates.get first.
+Retry guidance: Echo the observed remote template hash as expected_remote_hash (the templates.get body or registry-history snapshot) so an ambiguous retry conflicts on any intervening remote change — another promotion included — instead of overwriting it; an already-current target is a documented `promoted: false` no-op that issues no write, while a promotion that changed the remote hash conflicts on its own echo — on conflict reconcile with templates.get and ops.templates.registry-history before deciding; without the pin (or with force), inspect templates.get first.
 
 ## Rollback template version (`ops.templates.registry-rollback`)
 
