@@ -520,7 +520,13 @@ export async function promoteTemplateVersion(
 export async function rollbackTemplateVersion(
 	client: ListmonkClient,
 	templateId: number,
-	options: { toVersionId?: string } = {},
+	options: {
+		toVersionId?: string;
+		/** ABA pin: the active version the caller observed; a mismatch conflicts. */
+		fromVersionId?: string;
+		/** Remote drift pin: the remote template hash the caller observed. */
+		expectedRemoteHash?: string;
+	} = {},
 ): Promise<TemplateRollbackResult> {
 	const storeDefinition = createTemplateRegistryStore();
 	return commitRemoteTemplateMutation(
@@ -532,6 +538,41 @@ export async function rollbackTemplateVersion(
 				throw new Error(
 					`Rollback requires at least 2 versions for template ${templateId}`,
 				);
+			}
+
+			// A source pin detects the ABA transition: promoting the
+			// original version back restores the expected previous-version
+			// relationship, so a to_version_id pin alone cannot tell a
+			// fresh rollback from a completed one that was undone. The
+			// from_version_id pin conflicts the moment the registry head
+			// moved anywhere else.
+			if (
+				options.fromVersionId !== undefined &&
+				record.activeVersionId !== options.fromVersionId
+			) {
+				throw new Error(
+					`Rollback source pin ${options.fromVersionId} no longer matches the active version ${String(record.activeVersionId)} of template ${templateId}`,
+				);
+			}
+
+			// Remote drift pin: same locked hash check as promotion, so a
+			// template mutated outside the registry cannot be rolled back
+			// over silently.
+			if (options.expectedRemoteHash !== undefined) {
+				const remoteTemplate = await getTemplateById(client, templateId);
+				const remoteHash = createTemplateHash({
+					id: toPositiveInt(remoteTemplate.id) || templateId,
+					name: remoteTemplate.name || "",
+					type: remoteTemplate.type || "campaign",
+					subject: remoteTemplate.subject || "",
+					body: remoteTemplate.body || "",
+					bodySource: remoteTemplate.body_source || undefined,
+				} satisfies TemplateVersionSnapshot);
+				if (remoteHash !== options.expectedRemoteHash) {
+					throw new Error(
+						`Template ${templateId} remote hash mismatch: expected ${options.expectedRemoteHash.slice(0, 10)}, got ${remoteHash.slice(0, 10)}`,
+					);
+				}
 			}
 
 			// A pinned target that already equals the active version is the

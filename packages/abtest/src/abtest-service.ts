@@ -1454,9 +1454,27 @@ export class AbTestService {
 			throw new Error("No statistically significant winner found");
 		}
 
-		// Deploy winner to holdout group
+		// Deploy winner to holdout group. An already-deployed winner
+		// campaign — tagged winner:deployed for this test, whether by a
+		// completed prior call or one whose local commit was lost — is
+		// adopted instead of creating a second campaign, so an ambiguous
+		// retry converges on the same holdout delivery.
 		if (this.listmonkIntegration) {
 			try {
+				const existing =
+					await this.listmonkIntegration.findCampaignsByTestTag(testId);
+				const deployed = existing.find((campaign) =>
+					campaign.tags.includes("winner:deployed"),
+				);
+				if (deployed) {
+					test.winnerCampaignId = deployed.id;
+					test.winnerVariantId = analysis.winner.id;
+					test.status = "completed";
+					test.updatedAt = new Date();
+					this.tests.set(testId, test);
+					return;
+				}
+
 				test.status = "deploying";
 				this.tests.set(testId, test);
 

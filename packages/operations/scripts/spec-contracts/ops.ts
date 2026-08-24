@@ -151,6 +151,10 @@ export interface TemplateRollbackInput {
 	template_id: ResourceId;
 	/** Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version. */
 	to_version_id?: NonEmptyString;
+	/** Active registry version the caller observed; a retry after any intervening change — including the ABA transition of promoting the original back — conflicts instead of rolling again. */
+	from_version_id?: NonEmptyString;
+	/** Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over. */
+	expected_remote_hash?: NonEmptyString;
 }
 
 export interface TemplateRollbackOutput {

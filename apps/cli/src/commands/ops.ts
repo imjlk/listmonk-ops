@@ -371,6 +371,14 @@ export default defineGroup({
 					description:
 						"Explicit rollback target from templates-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version",
 				}),
+				"from-version-id": option(z.string().trim().min(1).optional(), {
+					description:
+						"Active registry version the caller observed (templates-history active_version_id); a retry after any intervening change — including promoting the original version back — conflicts instead of rolling again",
+				}),
+				"expected-remote-hash": option(z.string().optional(), {
+					description:
+						"Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over",
+				}),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
@@ -380,6 +388,8 @@ export default defineGroup({
 						{
 							template_id: flags["template-id"],
 							to_version_id: flags["to-version-id"],
+							from_version_id: flags["from-version-id"],
+							expected_remote_hash: flags["expected-remote-hash"],
 						},
 					);
 					getOutput().success(

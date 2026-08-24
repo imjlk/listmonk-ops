@@ -201,6 +201,23 @@ const webhookTestInputSchema = z.object({
 });
 const webhookDispatchInputSchema = z.object({
 	limit: webhookDispatchLimitInput.default(25),
+	recovery_set: z
+		.array(
+			z.object({
+				delivery_id: z.uuid(),
+				attempt_count: z.number().int().nonnegative(),
+			}),
+		)
+		.min(1)
+		.refine(
+			(set) =>
+				new Set(set.map((member) => member.delivery_id)).size === set.length,
+			"recovery_set delivery ids must be unique",
+		)
+		.optional()
+		.describe(
+			"Echoed claim set from a prior dispatch's claim_steps output: claim exactly these deliveries at their originally claimed attempt counts (entries that moved on, hold a live lease, sit in backoff, or face an open circuit are skipped) instead of claiming new due work",
+		),
 });
 const webhookDeliveryListInputSchema = z.object({
 	endpoint_id: endpointIdInput.optional(),
@@ -986,6 +1003,10 @@ export async function executeWebhookDispatchOperation(
 			fetcher: context.fetcher,
 			resolveSecret: context.resolveSecret,
 			limit: input.limit,
+			recoveryClaims: input.recovery_set?.map((member) => ({
+				id: member.delivery_id,
+				attemptCount: member.attempt_count,
+			})),
 		}),
 	);
 }

@@ -599,11 +599,31 @@ export const webhookDispatchOperationSpec = defineOperationSpec({
 	effects: [{ kind: "webhook", resource: "webhook", audience: "bulk" }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "webhooks.delivery.list",
-		idempotent: false,
+		kind: "conditional",
+		cases: [
+			{
+				when: "recovery_set (an echoed claim set of delivery ids and their attempt counts at claim) is present",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "webhooks.delivery.list",
+					idempotent: false,
+					reason:
+						"The recovery dispatch claims exactly the echoed deliveries, and only while each still sits at its originally claimed attempt count — deliveries that anyone attempted since, already succeeded or exhausted, holding a live lease, sitting in backoff, or facing an open circuit are skipped (the retryable ones are reported as pending_ids), so the retry never claims new due work. The POST itself stays at least once, so the outcome still needs inspection with the stable event-id header available for receiver deduplication.",
+				},
+			},
+			{
+				when: "recovery_set is absent",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "webhooks.delivery.list",
+					idempotent: false,
+					reason:
+						"Delivery is at least once and a fresh dispatch claims whatever is due at request time; stable event IDs support receiver deduplication but do not make blind retries safe.",
+				},
+			},
+		],
 		reason:
-			"Delivery is at least once; stable event IDs support receiver deduplication but do not make blind retries safe.",
+			"The echoed claim set bounds the retry to the originally claimed deliveries; delivery itself is at least once in every mode.",
 	},
 	agent: {
 		useWhen: ["Due outbox deliveries should be processed by a worker or scheduled tick."],
@@ -612,7 +632,7 @@ export const webhookDispatchOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.test", "webhooks.delivery.retry"],
 		retryGuidance:
-			"Inspect delivery statuses after a timeout and rely on stable event IDs for receiver deduplication.",
+			"Echo a prior dispatch's claim_steps output as recovery_set so an ambiguous retry re-attempts exactly that set at its originally claimed attempt counts; delivery stays at least once, so verify receiver state (the event-id header enables deduplication) before repeating.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_dispatch",
@@ -630,7 +650,7 @@ export const webhookDispatchOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookDispatchOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

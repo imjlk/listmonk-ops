@@ -1173,7 +1173,10 @@ export const deployAbTestWinnerOperation = defineOperation({
 	description: "Deploy a statistically significant winner to the holdout group",
 	inputSchema: testIdInputSchema,
 	outputSchema: z.object({ deployed: z.boolean() }),
-	safety: destructiveNonIdempotentSafety,
+	safety: {
+		...destructiveSafety,
+		idempotentHint: true,
+	},
 	mcp: {
 		name: "listmonk_abtest_deploy_winner",
 		legacySuccessText: (output) => jsonValue(output),

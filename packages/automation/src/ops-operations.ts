@@ -178,6 +178,22 @@ const templateRollbackInputSchema = z.object({
 		.describe(
 			"Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version",
 		),
+	from_version_id: z
+		.string()
+		.trim()
+		.min(1)
+		.optional()
+		.describe(
+			"Active registry version the caller observed (registry-history active_version_id); a retry after any intervening change — including promoting the original version back — conflicts instead of rolling again",
+		),
+	expected_remote_hash: z
+		.string()
+		.trim()
+		.min(1)
+		.optional()
+		.describe(
+			"Remote template hash the caller observed (registry-history remote hash); a template mutated outside the registry conflicts instead of being rolled back over",
+		),
 });
 const segmentDriftInputSchema = z.object({
 	list_ids: z
@@ -545,6 +561,8 @@ export async function executeTemplateRegistryRollbackOperation(
 	const client = requireOpsClient(context);
 	return rollbackTemplateVersion(client, input.template_id, {
 		toVersionId: input.to_version_id,
+		fromVersionId: input.from_version_id?.trim() || undefined,
+		expectedRemoteHash: input.expected_remote_hash?.trim() || undefined,
 	});
 }
 

@@ -5503,11 +5503,24 @@
       "input": {
         "components": {
           "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "WebhookDispatchInput": {
               "additionalProperties": false,
               "properties": {
                 "limit": {
                   "$ref": "#/components/schemas/WebhookDispatchLimit"
+                },
+                "recovery_set": {
+                  "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique.",
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
+                  },
+                  "minItems": 1,
+                  "type": "array"
                 }
               },
               "required": [],
@@ -5517,6 +5530,24 @@
               "maximum": 100,
               "minimum": 1,
               "type": "integer"
+            },
+            "WebhookDispatchRecoveryClaim": {
+              "additionalProperties": false,
+              "description": "One echoed dispatch claim position: the delivery plus its attempt count at claim.",
+              "properties": {
+                "attempt_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "delivery_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "delivery_id",
+                "attempt_count"
+              ],
+              "type": "object"
             }
           }
         },
@@ -5526,6 +5557,14 @@
           "properties": {
             "limit": {
               "$ref": "#/components/schemas/WebhookDispatchLimit"
+            },
+            "recovery_set": {
+              "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique.",
+              "items": {
+                "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           },
           "required": [],
@@ -5824,13 +5863,31 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": false,
-        "kind": "reconcile",
-        "reason": "Delivery is at least once; stable event IDs support receiver deduplication but do not make blind retries safe.",
-        "reconcileWith": "webhooks.delivery.list"
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "The recovery dispatch claims exactly the echoed deliveries, and only while each still sits at its originally claimed attempt count — deliveries that anyone attempted since, already succeeded or exhausted, holding a live lease, sitting in backoff, or facing an open circuit are skipped (the retryable ones are reported as pending_ids), so the retry never claims new due work. The POST itself stays at least once, so the outcome still needs inspection with the stable event-id header available for receiver deduplication.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "recovery_set (an echoed claim set of delivery ids and their attempt counts at claim) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Delivery is at least once and a fresh dispatch claims whatever is due at request time; stable event IDs support receiver deduplication but do not make blind retries safe.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "The echoed claim set bounds the retry to the originally claimed deliveries; delivery itself is at least once in every mode."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.delivery.list",
@@ -27392,7 +27449,7 @@
         "reason": "Reapplying the same promotion converges on the same remote template content."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "ops.templates.registry-rollback",
@@ -27411,6 +27468,14 @@
             "TemplateRollbackInput": {
               "additionalProperties": false,
               "properties": {
+                "expected_remote_hash": {
+                  "$ref": "#/components/schemas/NonEmptyString",
+                  "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
+                },
+                "from_version_id": {
+                  "$ref": "#/components/schemas/NonEmptyString",
+                  "description": "Active registry version the caller observed; a retry after any intervening change — including the ABA transition of promoting the original back — conflicts instead of rolling again."
+                },
                 "template_id": {
                   "$ref": "#/components/schemas/ResourceId"
                 },
@@ -27430,6 +27495,14 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "expected_remote_hash": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
+            },
+            "from_version_id": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Active registry version the caller observed; a retry after any intervening change — including the ABA transition of promoting the original back — conflicts instead of rolling again."
+            },
             "template_id": {
               "$ref": "#/components/schemas/ResourceId"
             },
@@ -27532,11 +27605,27 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A pinned target (to_version_id) makes a repeat conflict when the registry moved to a different previous version, but an ABA transition — promoting the original version back — is indistinguishable without a source-version or generation pin, and the remote template may have drifted outside the registry; the rollback stays experimental until retries can detect both."
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The source pin conflicts the moment the registry head moved anywhere else — including the ABA transition of promoting the original version back — the remote hash pin conflicts when the template mutated outside the registry, the target pin makes an already-applied rollback a documented no-op, and all three checks run inside the store lock, so an identical fully-pinned retry converges instead of rolling again."
+            },
+            "when": "from_version_id, to_version_id, and expected_remote_hash are all present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Without the full pin set an ABA transition or out-of-registry drift is indistinguishable, and a repeat may roll a different version than the caller reviewed."
+            },
+            "when": "any pin is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller pins the observed registry head, target, and remote hash."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.list",
@@ -31341,11 +31430,11 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may create another winner campaign and deliver to the holdout audience again."
+        "kind": "safe",
+        "reason": "A retry first looks for a campaign already tagged winner:deployed for this test — whether left by a completed prior call or one whose local commit was lost — and adopts it as the winner campaign instead of creating another, so an identical retry converges on the same holdout delivery rather than duplicating it."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.run",
@@ -31944,11 +32033,27 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may send additional campaigns or shift assignments."
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "Both guards are verified inside the store transaction before any lifecycle step: a retry after the first attempt landed sees a changed status or updatedAt and conflicts instead of acting, a retry while the attempt never landed executes it once, and a terminal test is a documented no-op — so an identical guarded retry converges."
+            },
+            "when": "expected_status and expected_updated_at are both present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Without both guards a retry may send additional campaigns or shift assignments on a test that already moved."
+            },
+            "when": "either guard is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller pins the observed test revision."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.tick",

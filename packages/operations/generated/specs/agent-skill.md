@@ -270,7 +270,7 @@ Retry guidance: Key the probe with a correlation_id so an ambiguous retry collap
 
 ## Dispatch outbound webhooks (`webhooks.dispatch`)
 
-Contract maturity: `experimental`; effects: `webhook:bulk`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `webhook:bulk`; confirmation: `required`; retry: `conditional`.
 
 Use when: Due outbox deliveries should be processed by a worker or scheduled tick.
 
@@ -280,7 +280,7 @@ Prerequisites: `webhooks.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Inspect delivery statuses after a timeout and rely on stable event IDs for receiver deduplication.
+Retry guidance: Echo a prior dispatch's claim_steps output as recovery_set so an ambiguous retry re-attempts exactly that set at its originally claimed attempt counts; delivery stays at least once, so verify receiver state (the event-id header enables deduplication) before repeating.
 
 ## List outbound webhook deliveries (`webhooks.delivery.list`)
 
@@ -1236,7 +1236,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Promote template version (`ops.templates.registry-promote`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:template`; confirmation: `required`; retry: `safe`.
 
 Use when: A previously captured template version must be restored to Listmonk.
 
@@ -1250,7 +1250,7 @@ Retry guidance: Retry is safe; the promotion is idempotent for the same version 
 
 ## Rollback template version (`ops.templates.registry-rollback`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:template`; confirmation: `required`; retry: `conditional`.
 
 Use when: A template must be reverted to its previous stored version.
 
@@ -1260,7 +1260,7 @@ Prerequisites: `ops.templates.registry-history`
 
 Verify with: `templates.get`
 
-Retry guidance: Pin the target with to_version_id from ops.templates.registry-history before retrying an ambiguous rollback, and inspect templates.get and the registry history for intervening promotes; a pinned repeat conflicts when the registry moved to a different previous version.
+Retry guidance: Pin the full triple from ops.templates.registry-history — from_version_id (the observed active), to_version_id, and expected_remote_hash — so an ambiguous retry conflicts on any intervening change (ABA included) or is a documented no-op; with any pin missing, inspect templates.get and the registry history before retrying.
 
 ## List A/B tests (`abtest.list`)
 
@@ -1376,7 +1376,7 @@ Retry guidance: Retry is safe; the recommendation is read-only.
 
 ## Deploy A/B test winner (`abtest.deploy-winner`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `safe`.
 
 Use when: A winning variant must be deployed to the holdout group.
 
@@ -1386,11 +1386,11 @@ Prerequisites: `abtest.analyze`
 
 Verify with: `abtest.get`
 
-Retry guidance: Inspect abtest.get and the holdout campaign before retrying; an ambiguous deployment may already have delivered to the holdout audience.
+Retry guidance: Retry directly: a campaign already tagged winner:deployed for the test is adopted rather than duplicated; verify the holdout campaign state with campaigns.list by the abtest tag when the outcome stays ambiguous.
 
 ## Run A/B test (`abtest.run`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `conditional`.
 
 Use when: An A/B test must run through its lifecycle without manual steps.
 
@@ -1400,7 +1400,7 @@ Prerequisites: `abtest.get`
 
 Verify with: `abtest.get`
 
-Retry guidance: Inspect abtest.get before retrying an ambiguous run.
+Retry guidance: Echo the abtest.get status and updated_at verbatim as expected_status and expected_updated_at so an ambiguous retry conflicts instead of acting on a moved test; without both guards, inspect abtest.get before retrying.
 
 ## Tick A/B tests (`abtest.tick`)
 

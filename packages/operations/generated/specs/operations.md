@@ -243,8 +243,8 @@ Claim due outbox deliveries and send signed HTTPS requests with bounded retries.
 - Contract source: input `typescript`, output `typescript`
 - Effects: `webhook:bulk`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `reconcile`
-- Stability: `experimental` since `0.8.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.delivery.list`
 
@@ -1075,7 +1075,7 @@ Promote a stored template version back to Listmonk
 - Effects: `write:template`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.9.0`
+- Stability: `stable` since `0.9.0`
 
 ## `ops.templates.registry-rollback`
 
@@ -1086,8 +1086,8 @@ Rollback a Listmonk template to its previous stored version
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:template`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.9.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.9.0`
 
 ## `abtest.list`
 
@@ -1194,8 +1194,8 @@ Deploy a statistically significant winner to the holdout group
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:experiment, delivery:bulk:immediate`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.10.0`
+- Retry: `safe`
+- Stability: `stable` since `0.10.0`
 
 ## `abtest.run`
 
@@ -1206,8 +1206,8 @@ Advance an A/B test by one lifecycle step (launch, analyze, or deploy winner)
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:experiment, delivery:bulk:immediate`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.10.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.10.0`
 
 ## `abtest.tick`
 

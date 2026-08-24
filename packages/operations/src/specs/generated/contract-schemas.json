@@ -21247,6 +21247,14 @@
         "TemplateRollbackInput": {
           "additionalProperties": false,
           "properties": {
+            "expected_remote_hash": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
+            },
+            "from_version_id": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Active registry version the caller observed; a retry after any intervening change — including the ABA transition of promoting the original back — conflicts instead of rolling again."
+            },
             "template_id": {
               "$ref": "#/components/schemas/ResourceId"
             },
@@ -21266,6 +21274,14 @@
     "schema": {
       "additionalProperties": false,
       "properties": {
+        "expected_remote_hash": {
+          "$ref": "#/components/schemas/NonEmptyString",
+          "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
+        },
+        "from_version_id": {
+          "$ref": "#/components/schemas/NonEmptyString",
+          "description": "Active registry version the caller observed; a retry after any intervening change — including the ABA transition of promoting the original back — conflicts instead of rolling again."
+        },
         "template_id": {
           "$ref": "#/components/schemas/ResourceId"
         },
@@ -24099,11 +24115,24 @@
   "webhookDispatchInputContract": {
     "components": {
       "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
         "WebhookDispatchInput": {
           "additionalProperties": false,
           "properties": {
             "limit": {
               "$ref": "#/components/schemas/WebhookDispatchLimit"
+            },
+            "recovery_set": {
+              "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique.",
+              "items": {
+                "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           },
           "required": [],
@@ -24113,6 +24142,24 @@
           "maximum": 100,
           "minimum": 1,
           "type": "integer"
+        },
+        "WebhookDispatchRecoveryClaim": {
+          "additionalProperties": false,
+          "description": "One echoed dispatch claim position: the delivery plus its attempt count at claim.",
+          "properties": {
+            "attempt_count": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "delivery_id": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "delivery_id",
+            "attempt_count"
+          ],
+          "type": "object"
         }
       }
     },
@@ -24122,6 +24169,14 @@
       "properties": {
         "limit": {
           "$ref": "#/components/schemas/WebhookDispatchLimit"
+        },
+        "recovery_set": {
+          "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique.",
+          "items": {
+            "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
+          },
+          "minItems": 1,
+          "type": "array"
         }
       },
       "required": [],

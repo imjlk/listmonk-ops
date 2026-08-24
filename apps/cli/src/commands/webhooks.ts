@@ -249,9 +249,30 @@ const dispatchCommand = defineCommand({
 		limit: option(z.coerce.number().int().min(1).max(100).default(25), {
 			description: "Maximum deliveries to claim",
 		}),
+		"recovery-set": option(z.string().optional(), {
+			description:
+				"Echoed claim set from a prior dispatch (JSON array of delivery_id and attempt_count pairs): claim exactly those deliveries at their originally claimed attempt counts instead of claiming new due work",
+		}),
 	},
 	handler: async ({ flags }) => {
-		getOutput().json(await invokeWebhookDispatchOperation({}, flags));
+		let recoverySet:
+			| Array<{ delivery_id: string; attempt_count: number }>
+			| undefined;
+		if (flags["recovery-set"] !== undefined) {
+			try {
+				recoverySet = JSON.parse(flags["recovery-set"]);
+			} catch (error) {
+				throw new Error(
+					`--recovery-set must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}
+		getOutput().json(
+			await invokeWebhookDispatchOperation({}, {
+				limit: flags.limit,
+				recovery_set: recoverySet,
+			}),
+		);
 	},
 });
 

@@ -460,6 +460,108 @@ describe("automation persistence", () => {
 		expect(retried.activeVersionId).toBe(target);
 	});
 
+	test("conflicts ABA rollbacks through the source pin", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let body = "<p>v1</p>";
+		const client = {
+			template: {
+				getById: async () => ({
+					data: { id: 11, name: "ABA", type: "campaign", body },
+				}),
+				update: async () => ({ data: true }),
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const { syncTemplateRegistry, rollbackTemplateVersion } =
+			await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [11] });
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [11] });
+
+		const record = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			templates: Record<
+				string,
+				{ versions: { versionId: string }[]; activeVersionId?: string }
+			>;
+		};
+		// The registry keeps the FIRST capture active; promote the newer
+		// version first so the rollback has a genuine previous target.
+		const { promoteTemplateVersion } = await import("../src/template-registry");
+		const initialActive = record.templates["11"]!.activeVersionId!;
+		const previous = record.templates["11"]!.versions.find(
+			(version) => version.versionId !== initialActive,
+		)!;
+		await promoteTemplateVersion(client, 11, previous.versionId);
+		const active = previous.versionId;
+
+		// Pin the observed source (active) and target (previous): the
+		// rollback fires once...
+		const rolled = await rollbackTemplateVersion(client, 11, {
+			toVersionId: initialActive,
+			fromVersionId: active,
+		});
+		expect(rolled.rolledBack).toBe(true);
+
+		// ...promoting the original back (the ABA transition) restores the
+		// expected previous-version relationship, so a to-only repeat would
+		// silently roll again — the source pin conflicts instead.
+		await promoteTemplateVersion(client, 11, active);
+		await expect(
+			rollbackTemplateVersion(client, 11, {
+				toVersionId: initialActive,
+				fromVersionId: initialActive,
+			}),
+		).rejects.toThrow(/source pin .* no longer matches/);
+
+		// A matching source pin on the current head stays a no-op retry.
+		const noop = await rollbackTemplateVersion(client, 11, {
+			toVersionId: active,
+			fromVersionId: active,
+		});
+		expect(noop.rolledBack).toBe(false);
+	});
+
+	test("conflicts rollbacks over remote drift through the hash pin", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let body = "<p>v1</p>";
+		const client = {
+			template: {
+				getById: async () => ({
+					data: { id: 12, name: "Drift", type: "campaign", body },
+				}),
+				update: async () => ({ data: true }),
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const { syncTemplateRegistry, rollbackTemplateVersion } =
+			await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [12] });
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [12] });
+
+		const record = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			templates: Record<
+				string,
+				{ versions: { versionId: string }[]; activeVersionId?: string }
+			>;
+		};
+		const active = record.templates["12"]!.activeVersionId!;
+		const previous = record.templates["12"]!.versions.find(
+			(version) => version.versionId !== active,
+		)!;
+
+		// The remote template mutates outside the registry before the retry:
+		// the observed-hash pin conflicts instead of rolling back over it.
+		body = "<p>externally mutated</p>";
+		await expect(
+			rollbackTemplateVersion(client, 12, {
+				toVersionId: previous.versionId,
+				fromVersionId: active,
+				expectedRemoteHash: "sha256:0123456789abcdef0123456789abcdef",
+			}),
+		).rejects.toThrow(/remote hash mismatch/);
+	});
+
 	test("reports an unconfirmed registry commit after a remote promotion", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let remoteUpdates = 0;

@@ -362,7 +362,7 @@ export const opsTemplateRegistryPromoteOperationSpec = defineOperationSpec({
 			executorNode: "packages/automation/src/ops-operations.ts#executeTemplateRegistryPromoteOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -379,9 +379,27 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 	effects: [{ kind: "write", resource: "template", reversible: false }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "conditional",
+		cases: [
+			{
+				when: "from_version_id, to_version_id, and expected_remote_hash are all present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The source pin conflicts the moment the registry head moved anywhere else — including the ABA transition of promoting the original version back — the remote hash pin conflicts when the template mutated outside the registry, the target pin makes an already-applied rollback a documented no-op, and all three checks run inside the store lock, so an identical fully-pinned retry converges instead of rolling again.",
+				},
+			},
+			{
+				when: "any pin is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"Without the full pin set an ABA transition or out-of-registry drift is indistinguishable, and a repeat may roll a different version than the caller reviewed.",
+				},
+			},
+		],
 		reason:
-			"A pinned target (to_version_id) makes a repeat conflict when the registry moved to a different previous version, but an ABA transition — promoting the original version back — is indistinguishable without a source-version or generation pin, and the remote template may have drifted outside the registry; the rollback stays experimental until retries can detect both.",
+			"Retry safety depends on whether the caller pins the observed registry head, target, and remote hash.",
 	},
 	agent: {
 		useWhen: ["A template must be reverted to its previous stored version."],
@@ -390,7 +408,7 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 		verifyWith: ["templates.get"],
 		related: ["ops.templates.registry-sync", "ops.templates.registry-promote"],
 		retryGuidance:
-			"Pin the target with to_version_id from ops.templates.registry-history before retrying an ambiguous rollback, and inspect templates.get and the registry history for intervening promotes; a pinned repeat conflicts when the registry moved to a different previous version.",
+			"Pin the full triple from ops.templates.registry-history — from_version_id (the observed active), to_version_id, and expected_remote_hash — so an ambiguous retry conflicts on any intervening change (ABA included) or is a documented no-op; with any pin missing, inspect templates.get and the registry history before retrying.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_template_registry_rollback",
@@ -403,7 +421,7 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 			executorNode: "packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
