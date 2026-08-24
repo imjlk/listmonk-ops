@@ -6448,6 +6448,11 @@
       "input": {
         "components": {
           "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "Uuid": {
               "format": "uuid",
               "type": "string"
@@ -6455,6 +6460,10 @@
             "WebhookDeliveryRetryInput": {
               "additionalProperties": false,
               "properties": {
+                "expected_manual_retry_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "Echoed pre-request generation (the prior retry's retry_generation\noutput): only retry while the delivery still sits at that manual\nretry count."
+                },
                 "id": {
                   "$ref": "#/components/schemas/Uuid"
                 }
@@ -6470,6 +6479,10 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "expected_manual_retry_count": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Echoed pre-request generation (the prior retry's retry_generation\noutput): only retry while the delivery still sits at that manual\nretry count."
+            },
             "id": {
               "$ref": "#/components/schemas/Uuid"
             }
@@ -6612,11 +6625,16 @@
                 },
                 "retried": {
                   "type": "boolean"
+                },
+                "retry_generation": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "The manual retry count observed before this request moved it — echo it back as expected_manual_retry_count on a retry."
                 }
               },
               "required": [
                 "delivery",
-                "retried"
+                "retried",
+                "retry_generation"
               ],
               "type": "object"
             },
@@ -6794,11 +6812,16 @@
             },
             "retried": {
               "type": "boolean"
+            },
+            "retry_generation": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "The manual retry count observed before this request moved it — echo it back as expected_manual_retry_count on a retry."
             }
           },
           "required": [
             "delivery",
-            "retried"
+            "retried",
+            "retry_generation"
           ],
           "type": "object"
         },
@@ -6811,13 +6834,29 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": false,
-        "kind": "reconcile",
-        "reason": "A repeat while the delivery is still pending reports retried: false, but a dispatcher may complete it first and return it to retry or exhausted, so the repeat can start another delivery cycle; the operation is not idempotent.",
-        "reconcileWith": "webhooks.delivery.list"
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The retry only fires while the delivery still sits at the echoed pre-request generation (the retry_generation output, not the post-retry manual_retry_count): a generation-bound repeat while the original retry's pending state holds (pending count = echo + 1) is rejected with a conflict — the echo was consumed by the still-in-flight effect, so a post-worker-cycle repeat cannot silently re-pass it, and a delivery a dispatcher already completed and returned to retry moved to a later generation and is reported unmodified instead of starting another delivery cycle — so an identical retry converges over the echoed generation."
+            },
+            "when": "expected_manual_retry_count (the delivery's generation echoed from a prior retry) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "A repeat while the delivery is still pending reports retried: false, but a dispatcher may complete it first and return it to retry or exhausted, so the repeat can start another delivery cycle.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "expected_manual_retry_count is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller echoes the delivery's generation."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.reconcile",
@@ -8622,6 +8661,11 @@
       "input": {
         "components": {
           "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "Uuid": {
               "format": "uuid",
               "type": "string"
@@ -8630,6 +8674,23 @@
               "maximum": 1000,
               "minimum": 1,
               "type": "integer"
+            },
+            "WebhookDlqRecoveryGeneration": {
+              "additionalProperties": false,
+              "description": "One echoed dead-letter generation position.",
+              "properties": {
+                "delivery_id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "manual_retry_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "delivery_id",
+                "manual_retry_count"
+              ],
+              "type": "object"
             },
             "WebhookDlqReplayInput": {
               "oneOf": [
@@ -8670,6 +8731,15 @@
                     },
                     "limit": {
                       "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                    },
+                    "recovery_generations": {
+                      "description": "Echoed dead-letter generations: replay a delivery only while it is still exhausted at that manual retry count.",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookDlqRecoveryGeneration"
+                      },
+                      "maxItems": 1000,
+                      "minItems": 1,
+                      "type": "array"
                     }
                   },
                   "required": [
@@ -8722,6 +8792,15 @@
                 },
                 "limit": {
                   "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                },
+                "recovery_generations": {
+                  "description": "Echoed dead-letter generations: replay a delivery only while it is still exhausted at that manual retry count.",
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookDlqRecoveryGeneration"
+                  },
+                  "maxItems": 1000,
+                  "minItems": 1,
+                  "type": "array"
                 }
               },
               "required": [
@@ -8775,6 +8854,23 @@
                 }
               ]
             },
+            "WebhookDlqRecoveryGeneration": {
+              "additionalProperties": false,
+              "description": "One echoed dead-letter generation position.",
+              "properties": {
+                "delivery_id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "manual_retry_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                }
+              },
+              "required": [
+                "delivery_id",
+                "manual_retry_count"
+              ],
+              "type": "object"
+            },
             "WebhookDlqReplayOutput": {
               "additionalProperties": false,
               "properties": {
@@ -8814,6 +8910,13 @@
                 },
                 "replayed": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "replayed_generations": {
+                  "description": "Echoed dead-letter generations observed before any replay moved them.",
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookDlqRecoveryGeneration"
+                  },
+                  "type": "array"
                 }
               },
               "required": [
@@ -8822,6 +8925,7 @@
                 "failed",
                 "dry_run",
                 "delivery_ids",
+                "replayed_generations",
                 "errors"
               ],
               "type": "object"
@@ -8868,6 +8972,13 @@
             },
             "replayed": {
               "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "replayed_generations": {
+              "description": "Echoed dead-letter generations observed before any replay moved them.",
+              "items": {
+                "$ref": "#/components/schemas/WebhookDlqRecoveryGeneration"
+              },
+              "type": "array"
             }
           },
           "required": [
@@ -8876,6 +8987,7 @@
             "failed",
             "dry_run",
             "delivery_ids",
+            "replayed_generations",
             "errors"
           ],
           "type": "object"
@@ -8889,13 +9001,29 @@
         "dryRun": true
       },
       "retry": {
-        "idempotent": false,
-        "kind": "reconcile",
-        "reason": "Destructive runs transition exactly the echoed dead-letter set atomically (only records still exhausted move, in both stores), but a worker can re-exhaust a replayed record before the retry, making the identical echoed request eligible again and starting another attempt cycle; the replay stays experimental until the echo carries a delivery generation.",
-        "reconcileWith": "webhooks.dlq.list"
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "A delivery is replayed only while it is still exhausted at its echoed manual-retry generation: records that left the dead-letter set are skipped, and a record a worker re-exhausted after the replay moved past the echoed generation and is skipped too — so an identical echoed request never starts another attempt cycle and converges over the echoed generations."
+            },
+            "when": "recovery_generations (echoed dead-letter generations from a prior replay) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Destructive runs transition exactly the echoed dead-letter set atomically (only records still exhausted move, in both stores), but a worker can re-exhaust a replayed record before the retry, making the identical echoed request eligible again and starting another attempt cycle.",
+              "reconcileWith": "webhooks.dlq.list"
+            },
+            "when": "recovery_generations is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller echoes the dead-letter generations."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.circuit.reset",

@@ -23716,6 +23716,11 @@
   "webhookDeliveryRetryInputContract": {
     "components": {
       "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
         "Uuid": {
           "format": "uuid",
           "type": "string"
@@ -23723,6 +23728,10 @@
         "WebhookDeliveryRetryInput": {
           "additionalProperties": false,
           "properties": {
+            "expected_manual_retry_count": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Echoed pre-request generation (the prior retry's retry_generation\noutput): only retry while the delivery still sits at that manual\nretry count."
+            },
             "id": {
               "$ref": "#/components/schemas/Uuid"
             }
@@ -23738,6 +23747,10 @@
     "schema": {
       "additionalProperties": false,
       "properties": {
+        "expected_manual_retry_count": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Echoed pre-request generation (the prior retry's retry_generation\noutput): only retry while the delivery still sits at that manual\nretry count."
+        },
         "id": {
           "$ref": "#/components/schemas/Uuid"
         }
@@ -23880,11 +23893,16 @@
             },
             "retried": {
               "type": "boolean"
+            },
+            "retry_generation": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "The manual retry count observed before this request moved it — echo it back as expected_manual_retry_count on a retry."
             }
           },
           "required": [
             "delivery",
-            "retried"
+            "retried",
+            "retry_generation"
           ],
           "type": "object"
         },
@@ -24062,11 +24080,16 @@
         },
         "retried": {
           "type": "boolean"
+        },
+        "retry_generation": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "The manual retry count observed before this request moved it — echo it back as expected_manual_retry_count on a retry."
         }
       },
       "required": [
         "delivery",
-        "retried"
+        "retried",
+        "retry_generation"
       ],
       "type": "object"
     },
@@ -24759,6 +24782,11 @@
   "webhookDlqReplayInputContract": {
     "components": {
       "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
         "Uuid": {
           "format": "uuid",
           "type": "string"
@@ -24767,6 +24795,23 @@
           "maximum": 1000,
           "minimum": 1,
           "type": "integer"
+        },
+        "WebhookDlqRecoveryGeneration": {
+          "additionalProperties": false,
+          "description": "One echoed dead-letter generation position.",
+          "properties": {
+            "delivery_id": {
+              "$ref": "#/components/schemas/Uuid"
+            },
+            "manual_retry_count": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "delivery_id",
+            "manual_retry_count"
+          ],
+          "type": "object"
         },
         "WebhookDlqReplayInput": {
           "oneOf": [
@@ -24807,6 +24852,15 @@
                 },
                 "limit": {
                   "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                },
+                "recovery_generations": {
+                  "description": "Echoed dead-letter generations: replay a delivery only while it is still exhausted at that manual retry count.",
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookDlqRecoveryGeneration"
+                  },
+                  "maxItems": 1000,
+                  "minItems": 1,
+                  "type": "array"
                 }
               },
               "required": [
@@ -24859,6 +24913,15 @@
             },
             "limit": {
               "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+            },
+            "recovery_generations": {
+              "description": "Echoed dead-letter generations: replay a delivery only while it is still exhausted at that manual retry count.",
+              "items": {
+                "$ref": "#/components/schemas/WebhookDlqRecoveryGeneration"
+              },
+              "maxItems": 1000,
+              "minItems": 1,
+              "type": "array"
             }
           },
           "required": [
@@ -24912,6 +24975,23 @@
             }
           ]
         },
+        "WebhookDlqRecoveryGeneration": {
+          "additionalProperties": false,
+          "description": "One echoed dead-letter generation position.",
+          "properties": {
+            "delivery_id": {
+              "$ref": "#/components/schemas/Uuid"
+            },
+            "manual_retry_count": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            }
+          },
+          "required": [
+            "delivery_id",
+            "manual_retry_count"
+          ],
+          "type": "object"
+        },
         "WebhookDlqReplayOutput": {
           "additionalProperties": false,
           "properties": {
@@ -24951,6 +25031,13 @@
             },
             "replayed": {
               "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "replayed_generations": {
+              "description": "Echoed dead-letter generations observed before any replay moved them.",
+              "items": {
+                "$ref": "#/components/schemas/WebhookDlqRecoveryGeneration"
+              },
+              "type": "array"
             }
           },
           "required": [
@@ -24959,6 +25046,7 @@
             "failed",
             "dry_run",
             "delivery_ids",
+            "replayed_generations",
             "errors"
           ],
           "type": "object"
@@ -25005,6 +25093,13 @@
         },
         "replayed": {
           "$ref": "#/components/schemas/NonNegativeInteger"
+        },
+        "replayed_generations": {
+          "description": "Echoed dead-letter generations observed before any replay moved them.",
+          "items": {
+            "$ref": "#/components/schemas/WebhookDlqRecoveryGeneration"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -25013,6 +25108,7 @@
         "failed",
         "dry_run",
         "delivery_ids",
+        "replayed_generations",
         "errors"
       ],
       "type": "object"

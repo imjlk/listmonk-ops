@@ -729,17 +729,40 @@ export function createPostgresOutboundWebhookRepository(
 								[...replayOptions.deliveryIds],
 								POSTGRES_UUID_TYPE_OID,
 							)})`;
+				const generations = replayOptions.expectedManualRetryCounts;
+				const generationFilter =
+					generations === undefined
+						? transaction``
+						: generations.size === 0
+							? transaction`AND false`
+							: transaction`AND (id, manual_retry_count) IN (
+									SELECT *
+									FROM unnest(
+										${transaction.array(
+											[...generations.keys()],
+											POSTGRES_UUID_TYPE_OID,
+										)},
+										${transaction.array(
+											[...generations.values()],
+											POSTGRES_INT4_TYPE_OID,
+										)}
+									) AS t(id, manual_retry_count)
+								)`;
 				const endpointFilter =
 					replayOptions.endpointId === undefined
 						? transaction``
 						: transaction`AND endpoint_id = ${replayOptions.endpointId}::uuid`;
 				if (replayOptions.dryRun) {
-					const previewRows = await transaction<{ id: string }[]>`
-						SELECT id
+					const previewRows = await transaction<{
+						id: string;
+						manual_retry_count: number;
+					 }[]>`
+						SELECT id, manual_retry_count
 						FROM listmonk_ops.webhook_deliveries
 						WHERE status = 'exhausted'
 							${endpointFilter}
 							${idFilter}
+							${generationFilter}
 						ORDER BY next_attempt_at DESC, id DESC
 						LIMIT ${replayOptions.limit}
 						FOR UPDATE
@@ -750,18 +773,25 @@ export function createPostgresOutboundWebhookRepository(
 						failed: 0,
 						dryRun: true,
 						deliveryIds: previewRows.map((row) => row.id),
+						replayedGenerations: previewRows.map((row) => ({
+							id: row.id,
+							manualRetryCount: row.manual_retry_count,
+						})),
 						errors: [],
 					};
 				}
 				// One atomic compare-and-transition: only records still in
 				// the dead-letter state move back to pending, so overlapping
 				// replays and workers cannot double-claim a record.
-				const updatedRows = await transaction<{ id: string }[]>`
-					UPDATE listmonk_ops.webhook_deliveries
+				const updatedRows = await transaction<{
+					id: string;
+					manual_retry_count: number;
+				 }[]>`
+					UPDATE listmonk_ops.webhook_deliveries d
 					SET
+						manual_retry_count = d.manual_retry_count + 1,
 						status = 'pending',
 						attempt_count = 0,
-						manual_retry_count = manual_retry_count + 1,
 						next_attempt_at = ${replayOptions.now},
 						last_attempt_at = NULL,
 						completed_at = NULL,
@@ -780,17 +810,21 @@ export function createPostgresOutboundWebhookRepository(
 							)
 							${endpointFilter}
 							${idFilter}
+							${generationFilter}
 						ORDER BY next_attempt_at DESC, id DESC
 						LIMIT ${replayOptions.limit}
 						FOR UPDATE SKIP LOCKED
 					)
-					RETURNING id
+					RETURNING id, manual_retry_count - 1 AS manual_retry_count
 				`;
 				// Rows skipped by SKIP LOCKED are concurrent no-ops, not
 				// failures; report as unavailable only exhausted rows whose
 				// endpoint is genuinely disabled or missing.
-				const failedRows = await transaction<{ id: string }[]>`
-					SELECT d.id
+				const failedRows = await transaction<{
+					id: string;
+					manual_retry_count: number;
+				 }[]>`
+					SELECT d.id, d.manual_retry_count
 					FROM listmonk_ops.webhook_deliveries d
 					WHERE d.status = 'exhausted'
 						AND NOT EXISTS (
@@ -800,6 +834,7 @@ export function createPostgresOutboundWebhookRepository(
 						)
 						${endpointFilter}
 						${idFilter}
+						${generationFilter}
 					ORDER BY d.next_attempt_at DESC, d.id DESC
 					LIMIT ${replayOptions.limit}
 				`;
@@ -813,12 +848,23 @@ export function createPostgresOutboundWebhookRepository(
 					failed: errors.length,
 					dryRun: false,
 					deliveryIds: updatedRows.map((row) => row.id),
+					// Echo the generations of EVERY selected candidate,
+					// failed endpoints included, so a repaired endpoint can
+					// still be recovered with the identical echoed set
+					// (matching the file store).
+					replayedGenerations: [
+						...updatedRows,
+						...failedRows,
+					].map((row) => ({
+						id: row.id,
+						manualRetryCount: row.manual_retry_count,
+					})),
 					errors,
 				};
 			});
 		},
 
-		async retryDelivery(id, now) {
+		async retryDelivery(id, now, expectedManualRetryCount) {
 			await ensureInitialized();
 			return sql.begin(async (transaction) => {
 				const deliveryRows = await transaction<DeliveryRow[]>`
@@ -838,9 +884,36 @@ export function createPostgresOutboundWebhookRepository(
 				if (row.status === "pending") {
 					// The requested effect — the delivery queued for dispatch —
 					// is already satisfied, so an ambiguous retry repeats as a
-					// documented no-op.
-					return { delivery: toDelivery(row), retried: false };
+					// documented no-op. A generation-bound repeat against the
+					// pending state consumed its echo and is rejected rather
+					// than silently re-passable after a worker cycle.
+					if (
+						expectedManualRetryCount !== undefined &&
+						row.manual_retry_count === expectedManualRetryCount + 1
+					) {
+						throw new OutboundWebhookConflictError(
+							`Delivery ${id} is already pending at the echoed generation ${row.manual_retry_count}; the original retry's effect is still in flight`,
+							"delivery_state_conflict",
+						);
+					}
+					return {
+						delivery: toDelivery(row),
+						retried: false,
+						retryGeneration: row.manual_retry_count,
+					};
 				}
+				if (
+					expectedManualRetryCount !== undefined &&
+					row.manual_retry_count !== expectedManualRetryCount
+				) {
+				// The delivery moved past the echoed generation; report the
+				// current state without starting another cycle.
+				return {
+					delivery: toDelivery(row),
+					retried: false,
+					retryGeneration: row.manual_retry_count,
+				};
+			}
 				if (row.status !== "retry" && row.status !== "exhausted") {
 					throw new OutboundWebhookConflictError(
 						`Delivery ${id} cannot be retried from status ${row.status}`,
@@ -878,7 +951,11 @@ export function createPostgresOutboundWebhookRepository(
 						completed_at, status_code, last_error, lease_token,
 						lease_expires_at
 				`;
-				return { delivery: toDelivery(updatedRows[0]!), retried: true };
+				return {
+					delivery: toDelivery(updatedRows[0]!),
+					retried: true,
+					retryGeneration: row.manual_retry_count,
+				};
 			});
 		},
 

@@ -210,6 +210,10 @@ const webhookDeliveryListInputSchema = z.object({
 });
 const webhookDeliveryRetryInputSchema = z.object({
 	id: z.uuid().describe("Outbound webhook delivery ID"),
+	expected_manual_retry_count: z.number().int().nonnegative().optional()
+		.describe(
+			"Echo the prior retry's retry_generation output (the PRE-request count — NOT the post-retry manual_retry_count on the returned delivery, which is already incremented): only retry while the delivery still sits at that generation — a delivery a dispatcher already completed and returned to retry is reported unmodified instead of starting another cycle",
+		),
 });
 const webhookReconcileInputSchema = z.object({
 	limit: webhookDeliveryListLimitInput.default(100),
@@ -351,6 +355,25 @@ const webhookDlqReplayInputSchema = z
 			.optional()
 			.describe(
 				"Exact dead-letter set reported by a dry run; required when dry_run is false",
+			),
+		recovery_generations: z
+			.array(
+				z.object({
+					delivery_id: z.uuid(),
+					manual_retry_count: z.number().int().nonnegative(),
+				}),
+			)
+			.min(1)
+			.max(1_000)
+			.refine(
+				(set) =>
+					new Set(set.map((member) => member.delivery_id)).size ===
+					set.length,
+				"recovery_generations delivery ids must be unique",
+			)
+			.optional()
+			.describe(
+				"Echoed dead-letter generations from a prior replay's replayed_generations output: replay a delivery only while it is still exhausted at that manual retry count, so a record a worker re-exhausted after the replay is skipped instead of starting another cycle",
 			),
 		limit: webhookDeliveryListLimitInput.default(100),
 		dry_run: booleanInput.default(true),
@@ -516,6 +539,7 @@ const webhookDeliveryListOutputSchema = z.object({
 const webhookDeliveryRetryOutputSchema = z.object({
 	delivery: webhookDeliveryOutputSchema,
 	retried: z.boolean(),
+	retry_generation: z.number().int().nonnegative(),
 });
 const webhookReconcileOutputSchema = z.object({
 	scanned_ids: z.array(z.uuid()),
@@ -579,6 +603,12 @@ const webhookDlqReplayOutputSchema = z.object({
 	failed: z.number().int().nonnegative(),
 	dry_run: z.boolean(),
 	delivery_ids: z.array(z.uuid()),
+	replayed_generations: z.array(
+		z.object({
+			delivery_id: z.uuid(),
+			manual_retry_count: z.number().int().nonnegative(),
+		}),
+	),
 	errors: z.array(
 		z.object({
 			delivery_id: z.uuid(),
@@ -978,11 +1008,18 @@ export async function executeWebhookDeliveryRetryOperation(
 	context: WebhookOperationContext,
 	input: z.output<typeof webhookDeliveryRetryInputSchema>,
 ) {
-	const { delivery, retried } = await retryOutboundWebhookDelivery(
+	const { delivery, retried, retryGeneration } = await retryOutboundWebhookDelivery(
 		input.id,
-		resolveWebhookOperationStore(context),
+		{
+			...resolveWebhookOperationStore(context),
+			expectedManualRetryCount: input.expected_manual_retry_count,
+		},
 	);
-	return { delivery: toDeliveryOutput(delivery), retried };
+	return {
+		delivery: toDeliveryOutput(delivery),
+		retried,
+		retry_generation: retryGeneration,
+	};
 }
 
 export async function executeWebhookReconcileOperation(
@@ -1148,6 +1185,15 @@ export async function executeWebhookDlqReplayOperation(
 		...resolveWebhookOperationStore(context),
 		endpointId: input.endpoint_id,
 		deliveryIds: input.delivery_ids,
+		expectedManualRetryCounts:
+			input.recovery_generations === undefined
+				? undefined
+				: new Map(
+						input.recovery_generations.map((member) => [
+							member.delivery_id,
+							member.manual_retry_count,
+						]),
+					),
 		limit: input.limit,
 		dryRun: input.dry_run,
 	});
@@ -1157,6 +1203,10 @@ export async function executeWebhookDlqReplayOperation(
 		failed: result.failed,
 		dry_run: result.dryRun,
 		delivery_ids: [...result.deliveryIds],
+		replayed_generations: result.replayedGenerations.map((member) => ({
+			delivery_id: member.id,
+			manual_retry_count: member.manualRetryCount,
+		})),
 		errors: result.errors.map((entry) => ({
 			delivery_id: entry.deliveryId,
 			error_code: entry.errorCode,

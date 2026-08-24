@@ -693,11 +693,29 @@ export const webhookDeliveryRetryOperationSpec = defineOperationSpec({
 	effects: [{ kind: "write", resource: "webhook", reversible: false }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "webhooks.delivery.list",
-		idempotent: false,
+		kind: "conditional",
+		cases: [
+			{
+				when: "expected_manual_retry_count (the delivery's generation echoed from a prior retry) is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The retry only fires while the delivery still sits at the echoed pre-request generation (the retry_generation output, not the post-retry manual_retry_count): a generation-bound repeat while the original retry's pending state holds (pending count = echo + 1) is rejected with a conflict — the echo was consumed by the still-in-flight effect, so a post-worker-cycle repeat cannot silently re-pass it, and a delivery a dispatcher already completed and returned to retry moved to a later generation and is reported unmodified instead of starting another delivery cycle — so an identical retry converges over the echoed generation.",
+				},
+			},
+			{
+				when: "expected_manual_retry_count is absent",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "webhooks.delivery.list",
+					idempotent: false,
+					reason:
+						"A repeat while the delivery is still pending reports retried: false, but a dispatcher may complete it first and return it to retry or exhausted, so the repeat can start another delivery cycle.",
+				},
+			},
+		],
 		reason:
-			"A repeat while the delivery is still pending reports retried: false, but a dispatcher may complete it first and return it to retry or exhausted, so the repeat can start another delivery cycle; the operation is not idempotent.",
+			"Retry safety depends on whether the caller echoes the delivery's generation.",
 	},
 	agent: {
 		useWhen: ["An operator has reviewed a failed delivery and wants another attempt cycle."],
@@ -706,7 +724,7 @@ export const webhookDeliveryRetryOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.dispatch", "webhooks.update"],
 		retryGuidance:
-			"Verify the delivery with webhooks.delivery.list before repeating an ambiguous retry; a repeat while the delivery is still pending reports retried: false, but a completed dispatch can make the repeat start another cycle.",
+			"Echo a prior retry's retry_generation output (the pre-request count, NOT the post-retry manual_retry_count on the returned delivery) as expected_manual_retry_count so an ambiguous repeat converges on the echoed generation; without the echo, verify the delivery with webhooks.delivery.list first — a completed dispatch can make an unechoed repeat start another cycle.",
 	},
 	projection: {
 		mcpName: "listmonk_webhook_delivery_retry",
@@ -724,7 +742,7 @@ export const webhookDeliveryRetryOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookDeliveryRetryOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 
@@ -1084,11 +1102,29 @@ export const webhookDlqReplayOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: true },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "webhooks.dlq.list",
-		idempotent: false,
+		kind: "conditional",
+		cases: [
+			{
+				when: "recovery_generations (echoed dead-letter generations from a prior replay) is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"A delivery is replayed only while it is still exhausted at its echoed manual-retry generation: records that left the dead-letter set are skipped, and a record a worker re-exhausted after the replay moved past the echoed generation and is skipped too — so an identical echoed request never starts another attempt cycle and converges over the echoed generations.",
+				},
+			},
+			{
+				when: "recovery_generations is absent",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "webhooks.dlq.list",
+					idempotent: false,
+					reason:
+						"Destructive runs transition exactly the echoed dead-letter set atomically (only records still exhausted move, in both stores), but a worker can re-exhaust a replayed record before the retry, making the identical echoed request eligible again and starting another attempt cycle.",
+				},
+			},
+		],
 		reason:
-			"Destructive runs transition exactly the echoed dead-letter set atomically (only records still exhausted move, in both stores), but a worker can re-exhaust a replayed record before the retry, making the identical echoed request eligible again and starting another attempt cycle; the replay stays experimental until the echo carries a delivery generation.",
+			"Retry safety depends on whether the caller echoes the dead-letter generations.",
 	},
 	agent: {
 		useWhen: ["Reviewed dead letters should receive a fresh bounded attempt cycle."],
@@ -1097,7 +1133,7 @@ export const webhookDlqReplayOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.circuit.reset", "webhooks.dispatch"],
 		retryGuidance:
-			"Run dry_run first, then echo the reported delivery_ids; an identical repeat replays nothing new unless a worker re-exhausted a replayed record, so inspect webhooks.dlq.list before repeating.",
+			"Run dry_run first, then echo the reported replayed_generations as recovery_generations so an identical repeat replays nothing new even after a worker re-exhausts a record; echoing only delivery_ids leaves the re-entry hazard open, so inspect webhooks.dlq.list before repeating in that case.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_dlq_replay",
@@ -1115,7 +1151,7 @@ export const webhookDlqReplayOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookDlqReplayOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

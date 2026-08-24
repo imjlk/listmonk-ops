@@ -267,8 +267,8 @@ Requeue one retryable or exhausted delivery for a fresh bounded attempt cycle.
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:webhook`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `reconcile`
-- Stability: `experimental` since `0.8.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.reconcile`
 
@@ -351,8 +351,8 @@ Preview or requeue a bounded set of reviewed dead-letter deliveries. Destructive
 - Contract source: input `typescript`, output `typescript`
 - Effects: `maintenance:replay:destructive`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
-- Retry: `reconcile`
-- Stability: `experimental` since `0.8.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.circuit.reset`
 
