@@ -270,4 +270,53 @@ describe("abtest deploy-winner tag adoption", () => {
 			/2 campaigns tagged winner:deployed/,
 		);
 	});
+
+	test("keeps a completed test completed when an adoption lookup fails", async () => {
+		let lookupFails = false;
+		let created: number | undefined;
+		const integration: IntegrationLike = {
+			findCampaignsByTestTag: async () => {
+				if (lookupFails) {
+					throw new Error("campaign list unavailable");
+				}
+				return created === undefined
+					? []
+					: [
+							{
+								id: created,
+								tags: [
+									"abtest:test-1",
+									"variant:A",
+									"winner:deployed",
+									"holdout:group",
+								],
+								status: "running",
+							},
+						];
+			},
+			deployWinnerToHoldout: async () => {
+				created = 780;
+				return created;
+			},
+			autoDeployWinner: async () => {},
+		};
+		const service = new AbTestService(
+			integration as never,
+			new SimulatedMetricsCollector(new Map([["test-1", decisiveResults()]])),
+		);
+		await service.hydrateTests([makeTest()]);
+
+		await service.deployWinner("test-1");
+		expect((await service.getTest("test-1"))?.status).toBe("completed");
+
+		// An identical retry whose campaign lookup fails transiently must
+		// reject without rewriting the terminal status: restoring
+		// `analyzing` would make run/tick eligible to process the finished
+		// test again.
+		lookupFails = true;
+		await expect(service.deployWinner("test-1")).rejects.toThrow(
+			/campaign list unavailable/,
+		);
+		expect((await service.getTest("test-1"))?.status).toBe("completed");
+	});
 });

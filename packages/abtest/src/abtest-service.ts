@@ -1460,6 +1460,11 @@ export class AbTestService {
 		// adopted instead of creating a second campaign, so an ambiguous
 		// retry converges on the same holdout delivery.
 		if (this.listmonkIntegration) {
+			// A failed invocation must leave the persisted lifecycle where
+			// this call found it: restoring a terminal `completed` test to
+			// `analyzing` on a transient adoption-lookup failure would make
+			// run/tick eligible to process an already-finished test again.
+			const originalStatus = test.status;
 			try {
 				const existing =
 					await this.listmonkIntegration.findCampaignsByTestTag(testId);
@@ -1533,7 +1538,7 @@ export class AbTestService {
 
 				this.tests.set(testId, test);
 			} catch (error) {
-				test.status = "analyzing";
+				test.status = originalStatus;
 				this.tests.set(testId, test);
 				throw error;
 			}
