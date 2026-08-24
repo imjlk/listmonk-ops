@@ -210,11 +210,7 @@ const webhookDeliveryListInputSchema = z.object({
 });
 const webhookDeliveryRetryInputSchema = z.object({
 	id: z.uuid().describe("Outbound webhook delivery ID"),
-	expected_manual_retry_count: z.coerce
-		.number()
-		.int()
-		.nonnegative()
-		.optional()
+	expected_manual_retry_count: z.number().int().nonnegative().optional()
 		.describe(
 			"Echo the prior retry's retry_generation output (the PRE-request count — NOT the post-retry manual_retry_count on the returned delivery, which is already incremented): only retry while the delivery still sits at that generation — a delivery a dispatcher already completed and returned to retry is reported unmodified instead of starting another cycle",
 		),
@@ -364,7 +360,7 @@ const webhookDlqReplayInputSchema = z
 			.array(
 				z.object({
 					delivery_id: z.uuid(),
-					manual_retry_count: z.coerce.number().int().nonnegative(),
+					manual_retry_count: z.number().int().nonnegative(),
 				}),
 			)
 			.min(1)

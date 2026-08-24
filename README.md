@@ -680,12 +680,17 @@ deliveries, but the POST itself can still duplicate an
 accepted-but-unobserved attempt (the event-id header enables receiver
 deduplication), so both webhook retry cases classify as reconcile. A
 twenty-eighth batch promoted `webhooks.delivery.retry` and
-`webhooks.dlq.replay` with generation-bound retries: the retry echoes
-the delivery's manual-retry generation (`manual_retry_count`) and a
-repeat bound to it only fires while the delivery still sits at that
-generation — a worker cycle in between moves the generation and the
-repeat reports the current state instead of starting another delivery
-cycle; the dead-letter replay echoes each candidate's generation and
+`webhooks.dlq.replay` with generation-bound retries: the retry result
+carries a dedicated `retry_generation` field — the count observed
+BEFORE the request moved it — and a retry repeats by echoing THAT
+field as `expected_manual_retry_count` (the `manual_retry_count` on
+the returned `delivery` is already incremented; echoing it after a
+worker cycle would pass the guard and start a second delivery cycle).
+A repeat bound to the echoed generation only fires while the delivery
+still sits at that generation — a worker cycle in between moves the
+generation and the repeat reports the current state instead of
+starting another delivery cycle; the dead-letter replay echoes each
+candidate's generation and
 replays only records still exhausted at it, closing the re-exhaustion
 re-entry hazard. The
 remaining 8 descriptors are experimental. A

@@ -665,11 +665,13 @@ batch에서는 `campaigns.clone`을 승격했습니다(키는 원본 캠페인�
 재검사합니다(이미 복구된 lease는 더 만료되지 않고 이미 수리된 drift는
 더 매칭되지 않아 다음 백로그 배치 대신 수렴). 시퀀스의 ambiguous-send
 해결 모드는 독립적으로 수렴합니다(여전히 ambiguous 상태여야 함). 스물여덟 번째 batch에서는 `webhooks.delivery.retry`와
-`webhooks.dlq.replay`를 세대 바인딩 재시도로 승격했습니다 — 재시도가
-전달의 manual-retry 세대(`manual_retry_count`)를 echo하고 그 세대에
-묶인 반복은 전달이 여전히 그 세대에 있을 때만 발동하며, 그 사이 worker
-사이클이 세대를 옮기면 반복은 다른 사이클을 시작하는 대신 현재 상태를
-보고합니다; dead-letter replay는 각 후보의 세대를 echo하고 여전히 그
+`webhooks.dlq.replay`를 세대 바인딩 재시도로 승격했습니다 — 재시도
+결과에 요청 이전 값을 담은 전용 `retry_generation` 필드가 있고, 재시도는
+그 필드를 `expected_manual_retry_count`로 echo해서 반복합니다(반환된
+`delivery`의 `manual_retry_count`는 이미 증가한 값이라 worker 사이클 후
+echo하면 가드를 통과해 두 번째 전달 사이클이 시작됩니다). 그 세대에 묶인
+반복은 전달이 여전히 그 세대에 있을 때만 발동하며, 그 사이 worker 사이클이
+세대를 옮기면 반복은 다른 사이클을 시작하는 대신 현재 상태를 보고합니다; dead-letter replay는 각 후보의 세대를 echo하고 여전히 그
 세대에서 exhausted인 레코드만 재생해 재소진 재진입 위험을 닫습니다.
 현재 stable baseline은 96개이며, 나머지 experimental descriptor는
 8개입니다.
