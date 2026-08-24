@@ -6837,6 +6837,15 @@
                 },
                 "limit": {
                   "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                },
+                "recovery_set": {
+                  "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Delivery ids must be unique.",
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
                 }
               },
               "required": [],
@@ -6853,6 +6862,15 @@
             },
             "limit": {
               "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+            },
+            "recovery_set": {
+              "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Delivery ids must be unique.",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           },
           "required": [],
@@ -6884,11 +6902,20 @@
                 "scanned": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
                 },
+                "scanned_ids": {
+                  "description": "Echoed ids of the deliveries the scan considered.",
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
                 "unchanged": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
                 }
               },
               "required": [
+                "scanned_ids",
                 "scanned",
                 "recovered",
                 "exhausted",
@@ -6915,11 +6942,20 @@
             "scanned": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             },
+            "scanned_ids": {
+              "description": "Echoed ids of the deliveries the scan considered.",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "type": "array"
+            },
             "unchanged": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             }
           },
           "required": [
+            "scanned_ids",
             "scanned",
             "recovered",
             "exhausted",
@@ -6937,13 +6973,29 @@
         "dryRun": true
       },
       "retry": {
-        "idempotent": false,
-        "kind": "reconcile",
-        "reason": "Reconciliation is bounded by a per-call limit. When more expired deliveries exist than the limit, an ambiguous retry selects and mutates the next batch rather than being a pure no-op; re-run in dry-run mode to verify the remaining backlog before retrying.",
-        "reconcileWith": "webhooks.reconcile"
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The recovery scan considers exactly the echoed deliveries: leases already recovered by the original call are no longer delivering and are skipped, so an identical retry converges over the set. Lease recovery itself is a pure state mutation with no external delivery side effect."
+            },
+            "when": "recovery_set (an echoed scanned set of delivery ids) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Reconciliation is bounded by a per-call limit. When more expired deliveries exist than the limit, an ambiguous retry selects and mutates the next batch rather than being a pure no-op; re-run in dry-run mode to verify the remaining backlog before retrying.",
+              "reconcileWith": "webhooks.reconcile"
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller echoes a prior reconcile's scanned set."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.prune",
@@ -7422,11 +7474,20 @@
                 "scanned": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
                 },
+                "scanned_ids": {
+                  "description": "Echoed ids of the deliveries the scan considered.",
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
                 "unchanged": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
                 }
               },
               "required": [
+                "scanned_ids",
                 "scanned",
                 "recovered",
                 "exhausted",
@@ -12159,6 +12220,15 @@
                 "limit": {
                   "$ref": "#/components/schemas/PositiveInteger"
                 },
+                "recovery_set": {
+                  "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Enrollment ids must be unique.",
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
                 "resolution": {
                   "oneOf": [
                     {
@@ -12191,6 +12261,15 @@
             },
             "limit": {
               "$ref": "#/components/schemas/PositiveInteger"
+            },
+            "recovery_set": {
+              "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Enrollment ids must be unique.",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
             },
             "resolution": {
               "oneOf": [
@@ -12323,11 +12402,20 @@
                 "scanned": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
                 },
+                "scanned_ids": {
+                  "description": "Echoed ids of the enrollments the scan considered.",
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
                 "unchanged": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
                 }
               },
               "required": [
+                "scanned_ids",
                 "scanned",
                 "recovered",
                 "unchanged",
@@ -12359,11 +12447,20 @@
             "scanned": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             },
+            "scanned_ids": {
+              "description": "Echoed ids of the enrollments the scan considered.",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "type": "array"
+            },
             "unchanged": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             }
           },
           "required": [
+            "scanned_ids",
             "scanned",
             "recovered",
             "unchanged",
@@ -12380,13 +12477,29 @@
         "dryRun": true
       },
       "retry": {
-        "idempotent": false,
-        "kind": "reconcile",
-        "reason": "Lease recovery is idempotent, but ambiguous-send resolution changes delivery state and must be verified before retrying.",
-        "reconcileWith": "sequences.status"
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The recovery scan considers exactly the echoed enrollments: leases already recovered by the original call are no longer expired and are skipped, so an identical retry converges over the set instead of scanning the next backlog batch. The ambiguous-send resolution mode is independently convergent — it requires the enrollment to still be in the ambiguous status, so a retry after a completed resolution is rejected rather than re-applied."
+            },
+            "when": "recovery_set (an echoed scanned set of enrollment ids) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Lease recovery is idempotent per enrollment, but a fresh bounded scan selects the next backlog batch after an ambiguous result, and ambiguous-send resolution changes delivery state.",
+              "reconcileWith": "sequences.status"
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller echoes a prior reconcile's scanned set."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "sequences.status",
@@ -32017,6 +32130,14 @@
                 "all": {
                   "type": "boolean"
                 },
+                "recovery_set": {
+                  "description": "Echoed scanned set from a prior reconcile's results output:\nre-examine exactly those tests. Test ids must be unique.",
+                  "items": {
+                    "$ref": "#/components/schemas/AbTestReconcileRecoveryClaim"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
                 "repair": {
                   "type": "boolean"
                 },
@@ -32025,6 +32146,19 @@
                 }
               },
               "required": [],
+              "type": "object"
+            },
+            "AbTestReconcileRecoveryClaim": {
+              "additionalProperties": false,
+              "description": "One echoed A/B reconcile scan position.",
+              "properties": {
+                "test_id": {
+                  "$ref": "#/components/schemas/NonEmptyString"
+                }
+              },
+              "required": [
+                "test_id"
+              ],
               "type": "object"
             },
             "NonEmptyString": {
@@ -32039,6 +32173,14 @@
           "properties": {
             "all": {
               "type": "boolean"
+            },
+            "recovery_set": {
+              "description": "Echoed scanned set from a prior reconcile's results output:\nre-examine exactly those tests. Test ids must be unique.",
+              "items": {
+                "$ref": "#/components/schemas/AbTestReconcileRecoveryClaim"
+              },
+              "minItems": 1,
+              "type": "array"
             },
             "repair": {
               "type": "boolean"
@@ -32067,9 +32209,17 @@
                     "$ref": "#/components/schemas/AbTestReconcileResult"
                   },
                   "type": "array"
+                },
+                "scanned_ids": {
+                  "description": "Echoed ids of the tests the scan examined.",
+                  "items": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "type": "array"
                 }
               },
               "required": [
+                "scanned_ids",
                 "reconciled",
                 "results"
               ],
@@ -32132,6 +32282,10 @@
                 }
               ]
             },
+            "NonEmptyString": {
+              "minLength": 1,
+              "type": "string"
+            },
             "NonNegativeInteger": {
               "maximum": 9007199254740991,
               "minimum": 0,
@@ -32151,9 +32305,17 @@
                 "$ref": "#/components/schemas/AbTestReconcileResult"
               },
               "type": "array"
+            },
+            "scanned_ids": {
+              "description": "Echoed ids of the tests the scan examined.",
+              "items": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "type": "array"
             }
           },
           "required": [
+            "scanned_ids",
             "reconciled",
             "results"
           ],
@@ -32168,11 +32330,27 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry with repair enabled may apply different repairs if state shifted."
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The recovery pass re-examines exactly the echoed tests and each repair is guarded by its own drift condition — a drift already repaired no longer matches, so an identical retry converges over the set instead of examining the full store."
+            },
+            "when": "recovery_set (an echoed scanned set of test ids) is present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "A retry with repair enabled re-examines the whole store and may apply different repairs if state shifted."
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller echoes a prior reconcile's scanned set."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.export-assignment",

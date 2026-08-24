@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+
+const POSTGRES_UUID_TYPE_OID = 2950;
 import {
 	DEFAULT_TRANSACTIONAL_TTL_MS,
 	TRANSACTIONAL_STORE_MAX_RECORDS,
@@ -1038,15 +1040,27 @@ export function createPostgresSequenceRepository(
 		async reconcile(options) {
 			await ready();
 			return sql.begin(async (transaction) => {
+				const boundedFilter =
+					options.enrollmentIds === undefined
+						? sql``
+						: options.enrollmentIds.length === 0
+							? sql`AND false`
+							: sql`AND id = ANY(${transaction.array(
+										[...options.enrollmentIds],
+										POSTGRES_UUID_TYPE_OID,
+									)})`;
 				const rows = await transaction<EnrollmentRow[]>`
 					SELECT id, enrollment, lease_token
 					FROM listmonk_ops.sequence_enrollments
 					WHERE lease_expires_at IS NOT NULL
 						AND lease_expires_at <= ${options.now.toISOString()}::timestamptz
 						AND status NOT IN ('completed', 'failed', 'cancelled')
+						${boundedFilter}
 					ORDER BY lease_expires_at ASC
 					FOR UPDATE SKIP LOCKED
-					LIMIT ${options.limit}
+					LIMIT ${options.enrollmentIds === undefined
+						? options.limit
+						: Math.max(options.limit, options.enrollmentIds.length)}
 				`;
 				if (!options.dryRun) {
 					for (const row of rows) {
@@ -1071,6 +1085,7 @@ export function createPostgresSequenceRepository(
 					}
 				}
 				return {
+					scannedIds: rows.map((row) => row.id),
 					scanned: rows.length,
 					recovered: rows.length,
 					unchanged: 0,

@@ -1096,6 +1096,15 @@ export function createPostgresOutboundWebhookRepository(
 		async reconcile(reconcileOptions) {
 			await ensureInitialized();
 			return sql.begin(async (transaction) => {
+				const boundedFilter =
+					reconcileOptions.deliveryIds === undefined
+						? transaction``
+						: reconcileOptions.deliveryIds.length === 0
+							? transaction`AND false`
+							: transaction`AND id = ANY(${transaction.array(
+									[...reconcileOptions.deliveryIds],
+									POSTGRES_UUID_TYPE_OID,
+								)})`;
 				const rows = await transaction<DeliveryRow[]>`
 					SELECT
 						id, event_id, endpoint_id, event, status, attempt_count,
@@ -1104,12 +1113,19 @@ export function createPostgresOutboundWebhookRepository(
 						lease_expires_at
 					FROM listmonk_ops.webhook_deliveries
 					WHERE status = 'delivering'
+						${boundedFilter}
 					ORDER BY lease_expires_at ASC NULLS FIRST
 					FOR UPDATE SKIP LOCKED
-					LIMIT ${reconcileOptions.limit}
+					LIMIT ${reconcileOptions.deliveryIds === undefined
+						? reconcileOptions.limit
+						: Math.max(
+								reconcileOptions.limit,
+								reconcileOptions.deliveryIds.length,
+							)}
 				`;
 				if (rows.length === 0) {
 					return {
+						scannedIds: [],
 						scanned: 0,
 						recovered: 0,
 						exhausted: 0,
@@ -1175,6 +1191,7 @@ export function createPostgresOutboundWebhookRepository(
 					}
 				}
 				return {
+					scannedIds: rows.map((row) => row.id),
 					scanned: rows.length,
 					recovered,
 					exhausted,

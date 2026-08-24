@@ -749,11 +749,29 @@ export const webhookReconcileOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "never", audit: "required", dryRun: true },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "webhooks.reconcile",
-		idempotent: false,
+		kind: "conditional",
+		cases: [
+			{
+				when: "recovery_set (an echoed scanned set of delivery ids) is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The recovery scan considers exactly the echoed deliveries: leases already recovered by the original call are no longer delivering and are skipped, so an identical retry converges over the set. Lease recovery itself is a pure state mutation with no external delivery side effect.",
+				},
+			},
+			{
+				when: "recovery_set is absent",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "webhooks.reconcile",
+					idempotent: false,
+					reason:
+						"Reconciliation is bounded by a per-call limit. When more expired deliveries exist than the limit, an ambiguous retry selects and mutates the next batch rather than being a pure no-op; re-run in dry-run mode to verify the remaining backlog before retrying.",
+				},
+			},
+		],
 		reason:
-			"Reconciliation is bounded by a per-call limit. When more expired deliveries exist than the limit, an ambiguous retry selects and mutates the next batch rather than being a pure no-op; re-run in dry-run mode to verify the remaining backlog before retrying.",
+			"Retry safety depends on whether the caller echoes a prior reconcile's scanned set.",
 	},
 	agent: {
 		useWhen: [
@@ -763,7 +781,8 @@ export const webhookReconcileOperationSpec = defineOperationSpec({
 		prerequisites: ["webhooks.delivery.list"],
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.tick", "webhooks.dispatch"],
-		retryGuidance: "Re-run in dry-run mode after an ambiguous result to verify whether more expired deliveries remain before retrying.",
+		retryGuidance:
+			"Echo a prior reconcile's scanned_ids output as recovery_set so an ambiguous retry re-examines exactly that batch; without the echoed set, re-run in dry-run mode to verify the remaining backlog first.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_reconcile",
@@ -781,7 +800,7 @@ export const webhookReconcileOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookReconcileOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

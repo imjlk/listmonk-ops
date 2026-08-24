@@ -1059,13 +1059,30 @@ export default defineGroup({
 				repair: option(z.coerce.boolean().default(false), {
 					description: "Apply repairs for detected drift (destructive)",
 				}),
+				"recovery-set": option(z.string().optional(), {
+					description:
+						"Echoed scanned set from a prior reconcile (JSON array of test_id objects): re-examine exactly those tests",
+				}),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
+					let recoverySet:
+						| Array<{ test_id: string }>
+						| undefined;
+					if (flags["recovery-set"] !== undefined) {
+						try {
+							recoverySet = JSON.parse(flags["recovery-set"]);
+						} catch (error) {
+							throw new Error(
+								`--recovery-set must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+							);
+						}
+					}
 					const result = await invokeCliReconcileAbTest(args, {
 						test_id: flags["test-id"],
 						all: flags.all,
 						repair: flags.repair,
+						recovery_set: recoverySet,
 					});
 					getOutput().success(
 						`Reconciled ${result.reconciled} A/B test(s)`,

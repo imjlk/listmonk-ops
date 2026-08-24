@@ -2746,6 +2746,14 @@
             "all": {
               "type": "boolean"
             },
+            "recovery_set": {
+              "description": "Echoed scanned set from a prior reconcile's results output:\nre-examine exactly those tests. Test ids must be unique.",
+              "items": {
+                "$ref": "#/components/schemas/AbTestReconcileRecoveryClaim"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
             "repair": {
               "type": "boolean"
             },
@@ -2754,6 +2762,19 @@
             }
           },
           "required": [],
+          "type": "object"
+        },
+        "AbTestReconcileRecoveryClaim": {
+          "additionalProperties": false,
+          "description": "One echoed A/B reconcile scan position.",
+          "properties": {
+            "test_id": {
+              "$ref": "#/components/schemas/NonEmptyString"
+            }
+          },
+          "required": [
+            "test_id"
+          ],
           "type": "object"
         },
         "NonEmptyString": {
@@ -2768,6 +2789,14 @@
       "properties": {
         "all": {
           "type": "boolean"
+        },
+        "recovery_set": {
+          "description": "Echoed scanned set from a prior reconcile's results output:\nre-examine exactly those tests. Test ids must be unique.",
+          "items": {
+            "$ref": "#/components/schemas/AbTestReconcileRecoveryClaim"
+          },
+          "minItems": 1,
+          "type": "array"
         },
         "repair": {
           "type": "boolean"
@@ -2796,9 +2825,17 @@
                 "$ref": "#/components/schemas/AbTestReconcileResult"
               },
               "type": "array"
+            },
+            "scanned_ids": {
+              "description": "Echoed ids of the tests the scan examined.",
+              "items": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "type": "array"
             }
           },
           "required": [
+            "scanned_ids",
             "reconciled",
             "results"
           ],
@@ -2861,6 +2898,10 @@
             }
           ]
         },
+        "NonEmptyString": {
+          "minLength": 1,
+          "type": "string"
+        },
         "NonNegativeInteger": {
           "maximum": 9007199254740991,
           "minimum": 0,
@@ -2880,9 +2921,17 @@
             "$ref": "#/components/schemas/AbTestReconcileResult"
           },
           "type": "array"
+        },
+        "scanned_ids": {
+          "description": "Echoed ids of the tests the scan examined.",
+          "items": {
+            "$ref": "#/components/schemas/NonEmptyString"
+          },
+          "type": "array"
         }
       },
       "required": [
+        "scanned_ids",
         "reconciled",
         "results"
       ],
@@ -15972,6 +16021,15 @@
             "limit": {
               "$ref": "#/components/schemas/PositiveInteger"
             },
+            "recovery_set": {
+              "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Enrollment ids must be unique.",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
             "resolution": {
               "oneOf": [
                 {
@@ -16004,6 +16062,15 @@
         },
         "limit": {
           "$ref": "#/components/schemas/PositiveInteger"
+        },
+        "recovery_set": {
+          "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Enrollment ids must be unique.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
         },
         "resolution": {
           "oneOf": [
@@ -16136,11 +16203,20 @@
             "scanned": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             },
+            "scanned_ids": {
+              "description": "Echoed ids of the enrollments the scan considered.",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "type": "array"
+            },
             "unchanged": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             }
           },
           "required": [
+            "scanned_ids",
             "scanned",
             "recovered",
             "unchanged",
@@ -16172,11 +16248,20 @@
         "scanned": {
           "$ref": "#/components/schemas/NonNegativeInteger"
         },
+        "scanned_ids": {
+          "description": "Echoed ids of the enrollments the scan considered.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
+        },
         "unchanged": {
           "$ref": "#/components/schemas/NonNegativeInteger"
         }
       },
       "required": [
+        "scanned_ids",
         "scanned",
         "recovered",
         "unchanged",
@@ -25739,6 +25824,15 @@
             },
             "limit": {
               "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+            },
+            "recovery_set": {
+              "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Delivery ids must be unique.",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
             }
           },
           "required": [],
@@ -25755,6 +25849,15 @@
         },
         "limit": {
           "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+        },
+        "recovery_set": {
+          "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Delivery ids must be unique.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
         }
       },
       "required": [],
@@ -25786,11 +25889,20 @@
             "scanned": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             },
+            "scanned_ids": {
+              "description": "Echoed ids of the deliveries the scan considered.",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "type": "array"
+            },
             "unchanged": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             }
           },
           "required": [
+            "scanned_ids",
             "scanned",
             "recovered",
             "exhausted",
@@ -25817,11 +25929,20 @@
         "scanned": {
           "$ref": "#/components/schemas/NonNegativeInteger"
         },
+        "scanned_ids": {
+          "description": "Echoed ids of the deliveries the scan considered.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
+        },
         "unchanged": {
           "$ref": "#/components/schemas/NonNegativeInteger"
         }
       },
       "required": [
+        "scanned_ids",
         "scanned",
         "recovered",
         "exhausted",
@@ -26754,11 +26875,20 @@
             "scanned": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             },
+            "scanned_ids": {
+              "description": "Echoed ids of the deliveries the scan considered.",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "type": "array"
+            },
             "unchanged": {
               "$ref": "#/components/schemas/NonNegativeInteger"
             }
           },
           "required": [
+            "scanned_ids",
             "scanned",
             "recovered",
             "exhausted",

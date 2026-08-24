@@ -312,7 +312,7 @@ Retry guidance: Verify the delivery with webhooks.delivery.list before repeating
 
 ## Reconcile outbound webhook leases (`webhooks.reconcile`)
 
-Contract maturity: `experimental`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `maintenance:recover:recoverable`; confirmation: `never`; retry: `conditional`.
 
 Use when: A worker may have crashed with deliveries left in the delivering state.
 
@@ -322,7 +322,7 @@ Prerequisites: `webhooks.delivery.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Re-run in dry-run mode after an ambiguous result to verify whether more expired deliveries remain before retrying.
+Retry guidance: Echo a prior reconcile's scanned_ids output as recovery_set so an ambiguous retry re-examines exactly that batch; without the echoed set, re-run in dry-run mode to verify the remaining backlog first.
 
 ## Prune outbound webhook delivery history (`webhooks.prune`)
 
@@ -592,7 +592,7 @@ Retry guidance: Echo a failed tick's claimed_steps output as recovery_set so an 
 
 ## Reconcile sequence runtime (`sequences.reconcile`)
 
-Contract maturity: `experimental`; effects: `maintenance:recover:recoverable, maintenance:resolve:destructive`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `maintenance:recover:recoverable, maintenance:resolve:destructive`; confirmation: `required`; retry: `conditional`.
 
 Use when: Expired leases or an operator-reviewed ambiguous send need recovery.
 
@@ -602,7 +602,7 @@ Prerequisites: `sequences.status`
 
 Verify with: `sequences.status`
 
-Retry guidance: Inspect sequences.status before retrying; ambiguous-send resolution is not idempotent.
+Retry guidance: Echo a prior reconcile's scanned_ids output as recovery_set so an ambiguous retry re-examines exactly that batch; without the echoed set, inspect sequences.status first — ambiguous-send resolution is guarded but a fresh scan selects the next batch.
 
 ## Inspect sequence runtime health (`sequences.status`)
 
@@ -1418,7 +1418,7 @@ Retry guidance: Echo a failed tick's claim_steps output (or the structured recov
 
 ## Reconcile A/B test state (`abtest.reconcile`)
 
-Contract maturity: `experimental`; effects: `write:experiment`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:experiment`; confirmation: `required`; retry: `conditional`.
 
 Use when: Persisted A/B test state must be checked or repaired.
 
@@ -1428,7 +1428,7 @@ Prerequisites: `abtest.list`
 
 Verify with: `abtest.list`
 
-Retry guidance: Inspect abtest.list before retrying an ambiguous reconcile.
+Retry guidance: Echo a prior reconcile's results output as recovery_set so an ambiguous retry re-examines exactly those tests; without the echoed set, inspect abtest.list before retrying.
 
 ## Export A/B test assignment manifest (`abtest.export-assignment`)
 

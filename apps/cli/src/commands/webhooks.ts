@@ -266,14 +266,29 @@ const reconcileCommand = defineCommand({
 		"dry-run": option(z.coerce.boolean().default(true), {
 			description: "Report lease repairs without changing delivery state",
 		}),
+		"recovery-set": option(z.string().optional(), {
+			description:
+				"Echoed scanned set from a prior reconcile (JSON array of delivery ids): re-examine exactly that batch instead of the full backlog",
+		}),
 	},
 	handler: async ({ flags }) => {
+		let recoverySet: string[] | undefined;
+		if (flags["recovery-set"] !== undefined) {
+			try {
+				recoverySet = JSON.parse(flags["recovery-set"]);
+			} catch (error) {
+				throw new Error(
+					`--recovery-set must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}
 		getOutput().json(
 			await invokeWebhookReconcileOperation(
 				{},
 				{
 					limit: flags.limit,
 					dry_run: flags["dry-run"],
+					recovery_set: recoverySet,
 				},
 			),
 		);

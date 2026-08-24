@@ -313,9 +313,17 @@ export interface WebhookDeliveryRetryOutput {
 export interface WebhookReconcileInput {
 	limit?: WebhookDeliveryListLimit | undefined;
 	dry_run?: boolean | undefined;
+
+	/**
+	 * Echoed scanned set from a prior reconcile's scanned_ids output:
+	 * re-examine exactly that batch. Delivery ids must be unique.
+	 */
+	recovery_set?: (string & tags.Format<"uuid">)[] & tags.MinItems<1>;
 }
 
 export interface WebhookReconcileOutput {
+	/** Echoed ids of the deliveries the scan considered. */
+	scanned_ids: (string & tags.Format<"uuid">)[];
 	scanned: NonNegativeInteger;
 	recovered: NonNegativeInteger;
 	exhausted: NonNegativeInteger;

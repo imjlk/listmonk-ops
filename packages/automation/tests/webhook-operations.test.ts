@@ -275,6 +275,7 @@ describe("webhook shared operations", () => {
 				limit: 10,
 			}),
 		).toEqual({
+			scanned_ids: [],
 			scanned: 0,
 			recovered: 0,
 			exhausted: 0,

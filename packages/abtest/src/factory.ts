@@ -438,6 +438,7 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 	const reconcileAbTestImpl = async (
 		testId?: string,
 		repair: boolean = false,
+		recoverySet?: ReadonlyArray<Readonly<{ testId: string }>>,
 	): Promise<
 		Array<{
 			test_id: string;
@@ -609,8 +610,11 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 				Readonly<{ testId: string; status: AbTest["status"] }>
 			>,
 		) => tickAbTestsImpl(dryRun, recoverySet),
-		reconcileAbTest: (testId?: string, repair: boolean = false) =>
-			reconcileAbTestImpl(testId, repair),
+		reconcileAbTest: (
+			testId?: string,
+			repair: boolean = false,
+			recoverySet?: ReadonlyArray<Readonly<{ testId: string }>>,
+		) => reconcileAbTestImpl(testId, repair, recoverySet),
 
 		// Convenience methods for common A/B test scenarios
 		createSimpleAbTest: async (params: {

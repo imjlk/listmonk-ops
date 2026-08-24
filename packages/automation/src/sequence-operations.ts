@@ -215,6 +215,17 @@ const sequenceTickInputSchema = z.object({
 const sequenceReconcileInputSchema = z
 	.object({
 		enrollment_id: sequenceIdInput.optional(),
+		recovery_set: z
+			.array(sequenceIdInput)
+			.min(1)
+			.refine(
+				(set) => new Set(set).size === set.length,
+				"recovery_set enrollment ids must be unique",
+			)
+			.optional()
+			.describe(
+				"Echoed scanned set from a prior reconcile's scanned_ids output: recover expired leases for exactly these enrollments instead of scanning the full backlog",
+			),
 		resolution: z.enum(["sent", "not_sent"]).optional(),
 		limit: positiveIntegerInput
 			.refine((value) => value <= 1_000, "limit must be at most 1000")
@@ -339,6 +350,7 @@ const sequenceTickOutputSchema = z.object({
 	pending_ids: z.array(sequenceIdInput).optional(),
 });
 const sequenceReconcileOutputSchema = z.object({
+	scanned_ids: z.array(sequenceIdInput),
 	scanned: z.number().int().nonnegative(),
 	recovered: z.number().int().nonnegative(),
 	unchanged: z.number().int().nonnegative(),
@@ -822,6 +834,7 @@ export async function executeSequenceReconcileOperation(
 			input.resolution,
 		);
 		return {
+			scanned_ids: [enrollment.id],
 			scanned: 1,
 			recovered: 1,
 			unchanged: 0,
@@ -831,10 +844,15 @@ export async function executeSequenceReconcileOperation(
 	}
 	const result = await repository(context).reconcile({
 		now: context.now?.() ?? new Date(),
-		limit: input.limit,
+		// In recovery mode the echoed batch defines the scan scope, so the
+		// limit must never truncate it; a smaller caller limit cannot drop
+		// echoed members.
+		limit: input.recovery_set?.length ?? input.limit,
 		dryRun: input.dry_run,
+		enrollmentIds: input.recovery_set,
 	});
 	return {
+		scanned_ids: [...result.scannedIds],
 		scanned: result.scanned,
 		recovered: result.recovered,
 		unchanged: result.unchanged,

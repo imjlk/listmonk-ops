@@ -565,8 +565,27 @@ export const abTestReconcileOperationSpec = defineOperationSpec({
 	effects: [{ kind: "write", resource: "experiment", reversible: false }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
-		reason: "A retry with repair enabled may apply different repairs if state shifted.",
+		kind: "conditional",
+		cases: [
+			{
+				when: "recovery_set (an echoed scanned set of test ids) is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The recovery pass re-examines exactly the echoed tests and each repair is guarded by its own drift condition — a drift already repaired no longer matches, so an identical retry converges over the set instead of examining the full store.",
+				},
+			},
+			{
+				when: "recovery_set is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"A retry with repair enabled re-examines the whole store and may apply different repairs if state shifted.",
+				},
+			},
+		],
+		reason:
+			"Retry safety depends on whether the caller echoes a prior reconcile's scanned set.",
 	},
 	agent: {
 		useWhen: ["Persisted A/B test state must be checked or repaired."],
@@ -574,7 +593,8 @@ export const abTestReconcileOperationSpec = defineOperationSpec({
 		prerequisites: ["abtest.list"],
 		verifyWith: ["abtest.list"],
 		related: ["abtest.tick"],
-		retryGuidance: "Inspect abtest.list before retrying an ambiguous reconcile.",
+		retryGuidance:
+			"Echo a prior reconcile's results output as recovery_set so an ambiguous retry re-examines exactly those tests; without the echoed set, inspect abtest.list before retrying.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_reconcile",
@@ -587,7 +607,7 @@ export const abTestReconcileOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeReconcileAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
