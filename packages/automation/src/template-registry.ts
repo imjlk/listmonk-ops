@@ -545,7 +545,11 @@ export async function rollbackTemplateVersion(
 	templateId: number,
 	options: {
 		toVersionId?: string;
-		/** ABA pin: the active version the caller observed; a mismatch conflicts. */
+		/**
+		 * Source pin: the active version the caller observed; a mismatch
+		 * conflicts. A cycle that promotes the original version back restores
+		 * this pin's match — pair it with the head pin to catch it.
+		 */
 		fromVersionId?: string;
 		/**
 		 * Head pin: the registry head revision the caller observed (echo the
@@ -584,12 +588,10 @@ export async function rollbackTemplateVersion(
 				);
 			}
 
-			// A source pin detects the ABA transition: promoting the
-			// original version back restores the expected previous-version
-			// relationship, so a to_version_id pin alone cannot tell a
-			// fresh rollback from a completed one that was undone. The
-			// from_version_id pin conflicts the moment the registry head
-			// moved anywhere else.
+			// A source pin conflicts whenever the active version moved
+			// elsewhere; the one transition it cannot see is the cycle that
+			// promotes the original version back, which is exactly what the
+			// head-revision pin above catches.
 			if (
 				options.fromVersionId !== undefined &&
 				record.activeVersionId !== options.fromVersionId

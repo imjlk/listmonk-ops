@@ -1003,7 +1003,14 @@ export async function executeWebhookDispatchOperation(
 			store: resolveWebhookOperationStore(context),
 			fetcher: context.fetcher,
 			resolveSecret: context.resolveSecret,
-			limit: input.limit,
+			// Recovery mode must cover the whole echoed batch — the caller
+			// echoes claim_steps, not the original limit — so the effective
+			// limit grows to the set size instead of stranding members
+			// behind the default 25.
+			limit:
+				input.recovery_set === undefined
+					? input.limit
+					: Math.max(input.limit, input.recovery_set.length),
 			recoveryClaims: input.recovery_set?.map((member) => ({
 				id: member.delivery_id,
 				attemptCount: member.attempt_count,

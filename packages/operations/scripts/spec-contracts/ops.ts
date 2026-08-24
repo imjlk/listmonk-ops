@@ -151,7 +151,7 @@ export interface TemplateRollbackInput {
 	template_id: ResourceId;
 	/** Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version. */
 	to_version_id?: NonEmptyString;
-	/** Active registry version the caller observed; a retry after any intervening change — including the ABA transition of promoting the original back — conflicts instead of rolling again. */
+	/** Active registry version the caller observed; a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with expected_head_revision to catch that transition. */
 	from_version_id?: NonEmptyString;
 	/** Registry head revision the caller observed; it advances even when a cycle restores the active version and remote hash, so a pinned retry conflicts on A → B → A. */
 	expected_head_revision?: NonNegativeInteger;

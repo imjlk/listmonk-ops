@@ -184,7 +184,7 @@ const templateRollbackInputSchema = z.object({
 			.min(1)
 			.optional()
 			.describe(
-				"Active registry version the caller observed (registry-history active_version_id); a retry after any intervening change — including promoting the original version back — conflicts instead of rolling again",
+				"Active registry version the caller observed (registry-history active_version_id); a retry conflicts whenever the active version moved elsewhere. A cycle that promotes the original version back restores this pin's match — pair it with expected_head_revision to catch that transition",
 			),
 		expected_head_revision: z
 			.number()

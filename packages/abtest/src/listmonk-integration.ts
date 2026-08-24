@@ -892,13 +892,20 @@ export class ListmonkAbTestIntegration {
 	 * Automatically launches winner campaign to holdout group
 	 */
 	async autoDeployWinner(winnerCampaignId: number): Promise<void> {
-		// Launch winner campaign
-		await this.listmonkClient.campaign.updateStatus({
+		// Launch winner campaign. The handwritten client reports failures as
+		// an error envelope instead of throwing, so unwrap it here — a
+		// rejected status transition must fail the deployment instead of
+		// silently leaving the holdout campaign in draft.
+		const response = await this.listmonkClient.campaign.updateStatus({
 			path: { id: winnerCampaignId },
 			body: {
 				status: "running",
 			},
 		});
+		this.unwrapData(
+			response,
+			`Failed to launch winner campaign ${winnerCampaignId}`,
+		);
 	}
 
 	/**

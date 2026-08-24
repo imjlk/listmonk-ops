@@ -7,6 +7,7 @@ import {
 	dispatchOutboundWebhooks,
 	enqueueOperationLifecycleEvent,
 } from "../src/outbound-webhooks";
+import { executeWebhookDispatchOperation } from "../src/webhook-operations";
 
 const directories: string[] = [];
 
@@ -186,6 +187,37 @@ describe("webhook tick echoed-set recovery", () => {
 			claimed: 0,
 			pendingIds: [ids[0]],
 			alreadyDone: 0,
+		});
+	});
+
+	test("dispatch operation recovery covers an echoed batch beyond the default limit", async () => {
+		const path = await createStorePath();
+		await createHookEndpoint(path);
+		// 30 due deliveries: an original dispatch with limit 30 would echo
+		// 30 claim steps, and the echoed retry omits the limit so the input
+		// default (25) applies. The operation must still cover the whole
+		// echoed set instead of stranding five members as pending.
+		const ids = await enqueueDueDeliveries(path, 30);
+
+		const result = await executeWebhookDispatchOperation(
+			{
+				store: { path },
+				fetcher: okFetcher,
+				resolveSecret: () => "whsec",
+			},
+			{
+				limit: 25,
+				recovery_set: ids.map((id) => ({
+					delivery_id: id,
+					attempt_count: 0,
+				})),
+			},
+		);
+
+		expect(result).toMatchObject({
+			requested: 30,
+			claimed: 30,
+			pending_ids: [],
 		});
 	});
 });

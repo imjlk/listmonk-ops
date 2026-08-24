@@ -31523,7 +31523,7 @@
                   },
                   "from_version_id": {
                     "$ref": "#/components/schemas/NonEmptyString",
-                    "description": "Active registry version the caller observed; a retry after any intervening change — including the ABA transition of promoting the original back — conflicts instead of rolling again."
+                    "description": "Active registry version the caller observed; a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with expected_head_revision to catch that transition."
                   },
                   "template_id": {
                     "$ref": "#/components/schemas/ResourceId"
@@ -31554,7 +31554,7 @@
               },
               "from_version_id": {
                 "$ref": "#/components/schemas/NonEmptyString",
-                "description": "Active registry version the caller observed; a retry after any intervening change — including the ABA transition of promoting the original back — conflicts instead of rolling again."
+                "description": "Active registry version the caller observed; a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with expected_head_revision to catch that transition."
               },
               "template_id": {
                 "$ref": "#/components/schemas/ResourceId"

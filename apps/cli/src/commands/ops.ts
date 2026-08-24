@@ -373,7 +373,7 @@ export default defineGroup({
 				}),
 				"from-version-id": option(z.string().trim().min(1).optional(), {
 					description:
-						"Active registry version the caller observed (templates-history active_version_id); a retry after any intervening change — including promoting the original version back — conflicts instead of rolling again",
+						"Active registry version the caller observed (templates-history active_version_id); a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with --expected-head-revision to catch it",
 				}),
 				"expected-head-revision": option(
 					z.coerce.number().int().nonnegative().optional(),
