@@ -27377,8 +27377,26 @@
       },
       "resource": "template",
       "retry": {
-        "kind": "safe",
-        "reason": "Reapplying the same promotion converges on the same remote template content."
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "The hash pin conflicts on any remote change — another operator promoting a different version between the attempt and the retry included — before the update is re-issued, so the pinned retry either lands the same content or refuses to overwrite the intervening change. A successful promotion changes the remote hash, so a retry echoing the original pin always conflicts after its own success; that conflict is the reconciliation signal, and the check itself stays best-effort because Listmonk offers no conditional update.",
+              "reconcileWith": "templates.get"
+            },
+            "when": "expected_remote_hash is present and force is not set"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "An unpinned or forced retry re-issues the last-write-wins update unconditionally and can overwrite an intervening promotion of a different version."
+            },
+            "when": "expected_remote_hash is absent or force is set"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on pinning the observed remote template hash; Listmonk updates are last-write-wins."
       },
       "verb": "registry-promote"
     },
@@ -27578,9 +27596,9 @@
         "cases": [
           {
             "semantics": {
-              "idempotent": true,
+              "idempotent": false,
               "kind": "reconcile",
-              "reason": "Inside the store lock the head-revision pin conflicts on any registry transition — including an A → B → A cycle that restores the version id — the source pin conflicts when the active version moved, and the target pin makes an already-applied rollback a documented no-op, so a fully pinned retry converges on registry state. The remote hash pin stays best-effort: Listmonk offers no conditional update, so an external writer can interleave between the hash check and the write, and the retry re-issues the same last-write-wins update — verify the remote template afterwards.",
+              "reason": "Inside the store lock the head-revision pin conflicts on any registry transition — including an A → B → A cycle that restores the version id — the source pin conflicts when the active version moved, and the target pin makes an already-applied rollback a documented no-op for a freshly observed pin set. A successful rollback advances the head revision and changes the remote hash, so a retry echoing the original pins always conflicts after its own success; that conflict is the reconciliation signal — an already-applied rollback shows up in registry-history with the target active. The remote hash pin stays best-effort: Listmonk offers no conditional update, so an external writer can still interleave between the hash check and the write.",
               "reconcileWith": "templates.get"
             },
             "when": "from_version_id, to_version_id, expected_head_revision, and expected_remote_hash are all present"

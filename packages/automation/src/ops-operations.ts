@@ -184,7 +184,7 @@ const templateRollbackInputSchema = z.object({
 			.min(1)
 			.optional()
 			.describe(
-				"Active registry version the caller observed (registry-history active_version_id); a retry conflicts whenever the active version moved elsewhere. A cycle that promotes the original version back restores this pin's match — pair it with expected_head_revision to catch that transition",
+				"Active registry version the caller observed (the registry-history activeVersionId output); a retry conflicts whenever the active version moved elsewhere. A cycle that promotes the original version back restores this pin's match — pair it with expected_head_revision to catch that transition",
 			),
 		expected_head_revision: z
 			.number()
@@ -192,7 +192,7 @@ const templateRollbackInputSchema = z.object({
 			.nonnegative()
 			.optional()
 			.describe(
-				"Registry head revision the caller observed (registry-history head_revision, or the head_revision echoed by the original rollback); a cycle that restores the active version and remote hash still advances this counter, so a pinned retry conflicts instead of rolling again",
+				"Registry head revision the caller observed (the registry-history headRevision output, or the headRevision a prior rollback returned); a cycle that restores the active version and remote hash still advances this counter, so a pinned retry conflicts instead of rolling again",
 			),
 	expected_remote_hash: z
 		.string()
@@ -686,7 +686,7 @@ export const templateRegistryPromoteOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: true,
+		idempotentHint: false,
 		openWorldHint: true,
 	},
 	mcp: { name: "listmonk_ops_template_registry_promote" },

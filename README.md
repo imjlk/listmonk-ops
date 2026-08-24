@@ -703,16 +703,22 @@ interrupted auto-launch before completing — instead of creating a
 second holdout campaign), `webhooks.dispatch`
 (the tick's attempt-bound recovery_set contract on the standalone
 dispatch, capped at 100 entries like the dispatch limit), and
-`ops.templates.registry-promote`/`-rollback` (promotion
-reapplying the same version converges; rollback accepts a
+`ops.templates.registry-promote`/`-rollback` (promotion is conditional on
+its `expected_remote_hash` pin — any intervening remote change, another
+operator's promotion included, conflicts instead of being silently
+overwritten, and an unpinned or forced retry keeps the honest unsafe
+classification; rollback accepts a
 from_version_id source pin, an expected_head_revision pin over the
 monotonic registry-head counter — every active-version transition
 advances it, so an A → B → A cycle that restores both the version id
 and the remote hash still conflicts — and an expected_remote_hash
-out-of-registry drift pin, all checked inside the store lock; Listmonk
-offers no conditional update, so the hash pin stays best-effort and even
-a fully pinned retry re-issues a last-write-wins update, which is why
-that case classifies as a convergent reconcile instead of safe). The remaining 3 descriptors are
+out-of-registry drift pin, all checked inside the store lock. Listmonk
+offers no conditional update, so the hash pins stay best-effort; a
+successful promote or rollback changes the remote hash and advances the
+head, so a pinned retry of the original request conflicts even after
+its own success — that conflict is the documented reconciliation signal
+to re-inspect, which is why both pinned cases classify as reconcile
+instead of safe). The remaining 3 descriptors are
 experimental. A
 twenty-seventh batch promoted all three reconcile operations
 (`sequences.reconcile`, `webhooks.reconcile`, `abtest.reconcile`) with

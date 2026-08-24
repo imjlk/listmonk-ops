@@ -373,13 +373,13 @@ export default defineGroup({
 				}),
 				"from-version-id": option(z.string().trim().min(1).optional(), {
 					description:
-						"Active registry version the caller observed (templates-history active_version_id); a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with --expected-head-revision to catch it",
+						"Active registry version the caller observed (the templates-history activeVersionId output); a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with --expected-head-revision to catch it",
 				}),
 				"expected-head-revision": option(
 					z.coerce.number().int().nonnegative().optional(),
 					{
 						description:
-							"Registry head revision the caller observed (templates-history head_revision or a prior rollback's head_revision output); a cycle restoring the active version still advances it, so a pinned retry conflicts",
+							"Registry head revision the caller observed (the templates-history headRevision output, or the headRevision a prior rollback returned); a cycle restoring the active version still advances it, so a pinned retry conflicts",
 					},
 				),
 				"expected-remote-hash": option(z.string().optional(), {

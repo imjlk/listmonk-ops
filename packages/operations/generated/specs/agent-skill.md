@@ -1236,7 +1236,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Promote template version (`ops.templates.registry-promote`)
 
-Contract maturity: `stable`; effects: `write:template`; confirmation: `required`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:template`; confirmation: `required`; retry: `conditional`.
 
 Use when: A previously captured template version must be restored to Listmonk.
 
@@ -1246,7 +1246,7 @@ Prerequisites: `ops.templates.registry-history`
 
 Verify with: `templates.get`
 
-Retry guidance: Retry is safe; the promotion is idempotent for the same version content.
+Retry guidance: Echo the observed remote template hash as expected_remote_hash (the templates.get body or registry-history snapshot) so an ambiguous retry conflicts on any intervening remote change — another promotion included — instead of overwriting it; because a successful promotion changes the hash, a pinned retry of the original request conflicts even after its own success, so on conflict reconcile with templates.get and ops.templates.registry-history before deciding; without the pin (or with force), inspect templates.get first.
 
 ## Rollback template version (`ops.templates.registry-rollback`)
 
@@ -1260,7 +1260,7 @@ Prerequisites: `ops.templates.registry-history`
 
 Verify with: `templates.get`
 
-Retry guidance: Pin the full set from ops.templates.registry-history — from_version_id (observed active), to_version_id, expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op; because Listmonk updates are last-write-wins, verify the remote template with templates.get after a pinned retry, and with any pin missing inspect templates.get and the registry history before retrying.
+Retry guidance: Pin the full set — from_version_id (observed active), to_version_id, expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op for a freshly observed pin set; a successful rollback advances the head revision, so a retry echoing the original pins conflicts even after its own success — on that conflict reconcile with ops.templates.registry-history and templates.get, where an already-applied rollback shows the target active; with any pin missing, do the same inspection before retrying.
 
 ## List A/B tests (`abtest.list`)
 
@@ -1400,7 +1400,7 @@ Prerequisites: `abtest.get`
 
 Verify with: `abtest.get`
 
-Retry guidance: Echo the abtest.get status and updated_at verbatim as expected_status and expected_updated_at so an ambiguous retry conflicts instead of acting on a moved test; without both guards, inspect abtest.get before retrying.
+Retry guidance: Echo the abtest.get output's status and updatedAt fields verbatim as the expected_status and expected_updated_at inputs so an ambiguous retry conflicts instead of acting on a moved test; without both guards, inspect abtest.get before retrying.
 
 ## Tick A/B tests (`abtest.tick`)
 

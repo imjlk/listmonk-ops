@@ -1074,7 +1074,7 @@ Promote a stored template version back to Listmonk
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:template`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `safe`
+- Retry: `conditional`
 - Stability: `stable` since `0.9.0`
 
 ## `ops.templates.registry-rollback`

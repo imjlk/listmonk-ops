@@ -490,7 +490,7 @@ export const abTestRunOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch", "abtest.stop"],
 		retryGuidance:
-			"Echo the abtest.get status and updated_at verbatim as expected_status and expected_updated_at so an ambiguous retry conflicts instead of acting on a moved test; without both guards, inspect abtest.get before retrying.",
+			"Echo the abtest.get output's status and updatedAt fields verbatim as the expected_status and expected_updated_at inputs so an ambiguous retry conflicts instead of acting on a moved test; without both guards, inspect abtest.get before retrying.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_run",

@@ -682,14 +682,19 @@ variant 태그를 새로 분석된 winner와 대조해 검증하고, 모호하�
 테스트를 완료 — 두 번째 holdout 캠페인을 만들지 않음),
 `webhooks.dispatch`(tick의 시도 횟수 바인딩 recovery_set 계약을
 독립 dispatch에 적용, dispatch limit과 같은 100개 상한), 그리고
-`ops.templates.registry-promote`/`-rollback`(승격은 같은 버전 재적용이
-수렴; rollback은 from_version_id 소스 핀, 단조 registry-head 카운터에
-대한 expected_head_revision 핀 — 활성 버전 전이마다 증가하므로 버전
-id와 원격 hash를 모두 복원하는 A → B → A 사이클도 여전히 충돌 — 및
+`ops.templates.registry-promote`/`-rollback`(승격은
+`expected_remote_hash` 핀에 조건부 — 다른 운영자의 승격을 포함한
+사이 간격 원격 변경이 조용히 덮어쓰이는 대신 충돌하며, 핀 없거나
+force 재시도는 정직하게 unsafe로 유지; rollback은 from_version_id
+소스 핀, 단조 registry-head 카운터에 대한 expected_head_revision
+핀 — 활성 버전 전이마다 증가하므로 버전 id와 원격 hash를 모두
+복원하는 A → B → A 사이클도 여전히 충돌 — 및
 expected_remote_hash registry 밖 drift 핀을 받고, 세 검증 모두 store
-lock 안에서 실행; Listmonk엔 조건부 갱신이 없어 hash 핀은
-best-effort이고 완전히 핀된 재시도도 last-write-wins 갱신을 다시
-발행하므로 해당 경우를 safe가 아니라 수렴형 reconcile로 분류)을
+lock 안에서 실행. Listmonk엔 조건부 갱신이 없어 hash 핀은
+best-effort이며, 승격/롤백이 성공하면 원격 hash와 head가 바뀌므로
+원래 요청의 핀을 echo한 재시도는 자기 자신의 성공 직후에도
+충돌합니다 — 이 충돌이 재점검을 이끄는 문서화된 조정 신호여서
+두 핀된 경우 모두 safe가 아니라 reconcile로 분류)을
 승격했습니다. 현재 stable baseline은 101개이며, 나머지 experimental descriptor는
 3개입니다.
 
