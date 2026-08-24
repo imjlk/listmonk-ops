@@ -521,6 +521,80 @@ describe("automation persistence", () => {
 		expect(noop.rolledBack).toBe(false);
 	});
 
+	test("conflicts registry head cycles through the head revision pin", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let body = "<p>v1</p>";
+		const client = {
+			template: {
+				getById: async () => ({
+					data: { id: 12, name: "Head", type: "campaign", body },
+				}),
+				update: async () => ({ data: true }),
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const { syncTemplateRegistry, rollbackTemplateVersion } =
+			await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [12] });
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [12] });
+
+		const record = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			templates: Record<string, { versions: { versionId: string }[] }>;
+		};
+		const { promoteTemplateVersion, getTemplateRegistryHistory } =
+			await import("../src/template-registry");
+		const versions = record.templates["12"]!.versions;
+		const initialActive = (
+			await getTemplateRegistryHistory(12)
+		).activeVersionId!;
+		const newer = versions.find(
+			(version) => version.versionId !== initialActive,
+		)!;
+
+		// v1 → v2 → v1 → v2: a full cycle that restores both the active
+		// version id and the remote content. Every transition advances the
+		// monotonic head revision, which is what a pinned retry echoes.
+		const firstPromote = await promoteTemplateVersion(client, 12, newer.versionId);
+		expect(firstPromote.headRevision).toBe(1);
+		const rolled = await rollbackTemplateVersion(client, 12, {
+			toVersionId: initialActive,
+			fromVersionId: newer.versionId,
+		});
+		expect(rolled.headRevision).toBe(2);
+		const cyclePromote = await promoteTemplateVersion(
+			client,
+			12,
+			newer.versionId,
+		);
+		expect(cyclePromote.headRevision).toBe(3);
+		expect((await getTemplateRegistryHistory(12)).headRevision).toBe(3);
+
+		// After the cycle the registry is indistinguishable from the original
+		// observation — same active version, same remote hash — so a retry
+		// echoing the original pins AND the echoed head revision conflicts
+		// instead of silently rolling back over the re-promotion.
+		await expect(
+			rollbackTemplateVersion(client, 12, {
+				toVersionId: initialActive,
+				fromVersionId: newer.versionId,
+				expectedHeadRevision: rolled.headRevision,
+			}),
+		).rejects.toThrow(/head revision pin .* no longer matches/);
+
+		// Without the head pin this cycle is indistinguishable from the
+		// original observation and an echoed retry would roll again; a fresh
+		// observation via history pins the current head, and that retry is
+		// the already-applied no-op.
+		const currentHead = (await getTemplateRegistryHistory(12)).headRevision;
+		const noop = await rollbackTemplateVersion(client, 12, {
+			toVersionId: newer.versionId,
+			fromVersionId: newer.versionId,
+			expectedHeadRevision: currentHead,
+		});
+		expect(noop.rolledBack).toBe(false);
+	});
+
 	test("conflicts rollbacks over remote drift through the hash pin", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let body = "<p>v1</p>";

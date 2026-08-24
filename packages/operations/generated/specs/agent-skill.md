@@ -1260,7 +1260,7 @@ Prerequisites: `ops.templates.registry-history`
 
 Verify with: `templates.get`
 
-Retry guidance: Pin the full triple from ops.templates.registry-history — from_version_id (the observed active), to_version_id, and expected_remote_hash — so an ambiguous retry conflicts on any intervening change (ABA included) or is a documented no-op; with any pin missing, inspect templates.get and the registry history before retrying.
+Retry guidance: Pin the full set from ops.templates.registry-history — from_version_id (observed active), to_version_id, expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op; because Listmonk updates are last-write-wins, verify the remote template with templates.get after a pinned retry, and with any pin missing inspect templates.get and the registry history before retrying.
 
 ## List A/B tests (`abtest.list`)
 

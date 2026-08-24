@@ -515,14 +515,14 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 96개는
-`stable`, 8개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 101개는
+`stable`, 3개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
-검토를 마친 핵심 96개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 101개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -673,8 +673,25 @@ echo하면 가드를 통과해 두 번째 전달 사이클이 시작됩니다). 
 반복은 전달이 여전히 그 세대에 있을 때만 발동하며, 그 사이 worker 사이클이
 세대를 옮기면 반복은 다른 사이클을 시작하는 대신 현재 상태를 보고합니다; dead-letter replay는 각 후보의 세대를 echo하고 여전히 그
 세대에서 exhausted인 레코드만 재생해 재소진 재진입 위험을 닫습니다.
-현재 stable baseline은 96개이며, 나머지 experimental descriptor는
-8개입니다.
+스물아홉 번째 batch에서는 `abtest.run`(두 revision 가드 —
+expected_status와 expected_updated_at — 가 동일한 재시도를 수렴시키며,
+store 트랜잭션 안에서 검증), `abtest.deploy-winner`(재시도는 해당
+테스트에 winner:deployed 태그가 붙은 유일한 캠페인을 채택합니다 —
+variant 태그를 새로 분석된 winner와 대조해 검증하고, 모호하거나
+중복인 태깅 캠페인은 거부하며, 중단된 자동 발송을 완료한 뒤에
+테스트를 완료 — 두 번째 holdout 캠페인을 만들지 않음),
+`webhooks.dispatch`(tick의 시도 횟수 바인딩 recovery_set 계약을
+독립 dispatch에 적용, dispatch limit과 같은 100개 상한), 그리고
+`ops.templates.registry-promote`/`-rollback`(승격은 같은 버전 재적용이
+수렴; rollback은 from_version_id 소스 핀, 단조 registry-head 카운터에
+대한 expected_head_revision 핀 — 활성 버전 전이마다 증가하므로 버전
+id와 원격 hash를 모두 복원하는 A → B → A 사이클도 여전히 충돌 — 및
+expected_remote_hash registry 밖 drift 핀을 받고, 세 검증 모두 store
+lock 안에서 실행; Listmonk엔 조건부 갱신이 없어 hash 핀은
+best-effort이고 완전히 핀된 재시도도 last-write-wins 갱신을 다시
+발행하므로 해당 경우를 safe가 아니라 수렴형 reconcile로 분류)을
+승격했습니다. 현재 stable baseline은 101개이며, 나머지 experimental descriptor는
+3개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
@@ -688,7 +705,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 96개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 101개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 317개를
 검증합니다.
 

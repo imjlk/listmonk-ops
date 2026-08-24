@@ -209,6 +209,7 @@ const webhookDispatchInputSchema = z.object({
 			}),
 		)
 		.min(1)
+		.max(100)
 		.refine(
 			(set) =>
 				new Set(set.map((member) => member.delivery_id)).size === set.length,
@@ -216,7 +217,7 @@ const webhookDispatchInputSchema = z.object({
 		)
 		.optional()
 		.describe(
-			"Echoed claim set from a prior dispatch's claim_steps output: claim exactly these deliveries at their originally claimed attempt counts (entries that moved on, hold a live lease, sit in backoff, or face an open circuit are skipped) instead of claiming new due work",
+			"Echoed claim set from a prior dispatch's claim_steps output (at most 100 entries, the dispatch limit ceiling): claim exactly these deliveries at their originally claimed attempt counts (entries that moved on, hold a live lease, sit in backoff, or face an open circuit are skipped) instead of claiming new due work",
 		),
 });
 const webhookDeliveryListInputSchema = z.object({

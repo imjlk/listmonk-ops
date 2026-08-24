@@ -696,14 +696,23 @@ re-entry hazard. A
 twenty-ninth batch promoted `abtest.run` (both revision guards —
 expected_status and expected_updated_at — make an identical retry
 converge, verified inside the store transaction), `abtest.deploy-winner`
-(a retry adopts a campaign already tagged winner:deployed for the test
-instead of creating a second holdout campaign), `webhooks.dispatch`
+(a retry adopts the single campaign tagged winner:deployed for the test
+— validating its variant tag against the freshly analyzed winner,
+rejecting ambiguous or multiple tagged campaigns, and finishing an
+interrupted auto-launch before completing — instead of creating a
+second holdout campaign), `webhooks.dispatch`
 (the tick's attempt-bound recovery_set contract on the standalone
-dispatch), and `ops.templates.registry-promote`/`-rollback` (promotion
+dispatch, capped at 100 entries like the dispatch limit), and
+`ops.templates.registry-promote`/`-rollback` (promotion
 reapplying the same version converges; rollback accepts a
-from_version_id source pin that detects the ABA transition and an
-expected_remote_hash pin that detects out-of-registry drift, both
-checked inside the store lock). The remaining 3 descriptors are
+from_version_id source pin, an expected_head_revision pin over the
+monotonic registry-head counter — every active-version transition
+advances it, so an A → B → A cycle that restores both the version id
+and the remote hash still conflicts — and an expected_remote_hash
+out-of-registry drift pin, all checked inside the store lock; Listmonk
+offers no conditional update, so the hash pin stays best-effort and even
+a fully pinned retry re-issues a last-write-wins update, which is why
+that case classifies as a convergent reconcile instead of safe). The remaining 3 descriptors are
 experimental. A
 twenty-seventh batch promoted all three reconcile operations
 (`sequences.reconcile`, `webhooks.reconcile`, `abtest.reconcile`) with

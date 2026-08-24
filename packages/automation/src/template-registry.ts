@@ -39,6 +39,12 @@ export interface TemplateRegistryTemplateRecord {
 	templateId: number;
 	templateName: string;
 	activeVersionId?: string;
+	/**
+	 * Monotonic counter of active-version transitions. It advances even when
+	 * a cycle restores the previous version id, so a pinned retry can tell a
+	 * registry that only moved forward from one that went A → B → A.
+	 */
+	headRevision?: number;
 	versions: TemplateRegistryVersion[];
 }
 
@@ -75,6 +81,8 @@ export interface TemplatePromoteResult {
 	templateName: string;
 	versionId: string;
 	activeVersionId: string;
+	/** Registry head revision after this promotion; echo it to pin a later rollback retry. */
+	headRevision: number;
 	promotedAt: string;
 }
 
@@ -83,6 +91,8 @@ export interface TemplateRollbackResult {
 	templateName: string;
 	versionId: string;
 	activeVersionId: string;
+	/** Registry head revision after this rollback; echo it to pin a retry. */
+	headRevision: number;
 	promotedAt: string;
 	/** False when the requested rollback was already applied. */
 	rolledBack: boolean;
@@ -146,6 +156,10 @@ function isTemplateRegistryRecord(
 		typeof value.templateName === "string" &&
 		(value.activeVersionId === undefined ||
 			typeof value.activeVersionId === "string") &&
+		(value.headRevision === undefined ||
+			(typeof value.headRevision === "number" &&
+				Number.isInteger(value.headRevision) &&
+				value.headRevision >= 0)) &&
 		Array.isArray(value.versions) &&
 		value.versions.length > 0 &&
 		value.versions.every(isTemplateRegistryVersion)
@@ -378,6 +392,7 @@ export async function getTemplateRegistryHistory(templateId: number): Promise<{
 	templateId: number;
 	templateName: string;
 	activeVersionId?: string;
+	headRevision: number;
 	versions: TemplateRegistryVersion[];
 }> {
 	const storeDefinition = createTemplateRegistryStore();
@@ -392,6 +407,7 @@ export async function getTemplateRegistryHistory(templateId: number): Promise<{
 		templateId: record.templateId,
 		templateName: record.templateName,
 		activeVersionId: record.activeVersionId,
+		headRevision: record.headRevision ?? 0,
 		versions: record.versions,
 	};
 }
@@ -439,6 +455,12 @@ async function promoteTemplateVersionInStore(
 		);
 	}
 
+	if (record.activeVersionId !== versionId) {
+		// Advance the monotonic head revision only on a real transition, so
+		// re-promoting the active version stays a convergent no-op while any
+		// A → B → A cycle is still observable through the changed counter.
+		record.headRevision = (record.headRevision ?? 0) + 1;
+	}
 	record.activeVersionId = versionId;
 	store.templates[String(templateId)] = record;
 
@@ -447,6 +469,7 @@ async function promoteTemplateVersionInStore(
 		templateName: record.templateName,
 		versionId,
 		activeVersionId: versionId,
+		headRevision: record.headRevision ?? 0,
 		promotedAt: new Date().toISOString(),
 	};
 }
@@ -524,6 +547,13 @@ export async function rollbackTemplateVersion(
 		toVersionId?: string;
 		/** ABA pin: the active version the caller observed; a mismatch conflicts. */
 		fromVersionId?: string;
+		/**
+		 * Head pin: the registry head revision the caller observed (echo the
+		 * head_revision from the original attempt or registry-history). Unlike
+		 * the source pin it survives an A → B → A cycle that restores both the
+		 * version id and the remote content, because the counter moved on.
+		 */
+		expectedHeadRevision?: number;
 		/** Remote drift pin: the remote template hash the caller observed. */
 		expectedRemoteHash?: string;
 	} = {},
@@ -537,6 +567,20 @@ export async function rollbackTemplateVersion(
 			if (!record || record.versions.length < 2) {
 				throw new Error(
 					`Rollback requires at least 2 versions for template ${templateId}`,
+				);
+			}
+
+			// The head revision pin catches cycles the source pin cannot:
+			// promoting the original version back restores both the active
+			// version id and (for identical content) the remote hash, so only
+			// the monotonic counter proves the registry moved A → B → A. It
+			// is checked first because it is the cheapest exact match.
+			if (
+				options.expectedHeadRevision !== undefined &&
+				(record.headRevision ?? 0) !== options.expectedHeadRevision
+			) {
+				throw new Error(
+					`Rollback head revision pin ${options.expectedHeadRevision} no longer matches registry head ${record.headRevision ?? 0} of template ${templateId}; the registry changed since the echoed attempt`,
 				);
 			}
 
@@ -557,7 +601,9 @@ export async function rollbackTemplateVersion(
 
 			// Remote drift pin: same locked hash check as promotion, so a
 			// template mutated outside the registry cannot be rolled back
-			// over silently.
+			// over silently. Listmonk offers no conditional update, so this
+			// stays a best-effort pre-check — an external writer can still
+			// interleave between this GET and the update PUT below.
 			if (options.expectedRemoteHash !== undefined) {
 				const remoteTemplate = await getTemplateById(client, templateId);
 				const remoteHash = createTemplateHash({
@@ -587,6 +633,7 @@ export async function rollbackTemplateVersion(
 					templateName: record.templateName,
 					versionId: options.toVersionId,
 					activeVersionId: record.activeVersionId,
+					headRevision: record.headRevision ?? 0,
 					promotedAt: new Date().toISOString(),
 					rolledBack: false,
 				};

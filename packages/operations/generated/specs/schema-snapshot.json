@@ -5515,10 +5515,11 @@
                   "$ref": "#/components/schemas/WebhookDispatchLimit"
                 },
                 "recovery_set": {
-                  "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique.",
+                  "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique and the set is capped at 100 entries, the\ndispatch limit ceiling.",
                   "items": {
                     "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
                   },
+                  "maxItems": 100,
                   "minItems": 1,
                   "type": "array"
                 }
@@ -5559,10 +5560,11 @@
               "$ref": "#/components/schemas/WebhookDispatchLimit"
             },
             "recovery_set": {
-              "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique.",
+              "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique and the set is capped at 100 entries, the\ndispatch limit ceiling.",
               "items": {
                 "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
               },
+              "maxItems": 100,
               "minItems": 1,
               "type": "array"
             }
@@ -27173,6 +27175,11 @@
       "output": {
         "components": {
           "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "ResourceId": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -27183,6 +27190,10 @@
               "properties": {
                 "activeVersionId": {
                   "type": "string"
+                },
+                "headRevision": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "Monotonic count of active-version transitions; echo it to pin a rollback retry."
                 },
                 "templateId": {
                   "$ref": "#/components/schemas/ResourceId"
@@ -27200,6 +27211,7 @@
               "required": [
                 "templateId",
                 "templateName",
+                "headRevision",
                 "versions"
               ],
               "type": "object"
@@ -27268,6 +27280,10 @@
             "activeVersionId": {
               "type": "string"
             },
+            "headRevision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Monotonic count of active-version transitions; echo it to pin a rollback retry."
+            },
             "templateId": {
               "$ref": "#/components/schemas/ResourceId"
             },
@@ -27284,6 +27300,7 @@
           "required": [
             "templateId",
             "templateName",
+            "headRevision",
             "versions"
           ],
           "type": "object"
@@ -27372,6 +27389,11 @@
       "output": {
         "components": {
           "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "ResourceId": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -27382,6 +27404,10 @@
               "properties": {
                 "activeVersionId": {
                   "type": "string"
+                },
+                "headRevision": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
                 },
                 "promotedAt": {
                   "type": "string"
@@ -27401,6 +27427,7 @@
                 "templateName",
                 "versionId",
                 "activeVersionId",
+                "headRevision",
                 "promotedAt"
               ],
               "type": "object"
@@ -27413,6 +27440,10 @@
           "properties": {
             "activeVersionId": {
               "type": "string"
+            },
+            "headRevision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
             },
             "promotedAt": {
               "type": "string"
@@ -27432,6 +27463,7 @@
             "templateName",
             "versionId",
             "activeVersionId",
+            "headRevision",
             "promotedAt"
           ],
           "type": "object"
@@ -27460,6 +27492,11 @@
               "minLength": 1,
               "type": "string"
             },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "ResourceId": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -27468,6 +27505,10 @@
             "TemplateRollbackInput": {
               "additionalProperties": false,
               "properties": {
+                "expected_head_revision": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "Registry head revision the caller observed; it advances even when a cycle restores the active version and remote hash, so a pinned retry conflicts on A → B → A."
+                },
                 "expected_remote_hash": {
                   "$ref": "#/components/schemas/NonEmptyString",
                   "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
@@ -27495,6 +27536,10 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "expected_head_revision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Registry head revision the caller observed; it advances even when a cycle restores the active version and remote hash, so a pinned retry conflicts on A → B → A."
+            },
             "expected_remote_hash": {
               "$ref": "#/components/schemas/NonEmptyString",
               "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
@@ -27522,6 +27567,11 @@
       "output": {
         "components": {
           "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "ResourceId": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -27532,6 +27582,10 @@
               "properties": {
                 "activeVersionId": {
                   "type": "string"
+                },
+                "headRevision": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "Registry head revision after the rollback; echo it to pin a retry."
                 },
                 "promotedAt": {
                   "type": "string"
@@ -27555,6 +27609,7 @@
                 "templateName",
                 "versionId",
                 "activeVersionId",
+                "headRevision",
                 "promotedAt",
                 "rolledBack"
               ],
@@ -27568,6 +27623,10 @@
           "properties": {
             "activeVersionId": {
               "type": "string"
+            },
+            "headRevision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Registry head revision after the rollback; echo it to pin a retry."
             },
             "promotedAt": {
               "type": "string"
@@ -27591,6 +27650,7 @@
             "templateName",
             "versionId",
             "activeVersionId",
+            "headRevision",
             "promotedAt",
             "rolledBack"
           ],
@@ -27608,10 +27668,12 @@
         "cases": [
           {
             "semantics": {
-              "kind": "safe",
-              "reason": "The source pin conflicts the moment the registry head moved anywhere else — including the ABA transition of promoting the original version back — the remote hash pin conflicts when the template mutated outside the registry, the target pin makes an already-applied rollback a documented no-op, and all three checks run inside the store lock, so an identical fully-pinned retry converges instead of rolling again."
+              "idempotent": true,
+              "kind": "reconcile",
+              "reason": "Inside the store lock the head-revision pin conflicts on any registry transition — including an A → B → A cycle that restores the version id — the source pin conflicts when the active version moved, and the target pin makes an already-applied rollback a documented no-op, so a fully pinned retry converges on registry state. The remote hash pin stays best-effort: Listmonk offers no conditional update, so an external writer can interleave between the hash check and the write, and the retry re-issues the same last-write-wins update — verify the remote template afterwards.",
+              "reconcileWith": "templates.get"
             },
-            "when": "from_version_id, to_version_id, and expected_remote_hash are all present"
+            "when": "from_version_id, to_version_id, expected_head_revision, and expected_remote_hash are all present"
           },
           {
             "semantics": {
@@ -27622,7 +27684,7 @@
           }
         ],
         "kind": "conditional",
-        "reason": "Retry safety depends on whether the caller pins the observed registry head, target, and remote hash."
+        "reason": "Retry safety depends on whether the caller pins the observed registry head, target, and remote hash; even fully pinned retries re-issue a last-write-wins remote update."
       },
       "since": "0.9.0",
       "stability": "stable"

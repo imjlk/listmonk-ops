@@ -169,6 +169,8 @@ export interface TemplateRegistryHistoryOutput {
 	templateId: ResourceId;
 	templateName: string;
 	activeVersionId?: string;
+	/** Monotonic count of active-version transitions; echo it to pin a rollback retry. */
+	headRevision: NonNegativeInteger;
 	versions: TemplateRegistryVersion[];
 }
 
@@ -188,5 +190,7 @@ export interface TemplatePromoteOutput {
 	templateName: string;
 	versionId: string;
 	activeVersionId: string;
+	/** Registry head revision after this promotion; echo it to pin a later rollback retry. */
+	headRevision: NonNegativeInteger;
 	promotedAt: string;
 }

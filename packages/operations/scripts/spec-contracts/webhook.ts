@@ -191,10 +191,12 @@ export interface WebhookDispatchInput {
 	/**
 	 * Echoed claim set from a prior dispatch's claim_steps output: claim
 	 * exactly these deliveries at their originally claimed attempt counts.
-	 * Delivery ids must be unique.
+	 * Delivery ids must be unique and the set is capped at 100 entries, the
+	 * dispatch limit ceiling.
 	 */
 	recovery_set?: readonly WebhookDispatchRecoveryClaim[] &
-		tags.MinItems<1>;
+		tags.MinItems<1> &
+		tags.MaxItems<100>;
 }
 
 /** One echoed dispatch claim position: the delivery plus its attempt count at claim. */

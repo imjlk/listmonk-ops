@@ -382,11 +382,13 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 		kind: "conditional",
 		cases: [
 			{
-				when: "from_version_id, to_version_id, and expected_remote_hash are all present",
+				when: "from_version_id, to_version_id, expected_head_revision, and expected_remote_hash are all present",
 				semantics: {
-					kind: "safe",
+					kind: "reconcile",
+					reconcileWith: "templates.get",
+					idempotent: true,
 					reason:
-						"The source pin conflicts the moment the registry head moved anywhere else — including the ABA transition of promoting the original version back — the remote hash pin conflicts when the template mutated outside the registry, the target pin makes an already-applied rollback a documented no-op, and all three checks run inside the store lock, so an identical fully-pinned retry converges instead of rolling again.",
+						"Inside the store lock the head-revision pin conflicts on any registry transition — including an A → B → A cycle that restores the version id — the source pin conflicts when the active version moved, and the target pin makes an already-applied rollback a documented no-op, so a fully pinned retry converges on registry state. The remote hash pin stays best-effort: Listmonk offers no conditional update, so an external writer can interleave between the hash check and the write, and the retry re-issues the same last-write-wins update — verify the remote template afterwards.",
 				},
 			},
 			{
@@ -399,7 +401,7 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 			},
 		],
 		reason:
-			"Retry safety depends on whether the caller pins the observed registry head, target, and remote hash.",
+			"Retry safety depends on whether the caller pins the observed registry head, target, and remote hash; even fully pinned retries re-issue a last-write-wins remote update.",
 	},
 	agent: {
 		useWhen: ["A template must be reverted to its previous stored version."],
@@ -408,7 +410,7 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 		verifyWith: ["templates.get"],
 		related: ["ops.templates.registry-sync", "ops.templates.registry-promote"],
 		retryGuidance:
-			"Pin the full triple from ops.templates.registry-history — from_version_id (the observed active), to_version_id, and expected_remote_hash — so an ambiguous retry conflicts on any intervening change (ABA included) or is a documented no-op; with any pin missing, inspect templates.get and the registry history before retrying.",
+			"Pin the full set from ops.templates.registry-history — from_version_id (observed active), to_version_id, expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op; because Listmonk updates are last-write-wins, verify the remote template with templates.get after a pinned retry, and with any pin missing inspect templates.get and the registry history before retrying.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_template_registry_rollback",

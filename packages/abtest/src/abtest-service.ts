@@ -1463,11 +1463,46 @@ export class AbTestService {
 			try {
 				const existing =
 					await this.listmonkIntegration.findCampaignsByTestTag(testId);
-				const deployed = existing.find((campaign) =>
+				const deployed = existing.filter((campaign) =>
 					campaign.tags.includes("winner:deployed"),
 				);
-				if (deployed) {
-					test.winnerCampaignId = deployed.id;
+				if (deployed.length > 1) {
+					throw new Error(
+						`Test ${testId} has ${deployed.length} campaigns tagged winner:deployed (${deployed.map((campaign) => campaign.id).join(", ")}); exactly one is required, so resolve the duplicates manually before deploying`,
+					);
+				}
+				const adopted = deployed[0];
+				if (adopted) {
+					// The adopted campaign must carry exactly one variant tag
+					// and it must be the variant the current analysis selected:
+					// delayed metrics can change the analyzed winner after the
+					// first attempt already delivered a different variant.
+					const variantIds = adopted.tags
+						.filter((tag) => tag.startsWith("variant:"))
+						.map((tag) => tag.slice("variant:".length));
+					const adoptedVariantId = variantIds.length === 1
+						? variantIds[0]
+						: undefined;
+					if (!adoptedVariantId) {
+						throw new Error(
+							`Winner campaign ${adopted.id} for test ${testId} carries ambiguous variant tags [${adopted.tags.filter((tag) => tag.startsWith("variant:")).join(", ")}]; resolve the campaign tags manually before deploying`,
+						);
+					}
+					if (adoptedVariantId !== analysis.winner.id) {
+						throw new Error(
+							`Winner campaign ${adopted.id} for test ${testId} deployed variant ${adoptedVariantId}, but the current analysis selected variant ${analysis.winner.id}; the holdout already received a different variant, so resolve the winner manually instead of adopting the campaign`,
+						);
+					}
+
+					// Finish an auto-launch the first attempt could not: a
+					// created-but-unlaunched campaign stays a draft, and the
+					// retry must launch it before completing the test. A
+					// campaign that already moved past draft was launched.
+					if (test.autoDeployWinner && adopted.status === "draft") {
+						await this.listmonkIntegration.autoDeployWinner(adopted.id);
+					}
+
+					test.winnerCampaignId = adopted.id;
 					test.winnerVariantId = analysis.winner.id;
 					test.status = "completed";
 					test.updatedAt = new Date();

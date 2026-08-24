@@ -178,14 +178,22 @@ const templateRollbackInputSchema = z.object({
 		.describe(
 			"Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version",
 		),
-	from_version_id: z
-		.string()
-		.trim()
-		.min(1)
-		.optional()
-		.describe(
-			"Active registry version the caller observed (registry-history active_version_id); a retry after any intervening change — including promoting the original version back — conflicts instead of rolling again",
-		),
+		from_version_id: z
+			.string()
+			.trim()
+			.min(1)
+			.optional()
+			.describe(
+				"Active registry version the caller observed (registry-history active_version_id); a retry after any intervening change — including promoting the original version back — conflicts instead of rolling again",
+			),
+		expected_head_revision: z
+			.number()
+			.int()
+			.nonnegative()
+			.optional()
+			.describe(
+				"Registry head revision the caller observed (registry-history head_revision, or the head_revision echoed by the original rollback); a cycle that restores the active version and remote hash still advances this counter, so a pinned retry conflicts instead of rolling again",
+			),
 	expected_remote_hash: z
 		.string()
 		.trim()
@@ -384,6 +392,7 @@ const templateRegistryHistoryOutputSchema = z.object({
 	templateId: z.number().int().positive(),
 	templateName: z.string(),
 	activeVersionId: z.string().optional(),
+	headRevision: z.number().int().nonnegative(),
 	versions: z.array(templateRegistryVersionSchema),
 });
 
@@ -392,6 +401,7 @@ const templatePromoteOutputSchema = z.object({
 	templateName: z.string(),
 	versionId: z.string(),
 	activeVersionId: z.string(),
+	headRevision: z.number().int().nonnegative(),
 	promotedAt: z.string(),
 });
 
@@ -562,6 +572,7 @@ export async function executeTemplateRegistryRollbackOperation(
 	return rollbackTemplateVersion(client, input.template_id, {
 		toVersionId: input.to_version_id,
 		fromVersionId: input.from_version_id?.trim() || undefined,
+		expectedHeadRevision: input.expected_head_revision,
 		expectedRemoteHash: input.expected_remote_hash?.trim() || undefined,
 	});
 }

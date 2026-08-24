@@ -113,7 +113,7 @@ export class ListmonkAbTestIntegration {
 	 */
 	async findCampaignsByTestTag(
 		testId: string,
-	): Promise<Array<{ id: number; tags: string[] }>> {
+	): Promise<Array<{ id: number; tags: string[]; status: string }>> {
 		// Scope the query server-side by the test tag so reconciliation
 		// never transfers the whole campaign history. The generated SDK
 		// types the plural `tags` parameter, but Listmonk 6.2 ignores it
@@ -139,7 +139,7 @@ export class ListmonkAbTestIntegration {
 		const rows = Array.isArray(campaigns)
 			? campaigns
 			: ((campaigns as { results?: unknown[] })?.results ?? []);
-		return (rows as Array<{ id?: unknown; tags?: string[] }>)
+		return (rows as Array<{ id?: unknown; tags?: string[]; status?: unknown }>)
 			.filter((campaign) => campaign?.tags?.includes(`abtest:${testId}`))
 			.map((campaign) => ({
 				id: this.requireNumericId(
@@ -147,6 +147,8 @@ export class ListmonkAbTestIntegration {
 					`Failed to resolve campaign id for test ${testId}`,
 				),
 				tags: campaign.tags ?? [],
+				status:
+					typeof campaign.status === "string" ? campaign.status : "unknown",
 			}));
 	}
 

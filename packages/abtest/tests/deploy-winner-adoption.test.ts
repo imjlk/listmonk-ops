@@ -60,10 +60,10 @@ function decisiveResults(): TestResults[] {
 	];
 }
 
+type TaggedCampaign = { id: number; tags: string[]; status: string };
+
 type IntegrationLike = {
-	findCampaignsByTestTag: (
-		testId: string,
-	) => Promise<Array<{ id: number; tags: string[] }>>;
+	findCampaignsByTestTag: (testId: string) => Promise<TaggedCampaign[]>;
 	deployWinnerToHoldout: (
 		winner: unknown,
 		holdoutListId: number,
@@ -74,11 +74,16 @@ type IntegrationLike = {
 };
 
 function integrationWith(
-	tagged: Array<{ id: number; tags: string[] }>,
+	tagged: Array<{ id: number; tags: string[]; status?: string }>,
 	onCreate: () => number,
 ): IntegrationLike {
 	return {
-		findCampaignsByTestTag: async () => tagged,
+		findCampaignsByTestTag: async () =>
+			tagged.map((campaign) => ({
+				id: campaign.id,
+				tags: campaign.tags,
+				status: campaign.status ?? "running",
+			})),
 		deployWinnerToHoldout: async () => onCreate(),
 		autoDeployWinner: async () => {},
 	};
@@ -136,5 +141,133 @@ describe("abtest deploy-winner tag adoption", () => {
 		const persisted = await service.getTest("test-1");
 		expect(persisted?.winnerCampaignId).toBe(512);
 		expect(persisted?.status).toBe("completed");
+	});
+
+	test("finishes a configured auto-launch the first attempt could not", async () => {
+		const test = { ...makeTest(), autoDeployWinner: true };
+		let created: number | undefined;
+		let campaignStatus = "draft";
+		const launches: number[] = [];
+		let launchAttempts = 0;
+		const integration: IntegrationLike = {
+			findCampaignsByTestTag: async () =>
+				created === undefined
+					? []
+					: [
+							{
+								id: created,
+								tags: [
+									"abtest:test-1",
+									"variant:A",
+									"winner:deployed",
+									"holdout:group",
+								],
+								status: campaignStatus,
+							},
+						],
+			deployWinnerToHoldout: async () => {
+				created = 640;
+				return created;
+			},
+			autoDeployWinner: async (campaignId) => {
+				launchAttempts += 1;
+				if (launchAttempts === 1) {
+					throw new Error("launch endpoint unavailable");
+				}
+				launches.push(campaignId);
+				campaignStatus = "running";
+			},
+		};
+		const service = new AbTestService(
+			integration as never,
+			new SimulatedMetricsCollector(new Map([["test-1", decisiveResults()]])),
+		);
+		await service.hydrateTests([test]);
+
+		// First attempt: campaign creation and tagging succeed, the launch
+		// fails, so the test must stay analyzing instead of completing.
+		await expect(service.deployWinner("test-1")).rejects.toThrow(
+			/launch endpoint unavailable/,
+		);
+		const afterFailure = await service.getTest("test-1");
+		expect(afterFailure?.status).toBe("analyzing");
+		expect(afterFailure?.winnerCampaignId).toBeUndefined();
+
+		// Retry: adoption finds the tagged draft and must launch it before
+		// completing the test.
+		await service.deployWinner("test-1");
+
+		expect(launches).toEqual([640]);
+		const persisted = await service.getTest("test-1");
+		expect(persisted?.winnerCampaignId).toBe(640);
+		expect(persisted?.status).toBe("completed");
+	});
+
+	test("rejects adoption when the deployed campaign carries another variant", async () => {
+		const integration = integrationWith([
+			{
+				id: 771,
+				tags: [
+					"abtest:test-1",
+					"variant:B",
+					"winner:deployed",
+					"holdout:group",
+				],
+			},
+		]);
+		const service = new AbTestService(
+			integration as never,
+			new SimulatedMetricsCollector(new Map([["test-1", decisiveResults()]])),
+		);
+		await service.hydrateTests([makeTest()]);
+
+		// The decisive results select variant A; a campaign that already
+		// delivered variant B must not be recorded as A's deployment.
+		await expect(service.deployWinner("test-1")).rejects.toThrow(
+			/deployed variant B, but the current analysis selected variant A/,
+		);
+		const afterRejection = await service.getTest("test-1");
+		expect(afterRejection?.status).toBe("analyzing");
+		expect(afterRejection?.winnerCampaignId).toBeUndefined();
+	});
+
+	test("rejects adoption when the deployed campaign has ambiguous variant tags", async () => {
+		const integration = integrationWith([
+			{
+				id: 772,
+				tags: ["abtest:test-1", "winner:deployed", "holdout:group"],
+			},
+		]);
+		const service = new AbTestService(
+			integration as never,
+			new SimulatedMetricsCollector(new Map([["test-1", decisiveResults()]])),
+		);
+		await service.hydrateTests([makeTest()]);
+
+		await expect(service.deployWinner("test-1")).rejects.toThrow(
+			/ambiguous variant tags/,
+		);
+	});
+
+	test("rejects adoption when multiple campaigns claim winner:deployed", async () => {
+		const integration = integrationWith([
+			{
+				id: 773,
+				tags: ["abtest:test-1", "variant:A", "winner:deployed"],
+			},
+			{
+				id: 774,
+				tags: ["abtest:test-1", "variant:A", "winner:deployed"],
+			},
+		]);
+		const service = new AbTestService(
+			integration as never,
+			new SimulatedMetricsCollector(new Map([["test-1", decisiveResults()]])),
+		);
+		await service.hydrateTests([makeTest()]);
+
+		await expect(service.deployWinner("test-1")).rejects.toThrow(
+			/2 campaigns tagged winner:deployed/,
+		);
 	});
 });
