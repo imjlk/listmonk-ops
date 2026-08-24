@@ -356,6 +356,8 @@ export type ReconcileOutboundWebhooksOptions = Readonly<{
 }>;
 
 export type ReconcileOutboundWebhooksResult = Readonly<{
+	/** Echoed ids of the deliveries the scan considered. */
+	scannedIds: readonly string[];
 	scanned: number;
 	recovered: number;
 	exhausted: number;
@@ -504,7 +506,9 @@ export interface OutboundWebhookRepository {
 		}>,
 	): Promise<OutboundWebhookDelivery>;
 	reconcile(
-		options: Required<ReconcileOutboundWebhooksOptions>,
+		options: Required<ReconcileOutboundWebhooksOptions> & {
+			deliveryIds?: readonly string[];
+		},
 	): Promise<ReconcileOutboundWebhooksResult>;
 	prune(
 		options: ResolvedPruneOutboundWebhooksOptions,
@@ -1608,12 +1612,16 @@ function resolveMaintenanceLimit(limit: number | undefined): number {
  */
 export async function reconcileOutboundWebhookDeliveries(
 	options: ReconcileOutboundWebhooksOptions &
-		OutboundWebhookStoreOptions = {},
+		OutboundWebhookStoreOptions & {
+			/** Recovery binding: restrict the expired-lease scan to exactly these deliveries. */
+			deliveryIds?: readonly string[];
+		} = {},
 ): Promise<ReconcileOutboundWebhooksResult> {
 	const resolved = {
 		now: options.now ?? new Date(),
 		limit: resolveMaintenanceLimit(options.limit),
 		dryRun: options.dryRun ?? false,
+		deliveryIds: options.deliveryIds,
 	};
 	if (options.repository) {
 		return options.repository.reconcile(resolved);
@@ -1622,8 +1630,15 @@ export async function reconcileOutboundWebhookDeliveries(
 	const store = createOutboundWebhookStore(options.path);
 	return updateJsonFileStore(store, (current) => {
 		const nowMs = resolved.now.getTime();
+		const bounded = resolved.deliveryIds
+			? new Set(resolved.deliveryIds)
+			: undefined;
 		const candidates = current.deliveries
-			.filter((delivery) => delivery.status === "delivering")
+			.filter(
+				(delivery) =>
+					delivery.status === "delivering" &&
+					(bounded === undefined || bounded.has(delivery.id)),
+			)
 			.sort((left, right) =>
 				(left.leaseExpiresAt ?? left.lastAttemptAt ?? left.nextAttemptAt)
 					.localeCompare(
@@ -1679,6 +1694,7 @@ export async function reconcileOutboundWebhookDeliveries(
 		}
 
 		const result: ReconcileOutboundWebhooksResult = {
+			scannedIds: candidates.map((delivery) => delivery.id),
 			scanned: candidates.length,
 			recovered,
 			exhausted,

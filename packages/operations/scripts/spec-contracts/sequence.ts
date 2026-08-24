@@ -230,12 +230,19 @@ export interface SequenceTickOutput {
 
 export interface SequenceReconcileInput {
 	enrollment_id?: (string & tags.Format<"uuid">) | undefined;
+	/**
+	 * Echoed scanned set from a prior reconcile's scanned_ids output:
+	 * re-examine exactly that batch. Enrollment ids must be unique.
+	 */
+	recovery_set?: (string & tags.Format<"uuid">)[] & tags.MinItems<1>;
 	resolution?: "sent" | "not_sent" | undefined;
 	limit: PositiveInteger;
 	dry_run: boolean;
 }
 
 export interface SequenceReconcileOutput {
+	/** Echoed ids of the enrollments the scan considered. */
+	scanned_ids: (string & tags.Format<"uuid">)[];
 	scanned: NonNegativeInteger;
 	recovered: NonNegativeInteger;
 	unchanged: NonNegativeInteger;

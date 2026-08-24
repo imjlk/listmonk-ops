@@ -352,9 +352,23 @@ const reconcileCommand = defineCommand({
 		"dry-run": option(z.coerce.boolean().default(true), {
 			description: "Preview expired lease recovery",
 		}),
+		"recovery-set": option(z.string().optional(), {
+			description:
+				"Echoed scanned set from a prior reconcile (JSON array of enrollment ids): re-examine exactly that batch instead of the full backlog",
+		}),
 	},
 	handler: async ({ flags, ...args }) => {
 		const needsClient = flags["enrollment-id"] !== undefined;
+		let recoverySet: string[] | undefined;
+		if (flags["recovery-set"] !== undefined) {
+			try {
+				recoverySet = JSON.parse(flags["recovery-set"]);
+			} catch (error) {
+				throw new Error(
+					`--recovery-set must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}
 		getOutput().json(
 			await invokeSequenceReconcileOperation(
 				needsClient ? await executionContext(args) : {},
@@ -363,6 +377,7 @@ const reconcileCommand = defineCommand({
 					resolution: flags.resolution,
 					limit: flags.limit,
 					dry_run: flags["dry-run"],
+					recovery_set: recoverySet,
 				},
 			),
 		);

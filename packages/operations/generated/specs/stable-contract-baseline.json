@@ -5992,6 +5992,195 @@
         "input": {
           "components": {
             "schemas": {
+              "WebhookDeliveryListLimit": {
+                "maximum": 1000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookReconcileInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "limit": {
+                    "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+                  },
+                  "recovery_set": {
+                    "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Delivery ids must be unique.",
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "type": "boolean"
+              },
+              "limit": {
+                "$ref": "#/components/schemas/WebhookDeliveryListLimit"
+              },
+              "recovery_set": {
+                "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Delivery ids must be unique.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "WebhookReconcileOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "recovered": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "scanned": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "scanned_ids": {
+                    "description": "Echoed ids of the deliveries the scan considered.",
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "unchanged": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "scanned_ids",
+                  "scanned",
+                  "recovered",
+                  "exhausted",
+                  "unchanged",
+                  "dry_run"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "type": "boolean"
+              },
+              "exhausted": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "recovered": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "scanned": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "scanned_ids": {
+                "description": "Echoed ids of the deliveries the scan considered.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "unchanged": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "scanned_ids",
+              "scanned",
+              "recovered",
+              "exhausted",
+              "unchanged",
+              "dry_run"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "action": "recover",
+          "destructive": false,
+          "kind": "maintenance",
+          "resource": "webhook"
+        }
+      ],
+      "id": "webhooks.reconcile",
+      "mcpName": "listmonk_webhooks_reconcile",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": true
+      },
+      "resource": "webhook",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The recovery scan considers exactly the echoed deliveries: leases already recovered by the original call are no longer delivering and are skipped, so an identical retry converges over the set. Lease recovery itself is a pure state mutation with no external delivery side effect."
+            },
+            "when": "recovery_set (an echoed scanned set of delivery ids) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Reconciliation is bounded by a per-call limit. When more expired deliveries exist than the limit, an ambiguous retry selects and mutates the next batch rather than being a pure no-op; re-run in dry-run mode to verify the remaining backlog before retrying.",
+              "reconcileWith": "webhooks.reconcile"
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller echoes a prior reconcile's scanned set."
+      },
+      "verb": "reconcile"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "IsoDateTime": {
                 "format": "date-time",
                 "type": "string"
@@ -6475,11 +6664,20 @@
                   "scanned": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   },
+                  "scanned_ids": {
+                    "description": "Echoed ids of the deliveries the scan considered.",
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "unchanged": {
                     "$ref": "#/components/schemas/NonNegativeInteger"
                   }
                 },
                 "required": [
+                  "scanned_ids",
                   "scanned",
                   "recovered",
                   "exhausted",
@@ -10854,6 +11052,327 @@
         "reason": "Retry safety depends on whether the caller echoes a prior tick's claimed_ids set."
       },
       "verb": "tick"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceReconcileInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "enrollment_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "limit": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "recovery_set": {
+                    "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Enrollment ids must be unique.",
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "resolution": {
+                    "oneOf": [
+                      {
+                        "const": "not_sent"
+                      },
+                      {
+                        "const": "sent"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "limit",
+                  "dry_run"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "type": "boolean"
+              },
+              "enrollment_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "limit": {
+                "$ref": "#/components/schemas/PositiveInteger"
+              },
+              "recovery_set": {
+                "description": "Echoed scanned set from a prior reconcile's scanned_ids output:\nre-examine exactly that batch. Enrollment ids must be unique.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "resolution": {
+                "oneOf": [
+                  {
+                    "const": "not_sent"
+                  },
+                  {
+                    "const": "sent"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "limit",
+              "dry_run"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceEnrollment": {
+                "additionalProperties": false,
+                "properties": {
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "current_step_id": {
+                    "$ref": "#/components/schemas/SequenceStepId"
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "last_error_present": {
+                    "type": "boolean"
+                  },
+                  "next_run_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "retry_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "sequence_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "ambiguous"
+                      },
+                      {
+                        "const": "cancelled"
+                      },
+                      {
+                        "const": "completed"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "paused"
+                      },
+                      {
+                        "const": "pending"
+                      },
+                      {
+                        "const": "running"
+                      },
+                      {
+                        "const": "waiting"
+                      }
+                    ]
+                  },
+                  "subscriber_reference_present": {
+                    "const": true
+                  },
+                  "updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  }
+                },
+                "required": [
+                  "id",
+                  "sequence_id",
+                  "revision",
+                  "subscriber_reference_present",
+                  "status",
+                  "retry_count",
+                  "current_step_id",
+                  "next_run_at",
+                  "last_error_present",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "object"
+              },
+              "SequenceReconcileOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "enrollment": {
+                    "$ref": "#/components/schemas/SequenceEnrollment"
+                  },
+                  "recovered": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "scanned": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "scanned_ids": {
+                    "description": "Echoed ids of the enrollments the scan considered.",
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "unchanged": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "scanned_ids",
+                  "scanned",
+                  "recovered",
+                  "unchanged",
+                  "dry_run"
+                ],
+                "type": "object"
+              },
+              "SequenceStepId": {
+                "maxLength": 80,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "dry_run": {
+                "type": "boolean"
+              },
+              "enrollment": {
+                "$ref": "#/components/schemas/SequenceEnrollment"
+              },
+              "recovered": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "scanned": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "scanned_ids": {
+                "description": "Echoed ids of the enrollments the scan considered.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "unchanged": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "scanned_ids",
+              "scanned",
+              "recovered",
+              "unchanged",
+              "dry_run"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "action": "recover",
+          "destructive": false,
+          "kind": "maintenance",
+          "resource": "sequence"
+        },
+        {
+          "action": "resolve",
+          "destructive": true,
+          "kind": "maintenance",
+          "resource": "sequence"
+        }
+      ],
+      "id": "sequences.reconcile",
+      "mcpName": "listmonk_sequences_reconcile",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "resource": "sequence",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The recovery scan considers exactly the echoed enrollments: leases already recovered by the original call are no longer expired and are skipped, so an identical retry converges over the set instead of scanning the next backlog batch. The ambiguous-send resolution mode is independently convergent — it requires the enrollment to still be in the ambiguous status, so a retry after a completed resolution is rejected rather than re-applied."
+            },
+            "when": "recovery_set (an echoed scanned set of enrollment ids) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Lease recovery is idempotent per enrollment, but a fresh bounded scan selects the next backlog batch after an ambiguous result, and ambiguous-send resolution changes delivery state.",
+              "reconcileWith": "sequences.status"
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller echoes a prior reconcile's scanned set."
+      },
+      "verb": "reconcile"
     },
     {
       "contract": {
@@ -29628,6 +30147,249 @@
         "reason": "A/B tick transitions can deploy winner campaigns externally, so every mode needs inspection; the echoed claim set bounds the retry to the originally due tests."
       },
       "verb": "tick"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "AbTestReconcileInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "all": {
+                    "type": "boolean"
+                  },
+                  "recovery_set": {
+                    "description": "Echoed scanned set from a prior reconcile's results output:\nre-examine exactly those tests. Test ids must be unique.",
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestReconcileRecoveryClaim"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "repair": {
+                    "type": "boolean"
+                  },
+                  "test_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "AbTestReconcileRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed A/B reconcile scan position.",
+                "properties": {
+                  "test_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "test_id"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "all": {
+                "type": "boolean"
+              },
+              "recovery_set": {
+                "description": "Echoed scanned set from a prior reconcile's results output:\nre-examine exactly those tests. Test ids must be unique.",
+                "items": {
+                  "$ref": "#/components/schemas/AbTestReconcileRecoveryClaim"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "repair": {
+                "type": "boolean"
+              },
+              "test_id": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "AbTestReconcileOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "reconciled": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestReconcileResult"
+                    },
+                    "type": "array"
+                  },
+                  "scanned_ids": {
+                    "description": "Echoed ids of the tests the scan examined.",
+                    "items": {
+                      "$ref": "#/components/schemas/NonEmptyString"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "scanned_ids",
+                  "reconciled",
+                  "results"
+                ],
+                "type": "object"
+              },
+              "AbTestReconcileResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "drift": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/AbTestStatus"
+                  },
+                  "test_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "test_id",
+                  "status",
+                  "drift"
+                ],
+                "type": "object"
+              },
+              "AbTestStatus": {
+                "oneOf": [
+                  {
+                    "const": "analyzing"
+                  },
+                  {
+                    "const": "cancelled"
+                  },
+                  {
+                    "const": "cancelling"
+                  },
+                  {
+                    "const": "completed"
+                  },
+                  {
+                    "const": "deploying"
+                  },
+                  {
+                    "const": "draft"
+                  },
+                  {
+                    "const": "failed"
+                  },
+                  {
+                    "const": "inconclusive"
+                  },
+                  {
+                    "const": "running"
+                  },
+                  {
+                    "const": "scheduled"
+                  },
+                  {
+                    "const": "testing"
+                  }
+                ]
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "reconciled": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "results": {
+                "items": {
+                  "$ref": "#/components/schemas/AbTestReconcileResult"
+                },
+                "type": "array"
+              },
+              "scanned_ids": {
+                "description": "Echoed ids of the tests the scan examined.",
+                "items": {
+                  "$ref": "#/components/schemas/NonEmptyString"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "scanned_ids",
+              "reconciled",
+              "results"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "experiment",
+          "reversible": false
+        }
+      ],
+      "id": "abtest.reconcile",
+      "mcpName": "listmonk_abtest_reconcile",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "experiment",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The recovery pass re-examines exactly the echoed tests and each repair is guarded by its own drift condition — a drift already repaired no longer matches, so an identical retry converges over the set instead of examining the full store."
+            },
+            "when": "recovery_set (an echoed scanned set of test ids) is present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "A retry with repair enabled re-examines the whole store and may apply different repairs if state shifted."
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller echoes a prior reconcile's scanned set."
+      },
+      "verb": "reconcile"
     },
     {
       "contract": {

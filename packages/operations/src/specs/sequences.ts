@@ -544,11 +544,29 @@ export const sequenceReconcileOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: true },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "sequences.status",
-		idempotent: false,
+		kind: "conditional",
+		cases: [
+			{
+				when: "recovery_set (an echoed scanned set of enrollment ids) is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The recovery scan considers exactly the echoed enrollments: leases already recovered by the original call are no longer expired and are skipped, so an identical retry converges over the set instead of scanning the next backlog batch. The ambiguous-send resolution mode is independently convergent — it requires the enrollment to still be in the ambiguous status, so a retry after a completed resolution is rejected rather than re-applied.",
+				},
+			},
+			{
+				when: "recovery_set is absent",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "sequences.status",
+					idempotent: false,
+					reason:
+						"Lease recovery is idempotent per enrollment, but a fresh bounded scan selects the next backlog batch after an ambiguous result, and ambiguous-send resolution changes delivery state.",
+				},
+			},
+		],
 		reason:
-			"Lease recovery is idempotent, but ambiguous-send resolution changes delivery state and must be verified before retrying.",
+			"Retry safety depends on whether the caller echoes a prior reconcile's scanned set.",
 	},
 	agent: {
 		useWhen: ["Expired leases or an operator-reviewed ambiguous send need recovery."],
@@ -557,14 +575,14 @@ export const sequenceReconcileOperationSpec = defineOperationSpec({
 		verifyWith: ["sequences.status"],
 		related: ["sequences.tick", "sequences.pause"],
 		retryGuidance:
-			"Inspect sequences.status before retrying; ambiguous-send resolution is not idempotent.",
+			"Echo a prior reconcile's scanned_ids output as recovery_set so an ambiguous retry re-examines exactly that batch; without the echoed set, inspect sequences.status first — ambiguous-send resolution is guarded but a fresh scan selects the next batch.",
 	},
 	projection: {
 		mcpName: "listmonk_sequences_reconcile",
 		openWorld: false,
 		graph: graphNodes("reconcile"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

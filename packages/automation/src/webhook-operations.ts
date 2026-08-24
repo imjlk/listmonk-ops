@@ -214,6 +214,17 @@ const webhookDeliveryRetryInputSchema = z.object({
 const webhookReconcileInputSchema = z.object({
 	limit: webhookDeliveryListLimitInput.default(100),
 	dry_run: booleanInput.default(true),
+	recovery_set: z
+		.array(z.uuid())
+		.min(1)
+		.refine(
+			(set) => new Set(set).size === set.length,
+			"recovery_set delivery ids must be unique",
+		)
+		.optional()
+		.describe(
+			"Echoed scanned set from a prior reconcile's scanned_ids output: recover expired leases for exactly these deliveries instead of scanning the full backlog",
+		),
 });
 const webhookPruneInputSchema = z
 	.object({
@@ -507,6 +518,7 @@ const webhookDeliveryRetryOutputSchema = z.object({
 	retried: z.boolean(),
 });
 const webhookReconcileOutputSchema = z.object({
+	scanned_ids: z.array(z.uuid()),
 	scanned: z.number().int().nonnegative(),
 	recovered: z.number().int().nonnegative(),
 	exhausted: z.number().int().nonnegative(),
@@ -981,8 +993,10 @@ export async function executeWebhookReconcileOperation(
 		...resolveWebhookOperationStore(context),
 		limit: input.limit,
 		dryRun: input.dry_run,
+		deliveryIds: input.recovery_set,
 	});
 	return {
+		scanned_ids: [...result.scannedIds],
 		scanned: result.scanned,
 		recovered: result.recovered,
 		exhausted: result.exhausted,
@@ -1035,6 +1049,7 @@ export async function executeWebhookTickOperation(
 	});
 	return {
 		reconcile: {
+			scanned_ids: [...reconcile.scannedIds],
 			scanned: reconcile.scanned,
 			recovered: reconcile.recovered,
 			exhausted: reconcile.exhausted,

@@ -515,14 +515,14 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 91개는
-`stable`, 13개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 94개는
+`stable`, 10개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
-검토를 마친 핵심 91개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 94개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -658,8 +658,14 @@ batch에서는 `campaigns.clone`을 승격했습니다(키는 원본 캠페인�
 모드에서 여전히 정직하게 at-least-once입니다 — echoed 집합은 재시도를
 원래 클레임된 전달로 한정하지만 POST 자체는 수락됐지만 관측되지 않은
 시도를 중복할 수 있어(event-id 헤더로 수신 측 중복 제거 가능) 두 재시도
-경우 모두 reconcile로 분류합니다. 현재 stable baseline은 91개이며,
-나머지 experimental descriptor는 13개입니다.
+경우 모두 reconcile로 분류합니다. 스물일곱 번째 batch에서는 세 reconcile 연산(`sequences.reconcile`,
+`webhooks.reconcile`, `abtest.reconcile`)을 echoed-scanned-set 복구로
+승격했습니다 — 각 스캔이 고려한 정확한 id를 echo(`scanned_ids`)하고,
+재시도가 그 echo를 `recovery_set`으로 싣으면 정확히 해당 배치만
+재검사합니다(이미 복구된 lease는 더 만료되지 않고 이미 수리된 drift는
+더 매칭되지 않아 다음 백로그 배치 대신 수렴). 시퀀스의 ambiguous-send
+해결 모드는 독립적으로 수렴합니다(여전히 ambiguous 상태여야 함). 현재
+stable baseline은 94개이며, 나머지 experimental descriptor는 10개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
@@ -673,7 +679,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 91개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 94개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 317개를
 검증합니다.
 

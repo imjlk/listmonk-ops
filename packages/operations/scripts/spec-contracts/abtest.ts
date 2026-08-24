@@ -238,6 +238,17 @@ export interface AbTestReconcileInput {
 	test_id?: NonEmptyString;
 	all?: boolean;
 	repair?: boolean;
+
+	/**
+	 * Echoed scanned set from a prior reconcile's results output:
+	 * re-examine exactly those tests. Test ids must be unique.
+	 */
+	recovery_set?: AbTestReconcileRecoveryClaim[] & tags.MinItems<1>;
+}
+
+/** One echoed A/B reconcile scan position. */
+export interface AbTestReconcileRecoveryClaim {
+	test_id: NonEmptyString;
 }
 
 export interface AbTestRecommendSampleSizeInput {
@@ -355,6 +366,8 @@ export interface AbTestReconcileResult {
 }
 
 export interface AbTestReconcileOutput {
+	/** Echoed ids of the tests the scan examined. */
+	scanned_ids: NonEmptyString[];
 	reconciled: NonNegativeInteger;
 	results: AbTestReconcileResult[];
 }

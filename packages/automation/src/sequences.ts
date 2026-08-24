@@ -228,6 +228,8 @@ export type SequenceEnrollmentListOptions = Readonly<{
 }>;
 
 export type SequenceReconcileResult = Readonly<{
+	/** Echoed ids of the enrollments the scan considered. */
+	scannedIds: readonly string[];
 	scanned: number;
 	recovered: number;
 	unchanged: number;
@@ -300,6 +302,8 @@ export interface SequenceRepository {
 		now: Date;
 		limit: number;
 		dryRun: boolean;
+		/** Recovery binding: restrict the expired-lease scan to exactly these enrollments. */
+		enrollmentIds?: readonly string[];
 	}>): Promise<SequenceReconcileResult>;
 	getRuntimeHealth(options: Readonly<{
 		now: Date;
@@ -1009,18 +1013,23 @@ export function createFileSequenceRepository(
 		},
 		async reconcile(options) {
 			return updateJsonFileStore(store, (current) => {
+				const bounded = options.enrollmentIds
+					? new Set(options.enrollmentIds)
+					: undefined;
 				const expired = current.enrollments
 					.filter(
 						(enrollment) =>
 							enrollment.leaseExpiresAt !== undefined &&
 							new Date(enrollment.leaseExpiresAt).getTime() <=
 								options.now.getTime() &&
-							!enrollmentIsTerminal(enrollment.status),
+							!enrollmentIsTerminal(enrollment.status) &&
+							(bounded === undefined || bounded.has(enrollment.id)),
 					)
 					.slice(0, options.limit);
 				if (options.dryRun) {
 					const result: SequenceReconcileResult = {
-						scanned: expired.length,
+						scannedIds: expired.map((entry) => entry.id),
+					scanned: expired.length,
 						recovered: expired.length,
 						unchanged: 0,
 						dryRun: true,
@@ -1041,6 +1050,7 @@ export function createFileSequenceRepository(
 						: enrollment,
 				);
 				const result: SequenceReconcileResult = {
+					scannedIds: expired.map((entry) => entry.id),
 					scanned: expired.length,
 					recovered: expired.length,
 					unchanged: 0,

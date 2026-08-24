@@ -458,6 +458,17 @@ const reconcileAbTestInputSchema = z.object({
 	repair: optionalBooleanSchema.describe(
 		"Apply repairs for detected drift (destructive when true)",
 	),
+	recovery_set: z
+		.array(z.object({ test_id: z.string().trim().min(1) }))
+		.min(1)
+		.refine(
+			(set) => new Set(set.map((member) => member.test_id)).size === set.length,
+			"recovery_set test ids must be unique",
+		)
+		.optional()
+		.describe(
+			"Echoed scanned set from a prior reconcile's results output: re-examine exactly these tests instead of the full store; repairs apply only where the same drift is still present",
+		),
 });
 
 const recommendSampleSizeInputSchema = z.object({
@@ -521,6 +532,8 @@ export type ReconcileAbTestOperationOutput = {
 		status: AbTestOperationRecord["status"];
 		drift: string;
 	}>;
+	/** Echoed ids of the tests the scan examined. */
+	scanned_ids: string[];
 };
 export type ExportAbTestAssignmentOperationOutput = {
 	manifest: z.output<typeof assignmentManifestSchema>;
@@ -969,11 +982,16 @@ export async function executeReconcileAbTestOperation(
 	const reconcileResults = await withStoredOperation<
 		Awaited<ReturnType<AbTestExecutors["reconcileAbTest"]>>
 	>(context, input.repair ? "write" : "read", (executors) =>
-		executors.reconcileAbTest(input.test_id, input.repair === true),
+		executors.reconcileAbTest(
+			input.test_id,
+			input.repair === true,
+			input.recovery_set?.map((member) => ({ testId: member.test_id })),
+		),
 	);
 	return {
 		reconciled: reconcileResults.length,
 		results: reconcileResults,
+		scanned_ids: reconcileResults.map((result) => result.test_id),
 	};
 }
 
@@ -1228,6 +1246,7 @@ export const reconcileAbTestOperation = defineOperation({
 	outputSchema: z.object({
 		reconciled: z.number().int().nonnegative(),
 		results: z.array(reconcileResultSchema),
+		scanned_ids: z.array(z.string().min(1)),
 	}),
 	// Reconcile is read-only by default but becomes destructive when `repair`
 	// is requested, so the static annotation must cover the destructive path.

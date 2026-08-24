@@ -279,8 +279,8 @@ Recover expired worker leases and exhaust deliveries whose endpoint is missing o
 - Contract source: input `typescript`, output `typescript`
 - Effects: `maintenance:recover:recoverable`
 - Policy: confirmation `never`, audit `required`, dry-run `true`
-- Retry: `reconcile`
-- Stability: `experimental` since `0.8.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.8.0`
 
 ## `webhooks.prune`
 
@@ -521,8 +521,8 @@ Preview or recover expired enrollment leases, or explicitly resolve one ambiguou
 - Contract source: input `typescript`, output `typescript`
 - Effects: `maintenance:recover:recoverable, maintenance:resolve:destructive`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
-- Retry: `reconcile`
-- Stability: `experimental` since `0.9.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.status`
 
@@ -1230,8 +1230,8 @@ Reconcile persisted A/B test state against expected lifecycle state
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:experiment`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
-- Retry: `unsafe`
-- Stability: `experimental` since `0.10.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.10.0`
 
 ## `abtest.export-assignment`
 
