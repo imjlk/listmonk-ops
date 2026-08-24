@@ -543,6 +543,7 @@ const webhookDeliveryListOutputSchema = z.object({
 const webhookDeliveryRetryOutputSchema = z.object({
 	delivery: webhookDeliveryOutputSchema,
 	retried: z.boolean(),
+	retry_generation: z.number().int().nonnegative(),
 });
 const webhookReconcileOutputSchema = z.object({
 	scanned_ids: z.array(z.uuid()),
@@ -1011,11 +1012,18 @@ export async function executeWebhookDeliveryRetryOperation(
 	context: WebhookOperationContext,
 	input: z.output<typeof webhookDeliveryRetryInputSchema>,
 ) {
-	const { delivery, retried } = await retryOutboundWebhookDelivery(input.id, {
-		...resolveWebhookOperationStore(context),
-		expectedManualRetryCount: input.expected_manual_retry_count,
-	});
-	return { delivery: toDeliveryOutput(delivery), retried };
+	const { delivery, retried, retryGeneration } = await retryOutboundWebhookDelivery(
+		input.id,
+		{
+			...resolveWebhookOperationStore(context),
+			expectedManualRetryCount: input.expected_manual_retry_count,
+		},
+	);
+	return {
+		delivery: toDeliveryOutput(delivery),
+		retried,
+		retry_generation: retryGeneration,
+	};
 }
 
 export async function executeWebhookReconcileOperation(

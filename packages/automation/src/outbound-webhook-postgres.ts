@@ -831,6 +831,7 @@ export function createPostgresOutboundWebhookRepository(
 						)
 						${endpointFilter}
 						${idFilter}
+						${generationFilter}
 					ORDER BY d.next_attempt_at DESC, d.id DESC
 					LIMIT ${replayOptions.limit}
 				`;
@@ -874,16 +875,24 @@ export function createPostgresOutboundWebhookRepository(
 					// The requested effect — the delivery queued for dispatch —
 					// is already satisfied, so an ambiguous retry repeats as a
 					// documented no-op.
-					return { delivery: toDelivery(row), retried: false };
+					return {
+						delivery: toDelivery(row),
+						retried: false,
+						retryGeneration: row.manual_retry_count,
+					};
 				}
 				if (
 					expectedManualRetryCount !== undefined &&
 					row.manual_retry_count !== expectedManualRetryCount
 				) {
-					// The delivery moved past the echoed generation; report the
-					// current state without starting another cycle.
-					return { delivery: toDelivery(row), retried: false };
-				}
+				// The delivery moved past the echoed generation; report the
+				// current state without starting another cycle.
+				return {
+					delivery: toDelivery(row),
+					retried: false,
+					retryGeneration: row.manual_retry_count,
+				};
+			}
 				if (row.status !== "retry" && row.status !== "exhausted") {
 					throw new OutboundWebhookConflictError(
 						`Delivery ${id} cannot be retried from status ${row.status}`,
@@ -921,7 +930,11 @@ export function createPostgresOutboundWebhookRepository(
 						completed_at, status_code, last_error, lease_token,
 						lease_expires_at
 				`;
-				return { delivery: toDelivery(updatedRows[0]!), retried: true };
+				return {
+					delivery: toDelivery(updatedRows[0]!),
+					retried: true,
+					retryGeneration: row.manual_retry_count,
+				};
 			});
 		},
 

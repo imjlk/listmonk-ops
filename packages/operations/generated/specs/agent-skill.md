@@ -308,7 +308,7 @@ Prerequisites: `webhooks.delivery.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Echo a prior retry's observed manual_retry_count as expected_manual_retry_count so an ambiguous repeat converges on the echoed generation; without the echo, verify the delivery with webhooks.delivery.list first — a completed dispatch can make an unechoed repeat start another cycle.
+Retry guidance: Echo a prior retry's retry_generation output (the pre-request count, NOT the post-retry manual_retry_count on the returned delivery) as expected_manual_retry_count so an ambiguous repeat converges on the echoed generation; without the echo, verify the delivery with webhooks.delivery.list first — a completed dispatch can make an unechoed repeat start another cycle.
 
 ## Reconcile outbound webhook leases (`webhooks.reconcile`)
 

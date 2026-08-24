@@ -303,11 +303,19 @@ export interface WebhookDeliveryListOutput {
 
 export interface WebhookDeliveryRetryInput {
 	id: WebhookId;
+	/**
+	 * Echoed pre-request generation (the prior retry's retry_generation
+	 * output): only retry while the delivery still sits at that manual
+	 * retry count.
+	 */
+	expected_manual_retry_count?: NonNegativeInteger;
 }
 
 export interface WebhookDeliveryRetryOutput {
 	delivery: WebhookDelivery;
 	retried: boolean;
+	/** The manual retry count observed before this request moved it — echo it back as expected_manual_retry_count on a retry. */
+	retry_generation: NonNegativeInteger;
 }
 
 export interface WebhookReconcileInput {

@@ -875,8 +875,12 @@ export function createFileOutboundWebhookRepository(
 			),
 		listDeliveries: (listOptions) =>
 			listOutboundWebhookDeliveries({ ...fileOptions, ...listOptions }),
-		retryDelivery: (id, now) =>
-			retryOutboundWebhookDelivery(id, { ...fileOptions, now }),
+		retryDelivery: (id, now, expectedManualRetryCount) =>
+			retryOutboundWebhookDelivery(id, {
+				...fileOptions,
+				now,
+				expectedManualRetryCount,
+			}),
 		replayDeadLetters: (replayOptions) =>
 			replayOutboundWebhookDeadLetters({ ...fileOptions, ...replayOptions }),
 		claimDeliveries: (claimOptions) =>
@@ -1403,6 +1407,7 @@ export async function listOutboundWebhookDeliveries(
 export type RetryOutboundWebhookDeliveryResult = Readonly<{
 	delivery: OutboundWebhookDelivery;
 	retried: boolean;
+	retryGeneration: number;
 }>;
 
 export async function retryOutboundWebhookDelivery(
@@ -1440,6 +1445,7 @@ export async function retryOutboundWebhookDelivery(
 			const result: RetryOutboundWebhookDeliveryResult = {
 				delivery: previous,
 				retried: false,
+				retryGeneration: previous.manualRetryCount,
 			};
 			return commitJsonFileStoreUpdate(current, result);
 		}
@@ -1453,6 +1459,7 @@ export async function retryOutboundWebhookDelivery(
 			const result: RetryOutboundWebhookDeliveryResult = {
 				delivery: previous,
 				retried: false,
+				retryGeneration: previous.manualRetryCount,
 			};
 			return commitJsonFileStoreUpdate(current, result);
 		}
@@ -1490,6 +1497,7 @@ export async function retryOutboundWebhookDelivery(
 		const retriedResult: RetryOutboundWebhookDeliveryResult = {
 			delivery,
 			retried: true,
+			retryGeneration: previous.manualRetryCount,
 		};
 		return commitJsonFileStoreUpdate(
 			{ ...current, deliveries },
@@ -1636,7 +1644,13 @@ export async function replayOutboundWebhookDeadLetters(
 	// record that already left the dead-letter set.
 	return options.repository.replayDeadLetters({
 		endpointId: options.endpointId,
-		deliveryIds: options.deliveryIds,
+		// A generation echo without explicit ids still defines the set (its
+		// keys); an empty map selects nothing.
+		deliveryIds:
+			options.deliveryIds ??
+			(options.expectedManualRetryCounts === undefined
+				? undefined
+				: [...options.expectedManualRetryCounts.keys()]),
 		expectedManualRetryCounts: options.expectedManualRetryCounts,
 		// An echoed set is replayed in full: the cap is the set's size so an
 		// independently smaller limit cannot silently replay only part of

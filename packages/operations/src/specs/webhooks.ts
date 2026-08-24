@@ -700,7 +700,7 @@ export const webhookDeliveryRetryOperationSpec = defineOperationSpec({
 				semantics: {
 					kind: "safe",
 					reason:
-						"The retry only fires while the delivery still sits at the echoed manual-retry generation: a repeat while the original retry's pending state holds reports retried: false (the requested effect is already satisfied), and a delivery a dispatcher already completed and returned to retry moved to a later generation and is reported unmodified instead of starting another delivery cycle — so an identical retry converges over the echoed generation.",
+						"The retry only fires while the delivery still sits at the echoed pre-request generation (the retry_generation output, not the post-retry manual_retry_count): a repeat while the original retry's pending state holds reports retried: false (the requested effect is already satisfied), and a delivery a dispatcher already completed and returned to retry moved to a later generation and is reported unmodified instead of starting another delivery cycle — so an identical retry converges over the echoed generation.",
 				},
 			},
 			{
@@ -724,7 +724,7 @@ export const webhookDeliveryRetryOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.dispatch", "webhooks.update"],
 		retryGuidance:
-			"Echo a prior retry's observed manual_retry_count as expected_manual_retry_count so an ambiguous repeat converges on the echoed generation; without the echo, verify the delivery with webhooks.delivery.list first — a completed dispatch can make an unechoed repeat start another cycle.",
+			"Echo a prior retry's retry_generation output (the pre-request count, NOT the post-retry manual_retry_count on the returned delivery) as expected_manual_retry_count so an ambiguous repeat converges on the echoed generation; without the echo, verify the delivery with webhooks.delivery.list first — a completed dispatch can make an unechoed repeat start another cycle.",
 	},
 	projection: {
 		mcpName: "listmonk_webhook_delivery_retry",

@@ -6448,6 +6448,11 @@
       "input": {
         "components": {
           "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "Uuid": {
               "format": "uuid",
               "type": "string"
@@ -6455,6 +6460,10 @@
             "WebhookDeliveryRetryInput": {
               "additionalProperties": false,
               "properties": {
+                "expected_manual_retry_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "Echoed pre-request generation (the prior retry's retry_generation\noutput): only retry while the delivery still sits at that manual\nretry count."
+                },
                 "id": {
                   "$ref": "#/components/schemas/Uuid"
                 }
@@ -6470,6 +6479,10 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "expected_manual_retry_count": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Echoed pre-request generation (the prior retry's retry_generation\noutput): only retry while the delivery still sits at that manual\nretry count."
+            },
             "id": {
               "$ref": "#/components/schemas/Uuid"
             }
@@ -6612,11 +6625,16 @@
                 },
                 "retried": {
                   "type": "boolean"
+                },
+                "retry_generation": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "The manual retry count observed before this request moved it — echo it back as expected_manual_retry_count on a retry."
                 }
               },
               "required": [
                 "delivery",
-                "retried"
+                "retried",
+                "retry_generation"
               ],
               "type": "object"
             },
@@ -6794,11 +6812,16 @@
             },
             "retried": {
               "type": "boolean"
+            },
+            "retry_generation": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "The manual retry count observed before this request moved it — echo it back as expected_manual_retry_count on a retry."
             }
           },
           "required": [
             "delivery",
-            "retried"
+            "retried",
+            "retry_generation"
           ],
           "type": "object"
         },
@@ -6815,7 +6838,7 @@
           {
             "semantics": {
               "kind": "safe",
-              "reason": "The retry only fires while the delivery still sits at the echoed manual-retry generation: a repeat while the original retry's pending state holds reports retried: false (the requested effect is already satisfied), and a delivery a dispatcher already completed and returned to retry moved to a later generation and is reported unmodified instead of starting another delivery cycle — so an identical retry converges over the echoed generation."
+              "reason": "The retry only fires while the delivery still sits at the echoed pre-request generation (the retry_generation output, not the post-retry manual_retry_count): a repeat while the original retry's pending state holds reports retried: false (the requested effect is already satisfied), and a delivery a dispatcher already completed and returned to retry moved to a later generation and is reported unmodified instead of starting another delivery cycle — so an identical retry converges over the echoed generation."
             },
             "when": "expected_manual_retry_count (the delivery's generation echoed from a prior retry) is present"
           },

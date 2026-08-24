@@ -74,17 +74,21 @@ describe("webhook delivery retry generation binding", () => {
 		});
 
 		// Retry bound to the pre-retry generation (0): fires and moves to
-		// pending with manualRetryCount 1.
+		// pending with manualRetryCount 1, echoing the pre-request
+		// generation for the repeat.
 		const first = await retryOutboundWebhookDelivery(id, {
 			repository,
+			now,
 			expectedManualRetryCount: 0,
 		});
 		expect(first.retried).toBe(true);
 		expect(first.delivery.manualRetryCount).toBe(1);
+		expect(first.retryGeneration).toBe(0);
 
 		// The identical repeat while pending: no-op (effect satisfied).
 		const pending = await retryOutboundWebhookDelivery(id, {
 			repository,
+			now,
 			expectedManualRetryCount: 0,
 		});
 		expect(pending.retried).toBe(false);
@@ -101,10 +105,22 @@ describe("webhook delivery retry generation binding", () => {
 		});
 		const afterCycle = await retryOutboundWebhookDelivery(id, {
 			repository,
+			now,
 			expectedManualRetryCount: 0,
 		});
 		expect(afterCycle.retried).toBe(false);
 		expect(afterCycle.delivery.manualRetryCount).toBe(1);
+		// Echoing the POST-RETRY count (1) passes the guard and starts a
+		// second cycle — exactly why the guidance and the retry_generation
+		// echo carry the PRE-request count instead.
+		const hazardous = await retryOutboundWebhookDelivery(id, {
+			repository,
+			now,
+			expectedManualRetryCount: 1,
+		});
+		expect(hazardous.retried).toBe(true);
+		expect(hazardous.retryGeneration).toBe(1);
+		expect(hazardous.delivery.manualRetryCount).toBe(2);
 	});
 });
 
