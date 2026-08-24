@@ -219,6 +219,19 @@ export interface AbTestRunInput {
 
 export interface AbTestTickInput {
 	dry_run?: boolean;
+	/**
+	 * Echoed claim set from a prior tick's claim_steps output: recover
+	 * exactly these tests at their pre-tick statuses instead of sweeping
+	 * all due tests. Test ids must be unique; the runtime schema rejects
+	 * duplicates.
+	 */
+	recovery_set?: AbTestRecoveryClaim[] & tags.MinItems<1>;
+}
+
+/** One echoed A/B tick claim position: the test plus its pre-tick status. */
+export interface AbTestRecoveryClaim {
+	test_id: NonEmptyString;
+	status: AbTestStatus;
 }
 
 export interface AbTestReconcileInput {
@@ -327,6 +340,12 @@ export interface AbTestTickResult {
 export interface AbTestTickOutput {
 	processed: NonNegativeInteger;
 	results: AbTestTickResult[];
+	/** Echoed pre-tick claim positions of the non-terminal tests swept. */
+	claim_steps: AbTestRecoveryClaim[];
+	/** Recovery passes only: size of the echoed claim set. */
+	requested?: NonNegativeInteger;
+	/** Recovery passes only: echoed members that already moved on. */
+	already_done?: NonNegativeInteger;
 }
 
 export interface AbTestReconcileResult {

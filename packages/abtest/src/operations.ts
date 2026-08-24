@@ -1,4 +1,5 @@
 import { buildAbTestConfig } from "./basic";
+import { TERMINAL_STATUSES } from "./types";
 import { fingerprintAbTestConfig } from "./abtest-service";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
@@ -431,6 +432,22 @@ const tickAbTestsInputSchema = z.object({
 	dry_run: optionalBooleanSchema.describe(
 		"Report the actions a tick would take without executing them",
 	),
+	recovery_set: z
+		.array(
+			z.object({
+				test_id: z.string().trim().min(1),
+				status: abTestStatusSchema,
+			}),
+		)
+		.min(1)
+		.refine(
+			(set) => new Set(set.map((member) => member.test_id)).size === set.length,
+			"recovery_set test ids must be unique",
+		)
+		.optional()
+		.describe(
+			"Echoed claim set from a prior tick's claim_steps output: recover exactly these tests at their pre-tick statuses (tests that advanced, completed, or vanished since the echo are skipped) instead of sweeping all due tests",
+		),
 });
 
 const reconcileAbTestInputSchema = z.object({
@@ -487,6 +504,15 @@ export type TickAbTestsOperationOutput = {
 		status: AbTestOperationRecord["status"];
 		action: string;
 	}>;
+	/** Echoed pre-tick claim positions of the non-terminal tests swept. */
+	claim_steps: Array<{
+		test_id: string;
+		status: AbTestOperationRecord["status"];
+	}>;
+	/** Recovery passes only: size of the echoed claim set. */
+	requested?: number;
+	/** Recovery passes only: echoed members that already moved on. */
+	already_done?: number;
 };
 export type ReconcileAbTestOperationOutput = {
 	reconciled: number;
@@ -780,20 +806,153 @@ export async function executeRunAbTestOperation(
 	};
 }
 
+/**
+ * A tick that captured its claim positions but could not complete — the
+ * commit failed after the sweep ran. Carries the recovery handle so the
+ * caller can run the documented recovery pass instead of a fresh sweep.
+ */
+export class AbTestTickFailureError extends Error {
+	public readonly claimSteps: ReadonlyArray<
+		Readonly<{ test_id: string; status: AbTest["status"] }>
+	>;
+
+	constructor(
+		cause: unknown,
+		claimSteps: ReadonlyArray<
+			Readonly<{ test_id: string; status: AbTest["status"] }>
+		>,
+	) {
+		super(cause instanceof Error ? cause.message : String(cause), { cause });
+		this.name = "AbTestTickFailureError";
+		this.claimSteps = claimSteps;
+	}
+
+	toStructuredDetails(): Record<string, unknown> {
+		return {
+			recovery_set: this.claimSteps.map((step) => ({
+				test_id: step.test_id,
+				status: step.status,
+			})),
+		};
+	}
+}
+
+/**
+ * Whether a non-terminal, non-draft test was due for progression at tick
+ * time — the eligibility the echoed claim certifies. Not-yet-due tests
+ * (scheduled before launchAt, running before endsAt) and transitional
+ * statuses the stub does not drive are excluded, so a recovery can never
+ * advance a test that became due only after the original request.
+ */
+function isDueAtTickTime(
+	test: AbTest,
+	now = Date.now(),
+): boolean {
+	switch (test.status) {
+		case "scheduled":
+			return (
+				test.launchAt !== undefined &&
+				now >= new Date(test.launchAt).getTime()
+			);
+		case "running":
+			return (
+				test.endsAt !== undefined && now >= new Date(test.endsAt).getTime()
+			);
+		case "analyzing":
+			return true;
+		default:
+			return false;
+	}
+}
+
 export async function executeTickAbTestsOperation(
 	context: AbTestOperationContext,
 	input: z.output<typeof tickAbTestsInputSchema>,
 ): Promise<TickAbTestsOperationOutput> {
 	const dryRun = input.dry_run === true;
-	const tickResults = await withStoredOperation<
-		Awaited<ReturnType<AbTestExecutors["tickAbTests"]>>
-	>(context, dryRun ? "read" : "write", (executors) =>
-		executors.tickAbTests(dryRun),
-	);
-	return {
-		processed: tickResults.length,
-		results: tickResults,
-	};
+	// Claim positions are captured inside the same store transaction as
+	// the sweep, so the echo always reflects the state the tick actually
+	// processed, and survive a failed commit on the typed error below.
+	let capturedClaims: ReadonlyArray<
+		Readonly<{ test_id: string; status: AbTest["status"] }>
+	> = [];
+	try {
+		return await withStoredOperation<TickAbTestsOperationOutput>(
+			context,
+			dryRun ? "read" : "write",
+			async (executors) => {
+				const snapshot = await executors.listAbTests();
+				// One eligibility cutoff for claims and execution: a deadline
+				// crossing between two independent clock reads could let the
+				// sweep advance a test the claim filter had just excluded.
+				const tickNow = Date.now();
+				// The service mutates test objects in place, so capture the
+				// pre-tick statuses before the sweep runs.
+				const preTickStatusById = new Map(
+					snapshot.map((test) => [test.id, test.status] as const),
+				);
+				const recoverySet = input.recovery_set;
+				const recoveryMemberById =
+					recoverySet === undefined
+						? undefined
+						: new Map(
+								recoverySet.map((member) => [
+									member.test_id,
+									member.status,
+								] as const),
+							);
+				// Echo only tests that were due at tick time (the exact set
+				// the sweep could act on), bounded to the recovery set when
+				// one was supplied — map lookups, not linear scans.
+				capturedClaims = snapshot
+					.filter(
+						(test) =>
+							!TERMINAL_STATUSES.has(test.status) &&
+							test.status !== "draft" &&
+							isDueAtTickTime(test, tickNow),
+					)
+					.filter((test) => {
+						if (recoveryMemberById === undefined) {
+							return true;
+						}
+						return (
+							recoveryMemberById.get(test.id) === test.status
+						);
+					})
+					.map((test) => ({ test_id: test.id, status: test.status }));
+				const tickResults = await executors.tickAbTests(
+					dryRun,
+					recoverySet?.map((member) => ({
+						testId: member.test_id,
+						status: member.status,
+					})),
+				);
+				const requested = recoverySet?.length;
+				const alreadyDone =
+					recoverySet === undefined
+						? undefined
+						: recoverySet.filter((member) => {
+							const status = preTickStatusById.get(member.test_id);
+							return status === undefined || status !== member.status;
+						}).length;
+				return {
+					processed: tickResults.length,
+					results: tickResults,
+					claim_steps: capturedClaims.map((step) => ({
+						test_id: step.test_id,
+						status: step.status,
+					})),
+					requested,
+					already_done: alreadyDone,
+				};
+			},
+		);
+	} catch (error) {
+		if (capturedClaims.length > 0) {
+			throw new AbTestTickFailureError(error, capturedClaims);
+		}
+		throw error;
+	}
 }
 
 export async function executeReconcileAbTestOperation(
@@ -1042,6 +1201,14 @@ export const tickAbTestsOperation = defineOperation({
 	outputSchema: z.object({
 		processed: z.number().int().nonnegative(),
 		results: z.array(tickResultSchema),
+		claim_steps: z.array(
+			z.object({
+				test_id: z.string().min(1),
+				status: abTestStatusSchema,
+			}),
+		),
+		requested: z.number().int().nonnegative().optional(),
+		already_done: z.number().int().nonnegative().optional(),
 	}),
 	safety: destructiveNonIdempotentSafety,
 	mcp: {

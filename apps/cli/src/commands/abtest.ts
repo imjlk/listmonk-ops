@@ -1007,12 +1007,29 @@ export default defineGroup({
 				"dry-run": option(z.coerce.boolean().default(false), {
 					description: "Preview what tick would do without mutating state",
 				}),
+				"recovery-set": option(z.string().optional(), {
+					description:
+						"Echoed claim set from a prior tick (JSON array of test_id and status pairs): recover exactly these tests at their pre-tick statuses instead of sweeping all due tests",
+				}),
 			},
 			handler: async (args) => {
 				try {
 					const dryRun = Boolean(args.flags["dry-run"]);
+					let recoverySet:
+						| Array<{ test_id: string; status: string }>
+						| undefined;
+					if (args.flags["recovery-set"] !== undefined) {
+						try {
+							recoverySet = JSON.parse(args.flags["recovery-set"]);
+						} catch (error) {
+							throw new Error(
+								`--recovery-set must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+							);
+						}
+					}
 					const result = await invokeCliTickAbTests(args, {
 						dry_run: dryRun,
+						recovery_set: recoverySet,
 					});
 					getOutput().success(
 						dryRun

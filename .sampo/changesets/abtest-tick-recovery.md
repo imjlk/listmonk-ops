@@ -1,0 +1,8 @@
+---
+npm/@listmonk-ops/abtest: minor
+npm/@listmonk-ops/operations: minor
+npm/@listmonk-ops/mcp: minor
+npm/@listmonk-ops/cli: minor
+---
+
+Promote `abtest.tick` from experimental to stable with the same echoed-claim-set recovery contract as the other ticks, bound to the pre-tick status. The tick output echoes the claim positions of every non-terminal test it swept (`claim_steps`: test id plus pre-tick status), and an identical retry carrying that echoed set as `recovery_set` (CLI `--recovery-set`) runs a convergent recovery pass over exactly those tests: a member is re-processed only while it still sits at its echoed status — tests that advanced to a later status, completed, or vanished since the echo are skipped as already moved on, and the sweep never touches tests that became due after the original request. Every echoed member was due at the original tick (not-yet-due tests are never echoed, so a recovery cannot advance a test that became due only after the request), the claim positions are captured inside the same store transaction as the sweep, and a failed tick surfaces them as structured error details (`AbTestTickFailureError`) for exactly this recovery. Winner deployment is externally visible — an analyzing holdout test with autoDeployWinner creates and starts a Listmonk campaign before the local commit — so the recovery case classifies as reconcile with campaign verification guidance, and fresh ticks (without the echoed set) keep the honest unsafe classification. Duplicate echoed test ids are rejected up front, the echoed set is bounded to the members the sweep actually considered, and a fresh sweep's full echo is always replayable (no size cap). The stable TypeScript contract count rises from 90 to 91.

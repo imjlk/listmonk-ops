@@ -504,8 +504,29 @@ export const abTestTickOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: true },
 	retry: {
-		kind: "unsafe",
-		reason: "A retry may advance tests that already transitioned on the previous tick.",
+		kind: "conditional",
+		cases: [
+			{
+				when: "recovery_set (an echoed claim set of test ids and their pre-tick statuses) is present",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "abtest.list",
+					idempotent: false,
+					reason:
+						"The recovery pass processes exactly the echoed tests — only those that were due at the original tick and still sit at their echoed pre-tick status — so members that advanced, completed, vanished, or became due only after the original request are skipped and an identical retry converges over the set without sweeping new work. The advancing transition itself can carry an external side effect: an analyzing holdout test with autoDeployWinner creates and starts a Listmonk winner campaign before the local commit, so an accepted-but-unobserved attempt can deploy a second winner campaign on recovery — inspect the test and its campaigns (the deterministic provisioning tags identify a test's campaigns) before repeating.",
+				},
+			},
+			{
+				when: "recovery_set is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"A fresh tick sweeps whatever is non-terminal at request time, so a retry may advance tests that already transitioned on the previous tick or newly became due.",
+				},
+			},
+		],
+		reason:
+			"A/B tick transitions can deploy winner campaigns externally, so every mode needs inspection; the echoed claim set bounds the retry to the originally due tests.",
 	},
 	agent: {
 		useWhen: ["Non-terminal A/B tests must be advanced by one lifecycle step."],
@@ -513,7 +534,8 @@ export const abTestTickOperationSpec = defineOperationSpec({
 		prerequisites: ["abtest.list"],
 		verifyWith: ["abtest.list"],
 		related: ["abtest.reconcile"],
-		retryGuidance: "Inspect abtest.list before retrying an ambiguous tick.",
+		retryGuidance:
+			"Echo a failed tick's claim_steps output (or the structured recovery_set on its error) so an ambiguous retry re-attempts exactly the originally due tests at their pre-tick statuses; winner deployment is externally visible, so verify the test's campaigns before repeating. Without the echoed set, inspect abtest.list before another tick.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_tick",
@@ -526,7 +548,7 @@ export const abTestTickOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeTickAbTestsOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
