@@ -824,7 +824,7 @@ export function createPostgresOutboundWebhookRepository(
 					id: string;
 					manual_retry_count: number;
 				 }[]>`
-					SELECT d.id
+					SELECT d.id, d.manual_retry_count
 					FROM listmonk_ops.webhook_deliveries d
 					WHERE d.status = 'exhausted'
 						AND NOT EXISTS (

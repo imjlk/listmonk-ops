@@ -425,7 +425,7 @@ const deliveryRetryCommand = defineCommand({
 			z.coerce.number().int().nonnegative().optional(),
 			{
 				description:
-					"Echoed manual_retry_count from a prior retry: only retry while the delivery still sits at that generation",
+					"Echo the prior retry's retry_generation output (the pre-request count, not the incremented manual_retry_count on the returned delivery): only retry while the delivery still sits at that generation",
 			},
 		),
 	},
