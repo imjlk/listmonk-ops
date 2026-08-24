@@ -582,6 +582,25 @@ describe("automation persistence", () => {
 			}),
 		).rejects.toThrow(/head revision pin .* no longer matches/);
 
+		// A same-version re-promotion — the registry-managed way to restore
+		// drifted remote content — is still a write: it advances the head,
+		// so a stale pinned rollback from before it conflicts even though
+		// the active version never changed.
+		const rePromote = await promoteTemplateVersion(
+			client,
+			12,
+			newer.versionId,
+		);
+		expect(rePromote.headRevision).toBe(4);
+		expect(rePromote.activeVersionId).toBe(newer.versionId);
+		await expect(
+			rollbackTemplateVersion(client, 12, {
+				toVersionId: initialActive,
+				fromVersionId: newer.versionId,
+				expectedHeadRevision: 3,
+			}),
+		).rejects.toThrow(/head revision pin .* no longer matches/);
+
 		// Without the head pin this cycle is indistinguishable from the
 		// original observation and an echoed retry would roll again; a fresh
 		// observation via history pins the current head, and that retry is

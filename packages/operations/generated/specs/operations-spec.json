@@ -31116,7 +31116,7 @@
                   },
                   "headRevision": {
                     "$ref": "#/components/schemas/NonNegativeInteger",
-                    "description": "Monotonic count of active-version transitions; echo it to pin a rollback retry."
+                    "description": "Monotonic count of registry-managed template writes (a same-version re-promotion included); echo it to pin a rollback retry."
                   },
                   "templateId": {
                     "$ref": "#/components/schemas/ResourceId"
@@ -31205,7 +31205,7 @@
               },
               "headRevision": {
                 "$ref": "#/components/schemas/NonNegativeInteger",
-                "description": "Monotonic count of active-version transitions; echo it to pin a rollback retry."
+                "description": "Monotonic count of registry-managed template writes (a same-version re-promotion included); echo it to pin a rollback retry."
               },
               "templateId": {
                 "$ref": "#/components/schemas/ResourceId"
@@ -31533,7 +31533,7 @@
                 "properties": {
                   "expected_head_revision": {
                     "$ref": "#/components/schemas/NonNegativeInteger",
-                    "description": "Registry head revision the caller observed; it advances even when a cycle restores the active version and remote hash, so a pinned retry conflicts on A → B → A."
+                    "description": "Registry head revision the caller observed; every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts on A → X → A."
                   },
                   "expected_remote_hash": {
                     "$ref": "#/components/schemas/NonEmptyString",
@@ -31564,7 +31564,7 @@
             "properties": {
               "expected_head_revision": {
                 "$ref": "#/components/schemas/NonNegativeInteger",
-                "description": "Registry head revision the caller observed; it advances even when a cycle restores the active version and remote hash, so a pinned retry conflicts on A → B → A."
+                "description": "Registry head revision the caller observed; every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts on A → X → A."
               },
               "expected_remote_hash": {
                 "$ref": "#/components/schemas/NonEmptyString",

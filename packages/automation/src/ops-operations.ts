@@ -192,7 +192,7 @@ const templateRollbackInputSchema = z.object({
 			.nonnegative()
 			.optional()
 			.describe(
-				"Registry head revision the caller observed (the registry-history headRevision output, or the headRevision a prior rollback returned); a cycle that restores the active version and remote hash still advances this counter, so a pinned retry conflicts instead of rolling again",
+				"Registry head revision the caller observed (the registry-history headRevision output, or the headRevision a prior rollback returned); every registry-managed write — a same-version re-promotion included — advances this counter, so a pinned retry conflicts instead of rolling again",
 			),
 	expected_remote_hash: z
 		.string()

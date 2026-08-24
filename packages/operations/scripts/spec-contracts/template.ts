@@ -169,7 +169,7 @@ export interface TemplateRegistryHistoryOutput {
 	templateId: ResourceId;
 	templateName: string;
 	activeVersionId?: string;
-	/** Monotonic count of active-version transitions; echo it to pin a rollback retry. */
+	/** Monotonic count of registry-managed template writes (a same-version re-promotion included); echo it to pin a rollback retry. */
 	headRevision: NonNegativeInteger;
 	versions: TemplateRegistryVersion[];
 }

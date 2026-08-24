@@ -379,7 +379,7 @@ export default defineGroup({
 					z.coerce.number().int().nonnegative().optional(),
 					{
 						description:
-							"Registry head revision the caller observed (the templates-history headRevision output, or the headRevision a prior rollback returned); a cycle restoring the active version still advances it, so a pinned retry conflicts",
+							"Registry head revision the caller observed (the templates-history headRevision output, or the headRevision a prior rollback returned); every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts",
 					},
 				),
 				"expected-remote-hash": option(z.string().optional(), {

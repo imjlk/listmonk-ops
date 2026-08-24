@@ -153,7 +153,7 @@ export interface TemplateRollbackInput {
 	to_version_id?: NonEmptyString;
 	/** Active registry version the caller observed; a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with expected_head_revision to catch that transition. */
 	from_version_id?: NonEmptyString;
-	/** Registry head revision the caller observed; it advances even when a cycle restores the active version and remote hash, so a pinned retry conflicts on A → B → A. */
+	/** Registry head revision the caller observed; every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts on A → X → A. */
 	expected_head_revision?: NonNegativeInteger;
 	/** Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over. */
 	expected_remote_hash?: NonEmptyString;

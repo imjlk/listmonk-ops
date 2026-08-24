@@ -687,8 +687,9 @@ variant 태그를 새로 분석된 winner와 대조해 검증하고, 모호하�
 사이 간격 원격 변경이 조용히 덮어쓰이는 대신 충돌하며, 핀 없거나
 force 재시도는 정직하게 unsafe로 유지; rollback은 from_version_id
 소스 핀, 단조 registry-head 카운터에 대한 expected_head_revision
-핀 — 활성 버전 전이마다 증가하므로 버전 id와 원격 hash를 모두
-복원하는 A → B → A 사이클도 여전히 충돌 — 및
+핀 — registry 관리 쓰기마다 증가(drift된 원격 내용을 복원하는 같은
+버전 재승격 포함)하므로 버전 id와 원격 hash를 모두 복원하는
+A → X → A 사이클도 여전히 충돌 — 및
 expected_remote_hash registry 밖 drift 핀을 받고, 세 검증 모두 store
 lock 안에서 실행. Listmonk엔 조건부 갱신이 없어 hash 핀은
 best-effort이며, 승격/롤백이 성공하면 원격 hash와 head가 바뀌므로

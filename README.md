@@ -709,8 +709,9 @@ operator's promotion included, conflicts instead of being silently
 overwritten, and an unpinned or forced retry keeps the honest unsafe
 classification; rollback accepts a
 from_version_id source pin, an expected_head_revision pin over the
-monotonic registry-head counter — every active-version transition
-advances it, so an A → B → A cycle that restores both the version id
+monotonic registry-head counter — every registry-managed write advances
+it, a same-version re-promotion that restores drifted remote content
+included, so an A → X → A cycle that restores both the version id
 and the remote hash still conflicts — and an expected_remote_hash
 out-of-registry drift pin, all checked inside the store lock. Listmonk
 offers no conditional update, so the hash pins stay best-effort; a

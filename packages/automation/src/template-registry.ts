@@ -40,9 +40,9 @@ export interface TemplateRegistryTemplateRecord {
 	templateName: string;
 	activeVersionId?: string;
 	/**
-	 * Monotonic counter of active-version transitions. It advances even when
-	 * a cycle restores the previous version id, so a pinned retry can tell a
-	 * registry that only moved forward from one that went A → B → A.
+	 * Monotonic counter of registry-managed template writes. It advances
+	 * even when a write restores the same active version, so a pinned retry
+	 * can tell an untouched registry from one that went A → X → A.
 	 */
 	headRevision?: number;
 	versions: TemplateRegistryVersion[];
@@ -455,12 +455,10 @@ async function promoteTemplateVersionInStore(
 		);
 	}
 
-	if (record.activeVersionId !== versionId) {
-		// Advance the monotonic head revision only on a real transition, so
-		// re-promoting the active version stays a convergent no-op while any
-		// A → B → A cycle is still observable through the changed counter.
-		record.headRevision = (record.headRevision ?? 0) + 1;
-	}
+	// Every registry-managed remote write advances the monotonic head
+	// revision — including a same-version re-promotion restoring drifted
+	// remote content, which an observer's older pins must not survive.
+	record.headRevision = (record.headRevision ?? 0) + 1;
 	record.activeVersionId = versionId;
 	store.templates[String(templateId)] = record;
 
