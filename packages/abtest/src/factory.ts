@@ -325,18 +325,23 @@ export function createAbTestExecutors(listmonkClient: ListmonkClient) {
 		// still at their echoed pre-tick status. Anything that advanced,
 		// completed, or vanished since the echo is skipped, so the retry
 		// never sweeps tests that became due after the original request.
+		// Map-keyed membership keeps large unbounded recovery sets linear
+		// while the exclusive store transaction is held.
 		const tests =
 			recoverySet === undefined
 				? allTests
-				: recoverySet.flatMap((member) => {
-						const current = allTests.find(
-							(candidate) => candidate.id === member.testId,
+				: (() => {
+						const byId = new Map(
+							allTests.map((test) => [test.id, test] as const),
 						);
-						if (current === undefined || current.status !== member.status) {
-							return [];
-						}
-						return [current];
-					});
+						return recoverySet.flatMap((member) => {
+							const current = byId.get(member.testId);
+							if (current === undefined || current.status !== member.status) {
+								return [];
+							}
+							return [current];
+						});
+					})();
 		const results: Array<{
 			test_id: string;
 			status: AbTest["status"];

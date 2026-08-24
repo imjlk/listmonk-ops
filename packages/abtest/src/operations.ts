@@ -844,8 +844,10 @@ export class AbTestTickFailureError extends Error {
  * statuses the stub does not drive are excluded, so a recovery can never
  * advance a test that became due only after the original request.
  */
-function isDueAtTickTime(test: AbTest): boolean {
-	const now = Date.now();
+function isDueAtTickTime(
+	test: AbTest,
+	now = Date.now(),
+): boolean {
 	switch (test.status) {
 		case "scheduled":
 			return (
@@ -880,31 +882,43 @@ export async function executeTickAbTestsOperation(
 			dryRun ? "read" : "write",
 			async (executors) => {
 				const snapshot = await executors.listAbTests();
+				// One eligibility cutoff for claims and execution: a deadline
+				// crossing between two independent clock reads could let the
+				// sweep advance a test the claim filter had just excluded.
+				const tickNow = Date.now();
 				// The service mutates test objects in place, so capture the
 				// pre-tick statuses before the sweep runs.
 				const preTickStatusById = new Map(
 					snapshot.map((test) => [test.id, test.status] as const),
 				);
 				const recoverySet = input.recovery_set;
+				const recoveryMemberById =
+					recoverySet === undefined
+						? undefined
+						: new Map(
+								recoverySet.map((member) => [
+									member.test_id,
+									member.status,
+								] as const),
+							);
 				// Echo only tests that were due at tick time (the exact set
 				// the sweep could act on), bounded to the recovery set when
-				// one was supplied.
+				// one was supplied — map lookups, not linear scans.
 				capturedClaims = snapshot
 					.filter(
 						(test) =>
 							!TERMINAL_STATUSES.has(test.status) &&
 							test.status !== "draft" &&
-							isDueAtTickTime(test),
+							isDueAtTickTime(test, tickNow),
 					)
-					.filter(
-						(test) =>
-							recoverySet === undefined ||
-							recoverySet.some(
-								(member) =>
-									member.test_id === test.id &&
-									member.status === test.status,
-							),
-					)
+					.filter((test) => {
+						if (recoveryMemberById === undefined) {
+							return true;
+						}
+						return (
+							recoveryMemberById.get(test.id) === test.status
+						);
+					})
 					.map((test) => ({ test_id: test.id, status: test.status }));
 				const tickResults = await executors.tickAbTests(
 					dryRun,
