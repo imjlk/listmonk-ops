@@ -210,7 +210,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(102);
+		).toHaveLength(103);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(

@@ -12827,7 +12827,7 @@
           "sequences.tick",
           "sequences.pause"
         ],
-        "retryGuidance": "Verify the enrollment with sequences.enrollments.list before repeating an ambiguous enroll; an untouched identical one replays with created: false, but a terminal enrollment lets the repeat start a fresh lifecycle.",
+        "retryGuidance": "Echo the enrollment count from sequences.enrollments.list as expected_prior_enrollments so an ambiguous retry converges across the whole lifecycle — it creates only while the count still matches, replays the landed enrollment (terminal included) as created: false, and conflicts when more than one landed; without the guard, verify with sequences.enrollments.list before repeating, because a terminal enrollment lets the repeat start a fresh lifecycle.",
         "useWhen": [
           "A known subscriber should enter a reviewed active sequence."
         ],
@@ -12843,6 +12843,11 @@
                 "format": "date-time",
                 "type": "string"
               },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
               "Recordstringunknown": {
                 "additionalProperties": {},
                 "type": "object"
@@ -12857,6 +12862,10 @@
                 "properties": {
                   "context": {
                     "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "expected_prior_enrollments": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Generation guard: the number of enrollments (any status) that already\nexisted for this sequence and subscriber, observed via\nsequences.enrollments.list. With the guard, an ambiguous retry\nconverges across the whole lifecycle — it creates only while the\ncount still matches, replays the landed enrollment (terminal\nincluded) as created: false, and conflicts when more than one landed."
                   },
                   "id": {
                     "format": "uuid",
@@ -12883,6 +12892,10 @@
             "properties": {
               "context": {
                 "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "expected_prior_enrollments": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Generation guard: the number of enrollments (any status) that already\nexisted for this sequence and subscriber, observed via\nsequences.enrollments.list. With the guard, an ambiguous retry\nconverges across the whole lifecycle — it creates only while the\ncount still matches, replays the landed enrollment (terminal\nincluded) as created: false, and conflicts when more than one landed."
               },
               "id": {
                 "format": "uuid",
@@ -13073,13 +13086,29 @@
       },
       "resource": "sequence",
       "retry": {
-        "idempotent": false,
-        "kind": "reconcile",
-        "reason": "An ambiguous retry conflicts while the enrollment is active and replays a provably untouched matching one as created: false, but once an enrollment reaches a terminal status the same request creates and schedules a fresh enrollment, so the operation is not idempotent.",
-        "reconcileWith": "sequences.enrollments.list"
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The caller echoes the number of enrollments (any status) that already existed for the sequence and subscriber. The retry creates only while the count still matches — verified inside the store transaction, so concurrent guarded retries cannot double-create — replays the single landed enrollment as created: false across the WHOLE lifecycle (a terminal enrollment included, which an unguarded repeat would restart as a fresh lifecycle), and conflicts when more than one landed or the landed enrollment carries a different context."
+            },
+            "when": "expected_prior_enrollments is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "An ambiguous retry conflicts while the enrollment is active and replays a provably untouched matching one as created: false, but once an enrollment reaches a terminal status the same request creates and schedules a fresh enrollment, so the operation is not idempotent.",
+              "reconcileWith": "sequences.enrollments.list"
+            },
+            "when": "expected_prior_enrollments is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on echoing the observed enrollment generation; without the guard a terminal enrollment lets an identical request start a fresh lifecycle."
       },
       "since": "0.9.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Enroll subscriber in sequence",
       "verb": "enroll"
     },

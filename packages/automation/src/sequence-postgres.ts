@@ -821,29 +821,45 @@ export function createPostgresSequenceRepository(
 			return rows.map(toEnrollment);
 		},
 		getEnrollment,
-		async createEnrollment(enrollment) {
+		async createEnrollment(enrollment, options) {
 			await ready();
 			try {
-				await sql`
-					INSERT INTO listmonk_ops.sequence_enrollments (
-						id, sequence_id, revision, subscriber_id, status,
-						next_run_at, lease_token, lease_expires_at, enrollment,
-						created_at, updated_at
-					)
-					VALUES (
-						${enrollment.id}::uuid,
-						${enrollment.sequenceId}::uuid,
-						${enrollment.revision},
-						${enrollment.subscriberId},
-						${enrollment.status},
-						${enrollment.nextRunAt}::timestamptz,
-						NULL,
-						NULL,
-						${sql.json(enrollment as never)},
-						${enrollment.createdAt}::timestamptz,
-						${enrollment.updatedAt}::timestamptz
-					)
-				`;
+				await sql.begin(async (transaction) => {
+					if (options?.expectedPriorEnrollments !== undefined) {
+						const countRows = await transaction<{ count: string }[]>`
+							SELECT count(*)::text AS count
+							FROM listmonk_ops.sequence_enrollments
+							WHERE sequence_id = ${enrollment.sequenceId}::uuid
+								AND subscriber_id = ${enrollment.subscriberId}
+						`;
+						const priorCount = Number(countRows[0]?.count ?? 0);
+						if (priorCount !== options.expectedPriorEnrollments) {
+							throw new SequenceConflictError(
+								`Subscriber ${enrollment.subscriberId} has ${priorCount} prior enrollments for sequence ${enrollment.sequenceId}, but the request guarded on exactly ${options.expectedPriorEnrollments}; resolve via sequences.enrollments.list before enrolling`,
+							);
+						}
+					}
+					await transaction`
+						INSERT INTO listmonk_ops.sequence_enrollments (
+							id, sequence_id, revision, subscriber_id, status,
+							next_run_at, lease_token, lease_expires_at, enrollment,
+							created_at, updated_at
+						)
+						VALUES (
+							${enrollment.id}::uuid,
+							${enrollment.sequenceId}::uuid,
+							${enrollment.revision},
+							${enrollment.subscriberId},
+							${enrollment.status},
+							${enrollment.nextRunAt}::timestamptz,
+							NULL,
+							NULL,
+							${transaction.json(enrollment as never)},
+							${enrollment.createdAt}::timestamptz,
+							${enrollment.updatedAt}::timestamptz
+						)
+					`;
+				});
 			} catch (error) {
 				if (isUniqueViolation(error)) {
 					throw new SequenceConflictError(

@@ -11428,6 +11428,270 @@
         "input": {
           "components": {
             "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceEnrollInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "context": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "expected_prior_enrollments": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Generation guard: the number of enrollments (any status) that already\nexisted for this sequence and subscriber, observed via\nsequences.enrollments.list. With the guard, an ambiguous retry\nconverges across the whole lifecycle — it creates only while the\ncount still matches, replays the landed enrollment (terminal\nincluded) as created: false, and conflicts when more than one landed."
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "start_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "subscriber_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "expected_prior_enrollments": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Generation guard: the number of enrollments (any status) that already\nexisted for this sequence and subscriber, observed via\nsequences.enrollments.list. With the guard, an ambiguous retry\nconverges across the whole lifecycle — it creates only while the\ncount still matches, replays the landed enrollment (terminal\nincluded) as created: false, and conflicts when more than one landed."
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "start_at": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "subscriber_id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id",
+              "subscriber_id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "SequenceEnrollOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "created": {
+                    "type": "boolean"
+                  },
+                  "enrollment": {
+                    "$ref": "#/components/schemas/SequenceEnrollment"
+                  }
+                },
+                "required": [
+                  "enrollment",
+                  "created"
+                ],
+                "type": "object"
+              },
+              "SequenceEnrollment": {
+                "additionalProperties": false,
+                "properties": {
+                  "created_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "current_step_id": {
+                    "$ref": "#/components/schemas/SequenceStepId"
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "last_error_present": {
+                    "type": "boolean"
+                  },
+                  "next_run_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "retry_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "revision": {
+                    "$ref": "#/components/schemas/PositiveInteger"
+                  },
+                  "sequence_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "status": {
+                    "oneOf": [
+                      {
+                        "const": "ambiguous"
+                      },
+                      {
+                        "const": "cancelled"
+                      },
+                      {
+                        "const": "completed"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "paused"
+                      },
+                      {
+                        "const": "pending"
+                      },
+                      {
+                        "const": "running"
+                      },
+                      {
+                        "const": "waiting"
+                      }
+                    ]
+                  },
+                  "subscriber_reference_present": {
+                    "const": true
+                  },
+                  "updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  }
+                },
+                "required": [
+                  "id",
+                  "sequence_id",
+                  "revision",
+                  "subscriber_reference_present",
+                  "status",
+                  "retry_count",
+                  "current_step_id",
+                  "next_run_at",
+                  "last_error_present",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "object"
+              },
+              "SequenceStepId": {
+                "maxLength": 80,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "created": {
+                "type": "boolean"
+              },
+              "enrollment": {
+                "$ref": "#/components/schemas/SequenceEnrollment"
+              }
+            },
+            "required": [
+              "enrollment",
+              "created"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "audience": "single",
+          "kind": "delivery",
+          "resource": "sequence",
+          "timing": "scheduled"
+        }
+      ],
+      "id": "sequences.enroll",
+      "mcpName": "listmonk_sequences_enroll",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "sequence",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "The caller echoes the number of enrollments (any status) that already existed for the sequence and subscriber. The retry creates only while the count still matches — verified inside the store transaction, so concurrent guarded retries cannot double-create — replays the single landed enrollment as created: false across the WHOLE lifecycle (a terminal enrollment included, which an unguarded repeat would restart as a fresh lifecycle), and conflicts when more than one landed or the landed enrollment carries a different context."
+            },
+            "when": "expected_prior_enrollments is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "An ambiguous retry conflicts while the enrollment is active and replays a provably untouched matching one as created: false, but once an enrollment reaches a terminal status the same request creates and schedules a fresh enrollment, so the operation is not idempotent.",
+              "reconcileWith": "sequences.enrollments.list"
+            },
+            "when": "expected_prior_enrollments is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on echoing the observed enrollment generation; without the guard a terminal enrollment lets an identical request start a fresh lifecycle."
+      },
+      "verb": "enroll"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "PositiveInteger": {
                 "maximum": 9007199254740991,
                 "minimum": 1,

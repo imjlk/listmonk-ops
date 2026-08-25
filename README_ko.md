@@ -515,14 +515,14 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 102개는
-`stable`, 2개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 103개는
+`stable`, 1개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
-검토를 마친 핵심 102개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 103개 Operation은 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -596,8 +596,9 @@ batch에서는 조건부 retry 시맨틱의 `sequences.update`(최신 revision�
 요청된 steps를 담고 있으면 반복이 동등한 revision 없이 `updated: false`
 보고, 대체된 반복은 append되어 unsafe)를 승격했습니다.
 `sequences.enroll`는 충돌 재생 장치(애매한 재시도가 검증 가능하게 미진행인
-일치 등록을 `created: false`로 재생)를 얻었지만 experimental로 유지됩니다.
-등록이 terminal에 도달하면 같은 요청이 새 lifecycle을 시작하기 때문입니다.
+일치 등록을 `created: false`로 재생)를 얻었고, 등록이 terminal에 도달하면
+같은 요청이 새 lifecycle을 시작한다는 이유로 당시에는 experimental로
+유지되다가 서른한 번째 batch가 세대 가드로 승격했습니다.
 열네 번째 batch에서는 `ops.templates.registry-rollback`에 선택적
 `to_version_id` 핀을 추가했습니다(이동한 registry에서 핀된 반복은 충돌,
 이미 적용된 핀은 `rolled_back: false`). 그러나 ABA 전이와 registry 밖의
@@ -711,8 +712,18 @@ best-effort이며, 승격/롤백이 성공하면 원격 hash와 head가 바뀌�
 즉시 실패합니다. 키 지정 재시도는 여전히 큐된 delivery로
 합쳐지지만 전달 자체는 정직하게 at-least-once(reconcile 분류,
 webhooks.delivery.list와 event-id 헤더 수신 측 중복 제거로 검증)이고,
-키 없는 probe는 매 시도마다 새 핑을 보내 unsafe로 유지됩니다. 현재 stable baseline은 102개이며, 나머지 experimental descriptor는
-2개입니다.
+키 없는 probe는 매 시도마다 새 핑을 보내 unsafe로 유지됩니다. 서른한 번째 batch에서는 `sequences.enroll`를 세대 가드로 승격했습니다 —
+호출자가 sequences 등록 목록으로 관찰한, 해당 시퀀스·구독자에 이미
+존재하던 등록 수(상태 무관)를 `expected_prior_enrollments`로 echo하면
+생성이 store 트랜잭션 안에서 그 수를 검증해 동시 가드 재시도가 이중
+생성할 수 없습니다. 가드된 애매한 재시도는 전체 lifecycle에 걸쳐
+수렴합니다 — 수가 여전히 일치할 때만 생성하고, 착지한 단일 등록을
+terminal 이후에도 `created: false`로 재생하며(이 operation을
+experimental로 유지해온 정확한 위험 — 가드 없는 반복은 terminal
+lifecycle을 재시작), 두 개 이상 착지했거나 문맥이 다르면 충돌합니다.
+의도적인 재등록은 명시적으로 유지됩니다 — 가드 없는 요청은 terminal
+등록 이후에도 새 lifecycle을 시작합니다. 현재 stable baseline은 103개이며, 나머지 experimental descriptor는
+1개입니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
@@ -726,7 +737,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 102개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 103개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 317개를
 검증합니다.
 

@@ -220,6 +220,74 @@ describe("sequence definitions and file persistence", () => {
 		).rejects.toThrow(/already has an active enrollment/);
 	});
 
+	test("generation-guarded enroll retries converge across terminal lifecycles", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{ name: "enroll-guard", steps: [{ id: "stop", type: "stop" }] },
+				now,
+			),
+		);
+
+		// The original request guards on an empty enrollment history.
+		const first = await invokeSequenceEnrollOperation(
+			{ repository, now: () => now },
+			{
+				id: definition.id,
+				subscriber_id: 9,
+				context: { plan: "pro" },
+				expected_prior_enrollments: 0,
+			},
+		);
+		expect(first.created).toBe(true);
+
+		// Run the lifecycle to completion: the stop step finishes it.
+		const tick = await runSequenceTick(
+			executionContext(repository, idempotencyStore, client()),
+			{ now: new Date("2026-08-01T09:01:00.000Z") },
+		);
+		expect(tick.completed).toBe(1);
+
+		// The guarded retry converges onto the TERMINAL enrollment instead
+		// of starting a fresh lifecycle: exactly one enrollment landed since
+		// the echoed generation, and it carries the request's context.
+		const guarded = await invokeSequenceEnrollOperation(
+			{ repository },
+			{
+				id: definition.id,
+				subscriber_id: 9,
+				context: { plan: "pro" },
+				expected_prior_enrollments: 0,
+			},
+		);
+		expect(guarded.created).toBe(false);
+		expect(guarded.enrollment.id).toBe(first.enrollment.id);
+		expect(guarded.enrollment.status).toBe("completed");
+
+		// Without the guard, the same request intentionally re-enrolls —
+		// re-entry stays an explicit decision, not a retry artifact.
+		const unguarded = await invokeSequenceEnrollOperation(
+			{ repository },
+			{ id: definition.id, subscriber_id: 9, context: { plan: "pro" } },
+		);
+		expect(unguarded.created).toBe(true);
+
+		// Two enrollments now exist beyond the echoed generation, so the
+		// guarded request conflicts instead of guessing which one to replay.
+		await expect(
+			invokeSequenceEnrollOperation(
+				{ repository },
+				{
+					id: definition.id,
+					subscriber_id: 9,
+					context: { plan: "pro" },
+					expected_prior_enrollments: 0,
+				},
+			),
+		).rejects.toThrow(/guarded on exactly 0/);
+	});
+
 	test("reports a repeated sequence delete as a documented no-op", async () => {
 		const { repository } = await createStores();
 		const definition = await repository.createDefinition(

@@ -171,6 +171,14 @@ const sequenceEnrollInputSchema = z.object({
 	subscriber_id: positiveIntegerInput,
 	context: z.record(z.string(), z.unknown()).default({}),
 	start_at: isoDateTimeInput.optional(),
+	expected_prior_enrollments: z
+		.number()
+		.int()
+		.nonnegative()
+		.optional()
+		.describe(
+			"Generation guard: the number of enrollments (any status) that already existed for this sequence and subscriber, observed via sequences.enrollments.list. With the guard, an ambiguous retry converges across the whole lifecycle — it creates only while the count still matches, replays the landed enrollment (terminal included) as created: false, and conflicts when more than one landed",
+		),
 });
 const sequenceEnrollmentStatusInput = sequenceEnrollmentStatusSchema;
 const sequenceEnrollmentListInputSchema = z.object({
@@ -680,12 +688,61 @@ export async function executeSequenceEnrollOperation(
 		},
 		context.now?.() ?? new Date(),
 	);
+	// Generation-guarded convergence: when the caller echoes the number of
+	// enrollments that already existed for this (sequence, subscriber)
+	// pair, an ambiguous retry converges across the WHOLE lifecycle —
+	// including after the first attempt's enrollment reached a terminal
+	// status, which an unguarded repeat would restart as a fresh
+	// lifecycle.
+	const expectedPrior = input.expected_prior_enrollments;
+	const resolveGuardedReplay = async (): Promise<
+			{ enrollment: ReturnType<typeof toEnrollmentOutput>; created: boolean } |
+			undefined
+		> => {
+		if (expectedPrior === undefined) {
+			return undefined;
+		}
+		const existing = await store.listEnrollments({
+			sequenceId: input.id,
+			subscriberId: input.subscriber_id,
+			limit: 1_000,
+		});
+		if (existing.length <= expectedPrior) {
+			// The first attempt never landed; the create below runs it.
+			return undefined;
+		}
+		const newest = [...existing]
+			.sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+			.at(-1)!;
+		if (
+			existing.length > expectedPrior + 1 ||
+			canonicalContextJson(newest.context) !==
+				canonicalContextJson(input.context)
+		) {
+			throw new SequenceConflictError(
+				`Subscriber ${input.subscriber_id} has ${existing.length} enrollments for sequence ${input.id}, but the request guarded on exactly ${expectedPrior}; resolve via sequences.enrollments.list before enrolling`,
+			);
+		}
+		return { enrollment: toEnrollmentOutput(newest), created: false };
+	};
+	const guardedReplay = await resolveGuardedReplay();
+	if (guardedReplay !== undefined) {
+		return guardedReplay;
+	}
 	try {
-		const created = await store.createEnrollment(enrollment);
+		const created = await store.createEnrollment(enrollment, {
+			expectedPriorEnrollments: expectedPrior,
+		});
 		return { enrollment: toEnrollmentOutput(created), created: true };
 	} catch (error) {
 		if (!(error instanceof SequenceConflictError)) {
 			throw error;
+		}
+		// A concurrent guarded retry may have landed between the pre-check
+		// and the create; its enrollment now satisfies the guard.
+		const raced = await resolveGuardedReplay();
+		if (raced !== undefined) {
+			return raced;
 		}
 		// A subscriber can hold only one active enrollment per sequence, so
 		// an ambiguous retry conflicts. Replay only when the conflicting

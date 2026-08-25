@@ -164,6 +164,15 @@ export interface SequenceEnrollInput {
 	subscriber_id: ResourceId;
 	context?: Record<string, unknown> | undefined;
 	start_at?: IsoDateTime | undefined;
+	/**
+	 * Generation guard: the number of enrollments (any status) that already
+	 * existed for this sequence and subscriber, observed via
+	 * sequences.enrollments.list. With the guard, an ambiguous retry
+	 * converges across the whole lifecycle — it creates only while the
+	 * count still matches, replays the landed enrollment (terminal
+	 * included) as created: false, and conflicts when more than one landed.
+	 */
+	expected_prior_enrollments?: NonNegativeInteger | undefined;
 }
 
 export interface SequenceEnrollOutput {

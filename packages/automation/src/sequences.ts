@@ -272,6 +272,16 @@ export interface SequenceRepository {
 	getEnrollment(id: string): Promise<SequenceEnrollment>;
 	createEnrollment(
 		enrollment: SequenceEnrollment,
+		options?: Readonly<{
+			/**
+			 * Generation guard: create only while exactly this many
+			 * enrollments already exist for the (sequence, subscriber)
+			 * pair, verified inside the store transaction so a concurrent
+			 * guarded retry cannot double-create after a terminal
+			 * lifecycle.
+			 */
+			expectedPriorEnrollments?: number;
+		}>,
 	): Promise<SequenceEnrollment>;
 	claimDue(options: Readonly<{
 		limit: number;
@@ -831,7 +841,7 @@ export function createFileSequenceRepository(
 		async getEnrollment(id) {
 			return getFileEnrollment(await readJsonFileStore(store), id);
 		},
-		async createEnrollment(enrollment) {
+		async createEnrollment(enrollment, options) {
 			return updateJsonFileStore(store, (current) => {
 				getFileDefinition(current, enrollment.sequenceId);
 				if (
@@ -846,6 +856,18 @@ export function createFileSequenceRepository(
 					throw new SequenceConflictError(
 						`Subscriber ${enrollment.subscriberId} already has an active enrollment for sequence ${enrollment.sequenceId}`,
 					);
+				}
+				if (options?.expectedPriorEnrollments !== undefined) {
+					const priorCount = current.enrollments.filter(
+						(candidate) =>
+							candidate.sequenceId === enrollment.sequenceId &&
+							candidate.subscriberId === enrollment.subscriberId,
+					).length;
+					if (priorCount !== options.expectedPriorEnrollments) {
+						throw new SequenceConflictError(
+							`Subscriber ${enrollment.subscriberId} has ${priorCount} prior enrollments for sequence ${enrollment.sequenceId}, but the request guarded on exactly ${options.expectedPriorEnrollments}; resolve via sequences.enrollments.list before enrolling`,
+						);
+					}
 				}
 				return commitJsonFileStoreUpdate(
 					{

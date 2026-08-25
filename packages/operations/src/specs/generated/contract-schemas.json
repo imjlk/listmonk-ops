@@ -15149,6 +15149,11 @@
           "format": "date-time",
           "type": "string"
         },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
         "Recordstringunknown": {
           "additionalProperties": {},
           "type": "object"
@@ -15163,6 +15168,10 @@
           "properties": {
             "context": {
               "$ref": "#/components/schemas/Recordstringunknown"
+            },
+            "expected_prior_enrollments": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Generation guard: the number of enrollments (any status) that already\nexisted for this sequence and subscriber, observed via\nsequences.enrollments.list. With the guard, an ambiguous retry\nconverges across the whole lifecycle — it creates only while the\ncount still matches, replays the landed enrollment (terminal\nincluded) as created: false, and conflicts when more than one landed."
             },
             "id": {
               "format": "uuid",
@@ -15189,6 +15198,10 @@
       "properties": {
         "context": {
           "$ref": "#/components/schemas/Recordstringunknown"
+        },
+        "expected_prior_enrollments": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Generation guard: the number of enrollments (any status) that already\nexisted for this sequence and subscriber, observed via\nsequences.enrollments.list. With the guard, an ambiguous retry\nconverges across the whole lifecycle — it creates only while the\ncount still matches, replays the landed enrollment (terminal\nincluded) as created: false, and conflicts when more than one landed."
         },
         "id": {
           "format": "uuid",
