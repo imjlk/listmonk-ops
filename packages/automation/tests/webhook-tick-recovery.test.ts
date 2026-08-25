@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	createOutboundWebhookEndpoint,
 	dispatchOutboundWebhooks,
 	enqueueOperationLifecycleEvent,
+	WebhookDispatchFailureError,
 } from "../src/outbound-webhooks";
+import { executeWebhookDispatchOperation } from "../src/webhook-operations";
 
 const directories: string[] = [];
 
@@ -186,6 +188,76 @@ describe("webhook tick echoed-set recovery", () => {
 			claimed: 0,
 			pendingIds: [ids[0]],
 			alreadyDone: 0,
+		});
+	});
+
+	test("dispatch operation recovery covers an echoed batch beyond the default limit", async () => {
+		const path = await createStorePath();
+		await createHookEndpoint(path);
+		// 30 due deliveries: an original dispatch with limit 30 would echo
+		// 30 claim steps, and the echoed retry omits the limit so the input
+		// default (25) applies. The operation must still cover the whole
+		// echoed set instead of stranding five members as pending.
+		const ids = await enqueueDueDeliveries(path, 30);
+
+		const result = await executeWebhookDispatchOperation(
+			{
+				store: { path },
+				fetcher: okFetcher,
+				resolveSecret: () => "whsec",
+			},
+			{
+				limit: 25,
+				recovery_set: ids.map((id) => ({
+					delivery_id: id,
+					attempt_count: 0,
+				})),
+			},
+		);
+
+		expect(result).toMatchObject({
+			requested: 30,
+			claimed: 30,
+			pending_ids: [],
+		});
+	});
+
+	test("surfaces claimed positions when a dispatch fails mid-batch", async () => {
+		const path = await createStorePath();
+		await createHookEndpoint(path);
+		const ids = await enqueueDueDeliveries(path, 1);
+		const now = new Date("2026-08-01T09:00:05.000Z");
+
+		let sabotaged = false;
+		let failure: unknown;
+		try {
+			await dispatchOutboundWebhooks({
+				store: { path },
+				now,
+				fetcher: (async () => {
+					if (!sabotaged) {
+						sabotaged = true;
+						// Break the store after the claim but before the
+						// completion write: the POST already went out, so the
+						// failure is ambiguous and must carry the claim set.
+						await rm(path, { force: true });
+						await mkdir(path);
+					}
+					return new Response("ok", { status: 200 });
+				}) as unknown as typeof fetch,
+				resolveSecret: () => "whsec",
+			});
+		} catch (error) {
+			failure = error;
+		}
+
+		expect(failure).toBeInstanceOf(WebhookDispatchFailureError);
+		const dispatchFailure = failure as WebhookDispatchFailureError;
+		expect(dispatchFailure.claimSteps).toEqual([
+			{ id: ids[0], attemptCount: 1 },
+		]);
+		expect(dispatchFailure.toStructuredDetails()).toEqual({
+			recovery_set: [{ delivery_id: ids[0], attempt_count: 1 }],
 		});
 	});
 });

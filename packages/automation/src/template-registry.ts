@@ -39,6 +39,12 @@ export interface TemplateRegistryTemplateRecord {
 	templateId: number;
 	templateName: string;
 	activeVersionId?: string;
+	/**
+	 * Monotonic counter of registry-managed template writes. It advances
+	 * even when a write restores the same active version, so a pinned retry
+	 * can tell an untouched registry from one that went A → X → A.
+	 */
+	headRevision?: number;
 	versions: TemplateRegistryVersion[];
 }
 
@@ -75,7 +81,11 @@ export interface TemplatePromoteResult {
 	templateName: string;
 	versionId: string;
 	activeVersionId: string;
+	/** Registry head revision after this promotion; echo it to pin a later rollback retry. */
+	headRevision: number;
 	promotedAt: string;
+	/** False when the target version already matched the remote template (a no-op that issues no write). */
+	promoted: boolean;
 }
 
 export interface TemplateRollbackResult {
@@ -83,6 +93,8 @@ export interface TemplateRollbackResult {
 	templateName: string;
 	versionId: string;
 	activeVersionId: string;
+	/** Registry head revision after this rollback; echo it to pin a retry. */
+	headRevision: number;
 	promotedAt: string;
 	/** False when the requested rollback was already applied. */
 	rolledBack: boolean;
@@ -146,6 +158,10 @@ function isTemplateRegistryRecord(
 		typeof value.templateName === "string" &&
 		(value.activeVersionId === undefined ||
 			typeof value.activeVersionId === "string") &&
+		(value.headRevision === undefined ||
+			(typeof value.headRevision === "number" &&
+				Number.isInteger(value.headRevision) &&
+				value.headRevision >= 0)) &&
 		Array.isArray(value.versions) &&
 		value.versions.length > 0 &&
 		value.versions.every(isTemplateRegistryVersion)
@@ -378,6 +394,7 @@ export async function getTemplateRegistryHistory(templateId: number): Promise<{
 	templateId: number;
 	templateName: string;
 	activeVersionId?: string;
+	headRevision: number;
 	versions: TemplateRegistryVersion[];
 }> {
 	const storeDefinition = createTemplateRegistryStore();
@@ -392,6 +409,7 @@ export async function getTemplateRegistryHistory(templateId: number): Promise<{
 		templateId: record.templateId,
 		templateName: record.templateName,
 		activeVersionId: record.activeVersionId,
+		headRevision: record.headRevision ?? 0,
 		versions: record.versions,
 	};
 }
@@ -439,6 +457,12 @@ async function promoteTemplateVersionInStore(
 		);
 	}
 
+	// Every registry-managed remote write advances the monotonic head
+	// revision — including a same-version re-promotion restoring drifted
+	// remote content, which an observer's older pins must not survive.
+	// Callers that already carry the target content never reach this write:
+	// promoteTemplateVersion short-circuits the already-current case.
+	record.headRevision = (record.headRevision ?? 0) + 1;
 	record.activeVersionId = versionId;
 	store.templates[String(templateId)] = record;
 
@@ -447,23 +471,39 @@ async function promoteTemplateVersionInStore(
 		templateName: record.templateName,
 		versionId,
 		activeVersionId: versionId,
+		headRevision: record.headRevision ?? 0,
 		promotedAt: new Date().toISOString(),
+		promoted: true,
 	};
 }
 
-async function commitRemoteTemplateMutation<Result extends TemplatePromoteResult>(
+/**
+ * Outcome of a registry mutation action: the operation result plus whether
+ * the action actually issued a remote template update. No-op branches
+ * (an already-current promotion, an already-applied rollback) never
+ * mutated Listmonk, so a local store failure after them must not be
+ * reported as an unconfirmed REMOTE commit.
+ */
+interface TemplateRemoteMutationOutcome<Result> {
+	result: Result;
+	remoteMutated: boolean;
+}
+
+async function commitRemoteTemplateMutation<
+	Result extends TemplatePromoteResult | TemplateRollbackResult,
+>(
 	storeDefinition: JsonFileStore<TemplateRegistryStore>,
 	templateId: number,
 	action: (
 		store: TemplateRegistryStore,
-	) => Promise<Result>,
+	) => Promise<TemplateRemoteMutationOutcome<Result>>,
 ): Promise<Result> {
 	let remoteMutationCompleted = false;
 	try {
 		return await updateJsonFileStore(storeDefinition, async (store) => {
-			const result = await action(store);
-			remoteMutationCompleted = true;
-			return commitJsonFileStoreUpdate(store, result);
+			const outcome = await action(store);
+			remoteMutationCompleted = outcome.remoteMutated;
+			return commitJsonFileStoreUpdate(store, outcome.result);
 		});
 	} catch (error) {
 		if (!remoteMutationCompleted) {
@@ -488,7 +528,9 @@ export async function promoteTemplateVersion(
 	return commitRemoteTemplateMutation(
 		storeDefinition,
 		templateId,
-		async (store) => {
+		async (
+			store,
+		): Promise<TemplateRemoteMutationOutcome<TemplatePromoteResult>> => {
 			// Hash check inside the lock so concurrent promotions cannot
 			// both pass the check before either acquires the lock.
 			if (!options?.force && options?.expectedRemoteHash) {
@@ -507,12 +549,49 @@ export async function promoteTemplateVersion(
 					);
 				}
 			}
-			return promoteTemplateVersionInStore(
-				client,
-				templateId,
-				versionId,
-				store,
-			);
+
+			// An already-current promotion is a no-op: when the active
+			// version's content still matches the remote template, the PUT
+			// and the head-revision advance would only invalidate other
+			// callers' pins without changing anything. A drifted remote
+			// (hash differs) still takes the write below. force skips this
+			// short-circuit because it asks for an unconditional write.
+			const record = store.templates[String(templateId)];
+			if (!options?.force && record?.activeVersionId === versionId) {
+				const activeVersion = record.versions.find(
+					(version) => version.versionId === versionId,
+				);
+				if (activeVersion) {
+					const remoteTemplate = await getTemplateById(client, templateId);
+					const remoteHash = createTemplateHash(
+						createTemplateSnapshot(remoteTemplate, templateId),
+					);
+					if (remoteHash === activeVersion.hash) {
+						return {
+							result: {
+								templateId,
+								templateName: record.templateName,
+								versionId,
+								activeVersionId: versionId,
+								headRevision: record.headRevision ?? 0,
+								promotedAt: new Date().toISOString(),
+								promoted: false,
+							},
+							remoteMutated: false,
+						};
+					}
+				}
+			}
+
+			return {
+				result: await promoteTemplateVersionInStore(
+					client,
+					templateId,
+					versionId,
+					store,
+				),
+				remoteMutated: true,
+			};
 		},
 	);
 }
@@ -520,13 +599,32 @@ export async function promoteTemplateVersion(
 export async function rollbackTemplateVersion(
 	client: ListmonkClient,
 	templateId: number,
-	options: { toVersionId?: string } = {},
+	options: {
+		toVersionId?: string;
+		/**
+		 * Source pin: the active version the caller observed; a mismatch
+		 * conflicts. A cycle that promotes the original version back restores
+		 * this pin's match — pair it with the head pin to catch it.
+		 */
+		fromVersionId?: string;
+		/**
+		 * Head pin: the registry head revision the caller observed (echo the
+		 * head_revision from the original attempt or registry-history). Unlike
+		 * the source pin it survives an A → B → A cycle that restores both the
+		 * version id and the remote content, because the counter moved on.
+		 */
+		expectedHeadRevision?: number;
+		/** Remote drift pin: the remote template hash the caller observed. */
+		expectedRemoteHash?: string;
+	} = {},
 ): Promise<TemplateRollbackResult> {
 	const storeDefinition = createTemplateRegistryStore();
 	return commitRemoteTemplateMutation(
 		storeDefinition,
 		templateId,
-		async (store) => {
+		async (
+			store,
+		): Promise<TemplateRemoteMutationOutcome<TemplateRollbackResult>> => {
 			const record = store.templates[String(templateId)];
 			if (!record || record.versions.length < 2) {
 				throw new Error(
@@ -534,20 +632,98 @@ export async function rollbackTemplateVersion(
 				);
 			}
 
+			// The head revision pin catches cycles the source pin cannot:
+			// promoting the original version back restores both the active
+			// version id and (for identical content) the remote hash, so only
+			// the monotonic counter proves the registry moved A → B → A. It
+			// is checked first because it is the cheapest exact match.
+			if (
+				options.expectedHeadRevision !== undefined &&
+				(record.headRevision ?? 0) !== options.expectedHeadRevision
+			) {
+				throw new Error(
+					`Rollback head revision pin ${options.expectedHeadRevision} no longer matches registry head ${record.headRevision ?? 0} of template ${templateId}; the registry changed since the echoed attempt`,
+				);
+			}
+
+			// A source pin conflicts whenever the active version moved
+			// elsewhere; the one transition it cannot see is the cycle that
+			// promotes the original version back, which is exactly what the
+			// head-revision pin above catches.
+			if (
+				options.fromVersionId !== undefined &&
+				record.activeVersionId !== options.fromVersionId
+			) {
+				throw new Error(
+					`Rollback source pin ${options.fromVersionId} no longer matches the active version ${String(record.activeVersionId)} of template ${templateId}`,
+				);
+			}
+
+			// Remote drift pin: same locked hash check as promotion, so a
+			// template mutated outside the registry cannot be rolled back
+			// over silently. Listmonk offers no conditional update, so this
+			// stays a best-effort pre-check — an external writer can still
+			// interleave between this GET and the update PUT below.
+			if (options.expectedRemoteHash !== undefined) {
+				const remoteTemplate = await getTemplateById(client, templateId);
+				const remoteHash = createTemplateHash({
+					id: toPositiveInt(remoteTemplate.id) || templateId,
+					name: remoteTemplate.name || "",
+					type: remoteTemplate.type || "campaign",
+					subject: remoteTemplate.subject || "",
+					body: remoteTemplate.body || "",
+					bodySource: remoteTemplate.body_source || undefined,
+				} satisfies TemplateVersionSnapshot);
+				if (remoteHash !== options.expectedRemoteHash) {
+					throw new Error(
+						`Template ${templateId} remote hash mismatch: expected ${options.expectedRemoteHash.slice(0, 10)}, got ${remoteHash.slice(0, 10)}`,
+					);
+				}
+			}
+
 			// A pinned target that already equals the active version is the
 			// already-applied case even when no further previous version
-			// exists, so check it before resolving the dynamic target.
+			// exists, so check it before resolving the dynamic target. But
+			// "already applied" must also hold remotely: when the registry
+			// still marks the target active while the remote template
+			// drifted elsewhere, the rollback is repaired by re-promoting
+			// the target instead of being reported as a no-op.
 			if (
 				options.toVersionId !== undefined &&
 				record.activeVersionId === options.toVersionId
 			) {
+				const targetVersion = record.versions.find(
+					(version) => version.versionId === options.toVersionId,
+				);
+				if (targetVersion) {
+					const remoteTemplate = await getTemplateById(client, templateId);
+					const remoteHash = createTemplateHash(
+						createTemplateSnapshot(remoteTemplate, templateId),
+					);
+					if (remoteHash !== targetVersion.hash) {
+						const promoted = await promoteTemplateVersionInStore(
+							client,
+							templateId,
+							targetVersion.versionId,
+							store,
+						);
+						return {
+							result: { ...promoted, rolledBack: true },
+							remoteMutated: true,
+						};
+					}
+				}
 				return {
-					templateId,
-					templateName: record.templateName,
-					versionId: options.toVersionId,
-					activeVersionId: record.activeVersionId,
-					promotedAt: new Date().toISOString(),
-					rolledBack: false,
+					result: {
+						templateId,
+						templateName: record.templateName,
+						versionId: options.toVersionId,
+						activeVersionId: record.activeVersionId,
+						headRevision: record.headRevision ?? 0,
+						promotedAt: new Date().toISOString(),
+						rolledBack: false,
+					},
+					remoteMutated: false,
 				};
 			}
 
@@ -592,7 +768,7 @@ export async function rollbackTemplateVersion(
 				targetVersion.versionId,
 				store,
 			);
-			return { ...promoted, rolledBack: true };
+			return { result: { ...promoted, rolledBack: true }, remoteMutated: true };
 		},
 	);
 }

@@ -67,7 +67,9 @@ describe("MCP A/B test operation adapter", () => {
 			destructiveHint: true,
 			idempotentHint: false,
 		});
-		expect(deployWinnerTool?.annotations?.idempotentHint).toBe(false);
+		const deployToolIdempotent =
+			deployWinnerTool?.annotations?.idempotentHint;
+		expect(deployToolIdempotent).toBe(true);
 		expect(createTool?.inputSchema.required).toEqual([
 			"name",
 			"lists",

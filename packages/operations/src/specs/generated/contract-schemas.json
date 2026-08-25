@@ -20710,7 +20710,7 @@
           "additionalProperties": false,
           "properties": {
             "expected_remote_hash": {
-              "type": "string"
+              "$ref": "#/components/schemas/NonEmptyString"
             },
             "force": {
               "description": "Override hash mismatch check. Defaults to false.",
@@ -20736,7 +20736,7 @@
       "additionalProperties": false,
       "properties": {
         "expected_remote_hash": {
-          "type": "string"
+          "$ref": "#/components/schemas/NonEmptyString"
         },
         "force": {
           "description": "Override hash mismatch check. Defaults to false.",
@@ -20761,6 +20761,11 @@
   "templatePromoteOutputContract": {
     "components": {
       "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
         "ResourceId": {
           "maximum": 9007199254740991,
           "minimum": 1,
@@ -20771,6 +20776,14 @@
           "properties": {
             "activeVersionId": {
               "type": "string"
+            },
+            "headRevision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
+            },
+            "promoted": {
+              "description": "False when the target version already matched the remote template (a no-op that issues no write).",
+              "type": "boolean"
             },
             "promotedAt": {
               "type": "string"
@@ -20790,7 +20803,9 @@
             "templateName",
             "versionId",
             "activeVersionId",
-            "promotedAt"
+            "headRevision",
+            "promotedAt",
+            "promoted"
           ],
           "type": "object"
         }
@@ -20802,6 +20817,14 @@
       "properties": {
         "activeVersionId": {
           "type": "string"
+        },
+        "headRevision": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
+        },
+        "promoted": {
+          "description": "False when the target version already matched the remote template (a no-op that issues no write).",
+          "type": "boolean"
         },
         "promotedAt": {
           "type": "string"
@@ -20821,7 +20844,9 @@
         "templateName",
         "versionId",
         "activeVersionId",
-        "promotedAt"
+        "headRevision",
+        "promotedAt",
+        "promoted"
       ],
       "type": "object"
     },
@@ -20927,6 +20952,11 @@
   "templateRegistryHistoryOutputContract": {
     "components": {
       "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
         "ResourceId": {
           "maximum": 9007199254740991,
           "minimum": 1,
@@ -20937,6 +20967,10 @@
           "properties": {
             "activeVersionId": {
               "type": "string"
+            },
+            "headRevision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Monotonic count of registry-managed template writes (a same-version re-promotion included); echo it to pin a rollback retry."
             },
             "templateId": {
               "$ref": "#/components/schemas/ResourceId"
@@ -20954,6 +20988,7 @@
           "required": [
             "templateId",
             "templateName",
+            "headRevision",
             "versions"
           ],
           "type": "object"
@@ -21022,6 +21057,10 @@
         "activeVersionId": {
           "type": "string"
         },
+        "headRevision": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Monotonic count of registry-managed template writes (a same-version re-promotion included); echo it to pin a rollback retry."
+        },
         "templateId": {
           "$ref": "#/components/schemas/ResourceId"
         },
@@ -21038,6 +21077,7 @@
       "required": [
         "templateId",
         "templateName",
+        "headRevision",
         "versions"
       ],
       "type": "object"
@@ -21239,6 +21279,11 @@
           "minLength": 1,
           "type": "string"
         },
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
         "ResourceId": {
           "maximum": 9007199254740991,
           "minimum": 1,
@@ -21247,6 +21292,18 @@
         "TemplateRollbackInput": {
           "additionalProperties": false,
           "properties": {
+            "expected_head_revision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Registry head revision the caller observed; every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts on A → X → A."
+            },
+            "expected_remote_hash": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
+            },
+            "from_version_id": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Active registry version the caller observed; a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with expected_head_revision to catch that transition."
+            },
             "template_id": {
               "$ref": "#/components/schemas/ResourceId"
             },
@@ -21266,6 +21323,18 @@
     "schema": {
       "additionalProperties": false,
       "properties": {
+        "expected_head_revision": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Registry head revision the caller observed; every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts on A → X → A."
+        },
+        "expected_remote_hash": {
+          "$ref": "#/components/schemas/NonEmptyString",
+          "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
+        },
+        "from_version_id": {
+          "$ref": "#/components/schemas/NonEmptyString",
+          "description": "Active registry version the caller observed; a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with expected_head_revision to catch that transition."
+        },
         "template_id": {
           "$ref": "#/components/schemas/ResourceId"
         },
@@ -21285,6 +21354,11 @@
   "templateRollbackOutputContract": {
     "components": {
       "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
         "ResourceId": {
           "maximum": 9007199254740991,
           "minimum": 1,
@@ -21295,6 +21369,10 @@
           "properties": {
             "activeVersionId": {
               "type": "string"
+            },
+            "headRevision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Registry head revision after the rollback; echo it to pin a retry."
             },
             "promotedAt": {
               "type": "string"
@@ -21318,6 +21396,7 @@
             "templateName",
             "versionId",
             "activeVersionId",
+            "headRevision",
             "promotedAt",
             "rolledBack"
           ],
@@ -21331,6 +21410,10 @@
       "properties": {
         "activeVersionId": {
           "type": "string"
+        },
+        "headRevision": {
+          "$ref": "#/components/schemas/NonNegativeInteger",
+          "description": "Registry head revision after the rollback; echo it to pin a retry."
         },
         "promotedAt": {
           "type": "string"
@@ -21354,6 +21437,7 @@
         "templateName",
         "versionId",
         "activeVersionId",
+        "headRevision",
         "promotedAt",
         "rolledBack"
       ],
@@ -24099,11 +24183,25 @@
   "webhookDispatchInputContract": {
     "components": {
       "schemas": {
+        "NonNegativeInteger": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
         "WebhookDispatchInput": {
           "additionalProperties": false,
           "properties": {
             "limit": {
               "$ref": "#/components/schemas/WebhookDispatchLimit"
+            },
+            "recovery_set": {
+              "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique and the set is capped at 100 entries, the\ndispatch limit ceiling.",
+              "items": {
+                "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "type": "array"
             }
           },
           "required": [],
@@ -24113,6 +24211,24 @@
           "maximum": 100,
           "minimum": 1,
           "type": "integer"
+        },
+        "WebhookDispatchRecoveryClaim": {
+          "additionalProperties": false,
+          "description": "One echoed dispatch claim position: the delivery plus its attempt count at claim.",
+          "properties": {
+            "attempt_count": {
+              "$ref": "#/components/schemas/NonNegativeInteger"
+            },
+            "delivery_id": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "delivery_id",
+            "attempt_count"
+          ],
+          "type": "object"
         }
       }
     },
@@ -24122,6 +24238,15 @@
       "properties": {
         "limit": {
           "$ref": "#/components/schemas/WebhookDispatchLimit"
+        },
+        "recovery_set": {
+          "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique and the set is capped at 100 entries, the\ndispatch limit ceiling.",
+          "items": {
+            "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
         }
       },
       "required": [],

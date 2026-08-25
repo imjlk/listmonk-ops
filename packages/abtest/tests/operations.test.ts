@@ -133,7 +133,7 @@ describe("A/B test operation registry", () => {
 				(operation) =>
 					operation.mcp.name === "listmonk_abtest_deploy_winner",
 			)?.safety.idempotentHint,
-		).toBe(false);
+		).toBe(true);
 	});
 
 	test("filters and serializes persisted tests through the shared invoker", async () => {

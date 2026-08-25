@@ -5503,11 +5503,25 @@
       "input": {
         "components": {
           "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "WebhookDispatchInput": {
               "additionalProperties": false,
               "properties": {
                 "limit": {
                   "$ref": "#/components/schemas/WebhookDispatchLimit"
+                },
+                "recovery_set": {
+                  "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique and the set is capped at 100 entries, the\ndispatch limit ceiling.",
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
+                  },
+                  "maxItems": 100,
+                  "minItems": 1,
+                  "type": "array"
                 }
               },
               "required": [],
@@ -5517,6 +5531,24 @@
               "maximum": 100,
               "minimum": 1,
               "type": "integer"
+            },
+            "WebhookDispatchRecoveryClaim": {
+              "additionalProperties": false,
+              "description": "One echoed dispatch claim position: the delivery plus its attempt count at claim.",
+              "properties": {
+                "attempt_count": {
+                  "$ref": "#/components/schemas/NonNegativeInteger"
+                },
+                "delivery_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "delivery_id",
+                "attempt_count"
+              ],
+              "type": "object"
             }
           }
         },
@@ -5526,6 +5558,15 @@
           "properties": {
             "limit": {
               "$ref": "#/components/schemas/WebhookDispatchLimit"
+            },
+            "recovery_set": {
+              "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique and the set is capped at 100 entries, the\ndispatch limit ceiling.",
+              "items": {
+                "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "type": "array"
             }
           },
           "required": [],
@@ -5824,13 +5865,31 @@
         "dryRun": false
       },
       "retry": {
-        "idempotent": false,
-        "kind": "reconcile",
-        "reason": "Delivery is at least once; stable event IDs support receiver deduplication but do not make blind retries safe.",
-        "reconcileWith": "webhooks.delivery.list"
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "The recovery dispatch claims exactly the echoed deliveries, and only while each still sits at its originally claimed attempt count — deliveries that anyone attempted since, already succeeded or exhausted, holding a live lease, sitting in backoff, or facing an open circuit are skipped (the retryable ones are reported as pending_ids), so the retry never claims new due work. The POST itself stays at least once, so the outcome still needs inspection with the stable event-id header available for receiver deduplication.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "recovery_set (an echoed claim set of delivery ids and their attempt counts at claim) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Delivery is at least once and a fresh dispatch claims whatever is due at request time; stable event IDs support receiver deduplication but do not make blind retries safe.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "The echoed claim set bounds the retry to the originally claimed deliveries; delivery itself is at least once in every mode."
       },
       "since": "0.8.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "webhooks.delivery.list",
@@ -27116,6 +27175,11 @@
       "output": {
         "components": {
           "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "ResourceId": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -27126,6 +27190,10 @@
               "properties": {
                 "activeVersionId": {
                   "type": "string"
+                },
+                "headRevision": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "Monotonic count of registry-managed template writes (a same-version re-promotion included); echo it to pin a rollback retry."
                 },
                 "templateId": {
                   "$ref": "#/components/schemas/ResourceId"
@@ -27143,6 +27211,7 @@
               "required": [
                 "templateId",
                 "templateName",
+                "headRevision",
                 "versions"
               ],
               "type": "object"
@@ -27211,6 +27280,10 @@
             "activeVersionId": {
               "type": "string"
             },
+            "headRevision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Monotonic count of registry-managed template writes (a same-version re-promotion included); echo it to pin a rollback retry."
+            },
             "templateId": {
               "$ref": "#/components/schemas/ResourceId"
             },
@@ -27227,6 +27300,7 @@
           "required": [
             "templateId",
             "templateName",
+            "headRevision",
             "versions"
           ],
           "type": "object"
@@ -27264,7 +27338,7 @@
               "additionalProperties": false,
               "properties": {
                 "expected_remote_hash": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/NonEmptyString"
                 },
                 "force": {
                   "description": "Override hash mismatch check. Defaults to false.",
@@ -27290,7 +27364,7 @@
           "additionalProperties": false,
           "properties": {
             "expected_remote_hash": {
-              "type": "string"
+              "$ref": "#/components/schemas/NonEmptyString"
             },
             "force": {
               "description": "Override hash mismatch check. Defaults to false.",
@@ -27315,6 +27389,11 @@
       "output": {
         "components": {
           "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "ResourceId": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -27325,6 +27404,14 @@
               "properties": {
                 "activeVersionId": {
                   "type": "string"
+                },
+                "headRevision": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
+                },
+                "promoted": {
+                  "description": "False when the target version already matched the remote template (a no-op that issues no write).",
+                  "type": "boolean"
                 },
                 "promotedAt": {
                   "type": "string"
@@ -27344,7 +27431,9 @@
                 "templateName",
                 "versionId",
                 "activeVersionId",
-                "promotedAt"
+                "headRevision",
+                "promotedAt",
+                "promoted"
               ],
               "type": "object"
             }
@@ -27356,6 +27445,14 @@
           "properties": {
             "activeVersionId": {
               "type": "string"
+            },
+            "headRevision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
+            },
+            "promoted": {
+              "description": "False when the target version already matched the remote template (a no-op that issues no write).",
+              "type": "boolean"
             },
             "promotedAt": {
               "type": "string"
@@ -27375,7 +27472,9 @@
             "templateName",
             "versionId",
             "activeVersionId",
-            "promotedAt"
+            "headRevision",
+            "promotedAt",
+            "promoted"
           ],
           "type": "object"
         },
@@ -27388,11 +27487,29 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "safe",
-        "reason": "Reapplying the same promotion converges on the same remote template content."
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "The hash pin conflicts on any remote change — another operator promoting a different version between the attempt and the retry included — before the update is re-issued. A retry therefore either lands the same content, is a documented no-op when the target version already matches the remote template (`promoted: false`, no write and no head-revision advance), or conflicts when the promotion changed the remote hash — that conflict is the reconciliation signal. The check stays best-effort because Listmonk offers no conditional update.",
+              "reconcileWith": "templates.get"
+            },
+            "when": "expected_remote_hash is present and force is not set"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "An unpinned or forced retry re-issues the last-write-wins update unconditionally and can overwrite an intervening promotion of a different version."
+            },
+            "when": "expected_remote_hash is absent or force is set"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on pinning the observed remote template hash; Listmonk updates are last-write-wins."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "ops.templates.registry-rollback",
@@ -27403,6 +27520,11 @@
               "minLength": 1,
               "type": "string"
             },
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "ResourceId": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -27411,6 +27533,18 @@
             "TemplateRollbackInput": {
               "additionalProperties": false,
               "properties": {
+                "expected_head_revision": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "Registry head revision the caller observed; every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts on A → X → A."
+                },
+                "expected_remote_hash": {
+                  "$ref": "#/components/schemas/NonEmptyString",
+                  "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
+                },
+                "from_version_id": {
+                  "$ref": "#/components/schemas/NonEmptyString",
+                  "description": "Active registry version the caller observed; a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with expected_head_revision to catch that transition."
+                },
                 "template_id": {
                   "$ref": "#/components/schemas/ResourceId"
                 },
@@ -27430,6 +27564,18 @@
         "schema": {
           "additionalProperties": false,
           "properties": {
+            "expected_head_revision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Registry head revision the caller observed; every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts on A → X → A."
+            },
+            "expected_remote_hash": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
+            },
+            "from_version_id": {
+              "$ref": "#/components/schemas/NonEmptyString",
+              "description": "Active registry version the caller observed; a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with expected_head_revision to catch that transition."
+            },
             "template_id": {
               "$ref": "#/components/schemas/ResourceId"
             },
@@ -27449,6 +27595,11 @@
       "output": {
         "components": {
           "schemas": {
+            "NonNegativeInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
             "ResourceId": {
               "maximum": 9007199254740991,
               "minimum": 1,
@@ -27459,6 +27610,10 @@
               "properties": {
                 "activeVersionId": {
                   "type": "string"
+                },
+                "headRevision": {
+                  "$ref": "#/components/schemas/NonNegativeInteger",
+                  "description": "Registry head revision after the rollback; echo it to pin a retry."
                 },
                 "promotedAt": {
                   "type": "string"
@@ -27482,6 +27637,7 @@
                 "templateName",
                 "versionId",
                 "activeVersionId",
+                "headRevision",
                 "promotedAt",
                 "rolledBack"
               ],
@@ -27495,6 +27651,10 @@
           "properties": {
             "activeVersionId": {
               "type": "string"
+            },
+            "headRevision": {
+              "$ref": "#/components/schemas/NonNegativeInteger",
+              "description": "Registry head revision after the rollback; echo it to pin a retry."
             },
             "promotedAt": {
               "type": "string"
@@ -27518,6 +27678,7 @@
             "templateName",
             "versionId",
             "activeVersionId",
+            "headRevision",
             "promotedAt",
             "rolledBack"
           ],
@@ -27532,11 +27693,29 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A pinned target (to_version_id) makes a repeat conflict when the registry moved to a different previous version, but an ABA transition — promoting the original version back — is indistinguishable without a source-version or generation pin, and the remote template may have drifted outside the registry; the rollback stays experimental until retries can detect both."
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Inside the store lock the head-revision pin conflicts on any registry transition — including an A → B → A cycle that restores the version id — the source pin conflicts when the active version moved, and the target pin makes an already-applied rollback a documented no-op for a freshly observed pin set. A successful rollback advances the head revision and changes the remote hash, so a retry echoing the original pins always conflicts after its own success; that conflict is the reconciliation signal — an already-applied rollback shows up in registry-history with the target active. The remote hash pin stays best-effort: Listmonk offers no conditional update, so an external writer can still interleave between the hash check and the write.",
+              "reconcileWith": "templates.get"
+            },
+            "when": "from_version_id, to_version_id, expected_head_revision, and expected_remote_hash are all present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Without the full pin set an ABA transition or out-of-registry drift is indistinguishable, and a repeat may roll a different version than the caller reviewed."
+            },
+            "when": "any pin is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller pins the observed registry head, target, and remote hash; even fully pinned retries re-issue a last-write-wins remote update."
       },
       "since": "0.9.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.list",
@@ -31341,11 +31520,11 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may create another winner campaign and deliver to the holdout audience again."
+        "kind": "safe",
+        "reason": "A retry first looks for a campaign already tagged winner:deployed for this test — whether left by a completed prior call or one whose local commit was lost — and adopts it as the winner campaign instead of creating another, so an identical retry converges on the same holdout delivery rather than duplicating it."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.run",
@@ -31944,11 +32123,27 @@
         "dryRun": false
       },
       "retry": {
-        "kind": "unsafe",
-        "reason": "A retry may send additional campaigns or shift assignments."
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "Both guards are verified inside the store transaction before any lifecycle step: a retry after the first attempt landed sees a changed status or updatedAt and conflicts instead of acting, a retry while the attempt never landed executes it once, and a terminal test is a documented no-op — so an identical guarded retry converges."
+            },
+            "when": "expected_status and expected_updated_at are both present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Without both guards a retry may send additional campaigns or shift assignments on a test that already moved."
+            },
+            "when": "either guard is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller pins the observed test revision."
       },
       "since": "0.10.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "abtest.tick",

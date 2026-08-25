@@ -2607,8 +2607,66 @@ async function deliverClaimedWebhook(
 	}
 }
 
+/**
+ * A dispatch that failed after claiming deliveries. The claimed positions
+ * ride along as the recovery handle: adapters serialize
+ * {@link WebhookDispatchFailureError.toStructuredDetails} into structured
+ * error details so an ambiguous retry can echo exactly that set as
+ * recovery_set instead of claiming new due work.
+ */
+export class WebhookDispatchFailureError extends AggregateError {
+	public readonly claimSteps: readonly Readonly<{
+		id: string;
+		attemptCount: number;
+	}>[];
+
+	constructor(
+		failures: readonly unknown[],
+		message: string,
+		claimSteps: readonly Readonly<{ id: string; attemptCount: number }>[],
+	) {
+		super(failures, message);
+		this.name = "WebhookDispatchFailureError";
+		this.claimSteps = claimSteps;
+	}
+
+	/** Recovery handle for adapters: the echoed claim set this failure leaves. */
+	toStructuredDetails(): Record<string, unknown> {
+		return {
+			recovery_set: this.claimSteps.map((step) => ({
+				delivery_id: step.id,
+				attempt_count: step.attemptCount,
+			})),
+		};
+	}
+}
+
 export async function dispatchOutboundWebhooks(
 	options: DispatchOutboundWebhooksOptions = {},
+): Promise<DispatchOutboundWebhooksResult> {
+	// The claim ledger is shared with the inner run so a mid-batch failure
+	// — a POST already issued, a completion or later claim that threw —
+	// surfaces the exact claimed positions instead of losing them.
+	const claimSteps: { id: string; attemptCount: number }[] = [];
+	try {
+		return await runOutboundWebhookDispatch(options, claimSteps);
+	} catch (error) {
+		if (claimSteps.length > 0) {
+			const causeMessage =
+				error instanceof Error ? error.message : String(error);
+			throw new WebhookDispatchFailureError(
+				[error],
+				`Webhook dispatch failed after claiming ${claimSteps.length} ${claimSteps.length === 1 ? "delivery" : "deliveries"}; echo this error's claim_steps as recovery_set to retry exactly those positions instead of claiming new due work. Cause: ${causeMessage}`,
+				claimSteps.map((step) => ({ ...step })),
+			);
+		}
+		throw error;
+	}
+}
+
+async function runOutboundWebhookDispatch(
+	options: DispatchOutboundWebhooksOptions,
+	claimSteps: { id: string; attemptCount: number }[],
 ): Promise<DispatchOutboundWebhooksResult> {
 	const limit = options.limit ?? 25;
 	if (!Number.isInteger(limit) || limit <= 0 || limit > 100) {
@@ -2642,7 +2700,6 @@ export async function dispatchOutboundWebhooks(
 	const resolveSecret =
 		options.resolveSecret ?? ((secretRef: string) => process.env[secretRef]);
 	const results: DispatchOutboundWebhooksResult["results"][number][] = [];
-	const claimSteps: { id: string; attemptCount: number }[] = [];
 	const processedDeliveryIds = new Set<string>();
 	let claimedCount = 0;
 	const recoveryClaims = options.recoveryClaims;

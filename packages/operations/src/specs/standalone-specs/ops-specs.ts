@@ -338,8 +338,29 @@ export const opsTemplateRegistryPromoteOperationSpec = defineOperationSpec({
 	effects: [{ kind: "write", resource: "template", reversible: false }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "safe",
-		reason: "Reapplying the same promotion converges on the same remote template content.",
+		kind: "conditional",
+		cases: [
+			{
+				when: "expected_remote_hash is present and force is not set",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "templates.get",
+					idempotent: false,
+					reason:
+						"The hash pin conflicts on any remote change — another operator promoting a different version between the attempt and the retry included — before the update is re-issued. A retry therefore either lands the same content, is a documented no-op when the target version already matches the remote template (`promoted: false`, no write and no head-revision advance), or conflicts when the promotion changed the remote hash — that conflict is the reconciliation signal. The check stays best-effort because Listmonk offers no conditional update.",
+				},
+			},
+			{
+				when: "expected_remote_hash is absent or force is set",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"An unpinned or forced retry re-issues the last-write-wins update unconditionally and can overwrite an intervening promotion of a different version.",
+				},
+			},
+		],
+		reason:
+			"Retry safety depends on pinning the observed remote template hash; Listmonk updates are last-write-wins.",
 	},
 	agent: {
 		useWhen: [
@@ -349,7 +370,8 @@ export const opsTemplateRegistryPromoteOperationSpec = defineOperationSpec({
 		prerequisites: ["ops.templates.registry-history"],
 		verifyWith: ["templates.get"],
 		related: ["ops.templates.registry-sync", "ops.templates.registry-rollback"],
-		retryGuidance: "Retry is safe; the promotion is idempotent for the same version content.",
+		retryGuidance:
+			"Echo the observed remote template hash as expected_remote_hash — ops.templates.registry-sync's per-template hash output carries it for the current remote content, and registry-history exposes the stored snapshot hashes — so an ambiguous retry conflicts on any intervening remote change — another promotion included — instead of overwriting it; an already-current target is a documented `promoted: false` no-op that issues no write, while a promotion that changed the remote hash conflicts on its own echo — on conflict reconcile with templates.get and ops.templates.registry-history before deciding; without the pin (or with force), inspect templates.get first.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_template_registry_promote",
@@ -362,7 +384,7 @@ export const opsTemplateRegistryPromoteOperationSpec = defineOperationSpec({
 			executorNode: "packages/automation/src/ops-operations.ts#executeTemplateRegistryPromoteOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 
@@ -379,9 +401,29 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 	effects: [{ kind: "write", resource: "template", reversible: false }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "conditional",
+		cases: [
+			{
+				when: "from_version_id, to_version_id, expected_head_revision, and expected_remote_hash are all present",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "templates.get",
+					idempotent: false,
+					reason:
+						"Inside the store lock the head-revision pin conflicts on any registry transition — including an A → B → A cycle that restores the version id — the source pin conflicts when the active version moved, and the target pin makes an already-applied rollback a documented no-op for a freshly observed pin set. A successful rollback advances the head revision and changes the remote hash, so a retry echoing the original pins always conflicts after its own success; that conflict is the reconciliation signal — an already-applied rollback shows up in registry-history with the target active. The remote hash pin stays best-effort: Listmonk offers no conditional update, so an external writer can still interleave between the hash check and the write.",
+				},
+			},
+			{
+				when: "any pin is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"Without the full pin set an ABA transition or out-of-registry drift is indistinguishable, and a repeat may roll a different version than the caller reviewed.",
+				},
+			},
+		],
 		reason:
-			"A pinned target (to_version_id) makes a repeat conflict when the registry moved to a different previous version, but an ABA transition — promoting the original version back — is indistinguishable without a source-version or generation pin, and the remote template may have drifted outside the registry; the rollback stays experimental until retries can detect both.",
+			"Retry safety depends on whether the caller pins the observed registry head, target, and remote hash; even fully pinned retries re-issue a last-write-wins remote update.",
 	},
 	agent: {
 		useWhen: ["A template must be reverted to its previous stored version."],
@@ -390,7 +432,7 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 		verifyWith: ["templates.get"],
 		related: ["ops.templates.registry-sync", "ops.templates.registry-promote"],
 		retryGuidance:
-			"Pin the target with to_version_id from ops.templates.registry-history before retrying an ambiguous rollback, and inspect templates.get and the registry history for intervening promotes; a pinned repeat conflicts when the registry moved to a different previous version.",
+			"Pin the full set — from_version_id (observed active), to_version_id, expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op for a freshly observed pin set; a successful rollback advances the head revision, so a retry echoing the original pins conflicts even after its own success — on that conflict reconcile with ops.templates.registry-history and templates.get, where an already-applied rollback shows the target active; with any pin missing, do the same inspection before retrying.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_template_registry_rollback",
@@ -403,7 +445,7 @@ export const opsTemplateRegistryRollbackOperationSpec = defineOperationSpec({
 			executorNode: "packages/automation/src/ops-operations.ts#executeTemplateRegistryRollbackOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

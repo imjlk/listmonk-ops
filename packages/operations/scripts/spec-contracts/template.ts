@@ -169,6 +169,8 @@ export interface TemplateRegistryHistoryOutput {
 	templateId: ResourceId;
 	templateName: string;
 	activeVersionId?: string;
+	/** Monotonic count of registry-managed template writes (a same-version re-promotion included); echo it to pin a rollback retry. */
+	headRevision: NonNegativeInteger;
 	versions: TemplateRegistryVersion[];
 }
 
@@ -178,7 +180,7 @@ export interface TemplateIdInput {
 
 export interface TemplatePromoteInput extends TemplateIdInput {
 	version_id: NonEmptyString;
-	expected_remote_hash?: string;
+	expected_remote_hash?: NonEmptyString;
 	/** Override hash mismatch check. Defaults to false. */
 	force?: boolean;
 }
@@ -188,5 +190,9 @@ export interface TemplatePromoteOutput {
 	templateName: string;
 	versionId: string;
 	activeVersionId: string;
+	/** Registry head revision after this promotion; echo it to pin a later rollback retry. */
+	headRevision: NonNegativeInteger;
 	promotedAt: string;
+	/** False when the target version already matched the remote template (a no-op that issues no write). */
+	promoted: boolean;
 }

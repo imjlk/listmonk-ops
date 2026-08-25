@@ -151,6 +151,12 @@ export interface TemplateRollbackInput {
 	template_id: ResourceId;
 	/** Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version. */
 	to_version_id?: NonEmptyString;
+	/** Active registry version the caller observed; a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with expected_head_revision to catch that transition. */
+	from_version_id?: NonEmptyString;
+	/** Registry head revision the caller observed; every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts on A → X → A. */
+	expected_head_revision?: NonNegativeInteger;
+	/** Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over. */
+	expected_remote_hash?: NonEmptyString;
 }
 
 export interface TemplateRollbackOutput {
@@ -158,6 +164,8 @@ export interface TemplateRollbackOutput {
 	templateName: string;
 	versionId: string;
 	activeVersionId: string;
+	/** Registry head revision after the rollback; echo it to pin a retry. */
+	headRevision: NonNegativeInteger;
 	promotedAt: string;
 	/** False when the requested rollback was already applied. */
 	rolledBack: boolean;

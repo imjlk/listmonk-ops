@@ -210,7 +210,7 @@ describe("email operations specification", () => {
 			emailOperationsSpec.operations.filter(
 				(operation) => operation.stability === "stable",
 			),
-		).toHaveLength(96);
+		).toHaveLength(101);
 		expect(coreReadOperationSpecs).toHaveLength(10);
 		expect(
 			coreReadOperationSpecs.every(
@@ -594,7 +594,7 @@ describe("email operations specification", () => {
 		).toBe(false);
 		expect(
 			emailOperationsSpec.operations.find((o) => o.id === "abtest.deploy-winner")?.retry,
-		).toMatchObject({ kind: "unsafe" });
+		).toMatchObject({ kind: "safe" });
 
 		expect(abTestLaunchOperationSpec.effects).toEqual([
 			{ kind: "write", resource: "experiment", reversible: false },
@@ -625,10 +625,10 @@ describe("email operations specification", () => {
 			idempotent: true,
 		});
 		expect(abTestDeployWinnerOperationSpec.retry).toMatchObject({
-			kind: "unsafe",
+			kind: "safe",
 		});
-		expect(abTestDeployWinnerOperationSpec.agent.retryGuidance).not.toContain(
-			"Retry is safe",
+		expect(abTestDeployWinnerOperationSpec.agent.retryGuidance).toContain(
+			"winner:deployed",
 		);
 
 		expect(experimentResource.states).toEqual([

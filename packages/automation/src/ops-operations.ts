@@ -178,6 +178,30 @@ const templateRollbackInputSchema = z.object({
 		.describe(
 			"Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version",
 		),
+		from_version_id: z
+			.string()
+			.trim()
+			.min(1)
+			.optional()
+			.describe(
+				"Active registry version the caller observed (the registry-history activeVersionId output); a retry conflicts whenever the active version moved elsewhere. A cycle that promotes the original version back restores this pin's match — pair it with expected_head_revision to catch that transition",
+			),
+		expected_head_revision: z
+			.number()
+			.int()
+			.nonnegative()
+			.optional()
+			.describe(
+				"Registry head revision the caller observed (the registry-history headRevision output, or the headRevision a prior rollback returned); every registry-managed write — a same-version re-promotion included — advances this counter, so a pinned retry conflicts instead of rolling again",
+			),
+	expected_remote_hash: z
+		.string()
+		.trim()
+		.min(1)
+		.optional()
+		.describe(
+			"Remote template hash the caller observed (the per-template hash from a fresh registry-sync, or a stored version's hash from registry-history); a template mutated outside the registry conflicts instead of being rolled back over",
+		),
 });
 const segmentDriftInputSchema = z.object({
 	list_ids: z
@@ -227,8 +251,12 @@ const templatePromoteInputSchema = templateIdInputSchema.extend({
 	version_id: z.string().trim().min(1).describe("Stored version ID"),
 	expected_remote_hash: z
 		.string()
+		.trim()
+		.min(1)
 		.optional()
-		.describe("Expected remote template hash for optimistic concurrency"),
+		.describe(
+			"Expected remote template hash (the per-template hash from a fresh registry-sync, or a stored version's hash from registry-history); a blank value is rejected so a guarded retry cannot silently degrade to the unpinned path",
+		),
 	force: booleanInput
 		.default(false)
 		.describe("Override hash mismatch check"),
@@ -368,6 +396,7 @@ const templateRegistryHistoryOutputSchema = z.object({
 	templateId: z.number().int().positive(),
 	templateName: z.string(),
 	activeVersionId: z.string().optional(),
+	headRevision: z.number().int().nonnegative(),
 	versions: z.array(templateRegistryVersionSchema),
 });
 
@@ -376,10 +405,18 @@ const templatePromoteOutputSchema = z.object({
 	templateName: z.string(),
 	versionId: z.string(),
 	activeVersionId: z.string(),
+	headRevision: z.number().int().nonnegative(),
 	promotedAt: z.string(),
+	promoted: z.boolean(),
 });
 
-const templateRollbackOutputSchema = templatePromoteOutputSchema.extend({
+const templateRollbackOutputSchema = z.object({
+	templateId: z.number().int().positive(),
+	templateName: z.string(),
+	versionId: z.string(),
+	activeVersionId: z.string(),
+	headRevision: z.number().int().nonnegative(),
+	promotedAt: z.string(),
 	rolledBack: z.boolean(),
 });
 const dailyDigestOutputSchema = z.object({
@@ -545,6 +582,9 @@ export async function executeTemplateRegistryRollbackOperation(
 	const client = requireOpsClient(context);
 	return rollbackTemplateVersion(client, input.template_id, {
 		toVersionId: input.to_version_id,
+		fromVersionId: input.from_version_id?.trim() || undefined,
+		expectedHeadRevision: input.expected_head_revision,
+		expectedRemoteHash: input.expected_remote_hash?.trim() || undefined,
 	});
 }
 
@@ -657,7 +697,7 @@ export const templateRegistryPromoteOperation = defineOperation({
 	safety: {
 		readOnlyHint: false,
 		destructiveHint: true,
-		idempotentHint: true,
+		idempotentHint: false,
 		openWorldHint: true,
 	},
 	mcp: { name: "listmonk_ops_template_registry_promote" },

@@ -413,8 +413,9 @@ export const abTestDeployWinnerOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
-		reason: "A retry may create another winner campaign and deliver to the holdout audience again.",
+		kind: "safe",
+		reason:
+			"A retry first looks for a campaign already tagged winner:deployed for this test — whether left by a completed prior call or one whose local commit was lost — and adopts it as the winner campaign instead of creating another, so an identical retry converges on the same holdout delivery rather than duplicating it.",
 	},
 	agent: {
 		useWhen: ["A winning variant must be deployed to the holdout group."],
@@ -423,7 +424,7 @@ export const abTestDeployWinnerOperationSpec = defineOperationSpec({
 		verifyWith: ["abtest.get"],
 		related: ["abtest.stop"],
 		retryGuidance:
-			"Inspect abtest.get and the holdout campaign before retrying; an ambiguous deployment may already have delivered to the holdout audience.",
+			"Retry directly: a campaign already tagged winner:deployed for the test is adopted rather than duplicated; verify the holdout campaign state with campaigns.list by the abtest tag when the outcome stays ambiguous.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_deploy_winner",
@@ -436,7 +437,7 @@ export const abTestDeployWinnerOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeDeployAbTestWinnerOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 
@@ -458,8 +459,27 @@ export const abTestRunOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
-		reason: "A retry may send additional campaigns or shift assignments.",
+		kind: "conditional",
+		cases: [
+			{
+				when: "expected_status and expected_updated_at are both present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"Both guards are verified inside the store transaction before any lifecycle step: a retry after the first attempt landed sees a changed status or updatedAt and conflicts instead of acting, a retry while the attempt never landed executes it once, and a terminal test is a documented no-op — so an identical guarded retry converges.",
+				},
+			},
+			{
+				when: "either guard is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"Without both guards a retry may send additional campaigns or shift assignments on a test that already moved.",
+				},
+			},
+		],
+		reason:
+			"Retry safety depends on whether the caller pins the observed test revision.",
 	},
 	agent: {
 		useWhen: [
@@ -469,7 +489,8 @@ export const abTestRunOperationSpec = defineOperationSpec({
 		prerequisites: ["abtest.get"],
 		verifyWith: ["abtest.get"],
 		related: ["abtest.launch", "abtest.stop"],
-		retryGuidance: "Inspect abtest.get before retrying an ambiguous run.",
+		retryGuidance:
+			"Echo the abtest.get output's status and updatedAt fields verbatim as the expected_status and expected_updated_at inputs so an ambiguous retry conflicts instead of acting on a moved test; without both guards, inspect abtest.get before retrying.",
 	},
 	projection: {
 		mcpName: "listmonk_abtest_run",
@@ -482,7 +503,7 @@ export const abTestRunOperationSpec = defineOperationSpec({
 			executorNode: "packages/abtest/src/operations.ts#executeRunAbTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.10.0",
 });
 

@@ -1454,9 +1454,67 @@ export class AbTestService {
 			throw new Error("No statistically significant winner found");
 		}
 
-		// Deploy winner to holdout group
+		// Deploy winner to holdout group. An already-deployed winner
+		// campaign — tagged winner:deployed for this test, whether by a
+		// completed prior call or one whose local commit was lost — is
+		// adopted instead of creating a second campaign, so an ambiguous
+		// retry converges on the same holdout delivery.
 		if (this.listmonkIntegration) {
+			// A failed invocation must leave the persisted lifecycle where
+			// this call found it: restoring a terminal `completed` test to
+			// `analyzing` on a transient adoption-lookup failure would make
+			// run/tick eligible to process an already-finished test again.
+			const originalStatus = test.status;
 			try {
+				const existing =
+					await this.listmonkIntegration.findCampaignsByTestTag(testId);
+				const deployed = existing.filter((campaign) =>
+					campaign.tags.includes("winner:deployed"),
+				);
+				if (deployed.length > 1) {
+					throw new Error(
+						`Test ${testId} has ${deployed.length} campaigns tagged winner:deployed (${deployed.map((campaign) => campaign.id).join(", ")}); exactly one is required, so resolve the duplicates manually before deploying`,
+					);
+				}
+				const adopted = deployed[0];
+				if (adopted) {
+					// The adopted campaign must carry exactly one variant tag
+					// and it must be the variant the current analysis selected:
+					// delayed metrics can change the analyzed winner after the
+					// first attempt already delivered a different variant.
+					const variantIds = adopted.tags
+						.filter((tag) => tag.startsWith("variant:"))
+						.map((tag) => tag.slice("variant:".length));
+					const adoptedVariantId = variantIds.length === 1
+						? variantIds[0]
+						: undefined;
+					if (!adoptedVariantId) {
+						throw new Error(
+							`Winner campaign ${adopted.id} for test ${testId} carries ambiguous variant tags [${adopted.tags.filter((tag) => tag.startsWith("variant:")).join(", ")}]; resolve the campaign tags manually before deploying`,
+						);
+					}
+					if (adoptedVariantId !== analysis.winner.id) {
+						throw new Error(
+							`Winner campaign ${adopted.id} for test ${testId} deployed variant ${adoptedVariantId}, but the current analysis selected variant ${analysis.winner.id}; the holdout already received a different variant, so resolve the winner manually instead of adopting the campaign`,
+						);
+					}
+
+					// Finish an auto-launch the first attempt could not: a
+					// created-but-unlaunched campaign stays a draft, and the
+					// retry must launch it before completing the test. A
+					// campaign that already moved past draft was launched.
+					if (test.autoDeployWinner && adopted.status === "draft") {
+						await this.listmonkIntegration.autoDeployWinner(adopted.id);
+					}
+
+					test.winnerCampaignId = adopted.id;
+					test.winnerVariantId = analysis.winner.id;
+					test.status = "completed";
+					test.updatedAt = new Date();
+					this.tests.set(testId, test);
+					return;
+				}
+
 				test.status = "deploying";
 				this.tests.set(testId, test);
 
@@ -1480,7 +1538,7 @@ export class AbTestService {
 
 				this.tests.set(testId, test);
 			} catch (error) {
-				test.status = "analyzing";
+				test.status = originalStatus;
 				this.tests.set(testId, test);
 				throw error;
 			}

@@ -517,7 +517,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 96 are `stable` and 8 are `experimental`. The runtime-operation
+these, 101 are `stable` and 3 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -525,7 +525,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-Ninety-six reviewed core operations are `stable`: the existing
+One hundred and one reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -692,8 +692,40 @@ generation and the repeat reports the current state instead of
 starting another delivery cycle; the dead-letter replay echoes each
 candidate's generation and
 replays only records still exhausted at it, closing the re-exhaustion
-re-entry hazard. The
-remaining 8 descriptors are experimental. A
+re-entry hazard. A
+twenty-ninth batch promoted `abtest.run` (both revision guards —
+expected_status and expected_updated_at — make an identical retry
+converge, verified inside the store transaction), `abtest.deploy-winner`
+(a retry adopts the single campaign tagged winner:deployed for the test
+— validating its variant tag against the freshly analyzed winner,
+rejecting ambiguous or multiple tagged campaigns, and finishing an
+interrupted auto-launch before completing — instead of creating a
+second holdout campaign), `webhooks.dispatch`
+(the tick's attempt-bound recovery_set contract on the standalone
+dispatch, capped at 100 entries like the dispatch limit), and
+`ops.templates.registry-promote`/`-rollback` (promotion is conditional on
+its `expected_remote_hash` pin — any intervening remote change, another
+operator's promotion included, conflicts instead of being silently
+overwritten, an already-current target is a `promoted: false` no-op that
+issues no write or head advance, and an unpinned or forced retry keeps
+the honest unsafe
+classification; rollback accepts a
+from_version_id source pin, an expected_head_revision pin over the
+monotonic registry-head counter — every registry-managed write advances
+it, a same-version re-promotion that restores drifted remote content
+included, so an A → X → A cycle that restores both the version id
+and the remote hash still conflicts — and an expected_remote_hash
+out-of-registry drift pin, all checked inside the store lock. An
+already-applied rollback is a no-op only when the remote actually
+carries the target content — a target that drifted away while staying
+active is repaired by re-promoting it instead. Listmonk
+offers no conditional update, so the hash pins stay best-effort; a
+successful promote or rollback changes the remote hash and advances the
+head, so a pinned retry of the original request conflicts even after
+its own success — that conflict is the documented reconciliation signal
+to re-inspect, which is why both pinned cases classify as reconcile
+instead of safe). The remaining 3 descriptors are
+experimental. A
 twenty-seventh batch promoted all three reconcile operations
 (`sequences.reconcile`, `webhooks.reconcile`, `abtest.reconcile`) with
 echoed-scanned-set recovery: each scan echoes the exact ids it
@@ -718,7 +750,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 96 stable compatibility baselines, and 317 direct
+runtime bridges, the 101 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are

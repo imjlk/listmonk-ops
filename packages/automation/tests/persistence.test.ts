@@ -314,6 +314,7 @@ describe("automation persistence", () => {
 	test("serializes template versions, promotion, and rollback", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let requestCount = 0;
+		const remote = { subjectOverride: undefined as string | undefined };
 		const updatedSubjects: string[] = [];
 		const client = {
 			template: {
@@ -329,7 +330,8 @@ describe("automation persistence", () => {
 							name: "Transactional template",
 							type: "campaign",
 							subject:
-								currentRequest === 1 ? "Subject 1" : "Subject 2",
+								remote.subjectOverride ??
+								(currentRequest === 1 ? "Subject 1" : "Subject 2"),
 							body: "<p>Body</p>",
 						},
 					};
@@ -366,6 +368,10 @@ describe("automation persistence", () => {
 		if (!firstVersion || !lastVersion) {
 			throw new Error("Expected a second persisted template version");
 		}
+		// Drift the remote off the captured content so promoting the latest
+		// version is a genuine write: with the remote already matching, the
+		// promote short-circuits as already-current.
+		remote.subjectOverride = "Subject 2 externally touched";
 		await promoteTemplateVersion(client, 1, lastVersion.versionId);
 		const rolledBack = await rollbackTemplateVersion(client, 1);
 
@@ -418,7 +424,12 @@ describe("automation persistence", () => {
 				getById: async () => ({
 					data: { id: 10, name: "Pinned", type: "campaign", body },
 				}),
-				update: async () => ({ data: true }),
+				// Apply writes like the real remote so the rollback's
+				// already-applied verification observes them.
+				update: async ({ body: updateBody }: { body: { body: string } }) => {
+					body = updateBody.body;
+					return { data: true };
+				},
 			},
 		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
 		const { syncTemplateRegistry, rollbackTemplateVersion } =
@@ -460,10 +471,374 @@ describe("automation persistence", () => {
 		expect(retried.activeVersionId).toBe(target);
 	});
 
+	test("conflicts ABA rollbacks through the source pin", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let body = "<p>v1</p>";
+		const client = {
+			template: {
+				getById: async () => ({
+					data: { id: 11, name: "ABA", type: "campaign", body },
+				}),
+				// Apply writes like the real remote so the rollback's
+				// already-applied verification observes them.
+				update: async ({ body: updateBody }: { body: { body: string } }) => {
+					body = updateBody.body;
+					return { data: true };
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const { syncTemplateRegistry, rollbackTemplateVersion } =
+			await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [11] });
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [11] });
+
+		const record = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			templates: Record<
+				string,
+				{ versions: { versionId: string }[]; activeVersionId?: string }
+			>;
+		};
+		// The registry keeps the FIRST capture active; promote the newer
+		// version first so the rollback has a genuine previous target.
+		const { promoteTemplateVersion } = await import("../src/template-registry");
+		const initialActive = record.templates["11"]!.activeVersionId!;
+		const previous = record.templates["11"]!.versions.find(
+			(version) => version.versionId !== initialActive,
+		)!;
+		await promoteTemplateVersion(client, 11, previous.versionId);
+		const active = previous.versionId;
+
+		// Pin the observed source (active) and target (previous): the
+		// rollback fires once...
+		const rolled = await rollbackTemplateVersion(client, 11, {
+			toVersionId: initialActive,
+			fromVersionId: active,
+		});
+		expect(rolled.rolledBack).toBe(true);
+
+		// ...promoting the original back (the ABA transition) restores the
+		// expected previous-version relationship, so a to-only repeat would
+		// silently roll again — the source pin conflicts instead.
+		await promoteTemplateVersion(client, 11, active);
+		await expect(
+			rollbackTemplateVersion(client, 11, {
+				toVersionId: initialActive,
+				fromVersionId: initialActive,
+			}),
+		).rejects.toThrow(/source pin .* no longer matches/);
+
+		// A matching source pin on the current head stays a no-op retry.
+		const noop = await rollbackTemplateVersion(client, 11, {
+			toVersionId: active,
+			fromVersionId: active,
+		});
+		expect(noop.rolledBack).toBe(false);
+	});
+
+	test("conflicts registry head cycles through the head revision pin", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let body = "<p>v1</p>";
+		const client = {
+			template: {
+				getById: async () => ({
+					data: { id: 12, name: "Head", type: "campaign", body },
+				}),
+				// Apply writes like the real remote so the rollback's
+				// already-applied verification observes them.
+				update: async ({ body: updateBody }: { body: { body: string } }) => {
+					body = updateBody.body;
+					return { data: true };
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const { syncTemplateRegistry, rollbackTemplateVersion } =
+			await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [12] });
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [12] });
+
+		const record = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			templates: Record<string, { versions: { versionId: string }[] }>;
+		};
+		const { promoteTemplateVersion, getTemplateRegistryHistory } =
+			await import("../src/template-registry");
+		const versions = record.templates["12"]!.versions;
+		const initialActive = (
+			await getTemplateRegistryHistory(12)
+		).activeVersionId!;
+		const newer = versions.find(
+			(version) => version.versionId !== initialActive,
+		)!;
+
+		// v1 → v2 → v1 → v2: a full cycle that restores both the active
+		// version id and the remote content. Every transition advances the
+		// monotonic head revision, which is what a pinned retry echoes.
+		const firstPromote = await promoteTemplateVersion(client, 12, newer.versionId);
+		expect(firstPromote.headRevision).toBe(1);
+		const rolled = await rollbackTemplateVersion(client, 12, {
+			toVersionId: initialActive,
+			fromVersionId: newer.versionId,
+		});
+		expect(rolled.headRevision).toBe(2);
+		const cyclePromote = await promoteTemplateVersion(
+			client,
+			12,
+			newer.versionId,
+		);
+		expect(cyclePromote.headRevision).toBe(3);
+		expect((await getTemplateRegistryHistory(12)).headRevision).toBe(3);
+
+		// After the cycle the registry is indistinguishable from the original
+		// observation — same active version, same remote hash — so a retry
+		// echoing the original pins AND the echoed head revision conflicts
+		// instead of silently rolling back over the re-promotion.
+		await expect(
+			rollbackTemplateVersion(client, 12, {
+				toVersionId: initialActive,
+				fromVersionId: newer.versionId,
+				expectedHeadRevision: rolled.headRevision,
+			}),
+		).rejects.toThrow(/head revision pin .* no longer matches/);
+
+		// A same-version re-promotion — the registry-managed way to restore
+		// drifted remote content — is still a write: it advances the head,
+		// so a stale pinned rollback from before it conflicts even though
+		// the active version never changed. (Drift the remote first: with
+		// the remote still matching, the promote short-circuits as
+		// already-current instead of writing.)
+		body = "<p>drifted</p>";
+		const rePromote = await promoteTemplateVersion(
+			client,
+			12,
+			newer.versionId,
+		);
+		expect(rePromote.headRevision).toBe(4);
+		expect(rePromote.activeVersionId).toBe(newer.versionId);
+		await expect(
+			rollbackTemplateVersion(client, 12, {
+				toVersionId: initialActive,
+				fromVersionId: newer.versionId,
+				expectedHeadRevision: 3,
+			}),
+		).rejects.toThrow(/head revision pin .* no longer matches/);
+
+		// Without the head pin this cycle is indistinguishable from the
+		// original observation and an echoed retry would roll again; a fresh
+		// observation via history pins the current head, and that retry is
+		// the already-applied no-op.
+		const currentHead = (await getTemplateRegistryHistory(12)).headRevision;
+		const noop = await rollbackTemplateVersion(client, 12, {
+			toVersionId: newer.versionId,
+			fromVersionId: newer.versionId,
+			expectedHeadRevision: currentHead,
+		});
+		expect(noop.rolledBack).toBe(false);
+	});
+
+	test("reapplies a rollback whose target drifted while marked active", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let body = "<p>v1</p>";
+		const writtenBodies: string[] = [];
+		const client = {
+			template: {
+				getById: async () => ({
+					data: { id: 15, name: "Drifted", type: "campaign", body },
+				}),
+				update: async ({ body: updateBody }: { body: { body: string } }) => {
+					writtenBodies.push(updateBody.body);
+					body = updateBody.body;
+					return { data: true };
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const { syncTemplateRegistry, rollbackTemplateVersion } =
+			await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [15] });
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [15] });
+		const { getTemplateRegistryHistory, promoteTemplateVersion } =
+			await import("../src/template-registry");
+		const history = await getTemplateRegistryHistory(15);
+		const initialActive = history.activeVersionId!;
+		const newer = history.versions.find(
+			(version) => version.versionId !== initialActive,
+		)!;
+		// Make the target (v1) the active version again through the normal
+		// rollback path, so the remote genuinely carries it.
+		await promoteTemplateVersion(client, 15, newer.versionId);
+		const rolled = await rollbackTemplateVersion(client, 15, {
+			toVersionId: initialActive,
+		});
+		expect(rolled.rolledBack).toBe(true);
+
+		// The remote drifts away from the target while the registry still
+		// marks it active: a pinned retry must repair the drift, not report
+		// an already-applied no-op over the wrong content.
+		body = "<p>externally drifted</p>";
+		const repaired = await rollbackTemplateVersion(client, 15, {
+			toVersionId: initialActive,
+		});
+		expect(repaired.rolledBack).toBe(true);
+		expect(writtenBodies.at(-1)).toBe("<p>v1</p>");
+		expect(body).toBe("<p>v1</p>");
+
+		// With the remote matching again, the same pinned retry is the
+		// documented no-op.
+		const noop = await rollbackTemplateVersion(client, 15, {
+			toVersionId: initialActive,
+		});
+		expect(noop.rolledBack).toBe(false);
+	});
+
+	test("short-circuits an already-current promotion without writing", async () => {		await useTemporaryStores();
+		let body = "<p>v1</p>";
+		let updates = 0;
+		const client = {
+			template: {
+				getById: async () => ({
+					data: { id: 13, name: "Current", type: "campaign", body },
+				}),
+				update: async () => {
+					updates += 1;
+					return { data: true };
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const { syncTemplateRegistry, promoteTemplateVersion } =
+			await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [13] });
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [13] });
+
+		const history = await (
+			await import("../src/template-registry")
+		).getTemplateRegistryHistory(13);
+		const newer = history.versions.find(
+			(version) => version.versionId !== history.activeVersionId,
+		)!;
+
+		const promoted = await promoteTemplateVersion(client, 13, newer.versionId);
+		expect(promoted.promoted).toBe(true);
+		expect(promoted.headRevision).toBe(1);
+		expect(updates).toBe(1);
+
+		// The remote still carries the promoted content, so repeating the
+		// same promotion is an already-current no-op: no PUT, no head
+		// advance, and other callers' head pins stay valid.
+		const repeated = await promoteTemplateVersion(client, 13, newer.versionId);
+		expect(repeated.promoted).toBe(false);
+		expect(repeated.headRevision).toBe(1);
+		expect(updates).toBe(1);
+	});
+
+	test("does not report an unconfirmed remote commit for an already-current promotion", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let remoteUpdates = 0;
+		let sabotageLocalCommit = false;
+		const client = {
+			template: {
+				getById: async () => {
+					if (sabotageLocalCommit) {
+						await rm(templateStorePath, { force: true });
+						await mkdir(templateStorePath);
+					}
+					return {
+						data: {
+							id: 14,
+							name: "Current no-op",
+							type: "campaign",
+							subject: "Subject",
+							body: "<p>Body</p>",
+						},
+					};
+				},
+				update: async () => {
+					remoteUpdates += 1;
+					return { data: {} };
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const {
+			syncTemplateRegistry,
+			promoteTemplateVersion,
+			getTemplateRegistryHistory,
+			TemplateRegistryWriteTransactionError,
+		} = await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [14] });
+		const history = await getTemplateRegistryHistory(14);
+		const version = history.versions[0];
+		if (!version) {
+			throw new Error("Expected a persisted template version");
+		}
+		sabotageLocalCommit = true;
+
+		let storeError: unknown;
+		try {
+			await promoteTemplateVersion(client, 14, version.versionId);
+		} catch (error) {
+			storeError = error;
+		}
+		// The no-op never touched Listmonk, so the failing local commit is
+		// a plain store error — not the unconfirmed-remote-commit wrapper
+		// that demands remote reconciliation.
+		expect(storeError).toBeInstanceOf(Error);
+		expect(storeError).not.toBeInstanceOf(
+			TemplateRegistryWriteTransactionError,
+		);
+		expect(remoteUpdates).toBe(0);
+	});
+
+	test("conflicts rollbacks over remote drift through the hash pin", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let body = "<p>v1</p>";
+		const client = {
+			template: {
+				getById: async () => ({
+					data: { id: 12, name: "Drift", type: "campaign", body },
+				}),
+				update: async () => ({ data: true }),
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const { syncTemplateRegistry, rollbackTemplateVersion } =
+			await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [12] });
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [12] });
+
+		const record = JSON.parse(await readFile(templateStorePath, "utf8")) as {
+			templates: Record<
+				string,
+				{ versions: { versionId: string }[]; activeVersionId?: string }
+			>;
+		};
+		const active = record.templates["12"]!.activeVersionId!;
+		const previous = record.templates["12"]!.versions.find(
+			(version) => version.versionId !== active,
+		)!;
+
+		// The remote template mutates outside the registry before the retry:
+		// the observed-hash pin conflicts instead of rolling back over it.
+		body = "<p>externally mutated</p>";
+		await expect(
+			rollbackTemplateVersion(client, 12, {
+				toVersionId: previous.versionId,
+				fromVersionId: active,
+				expectedRemoteHash: "sha256:0123456789abcdef0123456789abcdef",
+			}),
+		).rejects.toThrow(/remote hash mismatch/);
+	});
+
 	test("reports an unconfirmed registry commit after a remote promotion", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let remoteUpdates = 0;
 		let failLocalCommit = false;
+		let remoteSubject = "Subject A";
 		const client = {
 			template: {
 				getById: async () => ({
@@ -471,7 +846,7 @@ describe("automation persistence", () => {
 						id: 1,
 						name: "Transactional template",
 						type: "campaign",
-						subject: "Subject",
+						subject: remoteSubject,
 						body: "<p>Body</p>",
 					},
 				}),
@@ -492,6 +867,11 @@ describe("automation persistence", () => {
 		if (!version) {
 			throw new Error("Expected a persisted template version");
 		}
+		// Drift the remote off the captured content: with the remote already
+		// matching, promoting the same version short-circuits as
+		// already-current and never issues the remote update this test
+		// needs to leave uncommitted.
+		remoteSubject = "Subject B";
 		failLocalCommit = true;
 
 		let transactionError: unknown;

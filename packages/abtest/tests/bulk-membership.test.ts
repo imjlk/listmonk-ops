@@ -94,3 +94,25 @@ describe("ListmonkAbTestIntegration.addSubscribersToListBulk", () => {
 		expect(manageLists).not.toHaveBeenCalled();
 	});
 });
+
+describe("ListmonkAbTestIntegration.autoDeployWinner", () => {
+	it("throws when the campaign status update returns an error envelope", async () => {
+		const client = {
+			campaign: {
+				updateStatus: async () => ({ error: "campaign is locked" }),
+			},
+		} as unknown as ListmonkClient;
+		const integration = new ListmonkAbTestIntegration(client);
+		await expect(integration.autoDeployWinner(64)).rejects.toThrow(
+			/Failed to launch winner campaign 64: campaign is locked/,
+		);
+	});
+
+	it("accepts a successful status update", async () => {
+		const client = {
+			campaign: { updateStatus: async () => ({ data: true }) },
+		} as unknown as ListmonkClient;
+		const integration = new ListmonkAbTestIntegration(client);
+		await expect(integration.autoDeployWinner(64)).resolves.toBeUndefined();
+	});
+});

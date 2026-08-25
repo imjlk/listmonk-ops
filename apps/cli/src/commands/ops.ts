@@ -334,9 +334,13 @@ export default defineGroup({
 				"version-id": option(z.string().trim().min(1), {
 					description: "Stored version ID",
 				}),
-				"expected-remote-hash": option(z.string().optional(), {
-					description: "Expected remote template hash for optimistic concurrency",
-				}),
+				"expected-remote-hash": option(
+					z.string().trim().min(1).optional(),
+					{
+						description:
+							"Expected remote template hash (registry-sync's per-template hash output, or a stored version's hash from templates-history); blank values are rejected so a guarded retry cannot silently degrade to the unpinned path",
+					},
+				),
 				force: option(z.coerce.boolean().default(false), {
 					description: "Override hash mismatch check",
 				}),
@@ -371,6 +375,24 @@ export default defineGroup({
 					description:
 						"Explicit rollback target from templates-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version",
 				}),
+				"from-version-id": option(z.string().trim().min(1).optional(), {
+					description:
+						"Active registry version the caller observed (the templates-history activeVersionId output); a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with --expected-head-revision to catch it",
+				}),
+				"expected-head-revision": option(
+					z.coerce.number().int().nonnegative().optional(),
+					{
+						description:
+							"Registry head revision the caller observed (the templates-history headRevision output, or the headRevision a prior rollback returned); every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts",
+					},
+				),
+				"expected-remote-hash": option(
+					z.string().trim().min(1).optional(),
+					{
+						description:
+							"Remote template hash the caller observed (the per-template hash from a fresh registry-sync, or a stored version's hash from templates-history); a template mutated outside the registry conflicts instead of being rolled back over, and blank values are rejected",
+					},
+				),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
@@ -380,6 +402,9 @@ export default defineGroup({
 						{
 							template_id: flags["template-id"],
 							to_version_id: flags["to-version-id"],
+							from_version_id: flags["from-version-id"],
+							expected_head_revision: flags["expected-head-revision"],
+							expected_remote_hash: flags["expected-remote-hash"],
 						},
 					);
 					getOutput().success(

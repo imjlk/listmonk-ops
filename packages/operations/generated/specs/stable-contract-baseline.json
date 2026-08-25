@@ -5372,6 +5372,409 @@
         "input": {
           "components": {
             "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "WebhookDispatchInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "limit": {
+                    "$ref": "#/components/schemas/WebhookDispatchLimit"
+                  },
+                  "recovery_set": {
+                    "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique and the set is capped at 100 entries, the\ndispatch limit ceiling.",
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "WebhookDispatchLimit": {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "WebhookDispatchRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed dispatch claim position: the delivery plus its attempt count at claim.",
+                "properties": {
+                  "attempt_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "delivery_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "delivery_id",
+                  "attempt_count"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "limit": {
+                "$ref": "#/components/schemas/WebhookDispatchLimit"
+              },
+              "recovery_set": {
+                "description": "Echoed claim set from a prior dispatch's claim_steps output: claim\nexactly these deliveries at their originally claimed attempt counts.\nDelivery ids must be unique and the set is capped at 100 entries, the\ndispatch limit ceiling.",
+                "items": {
+                  "$ref": "#/components/schemas/WebhookDispatchRecoveryClaim"
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "Uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "WebhookDispatchErrorCode": {
+                "oneOf": [
+                  {
+                    "const": "delivery_failed"
+                  },
+                  {
+                    "const": "delivery_state_conflict"
+                  },
+                  {
+                    "const": "delivery_unavailable"
+                  },
+                  {
+                    "const": "endpoint_unavailable"
+                  },
+                  {
+                    "const": "http_rejected"
+                  },
+                  {
+                    "const": "lease_conflict"
+                  },
+                  {
+                    "const": "signing_secret_unavailable"
+                  },
+                  {
+                    "const": "url_policy_blocked"
+                  }
+                ]
+              },
+              "WebhookDispatchOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "already_done": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claim_steps": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                    },
+                    "type": "array"
+                  },
+                  "claimed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claimed_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "pending_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "requested": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookDispatchResult"
+                    },
+                    "type": "array"
+                  },
+                  "retried": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "skipped": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "claimed",
+                  "succeeded",
+                  "retried",
+                  "exhausted",
+                  "skipped",
+                  "claimed_ids",
+                  "claim_steps",
+                  "results"
+                ],
+                "type": "object"
+              },
+              "WebhookDispatchResult": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "error_code": {
+                        "oneOf": [
+                          {
+                            "const": "delivery_failed"
+                          },
+                          {
+                            "const": "delivery_state_conflict"
+                          },
+                          {
+                            "const": "delivery_unavailable"
+                          },
+                          {
+                            "const": "endpoint_unavailable"
+                          },
+                          {
+                            "const": "http_rejected"
+                          },
+                          {
+                            "const": "lease_conflict"
+                          },
+                          {
+                            "const": "signing_secret_unavailable"
+                          },
+                          {
+                            "const": "url_policy_blocked"
+                          }
+                        ]
+                      },
+                      "status": {
+                        "oneOf": [
+                          {
+                            "const": "exhausted"
+                          },
+                          {
+                            "const": "retry"
+                          },
+                          {
+                            "const": "succeeded"
+                          }
+                        ]
+                      },
+                      "status_code": {
+                        "$ref": "#/components/schemas/PositiveInteger"
+                      }
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "error_code": {
+                        "$ref": "#/components/schemas/WebhookDispatchErrorCode"
+                      },
+                      "status": {
+                        "const": "skipped"
+                      }
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status",
+                      "error_code"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "WebhookRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed webhook claim position: the delivery plus its attempt count at claim.",
+                "properties": {
+                  "attempt_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "delivery_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "delivery_id",
+                  "attempt_count"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "already_done": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "claim_steps": {
+                "items": {
+                  "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                },
+                "type": "array"
+              },
+              "claimed": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "claimed_ids": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "exhausted": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "pending_ids": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "requested": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "results": {
+                "items": {
+                  "$ref": "#/components/schemas/WebhookDispatchResult"
+                },
+                "type": "array"
+              },
+              "retried": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "skipped": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              },
+              "succeeded": {
+                "$ref": "#/components/schemas/NonNegativeInteger"
+              }
+            },
+            "required": [
+              "claimed",
+              "succeeded",
+              "retried",
+              "exhausted",
+              "skipped",
+              "claimed_ids",
+              "claim_steps",
+              "results"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "audience": "bulk",
+          "kind": "webhook",
+          "resource": "webhook"
+        }
+      ],
+      "id": "webhooks.dispatch",
+      "mcpName": "listmonk_webhooks_dispatch",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "webhook",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "The recovery dispatch claims exactly the echoed deliveries, and only while each still sits at its originally claimed attempt count — deliveries that anyone attempted since, already succeeded or exhausted, holding a live lease, sitting in backoff, or facing an open circuit are skipped (the retryable ones are reported as pending_ids), so the retry never claims new due work. The POST itself stays at least once, so the outcome still needs inspection with the stable event-id header available for receiver deduplication.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "recovery_set (an echoed claim set of delivery ids and their attempt counts at claim) is present"
+          },
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Delivery is at least once and a fresh dispatch claims whatever is due at request time; stable event IDs support receiver deduplication but do not make blind retries safe.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "recovery_set is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "The echoed claim set bounds the retry to the originally claimed deliveries; delivery itself is at least once in every mode."
+      },
+      "verb": "dispatch"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "Uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -26652,6 +27055,11 @@
         "output": {
           "components": {
             "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
               "ResourceId": {
                 "maximum": 9007199254740991,
                 "minimum": 1,
@@ -26662,6 +27070,10 @@
                 "properties": {
                   "activeVersionId": {
                     "type": "string"
+                  },
+                  "headRevision": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Monotonic count of registry-managed template writes (a same-version re-promotion included); echo it to pin a rollback retry."
                   },
                   "templateId": {
                     "$ref": "#/components/schemas/ResourceId"
@@ -26679,6 +27091,7 @@
                 "required": [
                   "templateId",
                   "templateName",
+                  "headRevision",
                   "versions"
                 ],
                 "type": "object"
@@ -26747,6 +27160,10 @@
               "activeVersionId": {
                 "type": "string"
               },
+              "headRevision": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Monotonic count of registry-managed template writes (a same-version re-promotion included); echo it to pin a rollback retry."
+              },
               "templateId": {
                 "$ref": "#/components/schemas/ResourceId"
               },
@@ -26763,6 +27180,7 @@
             "required": [
               "templateId",
               "templateName",
+              "headRevision",
               "versions"
             ],
             "type": "object"
@@ -26790,6 +27208,423 @@
         "reason": "The operation only reads the local version registry."
       },
       "verb": "registry-history"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplatePromoteInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "expected_remote_hash": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  },
+                  "force": {
+                    "description": "Override hash mismatch check. Defaults to false.",
+                    "type": "boolean"
+                  },
+                  "template_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "version_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "template_id",
+                  "version_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_remote_hash": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              },
+              "force": {
+                "description": "Override hash mismatch check. Defaults to false.",
+                "type": "boolean"
+              },
+              "template_id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "version_id": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              }
+            },
+            "required": [
+              "template_id",
+              "version_id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplatePromoteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "activeVersionId": {
+                    "type": "string"
+                  },
+                  "headRevision": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
+                  },
+                  "promoted": {
+                    "description": "False when the target version already matched the remote template (a no-op that issues no write).",
+                    "type": "boolean"
+                  },
+                  "promotedAt": {
+                    "type": "string"
+                  },
+                  "templateId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "templateName": {
+                    "type": "string"
+                  },
+                  "versionId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "templateId",
+                  "templateName",
+                  "versionId",
+                  "activeVersionId",
+                  "headRevision",
+                  "promotedAt",
+                  "promoted"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "activeVersionId": {
+                "type": "string"
+              },
+              "headRevision": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Registry head revision after this promotion; echo it to pin a later rollback retry."
+              },
+              "promoted": {
+                "description": "False when the target version already matched the remote template (a no-op that issues no write).",
+                "type": "boolean"
+              },
+              "promotedAt": {
+                "type": "string"
+              },
+              "templateId": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "templateName": {
+                "type": "string"
+              },
+              "versionId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "templateId",
+              "templateName",
+              "versionId",
+              "activeVersionId",
+              "headRevision",
+              "promotedAt",
+              "promoted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": false
+        }
+      ],
+      "id": "ops.templates.registry-promote",
+      "mcpName": "listmonk_ops_template_registry_promote",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "template",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "The hash pin conflicts on any remote change — another operator promoting a different version between the attempt and the retry included — before the update is re-issued. A retry therefore either lands the same content, is a documented no-op when the target version already matches the remote template (`promoted: false`, no write and no head-revision advance), or conflicts when the promotion changed the remote hash — that conflict is the reconciliation signal. The check stays best-effort because Listmonk offers no conditional update.",
+              "reconcileWith": "templates.get"
+            },
+            "when": "expected_remote_hash is present and force is not set"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "An unpinned or forced retry re-issues the last-write-wins update unconditionally and can overwrite an intervening promotion of a different version."
+            },
+            "when": "expected_remote_hash is absent or force is set"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on pinning the observed remote template hash; Listmonk updates are last-write-wins."
+      },
+      "verb": "registry-promote"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRollbackInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "expected_head_revision": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Registry head revision the caller observed; every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts on A → X → A."
+                  },
+                  "expected_remote_hash": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
+                  },
+                  "from_version_id": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Active registry version the caller observed; a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with expected_head_revision to catch that transition."
+                  },
+                  "template_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "to_version_id": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version."
+                  }
+                },
+                "required": [
+                  "template_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_head_revision": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Registry head revision the caller observed; every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts on A → X → A."
+              },
+              "expected_remote_hash": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over."
+              },
+              "from_version_id": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Active registry version the caller observed; a retry conflicts whenever the active version moved elsewhere. A cycle promoting the original back restores this pin's match — pair it with expected_head_revision to catch that transition."
+              },
+              "template_id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "to_version_id": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Explicit rollback target from registry-history; pins the rollback so a retry after an intervening change fails instead of rolling to a different version."
+              }
+            },
+            "required": [
+              "template_id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TemplateRollbackOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "activeVersionId": {
+                    "type": "string"
+                  },
+                  "headRevision": {
+                    "$ref": "#/components/schemas/NonNegativeInteger",
+                    "description": "Registry head revision after the rollback; echo it to pin a retry."
+                  },
+                  "promotedAt": {
+                    "type": "string"
+                  },
+                  "rolledBack": {
+                    "description": "False when the requested rollback was already applied.",
+                    "type": "boolean"
+                  },
+                  "templateId": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "templateName": {
+                    "type": "string"
+                  },
+                  "versionId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "templateId",
+                  "templateName",
+                  "versionId",
+                  "activeVersionId",
+                  "headRevision",
+                  "promotedAt",
+                  "rolledBack"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "activeVersionId": {
+                "type": "string"
+              },
+              "headRevision": {
+                "$ref": "#/components/schemas/NonNegativeInteger",
+                "description": "Registry head revision after the rollback; echo it to pin a retry."
+              },
+              "promotedAt": {
+                "type": "string"
+              },
+              "rolledBack": {
+                "description": "False when the requested rollback was already applied.",
+                "type": "boolean"
+              },
+              "templateId": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "templateName": {
+                "type": "string"
+              },
+              "versionId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "templateId",
+              "templateName",
+              "versionId",
+              "activeVersionId",
+              "headRevision",
+              "promotedAt",
+              "rolledBack"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "template",
+          "reversible": false
+        }
+      ],
+      "id": "ops.templates.registry-rollback",
+      "mcpName": "listmonk_ops_template_registry_rollback",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "template",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "Inside the store lock the head-revision pin conflicts on any registry transition — including an A → B → A cycle that restores the version id — the source pin conflicts when the active version moved, and the target pin makes an already-applied rollback a documented no-op for a freshly observed pin set. A successful rollback advances the head revision and changes the remote hash, so a retry echoing the original pins always conflicts after its own success; that conflict is the reconciliation signal — an already-applied rollback shows up in registry-history with the target active. The remote hash pin stays best-effort: Listmonk offers no conditional update, so an external writer can still interleave between the hash check and the write.",
+              "reconcileWith": "templates.get"
+            },
+            "when": "from_version_id, to_version_id, expected_head_revision, and expected_remote_hash are all present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Without the full pin set an ABA transition or out-of-registry drift is indistinguishable, and a repeat may roll a different version than the caller reviewed."
+            },
+            "when": "any pin is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller pins the observed registry head, target, and remote hash; even fully pinned retries re-issue a last-write-wins remote update."
+      },
+      "verb": "registry-rollback"
     },
     {
       "contract": {
@@ -30638,6 +31473,741 @@
         "reason": "The recommendation is a read-only computation over list sizes."
       },
       "verb": "recommend-sample-size"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "AbTestIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "test_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "test_id"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "test_id": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              }
+            },
+            "required": [
+              "test_id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "AbTestDeployWinnerOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deployed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "deployed"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "deployed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "deployed"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "experiment",
+          "reversible": false
+        },
+        {
+          "audience": "bulk",
+          "kind": "delivery",
+          "resource": "campaign",
+          "timing": "immediate"
+        }
+      ],
+      "id": "abtest.deploy-winner",
+      "mcpName": "listmonk_abtest_deploy_winner",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "experiment",
+      "retry": {
+        "kind": "safe",
+        "reason": "A retry first looks for a campaign already tagged winner:deployed for this test — whether left by a completed prior call or one whose local commit was lost — and adopts it as the winner campaign instead of creating another, so an identical retry converges on the same holdout delivery rather than duplicating it."
+      },
+      "verb": "deploy-winner"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "AbTestRunInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "expected_status": {
+                    "oneOf": [
+                      {
+                        "const": "analyzing"
+                      },
+                      {
+                        "const": "cancelled"
+                      },
+                      {
+                        "const": "cancelling"
+                      },
+                      {
+                        "const": "completed"
+                      },
+                      {
+                        "const": "deploying"
+                      },
+                      {
+                        "const": "draft"
+                      },
+                      {
+                        "const": "failed"
+                      },
+                      {
+                        "const": "inconclusive"
+                      },
+                      {
+                        "const": "running"
+                      },
+                      {
+                        "const": "scheduled"
+                      },
+                      {
+                        "const": "testing"
+                      }
+                    ]
+                  },
+                  "expected_updated_at": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "test_id": {
+                    "$ref": "#/components/schemas/NonEmptyString"
+                  }
+                },
+                "required": [
+                  "test_id"
+                ],
+                "type": "object"
+              },
+              "IsoDateTime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_status": {
+                "oneOf": [
+                  {
+                    "const": "analyzing"
+                  },
+                  {
+                    "const": "cancelled"
+                  },
+                  {
+                    "const": "cancelling"
+                  },
+                  {
+                    "const": "completed"
+                  },
+                  {
+                    "const": "deploying"
+                  },
+                  {
+                    "const": "draft"
+                  },
+                  {
+                    "const": "failed"
+                  },
+                  {
+                    "const": "inconclusive"
+                  },
+                  {
+                    "const": "running"
+                  },
+                  {
+                    "const": "scheduled"
+                  },
+                  {
+                    "const": "testing"
+                  }
+                ]
+              },
+              "expected_updated_at": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "test_id": {
+                "$ref": "#/components/schemas/NonEmptyString"
+              }
+            },
+            "required": [
+              "test_id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "AbTestAssignmentGroup": {
+                "discriminator": {
+                  "mapping": {
+                    "holdout": "#/components/schemas/AbTestHoldoutAssignmentGroup",
+                    "variant": "#/components/schemas/AbTestVariantAssignmentGroup"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/AbTestHoldoutAssignmentGroup"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AbTestVariantAssignmentGroup"
+                  }
+                ]
+              },
+              "AbTestAssignmentManifest": {
+                "additionalProperties": false,
+                "properties": {
+                  "algorithm": {
+                    "const": "sha256-order-largest-remainder-v1"
+                  },
+                  "assignedCount": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "audienceChecksum": {
+                    "type": "string"
+                  },
+                  "groups": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestAssignmentGroup"
+                    },
+                    "type": "array"
+                  },
+                  "seed": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "algorithm",
+                  "seed",
+                  "audienceChecksum",
+                  "groups",
+                  "assignedCount"
+                ],
+                "type": "object"
+              },
+              "AbTestBaseConfig": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "lists": {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "template_id": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "subject",
+                  "body",
+                  "lists"
+                ],
+                "type": "object"
+              },
+              "AbTestCampaignMapping": {
+                "additionalProperties": false,
+                "properties": {
+                  "campaignId": {
+                    "type": "number"
+                  },
+                  "variantId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "variantId",
+                  "campaignId"
+                ],
+                "type": "object"
+              },
+              "AbTestContentOverrides": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "sendTime": {
+                    "type": "string"
+                  },
+                  "senderEmail": {
+                    "type": "string"
+                  },
+                  "senderName": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "AbTestGetOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "test": {
+                    "$ref": "#/components/schemas/AbTestRecord"
+                  }
+                },
+                "required": [
+                  "test"
+                ],
+                "type": "object"
+              },
+              "AbTestHoldoutAssignmentGroup": {
+                "additionalProperties": false,
+                "properties": {
+                  "expectedCount": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "kind": {
+                    "const": "holdout"
+                  },
+                  "subscriberChecksum": {
+                    "type": "string"
+                  },
+                  "variantId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "expectedCount",
+                  "subscriberChecksum",
+                  "kind"
+                ],
+                "type": "object"
+              },
+              "AbTestListMapping": {
+                "additionalProperties": false,
+                "properties": {
+                  "listId": {
+                    "type": "number"
+                  },
+                  "variantId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "variantId",
+                  "listId"
+                ],
+                "type": "object"
+              },
+              "AbTestMetric": {
+                "additionalProperties": false,
+                "properties": {
+                  "config": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/AbTestMetricType"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "AbTestMetricType": {
+                "oneOf": [
+                  {
+                    "const": "click_rate"
+                  },
+                  {
+                    "const": "conversion"
+                  },
+                  {
+                    "const": "custom"
+                  },
+                  {
+                    "const": "open_rate"
+                  },
+                  {
+                    "const": "revenue"
+                  }
+                ]
+              },
+              "AbTestRecord": {
+                "additionalProperties": false,
+                "properties": {
+                  "assignmentManifest": {
+                    "$ref": "#/components/schemas/AbTestAssignmentManifest"
+                  },
+                  "assignmentProvenance": {
+                    "type": "string"
+                  },
+                  "assignmentSeed": {
+                    "type": "string"
+                  },
+                  "audienceSnapshot": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "autoDeployWinner": {
+                    "type": "boolean"
+                  },
+                  "baseConfig": {
+                    "$ref": "#/components/schemas/AbTestBaseConfig"
+                  },
+                  "campaignId": {
+                    "type": "string"
+                  },
+                  "campaignMappings": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestCampaignMapping"
+                    },
+                    "type": "array"
+                  },
+                  "confidenceThreshold": {
+                    "type": "number"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "durationHours": {
+                    "type": "number"
+                  },
+                  "endsAt": {
+                    "type": "string"
+                  },
+                  "holdoutGroupSize": {
+                    "type": "number"
+                  },
+                  "holdoutListId": {
+                    "type": "number"
+                  },
+                  "hypothesis": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "idempotencyKey": {
+                    "description": "Caller-scoped create key; replays return the originally created test.",
+                    "type": "string"
+                  },
+                  "launchAt": {
+                    "type": "string"
+                  },
+                  "metrics": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestMetric"
+                    },
+                    "type": "array"
+                  },
+                  "minimumTestSampleSize": {
+                    "type": "number"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "provisionedAt": {
+                    "description": "Set when remote provisioning completed for this test.",
+                    "type": "string"
+                  },
+                  "startedAt": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/AbTestStatus"
+                  },
+                  "stratification": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "testGroupPercentage": {
+                    "type": "number"
+                  },
+                  "testGroupSize": {
+                    "type": "number"
+                  },
+                  "testListMappings": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestListMapping"
+                    },
+                    "type": "array"
+                  },
+                  "testingMode": {
+                    "$ref": "#/components/schemas/AbTestTestingMode"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "variants": {
+                    "items": {
+                      "$ref": "#/components/schemas/AbTestVariant"
+                    },
+                    "type": "array"
+                  },
+                  "winnerCampaignId": {
+                    "type": "number"
+                  },
+                  "winnerVariantId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "campaignId",
+                  "variants",
+                  "status",
+                  "metrics",
+                  "createdAt",
+                  "updatedAt",
+                  "baseConfig",
+                  "testingMode",
+                  "testGroupPercentage",
+                  "testGroupSize",
+                  "holdoutGroupSize",
+                  "confidenceThreshold",
+                  "autoDeployWinner",
+                  "campaignMappings",
+                  "testListMappings"
+                ],
+                "type": "object"
+              },
+              "AbTestStatus": {
+                "oneOf": [
+                  {
+                    "const": "analyzing"
+                  },
+                  {
+                    "const": "cancelled"
+                  },
+                  {
+                    "const": "cancelling"
+                  },
+                  {
+                    "const": "completed"
+                  },
+                  {
+                    "const": "deploying"
+                  },
+                  {
+                    "const": "draft"
+                  },
+                  {
+                    "const": "failed"
+                  },
+                  {
+                    "const": "inconclusive"
+                  },
+                  {
+                    "const": "running"
+                  },
+                  {
+                    "const": "scheduled"
+                  },
+                  {
+                    "const": "testing"
+                  }
+                ]
+              },
+              "AbTestTestingMode": {
+                "oneOf": [
+                  {
+                    "const": "full-split"
+                  },
+                  {
+                    "const": "holdout"
+                  }
+                ]
+              },
+              "AbTestVariant": {
+                "additionalProperties": false,
+                "properties": {
+                  "contentOverrides": {
+                    "$ref": "#/components/schemas/AbTestContentOverrides"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "percentage": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "percentage",
+                  "contentOverrides"
+                ],
+                "type": "object"
+              },
+              "AbTestVariantAssignmentGroup": {
+                "additionalProperties": false,
+                "properties": {
+                  "expectedCount": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "kind": {
+                    "const": "variant"
+                  },
+                  "subscriberChecksum": {
+                    "type": "string"
+                  },
+                  "variantId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "expectedCount",
+                  "subscriberChecksum",
+                  "kind",
+                  "variantId"
+                ],
+                "type": "object"
+              },
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "test": {
+                "$ref": "#/components/schemas/AbTestRecord"
+              }
+            },
+            "required": [
+              "test"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "experiment",
+          "reversible": false
+        },
+        {
+          "audience": "bulk",
+          "kind": "delivery",
+          "resource": "campaign",
+          "timing": "immediate"
+        }
+      ],
+      "id": "abtest.run",
+      "mcpName": "listmonk_abtest_run",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "experiment",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "kind": "safe",
+              "reason": "Both guards are verified inside the store transaction before any lifecycle step: a retry after the first attempt landed sees a changed status or updatedAt and conflicts instead of acting, a retry while the attempt never landed executes it once, and a terminal test is a documented no-op — so an identical guarded retry converges."
+            },
+            "when": "expected_status and expected_updated_at are both present"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "Without both guards a retry may send additional campaigns or shift assignments on a test that already moved."
+            },
+            "when": "either guard is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on whether the caller pins the observed test revision."
+      },
+      "verb": "run"
     },
     {
       "contract": {

@@ -270,7 +270,7 @@ Retry guidance: Key the probe with a correlation_id so an ambiguous retry collap
 
 ## Dispatch outbound webhooks (`webhooks.dispatch`)
 
-Contract maturity: `experimental`; effects: `webhook:bulk`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `webhook:bulk`; confirmation: `required`; retry: `conditional`.
 
 Use when: Due outbox deliveries should be processed by a worker or scheduled tick.
 
@@ -280,7 +280,7 @@ Prerequisites: `webhooks.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Inspect delivery statuses after a timeout and rely on stable event IDs for receiver deduplication.
+Retry guidance: Echo a prior dispatch's claim_steps output as recovery_set so an ambiguous retry re-attempts exactly that set at its originally claimed attempt counts — a dispatch that fails mid-batch after issuing POSTs surfaces its claimed positions as structured error details (the same recovery_set shape) instead of losing them; delivery stays at least once, so verify receiver state (the event-id header enables deduplication) before repeating.
 
 ## List outbound webhook deliveries (`webhooks.delivery.list`)
 
@@ -1236,7 +1236,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Promote template version (`ops.templates.registry-promote`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `safe`.
+Contract maturity: `stable`; effects: `write:template`; confirmation: `required`; retry: `conditional`.
 
 Use when: A previously captured template version must be restored to Listmonk.
 
@@ -1246,11 +1246,11 @@ Prerequisites: `ops.templates.registry-history`
 
 Verify with: `templates.get`
 
-Retry guidance: Retry is safe; the promotion is idempotent for the same version content.
+Retry guidance: Echo the observed remote template hash as expected_remote_hash — ops.templates.registry-sync's per-template hash output carries it for the current remote content, and registry-history exposes the stored snapshot hashes — so an ambiguous retry conflicts on any intervening remote change — another promotion included — instead of overwriting it; an already-current target is a documented `promoted: false` no-op that issues no write, while a promotion that changed the remote hash conflicts on its own echo — on conflict reconcile with templates.get and ops.templates.registry-history before deciding; without the pin (or with force), inspect templates.get first.
 
 ## Rollback template version (`ops.templates.registry-rollback`)
 
-Contract maturity: `experimental`; effects: `write:template`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:template`; confirmation: `required`; retry: `conditional`.
 
 Use when: A template must be reverted to its previous stored version.
 
@@ -1260,7 +1260,7 @@ Prerequisites: `ops.templates.registry-history`
 
 Verify with: `templates.get`
 
-Retry guidance: Pin the target with to_version_id from ops.templates.registry-history before retrying an ambiguous rollback, and inspect templates.get and the registry history for intervening promotes; a pinned repeat conflicts when the registry moved to a different previous version.
+Retry guidance: Pin the full set — from_version_id (observed active), to_version_id, expected_head_revision, and expected_remote_hash — so an ambiguous retry conflicts on any intervening registry change (an A → B → A cycle included) or is a documented no-op for a freshly observed pin set; a successful rollback advances the head revision, so a retry echoing the original pins conflicts even after its own success — on that conflict reconcile with ops.templates.registry-history and templates.get, where an already-applied rollback shows the target active; with any pin missing, do the same inspection before retrying.
 
 ## List A/B tests (`abtest.list`)
 
@@ -1376,7 +1376,7 @@ Retry guidance: Retry is safe; the recommendation is read-only.
 
 ## Deploy A/B test winner (`abtest.deploy-winner`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `safe`.
 
 Use when: A winning variant must be deployed to the holdout group.
 
@@ -1386,11 +1386,11 @@ Prerequisites: `abtest.analyze`
 
 Verify with: `abtest.get`
 
-Retry guidance: Inspect abtest.get and the holdout campaign before retrying; an ambiguous deployment may already have delivered to the holdout audience.
+Retry guidance: Retry directly: a campaign already tagged winner:deployed for the test is adopted rather than duplicated; verify the holdout campaign state with campaigns.list by the abtest tag when the outcome stays ambiguous.
 
 ## Run A/B test (`abtest.run`)
 
-Contract maturity: `experimental`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `write:experiment, delivery:bulk:immediate`; confirmation: `required`; retry: `conditional`.
 
 Use when: An A/B test must run through its lifecycle without manual steps.
 
@@ -1400,7 +1400,7 @@ Prerequisites: `abtest.get`
 
 Verify with: `abtest.get`
 
-Retry guidance: Inspect abtest.get before retrying an ambiguous run.
+Retry guidance: Echo the abtest.get output's status and updatedAt fields verbatim as the expected_status and expected_updated_at inputs so an ambiguous retry conflicts instead of acting on a moved test; without both guards, inspect abtest.get before retrying.
 
 ## Tick A/B tests (`abtest.tick`)
 
