@@ -517,7 +517,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 103 are `stable` and 1 is `experimental`. The runtime-operation
+these, all 104 are `stable`; no descriptor remains `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -525,7 +525,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-One hundred and three reviewed core operations are `stable`: the existing
+One hundred and four reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -630,9 +630,10 @@ experimental, because a worker can re-exhaust a replayed record before
 the retry and make the identical echoed request eligible again. A
 seventeenth batch gave `ops.subscribers.hygiene` echoed candidate sets
 (CLI `--subscriber-ids`, required for destructive runs, enforced in the
-exported workflow too) but it stays experimental: a subscriber that
-re-enters eligibility is re-selected by the identical echoed request,
-the same re-entry hazard that keeps dead-letter replay experimental.
+exported workflow too) which kept it experimental at the time — a
+subscriber that re-enters eligibility is re-selected by the identical
+echoed request — until the thirty-second batch promoted it with an
+updated_at generation guard.
 A nineteenth batch gave `lists.create` a durable
 `idempotency_key` (CLI `--idempotency-key`): the key is atomically claimed
 in the file-backed resource-create store (configured with
@@ -726,8 +727,26 @@ successful promote or rollback changes the remote hash and advances the
 head, so a pinned retry of the original request conflicts even after
 its own success — that conflict is the documented reconciliation signal
 to re-inspect, which is why both pinned cases classify as reconcile
-instead of safe). The remaining 1 descriptor is
-experimental. A
+instead of safe). A
+thirty-second batch promoted `ops.subscribers.hygiene`, the last
+experimental descriptor: the dry run now reports each selected
+subscriber's raw `updated_at` observation as a `subscriberUpdatedAt`
+array parallel to `subscriberIds`, and the destructive echo pairs them
+in order as `subscriber_guards` (CLI `--subscriber-guards`). Listmonk advances `updated_at` on
+the very mutations the workflow performs — list adds and blocklisting —
+so the guard is the durable per-subscriber completion signal the spec's
+graduation criterion asked for: a guarded destructive retry skips
+everyone its own first attempt already touched and everyone that
+changed or re-entered eligibility externally, while untouched members of
+the echoed set still run. Because Listmonk offers no conditional
+mutation the guard is a check-then-act read — the case classifies as
+reconcile with a subscribers.list verification, a partially applied
+subscriber (list-add landed, blocklist failed) recovers through a fresh
+dry run whose new guards reflect the moved timestamps while the
+already-present membership is skipped structurally, and a missing
+updated_at fails the run instead of fabricating a token. Dry runs stay
+trivially safe, and a destructive run without guards keeps the honest
+unsafe classification. A
 thirty-first batch promoted `sequences.enroll` with a generation
 guard: the caller echoes the number of enrollments (any status) that
 already existed for the sequence and subscriber — observed via
@@ -781,7 +800,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 103 stable compatibility baselines, and 317 direct
+runtime bridges, the 104 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are

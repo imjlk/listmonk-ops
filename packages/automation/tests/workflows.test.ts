@@ -144,6 +144,181 @@ describe("automation workflows", () => {
 		expect(blocklisted).toEqual([101, 102, 101, 102]);
 	});
 
+	test("guarded hygiene retries skip subscribers whose updated_at moved", async () => {
+		const blocklisted: number[] = [];
+		let subscriber101UpdatedAt = "2020-01-01T00:00:00Z";
+		const client = {
+			subscriber: {
+				list: async () => ({
+					data: {
+						results: [
+							{
+								id: 101,
+								email: "a@old.test",
+								status: "enabled",
+								updated_at: subscriber101UpdatedAt,
+							},
+							{
+								id: 102,
+								email: "b@old.test",
+								status: "enabled",
+								updated_at: "2020-01-01T00:00:00Z",
+							},
+						],
+					},
+				}),
+				manageBlocklistById: async ({ path }: { path: { id: number } }) => {
+					blocklisted.push(path.id);
+					// Listmonk advances updated_at when it blocklists. The new
+					// timestamp stays before the inactivity cutoff so 101
+					// remains eligible — only its generation moved.
+					if (path.id === 101) {
+						subscriber101UpdatedAt = "2020-02-01T00:00:00Z";
+					}
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+
+		const { runSubscriberHygiene } = await import("../src/hygiene");
+		const preview = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			dryRun: true,
+		});
+		// Parallel to subscriberIds, raw timestamps preserved.
+		expect(preview.subscriberUpdatedAt).toEqual([
+			"2020-01-01T00:00:00Z",
+			"2020-01-01T00:00:00Z",
+		]);
+
+		const guards = new Map(
+			preview.subscriberIds.map((id, index) => [
+				id,
+				preview.subscriberUpdatedAt[index]!,
+			]),
+		);
+		const applied = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			subscriberIds: preview.subscriberIds,
+			expectedUpdatedAt: guards,
+			dryRun: false,
+		});
+		expect(applied.processedSubscribers).toBe(2);
+		expect(blocklisted).toEqual([101, 102]);
+
+		// The guarded retry re-reads the subscribers: 101's updated_at moved
+		// (its own blocklist advanced it — an external change or eligibility
+		// re-entry moves it the same way), so it is skipped; 102's unchanged
+		// observation would run again only if it had never been touched.
+		const retried = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			subscriberIds: preview.subscriberIds,
+			expectedUpdatedAt: guards,
+			dryRun: false,
+		});
+		expect(retried.processedSubscribers).toBe(1);
+		expect(retried.skippedGuarded).toBe(1);
+		expect(blocklisted).toEqual([101, 102, 102]);
+	});
+
+	test("a partially applied hygiene subscriber recovers its missing effect", async () => {
+		const blocklisted: number[] = [];
+		const listAdds: number[] = [];
+		let subscriber101UpdatedAt = "2020-01-01T00:00:00Z";
+		let subscriber101Lists: Array<{ id: number }> = [];
+		let failBlocklistOnce = true;
+		const client = {
+			subscriber: {
+				list: async () => ({
+					data: {
+						results: [
+							{
+								id: 101,
+								email: "a@old.test",
+								status: "enabled",
+								updated_at: subscriber101UpdatedAt,
+								lists: subscriber101Lists,
+							},
+						],
+					},
+				}),
+				manageListById: async ({
+					path,
+				}: {
+					path: { id: number };
+					body: { target_list_ids: number[] };
+				}) => {
+					listAdds.push(path.id);
+					subscriber101Lists = [{ id: 77 }];
+					subscriber101UpdatedAt = "2020-02-01T00:00:00Z";
+				},
+				manageBlocklistById: async ({ path }: { path: { id: number } }) => {
+					if (failBlocklistOnce) {
+						failBlocklistOnce = false;
+						throw new Error("blocklist endpoint failed");
+					}
+					blocklisted.push(path.id);
+					subscriber101UpdatedAt = "2020-03-01T00:00:00Z";
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+
+		const { runSubscriberHygiene } = await import("../src/hygiene");
+		const preview = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			targetListId: 77,
+			dryRun: true,
+		});
+		expect(preview.subscriberIds).toEqual([101]);
+
+		// First attempt: the list-add lands, the blocklist fails.
+		const first = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			targetListId: 77,
+			subscriberIds: preview.subscriberIds,
+			expectedUpdatedAt: new Map(
+				preview.subscriberIds.map((id, index) => [
+					id,
+					preview.subscriberUpdatedAt[index]!,
+				]),
+			),
+			dryRun: false,
+		});
+		expect(first.errors).toContain("Subscriber mutation failed");
+		expect(listAdds).toEqual([101]);
+		expect(blocklisted).toEqual([]);
+
+		// Recovery: a FRESH dry run observes the moved updated_at and the
+		// already-present membership; the retried destructive run skips the
+		// redundant list-add structurally and applies the missing blocklist.
+		const reobserved = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			targetListId: 77,
+			dryRun: true,
+		});
+		const recovered = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			targetListId: 77,
+			subscriberIds: reobserved.subscriberIds,
+			expectedUpdatedAt: new Map(
+				reobserved.subscriberIds.map((id, index) => [
+					id,
+					reobserved.subscriberUpdatedAt[index]!,
+				]),
+			),
+			dryRun: false,
+		});
+		expect(listAdds).toEqual([101]);
+		expect(blocklisted).toEqual([101]);
+		expect(recovered.errors).toEqual([]);
+	});
+
 	test("redacts subscriber identifiers and remote mutation errors from hygiene results", async () => {
 		const client = createWorkflowClient({
 			subscriber: {

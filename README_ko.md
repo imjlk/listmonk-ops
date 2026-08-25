@@ -515,14 +515,14 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 103개는
-`stable`, 1개는 `experimental`이며 runtime-operation bridge는 비어 있습니다.
+104개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 104개 전부가
+`stable`이며 experimental descriptor는 없습니다. runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
 governance는 `src/specs`가 OpenAPI/generated SDK를 import하면 거부합니다.
 
-검토를 마친 핵심 103개 Operation은 `stable`입니다. 기존
+검토를 마친 핵심 104개 Operation 전부가 `stable`입니다. 기존
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`,
 `campaigns.cancel`, `subscribers.blocklist`, `transactional.send`,
 `ops.campaign.preflight`에 1차 read-only 승격 배치인 `lists.list`,
@@ -616,9 +616,9 @@ dead-letter id 집합을 전달(판별 유니온 계약으로 모델링)하고 �
 재시도 전에 다시 exhausted로 만들 수 있어 experimental로 유지됩니다.
 열일곱 번째 batch에서는 `ops.subscribers.hygiene`에 후보 집합 echo를
 추가했습니다(CLI `--subscriber-ids`, 파괴적 실행 필수, 내보낸 워크플로에서도
-강제). 그러나 자격에 재진입한 구독자는 동일한 echo 요청에 다시 선택되는
-재진입 위험(dead-letter replay를 experimental로 유지하는 것과 같은 이유) 때문에
-experimental로 유지됩니다.
+강제). 당시에는 자격에 재진입한 구독자가 동일한 echo 요청에 다시 선택되는
+재진입 위험 때문에 experimental로 유지되다가, 서른두 번째 batch가
+updated_at 세대 가드로 승격했습니다.
 열아홉 번째 batch에서는 `lists.create`에 지속성 있는
 `idempotency_key`(CLI `--idempotency-key`)를 추가해 승격했습니다. 키는
 생성 요청 전에 파일 기반 resource-create 저장소
@@ -722,8 +722,24 @@ terminal 이후에도 `created: false`로 재생하며(이 operation을
 experimental로 유지해온 정확한 위험 — 가드 없는 반복은 terminal
 lifecycle을 재시작), 두 개 이상 착지했거나 문맥이 다르면 충돌합니다.
 의도적인 재등록은 명시적으로 유지됩니다 — 가드 없는 요청은 terminal
-등록 이후에도 새 lifecycle을 시작합니다. 현재 stable baseline은 103개이며, 나머지 experimental descriptor는
-1개입니다.
+등록 이후에도 새 lifecycle을 시작합니다. 서른두 번째 batch에서는 마지막
+experimental descriptor인 `ops.subscribers.hygiene`를 승격했습니다 —
+dry-run이 선택된 각 구독자의 원본 `updated_at` 관측값을
+`subscriberIds`와 병렬인 `subscriberUpdatedAt` 배열로 보고하면 파괴적
+실행이 그 값을 순서대로 짝지어 `subscriber_guards`(CLI
+`--subscriber-guards`)로 실습니다. Listmonk는 이 워크플로가
+수행하는 변경 자체(리스트 추가와 blocklist)에서 updated_at을
+앞당기므로, 이 가드가 spec의 졸업 기준이 요구한 구독자별 지속적 완료
+신호입니다 — 가드된 파괴적 재시도는 첫 시도가 이미 건드린 모든 구독자와
+외부에서 변경되거나 자격에 재진입한 구독자를 건너뛰고 echo된 집합 중
+미진행 항목만 실행합니다. Listmonk에 조건부 변경이 없어 가드는
+check-then-act 읽기이므로 해당 경우는 subscribers.list 검증을 동반하는
+reconcile로 분류하고, 부분 적용된 구독자(리스트 추가는 성공, blocklist는
+실패)는 이동한 타임스탬프를 반영한 새 dry-run 관측으로 복구되며 이미
+존재하는 멤버십은 구조적으로 건너뛰고, updated_at이 없으면 토큰을
+조작하는 대신 실행이 실패합니다. dry-run은 자명하게 safe이고, 가드 없는
+파괴적 실행은 정직하게 unsafe로 유지됩니다. 현재 stable baseline은 104개이며, experimental
+descriptor는 없습니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,
 `template.safe-promote`, `abtest.safe-run`, `campaign.deliverability-guard`,
@@ -737,7 +753,7 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 103개
+Operation 104개 전체, API 경계 규칙, 0개 governed runtime bridge, 104개
 stable compatibility baseline과 spec-to-runtime 직접 graph edge 317개를
 검증합니다.
 

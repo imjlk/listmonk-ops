@@ -1038,8 +1038,8 @@ Run the winback or sunset subscriber hygiene workflow
 - Contract source: input `typescript`, output `typescript`
 - Effects: `write:subscriber, suppression:audience`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
-- Retry: `reconcile`
-- Stability: `experimental` since `0.9.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.9.0`
 
 ## `ops.templates.registry-sync`
 
