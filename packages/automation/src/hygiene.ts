@@ -233,14 +233,18 @@ export async function runSubscriberHygiene(
 			}
 
 			// Structural completion for the list effect: when the fetched
-			// record already shows target-list membership — a partial
-			// sunset run whose list-add landed before its blocklist failed
-			// re-reads exactly this — the add is skipped so the retry only
-			// applies the missing effects.
+			// record already shows an active target-list membership — a
+			// partial sunset run whose list-add landed before its blocklist
+			// failed re-reads exactly this — the add is skipped so the retry
+			// only applies the missing effects. An unsubscribed membership
+			// is not the subscription the request asked for, so it does not
+			// count as complete.
 			const alreadyMember =
 				options.targetListId !== undefined &&
 				(candidate.lists || []).some(
-					(entry) => toPositiveInt(entry.id) === options.targetListId,
+					(entry) =>
+						toPositiveInt(entry.id) === options.targetListId &&
+						entry.subscription_status !== "unsubscribed",
 				);
 			let mutated = false;
 			try {
