@@ -187,6 +187,18 @@ export async function runSubscriberHygiene(
 	// echoed set still run. The comparison is a raw string equality.
 	const expectedUpdatedAt = options.expectedUpdatedAt;
 	const guardActive = !dryRun && expectedUpdatedAt !== undefined;
+	if (guardActive && echoedIds !== undefined) {
+		// The adapter schema enforces exact coverage; direct library
+		// consumers hit it here so a partially supplied guard map can never
+		// masquerade as an ordinary guarded skip and silently drop a
+		// requested mutation.
+		const missing = [...echoedIds].filter((id) => !expectedUpdatedAt.has(id));
+		if (missing.length > 0) {
+			throw new Error(
+				`expectedUpdatedAt must cover every echoed subscriber id; missing ${missing.length} entr${missing.length === 1 ? "y" : "ies"}`,
+			);
+		}
+	}
 	const updatedAtById = new Map(
 		selected
 			.map((subscriber) => toPositiveInt(subscriber.id))
