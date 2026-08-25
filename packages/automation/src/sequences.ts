@@ -550,6 +550,10 @@ export function createSequenceStore(
 		}),
 		parse: parseStore,
 		lock: { timeoutMs: 5_000 },
+		// Lock-held generation reads commit the unchanged document; skip
+		// the atomic rewrite when nothing changed so a nominal read never
+		// fails on a full disk or a read-only moment.
+		skipUnchangedWrites: true,
 	};
 }
 

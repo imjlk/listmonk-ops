@@ -172,7 +172,7 @@ export interface SequenceEnrollInput {
 	 * count still matches, replays the landed enrollment (terminal
 	 * included) as created: false, and conflicts when more than one landed.
 	 */
-	expected_prior_enrollments?: (number & tags.Type<"int64"> & tags.Minimum<0> & tags.Maximum<998>) | undefined;
+	expected_prior_enrollments?: (number & tags.Type<"int64"> & tags.Minimum<0> & tags.Maximum<999>) | undefined;
 }
 
 export interface SequenceEnrollOutput {

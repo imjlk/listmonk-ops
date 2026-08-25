@@ -828,7 +828,7 @@ export function createPostgresSequenceRepository(
 				// generation observation cannot interleave with one.
 				await transaction`
 					SELECT pg_advisory_xact_lock(
-						hashtext(${listOptions.sequenceId}),
+						hashtext((${listOptions.sequenceId}::uuid)::text),
 						hashtext(${listOptions.subscriberId.toString()})
 					)
 				`;
@@ -864,7 +864,7 @@ export function createPostgresSequenceRepository(
 						// active-enrollment unique index (it went terminal).
 						await transaction`
 							SELECT pg_advisory_xact_lock(
-								hashtext(${enrollment.sequenceId}),
+								hashtext((${enrollment.sequenceId}::uuid)::text),
 								hashtext(${enrollment.subscriberId.toString()})
 							)
 						`;

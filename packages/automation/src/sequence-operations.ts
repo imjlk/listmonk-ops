@@ -176,8 +176,8 @@ const sequenceEnrollInputSchema = z.object({
 		.int()
 		.nonnegative()
 		.max(
-			998,
-			"expected_prior_enrollments must be at most 998 so the replay page stays within the enrollment list ceiling; larger histories need operator inspection",
+			999,
+			"expected_prior_enrollments must be at most 999, the largest exactly observable generation under the enrollment list ceiling; larger histories need operator inspection",
 		)
 		.optional()
 		.describe(

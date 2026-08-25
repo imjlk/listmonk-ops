@@ -11062,7 +11062,7 @@
                 },
                 "expected_prior_enrollments": {
                   "description": "Generation guard: the number of enrollments (any status) that already\nexisted for this sequence and subscriber, observed via\nsequences.enrollments.list. With the guard, an ambiguous retry\nconverges across the whole lifecycle — it creates only while the\ncount still matches, replays the landed enrollment (terminal\nincluded) as created: false, and conflicts when more than one landed.",
-                  "maximum": 998,
+                  "maximum": 999,
                   "minimum": 0,
                   "type": "integer"
                 },
@@ -11094,7 +11094,7 @@
             },
             "expected_prior_enrollments": {
               "description": "Generation guard: the number of enrollments (any status) that already\nexisted for this sequence and subscriber, observed via\nsequences.enrollments.list. With the guard, an ambiguous retry\nconverges across the whole lifecycle — it creates only while the\ncount still matches, replays the landed enrollment (terminal\nincluded) as created: false, and conflicts when more than one landed.",
-              "maximum": 998,
+              "maximum": 999,
               "minimum": 0,
               "type": "integer"
             },
