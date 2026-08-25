@@ -315,6 +315,19 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				WHERE key = 'schema_version'
 			`;
 		}
+		// Idempotent and unversioned so existing deployments pick it up on
+		// the next start: the guarded-enrollment generation lookup counts
+		// and selects the newest record per (sequence, subscriber) pair
+		// across ALL statuses, which the partial active index and the
+		// status-led due index cannot serve.
+		await transaction`
+			CREATE INDEX IF NOT EXISTS sequence_enrollments_generation_idx
+			ON listmonk_ops.sequence_enrollments (
+				sequence_id,
+				subscriber_id,
+				created_at DESC
+			)
+		`;
 	});
 }
 
