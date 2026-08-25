@@ -270,6 +270,16 @@ export interface SequenceRepository {
 		options?: SequenceEnrollmentListOptions,
 	): Promise<readonly SequenceEnrollment[]>;
 	getEnrollment(id: string): Promise<SequenceEnrollment>;
+	/**
+	 * Atomically read the enrollment generation for a (sequence,
+	 * subscriber) pair under the same serialization boundary as guarded
+	 * creates: the exact total and the newest record cannot interleave
+	 * with a concurrent guarded create.
+	 */
+	readEnrollmentGeneration(options: {
+		sequenceId: string;
+		subscriberId: number;
+	}): Promise<{ total: number; newest?: SequenceEnrollment }>;
 	createEnrollment(
 		enrollment: SequenceEnrollment,
 		options?: Readonly<{
@@ -840,6 +850,26 @@ export function createFileSequenceRepository(
 		},
 		async getEnrollment(id) {
 			return getFileEnrollment(await readJsonFileStore(store), id);
+		},
+		async readEnrollmentGeneration(listOptions) {
+			// The store's update lock is the file backend's serialization
+			// boundary: taking it for this read keeps the generation
+			// observation atomic with respect to guarded creates.
+			return updateJsonFileStore(store, (current) => {
+				const rows = current.enrollments
+					.filter(
+						(candidate) =>
+							candidate.sequenceId === listOptions.sequenceId &&
+							candidate.subscriberId === listOptions.subscriberId,
+					)
+					.sort((left, right) =>
+						left.createdAt.localeCompare(right.createdAt),
+					);
+				return commitJsonFileStoreUpdate(current, {
+					total: rows.length,
+					newest: rows.at(-1),
+				});
+			});
 		},
 		async createEnrollment(enrollment, options) {
 			return updateJsonFileStore(store, (current) => {

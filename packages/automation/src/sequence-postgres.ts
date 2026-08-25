@@ -821,6 +821,37 @@ export function createPostgresSequenceRepository(
 			return rows.map(toEnrollment);
 		},
 		getEnrollment,
+		async readEnrollmentGeneration(listOptions) {
+			await ready();
+			return sql.begin(async (transaction) => {
+				// The same pair-keyed advisory lock as guarded creates: the
+				// generation observation cannot interleave with one.
+				await transaction`
+					SELECT pg_advisory_xact_lock(
+						hashtext(${listOptions.sequenceId}),
+						hashtext(${listOptions.subscriberId.toString()})
+					)
+				`;
+				const countRows = await transaction<{ count: string }[]>`
+					SELECT count(*)::text AS count
+					FROM listmonk_ops.sequence_enrollments
+					WHERE sequence_id = ${listOptions.sequenceId}::uuid
+						AND subscriber_id = ${listOptions.subscriberId}
+				`;
+				const newestRows = await transaction<EnrollmentRow[]>`
+					SELECT id, enrollment
+					FROM listmonk_ops.sequence_enrollments
+					WHERE sequence_id = ${listOptions.sequenceId}::uuid
+						AND subscriber_id = ${listOptions.subscriberId}
+					ORDER BY created_at DESC
+					LIMIT 1
+				`;
+				return {
+					total: Number(countRows[0]?.count ?? 0),
+					newest: newestRows[0] ? toEnrollment(newestRows[0]) : undefined,
+				};
+			});
+		},
 		async createEnrollment(enrollment, options) {
 			await ready();
 			try {

@@ -696,30 +696,27 @@ export async function executeSequenceEnrollOperation(
 		if (expectedPrior === undefined) {
 			return undefined;
 		}
-		// The limit is sized to detect exactly expectedPrior + 2 records,
-		// so a saturated page means more than one landed and conflicts
-		// instead of truncating the count (the input caps the guard at
-		// 998 to keep this page within the 1,000-record list ceiling).
-		const existing = await store.listEnrollments({
+		// The generation read runs under the same serialization boundary
+		// as guarded creates (the pair-keyed lock in either backend), so
+		// the count and newest record cannot interleave with a concurrent
+		// guarded create.
+		const generation = await store.readEnrollmentGeneration({
 			sequenceId: input.id,
 			subscriberId: input.subscriber_id,
-			limit: expectedPrior + 2,
 		});
-		if (existing.length <= expectedPrior) {
+		if (generation.total <= expectedPrior) {
 			// The first attempt never landed; the create below runs it.
 			return undefined;
 		}
-		const newest = [...existing]
-			.sort((left, right) => left.createdAt.localeCompare(right.createdAt))
-			.at(-1)!;
+		const newest = generation.newest!;
 		if (
-			existing.length > expectedPrior + 1 ||
+			generation.total > expectedPrior + 1 ||
 			canonicalContextJson(newest.context) !==
 				canonicalContextJson(input.context) ||
 			(input.start_at !== undefined && newest.nextRunAt !== input.start_at)
 		) {
 			throw new SequenceConflictError(
-				`Subscriber ${input.subscriber_id} has ${existing.length} enrollments for sequence ${input.id}, but the request guarded on exactly ${expectedPrior}; resolve via sequences.enrollments.list before enrolling`,
+				`Subscriber ${input.subscriber_id} has ${generation.total} enrollments for sequence ${input.id}, but the request guarded on exactly ${expectedPrior}; resolve via sequences.enrollments.list before enrolling`,
 			);
 		}
 		return { enrollment: toEnrollmentOutput(newest), created: false };
