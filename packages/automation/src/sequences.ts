@@ -844,6 +844,21 @@ export function createFileSequenceRepository(
 		async createEnrollment(enrollment, options) {
 			return updateJsonFileStore(store, (current) => {
 				getFileDefinition(current, enrollment.sequenceId);
+				// The generation guard is checked first so a guarded count
+				// mismatch reports the stale generation, not the incidental
+				// active-enrollment clash.
+				if (options?.expectedPriorEnrollments !== undefined) {
+					const priorCount = current.enrollments.filter(
+						(candidate) =>
+							candidate.sequenceId === enrollment.sequenceId &&
+							candidate.subscriberId === enrollment.subscriberId,
+					).length;
+					if (priorCount !== options.expectedPriorEnrollments) {
+						throw new SequenceConflictError(
+							`Subscriber ${enrollment.subscriberId} has ${priorCount} prior enrollments for sequence ${enrollment.sequenceId}, but the request guarded on exactly ${options.expectedPriorEnrollments}; resolve via sequences.enrollments.list before enrolling`,
+						);
+					}
+				}
 				if (
 					current.enrollments.some(
 						(candidate) =>
@@ -856,18 +871,6 @@ export function createFileSequenceRepository(
 					throw new SequenceConflictError(
 						`Subscriber ${enrollment.subscriberId} already has an active enrollment for sequence ${enrollment.sequenceId}`,
 					);
-				}
-				if (options?.expectedPriorEnrollments !== undefined) {
-					const priorCount = current.enrollments.filter(
-						(candidate) =>
-							candidate.sequenceId === enrollment.sequenceId &&
-							candidate.subscriberId === enrollment.subscriberId,
-					).length;
-					if (priorCount !== options.expectedPriorEnrollments) {
-						throw new SequenceConflictError(
-							`Subscriber ${enrollment.subscriberId} has ${priorCount} prior enrollments for sequence ${enrollment.sequenceId}, but the request guarded on exactly ${options.expectedPriorEnrollments}; resolve via sequences.enrollments.list before enrolling`,
-						);
-					}
 				}
 				return commitJsonFileStoreUpdate(
 					{

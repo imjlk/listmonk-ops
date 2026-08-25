@@ -826,6 +826,17 @@ export function createPostgresSequenceRepository(
 			try {
 				await sql.begin(async (transaction) => {
 					if (options?.expectedPriorEnrollments !== undefined) {
+						// Serialize guarded creates per (sequence, subscriber)
+						// pair: without the advisory lock two overlapping
+						// transactions can both pass the count check when the
+						// first commit's enrollment skips the partial
+						// active-enrollment unique index (it went terminal).
+						await transaction`
+							SELECT pg_advisory_xact_lock(
+								hashtext(${enrollment.sequenceId}),
+								hashtext(${enrollment.subscriberId.toString()})
+							)
+						`;
 						const countRows = await transaction<{ count: string }[]>`
 							SELECT count(*)::text AS count
 							FROM listmonk_ops.sequence_enrollments
