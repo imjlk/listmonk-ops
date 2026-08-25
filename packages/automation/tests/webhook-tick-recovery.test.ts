@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	createOutboundWebhookEndpoint,
 	dispatchOutboundWebhooks,
 	enqueueOperationLifecycleEvent,
+	WebhookDispatchFailureError,
 } from "../src/outbound-webhooks";
 import { executeWebhookDispatchOperation } from "../src/webhook-operations";
 
@@ -218,6 +219,45 @@ describe("webhook tick echoed-set recovery", () => {
 			requested: 30,
 			claimed: 30,
 			pending_ids: [],
+		});
+	});
+
+	test("surfaces claimed positions when a dispatch fails mid-batch", async () => {
+		const path = await createStorePath();
+		await createHookEndpoint(path);
+		const ids = await enqueueDueDeliveries(path, 1);
+		const now = new Date("2026-08-01T09:00:05.000Z");
+
+		let sabotaged = false;
+		let failure: unknown;
+		try {
+			await dispatchOutboundWebhooks({
+				store: { path },
+				now,
+				fetcher: (async () => {
+					if (!sabotaged) {
+						sabotaged = true;
+						// Break the store after the claim but before the
+						// completion write: the POST already went out, so the
+						// failure is ambiguous and must carry the claim set.
+						await rm(path, { force: true });
+						await mkdir(path);
+					}
+					return new Response("ok", { status: 200 });
+				}) as unknown as typeof fetch,
+				resolveSecret: () => "whsec",
+			});
+		} catch (error) {
+			failure = error;
+		}
+
+		expect(failure).toBeInstanceOf(WebhookDispatchFailureError);
+		const dispatchFailure = failure as WebhookDispatchFailureError;
+		expect(dispatchFailure.claimSteps).toEqual([
+			{ id: ids[0], attemptCount: 1 },
+		]);
+		expect(dispatchFailure.toStructuredDetails()).toEqual({
+			recovery_set: [{ delivery_id: ids[0], attempt_count: 1 }],
 		});
 	});
 });

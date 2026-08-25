@@ -280,7 +280,7 @@ Prerequisites: `webhooks.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Echo a prior dispatch's claim_steps output as recovery_set so an ambiguous retry re-attempts exactly that set at its originally claimed attempt counts; delivery stays at least once, so verify receiver state (the event-id header enables deduplication) before repeating.
+Retry guidance: Echo a prior dispatch's claim_steps output as recovery_set so an ambiguous retry re-attempts exactly that set at its originally claimed attempt counts — a dispatch that fails mid-batch after issuing POSTs surfaces its claimed positions as structured error details (the same recovery_set shape) instead of losing them; delivery stays at least once, so verify receiver state (the event-id header enables deduplication) before repeating.
 
 ## List outbound webhook deliveries (`webhooks.delivery.list`)
 
