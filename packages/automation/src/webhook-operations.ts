@@ -1001,21 +1001,20 @@ export async function executeWebhookTestOperation(
 			}),
 		};
 	};
+	let legacyEventId: string | undefined;
 	if (keyed) {
-		// Upgrade bridge: probes queued before the HMAC migration derived
-		// the unsalted legacy id for the same endpoint, correlation id, and
-		// configuration revision. Retrying one must converge onto that
-		// delivery instead of creating a second probe that also POSTs.
-		const legacyReplay = await resolveProbeDelivery(
-			testEventUuid(
-				endpoint.id,
-				input.correlation_id!,
-				testConfigFingerprint(endpoint),
-			),
+		// Rolling-upgrade convergence: probes queued before the HMAC
+		// migration derived the unsalted legacy id for the same endpoint,
+		// correlation id, and configuration revision. The enqueue
+		// transaction dedupes against BOTH identities, so a concurrently
+		// enqueued legacy delivery (old process) or keyed delivery (new
+		// process) collapses this enqueue instead of creating a second
+		// probe that also POSTs.
+		legacyEventId = testEventUuid(
+			endpoint.id,
+			input.correlation_id!,
+			testConfigFingerprint(endpoint),
 		);
-		if (legacyReplay !== undefined) {
-			return legacyReplay;
-		}
 	}
 	const queued = await enqueueOutboundWebhookEvent(
 		{
@@ -1037,6 +1036,9 @@ export async function executeWebhookTestOperation(
 			...store,
 			endpointIds: [endpoint.id],
 			bypassEventFilters: true,
+			convergeEventIds: legacyEventId === undefined
+				? undefined
+				: [legacyEventId],
 		},
 	);
 	const deliveryId = queued.deliveryIds[0];
@@ -1049,10 +1051,14 @@ export async function executeWebhookTestOperation(
 				"endpoint_unavailable",
 			);
 		}
-		// The dedup collapsed the retry onto an already-queued delivery. The
-		// original call may have failed before dispatching it, so resolve the
-		// persisted delivery directly by event.
-		const replay = await resolveProbeDelivery(queued.event.id);
+		// The dedup collapsed the retry onto an already-queued delivery —
+		// under the keyed id, or the legacy id during an upgrade. Resolve
+		// the persisted delivery by either event id: a still-claimable one
+		// (or one whose lease expired) is dispatched now, and a terminal
+		// one reports its persisted outcome without resending.
+		const replay =
+			(await resolveProbeDelivery(queued.event.id)) ??
+			(await resolveProbeDelivery(legacyEventId!));
 		if (replay === undefined) {
 			// Nothing was queued and no persisted delivery carries this event:
 			// the enqueue selected no enabled endpoint, so the probe never ran.

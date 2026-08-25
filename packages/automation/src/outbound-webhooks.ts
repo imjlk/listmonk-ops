@@ -501,6 +501,7 @@ export interface OutboundWebhookRepository {
 		options: Readonly<{
 			endpointIds?: readonly string[];
 			bypassEventFilters?: boolean;
+			convergeEventIds?: readonly string[];
 			limit: number;
 			now: Date;
 		}>,
@@ -917,6 +918,7 @@ export function createFileOutboundWebhookRepository(
 					...fileOptions,
 					endpointIds: enqueueOptions.endpointIds,
 					bypassEventFilters: enqueueOptions.bypassEventFilters,
+					convergeEventIds: enqueueOptions.convergeEventIds,
 					limit: enqueueOptions.limit,
 					now: enqueueOptions.now,
 				},
@@ -1261,6 +1263,14 @@ export async function enqueueOutboundWebhookEvent(
 	options: OutboundWebhookStoreOptions & {
 		endpointIds?: readonly string[];
 		bypassEventFilters?: boolean;
+		/**
+		 * Alternate event ids that identify the same logical request (for
+		 * example a legacy derivation during a rolling upgrade). Checked in
+		 * the same store transaction as the enqueue, so a delivery for any
+		 * of them collapses this enqueue instead of creating a concurrent
+		 * duplicate.
+		 */
+		convergeEventIds?: readonly string[];
 		now?: Date;
 	} = {},
 ): Promise<EnqueueOutboundWebhookResult> {
@@ -1273,6 +1283,7 @@ export async function enqueueOutboundWebhookEvent(
 		return options.repository.enqueue(event, {
 			endpointIds: options.endpointIds,
 			bypassEventFilters: options.bypassEventFilters,
+			convergeEventIds: options.convergeEventIds,
 			limit,
 			now: options.now ?? new Date(),
 		});
@@ -1291,10 +1302,17 @@ export async function enqueueOutboundWebhookEvent(
 				(delivery) => `${delivery.eventId}:${delivery.endpointId}`,
 			),
 		);
+		// Converge identities are checked inside the same transaction as the
+		// enqueue: a delivery for an alternate id (a legacy derivation
+		// during a rolling upgrade) collapses this enqueue for that
+		// endpoint instead of racing into a concurrent duplicate.
 		let duplicateDeliveries = 0;
 		const queued = endpoints.flatMap((endpoint) => {
 			const key = `${event.id}:${endpoint.id}`;
-			if (existingKeys.has(key)) {
+			const convergeClash = (options.convergeEventIds ?? []).some(
+				(convergeId) => existingKeys.has(`${convergeId}:${endpoint.id}`),
+			);
+			if (existingKeys.has(key) || convergeClash) {
 				duplicateDeliveries += 1;
 				return [];
 			}
