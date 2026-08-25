@@ -730,17 +730,23 @@ to re-inspect, which is why both pinned cases classify as reconcile
 instead of safe). A
 thirty-second batch promoted `ops.subscribers.hygiene`, the last
 experimental descriptor: the dry run now reports each selected
-subscriber's `updated_at` observation (`candidate_updated_at`), and the
-destructive echo carries them as `subscriber_guards` (CLI
-`--subscriber-guards`). Listmonk advances `updated_at` on the very
-mutations the workflow performs — list adds and blocklisting — so the
-guard is the durable per-subscriber completion signal the spec's
+subscriber's raw `updated_at` observation as a `subscriberUpdatedAt`
+array parallel to `subscriberIds`, and the destructive echo pairs them
+in order as `subscriber_guards` (CLI `--subscriber-guards`). Listmonk advances `updated_at` on
+the very mutations the workflow performs — list adds and blocklisting —
+so the guard is the durable per-subscriber completion signal the spec's
 graduation criterion asked for: a guarded destructive retry skips
 everyone its own first attempt already touched and everyone that
 changed or re-entered eligibility externally, while untouched members of
-the echoed set still run; the retry case classifies as safe. Dry runs
-stay trivially safe, and a destructive run without guards keeps the
-honest unsafe classification. A
+the echoed set still run. Because Listmonk offers no conditional
+mutation the guard is a check-then-act read — the case classifies as
+reconcile with a subscribers.list verification, a partially applied
+subscriber (list-add landed, blocklist failed) recovers through a fresh
+dry run whose new guards reflect the moved timestamps while the
+already-present membership is skipped structurally, and a missing
+updated_at fails the run instead of fabricating a token. Dry runs stay
+trivially safe, and a destructive run without guards keeps the honest
+unsafe classification. A
 thirty-first batch promoted `sequences.enroll` with a generation
 guard: the caller echoes the number of enrollments (any status) that
 already existed for the sequence and subscriber — observed via

@@ -160,13 +160,12 @@ const subscriberHygieneInputSchema = z
 			.max(10_000)
 			.refine(
 				(set) =>
-					new Set(set.map((member) => member.subscriber_id)).size ===
-					set.length,
+					new Set(set.map((member) => member.subscriber_id)).size === set.length,
 				"subscriber_guards subscriber ids must be unique",
 			)
 			.optional()
 			.describe(
-				"Generation guard: echo a dry run's candidate_updated_at output (updated_at per selected subscriber). Listmonk advances updated_at on the list-add and blocklist mutations, so a guarded destructive retry skips subscribers its own first attempt touched and ones that changed or re-entered eligibility externally, while untouched members of the echoed set still run",
+				"Generation guard: pair a dry run's subscriberIds with its subscriberUpdatedAt observations in order (updated_at per selected subscriber). Listmonk advances updated_at on the list-add and blocklist mutations, so a guarded destructive retry skips subscribers its own first attempt touched and ones that changed or re-entered eligibility externally, while untouched members of the echoed set still run",
 			),
 		dry_run: booleanInput
 			.default(true)
@@ -382,12 +381,7 @@ const subscriberHygieneOutputSchema = z.object({
 	skippedDueToLimit: z.number().int().nonnegative(),
 	skippedGuarded: z.number().int().nonnegative(),
 	subscriberIds: z.array(z.number().int().positive()),
-	candidateUpdatedAt: z.array(
-		z.object({
-			subscriberId: z.number().int().positive(),
-			updatedAt: z.iso.datetime(),
-		}),
-	),
+	subscriberUpdatedAt: z.array(z.iso.datetime()),
 	targetListId: z.number().int().positive().optional(),
 	blocklist: z.boolean(),
 	sample: z.array(

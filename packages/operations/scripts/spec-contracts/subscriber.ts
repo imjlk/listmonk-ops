@@ -220,12 +220,6 @@ export type SubscriberHygieneInput =
 			max_subscribers?: SubscriberHygieneBatchLimit;
 	  };
 
-/** One observed hygiene generation position: the subscriber plus its updated_at at observation. */
-export interface SubscriberHygieneGuardObservation {
-	subscriberId: ResourceId;
-	updatedAt: IsoDateTime;
-}
-
 export interface SubscriberHygieneOutput {
 	mode: SubscriberHygieneMode;
 	cutoffAt: string;
@@ -239,10 +233,11 @@ export interface SubscriberHygieneOutput {
 	/** The selected subscriber ids — echo them for the destructive run. */
 	subscriberIds: ResourceId[];
 	/**
-	 * The updated_at each selected subscriber carried at observation — echo
-	 * as subscriber_guards so a destructive retry skips anyone that moved.
+	 * Parallel to subscriberIds: the raw updated_at each selected subscriber
+	 * carried at observation. Pair them in order as the destructive run's
+	 * subscriber_guards so a retry skips anyone that moved.
 	 */
-	candidateUpdatedAt: SubscriberHygieneGuardObservation[];
+	subscriberUpdatedAt: IsoDateTime[];
 	targetListId?: ResourceId;
 	blocklist: boolean;
 	sample: Array<{

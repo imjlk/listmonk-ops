@@ -220,9 +220,11 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 			{
 				when: "dry_run is false and subscriber_guards covers exactly the echoed subscriber_ids",
 				semantics: {
-					kind: "safe",
+					kind: "reconcile",
+					reconcileWith: "subscribers.list",
+					idempotent: false,
 					reason:
-						"The run processes exactly the echoed set, its mutations are idempotent adds, and the updated_at generation guard provides the per-subscriber completion signal: Listmonk advances updated_at on the list-add and blocklist mutations, so an identical guarded retry skips everyone the first attempt already touched and everyone that changed or re-entered eligibility externally, while untouched members of the echoed set still run.",
+						"The run processes exactly the echoed set, its mutations are idempotent adds, and the raw updated_at generation guard provides the per-subscriber completion signal: Listmonk advances updated_at on the list-add and blocklist mutations, so a sequential guarded retry skips everyone the first attempt fully touched and everyone that changed or re-entered eligibility externally, while untouched members of the echoed set still run. Listmonk offers no conditional mutation, so the guard is a check-then-act read: a change landing between the subscriber listing and the mutation can still slip through, and a partially applied subscriber (list-add landed, blocklist failed) reports the failure and recovers through a fresh dry run — its moved updated_at echoes from the new observation while the already-present membership is skipped structurally. Verify with subscribers.list afterwards.",
 				},
 			},
 			{
@@ -246,7 +248,7 @@ export const opsSubscriberHygieneOperationSpec = defineOperationSpec({
 		verifyWith: ["subscribers.list"],
 		related: [],
 		retryGuidance:
-			"Run dry_run first, then echo both the reported subscriber_ids and the candidate_updated_at observations as subscriber_guards — a guarded destructive retry skips subscribers whose updated_at moved (its own first attempt's mutations advance it, and so does any external change or eligibility re-entry) while untouched members still run; without the guards, inspect subscribers.list before repeating because a re-eligible subscriber receives a new effect.",
+			"Run dry_run first, then echo the reported subscriber_ids paired in order with the result's subscriberUpdatedAt observations as subscriber_guards — a guarded destructive retry skips subscribers whose raw updated_at moved (its own first attempt's mutations advance it, and so does any external change or eligibility re-entry) while untouched members still run; a partially applied subscriber recovers through a fresh dry run (the new guards reflect the moved timestamps and already-present list membership is skipped), and because Listmonk has no conditional mutation, verify with subscribers.list after a guarded run; without the guards, a re-eligible subscriber receives a new effect.",
 	},
 	projection: {
 		mcpName: "listmonk_ops_subscriber_hygiene",

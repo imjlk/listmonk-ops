@@ -20,7 +20,7 @@ export interface SubscriberHygieneOptions {
 	 * its own first attempt already mutated as well as ones that changed or
 	 * re-entered eligibility externally.
 	 */
-	expectedUpdatedAt?: ReadonlyMap<number, string>;
+	expectedUpdatedAt?: ReadonlyMap<number, string>; // raw updated_at strings
 	dryRun?: boolean;
 	maxSubscribers?: number;
 }
@@ -38,10 +38,11 @@ export interface SubscriberHygieneResult {
 	/** The selected subscriber ids — echo them for the destructive run. */
 	subscriberIds: number[];
 	/**
-	 * The updated_at each selected subscriber carried at observation — echo
-	 * as subscriber_guards so a destructive retry skips anyone that moved.
+	 * Parallel to subscriberIds: the raw updated_at each selected subscriber
+	 * carried at observation. Pair them in order as the destructive run's
+	 * subscriber_guards so a retry skips anyone that moved.
 	 */
-	candidateUpdatedAt: Array<{ subscriberId: number; updatedAt: string }>;
+	subscriberUpdatedAt: string[];
 	targetListId?: number;
 	blocklist: boolean;
 	sample: Array<{
@@ -162,33 +163,42 @@ export async function runSubscriberHygiene(
 	const skippedDueToLimit = echoedIds
 		? Math.max(0, eligibleForEcho.length - selected.length)
 		: Math.max(0, candidates.length - selected.length);
-	const candidateUpdatedAt = selected.map((subscriber) => ({
-		subscriberId: toPositiveInt(subscriber.id)!,
-		updatedAt: (
-			toDate(subscriber.updated_at || subscriber.created_at) ?? new Date(0)
-		).toISOString(),
-	}));
+	// The guard observations echo verbatim as subscriber_guards: the RAW
+	// updated_at string preserves Listmonk's microsecond precision (a
+	// Date-normalized comparison would treat revisions within one
+	// millisecond as equal), and a selected subscriber without a usable
+	// updated_at fails the run instead of fabricating a generation token
+	// that a later mutation could not move.
+	const subscriberUpdatedAt = selected.map((subscriber) => {
+		const id = toPositiveInt(subscriber.id)!;
+		const observed = subscriber.updated_at;
+		if (typeof observed !== "string" || Number.isNaN(Date.parse(observed))) {
+			throw new Error(
+				`Subscriber ${id} has no usable updated_at; the hygiene generation guard requires one`,
+			);
+		}
+		return observed;
+	});
 	// The updated_at guard is the per-subscriber completion signal: Listmonk
 	// advances updated_at on the list-add and blocklist mutations this
 	// workflow performs, so a guarded destructive retry skips everyone its
 	// first attempt already touched — and everyone that changed or
 	// re-entered eligibility externally — while untouched members of the
-	// echoed set still run.
+	// echoed set still run. The comparison is a raw string equality.
 	const expectedUpdatedAt = options.expectedUpdatedAt;
 	const guardActive = !dryRun && expectedUpdatedAt !== undefined;
 	const updatedAtById = new Map(
-		candidateUpdatedAt.map((entry) => [entry.subscriberId, entry.updatedAt]),
+		selected
+			.map((subscriber) => toPositiveInt(subscriber.id))
+			.filter((id): id is number => id !== undefined)
+			.map((id, index) => [id, subscriberUpdatedAt[index]!] as const),
 	);
 	const guardEligible = guardActive
 		? selected.filter((subscriber) => {
 				const id = toPositiveInt(subscriber.id)!;
 				const expected = expectedUpdatedAt.get(id);
 				const current = updatedAtById.get(id);
-				return (
-					expected !== undefined &&
-					current !== undefined &&
-					Date.parse(current) === Date.parse(expected)
-				);
+				return expected !== undefined && current === expected;
 			})
 		: selected;
 	const skippedGuarded = selected.length - guardEligible.length;
@@ -222,9 +232,19 @@ export async function runSubscriberHygiene(
 				continue;
 			}
 
+			// Structural completion for the list effect: when the fetched
+			// record already shows target-list membership — a partial
+			// sunset run whose list-add landed before its blocklist failed
+			// re-reads exactly this — the add is skipped so the retry only
+			// applies the missing effects.
+			const alreadyMember =
+				options.targetListId !== undefined &&
+				(candidate.lists || []).some(
+					(entry) => toPositiveInt(entry.id) === options.targetListId,
+				);
 			let mutated = false;
 			try {
-				if (options.targetListId) {
+				if (options.targetListId && !alreadyMember) {
 					await client.subscriber.manageListById({
 						path: { id },
 						body: {
@@ -266,7 +286,7 @@ export async function runSubscriberHygiene(
 		subscriberIds: selected
 			.map((candidate) => toPositiveInt(candidate.id))
 			.filter((id): id is number => id !== undefined),
-		candidateUpdatedAt,
+		subscriberUpdatedAt,
 		targetListId: options.targetListId,
 		blocklist,
 		sample: selected.slice(0, 20).map((candidate) => ({

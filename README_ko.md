@@ -724,16 +724,21 @@ lifecycle을 재시작), 두 개 이상 착지했거나 문맥이 다르면 충�
 의도적인 재등록은 명시적으로 유지됩니다 — 가드 없는 요청은 terminal
 등록 이후에도 새 lifecycle을 시작합니다. 서른두 번째 batch에서는 마지막
 experimental descriptor인 `ops.subscribers.hygiene`를 승격했습니다 —
-dry-run이 선택된 각 구독자의 `updated_at` 관측값
-(`candidate_updated_at`)을 보고하면 파괴적 실행이 그 값을
-`subscriber_guards`(CLI `--subscriber-guards`)로 echo합니다. Listmonk는
-이 워크플로가 수행하는 변경 자체(리스트 추가와 blocklist)에서
-updated_at을 앞당기므로, 이 가드가 spec의 졸업 기준이 요구한 구독자별
-지속적 완료 신호입니다 — 가드된 파괴적 재시도는 첫 시도가 이미 건드린
-모든 구독자와 외부에서 변경되거나 자격에 재진입한 구독자를 건너뛰고,
-echo된 집합 중 미진행 항목만 실행하며, 해당 재시도 경우는 safe로
-분류됩니다. dry-run은 자명하게 safe이고, 가드 없는 파괴적 실행은 정직하게
-unsafe로 유지됩니다. 현재 stable baseline은 104개이며, experimental
+dry-run이 선택된 각 구독자의 원본 `updated_at` 관측값을
+`subscriberIds`와 병렬인 `subscriberUpdatedAt` 배열로 보고하면 파괴적
+실행이 그 값을 순서대로 짝지어 `subscriber_guards`(CLI
+`--subscriber-guards`)로 실습니다. Listmonk는 이 워크플로가
+수행하는 변경 자체(리스트 추가와 blocklist)에서 updated_at을
+앞당기므로, 이 가드가 spec의 졸업 기준이 요구한 구독자별 지속적 완료
+신호입니다 — 가드된 파괴적 재시도는 첫 시도가 이미 건드린 모든 구독자와
+외부에서 변경되거나 자격에 재진입한 구독자를 건너뛰고 echo된 집합 중
+미진행 항목만 실행합니다. Listmonk에 조건부 변경이 없어 가드는
+check-then-act 읽기이므로 해당 경우는 subscribers.list 검증을 동반하는
+reconcile로 분류하고, 부분 적용된 구독자(리스트 추가는 성공, blocklist는
+실패)는 이동한 타임스탬프를 반영한 새 dry-run 관측으로 복구되며 이미
+존재하는 멤버십은 구조적으로 건너뛰고, updated_at이 없으면 토큰을
+조작하는 대신 실행이 실패합니다. dry-run은 자명하게 safe이고, 가드 없는
+파괴적 실행은 정직하게 unsafe로 유지됩니다. 현재 stable baseline은 104개이며, experimental
 descriptor는 없습니다.
 
 Spec은 `campaign.safe-start`, `campaign.safe-schedule`,

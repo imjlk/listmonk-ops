@@ -19105,23 +19105,6 @@
           "minimum": 1,
           "type": "integer"
         },
-        "SubscriberHygieneGuardObservation": {
-          "additionalProperties": false,
-          "description": "One observed hygiene generation position: the subscriber plus its updated_at at observation.",
-          "properties": {
-            "subscriberId": {
-              "$ref": "#/components/schemas/ResourceId"
-            },
-            "updatedAt": {
-              "$ref": "#/components/schemas/IsoDateTime"
-            }
-          },
-          "required": [
-            "subscriberId",
-            "updatedAt"
-          ],
-          "type": "object"
-        },
         "SubscriberHygieneMode": {
           "oneOf": [
             {
@@ -19140,13 +19123,6 @@
             },
             "candidateSubscribers": {
               "$ref": "#/components/schemas/NonNegativeInteger"
-            },
-            "candidateUpdatedAt": {
-              "description": "The updated_at each selected subscriber carried at observation — echo\nas subscriber_guards so a destructive retry skips anyone that moved.",
-              "items": {
-                "$ref": "#/components/schemas/SubscriberHygieneGuardObservation"
-              },
-              "type": "array"
             },
             "cutoffAt": {
               "type": "string"
@@ -19198,6 +19174,13 @@
               },
               "type": "array"
             },
+            "subscriberUpdatedAt": {
+              "description": "Parallel to subscriberIds: the raw updated_at each selected subscriber\ncarried at observation. Pair them in order as the destructive run's\nsubscriber_guards so a retry skips anyone that moved.",
+              "items": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "type": "array"
+            },
             "targetListId": {
               "$ref": "#/components/schemas/ResourceId"
             },
@@ -19215,7 +19198,7 @@
             "skippedDueToLimit",
             "skippedGuarded",
             "subscriberIds",
-            "candidateUpdatedAt",
+            "subscriberUpdatedAt",
             "blocklist",
             "sample",
             "errors"
@@ -19233,13 +19216,6 @@
         },
         "candidateSubscribers": {
           "$ref": "#/components/schemas/NonNegativeInteger"
-        },
-        "candidateUpdatedAt": {
-          "description": "The updated_at each selected subscriber carried at observation — echo\nas subscriber_guards so a destructive retry skips anyone that moved.",
-          "items": {
-            "$ref": "#/components/schemas/SubscriberHygieneGuardObservation"
-          },
-          "type": "array"
         },
         "cutoffAt": {
           "type": "string"
@@ -19291,6 +19267,13 @@
           },
           "type": "array"
         },
+        "subscriberUpdatedAt": {
+          "description": "Parallel to subscriberIds: the raw updated_at each selected subscriber\ncarried at observation. Pair them in order as the destructive run's\nsubscriber_guards so a retry skips anyone that moved.",
+          "items": {
+            "$ref": "#/components/schemas/IsoDateTime"
+          },
+          "type": "array"
+        },
         "targetListId": {
           "$ref": "#/components/schemas/ResourceId"
         },
@@ -19308,7 +19291,7 @@
         "skippedDueToLimit",
         "skippedGuarded",
         "subscriberIds",
-        "candidateUpdatedAt",
+        "subscriberUpdatedAt",
         "blocklist",
         "sample",
         "errors"

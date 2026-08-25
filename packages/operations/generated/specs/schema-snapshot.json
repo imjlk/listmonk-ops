@@ -26854,23 +26854,6 @@
               "minimum": 1,
               "type": "integer"
             },
-            "SubscriberHygieneGuardObservation": {
-              "additionalProperties": false,
-              "description": "One observed hygiene generation position: the subscriber plus its updated_at at observation.",
-              "properties": {
-                "subscriberId": {
-                  "$ref": "#/components/schemas/ResourceId"
-                },
-                "updatedAt": {
-                  "$ref": "#/components/schemas/IsoDateTime"
-                }
-              },
-              "required": [
-                "subscriberId",
-                "updatedAt"
-              ],
-              "type": "object"
-            },
             "SubscriberHygieneMode": {
               "oneOf": [
                 {
@@ -26889,13 +26872,6 @@
                 },
                 "candidateSubscribers": {
                   "$ref": "#/components/schemas/NonNegativeInteger"
-                },
-                "candidateUpdatedAt": {
-                  "description": "The updated_at each selected subscriber carried at observation — echo\nas subscriber_guards so a destructive retry skips anyone that moved.",
-                  "items": {
-                    "$ref": "#/components/schemas/SubscriberHygieneGuardObservation"
-                  },
-                  "type": "array"
                 },
                 "cutoffAt": {
                   "type": "string"
@@ -26947,6 +26923,13 @@
                   },
                   "type": "array"
                 },
+                "subscriberUpdatedAt": {
+                  "description": "Parallel to subscriberIds: the raw updated_at each selected subscriber\ncarried at observation. Pair them in order as the destructive run's\nsubscriber_guards so a retry skips anyone that moved.",
+                  "items": {
+                    "$ref": "#/components/schemas/IsoDateTime"
+                  },
+                  "type": "array"
+                },
                 "targetListId": {
                   "$ref": "#/components/schemas/ResourceId"
                 },
@@ -26964,7 +26947,7 @@
                 "skippedDueToLimit",
                 "skippedGuarded",
                 "subscriberIds",
-                "candidateUpdatedAt",
+                "subscriberUpdatedAt",
                 "blocklist",
                 "sample",
                 "errors"
@@ -26982,13 +26965,6 @@
             },
             "candidateSubscribers": {
               "$ref": "#/components/schemas/NonNegativeInteger"
-            },
-            "candidateUpdatedAt": {
-              "description": "The updated_at each selected subscriber carried at observation — echo\nas subscriber_guards so a destructive retry skips anyone that moved.",
-              "items": {
-                "$ref": "#/components/schemas/SubscriberHygieneGuardObservation"
-              },
-              "type": "array"
             },
             "cutoffAt": {
               "type": "string"
@@ -27040,6 +27016,13 @@
               },
               "type": "array"
             },
+            "subscriberUpdatedAt": {
+              "description": "Parallel to subscriberIds: the raw updated_at each selected subscriber\ncarried at observation. Pair them in order as the destructive run's\nsubscriber_guards so a retry skips anyone that moved.",
+              "items": {
+                "$ref": "#/components/schemas/IsoDateTime"
+              },
+              "type": "array"
+            },
             "targetListId": {
               "$ref": "#/components/schemas/ResourceId"
             },
@@ -27057,7 +27040,7 @@
             "skippedDueToLimit",
             "skippedGuarded",
             "subscriberIds",
-            "candidateUpdatedAt",
+            "subscriberUpdatedAt",
             "blocklist",
             "sample",
             "errors"
@@ -27083,8 +27066,10 @@
           },
           {
             "semantics": {
-              "kind": "safe",
-              "reason": "The run processes exactly the echoed set, its mutations are idempotent adds, and the updated_at generation guard provides the per-subscriber completion signal: Listmonk advances updated_at on the list-add and blocklist mutations, so an identical guarded retry skips everyone the first attempt already touched and everyone that changed or re-entered eligibility externally, while untouched members of the echoed set still run."
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "The run processes exactly the echoed set, its mutations are idempotent adds, and the raw updated_at generation guard provides the per-subscriber completion signal: Listmonk advances updated_at on the list-add and blocklist mutations, so a sequential guarded retry skips everyone the first attempt fully touched and everyone that changed or re-entered eligibility externally, while untouched members of the echoed set still run. Listmonk offers no conditional mutation, so the guard is a check-then-act read: a change landing between the subscriber listing and the mutation can still slip through, and a partially applied subscriber (list-add landed, blocklist failed) reports the failure and recovers through a fresh dry run — its moved updated_at echoes from the new observation while the already-present membership is skipped structurally. Verify with subscribers.list afterwards.",
+              "reconcileWith": "subscribers.list"
             },
             "when": "dry_run is false and subscriber_guards covers exactly the echoed subscriber_ids"
           },

@@ -536,7 +536,7 @@ describe("email operations specification", () => {
 			kind: "conditional",
 		});
 		expect(subscriberHygieneSpec?.agent.retryGuidance).toStartWith(
-			"Run dry_run first, then echo both the reported subscriber_ids",
+			"Run dry_run first, then echo the reported subscriber_ids",
 		);
 		expect(
 			emailOperationsSpec.operations.find((o) => o.id === "abtest.deploy-winner")?.effects,

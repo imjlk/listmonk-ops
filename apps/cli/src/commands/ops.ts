@@ -177,7 +177,7 @@ export default defineGroup({
 				),
 				"subscriber-guards": option(z.string().optional(), {
 					description:
-						"Generation guard (JSON array of subscriber_id and expected_updated_at pairs, echoing a dry run's candidateUpdatedAt output): a guarded destructive retry skips subscribers whose updated_at moved — its own first attempt's mutations advance it — while untouched members of the echoed set still run",
+						"Generation guard (JSON array of subscriber_id and expected_updated_at pairs — pair a dry run's subscriberIds and subscriberUpdatedAt arrays in order): a guarded destructive retry skips subscribers whose raw updated_at moved — its own first attempt's mutations advance it, and so does any external change or eligibility re-entry — while untouched members of the echoed set still run",
 				}),
 			},
 			handler: async ({ flags, ...args }) => {
