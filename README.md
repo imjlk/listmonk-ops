@@ -730,10 +730,10 @@ experimental. A
 thirtieth batch promoted `webhooks.test`: the keyed probe's event id
 derivation is now an HMAC over a server-generated high-entropy probe id
 key persisted with the webhook store — the file store or the Postgres
-runtime meta table — and deliberately independent of every endpoint
-signing credential (keying it to a signing secret would hand
-delivery-log readers a known-message/tag oracle for recovering that
-secret and forging signatures). The derivation stays bound to the
+runtime meta table — giving key separation from every endpoint signing
+credential: probe identity is decoupled from the signing secret, and a
+low-entropy signing secret cannot be brute-forced from known probe
+message/id pairs. The derivation stays bound to the
 configuration revision so a repeat after a URL or secret change still
 tests the new configuration, and a keyed probe fails fast when the
 signing secret is unavailable or blank. A keyed retry still collapses
