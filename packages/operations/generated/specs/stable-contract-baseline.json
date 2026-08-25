@@ -5386,7 +5386,7 @@
                 "properties": {
                   "correlation_id": {
                     "$ref": "#/components/schemas/WebhookCorrelationId",
-                    "description": "Keys the probe: the event id is derived as an HMAC over the endpoint's\nsigning secret and configuration revision, so an identical retry\ncollapses onto the queued delivery. Fails fast when the signing secret\nis unavailable; a configuration change derives a fresh probe by design."
+                    "description": "Keys the probe: the event id is derived as an HMAC over a\nserver-generated probe id key persisted with the webhook store\n(independent of the endpoint's signing credential) and bound to its\nconfiguration revision, so an identical retry collapses onto the\nqueued delivery. Fails fast when the signing secret is unavailable or\nblank; a configuration change derives a fresh probe by design."
                   },
                   "id": {
                     "$ref": "#/components/schemas/Uuid"
@@ -5405,7 +5405,7 @@
             "properties": {
               "correlation_id": {
                 "$ref": "#/components/schemas/WebhookCorrelationId",
-                "description": "Keys the probe: the event id is derived as an HMAC over the endpoint's\nsigning secret and configuration revision, so an identical retry\ncollapses onto the queued delivery. Fails fast when the signing secret\nis unavailable; a configuration change derives a fresh probe by design."
+                "description": "Keys the probe: the event id is derived as an HMAC over a\nserver-generated probe id key persisted with the webhook store\n(independent of the endpoint's signing credential) and bound to its\nconfiguration revision, so an identical retry collapses onto the\nqueued delivery. Fails fast when the signing secret is unavailable or\nblank; a configuration change derives a fresh probe by design."
               },
               "id": {
                 "$ref": "#/components/schemas/Uuid"
@@ -5720,7 +5720,7 @@
             "semantics": {
               "idempotent": false,
               "kind": "reconcile",
-              "reason": "The probe derives its event id as an HMAC keyed to the endpoint's signing secret and bound to its configuration revision, so the outbox dedup collapses an identical retry onto the already-queued delivery and replays or resumes it — delivery-log readers cannot enumerate predictable correlation values offline without the secret, and the persisted event durably records the correlation id. The POST itself stays at least once: a retry or expired lease whose first attempt already reached the endpoint redelivers the ping, and a pruned original lets the repeat send a fresh probe, so the outcome is verified through webhooks.delivery.list with the stable event-id header available for receiver deduplication. A configuration change re-keys the id by design, so the repeat tests the new configuration.",
+              "reason": "The probe derives its event id as an HMAC over a server-generated high-entropy probe id key persisted with the webhook store — independent of every endpoint signing credential, so delivery-log readers cannot turn the derivation into a signing-key oracle — and bound to the endpoint's configuration revision, so the outbox dedup collapses an identical retry onto the already-queued delivery and replays or resumes it; the persisted event durably records the correlation id. The POST itself stays at least once: a retry or expired lease whose first attempt already reached the endpoint redelivers the ping, and a pruned original lets the repeat send a fresh probe, so the outcome is verified through webhooks.delivery.list with the stable event-id header available for receiver deduplication. A configuration change re-keys the id by design, so the repeat tests the new configuration.",
               "reconcileWith": "webhooks.delivery.list"
             },
             "when": "correlation_id is present (and the endpoint's signing secret is resolvable)"

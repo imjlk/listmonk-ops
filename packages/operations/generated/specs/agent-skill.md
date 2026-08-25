@@ -266,7 +266,7 @@ Prerequisites: `webhooks.list`
 
 Verify with: `webhooks.delivery.list`
 
-Retry guidance: Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery — the derived event id is HMAC-keyed to the endpoint's signing secret, fails fast when the secret is unavailable, and re-keys on configuration changes; delivery stays at least once, so verify receiver state and webhooks.delivery.list (the event-id header enables receiver deduplication) before repeating, and expect a fresh probe when the original was pruned or the endpoint was reconfigured.
+Retry guidance: Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery — the derived event id is an HMAC over the store's server-generated probe id key, fails fast when the signing secret is unavailable or blank, and re-keys on configuration changes; delivery stays at least once, so verify receiver state and webhooks.delivery.list (the event-id header enables receiver deduplication) before repeating, and expect a fresh probe when the original was pruned or the endpoint was reconfigured.
 
 ## Dispatch outbound webhooks (`webhooks.dispatch`)
 

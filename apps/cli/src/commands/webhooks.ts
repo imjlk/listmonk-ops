@@ -227,7 +227,7 @@ const testCommand = defineCommand({
 		id: option(z.uuid(), { description: "Endpoint ID" }),
 		"correlation-id": option(z.string().trim().min(1).optional(), {
 			description:
-				"Keys the probe: the event id is derived as an HMAC over the endpoint's signing secret and configuration revision, so an identical retry collapses onto the queued delivery (fails fast when the signing secret is unavailable; a configuration change derives a fresh probe by design)",
+				"Keys the probe: the event id is derived as an HMAC over a server-generated probe id key persisted with the webhook store (independent of the endpoint's signing credential) and bound to its configuration revision, so an identical retry collapses onto the queued delivery (fails fast when the signing secret is unavailable or blank; a configuration change derives a fresh probe by design)",
 		}),
 	},
 	handler: async ({ flags }) => {

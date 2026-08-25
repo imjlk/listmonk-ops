@@ -525,7 +525,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-One hundred and one reviewed core operations are `stable`: the existing
+One hundred and two reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -617,10 +617,11 @@ experimental: ABA transitions and remote drift outside the registry are
 indistinguishable without a source-version pin. A fifteenth batch gave `webhooks.test` keyed-probe
 deduplication — a `correlation_id` derives a deterministic event id so
 the outbox collapses an identical retry onto the queued delivery and
-resumes or replays it (`replayed: true`) — but it stays experimental:
-a retry or expired lease whose first attempt reached the endpoint
-redelivers the ping, the same at-least-once ambiguity as the dispatch
-family. A sixteenth batch applied the prune echo pattern to
+resumes or replays it (`replayed: true`) — which kept it experimental
+at the time (a retry or expired lease whose first attempt reached the
+endpoint redelivers the ping, the same at-least-once ambiguity as the
+dispatch family) until the thirtieth batch promoted it with honest
+reconcile semantics. A sixteenth batch applied the prune echo pattern to
 `webhooks.dlq.replay`: destructive runs echo the exact dead-letter ids
 a dry run reported (modeled as a discriminated contract union) and
 already-requeued records are skipped in both stores — but it stays
@@ -727,13 +728,17 @@ to re-inspect, which is why both pinned cases classify as reconcile
 instead of safe). The remaining 2 descriptors are
 experimental. A
 thirtieth batch promoted `webhooks.test`: the keyed probe's event id
-derivation is now an HMAC keyed to the endpoint's signing secret (a
-plain hash let delivery-log readers enumerate predictable correlation
-values offline), the derivation stays bound to the configuration
-revision so a repeat after a URL or secret change still tests the new
-configuration, and a keyed probe fails fast when the signing secret is
-unavailable. A keyed retry still collapses onto the queued delivery,
-but the delivery itself is honestly at-least-once — the keyed case
+derivation is now an HMAC over a server-generated high-entropy probe id
+key persisted with the webhook store — the file store or the Postgres
+runtime meta table — and deliberately independent of every endpoint
+signing credential (keying it to a signing secret would hand
+delivery-log readers a known-message/tag oracle for recovering that
+secret and forging signatures). The derivation stays bound to the
+configuration revision so a repeat after a URL or secret change still
+tests the new configuration, and a keyed probe fails fast when the
+signing secret is unavailable or blank. A keyed retry still collapses
+onto the queued delivery, but the delivery itself is honestly
+at-least-once — the keyed case
 classifies as reconcile, verified through `webhooks.delivery.list` with
 the event-id header enabling receiver deduplication — while an unkeyed
 probe sends a fresh ping on every attempt and stays unsafe. A

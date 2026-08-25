@@ -561,7 +561,7 @@ export const webhookTestOperationSpec = defineOperationSpec({
 					reconcileWith: "webhooks.delivery.list",
 					idempotent: false,
 					reason:
-						"The probe derives its event id as an HMAC keyed to the endpoint's signing secret and bound to its configuration revision, so the outbox dedup collapses an identical retry onto the already-queued delivery and replays or resumes it — delivery-log readers cannot enumerate predictable correlation values offline without the secret, and the persisted event durably records the correlation id. The POST itself stays at least once: a retry or expired lease whose first attempt already reached the endpoint redelivers the ping, and a pruned original lets the repeat send a fresh probe, so the outcome is verified through webhooks.delivery.list with the stable event-id header available for receiver deduplication. A configuration change re-keys the id by design, so the repeat tests the new configuration.",
+						"The probe derives its event id as an HMAC over a server-generated high-entropy probe id key persisted with the webhook store — independent of every endpoint signing credential, so delivery-log readers cannot turn the derivation into a signing-key oracle — and bound to the endpoint's configuration revision, so the outbox dedup collapses an identical retry onto the already-queued delivery and replays or resumes it; the persisted event durably records the correlation id. The POST itself stays at least once: a retry or expired lease whose first attempt already reached the endpoint redelivers the ping, and a pruned original lets the repeat send a fresh probe, so the outcome is verified through webhooks.delivery.list with the stable event-id header available for receiver deduplication. A configuration change re-keys the id by design, so the repeat tests the new configuration.",
 				},
 			},
 			{
@@ -583,7 +583,7 @@ export const webhookTestOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.dispatch"],
 		retryGuidance:
-			"Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery — the derived event id is HMAC-keyed to the endpoint's signing secret, fails fast when the secret is unavailable, and re-keys on configuration changes; delivery stays at least once, so verify receiver state and webhooks.delivery.list (the event-id header enables receiver deduplication) before repeating, and expect a fresh probe when the original was pruned or the endpoint was reconfigured.",
+			"Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery — the derived event id is an HMAC over the store's server-generated probe id key, fails fast when the signing secret is unavailable or blank, and re-keys on configuration changes; delivery stays at least once, so verify receiver state and webhooks.delivery.list (the event-id header enables receiver deduplication) before repeating, and expect a fresh probe when the original was pruned or the endpoint was reconfigured.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_test",

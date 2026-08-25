@@ -605,9 +605,10 @@ batch에서는 조건부 retry 시맨틱의 `sequences.update`(최신 revision�
 열다섯 번째 batch에서는 `webhooks.test`에 키 지정 probe 중복 제거를
 추가했습니다. `correlation_id`가 결정적 event id를 파생해 outbox가 동일한
 재시도를 이미 큐된 delivery로 합치고 이어 dispatch하거나 재생합니다
-(`replayed: true`). 그러나 첫 시도가 endpoint에 도달한 후의 재시도나 만료된
-lease는 ping을 재전송하는 at-least-once 모호성 때문에 experimental로
-유지됩니다. 열여섯 번째 batch에서는 prune echo 패턴을
+(`replayed: true`). 당시에는 첫 시도가 endpoint에 도달한 후의 재시도나
+만료된 lease가 ping을 재전송하는 at-least-once 모호성(dispatch 계열과
+같은 이유) 때문에 experimental로 유지되다가, 서른 번째 batch가 정직한
+reconcile 시맨틱으로 승격했습니다. 열여섯 번째 batch에서는 prune echo 패턴을
 `webhooks.dlq.replay`에 적용했습니다. 파괴적 실행은 dry-run이 보고한 정확한
 dead-letter id 집합을 전달(판별 유니온 계약으로 모델링)하고 이미 재큐된
 레코드는 양쪽 저장소에서 건너뜁니다. 그러나 worker가 재생된 레코드를
@@ -700,11 +701,14 @@ best-effort이며, 승격/롤백이 성공하면 원격 hash와 head가 바뀌�
 충돌합니다 — 이 충돌이 재점검을 이끄는 문서화된 조정 신호여서
 두 핀된 경우 모두 safe가 아니라 reconcile로 분류)을
 승격했습니다. 서른 번째 batch에서는 `webhooks.test`를 승격했습니다 —
-키 지정 probe의 event id 파생이 엔드포인트의 서명 시크릿으로 키잉된
-HMAC(평문 해시가 아니라 배달 로그 독자가 오프라인으로 상관 값을
-열거할 수 없음)으로 바뀌고, 파생은 여전히 구성 리비전에 묶여 URL이나
-시크릿 변경 후 반복이 새 구성을 테스트하며, 서명 시크릿을 못 찾으면
-키 지정 probe가 즉시 실패합니다. 키 지정 재시도는 여전히 큐된 delivery로
+키 지정 probe의 event id 파생이 webhook 저장소에 지속되는 서버 생성
+고엔트로피 probe id 키(file 저장소 또는 Postgres runtime meta 테이블)에
+대한 HMAC으로 바뀌었고, 모든 엔드포인트 서명 자격증명과 의도적으로
+독립입니다(서명 시크릿으로 키잉하면 배달 로그 독자가 해당 시크릿을
+복구해 서명을 위조할 수 있는 known-message/tag 오라클을 제공하게 됨).
+파생은 여전히 구성 리비전에 묶여 URL이나 시크릿 변경 후 반복이 새
+구성을 테스트하며, 서명 시크릿이 없거나 비어 있으면 키 지정 probe가
+즉시 실패합니다. 키 지정 재시도는 여전히 큐된 delivery로
 합쳐지지만 전달 자체는 정직하게 at-least-once(reconcile 분류,
 webhooks.delivery.list와 event-id 헤더 수신 측 중복 제거로 검증)이고,
 키 없는 probe는 매 시도마다 새 핑을 보내 unsafe로 유지됩니다. 현재 stable baseline은 102개이며, 나머지 experimental descriptor는

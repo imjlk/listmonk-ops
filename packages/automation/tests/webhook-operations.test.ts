@@ -26,9 +26,10 @@ import { ingestInboundDeliveryEvent } from "../src/inbound-delivery-events";
 import {
 	resolveWebhookOperationStore,
 	testConfigFingerprint,
-	testEventUuid,
+	keyedTestEventUuid,
 } from "../src/webhook-operations";
 import {
+	ensureOutboundWebhookProbeIdKey,
 	enqueueOutboundWebhookEvent,
 	getOutboundWebhookEndpoint,
 } from "../src/outbound-webhooks";
@@ -508,12 +509,68 @@ describe("webhook shared operations", () => {
 			event_filters: ["operation.*"],
 		});
 
+		let failure: unknown;
+		try {
+			await invokeWebhookTestOperation(context, {
+				id: endpoint.endpoint.id,
+				correlation_id: "probe-nosecret",
+			});
+		} catch (error) {
+			failure = error;
+		}
+		expect(failure).toBeInstanceOf(Error);
+		// The message must not disclose the secret reference: endpoint
+		// projections expose only secret_reference_configured.
+		expect((failure as Error).message).not.toContain(
+			"LISTMONK_OPS_WEBHOOK_SECRET_NOSECRET",
+		);
+		expect((failure as Error).message).toMatch(/Signing secret .* unavailable/);
+	});
+
+	test("fails a keyed probe fast when the signing secret is whitespace", async () => {
+		const context = await createContext();
+		context.resolveSecret = () => "   ";
+		const endpoint = await invokeWebhookCreateOperation(context, {
+			name: "test-blanksecret",
+			url: "https://8.8.8.8/blanksecret",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_BLANK",
+			event_filters: ["operation.*"],
+		});
+
 		await expect(
 			invokeWebhookTestOperation(context, {
 				id: endpoint.endpoint.id,
-				correlation_id: "probe-nosecret",
+				correlation_id: "probe-blanksecret",
 			}),
-		).rejects.toThrow(/Signing secret .* is unavailable/);
+		).rejects.toThrow(/Signing secret .* unavailable or blank/);
+	});
+
+	test("persists one probe id key and derives independent ids with it", async () => {
+		const context = await createContext();
+		const first = await ensureOutboundWebhookProbeIdKey(
+			resolveWebhookOperationStore(context),
+		);
+		// High-entropy, server-generated: 32 bytes of hex.
+		expect(first).toMatch(/^[0-9a-f]{64}$/);
+		// Stable across processes: the same key is returned once persisted.
+		expect(
+			await ensureOutboundWebhookProbeIdKey(
+				resolveWebhookOperationStore(context),
+			),
+		).toBe(first);
+		// The derivation depends on the key, not the endpoint's signing
+		// secret: rotating the signing secret leaves the derived id alone.
+		const withKey = keyedTestEventUuid("endpoint-1", "corr-1", first, "fp");
+		const withOtherKey = keyedTestEventUuid(
+			"endpoint-1",
+			"corr-1",
+			first.concat("0"),
+			"fp",
+		);
+		expect(withKey).not.toBe(withOtherKey);
+		expect(keyedTestEventUuid("endpoint-1", "corr-1", first, "fp")).toBe(
+			withKey,
+		);
 	});
 
 	test("collapses keyed test retries onto the queued delivery", async () => {
@@ -569,10 +626,12 @@ describe("webhook shared operations", () => {
 		// died between enqueue and dispatch.
 			await enqueueOutboundWebhookEvent(
 				{
-					id: testEventUuid(
+					id: keyedTestEventUuid(
 						endpoint.endpoint.id,
 						"resume-1",
-						"test-secret",
+						await ensureOutboundWebhookProbeIdKey(
+							resolveWebhookOperationStore(context),
+						),
 						testConfigFingerprint(
 							await getOutboundWebhookEndpoint(
 								endpoint.endpoint.id,

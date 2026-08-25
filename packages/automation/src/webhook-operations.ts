@@ -36,6 +36,7 @@ import {
 	deleteOutboundWebhookEndpoint,
 	dispatchOutboundWebhooks,
 	enqueueOutboundWebhookEvent,
+	ensureOutboundWebhookProbeIdKey,
 	getOutboundWebhookEndpoint,
 	getOutboundWebhookRuntimeHealth,
 	listOutboundWebhookDeliveries,
@@ -204,7 +205,7 @@ const webhookTestInputSchema = z.object({
 		.max(200)
 		.optional()
 		.describe(
-			"Keys the probe: the event id is derived as an HMAC over the endpoint's signing secret and configuration revision, so an identical retry collapses onto the queued delivery (fails fast when the signing secret is unavailable; a configuration change derives a fresh probe by design)",
+			"Keys the probe: the event id is derived as an HMAC over a server-generated probe id key persisted with the webhook store (independent of the endpoint's signing credential) and bound to its configuration revision, so an identical retry collapses onto the queued delivery (fails fast when the signing secret is unavailable or blank; a configuration change derives a fresh probe by design)",
 		),
 });
 const webhookDispatchInputSchema = z.object({
@@ -867,20 +868,43 @@ export function testConfigFingerprint(endpoint: {
 }
 
 /**
- * Derive the deterministic event id for a keyed webhook.test probe. The
- * derivation is keyed to the endpoint's signing secret (an HMAC, not a
- * plain hash): readers of the delivery log cannot enumerate predictable
- * correlation values offline without the secret. The config fingerprint
- * re-keys the id when the endpoint configuration changes, so a repeat
- * after a URL or secret change tests the new configuration.
+ * @deprecated Unsalted derivation retained only for backward compatibility.
+ * The webhook.test operation derives ids with {@link keyedTestEventUuid},
+ * whose HMAC key is the store's server-generated probe id key — an
+ * independent secret, never an endpoint signing credential.
  */
 export function testEventUuid(
 	endpointId: string,
 	correlationId: string,
-	idSecret: string,
 	configFingerprint = "",
 ): string {
-	const digest = createHmac("sha256", idSecret)
+	const digest = createHash("sha256")
+		.update(`webhook.test:${endpointId}:${correlationId}:${configFingerprint}`)
+		.digest("hex");
+	const bytes = Uint8Array.from(
+		digest.slice(0, 32).match(/../g)!.map((h) => Number.parseInt(h, 16)),
+	);
+	bytes[6] = (bytes[6]! & 0x0f) | 0x50; // uuid v5 marker
+	bytes[8] = (bytes[8]! & 0x3f) | 0x80; // rfc 4122 variant
+	const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * Derive the deterministic event id for a keyed webhook.test probe. The
+ * HMAC key is the store's server-generated probe id key — independent of
+ * every endpoint signing credential, so delivery-log readers cannot test
+ * secret candidates offline against known message/id pairs. The config
+ * fingerprint re-keys the id when the endpoint configuration changes, so a
+ * repeat after a URL or secret change tests the new configuration.
+ */
+export function keyedTestEventUuid(
+	endpointId: string,
+	correlationId: string,
+	idKey: string,
+	configFingerprint = "",
+): string {
+	const digest = createHmac("sha256", idKey)
 		.update(`webhook.test:${endpointId}:${correlationId}:${configFingerprint}`)
 		.digest("hex");
 	const bytes = Uint8Array.from(
@@ -899,28 +923,31 @@ export async function executeWebhookTestOperation(
 	const store = resolveWebhookOperationStore(context);
 	const endpoint = await getOutboundWebhookEndpoint(input.id, store);
 	const keyed = input.correlation_id !== undefined;
-	// Keyed probes derive their event id from the endpoint's signing
-	// secret, so the secret must be resolvable before the probe is
-	// queued — the dispatch would fail signing without it anyway.
+	// The dispatch would fail signing without a usable secret, so a keyed
+	// probe fails fast instead of queueing a delivery that can only fail.
+	// The message deliberately omits the secret reference: endpoint
+	// projections expose only secret_reference_configured.
 	const resolveSecret =
 		context.resolveSecret ?? ((secretRef: string) => process.env[secretRef]);
-	let idSecret: string | undefined;
-	if (keyed) {
-		idSecret = resolveSecret(endpoint.secretRef);
-		if (idSecret === undefined || idSecret === "") {
-			throw new OutboundWebhookConflictError(
-				`Signing secret ${endpoint.secretRef} for webhook endpoint ${input.id} is unavailable; keyed probes derive their event id from it`,
-				"signing_secret_unavailable",
-			);
-		}
+	if (keyed && !resolveSecret(endpoint.secretRef)?.trim()) {
+		throw new OutboundWebhookConflictError(
+			`Signing secret for webhook endpoint ${input.id} is unavailable or blank; a keyed probe fails fast because its delivery cannot be signed`,
+			"signing_secret_unavailable",
+		);
 	}
+	// The derivation key is the store's server-generated probe id key —
+	// never the endpoint signing credential, which would turn the delivery
+	// log into a known-message/tag oracle for forging signatures.
+	const idKey = keyed
+		? await ensureOutboundWebhookProbeIdKey(store)
+		: undefined;
 	const queued = await enqueueOutboundWebhookEvent(
 		{
 			id: keyed
-				? testEventUuid(
+				? keyedTestEventUuid(
 						endpoint.id,
 						input.correlation_id!,
-						idSecret!,
+						idKey!,
 						testConfigFingerprint(endpoint),
 					)
 				: randomUUID(),

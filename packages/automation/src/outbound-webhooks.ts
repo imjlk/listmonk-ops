@@ -1,4 +1,9 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import {
+	createHmac,
+	randomBytes,
+	randomUUID,
+	timingSafeEqual,
+} from "node:crypto";
 import { lookup as dnsLookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { homedir } from "node:os";
@@ -193,6 +198,13 @@ export type OutboundWebhookStore = Readonly<{
 	deliveries: readonly OutboundWebhookDelivery[];
 	endpointRuntime: readonly OutboundWebhookEndpointRuntime[];
 	workers: readonly OutboundWebhookWorker[];
+	/**
+	 * Server-generated high-entropy key for deriving keyed webhook.test
+	 * event ids. Independent of every endpoint signing credential so a
+	 * delivery-log reader cannot turn the derivation into a signing-key
+	 * oracle. Generated lazily on the first keyed probe.
+	 */
+	probeIdKey?: string;
 }>;
 
 export type OutboundWebhookStoreOptions = Readonly<{
@@ -464,6 +476,12 @@ export type UpsertOutboundWebhookWorkerInput = Readonly<{
  */
 export interface OutboundWebhookRepository {
 	readonly kind: "file" | "postgres";
+	/**
+	 * Resolve the server-generated probe id key for keyed webhook.test
+	 * derivations, creating it on first use. Independent of endpoint
+	 * signing credentials by design.
+	 */
+	getOrCreateProbeIdKey(): Promise<string>;
 	listEndpoints(): Promise<readonly OutboundWebhookEndpoint[]>;
 	getEndpoint(id: string): Promise<OutboundWebhookEndpoint>;
 	createEndpoint(
@@ -662,6 +680,7 @@ const storeSchema = z.object({
 	deliveries: z.array(deliverySchema),
 	endpointRuntime: z.array(endpointRuntimeSchema),
 	workers: z.array(workerSchema),
+	probeIdKey: z.string().min(32).max(128).optional(),
 });
 
 const SENSITIVE_KEY_PATTERN =
@@ -815,6 +834,33 @@ export function createOutboundWebhookStore(
 	};
 }
 
+/**
+ * Resolve the server-generated key that derives keyed webhook.test event
+ * ids, creating it on first use. The key is independent of every endpoint
+ * signing credential — keying the derivation to a signing secret would
+ * hand delivery-log readers a known-message/tag oracle for recovering that
+ * secret and forging webhook signatures.
+ */
+export async function ensureOutboundWebhookProbeIdKey(
+	options: OutboundWebhookStoreOptions = {},
+): Promise<string> {
+	if (options.repository) {
+		return options.repository.getOrCreateProbeIdKey();
+	}
+	const storeDefinition = createOutboundWebhookStore(options.path);
+	const existing = await readJsonFileStore(storeDefinition);
+	if (existing.probeIdKey !== undefined) {
+		return existing.probeIdKey;
+	}
+	const generated = randomBytes(32).toString("hex");
+	return updateJsonFileStore(storeDefinition, (store) =>
+		commitJsonFileStoreUpdate(
+			{ ...store, probeIdKey: store.probeIdKey ?? generated },
+			store.probeIdKey ?? generated,
+		),
+	);
+}
+
 async function persistFileOutboundWebhookEndpoint(
 	endpoint: OutboundWebhookEndpoint,
 	options: Pick<OutboundWebhookStoreOptions, "path">,
@@ -847,6 +893,7 @@ export function createFileOutboundWebhookRepository(
 	const fileOptions = { path: options.path, limit: options.limit };
 	return {
 		kind: "file",
+		getOrCreateProbeIdKey: () => ensureOutboundWebhookProbeIdKey(fileOptions),
 		listEndpoints: () => listOutboundWebhookEndpoints(fileOptions),
 		getEndpoint: (id) => getOutboundWebhookEndpoint(id, fileOptions),
 		createEndpoint: (endpoint) =>

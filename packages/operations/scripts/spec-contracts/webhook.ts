@@ -184,10 +184,12 @@ export interface WebhookDeleteOutput {
 export interface WebhookTestInput {
 	id: WebhookId;
 	/**
-	 * Keys the probe: the event id is derived as an HMAC over the endpoint's
-	 * signing secret and configuration revision, so an identical retry
-	 * collapses onto the queued delivery. Fails fast when the signing secret
-	 * is unavailable; a configuration change derives a fresh probe by design.
+	 * Keys the probe: the event id is derived as an HMAC over a
+	 * server-generated probe id key persisted with the webhook store
+	 * (independent of the endpoint's signing credential) and bound to its
+	 * configuration revision, so an identical retry collapses onto the
+	 * queued delivery. Fails fast when the signing secret is unavailable or
+	 * blank; a configuration change derives a fresh probe by design.
 	 */
 	correlation_id?: WebhookCorrelationId | undefined;
 }

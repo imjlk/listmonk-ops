@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import postgres, { type Sql } from "postgres";
 import {
 	OutboundWebhookConflictError,
@@ -410,6 +410,31 @@ export function createPostgresOutboundWebhookRepository(
 
 	const repository: OutboundWebhookRepository = {
 		kind: "postgres",
+
+		async getOrCreateProbeIdKey() {
+			await ensureInitialized();
+			const candidate = randomBytes(32).toString("hex");
+			const inserted = await sql<{ value: string }[]>`
+				INSERT INTO listmonk_ops.webhook_runtime_meta (key, value)
+				VALUES ('probe_id_key', ${candidate})
+				ON CONFLICT (key) DO NOTHING
+				RETURNING value
+			`;
+			if (inserted[0] !== undefined) {
+				return inserted[0].value;
+			}
+			const existing = await sql<{ value: string }[]>`
+				SELECT value FROM listmonk_ops.webhook_runtime_meta
+				WHERE key = 'probe_id_key'
+			`;
+			const value = existing[0]?.value;
+			if (value === undefined) {
+				throw new Error(
+					"Webhook Postgres probe id key went missing after upsert",
+				);
+			}
+			return value;
+		},
 
 		async listEndpoints() {
 			await ensureInitialized();
