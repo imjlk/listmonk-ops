@@ -1,6 +1,6 @@
 {
 	"name": "@listmonk-ops/common",
-	"version": "0.5.1",
+	"version": "0.6.0",
 	"type": "module",
 	"description": "Shared utilities for listmonk-ops packages",
 	"sideEffects": false,

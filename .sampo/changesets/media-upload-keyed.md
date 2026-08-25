@@ -1,7 +1,0 @@
----
-npm/@listmonk-ops/operations: minor
-npm/@listmonk-ops/mcp: minor
-npm/@listmonk-ops/cli: minor
----
-
-Promote `media.upload` from experimental to stable with the store-backed idempotency key, shared through the same keyed-create executor as `lists.create`, `campaigns.create`, and `templates.create`. `media.upload` accepts an optional `idempotency_key` (CLI `--idempotency-key`) that is atomically claimed in the durable resource-create store before the upload is issued and then bound to the uploaded media id: an identical retry replays that media file as `created: false` without a second POST, a concurrent same-key upload waits for the in-flight one, and a different request or target under the same key is rejected explicitly. The payload hash covers the filename, the effective MIME type, and the base64 content in its normalized standard form, so equivalent encodings (data-URL prefixes, whitespace wrapping, URL-safe alphabet, missing padding) replay instead of conflicting. An attempt that ends ambiguously — or whose accepted response carries neither an id nor an immutable uuid to correlate — marks its claim unknown and later same-key uploads fail fast with reconciliation guidance. Unkeyed uploads keep the honestly unsafe classification because Listmonk media filenames are not unique. The output contract gains the `created` envelope (`{media, created}`), and the CLI/MCP inject the store at their boundaries. The stable TypeScript contract count rises from 86 to 87.
