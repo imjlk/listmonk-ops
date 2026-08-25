@@ -498,6 +498,24 @@ describe("webhook shared operations", () => {
 		expect(retried.eligible).toBe(0);
 	});
 
+	test("fails a keyed probe fast when the signing secret is unavailable", async () => {
+		const context = await createContext();
+		context.resolveSecret = () => undefined;
+		const endpoint = await invokeWebhookCreateOperation(context, {
+			name: "test-nosecret",
+			url: "https://8.8.8.8/nosecret",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_NOSECRET",
+			event_filters: ["operation.*"],
+		});
+
+		await expect(
+			invokeWebhookTestOperation(context, {
+				id: endpoint.endpoint.id,
+				correlation_id: "probe-nosecret",
+			}),
+		).rejects.toThrow(/Signing secret .* is unavailable/);
+	});
+
 	test("collapses keyed test retries onto the queued delivery", async () => {
 		const context = await createContext();
 		const endpoint = await invokeWebhookCreateOperation(context, {
@@ -549,18 +567,19 @@ describe("webhook shared operations", () => {
 		});
 		// Queue the keyed probe without dispatching, as if the first call
 		// died between enqueue and dispatch.
-		await enqueueOutboundWebhookEvent(
-			{
-				id: testEventUuid(
-					endpoint.endpoint.id,
-					"resume-1",
-					testConfigFingerprint(
-						await getOutboundWebhookEndpoint(
-							endpoint.endpoint.id,
-							resolveWebhookOperationStore(context),
+			await enqueueOutboundWebhookEvent(
+				{
+					id: testEventUuid(
+						endpoint.endpoint.id,
+						"resume-1",
+						"test-secret",
+						testConfigFingerprint(
+							await getOutboundWebhookEndpoint(
+								endpoint.endpoint.id,
+								resolveWebhookOperationStore(context),
+							),
 						),
 					),
-				),
 				type: "webhook.test",
 				source: "webhook",
 				correlationId: "resume-1",

@@ -517,7 +517,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 101 are `stable` and 3 are `experimental`. The runtime-operation
+these, 102 are `stable` and 2 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -724,8 +724,19 @@ successful promote or rollback changes the remote hash and advances the
 head, so a pinned retry of the original request conflicts even after
 its own success — that conflict is the documented reconciliation signal
 to re-inspect, which is why both pinned cases classify as reconcile
-instead of safe). The remaining 3 descriptors are
+instead of safe). The remaining 2 descriptors are
 experimental. A
+thirtieth batch promoted `webhooks.test`: the keyed probe's event id
+derivation is now an HMAC keyed to the endpoint's signing secret (a
+plain hash let delivery-log readers enumerate predictable correlation
+values offline), the derivation stays bound to the configuration
+revision so a repeat after a URL or secret change still tests the new
+configuration, and a keyed probe fails fast when the signing secret is
+unavailable. A keyed retry still collapses onto the queued delivery,
+but the delivery itself is honestly at-least-once — the keyed case
+classifies as reconcile, verified through `webhooks.delivery.list` with
+the event-id header enabling receiver deduplication — while an unkeyed
+probe sends a fresh ping on every attempt and stays unsafe. A
 twenty-seventh batch promoted all three reconcile operations
 (`sequences.reconcile`, `webhooks.reconcile`, `abtest.reconcile`) with
 echoed-scanned-set recovery: each scan echoes the exact ids it
@@ -750,7 +761,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 101 stable compatibility baselines, and 317 direct
+runtime bridges, the 102 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are

@@ -552,9 +552,29 @@ export const webhookTestOperationSpec = defineOperationSpec({
 	effects: [{ kind: "webhook", resource: "webhook", audience: "single" }],
 	policy: { confirmation: "required", audit: "required", dryRun: false },
 	retry: {
-		kind: "unsafe",
+		kind: "conditional",
+		cases: [
+			{
+				when: "correlation_id is present (and the endpoint's signing secret is resolvable)",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "webhooks.delivery.list",
+					idempotent: false,
+					reason:
+						"The probe derives its event id as an HMAC keyed to the endpoint's signing secret and bound to its configuration revision, so the outbox dedup collapses an identical retry onto the already-queued delivery and replays or resumes it — delivery-log readers cannot enumerate predictable correlation values offline without the secret, and the persisted event durably records the correlation id. The POST itself stays at least once: a retry or expired lease whose first attempt already reached the endpoint redelivers the ping, and a pruned original lets the repeat send a fresh probe, so the outcome is verified through webhooks.delivery.list with the stable event-id header available for receiver deduplication. A configuration change re-keys the id by design, so the repeat tests the new configuration.",
+				},
+			},
+			{
+				when: "correlation_id is absent",
+				semantics: {
+					kind: "unsafe",
+					reason:
+						"An unkeyed probe derives a fresh random event id, so every attempt queues and delivers another ping with nothing to collapse onto.",
+				},
+			},
+		],
 		reason:
-			"A keyed probe derives a deterministic event id — bound to the endpoint's configuration revision so a repeat after a URL or secret change tests the new configuration — so the outbox dedup collapses an identical retry onto the already-queued delivery and replays or resumes it, but a retry or expired lease whose first attempt already reached the endpoint redelivers the ping (at-least-once), and a pruned original lets a repeat send a fresh probe; and the unsalted derivation means readers of the delivery log can enumerate predictable correlation values offline; the test stays experimental until receivers can deduplicate, the delivery records a durable request identity, or the derived id is keyed to a server secret.",
+			"Retry safety depends on keying the probe; delivery itself is at least once in every mode.",
 	},
 	agent: {
 		useWhen: ["A configured endpoint and signing secret must be verified end to end."],
@@ -563,7 +583,7 @@ export const webhookTestOperationSpec = defineOperationSpec({
 		verifyWith: ["webhooks.delivery.list"],
 		related: ["webhooks.dispatch"],
 		retryGuidance:
-			"Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery, and inspect webhooks.delivery.list before repeating — a retry or expired lease whose first attempt reached the endpoint can redeliver the ping.",
+			"Key the probe with a correlation_id so an ambiguous retry collapses onto the queued delivery — the derived event id is HMAC-keyed to the endpoint's signing secret, fails fast when the secret is unavailable, and re-keys on configuration changes; delivery stays at least once, so verify receiver state and webhooks.delivery.list (the event-id header enables receiver deduplication) before repeating, and expect a fresh probe when the original was pruned or the endpoint was reconfigured.",
 	},
 	projection: {
 		mcpName: "listmonk_webhooks_test",
@@ -581,7 +601,7 @@ export const webhookTestOperationSpec = defineOperationSpec({
 				"packages/automation/src/webhook-operations.ts#executeWebhookTestOperation:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.8.0",
 });
 

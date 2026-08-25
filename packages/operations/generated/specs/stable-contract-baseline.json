@@ -5372,6 +5372,377 @@
         "input": {
           "components": {
             "schemas": {
+              "Uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "WebhookCorrelationId": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "WebhookTestInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "correlation_id": {
+                    "$ref": "#/components/schemas/WebhookCorrelationId",
+                    "description": "Keys the probe: the event id is derived as an HMAC over the endpoint's\nsigning secret and configuration revision, so an identical retry\ncollapses onto the queued delivery. Fails fast when the signing secret\nis unavailable; a configuration change derives a fresh probe by design."
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "correlation_id": {
+                "$ref": "#/components/schemas/WebhookCorrelationId",
+                "description": "Keys the probe: the event id is derived as an HMAC over the endpoint's\nsigning secret and configuration revision, so an identical retry\ncollapses onto the queued delivery. Fails fast when the signing secret\nis unavailable; a configuration change derives a fresh probe by design."
+              },
+              "id": {
+                "$ref": "#/components/schemas/Uuid"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "NonNegativeInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "Uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "WebhookDispatchErrorCode": {
+                "oneOf": [
+                  {
+                    "const": "delivery_failed"
+                  },
+                  {
+                    "const": "delivery_state_conflict"
+                  },
+                  {
+                    "const": "delivery_unavailable"
+                  },
+                  {
+                    "const": "endpoint_unavailable"
+                  },
+                  {
+                    "const": "http_rejected"
+                  },
+                  {
+                    "const": "lease_conflict"
+                  },
+                  {
+                    "const": "signing_secret_unavailable"
+                  },
+                  {
+                    "const": "url_policy_blocked"
+                  }
+                ]
+              },
+              "WebhookDispatchOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "already_done": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claim_steps": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookRecoveryClaim"
+                    },
+                    "type": "array"
+                  },
+                  "claimed": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "claimed_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "exhausted": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "pending_ids": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "requested": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/WebhookDispatchResult"
+                    },
+                    "type": "array"
+                  },
+                  "retried": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "skipped": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "succeeded": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  }
+                },
+                "required": [
+                  "claimed",
+                  "succeeded",
+                  "retried",
+                  "exhausted",
+                  "skipped",
+                  "claimed_ids",
+                  "claim_steps",
+                  "results"
+                ],
+                "type": "object"
+              },
+              "WebhookDispatchResult": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "error_code": {
+                        "oneOf": [
+                          {
+                            "const": "delivery_failed"
+                          },
+                          {
+                            "const": "delivery_state_conflict"
+                          },
+                          {
+                            "const": "delivery_unavailable"
+                          },
+                          {
+                            "const": "endpoint_unavailable"
+                          },
+                          {
+                            "const": "http_rejected"
+                          },
+                          {
+                            "const": "lease_conflict"
+                          },
+                          {
+                            "const": "signing_secret_unavailable"
+                          },
+                          {
+                            "const": "url_policy_blocked"
+                          }
+                        ]
+                      },
+                      "status": {
+                        "oneOf": [
+                          {
+                            "const": "exhausted"
+                          },
+                          {
+                            "const": "retry"
+                          },
+                          {
+                            "const": "succeeded"
+                          }
+                        ]
+                      },
+                      "status_code": {
+                        "$ref": "#/components/schemas/PositiveInteger"
+                      }
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "delivery_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "endpoint_id": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "error_code": {
+                        "$ref": "#/components/schemas/WebhookDispatchErrorCode"
+                      },
+                      "status": {
+                        "const": "skipped"
+                      }
+                    },
+                    "required": [
+                      "delivery_id",
+                      "endpoint_id",
+                      "status",
+                      "error_code"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "WebhookRecoveryClaim": {
+                "additionalProperties": false,
+                "description": "One echoed webhook claim position: the delivery plus its attempt count at claim.",
+                "properties": {
+                  "attempt_count": {
+                    "$ref": "#/components/schemas/NonNegativeInteger"
+                  },
+                  "delivery_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "delivery_id",
+                  "attempt_count"
+                ],
+                "type": "object"
+              },
+              "WebhookTestOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "bound_revision": {
+                    "description": "The endpoint configuration revision the probe identity was bound to; a later dispatch may still resolve a newer revision.",
+                    "type": "string"
+                  },
+                  "delivery_id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "dispatch": {
+                    "$ref": "#/components/schemas/WebhookDispatchOutput"
+                  },
+                  "event_id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "replayed": {
+                    "description": "True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings).",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "event_id",
+                  "replayed",
+                  "bound_revision",
+                  "dispatch"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "bound_revision": {
+                "description": "The endpoint configuration revision the probe identity was bound to; a later dispatch may still resolve a newer revision.",
+                "type": "string"
+              },
+              "delivery_id": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "dispatch": {
+                "$ref": "#/components/schemas/WebhookDispatchOutput"
+              },
+              "event_id": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "replayed": {
+                "description": "True when the call reused an already-queued delivery instead of enqueuing a new one (a resumed delivery still pings).",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "event_id",
+              "replayed",
+              "bound_revision",
+              "dispatch"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "audience": "single",
+          "kind": "webhook",
+          "resource": "webhook"
+        }
+      ],
+      "id": "webhooks.test",
+      "mcpName": "listmonk_webhooks_test",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "webhook",
+      "retry": {
+        "cases": [
+          {
+            "semantics": {
+              "idempotent": false,
+              "kind": "reconcile",
+              "reason": "The probe derives its event id as an HMAC keyed to the endpoint's signing secret and bound to its configuration revision, so the outbox dedup collapses an identical retry onto the already-queued delivery and replays or resumes it — delivery-log readers cannot enumerate predictable correlation values offline without the secret, and the persisted event durably records the correlation id. The POST itself stays at least once: a retry or expired lease whose first attempt already reached the endpoint redelivers the ping, and a pruned original lets the repeat send a fresh probe, so the outcome is verified through webhooks.delivery.list with the stable event-id header available for receiver deduplication. A configuration change re-keys the id by design, so the repeat tests the new configuration.",
+              "reconcileWith": "webhooks.delivery.list"
+            },
+            "when": "correlation_id is present (and the endpoint's signing secret is resolvable)"
+          },
+          {
+            "semantics": {
+              "kind": "unsafe",
+              "reason": "An unkeyed probe derives a fresh random event id, so every attempt queues and delivers another ping with nothing to collapse onto."
+            },
+            "when": "correlation_id is absent"
+          }
+        ],
+        "kind": "conditional",
+        "reason": "Retry safety depends on keying the probe; delivery itself is at least once in every mode."
+      },
+      "verb": "test"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "NonNegativeInteger": {
                 "maximum": 9007199254740991,
                 "minimum": 0,

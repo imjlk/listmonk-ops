@@ -5,7 +5,7 @@ import {
 	parseOperationInput,
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import {
 	bindWebhookCreateOperationSpec,
 	bindWebhookDeleteOperationSpec,
@@ -197,7 +197,15 @@ const webhookUpdateInputSchema = z
 const webhookDeleteInputSchema = z.object({ id: endpointIdInput });
 const webhookTestInputSchema = z.object({
 	id: endpointIdInput,
-	correlation_id: z.string().trim().min(1).max(200).optional(),
+	correlation_id: z
+		.string()
+		.trim()
+		.min(1)
+		.max(200)
+		.optional()
+		.describe(
+			"Keys the probe: the event id is derived as an HMAC over the endpoint's signing secret and configuration revision, so an identical retry collapses onto the queued delivery (fails fast when the signing secret is unavailable; a configuration change derives a fresh probe by design)",
+		),
 });
 const webhookDispatchInputSchema = z.object({
 	limit: webhookDispatchLimitInput.default(25),
@@ -858,12 +866,21 @@ export function testConfigFingerprint(endpoint: {
 	return endpoint.updatedAt;
 }
 
+/**
+ * Derive the deterministic event id for a keyed webhook.test probe. The
+ * derivation is keyed to the endpoint's signing secret (an HMAC, not a
+ * plain hash): readers of the delivery log cannot enumerate predictable
+ * correlation values offline without the secret. The config fingerprint
+ * re-keys the id when the endpoint configuration changes, so a repeat
+ * after a URL or secret change tests the new configuration.
+ */
 export function testEventUuid(
 	endpointId: string,
 	correlationId: string,
+	idSecret: string,
 	configFingerprint = "",
 ): string {
-	const digest = createHash("sha256")
+	const digest = createHmac("sha256", idSecret)
 		.update(`webhook.test:${endpointId}:${correlationId}:${configFingerprint}`)
 		.digest("hex");
 	const bytes = Uint8Array.from(
@@ -882,12 +899,28 @@ export async function executeWebhookTestOperation(
 	const store = resolveWebhookOperationStore(context);
 	const endpoint = await getOutboundWebhookEndpoint(input.id, store);
 	const keyed = input.correlation_id !== undefined;
+	// Keyed probes derive their event id from the endpoint's signing
+	// secret, so the secret must be resolvable before the probe is
+	// queued — the dispatch would fail signing without it anyway.
+	const resolveSecret =
+		context.resolveSecret ?? ((secretRef: string) => process.env[secretRef]);
+	let idSecret: string | undefined;
+	if (keyed) {
+		idSecret = resolveSecret(endpoint.secretRef);
+		if (idSecret === undefined || idSecret === "") {
+			throw new OutboundWebhookConflictError(
+				`Signing secret ${endpoint.secretRef} for webhook endpoint ${input.id} is unavailable; keyed probes derive their event id from it`,
+				"signing_secret_unavailable",
+			);
+		}
+	}
 	const queued = await enqueueOutboundWebhookEvent(
 		{
 			id: keyed
 				? testEventUuid(
 						endpoint.id,
 						input.correlation_id!,
+						idSecret!,
 						testConfigFingerprint(endpoint),
 					)
 				: randomUUID(),

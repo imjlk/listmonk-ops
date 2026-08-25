@@ -26487,7 +26487,8 @@
           "additionalProperties": false,
           "properties": {
             "correlation_id": {
-              "$ref": "#/components/schemas/WebhookCorrelationId"
+              "$ref": "#/components/schemas/WebhookCorrelationId",
+              "description": "Keys the probe: the event id is derived as an HMAC over the endpoint's\nsigning secret and configuration revision, so an identical retry\ncollapses onto the queued delivery. Fails fast when the signing secret\nis unavailable; a configuration change derives a fresh probe by design."
             },
             "id": {
               "$ref": "#/components/schemas/Uuid"
@@ -26505,7 +26506,8 @@
       "additionalProperties": false,
       "properties": {
         "correlation_id": {
-          "$ref": "#/components/schemas/WebhookCorrelationId"
+          "$ref": "#/components/schemas/WebhookCorrelationId",
+          "description": "Keys the probe: the event id is derived as an HMAC over the endpoint's\nsigning secret and configuration revision, so an identical retry\ncollapses onto the queued delivery. Fails fast when the signing secret\nis unavailable; a configuration change derives a fresh probe by design."
         },
         "id": {
           "$ref": "#/components/schemas/Uuid"

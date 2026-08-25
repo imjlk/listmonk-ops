@@ -683,7 +683,8 @@ export class OutboundWebhookConflictError extends Error {
 			| "conflict"
 			| "endpoint_unavailable"
 			| "delivery_state_conflict"
-			| "lease_conflict" = "conflict",
+			| "lease_conflict"
+			| "signing_secret_unavailable" = "conflict",
 	) {
 		super(message);
 		this.name = "OutboundWebhookConflictError";
