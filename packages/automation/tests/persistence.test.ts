@@ -666,6 +666,63 @@ describe("automation persistence", () => {
 		expect(updates).toBe(1);
 	});
 
+	test("does not report an unconfirmed remote commit for an already-current promotion", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let remoteUpdates = 0;
+		let sabotageLocalCommit = false;
+		const client = {
+			template: {
+				getById: async () => {
+					if (sabotageLocalCommit) {
+						await rm(templateStorePath, { force: true });
+						await mkdir(templateStorePath);
+					}
+					return {
+						data: {
+							id: 14,
+							name: "Current no-op",
+							type: "campaign",
+							subject: "Subject",
+							body: "<p>Body</p>",
+						},
+					};
+				},
+				update: async () => {
+					remoteUpdates += 1;
+					return { data: {} };
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const {
+			syncTemplateRegistry,
+			promoteTemplateVersion,
+			getTemplateRegistryHistory,
+			TemplateRegistryWriteTransactionError,
+		} = await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [14] });
+		const history = await getTemplateRegistryHistory(14);
+		const version = history.versions[0];
+		if (!version) {
+			throw new Error("Expected a persisted template version");
+		}
+		sabotageLocalCommit = true;
+
+		let storeError: unknown;
+		try {
+			await promoteTemplateVersion(client, 14, version.versionId);
+		} catch (error) {
+			storeError = error;
+		}
+		// The no-op never touched Listmonk, so the failing local commit is
+		// a plain store error — not the unconfirmed-remote-commit wrapper
+		// that demands remote reconciliation.
+		expect(storeError).toBeInstanceOf(Error);
+		expect(storeError).not.toBeInstanceOf(
+			TemplateRegistryWriteTransactionError,
+		);
+		expect(remoteUpdates).toBe(0);
+	});
+
 	test("conflicts rollbacks over remote drift through the hash pin", async () => {
 		const { templateStorePath } = await useTemporaryStores();
 		let body = "<p>v1</p>";

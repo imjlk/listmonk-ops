@@ -477,6 +477,18 @@ async function promoteTemplateVersionInStore(
 	};
 }
 
+/**
+ * Outcome of a registry mutation action: the operation result plus whether
+ * the action actually issued a remote template update. No-op branches
+ * (an already-current promotion, an already-applied rollback) never
+ * mutated Listmonk, so a local store failure after them must not be
+ * reported as an unconfirmed REMOTE commit.
+ */
+interface TemplateRemoteMutationOutcome<Result> {
+	result: Result;
+	remoteMutated: boolean;
+}
+
 async function commitRemoteTemplateMutation<
 	Result extends TemplatePromoteResult | TemplateRollbackResult,
 >(
@@ -484,14 +496,14 @@ async function commitRemoteTemplateMutation<
 	templateId: number,
 	action: (
 		store: TemplateRegistryStore,
-	) => Promise<Result>,
+	) => Promise<TemplateRemoteMutationOutcome<Result>>,
 ): Promise<Result> {
 	let remoteMutationCompleted = false;
 	try {
 		return await updateJsonFileStore(storeDefinition, async (store) => {
-			const result = await action(store);
-			remoteMutationCompleted = true;
-			return commitJsonFileStoreUpdate(store, result);
+			const outcome = await action(store);
+			remoteMutationCompleted = outcome.remoteMutated;
+			return commitJsonFileStoreUpdate(store, outcome.result);
 		});
 	} catch (error) {
 		if (!remoteMutationCompleted) {
@@ -516,7 +528,9 @@ export async function promoteTemplateVersion(
 	return commitRemoteTemplateMutation(
 		storeDefinition,
 		templateId,
-		async (store) => {
+		async (
+			store,
+		): Promise<TemplateRemoteMutationOutcome<TemplatePromoteResult>> => {
 			// Hash check inside the lock so concurrent promotions cannot
 			// both pass the check before either acquires the lock.
 			if (!options?.force && options?.expectedRemoteHash) {
@@ -554,24 +568,30 @@ export async function promoteTemplateVersion(
 					);
 					if (remoteHash === activeVersion.hash) {
 						return {
-							templateId,
-							templateName: record.templateName,
-							versionId,
-							activeVersionId: versionId,
-							headRevision: record.headRevision ?? 0,
-							promotedAt: new Date().toISOString(),
-							promoted: false,
+							result: {
+								templateId,
+								templateName: record.templateName,
+								versionId,
+								activeVersionId: versionId,
+								headRevision: record.headRevision ?? 0,
+								promotedAt: new Date().toISOString(),
+								promoted: false,
+							},
+							remoteMutated: false,
 						};
 					}
 				}
 			}
 
-			return promoteTemplateVersionInStore(
-				client,
-				templateId,
-				versionId,
-				store,
-			);
+			return {
+				result: await promoteTemplateVersionInStore(
+					client,
+					templateId,
+					versionId,
+					store,
+				),
+				remoteMutated: true,
+			};
 		},
 	);
 }
@@ -602,7 +622,9 @@ export async function rollbackTemplateVersion(
 	return commitRemoteTemplateMutation(
 		storeDefinition,
 		templateId,
-		async (store) => {
+		async (
+			store,
+		): Promise<TemplateRemoteMutationOutcome<TemplateRollbackResult>> => {
 			const record = store.templates[String(templateId)];
 			if (!record || record.versions.length < 2) {
 				throw new Error(
@@ -667,13 +689,16 @@ export async function rollbackTemplateVersion(
 				record.activeVersionId === options.toVersionId
 			) {
 				return {
-					templateId,
-					templateName: record.templateName,
-					versionId: options.toVersionId,
-					activeVersionId: record.activeVersionId,
-					headRevision: record.headRevision ?? 0,
-					promotedAt: new Date().toISOString(),
-					rolledBack: false,
+					result: {
+						templateId,
+						templateName: record.templateName,
+						versionId: options.toVersionId,
+						activeVersionId: record.activeVersionId,
+						headRevision: record.headRevision ?? 0,
+						promotedAt: new Date().toISOString(),
+						rolledBack: false,
+					},
+					remoteMutated: false,
 				};
 			}
 
@@ -718,7 +743,7 @@ export async function rollbackTemplateVersion(
 				targetVersion.versionId,
 				store,
 			);
-			return { ...promoted, rolledBack: true };
+			return { result: { ...promoted, rolledBack: true }, remoteMutated: true };
 		},
 	);
 }
