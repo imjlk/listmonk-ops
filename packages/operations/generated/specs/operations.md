@@ -447,8 +447,8 @@ Pin one subscriber to the current immutable sequence revision and schedule its f
 - Contract source: input `typescript`, output `typescript`
 - Effects: `delivery:single:scheduled`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
-- Retry: `reconcile`
-- Stability: `experimental` since `0.9.0`
+- Retry: `conditional`
+- Stability: `stable` since `0.9.0`
 
 ## `sequences.enrollments.list`
 

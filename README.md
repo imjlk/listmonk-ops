@@ -517,7 +517,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 102 are `stable` and 2 are `experimental`. The runtime-operation
+these, 103 are `stable` and 1 is `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -525,7 +525,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-One hundred and two reviewed core operations are `stable`: the existing
+One hundred and three reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -609,8 +609,9 @@ without an equivalent revision; a superseded repeat appends and is
 unsafe).
 `sequences.enroll` gained conflict-replay machinery (an ambiguous retry
 replays a provably untouched matching enrollment as `created: false`)
-but stays experimental: once an enrollment reaches a terminal status,
-the same request starts a fresh lifecycle. A fourteenth batch gave `ops.templates.registry-rollback` an optional
+which kept it experimental at the time — once an enrollment reaches a
+terminal status, the same request starts a fresh lifecycle — until the
+thirty-first batch promoted it with a generation guard. A fourteenth batch gave `ops.templates.registry-rollback` an optional
 `to_version_id` pin (a moved registry makes a pinned repeat conflict,
 and an already-applied pin reports `rolled_back: false`) but it stays
 experimental: ABA transitions and remote drift outside the registry are
@@ -725,8 +726,22 @@ successful promote or rollback changes the remote hash and advances the
 head, so a pinned retry of the original request conflicts even after
 its own success — that conflict is the documented reconciliation signal
 to re-inspect, which is why both pinned cases classify as reconcile
-instead of safe). The remaining 2 descriptors are
+instead of safe). The remaining 1 descriptor is
 experimental. A
+thirty-first batch promoted `sequences.enroll` with a generation
+guard: the caller echoes the number of enrollments (any status) that
+already existed for the sequence and subscriber — observed via
+`sequences.enrollments.list` — as `expected_prior_enrollments`, and the
+create verifies the count inside the store transaction so concurrent
+guarded retries cannot double-create. A guarded ambiguous retry then
+converges across the whole lifecycle: it creates only while the count
+still matches, replays the single landed enrollment as `created:
+false` even after it reached a terminal status (the exact hazard that
+kept the operation experimental — an unguarded repeat restarts a
+terminal lifecycle), and conflicts when more than one landed or the
+landed enrollment carries a different context. Intentional
+re-enrollment stays explicit: a request without the guard still starts
+a fresh lifecycle after a terminal enrollment. A
 thirtieth batch promoted `webhooks.test`: the keyed probe's event id
 derivation is now an HMAC over a server-generated high-entropy probe id
 key persisted with the webhook store — the file store or the Postgres
@@ -766,7 +781,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 102 stable compatibility baselines, and 317 direct
+runtime bridges, the 103 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are

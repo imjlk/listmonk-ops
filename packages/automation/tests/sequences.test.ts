@@ -220,6 +220,240 @@ describe("sequence definitions and file persistence", () => {
 		).rejects.toThrow(/already has an active enrollment/);
 	});
 
+	test("generation-guarded enroll retries converge across terminal lifecycles", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{ name: "enroll-guard", steps: [{ id: "stop", type: "stop" }] },
+				now,
+			),
+		);
+
+		// The original request guards on an empty enrollment history.
+		const first = await invokeSequenceEnrollOperation(
+			{ repository, now: () => now },
+			{
+				id: definition.id,
+				subscriber_id: 9,
+				context: { plan: "pro" },
+				expected_prior_enrollments: 0,
+			},
+		);
+		expect(first.created).toBe(true);
+
+		// Run the lifecycle to completion: the stop step finishes it.
+		const tick = await runSequenceTick(
+			executionContext(repository, idempotencyStore, client()),
+			{ now: new Date("2026-08-01T09:01:00.000Z") },
+		);
+		expect(tick.completed).toBe(1);
+
+		// The guarded retry converges onto the TERMINAL enrollment instead
+		// of starting a fresh lifecycle: exactly one enrollment landed since
+		// the echoed generation, and it carries the request's context.
+		const guarded = await invokeSequenceEnrollOperation(
+			{ repository },
+			{
+				id: definition.id,
+				subscriber_id: 9,
+				context: { plan: "pro" },
+				expected_prior_enrollments: 0,
+			},
+		);
+		expect(guarded.created).toBe(false);
+		expect(guarded.enrollment.id).toBe(first.enrollment.id);
+		expect(guarded.enrollment.status).toBe("completed");
+
+		// Without the guard, the same request intentionally re-enrolls —
+		// re-entry stays an explicit decision, not a retry artifact.
+		const unguarded = await invokeSequenceEnrollOperation(
+			{ repository },
+			{ id: definition.id, subscriber_id: 9, context: { plan: "pro" } },
+		);
+		expect(unguarded.created).toBe(true);
+
+		// Two enrollments now exist beyond the echoed generation, so the
+		// guarded request conflicts instead of guessing which one to replay.
+		await expect(
+			invokeSequenceEnrollOperation(
+				{ repository },
+				{
+					id: definition.id,
+					subscriber_id: 9,
+					context: { plan: "pro" },
+					expected_prior_enrollments: 0,
+				},
+			),
+		).rejects.toThrow(/guarded on exactly 0/);
+	});
+
+	test("a guarded count mismatch stays a conflict instead of replaying", async () => {
+		const { repository } = await createStores();
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{ name: "enroll-overguard", steps: [{ id: "stop", type: "stop" }] },
+				now,
+			),
+		);
+		await repository.createEnrollment(
+			createSequenceEnrollment(
+				definition,
+				{ sequenceId: definition.id, subscriberId: 11 },
+				now,
+			),
+		);
+
+		// One enrollment exists but the request guards on two: the stale
+		// generation must conflict, never fall through to the unguarded
+		// replay machinery that would return the pending enrollment.
+		await expect(
+			invokeSequenceEnrollOperation(
+				{ repository, now: () => now },
+				{
+					id: definition.id,
+					subscriber_id: 11,
+					context: {},
+					expected_prior_enrollments: 2,
+				},
+			),
+		).rejects.toThrow(/guarded on exactly 2/);
+	});
+
+	test("guarded replays resolve before the active-sequence precondition", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{ name: "enroll-paused", steps: [{ id: "stop", type: "stop" }] },
+				now,
+			),
+		);
+		await invokeSequenceEnrollOperation(
+			{ repository, now: () => now },
+			{
+				id: definition.id,
+				subscriber_id: 12,
+				context: { plan: "pro" },
+				expected_prior_enrollments: 0,
+			},
+		);
+		await runSequenceTick(
+			executionContext(repository, idempotencyStore, client()),
+			{ now: new Date("2026-08-01T09:01:00.000Z") },
+		);
+		await invokeSequencePauseOperation({ repository }, { id: definition.id });
+
+		// The sequence is paused, but the landed enrollment still replays —
+		// an ambiguous retry must not depend on the sequence still being
+		// enrollable.
+		const replayed = await invokeSequenceEnrollOperation(
+			{ repository, now: () => now },
+			{
+				id: definition.id,
+				subscriber_id: 12,
+				context: { plan: "pro" },
+				expected_prior_enrollments: 0,
+			},
+		);
+		expect(replayed.created).toBe(false);
+		expect(replayed.enrollment.status).toBe("completed");
+	});
+
+	test("a guarded replay with a different requested start conflicts", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{ name: "enroll-start", steps: [{ id: "stop", type: "stop" }] },
+				now,
+			),
+		);
+		await invokeSequenceEnrollOperation(
+			{ repository, now: () => now },
+			{
+				id: definition.id,
+				subscriber_id: 13,
+				context: { plan: "pro" },
+				start_at: "2026-08-01T10:00:00.000Z",
+				expected_prior_enrollments: 0,
+			},
+		);
+		await runSequenceTick(
+			executionContext(repository, idempotencyStore, client()),
+			{ now: new Date("2026-08-01T10:01:00.000Z") },
+		);
+
+		// The landed enrollment was scheduled for the original start; a
+		// guarded request for a different start must conflict instead of
+		// accepting a schedule its caller never asked for.
+		await expect(
+			invokeSequenceEnrollOperation(
+				{ repository, now: () => now },
+				{
+					id: definition.id,
+					subscriber_id: 13,
+					context: { plan: "pro" },
+					start_at: "2026-08-01T11:00:00.000Z",
+					expected_prior_enrollments: 0,
+				},
+			),
+		).rejects.toThrow(/guarded on exactly 0/);
+	});
+
+	test("a guarded replay matches the persisted start after the enrollment advances", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "enroll-advanced",
+					steps: [
+						{ id: "wait", type: "wait", durationSeconds: 60 },
+						{ id: "stop", type: "stop" },
+					],
+				},
+				now,
+			),
+		);
+		const startAt = "2026-08-01T10:00:00.000Z";
+		await invokeSequenceEnrollOperation(
+			{ repository, now: () => now },
+			{
+				id: definition.id,
+				subscriber_id: 14,
+				context: { plan: "pro" },
+				start_at: startAt,
+				expected_prior_enrollments: 0,
+			},
+		);
+
+		// Advance past the first step: the wait moves nextRunAt beyond the
+		// requested start, but the persisted initial start stays.
+		const tick = await runSequenceTick(
+			executionContext(repository, idempotencyStore, client()),
+			{ now: new Date("2026-08-01T10:00:05.000Z") },
+		);
+		expect(tick.waiting).toBe(1);
+
+		const replayed = await invokeSequenceEnrollOperation(
+			{ repository, now: () => now },
+			{
+				id: definition.id,
+				subscriber_id: 14,
+				context: { plan: "pro" },
+				start_at: startAt,
+				expected_prior_enrollments: 0,
+			},
+		);
+		expect(replayed.created).toBe(false);
+		// nextRunAt moved past the requested start; the replay still matches.
+		expect(Date.parse(replayed.enrollment.next_run_at)).toBeGreaterThan(
+			Date.parse(startAt),
+		);
+	});
+
 	test("reports a repeated sequence delete as a documented no-op", async () => {
 		const { repository } = await createStores();
 		const definition = await repository.createDefinition(

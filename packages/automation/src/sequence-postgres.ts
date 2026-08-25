@@ -315,6 +315,19 @@ async function initializeSchema(sql: Sql): Promise<void> {
 				WHERE key = 'schema_version'
 			`;
 		}
+		// Idempotent and unversioned so existing deployments pick it up on
+		// the next start: the guarded-enrollment generation lookup counts
+		// and selects the newest record per (sequence, subscriber) pair
+		// across ALL statuses, which the partial active index and the
+		// status-led due index cannot serve.
+		await transaction`
+			CREATE INDEX IF NOT EXISTS sequence_enrollments_generation_idx
+			ON listmonk_ops.sequence_enrollments (
+				sequence_id,
+				subscriber_id,
+				created_at DESC
+			)
+		`;
 	});
 }
 
@@ -821,29 +834,87 @@ export function createPostgresSequenceRepository(
 			return rows.map(toEnrollment);
 		},
 		getEnrollment,
-		async createEnrollment(enrollment) {
+		async readEnrollmentGeneration(listOptions) {
 			await ready();
-			try {
-				await sql`
-					INSERT INTO listmonk_ops.sequence_enrollments (
-						id, sequence_id, revision, subscriber_id, status,
-						next_run_at, lease_token, lease_expires_at, enrollment,
-						created_at, updated_at
-					)
-					VALUES (
-						${enrollment.id}::uuid,
-						${enrollment.sequenceId}::uuid,
-						${enrollment.revision},
-						${enrollment.subscriberId},
-						${enrollment.status},
-						${enrollment.nextRunAt}::timestamptz,
-						NULL,
-						NULL,
-						${sql.json(enrollment as never)},
-						${enrollment.createdAt}::timestamptz,
-						${enrollment.updatedAt}::timestamptz
+			return sql.begin(async (transaction) => {
+				// The same pair-keyed advisory lock as guarded creates: the
+				// generation observation cannot interleave with one.
+				await transaction`
+					SELECT pg_advisory_xact_lock(
+						hashtext((${listOptions.sequenceId}::uuid)::text),
+						hashtext(${listOptions.subscriberId.toString()})
 					)
 				`;
+				const countRows = await transaction<{ count: string }[]>`
+					SELECT count(*)::text AS count
+					FROM listmonk_ops.sequence_enrollments
+					WHERE sequence_id = ${listOptions.sequenceId}::uuid
+						AND subscriber_id = ${listOptions.subscriberId}
+				`;
+				const newestRows = await transaction<EnrollmentRow[]>`
+					SELECT id, enrollment
+					FROM listmonk_ops.sequence_enrollments
+					WHERE sequence_id = ${listOptions.sequenceId}::uuid
+						AND subscriber_id = ${listOptions.subscriberId}
+					ORDER BY created_at DESC
+					LIMIT 1
+				`;
+				return {
+					total: Number(countRows[0]?.count ?? 0),
+					newest: newestRows[0] ? toEnrollment(newestRows[0]) : undefined,
+				};
+			});
+		},
+		async createEnrollment(enrollment, options) {
+			await ready();
+			try {
+				await sql.begin(async (transaction) => {
+					if (options?.expectedPriorEnrollments !== undefined) {
+						// Serialize guarded creates per (sequence, subscriber)
+						// pair: without the advisory lock two overlapping
+						// transactions can both pass the count check when the
+						// first commit's enrollment skips the partial
+						// active-enrollment unique index (it went terminal).
+						await transaction`
+							SELECT pg_advisory_xact_lock(
+								hashtext((${enrollment.sequenceId}::uuid)::text),
+								hashtext(${enrollment.subscriberId.toString()})
+							)
+						`;
+						const countRows = await transaction<{ count: string }[]>`
+							SELECT count(*)::text AS count
+							FROM listmonk_ops.sequence_enrollments
+							WHERE sequence_id = ${enrollment.sequenceId}::uuid
+								AND subscriber_id = ${enrollment.subscriberId}
+						`;
+						const priorCount = Number(countRows[0]?.count ?? 0);
+						if (priorCount !== options.expectedPriorEnrollments) {
+							throw new SequenceConflictError(
+								`Subscriber ${enrollment.subscriberId} has ${priorCount} prior enrollments for sequence ${enrollment.sequenceId}, but the request guarded on exactly ${options.expectedPriorEnrollments}; resolve via sequences.enrollments.list before enrolling`,
+							);
+						}
+					}
+					await transaction`
+						INSERT INTO listmonk_ops.sequence_enrollments (
+							id, sequence_id, revision, subscriber_id, status,
+							next_run_at, lease_token, lease_expires_at, enrollment,
+							created_at, updated_at
+						)
+						VALUES (
+							${enrollment.id}::uuid,
+							${enrollment.sequenceId}::uuid,
+							${enrollment.revision},
+							${enrollment.subscriberId},
+							${enrollment.status},
+							${enrollment.nextRunAt}::timestamptz,
+							NULL,
+							NULL,
+							${transaction.json(enrollment as never)},
+							${enrollment.createdAt}::timestamptz,
+							${enrollment.updatedAt}::timestamptz
+						)
+					`;
+				});
 			} catch (error) {
 				if (isUniqueViolation(error)) {
 					throw new SequenceConflictError(

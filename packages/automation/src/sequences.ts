@@ -139,6 +139,8 @@ export type SequenceEnrollment = Readonly<{
 	status: SequenceEnrollmentStatus;
 	retryCount: number;
 	currentStepId: string;
+	/** The requested initial activation time; nextRunAt moves as steps advance. */
+	startAt?: string | undefined;
 	nextRunAt: string;
 	leaseToken?: string | undefined;
 	leaseExpiresAt?: string | undefined;
@@ -270,8 +272,28 @@ export interface SequenceRepository {
 		options?: SequenceEnrollmentListOptions,
 	): Promise<readonly SequenceEnrollment[]>;
 	getEnrollment(id: string): Promise<SequenceEnrollment>;
+	/**
+	 * Atomically read the enrollment generation for a (sequence,
+	 * subscriber) pair under the same serialization boundary as guarded
+	 * creates: the exact total and the newest record cannot interleave
+	 * with a concurrent guarded create.
+	 */
+	readEnrollmentGeneration(options: {
+		sequenceId: string;
+		subscriberId: number;
+	}): Promise<{ total: number; newest?: SequenceEnrollment }>;
 	createEnrollment(
 		enrollment: SequenceEnrollment,
+		options?: Readonly<{
+			/**
+			 * Generation guard: create only while exactly this many
+			 * enrollments already exist for the (sequence, subscriber)
+			 * pair, verified inside the store transaction so a concurrent
+			 * guarded retry cannot double-create after a terminal
+			 * lifecycle.
+			 */
+			expectedPriorEnrollments?: number;
+		}>,
 	): Promise<SequenceEnrollment>;
 	claimDue(options: Readonly<{
 		limit: number;
@@ -362,6 +384,8 @@ const enrollmentSchema = z.object({
 	status: sequenceEnrollmentStatusSchema,
 	retryCount: z.number().int().nonnegative().default(0),
 	currentStepId: stepIdSchema,
+	/** The requested initial activation time; nextRunAt moves as steps advance. */
+	startAt: isoDateTimeSchema.optional(),
 	nextRunAt: isoDateTimeSchema,
 	leaseToken: sequenceIdSchema.optional(),
 	leaseExpiresAt: isoDateTimeSchema.optional(),
@@ -530,6 +554,10 @@ export function createSequenceStore(
 		}),
 		parse: parseStore,
 		lock: { timeoutMs: 5_000 },
+		// Lock-held generation reads commit the unchanged document; skip
+		// the atomic rewrite when nothing changed so a nominal read never
+		// fails on a full disk or a read-only moment.
+		skipUnchangedWrites: true,
 	};
 }
 
@@ -580,6 +608,7 @@ export function createSequenceEnrollment(
 		status: "pending",
 		retryCount: 0,
 		currentStepId: firstStep.id,
+		startAt: input.startAt,
 		nextRunAt: input.startAt ?? timestamp,
 		lastTransitionAt: timestamp,
 		createdAt: timestamp,
@@ -831,9 +860,44 @@ export function createFileSequenceRepository(
 		async getEnrollment(id) {
 			return getFileEnrollment(await readJsonFileStore(store), id);
 		},
-		async createEnrollment(enrollment) {
+		async readEnrollmentGeneration(listOptions) {
+			// The store's update lock is the file backend's serialization
+			// boundary: taking it for this read keeps the generation
+			// observation atomic with respect to guarded creates.
+			return updateJsonFileStore(store, (current) => {
+				const rows = current.enrollments
+					.filter(
+						(candidate) =>
+							candidate.sequenceId === listOptions.sequenceId &&
+							candidate.subscriberId === listOptions.subscriberId,
+					)
+					.sort((left, right) =>
+						left.createdAt.localeCompare(right.createdAt),
+					);
+				return commitJsonFileStoreUpdate(current, {
+					total: rows.length,
+					newest: rows.at(-1),
+				});
+			});
+		},
+		async createEnrollment(enrollment, options) {
 			return updateJsonFileStore(store, (current) => {
 				getFileDefinition(current, enrollment.sequenceId);
+				// The generation guard is checked first so a guarded count
+				// mismatch reports the stale generation, not the incidental
+				// active-enrollment clash.
+				if (options?.expectedPriorEnrollments !== undefined) {
+					const priorCount = current.enrollments.filter(
+						(candidate) =>
+							candidate.sequenceId === enrollment.sequenceId &&
+							candidate.subscriberId === enrollment.subscriberId,
+					).length;
+					if (priorCount !== options.expectedPriorEnrollments) {
+						throw new SequenceConflictError(
+							`Subscriber ${enrollment.subscriberId} has ${priorCount} prior enrollments for sequence ${enrollment.sequenceId}, but the request guarded on exactly ${options.expectedPriorEnrollments}; resolve via sequences.enrollments.list before enrolling`,
+						);
+					}
+				}
 				if (
 					current.enrollments.some(
 						(candidate) =>

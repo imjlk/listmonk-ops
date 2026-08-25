@@ -171,6 +171,18 @@ const sequenceEnrollInputSchema = z.object({
 	subscriber_id: positiveIntegerInput,
 	context: z.record(z.string(), z.unknown()).default({}),
 	start_at: isoDateTimeInput.optional(),
+	expected_prior_enrollments: z
+		.number()
+		.int()
+		.nonnegative()
+		.max(
+			999,
+			"expected_prior_enrollments must be at most 999, the largest exactly observable generation under the enrollment list ceiling; larger histories need operator inspection",
+		)
+		.optional()
+		.describe(
+			"Generation guard: the number of enrollments (any status) that already existed for this sequence and subscriber, observed via sequences.enrollments.list. With the guard, an ambiguous retry converges across the whole lifecycle — it creates only while the count still matches, replays the landed enrollment (terminal included) as created: false, and conflicts when more than one landed",
+		),
 });
 const sequenceEnrollmentStatusInput = sequenceEnrollmentStatusSchema;
 const sequenceEnrollmentListInputSchema = z.object({
@@ -286,6 +298,7 @@ const sequenceEnrollmentOutputSchema = z.object({
 	status: sequenceEnrollmentStatusInput,
 	retry_count: z.number().int().nonnegative(),
 	current_step_id: stepIdInput,
+	start_at: isoDateTimeInput.optional(),
 	next_run_at: isoDateTimeInput,
 	last_error_present: z.boolean(),
 	created_at: isoDateTimeInput,
@@ -479,6 +492,8 @@ function toEnrollmentOutput(enrollment: SequenceEnrollment) {
 		status: enrollment.status,
 		retry_count: enrollment.retryCount,
 		current_step_id: enrollment.currentStepId,
+		/** The requested initial activation time; next_run_at moves as steps advance. */
+		start_at: enrollment.startAt,
 		next_run_at: enrollment.nextRunAt,
 		last_error_present: enrollment.lastError !== undefined,
 		created_at: enrollment.createdAt,
@@ -670,6 +685,60 @@ export async function executeSequenceEnrollOperation(
 ) {
 	const store = repository(context);
 	const definition = await store.getDefinition(input.id);
+	// Generation-guarded convergence: when the caller echoes the number of
+	// enrollments that already existed for this (sequence, subscriber)
+	// pair, an ambiguous retry converges across the WHOLE lifecycle —
+	// including after the first attempt's enrollment reached a terminal
+	// status, which an unguarded repeat would restart as a fresh
+	// lifecycle.
+	const expectedPrior = input.expected_prior_enrollments;
+	const resolveGuardedReplay = async (): Promise<
+			{ enrollment: ReturnType<typeof toEnrollmentOutput>; created: boolean } |
+			undefined
+		> => {
+		if (expectedPrior === undefined) {
+			return undefined;
+		}
+		// The generation read runs under the same serialization boundary
+		// as guarded creates (the pair-keyed lock in either backend), so
+		// the count and newest record cannot interleave with a concurrent
+		// guarded create.
+		const generation = await store.readEnrollmentGeneration({
+			sequenceId: input.id,
+			subscriberId: input.subscriber_id,
+		});
+		if (generation.total <= expectedPrior) {
+			// The first attempt never landed; the create below runs it.
+			return undefined;
+		}
+		const newest = generation.newest!;
+		// The initial activation time is persisted separately from the
+		// mutable nextRunAt, so a guarded replay still matches after the
+		// engine advanced the enrollment past its first step.
+		const startMatches =
+			(newest.startAt === undefined && input.start_at === undefined) ||
+			(newest.startAt !== undefined &&
+				input.start_at !== undefined &&
+				Date.parse(newest.startAt) === Date.parse(input.start_at));
+		if (
+			generation.total > expectedPrior + 1 ||
+			canonicalContextJson(newest.context) !==
+				canonicalContextJson(input.context) ||
+			!startMatches
+		) {
+			throw new SequenceConflictError(
+				`Subscriber ${input.subscriber_id} has ${generation.total} enrollments for sequence ${input.id}, but the request guarded on exactly ${expectedPrior}; resolve via sequences.enrollments.list before enrolling`,
+			);
+		}
+		return { enrollment: toEnrollmentOutput(newest), created: false };
+	};
+	// Resolve an already-landed guarded enrollment BEFORE validating the
+	// sequence is enrollable: a paused or retired sequence must still
+	// replay the enrollment the original request created.
+	const guardedReplay = await resolveGuardedReplay();
+	if (guardedReplay !== undefined) {
+		return guardedReplay;
+	}
 	const enrollment = createSequenceEnrollment(
 		definition,
 		{
@@ -681,10 +750,23 @@ export async function executeSequenceEnrollOperation(
 		context.now?.() ?? new Date(),
 	);
 	try {
-		const created = await store.createEnrollment(enrollment);
+		const created = await store.createEnrollment(enrollment, {
+			expectedPriorEnrollments: expectedPrior,
+		});
 		return { enrollment: toEnrollmentOutput(created), created: true };
 	} catch (error) {
 		if (!(error instanceof SequenceConflictError)) {
+			throw error;
+		}
+		// A concurrent guarded retry may have landed between the pre-check
+		// and the create; its enrollment now satisfies the guard.
+		const raced = await resolveGuardedReplay();
+		if (raced !== undefined) {
+			return raced;
+		}
+		// A guarded count mismatch must stay a conflict — the unguarded
+		// replay machinery below must not soften it into a replay.
+		if (expectedPrior !== undefined) {
 			throw error;
 		}
 		// A subscriber can hold only one active enrollment per sequence, so
@@ -712,7 +794,9 @@ export async function executeSequenceEnrollOperation(
 			active.revision === enrollment.revision &&
 			active.currentStepId === enrollment.currentStepId;
 		const startMatches =
-			input.start_at === undefined || active?.nextRunAt === input.start_at;
+			input.start_at === undefined ||
+			(active?.nextRunAt !== undefined &&
+				Date.parse(active.nextRunAt) === Date.parse(input.start_at));
 		if (
 			!active ||
 			!untouched ||

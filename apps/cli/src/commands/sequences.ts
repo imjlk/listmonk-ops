@@ -207,6 +207,13 @@ const enrollCommand = defineCommand({
 		"start-at": option(z.iso.datetime({ offset: true }).optional(), {
 			description: "Optional first-step activation timestamp",
 		}),
+		"expected-prior-enrollments": option(
+			z.coerce.number().int().nonnegative().max(999).optional(),
+			{
+				description:
+					"Generation guard: the number of enrollments (any status) that already existed for this sequence and subscriber (sequences enrollments list). With the guard, an ambiguous retry converges across the whole lifecycle — it creates only while the count still matches, replays the landed enrollment (terminal included) as created: false, and conflicts when more than one landed",
+			},
+		),
 	},
 	handler: async ({ flags }) => {
 		getOutput().json(
@@ -217,6 +224,7 @@ const enrollCommand = defineCommand({
 					subscriber_id: flags["subscriber-id"],
 					context: parseContext(flags.context),
 					start_at: flags["start-at"],
+					expected_prior_enrollments: flags["expected-prior-enrollments"],
 				},
 			),
 		);

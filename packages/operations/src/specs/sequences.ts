@@ -295,11 +295,29 @@ export const sequenceEnrollOperationSpec = defineOperationSpec({
 	],
 	policy: { confirmation: "never", audit: "required", dryRun: false },
 	retry: {
-		kind: "reconcile",
-		reconcileWith: "sequences.enrollments.list",
-		idempotent: false,
+		kind: "conditional",
+		cases: [
+			{
+				when: "expected_prior_enrollments is present",
+				semantics: {
+					kind: "safe",
+					reason:
+						"The caller echoes the number of enrollments (any status) that already existed for the sequence and subscriber. The retry creates only while the count still matches — verified inside the store transaction, so concurrent guarded retries cannot double-create — replays the single landed enrollment as created: false across the WHOLE lifecycle (a terminal enrollment included, which an unguarded repeat would restart as a fresh lifecycle), and conflicts when more than one landed or the landed enrollment carries a different context.",
+				},
+			},
+			{
+				when: "expected_prior_enrollments is absent",
+				semantics: {
+					kind: "reconcile",
+					reconcileWith: "sequences.enrollments.list",
+					idempotent: false,
+					reason:
+						"An ambiguous retry conflicts while the enrollment is active and replays a provably untouched matching one as created: false, but once an enrollment reaches a terminal status the same request creates and schedules a fresh enrollment, so the operation is not idempotent.",
+				},
+			},
+		],
 		reason:
-			"An ambiguous retry conflicts while the enrollment is active and replays a provably untouched matching one as created: false, but once an enrollment reaches a terminal status the same request creates and schedules a fresh enrollment, so the operation is not idempotent.",
+			"Retry safety depends on echoing the observed enrollment generation; without the guard a terminal enrollment lets an identical request start a fresh lifecycle.",
 	},
 	agent: {
 		useWhen: ["A known subscriber should enter a reviewed active sequence."],
@@ -308,14 +326,14 @@ export const sequenceEnrollOperationSpec = defineOperationSpec({
 		verifyWith: ["sequences.status"],
 		related: ["sequences.tick", "sequences.pause"],
 		retryGuidance:
-			"Verify the enrollment with sequences.enrollments.list before repeating an ambiguous enroll; an untouched identical one replays with created: false, but a terminal enrollment lets the repeat start a fresh lifecycle.",
+			"Echo the enrollment count from sequences.enrollments.list as expected_prior_enrollments so an ambiguous retry converges across the whole lifecycle — it creates only while the count still matches, replays the landed enrollment (terminal included) as created: false, and conflicts when more than one landed; without the guard, verify with sequences.enrollments.list before repeating, because a terminal enrollment lets the repeat start a fresh lifecycle.",
 	},
 	projection: {
 		mcpName: "listmonk_sequences_enroll",
 		openWorld: false,
 		graph: graphNodes("enroll"),
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.9.0",
 });
 

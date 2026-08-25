@@ -97,6 +97,8 @@ export interface SequenceEnrollment {
 		| "cancelled";
 	retry_count: NonNegativeInteger;
 	current_step_id: SequenceStepId;
+	/** The requested initial activation time; next_run_at moves as steps advance. */
+	start_at?: IsoDateTime | undefined;
 	next_run_at: IsoDateTime;
 	last_error_present: boolean;
 	created_at: IsoDateTime;
@@ -164,6 +166,15 @@ export interface SequenceEnrollInput {
 	subscriber_id: ResourceId;
 	context?: Record<string, unknown> | undefined;
 	start_at?: IsoDateTime | undefined;
+	/**
+	 * Generation guard: the number of enrollments (any status) that already
+	 * existed for this sequence and subscriber, observed via
+	 * sequences.enrollments.list. With the guard, an ambiguous retry
+	 * converges across the whole lifecycle — it creates only while the
+	 * count still matches, replays the landed enrollment (terminal
+	 * included) as created: false, and conflicts when more than one landed.
+	 */
+	expected_prior_enrollments?: (number & tags.Type<"int64"> & tags.Minimum<0> & tags.Maximum<999>) | undefined;
 }
 
 export interface SequenceEnrollOutput {
