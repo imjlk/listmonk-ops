@@ -713,7 +713,8 @@ export async function executeSequenceEnrollOperation(
 			generation.total > expectedPrior + 1 ||
 			canonicalContextJson(newest.context) !==
 				canonicalContextJson(input.context) ||
-			(input.start_at !== undefined && newest.nextRunAt !== input.start_at)
+			(input.start_at !== undefined &&
+				Date.parse(newest.nextRunAt) !== Date.parse(input.start_at))
 		) {
 			throw new SequenceConflictError(
 				`Subscriber ${input.subscriber_id} has ${generation.total} enrollments for sequence ${input.id}, but the request guarded on exactly ${expectedPrior}; resolve via sequences.enrollments.list before enrolling`,
@@ -783,7 +784,9 @@ export async function executeSequenceEnrollOperation(
 			active.revision === enrollment.revision &&
 			active.currentStepId === enrollment.currentStepId;
 		const startMatches =
-			input.start_at === undefined || active?.nextRunAt === input.start_at;
+			input.start_at === undefined ||
+			(active?.nextRunAt !== undefined &&
+				Date.parse(active.nextRunAt) === Date.parse(input.start_at));
 		if (
 			!active ||
 			!untouched ||
