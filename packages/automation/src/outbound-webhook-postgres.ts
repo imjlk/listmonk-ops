@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import postgres, { type Sql } from "postgres";
 import {
 	OutboundWebhookConflictError,
@@ -411,6 +411,31 @@ export function createPostgresOutboundWebhookRepository(
 	const repository: OutboundWebhookRepository = {
 		kind: "postgres",
 
+		async getOrCreateProbeIdKey() {
+			await ensureInitialized();
+			const candidate = randomBytes(32).toString("hex");
+			const inserted = await sql<{ value: string }[]>`
+				INSERT INTO listmonk_ops.webhook_runtime_meta (key, value)
+				VALUES ('probe_id_key', ${candidate})
+				ON CONFLICT (key) DO NOTHING
+				RETURNING value
+			`;
+			if (inserted[0] !== undefined) {
+				return inserted[0].value;
+			}
+			const existing = await sql<{ value: string }[]>`
+				SELECT value FROM listmonk_ops.webhook_runtime_meta
+				WHERE key = 'probe_id_key'
+			`;
+			const value = existing[0]?.value;
+			if (value === undefined) {
+				throw new Error(
+					"Webhook Postgres probe id key went missing after upsert",
+				);
+			}
+			return value;
+		},
+
 		async listEndpoints() {
 			await ensureInitialized();
 			const rows = await sql<EndpointRow[]>`
@@ -603,7 +628,28 @@ export function createPostgresOutboundWebhookRepository(
 								)),
 					);
 				const deliveryIds: string[] = [];
+				// Converge identities are checked in the same transaction as
+				// the inserts: a delivery for an alternate id (a legacy
+				// derivation during a rolling upgrade) collapses this
+				// enqueue for that endpoint instead of racing into a
+				// concurrent duplicate.
+				const convergeIds =
+					enqueueOptions.convergeEventIds === undefined ||
+					enqueueOptions.convergeEventIds.length === 0
+						? undefined
+						: [event.id, ...enqueueOptions.convergeEventIds];
 				for (const endpoint of endpoints) {
+					if (convergeIds !== undefined) {
+						const clash = await transaction<{ id: string }[]>`
+							SELECT id FROM listmonk_ops.webhook_deliveries
+							WHERE endpoint_id = ${endpoint.id}
+								AND event_id = ANY(${convergeIds})
+							LIMIT 1
+						`;
+						if (clash[0] !== undefined) {
+							continue;
+						}
+					}
 					const deliveryId = randomUUID();
 					const inserted = await transaction<{ id: string }[]>`
 						INSERT INTO listmonk_ops.webhook_deliveries (

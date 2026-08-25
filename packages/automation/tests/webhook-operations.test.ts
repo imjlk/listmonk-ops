@@ -27,8 +27,10 @@ import {
 	resolveWebhookOperationStore,
 	testConfigFingerprint,
 	testEventUuid,
+	keyedTestEventUuid,
 } from "../src/webhook-operations";
 import {
+	ensureOutboundWebhookProbeIdKey,
 	enqueueOutboundWebhookEvent,
 	getOutboundWebhookEndpoint,
 } from "../src/outbound-webhooks";
@@ -498,6 +500,145 @@ describe("webhook shared operations", () => {
 		expect(retried.eligible).toBe(0);
 	});
 
+	test("fails a keyed probe fast when the signing secret is unavailable", async () => {
+		const context = await createContext();
+		context.resolveSecret = () => undefined;
+		const endpoint = await invokeWebhookCreateOperation(context, {
+			name: "test-nosecret",
+			url: "https://8.8.8.8/nosecret",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_NOSECRET",
+			event_filters: ["operation.*"],
+		});
+
+		let failure: unknown;
+		try {
+			await invokeWebhookTestOperation(context, {
+				id: endpoint.endpoint.id,
+				correlation_id: "probe-nosecret",
+			});
+		} catch (error) {
+			failure = error;
+		}
+		expect(failure).toBeInstanceOf(Error);
+		// The message must not disclose the secret reference: endpoint
+		// projections expose only secret_reference_configured.
+		expect((failure as Error).message).not.toContain(
+			"LISTMONK_OPS_WEBHOOK_SECRET_NOSECRET",
+		);
+		expect((failure as Error).message).toMatch(/Signing secret .* unavailable/);
+	});
+
+	test("fails a keyed probe fast when the signing secret is whitespace", async () => {
+		const context = await createContext();
+		context.resolveSecret = () => "   ";
+		const endpoint = await invokeWebhookCreateOperation(context, {
+			name: "test-blanksecret",
+			url: "https://8.8.8.8/blanksecret",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_BLANK",
+			event_filters: ["operation.*"],
+		});
+
+		await expect(
+			invokeWebhookTestOperation(context, {
+				id: endpoint.endpoint.id,
+				correlation_id: "probe-blanksecret",
+			}),
+		).rejects.toThrow(/Signing secret .* unavailable or blank/);
+	});
+
+	test("persists one probe id key and derives independent ids with it", async () => {
+		const context = await createContext();
+		const first = await ensureOutboundWebhookProbeIdKey(
+			resolveWebhookOperationStore(context),
+		);
+		// High-entropy, server-generated: 32 bytes of hex.
+		expect(first).toMatch(/^[0-9a-f]{64}$/);
+		// Stable across processes: the same key is returned once persisted.
+		expect(
+			await ensureOutboundWebhookProbeIdKey(
+				resolveWebhookOperationStore(context),
+			),
+		).toBe(first);
+		// The derivation depends on the key, not the endpoint's signing
+		// secret: rotating the signing secret leaves the derived id alone.
+		const withKey = keyedTestEventUuid("endpoint-1", "corr-1", first, "fp");
+		const withOtherKey = keyedTestEventUuid(
+			"endpoint-1",
+			"corr-1",
+			first.concat("0"),
+			"fp",
+		);
+		expect(withKey).not.toBe(withOtherKey);
+		expect(keyedTestEventUuid("endpoint-1", "corr-1", first, "fp")).toBe(
+			withKey,
+		);
+	});
+
+	test("replays legacy-identified probes after the keyed derivation upgrade", async () => {
+		const context = await createContext();
+		const endpoint = await invokeWebhookCreateOperation(context, {
+			name: "test-legacy",
+			url: "https://8.8.8.8/legacy",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_LEGACY",
+			event_filters: ["operation.*"],
+		});
+		// A probe queued by the pre-HMAC release derived the unsalted legacy
+		// id for this endpoint, correlation id, and revision.
+		await enqueueOutboundWebhookEvent(
+			{
+				id: testEventUuid(
+					endpoint.endpoint.id,
+					"legacy-1",
+					testConfigFingerprint(
+						await getOutboundWebhookEndpoint(
+							endpoint.endpoint.id,
+							resolveWebhookOperationStore(context),
+						),
+					),
+				),
+				type: "webhook.test",
+				source: "webhook",
+				correlationId: "legacy-1",
+				subject: { kind: "webhook", key: endpoint.endpoint.id },
+				data: {
+					endpoint_id: endpoint.endpoint.id,
+					endpoint_name: endpoint.endpoint.name,
+				},
+			},
+			{
+				...resolveWebhookOperationStore(context),
+				endpointIds: [endpoint.endpoint.id],
+				bypassEventFilters: true,
+			},
+		);
+
+		// The post-upgrade retry converges onto the legacy delivery instead
+		// of queueing a second probe that would also POST.
+		const retried = await invokeWebhookTestOperation(context, {
+			id: endpoint.endpoint.id,
+			correlation_id: "legacy-1",
+		});
+		expect(retried.replayed).toBe(true);
+		expect(retried.event_id).toBe(
+			testEventUuid(
+				endpoint.endpoint.id,
+				"legacy-1",
+				testConfigFingerprint(
+					await getOutboundWebhookEndpoint(
+						endpoint.endpoint.id,
+						resolveWebhookOperationStore(context),
+					),
+				),
+			),
+		);
+		expect(retried.dispatch.succeeded).toBe(1);
+		// Exactly one delivery exists for the endpoint: no duplicate probe.
+		const deliveries = await invokeWebhookDeliveryListOperation(context, {
+			endpoint_id: endpoint.endpoint.id,
+		});
+		expect(deliveries.deliveries).toHaveLength(1);
+	});
+
 	test("collapses keyed test retries onto the queued delivery", async () => {
 		const context = await createContext();
 		const endpoint = await invokeWebhookCreateOperation(context, {
@@ -549,18 +690,21 @@ describe("webhook shared operations", () => {
 		});
 		// Queue the keyed probe without dispatching, as if the first call
 		// died between enqueue and dispatch.
-		await enqueueOutboundWebhookEvent(
-			{
-				id: testEventUuid(
-					endpoint.endpoint.id,
-					"resume-1",
-					testConfigFingerprint(
-						await getOutboundWebhookEndpoint(
-							endpoint.endpoint.id,
+			await enqueueOutboundWebhookEvent(
+				{
+					id: keyedTestEventUuid(
+						endpoint.endpoint.id,
+						"resume-1",
+						await ensureOutboundWebhookProbeIdKey(
 							resolveWebhookOperationStore(context),
 						),
+						testConfigFingerprint(
+							await getOutboundWebhookEndpoint(
+								endpoint.endpoint.id,
+								resolveWebhookOperationStore(context),
+							),
+						),
 					),
-				),
 				type: "webhook.test",
 				source: "webhook",
 				correlationId: "resume-1",

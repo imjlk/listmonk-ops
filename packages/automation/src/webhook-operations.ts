@@ -5,7 +5,7 @@ import {
 	parseOperationInput,
 	parseOperationOutput,
 } from "@listmonk-ops/operations";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import {
 	bindWebhookCreateOperationSpec,
 	bindWebhookDeleteOperationSpec,
@@ -36,6 +36,7 @@ import {
 	deleteOutboundWebhookEndpoint,
 	dispatchOutboundWebhooks,
 	enqueueOutboundWebhookEvent,
+	ensureOutboundWebhookProbeIdKey,
 	getOutboundWebhookEndpoint,
 	getOutboundWebhookRuntimeHealth,
 	listOutboundWebhookDeliveries,
@@ -197,7 +198,15 @@ const webhookUpdateInputSchema = z
 const webhookDeleteInputSchema = z.object({ id: endpointIdInput });
 const webhookTestInputSchema = z.object({
 	id: endpointIdInput,
-	correlation_id: z.string().trim().min(1).max(200).optional(),
+	correlation_id: z
+		.string()
+		.trim()
+		.min(1)
+		.max(200)
+		.optional()
+		.describe(
+			"Keys the probe: the event id is derived as an HMAC over a server-generated probe id key persisted with the webhook store (independent of the endpoint's signing credential) and bound to its configuration revision, so an identical retry collapses onto the queued delivery (fails fast when the signing secret is unavailable or blank; a configuration change derives a fresh probe by design)",
+		),
 });
 const webhookDispatchInputSchema = z.object({
 	limit: webhookDispatchLimitInput.default(25),
@@ -858,12 +867,44 @@ export function testConfigFingerprint(endpoint: {
 	return endpoint.updatedAt;
 }
 
+/**
+ * @deprecated Unsalted derivation retained only for backward compatibility.
+ * The webhook.test operation derives ids with {@link keyedTestEventUuid},
+ * whose HMAC key is the store's server-generated probe id key — an
+ * independent secret, never an endpoint signing credential.
+ */
 export function testEventUuid(
 	endpointId: string,
 	correlationId: string,
 	configFingerprint = "",
 ): string {
 	const digest = createHash("sha256")
+		.update(`webhook.test:${endpointId}:${correlationId}:${configFingerprint}`)
+		.digest("hex");
+	const bytes = Uint8Array.from(
+		digest.slice(0, 32).match(/../g)!.map((h) => Number.parseInt(h, 16)),
+	);
+	bytes[6] = (bytes[6]! & 0x0f) | 0x50; // uuid v5 marker
+	bytes[8] = (bytes[8]! & 0x3f) | 0x80; // rfc 4122 variant
+	const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * Derive the deterministic event id for a keyed webhook.test probe. The
+ * HMAC key is the store's server-generated probe id key — independent of
+ * every endpoint signing credential, so delivery-log readers cannot test
+ * secret candidates offline against known message/id pairs. The config
+ * fingerprint re-keys the id when the endpoint configuration changes, so a
+ * repeat after a URL or secret change tests the new configuration.
+ */
+export function keyedTestEventUuid(
+	endpointId: string,
+	correlationId: string,
+	idKey: string,
+	configFingerprint = "",
+): string {
+	const digest = createHmac("sha256", idKey)
 		.update(`webhook.test:${endpointId}:${correlationId}:${configFingerprint}`)
 		.digest("hex");
 	const bytes = Uint8Array.from(
@@ -882,55 +923,38 @@ export async function executeWebhookTestOperation(
 	const store = resolveWebhookOperationStore(context);
 	const endpoint = await getOutboundWebhookEndpoint(input.id, store);
 	const keyed = input.correlation_id !== undefined;
-	const queued = await enqueueOutboundWebhookEvent(
-		{
-			id: keyed
-				? testEventUuid(
-						endpoint.id,
-						input.correlation_id!,
-						testConfigFingerprint(endpoint),
-					)
-				: randomUUID(),
-			type: "webhook.test",
-			source: "webhook",
-			correlationId: input.correlation_id,
-			subject: { kind: "webhook", key: endpoint.id },
-			data: { endpoint_id: endpoint.id, endpoint_name: endpoint.name },
-		},
-		{
-			...store,
-			endpointIds: [endpoint.id],
-			bypassEventFilters: true,
-		},
-	);
-	const deliveryId = queued.deliveryIds[0];
-	if (deliveryId === undefined) {
-		if (!keyed) {
-			// Only enabled endpoints receive deliveries, so an unkeyed probe
-			// with nothing queued means the endpoint is unavailable.
-			throw new OutboundWebhookConflictError(
-				`Webhook endpoint ${input.id} is disabled or missing`,
-				"endpoint_unavailable",
-			);
-		}
-		// The dedup collapsed the retry onto an already-queued delivery. The
-		// original call may have failed before dispatching it, so resolve the
-		// persisted delivery directly by event: a still-claimable one (or one
-		// whose lease expired) is dispatched now, and a terminal one reports
-		// its persisted outcome without resending.
+	// The dispatch would fail signing without a usable secret, so a keyed
+	// probe fails fast instead of queueing a delivery that can only fail.
+	// The message deliberately omits the secret reference: endpoint
+	// projections expose only secret_reference_configured.
+	const resolveSecret =
+		context.resolveSecret ?? ((secretRef: string) => process.env[secretRef]);
+	if (keyed && !resolveSecret(endpoint.secretRef)?.trim()) {
+		throw new OutboundWebhookConflictError(
+			`Signing secret for webhook endpoint ${input.id} is unavailable or blank; a keyed probe fails fast because its delivery cannot be signed`,
+			"signing_secret_unavailable",
+		);
+	}
+	// The derivation key is the store's server-generated probe id key —
+	// never the endpoint signing credential, which would turn the delivery
+	// log into a known-message/tag oracle for forging signatures.
+	const idKey = keyed
+		? await ensureOutboundWebhookProbeIdKey(store)
+		: undefined;
+	// Resolve a persisted probe delivery by event id and either dispatch it
+	// (still claimable, or its lease expired) or report its terminal
+	// outcome without resending.
+	const resolveProbeDelivery = async (
+		eventId: string,
+	): Promise<z.output<typeof webhookTestOutputSchema> | undefined> => {
 		const [existing] = await listOutboundWebhookDeliveries({
 			...store,
 			endpointId: endpoint.id,
-			eventId: queued.event.id,
+			eventId,
 			limit: 1,
 		});
 		if (!existing) {
-			// Nothing was queued and no persisted delivery carries this event:
-			// the enqueue selected no enabled endpoint, so the probe never ran.
-			throw new OutboundWebhookConflictError(
-				`Webhook endpoint ${input.id} is disabled or missing`,
-				"endpoint_unavailable",
-			);
+			return undefined;
 		}
 		const leaseExpired =
 			existing.status === "delivering" &&
@@ -950,7 +974,7 @@ export async function executeWebhookTestOperation(
 				limit: 1,
 			});
 			return {
-				event_id: queued.event.id,
+				event_id: eventId,
 				delivery_id: existing.id,
 				replayed: true,
 				bound_revision: endpoint.updatedAt,
@@ -961,7 +985,7 @@ export async function executeWebhookTestOperation(
 		// is already visible through webhooks.delivery.list, and the dispatch
 		// summary stays internally consistent (one record, skipped).
 		return {
-			event_id: queued.event.id,
+			event_id: eventId,
 			delivery_id: existing.id,
 			replayed: true,
 			bound_revision: endpoint.updatedAt,
@@ -976,6 +1000,74 @@ export async function executeWebhookTestOperation(
 				results: [],
 			}),
 		};
+	};
+	let legacyEventId: string | undefined;
+	if (keyed) {
+		// Rolling-upgrade convergence: probes queued before the HMAC
+		// migration derived the unsalted legacy id for the same endpoint,
+		// correlation id, and configuration revision. The enqueue
+		// transaction dedupes against BOTH identities, so a concurrently
+		// enqueued legacy delivery (old process) or keyed delivery (new
+		// process) collapses this enqueue instead of creating a second
+		// probe that also POSTs.
+		legacyEventId = testEventUuid(
+			endpoint.id,
+			input.correlation_id!,
+			testConfigFingerprint(endpoint),
+		);
+	}
+	const queued = await enqueueOutboundWebhookEvent(
+		{
+			id: keyed
+				? keyedTestEventUuid(
+						endpoint.id,
+						input.correlation_id!,
+						idKey!,
+						testConfigFingerprint(endpoint),
+					)
+				: randomUUID(),
+			type: "webhook.test",
+			source: "webhook",
+			correlationId: input.correlation_id,
+			subject: { kind: "webhook", key: endpoint.id },
+			data: { endpoint_id: endpoint.id, endpoint_name: endpoint.name },
+		},
+		{
+			...store,
+			endpointIds: [endpoint.id],
+			bypassEventFilters: true,
+			convergeEventIds: legacyEventId === undefined
+				? undefined
+				: [legacyEventId],
+		},
+	);
+	const deliveryId = queued.deliveryIds[0];
+	if (deliveryId === undefined) {
+		if (!keyed) {
+			// Only enabled endpoints receive deliveries, so an unkeyed probe
+			// with nothing queued means the endpoint is unavailable.
+			throw new OutboundWebhookConflictError(
+				`Webhook endpoint ${input.id} is disabled or missing`,
+				"endpoint_unavailable",
+			);
+		}
+		// The dedup collapsed the retry onto an already-queued delivery —
+		// under the keyed id, or the legacy id during an upgrade. Resolve
+		// the persisted delivery by either event id: a still-claimable one
+		// (or one whose lease expired) is dispatched now, and a terminal
+		// one reports its persisted outcome without resending.
+		const replay =
+			(await resolveProbeDelivery(queued.event.id)) ??
+			(await resolveProbeDelivery(legacyEventId!));
+		if (replay === undefined) {
+			// Nothing was queued and no persisted delivery carries this event:
+			// the enqueue selected no enabled endpoint, so the probe never ran.
+			throw new OutboundWebhookConflictError(
+				`Webhook endpoint ${input.id} is disabled or missing`,
+				"endpoint_unavailable",
+			);
+		}
+		return replay;
 	}
 	const dispatch = await dispatchOutboundWebhooks({
 		store,

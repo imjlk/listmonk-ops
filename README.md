@@ -517,7 +517,7 @@ Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
 All 104 contracts are standalone TypeScript/Typia product contracts. Of
-these, 101 are `stable` and 3 are `experimental`. The runtime-operation
+these, 102 are `stable` and 2 are `experimental`. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at
 the generated transport and handwritten adapter first; the product spec
@@ -525,7 +525,7 @@ changes only when the normalized operation contract or email-operation
 meaning changes. Static governance rejects OpenAPI/generated SDK imports
 from `src/specs`.
 
-One hundred and one reviewed core operations are `stable`: the existing
+One hundred and two reviewed core operations are `stable`: the existing
 `campaigns.get`, `campaigns.schedule`, `campaigns.start`, `campaigns.cancel`,
 `subscribers.blocklist`, `transactional.send`, and
 `ops.campaign.preflight`, plus the first read-only promotion batch:
@@ -617,10 +617,11 @@ experimental: ABA transitions and remote drift outside the registry are
 indistinguishable without a source-version pin. A fifteenth batch gave `webhooks.test` keyed-probe
 deduplication — a `correlation_id` derives a deterministic event id so
 the outbox collapses an identical retry onto the queued delivery and
-resumes or replays it (`replayed: true`) — but it stays experimental:
-a retry or expired lease whose first attempt reached the endpoint
-redelivers the ping, the same at-least-once ambiguity as the dispatch
-family. A sixteenth batch applied the prune echo pattern to
+resumes or replays it (`replayed: true`) — which kept it experimental
+at the time (a retry or expired lease whose first attempt reached the
+endpoint redelivers the ping, the same at-least-once ambiguity as the
+dispatch family) until the thirtieth batch promoted it with honest
+reconcile semantics. A sixteenth batch applied the prune echo pattern to
 `webhooks.dlq.replay`: destructive runs echo the exact dead-letter ids
 a dry run reported (modeled as a discriminated contract union) and
 already-requeued records are skipped in both stores — but it stays
@@ -724,8 +725,23 @@ successful promote or rollback changes the remote hash and advances the
 head, so a pinned retry of the original request conflicts even after
 its own success — that conflict is the documented reconciliation signal
 to re-inspect, which is why both pinned cases classify as reconcile
-instead of safe). The remaining 3 descriptors are
+instead of safe). The remaining 2 descriptors are
 experimental. A
+thirtieth batch promoted `webhooks.test`: the keyed probe's event id
+derivation is now an HMAC over a server-generated high-entropy probe id
+key persisted with the webhook store — the file store or the Postgres
+runtime meta table — giving key separation from every endpoint signing
+credential: probe identity is decoupled from the signing secret, and a
+low-entropy signing secret cannot be brute-forced from known probe
+message/id pairs. The derivation stays bound to the
+configuration revision so a repeat after a URL or secret change still
+tests the new configuration, and a keyed probe fails fast when the
+signing secret is unavailable or blank. A keyed retry still collapses
+onto the queued delivery, but the delivery itself is honestly
+at-least-once — the keyed case
+classifies as reconcile, verified through `webhooks.delivery.list` with
+the event-id header enabling receiver deduplication — while an unkeyed
+probe sends a fresh ping on every attempt and stays unsafe. A
 twenty-seventh batch promoted all three reconcile operations
 (`sequences.reconcile`, `webhooks.reconcile`, `abtest.reconcile`) with
 echoed-scanned-set recovery: each scan echoes the exact ids it
@@ -750,7 +766,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 104 shared operations, the API boundary rule, the 0
-runtime bridges, the 101 stable compatibility baselines, and 317 direct
+runtime bridges, the 102 stable compatibility baselines, and 317 direct
 spec-to-runtime graph edges.
 
 All 104 shared operations now use standalone TypeScript contracts. There are
