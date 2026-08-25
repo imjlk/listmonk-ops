@@ -97,6 +97,8 @@ export interface SequenceEnrollment {
 		| "cancelled";
 	retry_count: NonNegativeInteger;
 	current_step_id: SequenceStepId;
+	/** The requested initial activation time; next_run_at moves as steps advance. */
+	start_at?: IsoDateTime | undefined;
 	next_run_at: IsoDateTime;
 	last_error_present: boolean;
 	created_at: IsoDateTime;

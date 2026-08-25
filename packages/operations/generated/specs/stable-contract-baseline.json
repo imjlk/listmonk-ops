@@ -11567,6 +11567,10 @@
                     "format": "uuid",
                     "type": "string"
                   },
+                  "start_at": {
+                    "$ref": "#/components/schemas/IsoDateTime",
+                    "description": "The requested initial activation time; next_run_at moves as steps advance."
+                  },
                   "status": {
                     "oneOf": [
                       {
@@ -11847,6 +11851,10 @@
                     "format": "uuid",
                     "type": "string"
                   },
+                  "start_at": {
+                    "$ref": "#/components/schemas/IsoDateTime",
+                    "description": "The requested initial activation time; next_run_at moves as steps advance."
+                  },
                   "status": {
                     "oneOf": [
                       {
@@ -12042,6 +12050,10 @@
                   "sequence_id": {
                     "format": "uuid",
                     "type": "string"
+                  },
+                  "start_at": {
+                    "$ref": "#/components/schemas/IsoDateTime",
+                    "description": "The requested initial activation time; next_run_at moves as steps advance."
                   },
                   "status": {
                     "oneOf": [
@@ -13034,6 +13046,10 @@
                   "sequence_id": {
                     "format": "uuid",
                     "type": "string"
+                  },
+                  "start_at": {
+                    "$ref": "#/components/schemas/IsoDateTime",
+                    "description": "The requested initial activation time; next_run_at moves as steps advance."
                   },
                   "status": {
                     "oneOf": [

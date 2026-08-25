@@ -402,6 +402,58 @@ describe("sequence definitions and file persistence", () => {
 		).rejects.toThrow(/guarded on exactly 0/);
 	});
 
+	test("a guarded replay matches the persisted start after the enrollment advances", async () => {
+		const { repository, idempotencyStore } = await createStores();
+		const now = new Date("2026-08-01T09:00:00.000Z");
+		const definition = await repository.createDefinition(
+			createSequenceDefinition(
+				{
+					name: "enroll-advanced",
+					steps: [
+						{ id: "wait", type: "wait", durationSeconds: 60 },
+						{ id: "stop", type: "stop" },
+					],
+				},
+				now,
+			),
+		);
+		const startAt = "2026-08-01T10:00:00.000Z";
+		await invokeSequenceEnrollOperation(
+			{ repository, now: () => now },
+			{
+				id: definition.id,
+				subscriber_id: 14,
+				context: { plan: "pro" },
+				start_at: startAt,
+				expected_prior_enrollments: 0,
+			},
+		);
+
+		// Advance past the first step: the wait moves nextRunAt beyond the
+		// requested start, but the persisted initial start stays.
+		const tick = await runSequenceTick(
+			executionContext(repository, idempotencyStore, client()),
+			{ now: new Date("2026-08-01T10:00:05.000Z") },
+		);
+		expect(tick.waiting).toBe(1);
+
+		const replayed = await invokeSequenceEnrollOperation(
+			{ repository, now: () => now },
+			{
+				id: definition.id,
+				subscriber_id: 14,
+				context: { plan: "pro" },
+				start_at: startAt,
+				expected_prior_enrollments: 0,
+			},
+		);
+		expect(replayed.created).toBe(false);
+		// nextRunAt moved past the requested start; the replay still matches.
+		expect(Date.parse(replayed.enrollment.next_run_at)).toBeGreaterThan(
+			Date.parse(startAt),
+		);
+	});
+
 	test("reports a repeated sequence delete as a documented no-op", async () => {
 		const { repository } = await createStores();
 		const definition = await repository.createDefinition(

@@ -139,6 +139,8 @@ export type SequenceEnrollment = Readonly<{
 	status: SequenceEnrollmentStatus;
 	retryCount: number;
 	currentStepId: string;
+	/** The requested initial activation time; nextRunAt moves as steps advance. */
+	startAt?: string | undefined;
 	nextRunAt: string;
 	leaseToken?: string | undefined;
 	leaseExpiresAt?: string | undefined;
@@ -382,6 +384,8 @@ const enrollmentSchema = z.object({
 	status: sequenceEnrollmentStatusSchema,
 	retryCount: z.number().int().nonnegative().default(0),
 	currentStepId: stepIdSchema,
+	/** The requested initial activation time; nextRunAt moves as steps advance. */
+	startAt: isoDateTimeSchema.optional(),
 	nextRunAt: isoDateTimeSchema,
 	leaseToken: sequenceIdSchema.optional(),
 	leaseExpiresAt: isoDateTimeSchema.optional(),
@@ -604,6 +608,7 @@ export function createSequenceEnrollment(
 		status: "pending",
 		retryCount: 0,
 		currentStepId: firstStep.id,
+		startAt: input.startAt,
 		nextRunAt: input.startAt ?? timestamp,
 		lastTransitionAt: timestamp,
 		createdAt: timestamp,

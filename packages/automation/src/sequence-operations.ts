@@ -298,6 +298,7 @@ const sequenceEnrollmentOutputSchema = z.object({
 	status: sequenceEnrollmentStatusInput,
 	retry_count: z.number().int().nonnegative(),
 	current_step_id: stepIdInput,
+	start_at: isoDateTimeInput.optional(),
 	next_run_at: isoDateTimeInput,
 	last_error_present: z.boolean(),
 	created_at: isoDateTimeInput,
@@ -491,6 +492,8 @@ function toEnrollmentOutput(enrollment: SequenceEnrollment) {
 		status: enrollment.status,
 		retry_count: enrollment.retryCount,
 		current_step_id: enrollment.currentStepId,
+		/** The requested initial activation time; next_run_at moves as steps advance. */
+		start_at: enrollment.startAt,
 		next_run_at: enrollment.nextRunAt,
 		last_error_present: enrollment.lastError !== undefined,
 		created_at: enrollment.createdAt,
@@ -709,12 +712,19 @@ export async function executeSequenceEnrollOperation(
 			return undefined;
 		}
 		const newest = generation.newest!;
+		// The initial activation time is persisted separately from the
+		// mutable nextRunAt, so a guarded replay still matches after the
+		// engine advanced the enrollment past its first step.
+		const startMatches =
+			(newest.startAt === undefined && input.start_at === undefined) ||
+			(newest.startAt !== undefined &&
+				input.start_at !== undefined &&
+				Date.parse(newest.startAt) === Date.parse(input.start_at));
 		if (
 			generation.total > expectedPrior + 1 ||
 			canonicalContextJson(newest.context) !==
 				canonicalContextJson(input.context) ||
-			(input.start_at !== undefined &&
-				Date.parse(newest.nextRunAt) !== Date.parse(input.start_at))
+			!startMatches
 		) {
 			throw new SequenceConflictError(
 				`Subscriber ${input.subscriber_id} has ${generation.total} enrollments for sequence ${input.id}, but the request guarded on exactly ${expectedPrior}; resolve via sequences.enrollments.list before enrolling`,
