@@ -146,6 +146,28 @@ const subscriberHygieneInputSchema = z
 			.describe(
 				"Exact candidate set reported by a dry run; required when dry_run is false so a retry processes nothing new",
 			),
+		subscriber_guards: z
+			.array(
+				z.object({
+					subscriber_id: positiveIntegerInput.refine(
+						(value) => Number.isSafeInteger(value),
+						"subscriber ids must be safe integers",
+					),
+					expected_updated_at: z.iso.datetime(),
+				}),
+			)
+			.min(1)
+			.max(10_000)
+			.refine(
+				(set) =>
+					new Set(set.map((member) => member.subscriber_id)).size ===
+					set.length,
+				"subscriber_guards subscriber ids must be unique",
+			)
+			.optional()
+			.describe(
+				"Generation guard: echo a dry run's candidate_updated_at output (updated_at per selected subscriber). Listmonk advances updated_at on the list-add and blocklist mutations, so a guarded destructive retry skips subscribers its own first attempt touched and ones that changed or re-entered eligibility externally, while untouched members of the echoed set still run",
+			),
 		dry_run: booleanInput
 			.default(true)
 			.describe("Preview candidates without mutating subscribers"),
@@ -165,6 +187,35 @@ const subscriberHygieneInputSchema = z
 				message:
 					"Destructive hygiene runs require the exact subscriber ids a dry run reported; echo them so a retry processes nothing new",
 			});
+		}
+		if (value.subscriber_guards !== undefined) {
+			if (value.dry_run) {
+				context.addIssue({
+					code: "custom",
+					path: ["subscriber_guards"],
+					message:
+						"subscriber_guards apply to destructive runs; the dry run reports candidate_updated_at to echo",
+				});
+			}
+			if (value.subscriber_ids !== undefined) {
+				const guardIds = new Set(
+					value.subscriber_guards.map((member) => member.subscriber_id),
+				);
+				const echoedIds = new Set(value.subscriber_ids);
+				const missingGuards = [...echoedIds].filter(
+					(id) => !guardIds.has(id),
+				);
+				const unknownGuards = [...guardIds].filter(
+					(id) => !echoedIds.has(id),
+				);
+				if (missingGuards.length > 0 || unknownGuards.length > 0) {
+					context.addIssue({
+						code: "custom",
+						path: ["subscriber_guards"],
+						message: `subscriber_guards must cover exactly the echoed subscriber_ids (missing guards: ${missingGuards.length}, unknown guards: ${unknownGuards.length})`,
+					});
+				}
+			}
 		}
 	});
 
@@ -329,7 +380,14 @@ const subscriberHygieneOutputSchema = z.object({
 	candidateSubscribers: z.number().int().nonnegative(),
 	processedSubscribers: z.number().int().nonnegative(),
 	skippedDueToLimit: z.number().int().nonnegative(),
+	skippedGuarded: z.number().int().nonnegative(),
 	subscriberIds: z.array(z.number().int().positive()),
+	candidateUpdatedAt: z.array(
+		z.object({
+			subscriberId: z.number().int().positive(),
+			updatedAt: z.iso.datetime(),
+		}),
+	),
 	targetListId: z.number().int().positive().optional(),
 	blocklist: z.boolean(),
 	sample: z.array(
@@ -522,6 +580,15 @@ export async function executeSubscriberHygieneOperation(
 		targetListId: input.target_list_id,
 		blocklist: input.blocklist,
 		subscriberIds: input.subscriber_ids,
+		expectedUpdatedAt:
+			input.subscriber_guards === undefined
+				? undefined
+				: new Map(
+						input.subscriber_guards.map((member) => [
+							member.subscriber_id,
+							member.expected_updated_at,
+						]),
+					),
 		dryRun: input.dry_run,
 		maxSubscribers: input.max_subscribers,
 	});

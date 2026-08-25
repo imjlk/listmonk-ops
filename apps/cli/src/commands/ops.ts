@@ -175,6 +175,10 @@ export default defineGroup({
 						description: "Max candidates to process in one run",
 					},
 				),
+				"subscriber-guards": option(z.string().optional(), {
+					description:
+						"Generation guard (JSON array of subscriber_id and expected_updated_at pairs, echoing a dry run's candidateUpdatedAt output): a guarded destructive retry skips subscribers whose updated_at moved — its own first attempt's mutations advance it — while untouched members of the echoed set still run",
+				}),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {
@@ -182,6 +186,18 @@ export default defineGroup({
 					const sourceListIds = flags["source-list-ids"]
 						? parseCsvNumbers(flags["source-list-ids"])
 						: undefined;
+					let subscriberGuards:
+						| Array<{ subscriber_id: number; expected_updated_at: string }>
+						| undefined;
+					if (flags["subscriber-guards"] !== undefined) {
+						try {
+							subscriberGuards = JSON.parse(flags["subscriber-guards"]);
+						} catch (error) {
+							throw new Error(
+								`--subscriber-guards must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+							);
+						}
+					}
 					const result = await invokeSubscriberHygieneOperation(
 						{ client },
 						{
@@ -193,6 +209,7 @@ export default defineGroup({
 							subscriber_ids: flags["subscriber-ids"]
 								? parseCsvNumbersStrict(flags["subscriber-ids"], "subscriber ids")
 								: undefined,
+							subscriber_guards: subscriberGuards,
 							dry_run: flags["dry-run"],
 							max_subscribers: flags["max-subscribers"],
 						},

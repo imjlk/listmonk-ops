@@ -144,6 +144,84 @@ describe("automation workflows", () => {
 		expect(blocklisted).toEqual([101, 102, 101, 102]);
 	});
 
+	test("guarded hygiene retries skip subscribers whose updated_at moved", async () => {
+		const blocklisted: number[] = [];
+		let subscriber101UpdatedAt = "2020-01-01T00:00:00Z";
+		const client = {
+			subscriber: {
+				list: async () => ({
+					data: {
+						results: [
+							{
+								id: 101,
+								email: "a@old.test",
+								status: "enabled",
+								updated_at: subscriber101UpdatedAt,
+							},
+							{
+								id: 102,
+								email: "b@old.test",
+								status: "enabled",
+								updated_at: "2020-01-01T00:00:00Z",
+							},
+						],
+					},
+				}),
+				manageBlocklistById: async ({ path }: { path: { id: number } }) => {
+					blocklisted.push(path.id);
+					// Listmonk advances updated_at when it blocklists. The new
+					// timestamp stays before the inactivity cutoff so 101
+					// remains eligible — only its generation moved.
+					if (path.id === 101) {
+						subscriber101UpdatedAt = "2020-02-01T00:00:00Z";
+					}
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+
+		const { runSubscriberHygiene } = await import("../src/hygiene");
+		const preview = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			dryRun: true,
+		});
+		expect(preview.candidateUpdatedAt).toEqual([
+			{ subscriberId: 101, updatedAt: "2020-01-01T00:00:00.000Z" },
+			{ subscriberId: 102, updatedAt: "2020-01-01T00:00:00.000Z" },
+		]);
+
+		const guards = new Map(
+			preview.candidateUpdatedAt.map((entry) => [
+				entry.subscriberId,
+				entry.updatedAt,
+			]),
+		);
+		const applied = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			subscriberIds: preview.subscriberIds,
+			expectedUpdatedAt: guards,
+			dryRun: false,
+		});
+		expect(applied.processedSubscribers).toBe(2);
+		expect(blocklisted).toEqual([101, 102]);
+
+		// The guarded retry re-reads the subscribers: 101's updated_at moved
+		// (its own blocklist advanced it — an external change or eligibility
+		// re-entry moves it the same way), so it is skipped; 102's unchanged
+		// observation would run again only if it had never been touched.
+		const retried = await runSubscriberHygiene(client, {
+			mode: "sunset",
+			blocklist: true,
+			subscriberIds: preview.subscriberIds,
+			expectedUpdatedAt: guards,
+			dryRun: false,
+		});
+		expect(retried.processedSubscribers).toBe(1);
+		expect(retried.skippedGuarded).toBe(1);
+		expect(blocklisted).toEqual([101, 102, 102]);
+	});
+
 	test("redacts subscriber identifiers and remote mutation errors from hygiene results", async () => {
 		const client = createWorkflowClient({
 			subscriber: {

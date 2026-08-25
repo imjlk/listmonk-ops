@@ -1194,7 +1194,7 @@ Retry guidance: Retry is safe; the guard re-reads current metrics.
 
 ## Run subscriber hygiene (`ops.subscribers.hygiene`)
 
-Contract maturity: `experimental`; effects: `write:subscriber, suppression:audience`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `write:subscriber, suppression:audience`; confirmation: `required`; retry: `conditional`.
 
 Use when: Inactive subscribers must be identified for winback or sunset workflows.
 
@@ -1204,7 +1204,7 @@ Prerequisites: `subscribers.list`
 
 Verify with: `subscribers.list`
 
-Retry guidance: Run dry_run first, then echo the reported subscriber_ids; an identical repeat processes nothing new unless a subscriber re-entered eligibility, so inspect subscribers.list before repeating.
+Retry guidance: Run dry_run first, then echo both the reported subscriber_ids and the candidate_updated_at observations as subscriber_guards — a guarded destructive retry skips subscribers whose updated_at moved (its own first attempt's mutations advance it, and so does any external change or eligibility re-entry) while untouched members still run; without the guards, inspect subscribers.list before repeating because a re-eligible subscriber receives a new effect.
 
 ## Sync template registry (`ops.templates.registry-sync`)
 

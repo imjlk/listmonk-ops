@@ -13,6 +13,14 @@ export interface SubscriberHygieneOptions {
 	blocklist?: boolean;
 	/** Exact candidate set reported by a dry run; destructive runs process exactly this set. */
 	subscriberIds?: readonly number[];
+	/**
+	 * Generation guard: the updated_at each selected subscriber carried when
+	 * the dry run reported it. Listmonk advances updated_at on list-add and
+	 * blocklist mutations, so a guarded destructive retry skips subscribers
+	 * its own first attempt already mutated as well as ones that changed or
+	 * re-entered eligibility externally.
+	 */
+	expectedUpdatedAt?: ReadonlyMap<number, string>;
 	dryRun?: boolean;
 	maxSubscribers?: number;
 }
@@ -25,8 +33,15 @@ export interface SubscriberHygieneResult {
 	candidateSubscribers: number;
 	processedSubscribers: number;
 	skippedDueToLimit: number;
+	/** Selected subscribers skipped because their updated_at moved past the echoed guard. */
+	skippedGuarded: number;
 	/** The selected subscriber ids — echo them for the destructive run. */
 	subscriberIds: number[];
+	/**
+	 * The updated_at each selected subscriber carried at observation — echo
+	 * as subscriber_guards so a destructive retry skips anyone that moved.
+	 */
+	candidateUpdatedAt: Array<{ subscriberId: number; updatedAt: string }>;
 	targetListId?: number;
 	blocklist: boolean;
 	sample: Array<{
@@ -147,6 +162,36 @@ export async function runSubscriberHygiene(
 	const skippedDueToLimit = echoedIds
 		? Math.max(0, eligibleForEcho.length - selected.length)
 		: Math.max(0, candidates.length - selected.length);
+	const candidateUpdatedAt = selected.map((subscriber) => ({
+		subscriberId: toPositiveInt(subscriber.id)!,
+		updatedAt: (
+			toDate(subscriber.updated_at || subscriber.created_at) ?? new Date(0)
+		).toISOString(),
+	}));
+	// The updated_at guard is the per-subscriber completion signal: Listmonk
+	// advances updated_at on the list-add and blocklist mutations this
+	// workflow performs, so a guarded destructive retry skips everyone its
+	// first attempt already touched — and everyone that changed or
+	// re-entered eligibility externally — while untouched members of the
+	// echoed set still run.
+	const expectedUpdatedAt = options.expectedUpdatedAt;
+	const guardActive = !dryRun && expectedUpdatedAt !== undefined;
+	const updatedAtById = new Map(
+		candidateUpdatedAt.map((entry) => [entry.subscriberId, entry.updatedAt]),
+	);
+	const guardEligible = guardActive
+		? selected.filter((subscriber) => {
+				const id = toPositiveInt(subscriber.id)!;
+				const expected = expectedUpdatedAt.get(id);
+				const current = updatedAtById.get(id);
+				return (
+					expected !== undefined &&
+					current !== undefined &&
+					Date.parse(current) === Date.parse(expected)
+				);
+			})
+		: selected;
+	const skippedGuarded = selected.length - guardEligible.length;
 	let processedSubscribers = 0;
 
 	// Warn if winback + blocklist is set (blocklist is ignored in winback).
@@ -171,7 +216,7 @@ export async function runSubscriberHygiene(
 			);
 		}
 
-		for (const candidate of selected) {
+		for (const candidate of guardEligible) {
 			const id = toPositiveInt(candidate.id);
 			if (!id) {
 				continue;
@@ -217,9 +262,11 @@ export async function runSubscriberHygiene(
 		candidateSubscribers: candidates.length,
 		processedSubscribers: dryRun ? 0 : processedSubscribers,
 		skippedDueToLimit,
+		skippedGuarded,
 		subscriberIds: selected
 			.map((candidate) => toPositiveInt(candidate.id))
 			.filter((id): id is number => id !== undefined),
+		candidateUpdatedAt,
 		targetListId: options.targetListId,
 		blocklist,
 		sample: selected.slice(0, 20).map((candidate) => ({

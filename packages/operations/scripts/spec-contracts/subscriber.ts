@@ -7,6 +7,7 @@ import type {
 	EmailAddress,
 	ResourceIdInput,
 	Uuid,
+	IsoDateTime,
 } from "./primitives";
 
 export interface SubscriberListRecord {
@@ -167,6 +168,12 @@ export type SubscriberHygieneBatchLimit = number &
 	tags.Minimum<1> &
 	tags.Maximum<10_000>;
 
+/** One echoed hygiene generation position: the subscriber plus its observed updated_at. */
+export interface SubscriberHygieneGuard {
+	subscriber_id: ResourceId;
+	expected_updated_at: IsoDateTime;
+}
+
 export type SubscriberHygieneInput =
 	| {
 			/** Hygiene mode. Defaults to "winback". */
@@ -197,10 +204,27 @@ export type SubscriberHygieneInput =
 			blocklist?: boolean;
 			/** Exact candidate set reported by a dry run; the run processes exactly this set. */
 			subscriber_ids: ResourceId[] & tags.MinItems<1> & tags.MaxItems<10_000>;
+			/**
+			 * Generation guard: echo a dry run's candidate_updated_at output.
+			 * Listmonk advances updated_at on the list-add and blocklist
+			 * mutations, so a guarded destructive retry skips subscribers its
+			 * own first attempt touched and ones that changed or re-entered
+			 * eligibility externally. Must cover exactly the echoed
+			 * subscriber_ids.
+			 */
+			subscriber_guards?: (SubscriberHygieneGuard[] &
+				tags.MinItems<1> &
+				tags.MaxItems<10_000>);
 			dry_run: false;
 			/** Maximum candidates to process. Defaults to 500, capped at 10000 to match the echoed subscriber_ids limit. */
 			max_subscribers?: SubscriberHygieneBatchLimit;
 	  };
+
+/** One observed hygiene generation position: the subscriber plus its updated_at at observation. */
+export interface SubscriberHygieneGuardObservation {
+	subscriberId: ResourceId;
+	updatedAt: IsoDateTime;
+}
 
 export interface SubscriberHygieneOutput {
 	mode: SubscriberHygieneMode;
@@ -210,8 +234,15 @@ export interface SubscriberHygieneOutput {
 	candidateSubscribers: NonNegativeInteger;
 	processedSubscribers: NonNegativeInteger;
 	skippedDueToLimit: NonNegativeInteger;
+	/** Selected subscribers skipped because their updated_at moved past the echoed guard. */
+	skippedGuarded: NonNegativeInteger;
 	/** The selected subscriber ids — echo them for the destructive run. */
 	subscriberIds: ResourceId[];
+	/**
+	 * The updated_at each selected subscriber carried at observation — echo
+	 * as subscriber_guards so a destructive retry skips anyone that moved.
+	 */
+	candidateUpdatedAt: SubscriberHygieneGuardObservation[];
 	targetListId?: ResourceId;
 	blocklist: boolean;
 	sample: Array<{
