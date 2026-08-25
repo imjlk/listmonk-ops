@@ -683,11 +683,36 @@ export async function rollbackTemplateVersion(
 
 			// A pinned target that already equals the active version is the
 			// already-applied case even when no further previous version
-			// exists, so check it before resolving the dynamic target.
+			// exists, so check it before resolving the dynamic target. But
+			// "already applied" must also hold remotely: when the registry
+			// still marks the target active while the remote template
+			// drifted elsewhere, the rollback is repaired by re-promoting
+			// the target instead of being reported as a no-op.
 			if (
 				options.toVersionId !== undefined &&
 				record.activeVersionId === options.toVersionId
 			) {
+				const targetVersion = record.versions.find(
+					(version) => version.versionId === options.toVersionId,
+				);
+				if (targetVersion) {
+					const remoteTemplate = await getTemplateById(client, templateId);
+					const remoteHash = createTemplateHash(
+						createTemplateSnapshot(remoteTemplate, templateId),
+					);
+					if (remoteHash !== targetVersion.hash) {
+						const promoted = await promoteTemplateVersionInStore(
+							client,
+							templateId,
+							targetVersion.versionId,
+							store,
+						);
+						return {
+							result: { ...promoted, rolledBack: true },
+							remoteMutated: true,
+						};
+					}
+				}
 				return {
 					result: {
 						templateId,

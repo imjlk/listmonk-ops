@@ -715,7 +715,10 @@ monotonic registry-head counter — every registry-managed write advances
 it, a same-version re-promotion that restores drifted remote content
 included, so an A → X → A cycle that restores both the version id
 and the remote hash still conflicts — and an expected_remote_hash
-out-of-registry drift pin, all checked inside the store lock. Listmonk
+out-of-registry drift pin, all checked inside the store lock. An
+already-applied rollback is a no-op only when the remote actually
+carries the target content — a target that drifted away while staying
+active is repaired by re-promoting it instead. Listmonk
 offers no conditional update, so the hash pins stay best-effort; a
 successful promote or rollback changes the remote hash and advances the
 head, so a pinned retry of the original request conflicts even after

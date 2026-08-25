@@ -692,7 +692,9 @@ no-op이고, 핀 없거나 force 재시도는 정직하게 unsafe로 유지; rol
 버전 재승격 포함)하므로 버전 id와 원격 hash를 모두 복원하는
 A → X → A 사이클도 여전히 충돌 — 및
 expected_remote_hash registry 밖 drift 핀을 받고, 세 검증 모두 store
-lock 안에서 실행. Listmonk엔 조건부 갱신이 없어 hash 핀은
+lock 안에서 실행. 이미 적용된 rollback은 원격이 실제로 대상 내용을
+담고 있을 때만 no-op입니다 — 활성 상태로 남은 채 drift된 대상은
+재승격으로 복구됩니다. Listmonk엔 조건부 갱신이 없어 hash 핀은
 best-effort이며, 승격/롤백이 성공하면 원격 hash와 head가 바뀌므로
 원래 요청의 핀을 echo한 재시도는 자기 자신의 성공 직후에도
 충돌합니다 — 이 충돌이 재점검을 이끄는 문서화된 조정 신호여서

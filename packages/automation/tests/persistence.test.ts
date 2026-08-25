@@ -424,7 +424,12 @@ describe("automation persistence", () => {
 				getById: async () => ({
 					data: { id: 10, name: "Pinned", type: "campaign", body },
 				}),
-				update: async () => ({ data: true }),
+				// Apply writes like the real remote so the rollback's
+				// already-applied verification observes them.
+				update: async ({ body: updateBody }: { body: { body: string } }) => {
+					body = updateBody.body;
+					return { data: true };
+				},
 			},
 		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
 		const { syncTemplateRegistry, rollbackTemplateVersion } =
@@ -474,7 +479,12 @@ describe("automation persistence", () => {
 				getById: async () => ({
 					data: { id: 11, name: "ABA", type: "campaign", body },
 				}),
-				update: async () => ({ data: true }),
+				// Apply writes like the real remote so the rollback's
+				// already-applied verification observes them.
+				update: async ({ body: updateBody }: { body: { body: string } }) => {
+					body = updateBody.body;
+					return { data: true };
+				},
 			},
 		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
 		const { syncTemplateRegistry, rollbackTemplateVersion } =
@@ -535,7 +545,12 @@ describe("automation persistence", () => {
 				getById: async () => ({
 					data: { id: 12, name: "Head", type: "campaign", body },
 				}),
-				update: async () => ({ data: true }),
+				// Apply writes like the real remote so the rollback's
+				// already-applied verification observes them.
+				update: async ({ body: updateBody }: { body: { body: string } }) => {
+					body = updateBody.body;
+					return { data: true };
+				},
 			},
 		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
 		const { syncTemplateRegistry, rollbackTemplateVersion } =
@@ -623,8 +638,63 @@ describe("automation persistence", () => {
 		expect(noop.rolledBack).toBe(false);
 	});
 
-	test("short-circuits an already-current promotion without writing", async () => {
-		await useTemporaryStores();
+	test("reapplies a rollback whose target drifted while marked active", async () => {
+		const { templateStorePath } = await useTemporaryStores();
+		let body = "<p>v1</p>";
+		const writtenBodies: string[] = [];
+		const client = {
+			template: {
+				getById: async () => ({
+					data: { id: 15, name: "Drifted", type: "campaign", body },
+				}),
+				update: async ({ body: updateBody }: { body: { body: string } }) => {
+					writtenBodies.push(updateBody.body);
+					body = updateBody.body;
+					return { data: true };
+				},
+			},
+		} as unknown as import("@listmonk-ops/openapi").ListmonkClient;
+		const { syncTemplateRegistry, rollbackTemplateVersion } =
+			await import("../src/template-registry");
+		await syncTemplateRegistry(client, { templateIds: [15] });
+		body = "<p>v2</p>";
+		await Bun.sleep(2);
+		await syncTemplateRegistry(client, { templateIds: [15] });
+		const { getTemplateRegistryHistory, promoteTemplateVersion } =
+			await import("../src/template-registry");
+		const history = await getTemplateRegistryHistory(15);
+		const initialActive = history.activeVersionId!;
+		const newer = history.versions.find(
+			(version) => version.versionId !== initialActive,
+		)!;
+		// Make the target (v1) the active version again through the normal
+		// rollback path, so the remote genuinely carries it.
+		await promoteTemplateVersion(client, 15, newer.versionId);
+		const rolled = await rollbackTemplateVersion(client, 15, {
+			toVersionId: initialActive,
+		});
+		expect(rolled.rolledBack).toBe(true);
+
+		// The remote drifts away from the target while the registry still
+		// marks it active: a pinned retry must repair the drift, not report
+		// an already-applied no-op over the wrong content.
+		body = "<p>externally drifted</p>";
+		const repaired = await rollbackTemplateVersion(client, 15, {
+			toVersionId: initialActive,
+		});
+		expect(repaired.rolledBack).toBe(true);
+		expect(writtenBodies.at(-1)).toBe("<p>v1</p>");
+		expect(body).toBe("<p>v1</p>");
+
+		// With the remote matching again, the same pinned retry is the
+		// documented no-op.
+		const noop = await rollbackTemplateVersion(client, 15, {
+			toVersionId: initialActive,
+		});
+		expect(noop.rolledBack).toBe(false);
+	});
+
+	test("short-circuits an already-current promotion without writing", async () => {		await useTemporaryStores();
 		let body = "<p>v1</p>";
 		let updates = 0;
 		const client = {
