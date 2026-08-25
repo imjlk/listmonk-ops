@@ -180,7 +180,7 @@ export interface TemplateIdInput {
 
 export interface TemplatePromoteInput extends TemplateIdInput {
 	version_id: NonEmptyString;
-	expected_remote_hash?: string;
+	expected_remote_hash?: NonEmptyString;
 	/** Override hash mismatch check. Defaults to false. */
 	force?: boolean;
 }

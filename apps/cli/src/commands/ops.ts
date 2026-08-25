@@ -334,9 +334,13 @@ export default defineGroup({
 				"version-id": option(z.string().trim().min(1), {
 					description: "Stored version ID",
 				}),
-				"expected-remote-hash": option(z.string().optional(), {
-					description: "Expected remote template hash for optimistic concurrency",
-				}),
+				"expected-remote-hash": option(
+					z.string().trim().min(1).optional(),
+					{
+						description:
+							"Expected remote template hash (registry-sync's per-template hash output, or a stored version's hash from templates-history); blank values are rejected so a guarded retry cannot silently degrade to the unpinned path",
+					},
+				),
 				force: option(z.coerce.boolean().default(false), {
 					description: "Override hash mismatch check",
 				}),
@@ -382,10 +386,13 @@ export default defineGroup({
 							"Registry head revision the caller observed (the templates-history headRevision output, or the headRevision a prior rollback returned); every registry-managed write — a same-version re-promotion included — advances it, so a pinned retry conflicts",
 					},
 				),
-				"expected-remote-hash": option(z.string().optional(), {
-					description:
-						"Remote template hash the caller observed; a template mutated outside the registry conflicts instead of being rolled back over",
-				}),
+				"expected-remote-hash": option(
+					z.string().trim().min(1).optional(),
+					{
+						description:
+							"Remote template hash the caller observed (the per-template hash from a fresh registry-sync, or a stored version's hash from templates-history); a template mutated outside the registry conflicts instead of being rolled back over, and blank values are rejected",
+					},
+				),
 			},
 			handler: async ({ flags, ...args }) => {
 				try {

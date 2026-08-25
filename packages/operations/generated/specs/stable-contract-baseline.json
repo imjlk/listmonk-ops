@@ -27227,7 +27227,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "expected_remote_hash": {
-                    "type": "string"
+                    "$ref": "#/components/schemas/NonEmptyString"
                   },
                   "force": {
                     "description": "Override hash mismatch check. Defaults to false.",
@@ -27253,7 +27253,7 @@
             "additionalProperties": false,
             "properties": {
               "expected_remote_hash": {
-                "type": "string"
+                "$ref": "#/components/schemas/NonEmptyString"
               },
               "force": {
                 "description": "Override hash mismatch check. Defaults to false.",

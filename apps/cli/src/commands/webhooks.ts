@@ -23,6 +23,7 @@ import {
 } from "@listmonk-ops/automation";
 import { z } from "zod";
 import { defineCommand, defineGroup, option } from "../lib/command";
+import { emitOperationErrorDetails } from "../lib/operation-errors";
 import { getOutput } from "../lib/output";
 
 function parseCommaSeparatedList(value: string, label: string): string[] {
@@ -267,12 +268,20 @@ const dispatchCommand = defineCommand({
 				);
 			}
 		}
-		getOutput().json(
-			await invokeWebhookDispatchOperation({}, {
-				limit: flags.limit,
-				recovery_set: recoverySet,
-			}),
-		);
+		try {
+			getOutput().json(
+				await invokeWebhookDispatchOperation({}, {
+					limit: flags.limit,
+					recovery_set: recoverySet,
+				}),
+			);
+		} catch (error) {
+			// A mid-batch failure carries the claimed positions as a
+			// structured recovery handle; emit it machine-readably before
+			// the human-facing error so --recovery-set can echo it.
+			emitOperationErrorDetails(error);
+			throw error;
+		}
 	},
 });
 

@@ -251,8 +251,12 @@ const templatePromoteInputSchema = templateIdInputSchema.extend({
 	version_id: z.string().trim().min(1).describe("Stored version ID"),
 	expected_remote_hash: z
 		.string()
+		.trim()
+		.min(1)
 		.optional()
-		.describe("Expected remote template hash for optimistic concurrency"),
+		.describe(
+			"Expected remote template hash (the per-template hash from a fresh registry-sync, or a stored version's hash from registry-history); a blank value is rejected so a guarded retry cannot silently degrade to the unpinned path",
+		),
 	force: booleanInput
 		.default(false)
 		.describe("Override hash mismatch check"),
