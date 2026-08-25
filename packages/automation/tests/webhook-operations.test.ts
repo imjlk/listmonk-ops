@@ -26,6 +26,7 @@ import { ingestInboundDeliveryEvent } from "../src/inbound-delivery-events";
 import {
 	resolveWebhookOperationStore,
 	testConfigFingerprint,
+	testEventUuid,
 	keyedTestEventUuid,
 } from "../src/webhook-operations";
 import {
@@ -571,6 +572,71 @@ describe("webhook shared operations", () => {
 		expect(keyedTestEventUuid("endpoint-1", "corr-1", first, "fp")).toBe(
 			withKey,
 		);
+	});
+
+	test("replays legacy-identified probes after the keyed derivation upgrade", async () => {
+		const context = await createContext();
+		const endpoint = await invokeWebhookCreateOperation(context, {
+			name: "test-legacy",
+			url: "https://8.8.8.8/legacy",
+			secret_ref: "LISTMONK_OPS_WEBHOOK_SECRET_LEGACY",
+			event_filters: ["operation.*"],
+		});
+		// A probe queued by the pre-HMAC release derived the unsalted legacy
+		// id for this endpoint, correlation id, and revision.
+		await enqueueOutboundWebhookEvent(
+			{
+				id: testEventUuid(
+					endpoint.endpoint.id,
+					"legacy-1",
+					testConfigFingerprint(
+						await getOutboundWebhookEndpoint(
+							endpoint.endpoint.id,
+							resolveWebhookOperationStore(context),
+						),
+					),
+				),
+				type: "webhook.test",
+				source: "webhook",
+				correlationId: "legacy-1",
+				subject: { kind: "webhook", key: endpoint.endpoint.id },
+				data: {
+					endpoint_id: endpoint.endpoint.id,
+					endpoint_name: endpoint.endpoint.name,
+				},
+			},
+			{
+				...resolveWebhookOperationStore(context),
+				endpointIds: [endpoint.endpoint.id],
+				bypassEventFilters: true,
+			},
+		);
+
+		// The post-upgrade retry converges onto the legacy delivery instead
+		// of queueing a second probe that would also POST.
+		const retried = await invokeWebhookTestOperation(context, {
+			id: endpoint.endpoint.id,
+			correlation_id: "legacy-1",
+		});
+		expect(retried.replayed).toBe(true);
+		expect(retried.event_id).toBe(
+			testEventUuid(
+				endpoint.endpoint.id,
+				"legacy-1",
+				testConfigFingerprint(
+					await getOutboundWebhookEndpoint(
+						endpoint.endpoint.id,
+						resolveWebhookOperationStore(context),
+					),
+				),
+			),
+		);
+		expect(retried.dispatch.succeeded).toBe(1);
+		// Exactly one delivery exists for the endpoint: no duplicate probe.
+		const deliveries = await invokeWebhookDeliveryListOperation(context, {
+			endpoint_id: endpoint.endpoint.id,
+		});
+		expect(deliveries.deliveries).toHaveLength(1);
 	});
 
 	test("collapses keyed test retries onto the queued delivery", async () => {

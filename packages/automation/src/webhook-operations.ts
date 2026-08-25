@@ -941,6 +941,82 @@ export async function executeWebhookTestOperation(
 	const idKey = keyed
 		? await ensureOutboundWebhookProbeIdKey(store)
 		: undefined;
+	// Resolve a persisted probe delivery by event id and either dispatch it
+	// (still claimable, or its lease expired) or report its terminal
+	// outcome without resending.
+	const resolveProbeDelivery = async (
+		eventId: string,
+	): Promise<z.output<typeof webhookTestOutputSchema> | undefined> => {
+		const [existing] = await listOutboundWebhookDeliveries({
+			...store,
+			endpointId: endpoint.id,
+			eventId,
+			limit: 1,
+		});
+		if (!existing) {
+			return undefined;
+		}
+		const leaseExpired =
+			existing.status === "delivering" &&
+			(existing.leaseExpiresAt === undefined ||
+				Date.parse(existing.leaseExpiresAt) <= Date.now());
+		if (
+			existing.status === "pending" ||
+			existing.status === "retry" ||
+			leaseExpired
+		) {
+			const dispatch = await dispatchOutboundWebhooks({
+				store,
+				fetcher: context.fetcher,
+				resolveSecret: context.resolveSecret,
+				deliveryIds: [existing.id],
+				bypassCircuitBreaker: true,
+				limit: 1,
+			});
+			return {
+				event_id: eventId,
+				delivery_id: existing.id,
+				replayed: true,
+				bound_revision: endpoint.updatedAt,
+				dispatch: toDispatchOutput(dispatch),
+			};
+		}
+		// Terminal deliveries report as skipped only — the persisted outcome
+		// is already visible through webhooks.delivery.list, and the dispatch
+		// summary stays internally consistent (one record, skipped).
+		return {
+			event_id: eventId,
+			delivery_id: existing.id,
+			replayed: true,
+			bound_revision: endpoint.updatedAt,
+			dispatch: toDispatchOutput({
+				claimed: 0,
+				claimedIds: [],
+				claimSteps: [],
+				succeeded: 0,
+				exhausted: 0,
+				retried: 0,
+				skipped: 1,
+				results: [],
+			}),
+		};
+	};
+	if (keyed) {
+		// Upgrade bridge: probes queued before the HMAC migration derived
+		// the unsalted legacy id for the same endpoint, correlation id, and
+		// configuration revision. Retrying one must converge onto that
+		// delivery instead of creating a second probe that also POSTs.
+		const legacyReplay = await resolveProbeDelivery(
+			testEventUuid(
+				endpoint.id,
+				input.correlation_id!,
+				testConfigFingerprint(endpoint),
+			),
+		);
+		if (legacyReplay !== undefined) {
+			return legacyReplay;
+		}
+	}
 	const queued = await enqueueOutboundWebhookEvent(
 		{
 			id: keyed
@@ -975,16 +1051,9 @@ export async function executeWebhookTestOperation(
 		}
 		// The dedup collapsed the retry onto an already-queued delivery. The
 		// original call may have failed before dispatching it, so resolve the
-		// persisted delivery directly by event: a still-claimable one (or one
-		// whose lease expired) is dispatched now, and a terminal one reports
-		// its persisted outcome without resending.
-		const [existing] = await listOutboundWebhookDeliveries({
-			...store,
-			endpointId: endpoint.id,
-			eventId: queued.event.id,
-			limit: 1,
-		});
-		if (!existing) {
+		// persisted delivery directly by event.
+		const replay = await resolveProbeDelivery(queued.event.id);
+		if (replay === undefined) {
 			// Nothing was queued and no persisted delivery carries this event:
 			// the enqueue selected no enabled endpoint, so the probe never ran.
 			throw new OutboundWebhookConflictError(
@@ -992,50 +1061,7 @@ export async function executeWebhookTestOperation(
 				"endpoint_unavailable",
 			);
 		}
-		const leaseExpired =
-			existing.status === "delivering" &&
-			(existing.leaseExpiresAt === undefined ||
-				Date.parse(existing.leaseExpiresAt) <= Date.now());
-		if (
-			existing.status === "pending" ||
-			existing.status === "retry" ||
-			leaseExpired
-		) {
-			const dispatch = await dispatchOutboundWebhooks({
-				store,
-				fetcher: context.fetcher,
-				resolveSecret: context.resolveSecret,
-				deliveryIds: [existing.id],
-				bypassCircuitBreaker: true,
-				limit: 1,
-			});
-			return {
-				event_id: queued.event.id,
-				delivery_id: existing.id,
-				replayed: true,
-				bound_revision: endpoint.updatedAt,
-				dispatch: toDispatchOutput(dispatch),
-			};
-		}
-		// Terminal deliveries report as skipped only — the persisted outcome
-		// is already visible through webhooks.delivery.list, and the dispatch
-		// summary stays internally consistent (one record, skipped).
-		return {
-			event_id: queued.event.id,
-			delivery_id: existing.id,
-			replayed: true,
-			bound_revision: endpoint.updatedAt,
-			dispatch: toDispatchOutput({
-				claimed: 0,
-				claimedIds: [],
-				claimSteps: [],
-				succeeded: 0,
-				exhausted: 0,
-				retried: 0,
-				skipped: 1,
-				results: [],
-			}),
-		};
+		return replay;
 	}
 	const dispatch = await dispatchOutboundWebhooks({
 		store,
