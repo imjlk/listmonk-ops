@@ -6,6 +6,7 @@ import {
 	webhookOperationCatalog,
 } from "@listmonk-ops/automation";
 import {
+	bouncesOperationCatalog,
 	campaignOperationCatalog,
 	composeOperationCatalogs,
 	discoveryOperationCatalog,
@@ -24,6 +25,7 @@ export const mcpOperationCatalog = composeOperationCatalogs([
 	campaignOperationCatalog,
 	templateOperationCatalog,
 	mediaOperationCatalog,
+	bouncesOperationCatalog,
 	transactionalOperationCatalog,
 	opsOperationCatalog,
 	abTestOperationCatalog,

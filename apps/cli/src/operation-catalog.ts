@@ -1,4 +1,5 @@
 import {
+	bouncesOperationCatalog,
 	campaignOperationCatalog,
 	composeOperationCatalogs,
 	discoveryOperationCatalog,
@@ -24,6 +25,7 @@ export const cliOperationCatalog = composeOperationCatalogs([
 	campaignOperationCatalog,
 	templateOperationCatalog,
 	mediaOperationCatalog,
+	bouncesOperationCatalog,
 	transactionalOperationCatalog,
 	opsOperationCatalog,
 	abTestOperationCatalog,

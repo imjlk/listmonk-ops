@@ -37642,6 +37642,504 @@
     {
       "agent": {
         "avoidWhen": [
+          "A specific bounce record is already known by ID."
+        ],
+        "prerequisites": [],
+        "related": [
+          "bounces.get"
+        ],
+        "retryGuidance": "Retry transient read failures with bounded backoff.",
+        "useWhen": [
+          "Bounce records must be discovered, filtered by campaign or source, or audited before cleanup."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "BounceListInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "campaign_id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Filter bounce records by the campaign they belong to."
+                  },
+                  "order": {
+                    "description": "Sort direction applied by Listmonk.",
+                    "oneOf": [
+                      {
+                        "const": "asc"
+                      },
+                      {
+                        "const": "desc"
+                      }
+                    ]
+                  },
+                  "order_by": {
+                    "description": "Sort field applied by Listmonk.",
+                    "oneOf": [
+                      {
+                        "const": "campaign_name"
+                      },
+                      {
+                        "const": "created_at"
+                      },
+                      {
+                        "const": "email"
+                      },
+                      {
+                        "const": "source"
+                      }
+                    ]
+                  },
+                  "page": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "One-based result page. Omitted values use the shared operation default."
+                  },
+                  "per_page": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Number of records per page. Omitted values use the shared operation default."
+                  },
+                  "source": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                    "description": "Filter bounce records by their source of origin."
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TrimmedNonEmptyString": {
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "campaign_id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Filter bounce records by the campaign they belong to."
+              },
+              "order": {
+                "description": "Sort direction applied by Listmonk.",
+                "oneOf": [
+                  {
+                    "const": "asc"
+                  },
+                  {
+                    "const": "desc"
+                  }
+                ]
+              },
+              "order_by": {
+                "description": "Sort field applied by Listmonk.",
+                "oneOf": [
+                  {
+                    "const": "campaign_name"
+                  },
+                  {
+                    "const": "created_at"
+                  },
+                  {
+                    "const": "email"
+                  },
+                  {
+                    "const": "source"
+                  }
+                ]
+              },
+              "page": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "One-based result page. Omitted values use the shared operation default."
+              },
+              "per_page": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Number of records per page. Omitted values use the shared operation default."
+              },
+              "source": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                "description": "Filter bounce records by their source of origin."
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "BounceCampaignSummary": {
+                "additionalProperties": {},
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "BounceCollectionOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "page": {
+                    "type": "number"
+                  },
+                  "per_page": {
+                    "type": "number"
+                  },
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/BounceRecord"
+                    },
+                    "type": "array"
+                  },
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "results",
+                  "total",
+                  "per_page",
+                  "page"
+                ],
+                "type": "object"
+              },
+              "BounceRecord": {
+                "additionalProperties": {},
+                "description": "A Listmonk bounce record as observed from the 6.2 API. The upstream\nOpenAPI document misses `subscriber_status` and models a stray `total`\ninside the item, so this contract follows observed responses and keeps\nan index signature for forward compatibility.",
+                "properties": {
+                  "campaign": {
+                    "$ref": "#/components/schemas/BounceCampaignSummary"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "subscriber_status": {
+                    "type": "string"
+                  },
+                  "subscriber_uuid": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "page": {
+                "type": "number"
+              },
+              "per_page": {
+                "type": "number"
+              },
+              "results": {
+                "items": {
+                  "$ref": "#/components/schemas/BounceRecord"
+                },
+                "type": "array"
+              },
+              "total": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "results",
+              "total",
+              "per_page",
+              "page"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Get recorded bounce events from Listmonk with optional campaign, source, and ordering filters",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "bounce"
+        }
+      ],
+      "id": "bounces.list",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesListOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesListOperationSpec:variable",
+          "executorNode": "packages/operations/src/bounces.ts#listBounces:function",
+          "invokerNode": "packages/operations/src/bounces.ts#invokeListBouncesOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/bounces.ts#listBouncesOperation:variable"
+        },
+        "mcpName": "listmonk_get_bounces",
+        "openWorld": true
+      },
+      "resource": "bounce",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current bounce collection."
+      },
+      "since": "0.16.0",
+      "stability": "experimental",
+      "title": "List bounces",
+      "verb": "list"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "The bounce ID is not known and discovery is required."
+        ],
+        "prerequisites": [],
+        "related": [
+          "bounces.list"
+        ],
+        "retryGuidance": "Retry transient read failures with bounded backoff.",
+        "useWhen": [
+          "A single bounce record must be inspected by its numeric ID, including its subscriber attribution and diagnostic metadata."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "BounceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk bounce ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk bounce ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "BounceCampaignSummary": {
+                "additionalProperties": {},
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "BounceRecord": {
+                "additionalProperties": {},
+                "description": "A Listmonk bounce record as observed from the 6.2 API. The upstream\nOpenAPI document misses `subscriber_status` and models a stray `total`\ninside the item, so this contract follows observed responses and keeps\nan index signature for forward compatibility.",
+                "properties": {
+                  "campaign": {
+                    "$ref": "#/components/schemas/BounceCampaignSummary"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "subscriber_status": {
+                    "type": "string"
+                  },
+                  "subscriber_uuid": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "description": "A Listmonk bounce record as observed from the 6.2 API. The upstream\nOpenAPI document misses `subscriber_status` and models a stray `total`\ninside the item, so this contract follows observed responses and keeps\nan index signature for forward compatibility.",
+            "properties": {
+              "campaign": {
+                "$ref": "#/components/schemas/BounceCampaignSummary"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "meta": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "source": {
+                "type": "string"
+              },
+              "subscriber_id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "subscriber_status": {
+                "type": "string"
+              },
+              "subscriber_uuid": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Get a recorded bounce event by its numeric ID",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "bounce"
+        }
+      ],
+      "id": "bounces.get",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesGetOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesGetOperationSpec:variable",
+          "executorNode": "packages/operations/src/bounces.ts#getBounce:function",
+          "invokerNode": "packages/operations/src/bounces.ts#invokeGetBounceOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/bounces.ts#getBounceOperation:variable"
+        },
+        "mcpName": "listmonk_get_bounce",
+        "openWorld": true
+      },
+      "resource": "bounce",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current bounce representation."
+      },
+      "since": "0.16.0",
+      "stability": "experimental",
+      "title": "Get bounce",
+      "verb": "get"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "A single role should be inspected without a full manifest.",
           "The protected Super Admin role is the intended target."
         ],
@@ -39006,6 +39504,17 @@
           "deleted"
         ],
         "deleted": []
+      }
+    },
+    {
+      "id": "bounce",
+      "states": [
+        "recorded"
+      ],
+      "terminalStates": [],
+      "title": "Bounce record",
+      "transitions": {
+        "recorded": []
       }
     },
     {

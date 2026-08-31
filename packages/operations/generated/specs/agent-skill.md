@@ -1444,6 +1444,34 @@ Verify with: none
 
 Retry guidance: Retry is safe; the export is read-only.
 
+## List bounces (`bounces.list`)
+
+Contract maturity: `experimental`; effects: `read:bounce`; confirmation: `never`; retry: `safe`.
+
+Use when: Bounce records must be discovered, filtered by campaign or source, or audited before cleanup.
+
+Avoid when: A specific bounce record is already known by ID.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
+## Get bounce (`bounces.get`)
+
+Contract maturity: `experimental`; effects: `read:bounce`; confirmation: `never`; retry: `safe`.
+
+Use when: A single bounce record must be inspected by its numeric ID, including its subscriber attribution and diagnostic metadata.
+
+Avoid when: The bounce ID is not known and discovery is required.
+
+Prerequisites: none
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
 ## Reconcile user-role manifest (`user-roles.reconcile`)
 
 Contract maturity: `stable`; effects: `write:user-role`; confirmation: `required`; retry: `reconcile`.

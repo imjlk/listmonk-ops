@@ -1245,6 +1245,30 @@ Export the subscriber assignment manifest for a test with deterministic provisio
 - Retry: `safe`
 - Stability: `stable` since `0.10.0`
 
+## `bounces.list`
+
+Get recorded bounce events from Listmonk with optional campaign, source, and ordering filters
+
+- Resource / verb: `bounce.list`
+- MCP tool: `listmonk_get_bounces`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:bounce`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.16.0`
+
+## `bounces.get`
+
+Get a recorded bounce event by its numeric ID
+
+- Resource / verb: `bounce.get`
+- MCP tool: `listmonk_get_bounce`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:bounce`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.16.0`
+
 ## `user-roles.reconcile`
 
 Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles

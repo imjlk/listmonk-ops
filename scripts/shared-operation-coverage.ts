@@ -1,4 +1,5 @@
 import { abTestOperations } from "../packages/abtest/src/operations";
+import { bouncesTools } from "../packages/mcp/src/handlers/bounces";
 import { abtestTools } from "../packages/mcp/src/handlers/abtest";
 import { campaignsTools } from "../packages/mcp/src/handlers/campaigns";
 import { discoveryTools } from "../packages/mcp/src/handlers/discovery";
@@ -24,6 +25,7 @@ import { campaignOperations } from "../packages/operations/src/campaigns";
 import { discoveryOperations } from "../packages/operations/src/discovery";
 import { listOperations } from "../packages/operations/src/lists";
 import { mediaOperations } from "../packages/operations/src/media";
+import { bouncesOperations } from "../packages/operations/src/bounces";
 import { subscriberOperations } from "../packages/operations/src/subscribers";
 import { templateOperations } from "../packages/operations/src/templates";
 import { transactionalOperations } from "../packages/operations/src/transactional";
@@ -33,6 +35,7 @@ import type { MCPTool } from "../packages/mcp/src/types/mcp";
 
 export type SharedOperation =
 	| (typeof abTestOperations)[number]
+	| (typeof bouncesOperations)[number]
 	| (typeof campaignOperations)[number]
 	| (typeof discoveryOperations)[number]
 	| (typeof listOperations)[number]
@@ -186,6 +189,10 @@ export function assertTemplateOperationsPublished(): void {
 
 export function assertMediaOperationsPublished(): void {
 	assertOperationFamilyPublished("media", mediaOperations, mediaTools);
+}
+
+export function assertBouncesOperationsPublished(): void {
+	assertOperationFamilyPublished("bounces", bouncesOperations, bouncesTools);
 }
 
 export function assertTransactionalOperationsPublished(): void {

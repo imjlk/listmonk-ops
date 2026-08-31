@@ -27,6 +27,7 @@ import {
 import { providerOperationSpecs, providerResource } from "./providers";
 import {
 	audienceResource,
+	bounceResource,
 	listResource,
 	mediaResource,
 	templateResource,
@@ -76,6 +77,7 @@ export const emailOperationsSpec =
 			listResource,
 			templateResource,
 			mediaResource,
+			bounceResource,
 			audienceResource,
 			userRoleResource,
 		],

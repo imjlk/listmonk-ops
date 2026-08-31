@@ -1,4 +1,5 @@
 export * from "./abtest";
+export * from "./bounces";
 export * from "./campaign";
 export * from "./discovery";
 export * from "./list";

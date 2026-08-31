@@ -175,6 +175,16 @@ Transitions:
 - `available` → `deleted`
 - `deleted` → none
 
+## `bounce` — Bounce record
+
+States: `recorded`.
+
+Terminal states: none.
+
+Transitions:
+
+- `recorded` → none
+
 ## `audience` — Resolved audience
 
 States: `current`, `drifted`, `suppressed`.

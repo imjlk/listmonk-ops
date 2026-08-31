@@ -85,6 +85,16 @@ export const operationCoverageContracts: readonly OperationCoverageContract[] = 
 			"packages/operations/src/media.ts#invokeMediaOperationByMcpName:function",
 	},
 	{
+		family: "bounces",
+		registry: "packages/operations/src/bounces.ts#bouncesOperations:variable",
+		testAnchor:
+			"scripts/shared-operation-coverage.ts#assertBouncesOperationsPublished:function",
+		mcpHandler:
+			"packages/mcp/src/handlers/bounces.ts#handleBouncesTools:function",
+		dispatcher:
+			"packages/operations/src/bounces.ts#invokeBouncesOperationByMcpName:function",
+	},
+	{
 		family: "transactional mail",
 		registry:
 			"packages/operations/src/transactional.ts#transactionalOperations:variable",

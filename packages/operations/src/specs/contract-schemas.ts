@@ -26,6 +26,10 @@ const contracts = generatedContractSchemas as unknown as Readonly<{
 	templateCollectionOutputContract: NormalizedContractSchema;
 	mediaRecordContract: NormalizedContractSchema;
 	mediaCollectionOutputContract: NormalizedContractSchema;
+	bounceRecordContract: NormalizedContractSchema;
+	bounceCollectionOutputContract: NormalizedContractSchema;
+	bounceListInputContract: NormalizedContractSchema;
+	bounceIdInputContract: NormalizedContractSchema;
 	campaignLifecycleInputContract: NormalizedContractSchema;
 	campaignLifecycleOutputContract: NormalizedContractSchema;
 	campaignPreflightInputContract: NormalizedContractSchema;
@@ -211,6 +215,11 @@ export const templateCollectionOutputContract =
 export const mediaRecordContract = contracts.mediaRecordContract;
 export const mediaCollectionOutputContract =
 	contracts.mediaCollectionOutputContract;
+export const bounceRecordContract = contracts.bounceRecordContract;
+export const bounceCollectionOutputContract =
+	contracts.bounceCollectionOutputContract;
+export const bounceListInputContract = contracts.bounceListInputContract;
+export const bounceIdInputContract = contracts.bounceIdInputContract;
 export const campaignLifecycleInputContract =
 	contracts.campaignLifecycleInputContract;
 export const campaignLifecycleOutputContract =

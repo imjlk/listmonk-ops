@@ -194,13 +194,15 @@ describe("email operations specification", () => {
 			"abtest.tick",
 			"abtest.reconcile",
 			"abtest.export-assignment",
+			"bounces.list",
+			"bounces.get",
 		]);
 	});
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(104);
-		expect(new Set(operationIds).size).toBe(104);
+		expect(operationIds).toHaveLength(106);
+		expect(new Set(operationIds).size).toBe(106);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),
