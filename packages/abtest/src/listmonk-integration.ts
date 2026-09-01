@@ -414,11 +414,13 @@ export class ListmonkAbTestIntegration {
 			for (const group of variantGroups) {
 				variantSubscriberSlices.push({
 					variantId: group.variantId,
-					subscriberIds:
-						subscribersByGroupKey.get(`variant:${group.variantId}`) ?? [],
+					subscriberIds: subscribersByGroupKey.get(groupKeyOf(group)) ?? [],
 				});
 			}
-			holdoutSubscriberIds = subscribersByGroupKey.get("holdout") ?? [];
+			holdoutSubscriberIds =
+				holdoutGroup !== undefined
+					? (subscribersByGroupKey.get(groupKeyOf(holdoutGroup)) ?? [])
+					: [];
 			// The manifest's per-group checksums were computed by
 			// buildAssignmentManifest over the unstratified ranked slices;
 			// recompute them from the slices actually applied so a later

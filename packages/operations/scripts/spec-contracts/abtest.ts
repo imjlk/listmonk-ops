@@ -91,6 +91,8 @@ export type AbTestAssignmentGroup =
 
 export interface AbTestAssignmentManifest {
 	algorithm: "sha256-order-largest-remainder-v1";
+	/** How the per-group checksums were derived; absent means the ranked manifest slices. */
+	checksumProvenance?: ("ranked" | "stratified-v1") | undefined;
 	seed: string;
 	audienceChecksum: string;
 	groups: AbTestAssignmentGroup[];

@@ -115,6 +115,7 @@ const metricSchema = z.object({
 
 const assignmentManifestSchema = z.object({
 	algorithm: z.literal("sha256-order-largest-remainder-v1"),
+	checksumProvenance: z.enum(["ranked", "stratified-v1"]).optional(),
 	seed: z.string(),
 	audienceChecksum: z.string(),
 	groups: z.array(

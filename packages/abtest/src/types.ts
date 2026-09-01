@@ -113,6 +113,7 @@ export interface AbTest {
 	 */
 	assignmentManifest?: {
 		algorithm: "sha256-order-largest-remainder-v1";
+		checksumProvenance?: "ranked" | "stratified-v1";
 		seed: string;
 		audienceChecksum: string;
 		groups: (
