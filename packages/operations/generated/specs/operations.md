@@ -993,6 +993,18 @@ Deliver the campaign to a bounded set of existing-subscriber emails for review. 
 - Retry: `unsafe`
 - Stability: `experimental` since `0.16.0`
 
+## `campaigns.analytics`
+
+Read view, click, link, or bounce analytics for a bounded set of campaigns over a date range.
+
+- Resource / verb: `campaign.analytics`
+- MCP tool: `listmonk_get_campaign_analytics`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:campaign`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.16.0`
+
 ## `media.delete`
 
 Delete an uploaded media file from Listmonk

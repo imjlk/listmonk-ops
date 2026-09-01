@@ -296,11 +296,19 @@ export function createCampaignOperations(
 		},
 		async getAnalytics(options: {
 			path: { type: "links" | "views" | "clicks" | "bounces" };
-			query: { from: string; to: string; id: string };
+			query: { from: string; to: string; id: string[] };
 		}) {
+			// The generated query type models a single id string, but the
+			// observed endpoint requires repeated id parameters; the client
+			// serializes an array as repeated keys.
 			const result = await getCampaignAnalytics({
 				...sdkOptions,
-				...options,
+				path: options.path,
+				query: {
+					from: options.query.from,
+					to: options.query.to,
+					id: options.query.id as unknown as string,
+				},
 			});
 			return (await transformResponse(result)) as FlattenedResponse<
 				Record<string, unknown>

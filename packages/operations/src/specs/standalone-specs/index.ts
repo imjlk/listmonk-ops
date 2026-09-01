@@ -28,6 +28,7 @@ import {
 	campaignsCloneOperationSpec,
 	campaignsPreviewOperationSpec,
 	campaignsTestOperationSpec,
+	campaignsAnalyticsOperationSpec,
 } from "./campaign-specs";
 import {
 	templatesCreateOperationSpec,
@@ -94,6 +95,7 @@ export const standaloneOperationSpecs = [
 	campaignsCloneOperationSpec,
 	campaignsPreviewOperationSpec,
 	campaignsTestOperationSpec,
+	campaignsAnalyticsOperationSpec,
 	mediaDeleteOperationSpec,
 	mediaUploadOperationSpec,
 	opsSegmentDriftOperationSpec,

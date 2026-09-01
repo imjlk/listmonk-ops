@@ -1150,6 +1150,20 @@ Verify with: none
 
 Retry guidance: Do not blindly repeat: each confirmed request re-sends the message. Verify the received mail (or the messenger log) before retrying.
 
+## Read campaign analytics (`campaigns.analytics`)
+
+Contract maturity: `experimental`; effects: `read:campaign`; confirmation: `never`; retry: `safe`.
+
+Use when: Campaign engagement (views, clicks, link performance, bounces) must be analyzed over a date range.
+
+Avoid when: Aggregate send-time statistics are sufficient — prefer campaigns.stats.
+
+Prerequisites: `campaigns.list`
+
+Verify with: none
+
+Retry guidance: Retry transient read failures with bounded backoff.
+
 ## Delete media file (`media.delete`)
 
 Contract maturity: `stable`; effects: `delete:media`; confirmation: `required`; retry: `reconcile`.

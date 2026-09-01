@@ -6,6 +6,7 @@ import {
 	bindCampaignScheduleOperationSpec,
 	bindCampaignStartOperationSpec,
 	bindCampaignsCloneOperationSpec,
+	bindCampaignsAnalyticsOperationSpec,
 	bindCampaignsPreviewOperationSpec,
 	bindCampaignsTestOperationSpec,
 	bindCampaignsCreateOperationSpec,
@@ -16,6 +17,7 @@ import {
 	bindCampaignsUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
+import { CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE } from "./campaign-analytics-date";
 import {
 	MAX_CAMPAIGN_TEST_RECIPIENTS,
 	MAX_CAMPAIGN_TEST_RECIPIENT_EMAIL_LENGTH,
@@ -941,6 +943,69 @@ export async function cancelCampaign(
  * Render the stored campaign body to HTML without sending anything.
  * Listmonk answers with the rendered document, not a JSON envelope.
  */
+/** Bound on campaigns aggregated by one analytics read. */
+export const MAX_CAMPAIGN_ANALYTICS_IDS = 20;
+
+const ISO_CALENDAR_DATE_PATTERN = new RegExp(
+	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
+);
+
+const campaignAnalyticsInputSchema = z.object({
+	type: z.enum(["views", "clicks", "links", "bounces"]),
+	from: z
+		.string()
+		.regex(ISO_CALENDAR_DATE_PATTERN, "from must be a YYYY-MM-DD date"),
+	to: z
+		.string()
+		.regex(ISO_CALENDAR_DATE_PATTERN, "to must be a YYYY-MM-DD date"),
+	campaign_ids: z
+		.array(resourceIdSchema)
+		.min(1)
+		.max(MAX_CAMPAIGN_ANALYTICS_IDS),
+});
+
+const campaignAnalyticsOutputSchema = z.object({
+	type: z.enum(["views", "clicks", "links", "bounces"]),
+	from: z.string(),
+	to: z.string(),
+	campaign_ids: z.array(z.number().int().positive()),
+	results: z.array(z.looseObject({})),
+});
+
+/**
+ * Read recorded analytics rows for a bounded set of campaigns. The
+ * observed Listmonk 6.2 endpoint answers views/clicks/bounces with
+ * daily `{campaign_id, count, timestamp}` buckets and links with
+ * `{url, count}` aggregates; the shared contract normalizes only the
+ * envelope and returns the rows as observed.
+ */
+export async function readCampaignAnalytics(
+	{ client }: CampaignOperationContext,
+	input: z.output<typeof campaignAnalyticsInputSchema>,
+): Promise<z.output<typeof campaignAnalyticsOutputSchema>> {
+	const campaignIds = [...new Set(input.campaign_ids)].sort((a, b) => a - b);
+	const response = await client.campaign.getAnalytics({
+		path: { type: input.type },
+		query: {
+			from: input.from,
+			to: input.to,
+			id: campaignIds.map(String),
+		},
+	});
+	const rows = unwrapResourceResponse(
+		response,
+		"Failed to read campaign analytics",
+	);
+	const results = Array.isArray(rows) ? rows : [rows];
+	return {
+		type: input.type,
+		from: input.from,
+		to: input.to,
+		campaign_ids: campaignIds,
+		results: results as Record<string, unknown>[],
+	};
+}
+
 export async function previewCampaign(
 	{ client }: CampaignOperationContext,
 	input: z.output<typeof campaignPreviewInputSchema>,
@@ -1641,6 +1706,30 @@ export async function invokeCloneCampaignOperation(
 	);
 }
 
+export async function invokeGetCampaignAnalyticsOperation(
+	context: CampaignOperationContext,
+	input: unknown,
+): Promise<z.output<typeof campaignAnalyticsOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		getCampaignAnalyticsOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof campaignAnalyticsOutputSchema>;
+	try {
+		output = await readCampaignAnalytics(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(
+			getCampaignAnalyticsOperation.id,
+			error,
+		);
+	}
+	return parseOperationOutput(
+		getCampaignAnalyticsOperation.id,
+		getCampaignAnalyticsOperation.outputSchema,
+		output,
+	);
+}
+
 export async function invokePreviewCampaignOperation(
 	context: CampaignOperationContext,
 	input: unknown,
@@ -1704,6 +1793,22 @@ export async function invokeGetCampaignStatsOperation(
 	);
 }
 
+export const getCampaignAnalyticsOperation = defineOperation({
+	id: "campaigns.analytics",
+	title: "Read campaign analytics",
+	description:
+		"Read view, click, link, or bounce analytics for a bounded set of campaigns over a date range.",
+	inputSchema: campaignAnalyticsInputSchema,
+	outputSchema: campaignAnalyticsOutputSchema,
+	safety: readResourceSafety,
+	mcp: {
+		name: "listmonk_get_campaign_analytics",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindCampaignsAnalyticsOperationSpec(),
+	execute: readCampaignAnalytics,
+});
+
 export const previewCampaignOperation = defineOperation({
 	id: "campaigns.preview",
 	title: "Preview campaign",
@@ -1758,6 +1863,7 @@ export const campaignOperations = [
 	getCampaignStatsOperation,
 	previewCampaignOperation,
 	testCampaignOperation,
+	getCampaignAnalyticsOperation,
 ] as const;
 
 export const campaignOperationCatalog = defineOperationCatalog({
@@ -1839,6 +1945,11 @@ export async function invokeCampaignOperationByMcpName(
 			return {
 				operation: cloneCampaignOperation,
 				output: await invokeCloneCampaignOperation(context, input),
+			};
+		case getCampaignAnalyticsOperation.mcp.name:
+			return {
+				operation: getCampaignAnalyticsOperation,
+				output: await invokeGetCampaignAnalyticsOperation(context, input),
 			};
 		case previewCampaignOperation.mcp.name:
 			return {

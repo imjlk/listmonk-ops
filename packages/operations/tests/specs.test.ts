@@ -173,6 +173,7 @@ describe("email operations specification", () => {
 			"campaigns.clone",
 			"campaigns.preview",
 			"campaigns.test",
+			"campaigns.analytics",
 			"media.delete",
 			"media.upload",
 			"ops.segments.drift",
@@ -205,8 +206,8 @@ describe("email operations specification", () => {
 
 	test("models every public shared operation with governed contracts", () => {
 		const operationIds = emailOperationsSpec.operations.map(({ id }) => id);
-		expect(operationIds).toHaveLength(110);
-		expect(new Set(operationIds).size).toBe(110);
+		expect(operationIds).toHaveLength(111);
+		expect(new Set(operationIds).size).toBe(111);
 		expect(
 			runtimeOperationContractIds.every((operationId) =>
 				operationIds.includes(operationId),

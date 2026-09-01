@@ -13,6 +13,7 @@ import {
 	invokeDeleteCampaignOperation,
 	invokeGetCampaignOperation,
 	invokeGetCampaignsOperation,
+	invokeGetCampaignAnalyticsOperation,
 	invokeGetCampaignStatsOperation,
 	invokePreviewCampaignOperation,
 	invokeTestCampaignOperation,
@@ -232,6 +233,22 @@ export async function renderGetCampaignStats(
 	const stats = await invokeGetCampaignStatsOperation(context, input);
 	context.output.success(`Campaign ${input.id} stats`);
 	context.output.json(stats);
+}
+
+export async function renderCampaignAnalytics(
+	context: CampaignsCliContext,
+	input: {
+		type: "views" | "clicks" | "links" | "bounces";
+		from: string;
+		to: string;
+		campaign_ids: number[];
+	},
+): Promise<void> {
+	const analytics = await invokeGetCampaignAnalyticsOperation(context, input);
+	context.output.success(
+		`Campaign analytics (${analytics.type}) for ${analytics.campaign_ids.join(", ")}: ${analytics.results.length} row(s)`,
+	);
+	context.output.json(analytics);
 }
 
 export async function renderPreviewCampaign(
@@ -563,6 +580,33 @@ export async function handleCancelCampaignCommand({
 		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to cancel campaign", error);
+	}
+}
+
+export async function handleCampaignAnalyticsCommand({
+	flags,
+	...args
+}: HandlerArgs<{
+	type: "views" | "clicks" | "links" | "bounces";
+	from: string;
+	to: string;
+	"campaign-ids": string;
+}>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderCampaignAnalytics({ client, output: getOutput() }, {
+			type: flags.type,
+			from: flags.from,
+			to: flags.to,
+			campaign_ids: (parseCsvStrings(flags["campaign-ids"]) ?? []).map(
+				Number,
+			),
+		});
+	} catch (error) {
+		throw createCampaignCommandError(
+			"Failed to read campaign analytics",
+			error,
+		);
 	}
 }
 
@@ -956,6 +1000,29 @@ export default defineGroup({
 				),
 			},
 			handler: handleCloneCampaignCommand,
+		}),
+		defineCommand({
+			name: "analytics",
+			operationId: "campaigns.analytics",
+			description:
+				"Read view, click, link, or bounce analytics for campaigns over a date range",
+			options: {
+				type: option(
+					z.enum(["views", "clicks", "links", "bounces"]),
+					{ description: "Analytics facet to read" },
+				),
+				from: option(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), {
+					description: "Range start (YYYY-MM-DD)",
+				}),
+				to: option(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), {
+					description: "Range end (YYYY-MM-DD)",
+				}),
+				"campaign-ids": option(z.string().trim().min(1), {
+					description:
+						"Comma-separated campaign ids to aggregate (at most 20)",
+				}),
+			},
+			handler: handleCampaignAnalyticsCommand,
 		}),
 		defineCommand({
 			name: "preview",

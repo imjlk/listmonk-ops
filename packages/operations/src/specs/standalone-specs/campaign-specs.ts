@@ -1,5 +1,7 @@
 import { defineOperationSpec } from "../operation";
 import {
+	campaignAnalyticsInputContract,
+	campaignAnalyticsOutputContract,
 	campaignPreviewInputContract,
 	campaignPreviewOutputContract,
 	campaignTestInputContract,
@@ -291,6 +293,61 @@ export const campaignsCloneOperationSpec = defineOperationSpec({
 	stability: "stable",
 	since: "0.9.0",
 });
+
+export const campaignsAnalyticsOperationSpec = defineOperationSpec({
+	id: "campaigns.analytics",
+	resource: "campaign",
+	verb: "analytics",
+	title: "Read campaign analytics",
+	description:
+		"Read view, click, link, or bounce analytics for a bounded set of campaigns over a date range.",
+	contract: {
+		input: campaignAnalyticsInputContract,
+		output: campaignAnalyticsOutputContract,
+	},
+	effects: [{ kind: "read", resource: "campaign" }],
+	policy: {
+		confirmation: "never",
+		audit: "optional",
+		dryRun: false,
+	},
+	retry: {
+		kind: "safe",
+		reason: "The operation only reads recorded analytics rows.",
+	},
+	agent: {
+		useWhen: [
+			"Campaign engagement (views, clicks, link performance, bounces) must be analyzed over a date range.",
+		],
+		avoidWhen: ["Aggregate send-time statistics are sufficient — prefer campaigns.stats."],
+		prerequisites: ["campaigns.list"],
+		verifyWith: [],
+		related: ["campaigns.stats", "ops.campaign.preflight"],
+		retryGuidance: "Retry transient read failures with bounded backoff.",
+	},
+	projection: {
+		mcpName: "listmonk_get_campaign_analytics",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsAnalyticsOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsAnalyticsOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/campaigns.ts#getCampaignAnalyticsOperation:variable",
+			invokerNode:
+				"packages/operations/src/campaigns.ts#invokeGetCampaignAnalyticsOperation:function",
+			executorNode:
+				"packages/operations/src/campaigns.ts#readCampaignAnalytics:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.16.0",
+});
+
+export function bindCampaignsAnalyticsOperationSpec(): typeof campaignsAnalyticsOperationSpec {
+	return campaignsAnalyticsOperationSpec;
+}
 
 export const campaignsPreviewOperationSpec = defineOperationSpec({
 	id: "campaigns.preview",

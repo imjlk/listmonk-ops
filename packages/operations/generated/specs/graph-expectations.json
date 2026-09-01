@@ -2217,6 +2217,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/campaigns.ts#getCampaignAnalyticsOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsAnalyticsOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsAnalyticsOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsAnalyticsOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeGetCampaignAnalyticsOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#readCampaignAnalytics:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsAnalyticsOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsAnalyticsOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#readCampaignAnalytics:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeGetCampaignAnalyticsOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#getCampaignAnalyticsOperation:variable"
+      },
+      "operationId": "campaigns.analytics"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/media.ts#deleteMediaOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/media-specs.ts#bindMediaDeleteOperationSpec:function"

@@ -214,6 +214,47 @@ describe("Campaign preview and test CLI/MCP parity", () => {
 		}
 	});
 
+	test("reads the same analytics rows through both adapters", async () => {
+		const cliAnalytics = parseCliJson<{
+			type?: string;
+			campaign_ids?: number[];
+			results?: unknown[];
+		}>(
+			runCliCampaignCommand([
+				"--format",
+				"json",
+				"analytics",
+				"--type",
+				"views",
+				"--from",
+				"2026-08-01",
+				"--to",
+				"2026-09-30",
+				"--campaign-ids",
+				"1",
+			]),
+			"analytics",
+		);
+		expect(cliAnalytics.type).toBe("views");
+		expect(cliAnalytics.campaign_ids).toEqual([1]);
+
+		const mcpAnalytics = utils.assertSuccess<{
+			type?: string;
+			campaign_ids?: number[];
+			results?: unknown[];
+		}>(
+			await client.callTool("listmonk_get_campaign_analytics", {
+				type: "views",
+				from: "2026-08-01",
+				to: "2026-09-30",
+				campaign_ids: [1],
+			}),
+			"Failed to read analytics through MCP",
+		);
+		expect(mcpAnalytics.type).toBe("views");
+		expect(mcpAnalytics.results).toEqual(cliAnalytics.results);
+	});
+
 	test("rejects unknown recipients identically on both adapters", async () => {
 		const fixtureId = (await createDraftCampaignFixture()).id;
 		try {

@@ -52,7 +52,7 @@ behavior to CLI and MCP with a 500-role and 1 MiB serialized-payload bound,
 default dry run, explicit confirmation, and body-free success and
 partial-failure summaries.
 
-All 110 public shared operations attach an
+All 111 public shared operations attach an
 `@listmonk-ops/operations/specs` descriptor. The operation definition validates
 runtime identity, safety hints, MCP metadata, and normalized input/output
 contracts against the declaration, while catalog summaries expose a detached
@@ -69,7 +69,7 @@ Listmonk OpenAPI transport
   -> operation spec (resource, effect, policy, retry, agent context)
 ```
 
-All 110 contracts are authored as TypeScript types and projected with Typia.
+All 111 contracts are authored as TypeScript types and projected with Typia.
 The four bounce operations (`bounces.list`, `bounces.get`, `bounces.delete`,
 `bounces.prune`) and the campaign preview/test-send operations
 (`campaigns.preview`, `campaigns.test`) are `experimental` until their
@@ -122,9 +122,9 @@ agent-skill, graph, stable compatibility, and migration-exemption artifacts.
 Run `bun run specs:stable:accept` only after explicitly reviewing an intentional
 stable-contract change.
 
-The runtime-operation bridge infrastructure is now empty — all 110
+The runtime-operation bridge infrastructure is now empty — all 111
 operations have standalone product-domain contracts. The final root
-build loads all 110 runtime operations and validates them against their
+build loads all 111 runtime operations and validates them against their
 standalone TypeScript contracts.
 
 The main package exports a `discoveryOperationCatalog` with shared named

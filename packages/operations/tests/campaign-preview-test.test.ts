@@ -1,6 +1,7 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import {
+	invokeGetCampaignAnalyticsOperation,
 	invokePreviewCampaignOperation,
 	invokeTestCampaignOperation,
 } from "../src/campaigns";
@@ -149,5 +150,64 @@ describe("campaign preview and test operations", () => {
 		).catch((failure: unknown) => failure);
 		expect(error).toBeInstanceOf(OperationExecutionError);
 		expect((error as Error).message).toContain("negative acknowledgement");
+	});
+});
+
+describe("campaign analytics operation", () => {
+	test("normalizes analytics rows and repeats campaign ids", async () => {
+		const getAnalytics = mock(async () => ({
+			data: [{ campaign_id: 1, count: 2, timestamp: "2026-09-01T00:00:00Z" }],
+		}));
+
+		await expect(
+			invokeGetCampaignAnalyticsOperation(
+				campaignContext({
+					getAnalytics:
+						getAnalytics as unknown as CampaignClient["campaign"]["getAnalytics"],
+				}),
+				{
+					type: "views",
+					from: "2026-08-01",
+					to: "2026-09-01",
+					campaign_ids: ["2", "1", "2"],
+				},
+			),
+		).resolves.toEqual({
+			type: "views",
+			from: "2026-08-01",
+			to: "2026-09-01",
+			campaign_ids: [1, 2],
+			results: [{ campaign_id: 1, count: 2, timestamp: "2026-09-01T00:00:00Z" }],
+		});
+
+		expect(getAnalytics).toHaveBeenCalledWith({
+			path: { type: "views" },
+			query: { from: "2026-08-01", to: "2026-09-01", id: ["1", "2"] },
+		});
+	});
+
+	test("rejects malformed dates and oversized id sets before requests", async () => {
+		const getAnalytics = mock(async () => ({ data: [] }));
+		const context = campaignContext({
+			getAnalytics: getAnalytics as unknown as CampaignClient["campaign"]["getAnalytics"],
+		});
+
+		await expect(
+			invokeGetCampaignAnalyticsOperation(context, {
+				type: "views",
+				from: "08/01/2026",
+				to: "2026-09-01",
+				campaign_ids: [1],
+			}),
+		).rejects.toThrow();
+		await expect(
+			invokeGetCampaignAnalyticsOperation(context, {
+				type: "views",
+				from: "2026-08-01",
+				to: "2026-09-01",
+				campaign_ids: Array.from({ length: 21 }, (_, i) => i + 1),
+			}),
+		).rejects.toThrow();
+		expect(getAnalytics).not.toHaveBeenCalled();
 	});
 });
