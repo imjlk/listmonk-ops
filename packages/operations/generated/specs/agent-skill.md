@@ -1124,7 +1124,7 @@ Retry guidance: Key the clone with idempotency_key so an ambiguous retry replays
 
 ## Preview campaign (`campaigns.preview`)
 
-Contract maturity: `experimental`; effects: `read:campaign`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:campaign`; confirmation: `never`; retry: `safe`.
 
 Use when: A campaign's rendered output must be inspected before launch.
 
@@ -1138,7 +1138,7 @@ Retry guidance: Retry transient render failures with bounded backoff.
 
 ## Send a campaign test message (`campaigns.test`)
 
-Contract maturity: `experimental`; effects: `delivery:single:immediate`; confirmation: `never`; retry: `unsafe`.
+Contract maturity: `stable`; effects: `delivery:single:immediate`; confirmation: `never`; retry: `unsafe`.
 
 Use when: A campaign draft must be reviewed in a real inbox before launch.
 
@@ -1152,7 +1152,7 @@ Retry guidance: Do not blindly repeat: each confirmed request re-sends the messa
 
 ## Read campaign analytics (`campaigns.analytics`)
 
-Contract maturity: `experimental`; effects: `read:campaign`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:campaign`; confirmation: `never`; retry: `safe`.
 
 Use when: Campaign engagement (views, clicks, link performance, bounces) must be analyzed over a date range.
 
@@ -1488,7 +1488,7 @@ Retry guidance: Retry is safe; the export is read-only.
 
 ## List bounces (`bounces.list`)
 
-Contract maturity: `experimental`; effects: `read:bounce`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:bounce`; confirmation: `never`; retry: `safe`.
 
 Use when: Bounce records must be discovered, filtered by campaign or source, or audited before cleanup.
 
@@ -1502,7 +1502,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Get bounce (`bounces.get`)
 
-Contract maturity: `experimental`; effects: `read:bounce`; confirmation: `never`; retry: `safe`.
+Contract maturity: `stable`; effects: `read:bounce`; confirmation: `never`; retry: `safe`.
 
 Use when: A single bounce record must be inspected by its numeric ID, including its subscriber attribution and diagnostic metadata.
 
@@ -1516,7 +1516,7 @@ Retry guidance: Retry transient read failures with bounded backoff.
 
 ## Delete bounce (`bounces.delete`)
 
-Contract maturity: `experimental`; effects: `delete:bounce`; confirmation: `required`; retry: `reconcile`.
+Contract maturity: `stable`; effects: `delete:bounce`; confirmation: `required`; retry: `reconcile`.
 
 Use when: A bounce record must be removed from Listmonk's history.
 
@@ -1530,7 +1530,7 @@ Retry guidance: Verify the record is gone with bounces.list before repeating; Li
 
 ## Prune bounce records (`bounces.prune`)
 
-Contract maturity: `experimental`; effects: `maintenance:prune:destructive`; confirmation: `required`; retry: `safe`.
+Contract maturity: `stable`; effects: `maintenance:prune:destructive`; confirmation: `required`; retry: `safe`.
 
 Use when: Bounce history must be cleaned up after review, one bounded previewed batch at a time.
 

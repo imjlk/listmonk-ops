@@ -554,13 +554,13 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 111 contracts are standalone TypeScript/Typia product contracts. Of
-these, 104 are `stable`; the four bounce operations (`bounces.list`,
-`bounces.get`, `bounces.delete`, `bounces.prune`) and the campaign
-preview, test-send, and analytics operations (`campaigns.preview`,
-`campaigns.test`, `campaigns.analytics`) are `experimental` until their
-observed Listmonk 6.2 response shapes are accepted into the stable
-compatibility baseline. The runtime-operation
+All 111 contracts are standalone TypeScript/Typia product contracts, and
+all 111 are `stable`: the bounce family (`bounces.list`, `bounces.get`,
+`bounces.delete`, `bounces.prune`) and the campaign preview, test-send,
+and analytics operations (`campaigns.preview`, `campaigns.test`,
+`campaigns.analytics`) joined the accepted stable compatibility baseline
+after their observed Listmonk 6.2 response shapes were verified against
+the local stack. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at the
 generated transport and handwritten adapter first; the product spec
@@ -843,7 +843,7 @@ after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
 also verifies all 111 shared operations, the API boundary rule, the 0
-runtime bridges, the 104 stable compatibility baselines, and 338 direct
+runtime bridges, the 111 stable compatibility baselines, and 338 direct
 spec-to-runtime graph edges.
 
 All 111 shared operations now use standalone TypeScript contracts. There are

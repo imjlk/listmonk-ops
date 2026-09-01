@@ -26232,6 +26232,541 @@
         "input": {
           "components": {
             "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignPreviewOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "html": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Fully rendered HTML preview of the campaign body."
+                  }
+                },
+                "required": [
+                  "html"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "html": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Fully rendered HTML preview of the campaign body."
+              }
+            },
+            "required": [
+              "html"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "campaign"
+        }
+      ],
+      "id": "campaigns.preview",
+      "mcpName": "listmonk_preview_campaign",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only renders the stored campaign body."
+      },
+      "verb": "preview"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignTestInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Optional body override for the rendered test message."
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                    "description": "Optional From address override for the rendered test message."
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                    "description": "Optional messenger override; defaults to the campaign's messenger."
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                    "description": "Optional subject override for the rendered test message."
+                  },
+                  "subscribers": {
+                    "description": "Emails of existing subscribers who receive the test message. The\nobserved Listmonk 6.2 endpoint rejects unknown emails.",
+                    "items": {
+                      "$ref": "#/components/schemas/CampaignTestRecipientEmail"
+                    },
+                    "maxItems": 10,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Optional template override for the rendered test message."
+                  }
+                },
+                "required": [
+                  "id",
+                  "subscribers"
+                ],
+                "type": "object"
+              },
+              "CampaignTestRecipientEmail": {
+                "description": "Bounded email of one existing subscriber who receives a campaign test\nmessage, shared by the published contract and future variants.",
+                "format": "email",
+                "maxLength": 254,
+                "minLength": 1,
+                "type": "string"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TrimmedNonEmptyString": {
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Optional body override for the rendered test message."
+              },
+              "from_email": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                "description": "Optional From address override for the rendered test message."
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              },
+              "messenger": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                "description": "Optional messenger override; defaults to the campaign's messenger."
+              },
+              "subject": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                "description": "Optional subject override for the rendered test message."
+              },
+              "subscribers": {
+                "description": "Emails of existing subscribers who receive the test message. The\nobserved Listmonk 6.2 endpoint rejects unknown emails.",
+                "items": {
+                  "$ref": "#/components/schemas/CampaignTestRecipientEmail"
+                },
+                "maxItems": 10,
+                "minItems": 1,
+                "type": "array"
+              },
+              "template_id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Optional template override for the rendered test message."
+              }
+            },
+            "required": [
+              "id",
+              "subscribers"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignTestOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "sent": {
+                    "type": "boolean"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "id",
+                  "subscribers",
+                  "sent"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "sent": {
+                "type": "boolean"
+              },
+              "subscribers": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "subscribers",
+              "sent"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "audience": "single",
+          "kind": "delivery",
+          "resource": "campaign",
+          "timing": "immediate"
+        }
+      ],
+      "id": "campaigns.test",
+      "mcpName": "listmonk_test_campaign",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "unsafe",
+        "reason": "Every run dispatches a fresh message to every listed recipient; Listmonk offers no test-send idempotency key, so a retry re-sends. Single, explicitly chosen recipients keep the transactional-send convention of not requiring a destructive confirmation."
+      },
+      "verb": "test"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignAnalyticsDate": {
+                "minLength": 1,
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "type": "string"
+              },
+              "CampaignAnalyticsInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "campaign_ids": {
+                    "description": "Campaign ids to aggregate, repeated as id query parameters.",
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "maxItems": 20,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "from": {
+                    "$ref": "#/components/schemas/CampaignAnalyticsDate",
+                    "description": "Inclusive range start as an ISO calendar date (YYYY-MM-DD)."
+                  },
+                  "to": {
+                    "$ref": "#/components/schemas/CampaignAnalyticsDate",
+                    "description": "Inclusive range end as an ISO calendar date (YYYY-MM-DD)."
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/CampaignAnalyticsType",
+                    "description": "Analytics facet to read."
+                  }
+                },
+                "required": [
+                  "type",
+                  "from",
+                  "to",
+                  "campaign_ids"
+                ],
+                "type": "object"
+              },
+              "CampaignAnalyticsType": {
+                "oneOf": [
+                  {
+                    "const": "bounces"
+                  },
+                  {
+                    "const": "clicks"
+                  },
+                  {
+                    "const": "links"
+                  },
+                  {
+                    "const": "views"
+                  }
+                ]
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "campaign_ids": {
+                "description": "Campaign ids to aggregate, repeated as id query parameters.",
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "maxItems": 20,
+                "minItems": 1,
+                "type": "array"
+              },
+              "from": {
+                "$ref": "#/components/schemas/CampaignAnalyticsDate",
+                "description": "Inclusive range start as an ISO calendar date (YYYY-MM-DD)."
+              },
+              "to": {
+                "$ref": "#/components/schemas/CampaignAnalyticsDate",
+                "description": "Inclusive range end as an ISO calendar date (YYYY-MM-DD)."
+              },
+              "type": {
+                "$ref": "#/components/schemas/CampaignAnalyticsType",
+                "description": "Analytics facet to read."
+              }
+            },
+            "required": [
+              "type",
+              "from",
+              "to",
+              "campaign_ids"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignAnalyticsOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "campaign_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "from": {
+                    "description": "Echoed range start.",
+                    "type": "string"
+                  },
+                  "results": {
+                    "description": "Observed rows: `{campaign_id, count, timestamp}` daily buckets for\nviews/clicks/bounces, `{url, count}` aggregates for links.",
+                    "items": {
+                      "$ref": "#/components/schemas/Recordstringunknown"
+                    },
+                    "type": "array"
+                  },
+                  "to": {
+                    "description": "Echoed range end.",
+                    "type": "string"
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/CampaignAnalyticsType"
+                  }
+                },
+                "required": [
+                  "type",
+                  "from",
+                  "to",
+                  "campaign_ids",
+                  "results"
+                ],
+                "type": "object"
+              },
+              "CampaignAnalyticsType": {
+                "oneOf": [
+                  {
+                    "const": "bounces"
+                  },
+                  {
+                    "const": "clicks"
+                  },
+                  {
+                    "const": "links"
+                  },
+                  {
+                    "const": "views"
+                  }
+                ]
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "campaign_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "type": "array"
+              },
+              "from": {
+                "description": "Echoed range start.",
+                "type": "string"
+              },
+              "results": {
+                "description": "Observed rows: `{campaign_id, count, timestamp}` daily buckets for\nviews/clicks/bounces, `{url, count}` aggregates for links.",
+                "items": {
+                  "$ref": "#/components/schemas/Recordstringunknown"
+                },
+                "type": "array"
+              },
+              "to": {
+                "description": "Echoed range end.",
+                "type": "string"
+              },
+              "type": {
+                "$ref": "#/components/schemas/CampaignAnalyticsType"
+              }
+            },
+            "required": [
+              "type",
+              "from",
+              "to",
+              "campaign_ids",
+              "results"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "campaign"
+        }
+      ],
+      "id": "campaigns.analytics",
+      "mcpName": "listmonk_get_campaign_analytics",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads recorded analytics rows."
+      },
+      "verb": "analytics"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
               "MediaDeleteInput": {
                 "additionalProperties": false,
                 "properties": {
@@ -34238,6 +34773,821 @@
         "reason": "The export is a read-only operation over persisted assignments."
       },
       "verb": "export-assignment"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "BounceListInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "campaign_id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Filter bounce records by the campaign they belong to."
+                  },
+                  "order": {
+                    "description": "Sort direction applied by Listmonk.",
+                    "oneOf": [
+                      {
+                        "const": "asc"
+                      },
+                      {
+                        "const": "desc"
+                      }
+                    ]
+                  },
+                  "order_by": {
+                    "description": "Sort field applied by Listmonk.",
+                    "oneOf": [
+                      {
+                        "const": "campaign_name"
+                      },
+                      {
+                        "const": "created_at"
+                      },
+                      {
+                        "const": "email"
+                      },
+                      {
+                        "const": "source"
+                      }
+                    ]
+                  },
+                  "page": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "One-based result page. Omitted values use the shared operation default."
+                  },
+                  "per_page": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "Number of records per page. Omitted values use the shared operation default."
+                  },
+                  "source": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                    "description": "Filter bounce records by their source of origin."
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TrimmedNonEmptyString": {
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "campaign_id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Filter bounce records by the campaign they belong to."
+              },
+              "order": {
+                "description": "Sort direction applied by Listmonk.",
+                "oneOf": [
+                  {
+                    "const": "asc"
+                  },
+                  {
+                    "const": "desc"
+                  }
+                ]
+              },
+              "order_by": {
+                "description": "Sort field applied by Listmonk.",
+                "oneOf": [
+                  {
+                    "const": "campaign_name"
+                  },
+                  {
+                    "const": "created_at"
+                  },
+                  {
+                    "const": "email"
+                  },
+                  {
+                    "const": "source"
+                  }
+                ]
+              },
+              "page": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "One-based result page. Omitted values use the shared operation default."
+              },
+              "per_page": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "Number of records per page. Omitted values use the shared operation default."
+              },
+              "source": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                "description": "Filter bounce records by their source of origin."
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "BounceCampaignSummary": {
+                "additionalProperties": {},
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "BounceCollectionOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "page": {
+                    "type": "number"
+                  },
+                  "per_page": {
+                    "type": "number"
+                  },
+                  "results": {
+                    "items": {
+                      "$ref": "#/components/schemas/BounceRecord"
+                    },
+                    "type": "array"
+                  },
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "results",
+                  "total",
+                  "per_page",
+                  "page"
+                ],
+                "type": "object"
+              },
+              "BounceRecord": {
+                "additionalProperties": {},
+                "description": "A Listmonk bounce record as observed from the 6.2 API. The upstream\nOpenAPI document misses `subscriber_status` and models a stray `total`\ninside the item, so this contract follows observed responses and keeps\nan index signature for forward compatibility.",
+                "properties": {
+                  "campaign": {
+                    "$ref": "#/components/schemas/BounceCampaignSummary"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "subscriber_status": {
+                    "type": "string"
+                  },
+                  "subscriber_uuid": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "page": {
+                "type": "number"
+              },
+              "per_page": {
+                "type": "number"
+              },
+              "results": {
+                "items": {
+                  "$ref": "#/components/schemas/BounceRecord"
+                },
+                "type": "array"
+              },
+              "total": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "results",
+              "total",
+              "per_page",
+              "page"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "bounce"
+        }
+      ],
+      "id": "bounces.list",
+      "mcpName": "listmonk_get_bounces",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "bounce",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current bounce collection."
+      },
+      "verb": "list"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "BounceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk bounce ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk bounce ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "BounceCampaignSummary": {
+                "additionalProperties": {},
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "BounceRecord": {
+                "additionalProperties": {},
+                "description": "A Listmonk bounce record as observed from the 6.2 API. The upstream\nOpenAPI document misses `subscriber_status` and models a stray `total`\ninside the item, so this contract follows observed responses and keeps\nan index signature for forward compatibility.",
+                "properties": {
+                  "campaign": {
+                    "$ref": "#/components/schemas/BounceCampaignSummary"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "meta": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "subscriber_id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "subscriber_status": {
+                    "type": "string"
+                  },
+                  "subscriber_uuid": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "Recordstringunknown": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": {},
+            "description": "A Listmonk bounce record as observed from the 6.2 API. The upstream\nOpenAPI document misses `subscriber_status` and models a stray `total`\ninside the item, so this contract follows observed responses and keeps\nan index signature for forward compatibility.",
+            "properties": {
+              "campaign": {
+                "$ref": "#/components/schemas/BounceCampaignSummary"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "meta": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "source": {
+                "type": "string"
+              },
+              "subscriber_id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "subscriber_status": {
+                "type": "string"
+              },
+              "subscriber_uuid": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "bounce"
+        }
+      ],
+      "id": "bounces.get",
+      "mcpName": "listmonk_get_bounce",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "resource": "bounce",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads the current bounce representation."
+      },
+      "verb": "get"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "BounceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk bounce ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk bounce ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "BounceDeleteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "deleted"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "deleted": {
+                "type": "boolean"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id",
+              "deleted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "bounce",
+          "reversible": false
+        }
+      ],
+      "id": "bounces.delete",
+      "mcpName": "listmonk_delete_bounce",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "resource": "bounce",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Deleting an already-deleted bounce is a no-op acknowledgement; verify the surviving set with bounces.list after an ambiguous result.",
+        "reconcileWith": "bounces.list"
+      },
+      "verb": "delete"
+    },
+    {
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "BouncePruneInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "bounce_ids": {
+                    "description": "The exact bounce ids a dry run reported (at most 100; an empty\nselection is a legitimate verbatim echo). Required for a destructive\nrun so a confirmed deletion never drifts from the previewed set.",
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "campaign_id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Filter bounce records by the campaign they belong to."
+                  },
+                  "dry_run": {
+                    "description": "Whether to only preview the deletion. Defaults to true.",
+                    "type": "boolean"
+                  },
+                  "order": {
+                    "description": "Sort direction applied by Listmonk.",
+                    "oneOf": [
+                      {
+                        "const": "asc"
+                      },
+                      {
+                        "const": "desc"
+                      }
+                    ]
+                  },
+                  "order_by": {
+                    "description": "Sort field applied by Listmonk.",
+                    "oneOf": [
+                      {
+                        "const": "campaign_name"
+                      },
+                      {
+                        "const": "created_at"
+                      },
+                      {
+                        "const": "email"
+                      },
+                      {
+                        "const": "source"
+                      }
+                    ]
+                  },
+                  "page": {
+                    "$ref": "#/components/schemas/PositiveInteger",
+                    "description": "One-based page of the selection window a dry run previews."
+                  },
+                  "per_page": {
+                    "$ref": "#/components/schemas/BouncePruneWindowLimit",
+                    "description": "Selection window size, at most 100. Omitted values use the shared operation default."
+                  },
+                  "source": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                    "description": "Filter bounce records by their source of origin."
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "BouncePruneWindowLimit": {
+                "description": "Selection window size bound for one previewed prune batch.",
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "PositiveInteger": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TrimmedNonEmptyString": {
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "bounce_ids": {
+                "description": "The exact bounce ids a dry run reported (at most 100; an empty\nselection is a legitimate verbatim echo). Required for a destructive\nrun so a confirmed deletion never drifts from the previewed set.",
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              "campaign_id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Filter bounce records by the campaign they belong to."
+              },
+              "dry_run": {
+                "description": "Whether to only preview the deletion. Defaults to true.",
+                "type": "boolean"
+              },
+              "order": {
+                "description": "Sort direction applied by Listmonk.",
+                "oneOf": [
+                  {
+                    "const": "asc"
+                  },
+                  {
+                    "const": "desc"
+                  }
+                ]
+              },
+              "order_by": {
+                "description": "Sort field applied by Listmonk.",
+                "oneOf": [
+                  {
+                    "const": "campaign_name"
+                  },
+                  {
+                    "const": "created_at"
+                  },
+                  {
+                    "const": "email"
+                  },
+                  {
+                    "const": "source"
+                  }
+                ]
+              },
+              "page": {
+                "$ref": "#/components/schemas/PositiveInteger",
+                "description": "One-based page of the selection window a dry run previews."
+              },
+              "per_page": {
+                "$ref": "#/components/schemas/BouncePruneWindowLimit",
+                "description": "Selection window size, at most 100. Omitted values use the shared operation default."
+              },
+              "source": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                "description": "Filter bounce records by their source of origin."
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "BouncePruneOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "acknowledged": {
+                    "description": "Per-id acknowledgement count; present on destructive runs.",
+                    "type": "number"
+                  },
+                  "bounce_ids": {
+                    "items": {
+                      "$ref": "#/components/schemas/ResourceId"
+                    },
+                    "type": "array"
+                  },
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "page": {
+                    "type": "number"
+                  },
+                  "per_page": {
+                    "type": "number"
+                  },
+                  "total": {
+                    "description": "Selection-window metadata; present on dry-run previews.",
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "dry_run",
+                  "bounce_ids"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "acknowledged": {
+                "description": "Per-id acknowledgement count; present on destructive runs.",
+                "type": "number"
+              },
+              "bounce_ids": {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceId"
+                },
+                "type": "array"
+              },
+              "dry_run": {
+                "type": "boolean"
+              },
+              "page": {
+                "type": "number"
+              },
+              "per_page": {
+                "type": "number"
+              },
+              "total": {
+                "description": "Selection-window metadata; present on dry-run previews.",
+                "type": "number"
+              }
+            },
+            "required": [
+              "dry_run",
+              "bounce_ids"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "effects": [
+        {
+          "action": "prune",
+          "destructive": true,
+          "kind": "maintenance",
+          "resource": "bounce"
+        }
+      ],
+      "id": "bounces.prune",
+      "mcpName": "listmonk_prune_bounces",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "resource": "bounce",
+      "retry": {
+        "kind": "safe",
+        "reason": "A destructive run deletes exactly the echoed bounce ids through per-id requests whose missing-id acknowledgement is the same success, so repeating the identical echoed request is a documented no-op. Dry runs only preview the selection window."
+      },
+      "verb": "prune"
     },
     {
       "contract": {

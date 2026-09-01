@@ -69,11 +69,10 @@ Listmonk OpenAPI transport
   -> operation spec (resource, effect, policy, retry, agent context)
 ```
 
-All 111 contracts are authored as TypeScript types and projected with Typia.
-The four bounce operations (`bounces.list`, `bounces.get`, `bounces.delete`,
-`bounces.prune`) and the campaign preview/test-send operations
-(`campaigns.preview`, `campaigns.test`) are `experimental` until their
-observed Listmonk 6.2 response shapes join the accepted stable baseline.
+All 111 contracts are authored as TypeScript types and projected with Typia,
+and all 111 are `stable`; the bounce family and the campaign preview,
+test-send, and analytics operations joined the accepted baseline after
+local-stack verification.
 The runtime-operation bridge infrastructure is now empty — all operations
 have standalone product-domain contracts. Ninety reviewed core operations
 are `stable`, including the first
