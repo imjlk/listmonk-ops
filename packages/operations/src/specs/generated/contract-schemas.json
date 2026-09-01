@@ -6624,7 +6624,7 @@
               "description": "Optional body override for the rendered test message."
             },
             "from_email": {
-              "$ref": "#/components/schemas/NonEmptyString",
+              "$ref": "#/components/schemas/TrimmedNonEmptyString",
               "description": "Optional From address override for the rendered test message."
             },
             "id": {
@@ -6640,12 +6640,9 @@
               "description": "Optional subject override for the rendered test message."
             },
             "subscribers": {
-              "description": "Emails of existing subscribers who receive the test message (1 to\n10). The observed Listmonk 6.2 endpoint rejects unknown emails.",
+              "description": "Emails of existing subscribers who receive the test message. The\nobserved Listmonk 6.2 endpoint rejects unknown emails.",
               "items": {
-                "format": "email",
-                "maxLength": 254,
-                "minLength": 1,
-                "type": "string"
+                "$ref": "#/components/schemas/CampaignTestRecipientEmail"
               },
               "maxItems": 10,
               "minItems": 1,
@@ -6661,6 +6658,13 @@
             "subscribers"
           ],
           "type": "object"
+        },
+        "CampaignTestRecipientEmail": {
+          "description": "Bounded email of one existing subscriber who receives a campaign test\nmessage, shared by the published contract and future variants.",
+          "format": "email",
+          "maxLength": 254,
+          "minLength": 1,
+          "type": "string"
         },
         "NonEmptyString": {
           "minLength": 1,
@@ -6687,7 +6691,7 @@
           "description": "Optional body override for the rendered test message."
         },
         "from_email": {
-          "$ref": "#/components/schemas/NonEmptyString",
+          "$ref": "#/components/schemas/TrimmedNonEmptyString",
           "description": "Optional From address override for the rendered test message."
         },
         "id": {
@@ -6703,12 +6707,9 @@
           "description": "Optional subject override for the rendered test message."
         },
         "subscribers": {
-          "description": "Emails of existing subscribers who receive the test message (1 to\n10). The observed Listmonk 6.2 endpoint rejects unknown emails.",
+          "description": "Emails of existing subscribers who receive the test message. The\nobserved Listmonk 6.2 endpoint rejects unknown emails.",
           "items": {
-            "format": "email",
-            "maxLength": 254,
-            "minLength": 1,
-            "type": "string"
+            "$ref": "#/components/schemas/CampaignTestRecipientEmail"
           },
           "maxItems": 10,
           "minItems": 1,

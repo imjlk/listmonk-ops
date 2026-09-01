@@ -91,6 +91,11 @@ describe("campaign preview and test operations", () => {
 			messenger: "email",
 			from_email: "No Reply <noreply@yoursite.com>",
 			body: "<p>Stored body</p>",
+			// The endpoint rebinds the campaign form, so the derived form
+			// carries the stored plain-text alternative and custom headers
+			// the test message must preserve.
+			altbody: undefined,
+			headers: [],
 			subscribers: ["reader@example.com"],
 		});
 	});

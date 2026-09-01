@@ -233,14 +233,15 @@ export type TransactionalSendParams = NonNullable<
 >;
 
 /**
- * The upstream OpenAPI document models the test-send body as a plain
- * CampaignRequest, but the observed Listmonk 6.2 endpoint additionally
- * requires a `subscribers` array of existing-subscriber emails and refuses
- * the request when it is absent. Layer that field here instead of
- * distorting the generated types.
+ * The generated CampaignRequest models `subscribers` as optional, but the
+ * observed Listmonk 6.2 test endpoint refuses the request when it is
+ * absent. Tighten just that field here instead of distorting the
+ * generated types.
  */
 export type CampaignTestParams = Omit<t.TestCampaignByIdData, "url"> & {
-	body: t.TestCampaignByIdData["body"] & { subscribers?: string[] };
+	body: Omit<t.TestCampaignByIdData["body"], "subscribers"> & {
+		subscribers: string[];
+	};
 };
 
 interface ImportOperations extends BaseGetOperation<t.ImportStatus> {

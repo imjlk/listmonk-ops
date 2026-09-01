@@ -17,6 +17,10 @@ import {
 } from "./specs";
 import { z } from "zod";
 import {
+	MAX_CAMPAIGN_TEST_RECIPIENTS,
+	MAX_CAMPAIGN_TEST_RECIPIENT_EMAIL_LENGTH,
+} from "./campaign-test-bound";
+import {
 	createResourceSafety,
 	deleteResourceSafety,
 	deliveryTransitionSafety,
@@ -132,9 +136,6 @@ const campaignIdInputSchema = z.object({
 	id: resourceIdSchema,
 });
 
-/** Bound on test recipients: a review send, not a bulk delivery. */
-export const MAX_CAMPAIGN_TEST_RECIPIENTS = 10;
-
 const campaignPreviewInputSchema = campaignIdInputSchema;
 
 const campaignPreviewOutputSchema = z.object({
@@ -143,7 +144,14 @@ const campaignPreviewOutputSchema = z.object({
 
 const campaignTestInputSchema = campaignIdInputSchema.extend({
 	subscribers: z
-		.array(z.string().trim().toLowerCase().min(1).max(254).pipe(z.email()))
+		.array(
+			z.string()
+				.trim()
+				.toLowerCase()
+				.min(1)
+				.max(MAX_CAMPAIGN_TEST_RECIPIENT_EMAIL_LENGTH)
+				.pipe(z.email()),
+		)
 		.min(1)
 		.max(MAX_CAMPAIGN_TEST_RECIPIENTS),
 	subject: z.string().trim().min(1).optional(),
@@ -950,11 +958,12 @@ export async function previewCampaign(
 
 /**
  * Deliver the campaign to a bounded set of existing-subscriber emails.
- * The observed Listmonk 6.2 endpoint rebinds the whole campaign form from
- * the request (documented upstream only as a bare CampaignRequest) and
- * requires the recipient array under the undocumented `subscribers` key,
- * so the executor derives the form from the stored campaign and overlays
- * the caller's explicit overrides. Unknown emails are rejected remotely.
+ * The observed Listmonk 6.2 endpoint rebinds the campaign form from the
+ * request and requires the recipient array under the `subscribers` key,
+ * so the executor derives the form from the stored campaign — including
+ * the plain-text alternative and custom headers, which the endpoint
+ * would otherwise drop — and overlays the caller's explicit overrides.
+ * Unknown emails are rejected remotely.
  */
 export async function sendTestCampaign(
 	ctx: CampaignOperationContext,
@@ -965,7 +974,7 @@ export async function sendTestCampaign(
 		"Failed to load campaign for test send",
 	);
 	const listIds = (stored.lists ?? [])
-		.map((entry) => (entry as { id?: unknown }).id)
+		.map((entry) => entry.id)
 		.filter((id): id is number => typeof id === "number");
 	if (stored.name === undefined || stored.subject === undefined) {
 		throw new Error(
@@ -980,8 +989,9 @@ export async function sendTestCampaign(
 		template_id: input.template_id ?? stored.template_id ?? undefined,
 		messenger: input.messenger ?? stored.messenger ?? "email",
 		from_email: input.from_email ?? stored.from_email,
-		body: stored.body ?? "",
-		...(input.body !== undefined && { body: input.body }),
+		body: input.body ?? stored.body ?? "",
+		altbody: stored.altbody ?? undefined,
+		headers: stored.headers ?? [],
 		subscribers: input.subscribers,
 	};
 	const response = await ctx.client.campaign.test({

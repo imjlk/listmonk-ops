@@ -597,18 +597,18 @@ export async function handleTestCampaignCommand({
 }>): Promise<void> {
 	try {
 		const client = await getListmonkClient(args);
-		await renderTestCampaign({ client, output: getOutput() }, {
-			id: flags.id,
-			subscribers: flags.subscribers
-				.split(",")
-				.map((value) => value.trim())
-				.filter((value) => value.length > 0),
-			subject: flags.subject,
-			template_id: flags["template-id"],
-			body: flags.body,
-			messenger: flags.messenger,
-			from_email: flags["from-email"],
-		});
+		await renderTestCampaign(
+			{ client, output: getOutput() },
+			{
+				id: flags.id,
+				subscribers: parseCsvStrings(flags.subscribers) ?? [],
+				subject: flags.subject,
+				template_id: flags["template-id"],
+				body: flags.body,
+				messenger: flags.messenger,
+				from_email: flags["from-email"],
+			},
+		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to send campaign test", error);
 	}
