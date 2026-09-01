@@ -1,3 +1,4 @@
+export * from "./campaign-analytics-date";
 export * from "./campaign-lifecycle";
 export * from "./campaign-test-bound";
 export * from "./campaigns";

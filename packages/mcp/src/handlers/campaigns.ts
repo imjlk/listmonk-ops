@@ -187,35 +187,6 @@ const campaignLegacyTools: MCPTool[] = [
 			required: ["campaign_id"],
 		},
 	},
-	{
-		name: "listmonk_get_campaign_analytics",
-		description:
-			"Get campaign analytics timeseries (links/views/clicks/bounces)",
-		inputSchema: {
-			type: "object",
-			properties: {
-				type: {
-					type: "string",
-					enum: ["links", "views", "clicks", "bounces"],
-					description: "Analytics type",
-				},
-				from: {
-					type: "string",
-					description: "Start datetime (RFC3339)",
-				},
-				to: {
-					type: "string",
-					description: "End datetime (RFC3339)",
-				},
-				id: {
-					type: "string",
-					description:
-						"Campaign ID(s), comma-separated if requesting multiple campaigns",
-				},
-			},
-			required: ["type", "from", "to", "id"],
-		},
-	},
 ];
 
 export const campaignsTools: MCPTool[] = [
@@ -334,33 +305,6 @@ export const handleCampaignsTools: CampaignsHandlerFunction = withErrorHandler(
 				return handleDataResponse(
 					response,
 					"Failed to fetch running campaign stats",
-				);
-			}
-
-			case "listmonk_get_campaign_analytics": {
-				const validation = validateRequiredParams(request, [
-					"type",
-					"from",
-					"to",
-					"id",
-				]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const response = await client.campaign.getAnalytics({
-					path: {
-						type: String(args.type) as "links" | "views" | "clicks" | "bounces",
-					},
-					query: {
-						from: String(args.from),
-						to: String(args.to),
-						id: String(args.id),
-					},
-				});
-				return handleDataResponse(
-					response,
-					"Failed to fetch campaign analytics",
 				);
 			}
 

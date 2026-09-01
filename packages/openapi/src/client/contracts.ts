@@ -189,7 +189,13 @@ export interface CampaignOperations
 	}): Promise<FlattenedResponse<Record<string, unknown>>>;
 	getAnalytics(options: {
 		path: { type: "links" | "views" | "clicks" | "bounces" };
-		query: { from: string; to: string; id: string };
+		/**
+		 * The upstream document models `id` as a single string, but the
+		 * observed Listmonk 6.2 endpoint only accepts repeated `id` query
+		 * parameters (a comma-joined value is rejected), so the wrapper
+		 * takes the array and lets the query serializer repeat it.
+		 */
+		query: { from: string; to: string; id: string[] };
 	}): Promise<FlattenedResponse<Record<string, unknown>>>;
 }
 

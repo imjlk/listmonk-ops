@@ -1,5 +1,9 @@
 import type { tags } from "typia";
 import type {
+	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
+	MAX_CAMPAIGN_ANALYTICS_IDS,
+} from "../../src/campaign-analytics-date";
+import type {
 	MAX_CAMPAIGN_TEST_RECIPIENTS,
 	MAX_CAMPAIGN_TEST_RECIPIENT_EMAIL_LENGTH,
 } from "../../src/campaign-test-bound";
@@ -284,6 +288,42 @@ export interface CampaignCloneInput {
 export interface CampaignCloneOutput {
 	campaign: CampaignGetOutput;
 	created: boolean;
+}
+
+export type CampaignAnalyticsDate = NonEmptyString &
+	tags.Pattern<typeof CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE>;
+
+export type CampaignAnalyticsType =
+	| "views"
+	| "clicks"
+	| "links"
+	| "bounces";
+
+export type CampaignAnalyticsInput = {
+	/** Analytics facet to read. */
+	type: CampaignAnalyticsType;
+	/** Inclusive range start as an ISO calendar date (YYYY-MM-DD). */
+	from: CampaignAnalyticsDate;
+	/** Inclusive range end as an ISO calendar date (YYYY-MM-DD). */
+	to: CampaignAnalyticsDate;
+	/** Campaign ids to aggregate, repeated as id query parameters. */
+	campaign_ids: readonly ResourceId[] &
+		tags.MinItems<1> &
+		tags.MaxItems<typeof MAX_CAMPAIGN_ANALYTICS_IDS>;
+};
+
+export interface CampaignAnalyticsOutput {
+	type: CampaignAnalyticsType;
+	/** Echoed range start. */
+	from: string;
+	/** Echoed range end. */
+	to: string;
+	campaign_ids: ResourceId[];
+	/**
+	 * Observed rows: `{campaign_id, count, timestamp}` daily buckets for
+	 * views/clicks/bounces, `{url, count}` aggregates for links.
+	 */
+	results: Record<string, unknown>[];
 }
 
 export type CampaignPreviewInput = ResourceIdInput;

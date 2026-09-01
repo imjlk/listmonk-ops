@@ -261,6 +261,8 @@ const openapiMediaGetByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.getById:method";
 const openapiMediaDeleteByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.deleteById:method";
+const openapiCampaignAnalyticsMethod =
+	"packages/openapi/src/client/contracts.ts#CampaignOperations.getAnalytics:method";
 const openapiCampaignPreviewMethod =
 	"packages/openapi/src/client/contracts.ts#CampaignOperations.preview:method";
 const openapiCampaignTestMethod =
@@ -953,6 +955,16 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				action:
 					"packages/operations/src/campaigns.ts#listCampaigns:function",
 				openapi: openapiListMethod,
+			},
+			{
+				label: "analytics",
+				cliHandler: "handleCampaignAnalyticsCommand",
+				cliRender: "renderCampaignAnalytics",
+				invoker:
+					"packages/operations/src/campaigns.ts#invokeGetCampaignAnalyticsOperation:function",
+				action:
+					"packages/operations/src/campaigns.ts#readCampaignAnalytics:function",
+				openapi: openapiCampaignAnalyticsMethod,
 			},
 			{
 				label: "preview",

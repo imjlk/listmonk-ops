@@ -13,7 +13,10 @@ import {
 	invokeDeleteCampaignOperation,
 	invokeGetCampaignOperation,
 	invokeGetCampaignsOperation,
+	invokeGetCampaignAnalyticsOperation,
 	invokeGetCampaignStatsOperation,
+	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
+	MAX_CAMPAIGN_ANALYTICS_IDS,
 	invokePreviewCampaignOperation,
 	invokeTestCampaignOperation,
 	invokePauseCampaignOperation,
@@ -31,6 +34,7 @@ import {
 } from "../lib/command";
 import {
 	parseCsvNumbers,
+	parseCsvNumbersStrict,
 	parseJson,
 	toErrorMessage,
 } from "../lib/command-utils";
@@ -232,6 +236,28 @@ export async function renderGetCampaignStats(
 	const stats = await invokeGetCampaignStatsOperation(context, input);
 	context.output.success(`Campaign ${input.id} stats`);
 	context.output.json(stats);
+}
+
+type CampaignAnalyticsFacet = "views" | "clicks" | "links" | "bounces";
+
+const CAMPAIGN_ANALYTICS_DATE = new RegExp(
+	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
+);
+
+export async function renderCampaignAnalytics(
+	context: CampaignsCliContext,
+	input: {
+		type: CampaignAnalyticsFacet;
+		from: string;
+		to: string;
+		campaign_ids: number[];
+	},
+): Promise<void> {
+	const analytics = await invokeGetCampaignAnalyticsOperation(context, input);
+	context.output.success(
+		`Campaign analytics (${analytics.type}) for ${analytics.campaign_ids.join(", ")}: ${analytics.results.length} row(s)`,
+	);
+	context.output.json(analytics);
 }
 
 export async function renderPreviewCampaign(
@@ -563,6 +589,37 @@ export async function handleCancelCampaignCommand({
 		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to cancel campaign", error);
+	}
+}
+
+export async function handleCampaignAnalyticsCommand({
+	flags,
+	...args
+}: HandlerArgs<{
+	type: CampaignAnalyticsFacet;
+	from: string;
+	to: string;
+	"campaign-ids": string;
+}>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderCampaignAnalytics(
+			{ client, output: getOutput() },
+			{
+				type: flags.type,
+				from: flags.from,
+				to: flags.to,
+				campaign_ids: parseCsvNumbersStrict(
+					flags["campaign-ids"],
+					"campaign IDs",
+				),
+			},
+		);
+	} catch (error) {
+		throw createCampaignCommandError(
+			"Failed to read campaign analytics",
+			error,
+		);
 	}
 }
 
@@ -956,6 +1013,28 @@ export default defineGroup({
 				),
 			},
 			handler: handleCloneCampaignCommand,
+		}),
+		defineCommand({
+			name: "analytics",
+			operationId: "campaigns.analytics",
+			description:
+				"Read view, click, link, or bounce analytics for campaigns over a date range",
+			options: {
+				type: option(
+					z.enum(["views", "clicks", "links", "bounces"]),
+					{ description: "Analytics facet to read" },
+				),
+				from: option(z.string().regex(CAMPAIGN_ANALYTICS_DATE), {
+					description: "Range start (YYYY-MM-DD)",
+				}),
+				to: option(z.string().regex(CAMPAIGN_ANALYTICS_DATE), {
+					description: "Range end (YYYY-MM-DD)",
+				}),
+				"campaign-ids": option(z.string().trim().min(1), {
+					description: `Comma-separated campaign ids to aggregate (at most ${MAX_CAMPAIGN_ANALYTICS_IDS})`,
+				}),
+			},
+			handler: handleCampaignAnalyticsCommand,
 		}),
 		defineCommand({
 			name: "preview",

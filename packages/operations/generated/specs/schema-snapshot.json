@@ -25667,6 +25667,229 @@
       "stability": "experimental"
     },
     {
+      "id": "campaigns.analytics",
+      "input": {
+        "components": {
+          "schemas": {
+            "CampaignAnalyticsDate": {
+              "minLength": 1,
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            "CampaignAnalyticsInput": {
+              "additionalProperties": false,
+              "properties": {
+                "campaign_ids": {
+                  "description": "Campaign ids to aggregate, repeated as id query parameters.",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "maxItems": 20,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "from": {
+                  "$ref": "#/components/schemas/CampaignAnalyticsDate",
+                  "description": "Inclusive range start as an ISO calendar date (YYYY-MM-DD)."
+                },
+                "to": {
+                  "$ref": "#/components/schemas/CampaignAnalyticsDate",
+                  "description": "Inclusive range end as an ISO calendar date (YYYY-MM-DD)."
+                },
+                "type": {
+                  "$ref": "#/components/schemas/CampaignAnalyticsType",
+                  "description": "Analytics facet to read."
+                }
+              },
+              "required": [
+                "type",
+                "from",
+                "to",
+                "campaign_ids"
+              ],
+              "type": "object"
+            },
+            "CampaignAnalyticsType": {
+              "oneOf": [
+                {
+                  "const": "bounces"
+                },
+                {
+                  "const": "clicks"
+                },
+                {
+                  "const": "links"
+                },
+                {
+                  "const": "views"
+                }
+              ]
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "campaign_ids": {
+              "description": "Campaign ids to aggregate, repeated as id query parameters.",
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "type": "array"
+            },
+            "from": {
+              "$ref": "#/components/schemas/CampaignAnalyticsDate",
+              "description": "Inclusive range start as an ISO calendar date (YYYY-MM-DD)."
+            },
+            "to": {
+              "$ref": "#/components/schemas/CampaignAnalyticsDate",
+              "description": "Inclusive range end as an ISO calendar date (YYYY-MM-DD)."
+            },
+            "type": {
+              "$ref": "#/components/schemas/CampaignAnalyticsType",
+              "description": "Analytics facet to read."
+            }
+          },
+          "required": [
+            "type",
+            "from",
+            "to",
+            "campaign_ids"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "CampaignAnalyticsOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "campaign_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "type": "array"
+                },
+                "from": {
+                  "description": "Echoed range start.",
+                  "type": "string"
+                },
+                "results": {
+                  "description": "Observed rows: `{campaign_id, count, timestamp}` daily buckets for\nviews/clicks/bounces, `{url, count}` aggregates for links.",
+                  "items": {
+                    "$ref": "#/components/schemas/Recordstringunknown"
+                  },
+                  "type": "array"
+                },
+                "to": {
+                  "description": "Echoed range end.",
+                  "type": "string"
+                },
+                "type": {
+                  "$ref": "#/components/schemas/CampaignAnalyticsType"
+                }
+              },
+              "required": [
+                "type",
+                "from",
+                "to",
+                "campaign_ids",
+                "results"
+              ],
+              "type": "object"
+            },
+            "CampaignAnalyticsType": {
+              "oneOf": [
+                {
+                  "const": "bounces"
+                },
+                {
+                  "const": "clicks"
+                },
+                {
+                  "const": "links"
+                },
+                {
+                  "const": "views"
+                }
+              ]
+            },
+            "Recordstringunknown": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "campaign_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "from": {
+              "description": "Echoed range start.",
+              "type": "string"
+            },
+            "results": {
+              "description": "Observed rows: `{campaign_id, count, timestamp}` daily buckets for\nviews/clicks/bounces, `{url, count}` aggregates for links.",
+              "items": {
+                "$ref": "#/components/schemas/Recordstringunknown"
+              },
+              "type": "array"
+            },
+            "to": {
+              "description": "Echoed range end.",
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/components/schemas/CampaignAnalyticsType"
+            }
+          },
+          "required": [
+            "type",
+            "from",
+            "to",
+            "campaign_ids",
+            "results"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only reads recorded analytics rows."
+      },
+      "since": "0.16.0",
+      "stability": "experimental"
+    },
+    {
       "id": "media.delete",
       "input": {
         "components": {
