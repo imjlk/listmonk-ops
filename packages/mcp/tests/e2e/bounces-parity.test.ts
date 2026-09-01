@@ -82,18 +82,25 @@ describe("Bounces CLI and MCP parity", () => {
 		// json` emits the record array while MCP returns the full page
 		// envelope. Parity therefore compares the record ids of the same
 		// requested page window rather than timestamps or metadata.
-		const cliBounces = parseCliJson<BounceSummary[]>(
-			runCliBouncesCommand([
-				"--format",
-				"json",
-				"list",
-				"--page",
-				"1",
-				"--per-page",
-				"5",
-			]),
+		const cliListResult = runCliBouncesCommand([
+			"--format",
+			"json",
 			"list",
-		);
+			"--page",
+			"1",
+			"--per-page",
+			"5",
+		]);
+		// A fresh stack can legitimately carry zero bounce records; the CLI
+		// then prints its human "No bounces found" line instead of a JSON
+		// array, which must compare equal to an empty MCP page.
+		const cliBounceIds = ["{", "["].some((marker) =>
+			cliListResult.stdout.includes(marker),
+		)
+			? parseCliJson<BounceSummary[]>(cliListResult, "list").map(
+					(bounce) => bounce.id,
+				)
+			: [];
 
 		const mcpResult = await client.callTool("listmonk_get_bounces", {
 			page: 1,
@@ -104,11 +111,13 @@ describe("Bounces CLI and MCP parity", () => {
 			"Failed to list bounces through MCP",
 		);
 
-		expect(mcpPage.page).toBe(1);
-		expect(mcpPage.per_page).toBe(5);
-		expect(mcpPage.results?.map((bounce) => bounce.id)).toEqual(
-			cliBounces.map((bounce) => bounce.id),
-		);
+		// A non-empty window must echo the requested page; an empty
+		// collection legitimately reports Listmonk's own 0/0 window.
+		if (cliBounceIds.length > 0) {
+			expect(mcpPage.page).toBe(1);
+			expect(mcpPage.per_page).toBe(5);
+		}
+		expect(mcpPage.results?.map((bounce) => bounce.id)).toEqual(cliBounceIds);
 	});
 
 	test("rejects an unsupported filter identically on both adapters", async () => {

@@ -39509,12 +39509,18 @@
     {
       "id": "bounce",
       "states": [
-        "recorded"
+        "recorded",
+        "deleted"
       ],
-      "terminalStates": [],
+      "terminalStates": [
+        "deleted"
+      ],
       "title": "Bounce record",
       "transitions": {
-        "recorded": []
+        "deleted": [],
+        "recorded": [
+          "deleted"
+        ]
       }
     },
     {

@@ -177,13 +177,14 @@ Transitions:
 
 ## `bounce` — Bounce record
 
-States: `recorded`.
+States: `recorded`, `deleted`.
 
-Terminal states: none.
+Terminal states: `deleted`.
 
 Transitions:
 
-- `recorded` → none
+- `recorded` → `deleted`
+- `deleted` → none
 
 ## `audience` — Resolved audience
 

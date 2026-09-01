@@ -15,6 +15,7 @@ import {
 	jsonResourceValue,
 	normalizeResourceList,
 	readResourceSafety,
+	ResourceResponseError,
 	resourceIdSchema,
 	unwrapResourceResponse,
 } from "./resource-helpers";
@@ -99,7 +100,11 @@ function normalizeBounceRecordPayload(value: unknown, id: number): unknown {
 	) {
 		const first = (value as { results: unknown[] }).results[0];
 		if (first === undefined) {
-			throw new Error(`Bounce ${id} not found`);
+			// Classify like a transport-level missing resource so direct
+			// callers can use isResourceMissingError on both paths.
+			throw new ResourceResponseError(`Bounce ${id} not found`, {
+				status: 404,
+			});
 		}
 		return first;
 	}
@@ -125,8 +130,8 @@ export async function listBounces(
 	});
 	const data = unwrapResourceResponse(response, "Failed to fetch bounces");
 	const normalized = normalizeResourceList(data, {
-		page: 1,
-		per_page: 20,
+		page: input.page,
+		per_page: input.per_page,
 	});
 	return {
 		results: normalized.results.map(asBounceRecord),
