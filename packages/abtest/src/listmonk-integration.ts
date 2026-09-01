@@ -13,6 +13,7 @@ import { AbTestMetricsUnavailableError } from "./metrics";
 import {
 	buildAssignmentManifest,
 	generateAssignmentSeed,
+	groupChecksum,
 	rankMembers,
 	type AssignmentManifest,
 } from "./assignment";
@@ -325,12 +326,6 @@ export class ListmonkAbTestIntegration {
 			testGroupPercentage,
 		});
 
-		// Rank the resolved members in the same deterministic order the
-		// manifest used, then slice by each group's expectedCount. This is
-		// the critical step: the ranked order — not the resolver's page order
-		// — determines which subscribers land in which variant/holdout list.
-		const ranked = rankMembers(testId, seed, resolvedMembers);
-
 		const variantGroups = assignmentManifest.groups.filter(
 			(group) => group.kind === "variant",
 		);
@@ -355,15 +350,22 @@ export class ListmonkAbTestIntegration {
 		// stratification.
 		const stratificationPolicy =
 			options.stratificationPolicy ?? DEFAULT_STRATIFICATION_POLICY;
-		let stratifiedAssignment: StratifiedAssignment | undefined;
-		if (
-			stratificationPolicy.enabled &&
+		const allMembersHaveEmail =
 			resolvedMembers.length > 0 &&
 			resolvedMembers.every(
 				(member) =>
 					typeof member.email === "string" && member.email.trim().length > 0,
-			)
-		) {
+			);
+		let stratifiedAssignment: StratifiedAssignment | undefined;
+		if (stratificationPolicy.enabled && !allMembersHaveEmail) {
+			// The skip determines the actual recipient slices, not merely
+			// reporting, so an operator must be able to tell an applied
+			// stratification from a silently bypassed one.
+			console.warn(
+				`Stratification enabled for test ${testId} but the resolved audience is empty or some members lack an email; falling back to the unstratified manifest assignment`,
+			);
+		}
+		if (stratificationPolicy.enabled && allMembersHaveEmail) {
 			try {
 				const manifestGroups = assignmentManifest.groups.map((group) => ({
 					groupKey:
@@ -382,7 +384,7 @@ export class ListmonkAbTestIntegration {
 				// it, then fall back to the manifest assignment so
 				// provisioning proceeds deterministically.
 				console.warn(
-					`Stratified assignment failed, falling back to the manifest assignment: ${(stratificationError as Error).message}`,
+					`Stratified assignment failed, falling back to the manifest assignment: ${this.formatError(stratificationError)}`,
 				);
 				stratifiedAssignment = undefined;
 			}
@@ -394,7 +396,6 @@ export class ListmonkAbTestIntegration {
 		// manifest's cumulative boundaries. Either way the group sizes come
 		// from the manifest, so test/holdout and per-variant totals never
 		// change.
-		let cursor = 0;
 		const variantSubscriberSlices: {
 			variantId: string;
 			subscriberIds: number[];
@@ -415,7 +416,30 @@ export class ListmonkAbTestIntegration {
 				});
 			}
 			holdoutSubscriberIds = subscribersByGroupKey.get("holdout") ?? [];
+			// The manifest's per-group checksums were computed by
+			// buildAssignmentManifest over the unstratified ranked slices;
+			// recompute them from the slices actually applied so a later
+			// reconciliation or drift check against live list membership
+			// never reports false drift when stratification is active.
+			const uuidsBySubscriberId = new Map(
+				resolvedMembers.map((member) => [
+					member.subscriberId,
+					member.subscriberUuid,
+				]),
+			);
+			for (const group of assignmentManifest.groups) {
+				const groupKey =
+					group.kind === "variant" ? `variant:${group.variantId}` : "holdout";
+				const appliedIds = subscribersByGroupKey.get(groupKey) ?? [];
+				group.subscriberChecksum = groupChecksum(
+					appliedIds.map((id) => uuidsBySubscriberId.get(id) ?? ""),
+				);
+			}
 		} else {
+			// Rank only on the fallback path: the stratified branch re-ranks
+			// within each stratum, so a global ranking would be wasted work.
+			const ranked = rankMembers(testId, seed, resolvedMembers);
+			let cursor = 0;
 			for (const group of variantGroups) {
 				const slice = ranked.slice(cursor, cursor + group.expectedCount);
 				variantSubscriberSlices.push({

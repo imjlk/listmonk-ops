@@ -441,7 +441,9 @@ function bucketMembersByStratum(
 				buckets.delete(stratum);
 				const other = buckets.get(otherKey);
 				if (other) {
-					other.push(...bucket);
+					for (const member of bucket) {
+						other.push(member);
+					}
 				} else {
 					buckets.set(otherKey, bucket);
 				}
@@ -520,9 +522,17 @@ export function assignStratifiedMembers(params: {
 			const quota = row[groupKey] ?? 0;
 			const take = ranked.slice(cursor, cursor + quota);
 			cursor += quota;
-			slices.get(groupKey)?.push(
-				...take.map((entry) => entry.member.subscriberId),
-			);
+			// Accumulate with a loop, not spread-push: a dominant provider
+			// stratum's quota cell scales with the audience and can exceed the
+			// engine's call-argument cap, which would throw a RangeError and
+			// silently degrade stratification at exactly the scale it exists
+			// for.
+			const slice = slices.get(groupKey);
+			if (slice) {
+				for (const entry of take) {
+					slice.push(entry.member.subscriberId);
+				}
+			}
 		}
 		// A row whose ranked bucket could not satisfy its quotas would leave
 		// members unassigned and break the union invariant; the quota matrix

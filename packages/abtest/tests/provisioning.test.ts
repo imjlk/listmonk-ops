@@ -6,6 +6,7 @@ import {
 	type ProvisionedAbTestResources,
 } from "../src/listmonk-integration";
 import { DEFAULT_STRATIFICATION_POLICY } from "../src/stratification";
+import { groupChecksum } from "../src/assignment";
 import type { AbTest, AbTestConfig } from "../src/types";
 
 function createTestConfig(): AbTestConfig {
@@ -338,8 +339,21 @@ describe("segmentSubscribersForHoldout stratification", () => {
 		};
 
 		const quotas = result.stratification?.quotas ?? {};
+		// The persisted manifest's per-group checksums must describe the
+		// slices actually applied, not the unstratified ranked slices, so a
+		// later drift check never reports false drift under stratification.
+		const uuidById = new Map(audience.map((s) => [s.id, s.uuid]));
+		const checksumByGroupKey = new Map(
+			result.assignmentManifest.groups.map((group) => [
+				group.kind === "variant" ? `variant:${group.variantId}` : "holdout",
+				group.subscriberChecksum,
+			]),
+		);
 		for (const [listId, memberIds] of membershipByList) {
 			const groupKey = groupKeyOfList(listId);
+			expect(checksumByGroupKey.get(groupKey)).toBe(
+				groupChecksum(memberIds.map((id) => uuidById.get(id) ?? "")),
+			);
 			const counts: Record<string, number> = {};
 			for (const id of memberIds) {
 				const stratum = stratumOf(id);
