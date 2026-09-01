@@ -33627,12 +33627,11 @@
               "additionalProperties": false,
               "properties": {
                 "bounce_ids": {
-                  "description": "The exact bounce ids a dry run reported (1 to 100). Required for a\ndestructive run so a confirmed deletion never drifts from the\npreviewed set.",
+                  "description": "The exact bounce ids a dry run reported (at most 100; an empty\nselection is a legitimate verbatim echo). Required for a destructive\nrun so a confirmed deletion never drifts from the previewed set.",
                   "items": {
                     "$ref": "#/components/schemas/ResourceId"
                   },
                   "maxItems": 100,
-                  "minItems": 1,
                   "type": "array"
                 },
                 "campaign_id": {
@@ -33715,12 +33714,11 @@
           "additionalProperties": false,
           "properties": {
             "bounce_ids": {
-              "description": "The exact bounce ids a dry run reported (1 to 100). Required for a\ndestructive run so a confirmed deletion never drifts from the\npreviewed set.",
+              "description": "The exact bounce ids a dry run reported (at most 100; an empty\nselection is a legitimate verbatim echo). Required for a destructive\nrun so a confirmed deletion never drifts from the previewed set.",
               "items": {
                 "$ref": "#/components/schemas/ResourceId"
               },
               "maxItems": 100,
-              "minItems": 1,
               "type": "array"
             },
             "campaign_id": {

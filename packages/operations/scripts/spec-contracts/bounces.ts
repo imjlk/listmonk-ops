@@ -1,6 +1,5 @@
 import type { tags } from "typia";
 import type {
-	NonNegativeInteger,
 	PaginationInput,
 	PositiveInteger,
 	ResourceId,
@@ -92,11 +91,11 @@ export type BouncePruneInput = BouncePruneSelection & {
 	/** Whether to only preview the deletion. Defaults to true. */
 	dry_run?: boolean | undefined;
 	/**
-	 * The exact bounce ids a dry run reported (1 to 100). Required for a
-	 * destructive run so a confirmed deletion never drifts from the
-	 * previewed set.
+	 * The exact bounce ids a dry run reported (at most 100; an empty
+	 * selection is a legitimate verbatim echo). Required for a destructive
+	 * run so a confirmed deletion never drifts from the previewed set.
 	 */
-	bounce_ids?: (readonly ResourceId[] & tags.MinItems<1> & tags.MaxItems<100>) | undefined;
+	bounce_ids?: (readonly ResourceId[] & tags.MaxItems<100>) | undefined;
 };
 
 export interface BouncePruneOutput {

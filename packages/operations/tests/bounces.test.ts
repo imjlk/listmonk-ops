@@ -290,6 +290,23 @@ describe("shared bounce operations", () => {
 		expect(deleteById).toHaveBeenCalledTimes(2);
 	});
 
+	test("converges a destructive prune that echoes an empty selection", async () => {
+		const deleteById = mock(async () => ({ data: true }));
+		await expect(
+			invokePruneBouncesOperation(
+				bounceContext({
+					deleteById: deleteById as BounceClient["bounce"]["deleteById"],
+				}),
+				{ dry_run: false, bounce_ids: [] },
+			),
+		).resolves.toEqual({
+			dry_run: false,
+			bounce_ids: [],
+			acknowledged: 0,
+		});
+		expect(deleteById).not.toHaveBeenCalled();
+	});
+
 	test("rejects a destructive prune without the echoed id set", async () => {
 		const deleteById = mock(async () => ({ data: true }));
 		await expect(

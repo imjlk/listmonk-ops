@@ -94,36 +94,27 @@ const bounceDeleteOutputSchema = z.object({
  */
 export const MAX_BOUNCE_PRUNE_IDS = 100;
 
-const bouncePruneSelectionSchema = z.object({
-	page: z.coerce.number().int().positive().default(1).describe("Page number"),
-	per_page: z.coerce
-		.number()
-		.int()
-		.positive()
-		.max(MAX_BOUNCE_PRUNE_IDS)
-		.default(MAX_BOUNCE_PRUNE_IDS)
-		.describe("Selection window size (at most 100)"),
-	campaign_id: resourceIdSchema
-		.optional()
-		.describe("Filter bounces by campaign ID"),
-	source: z.string().trim().min(1).optional().describe("Filter by bounce source"),
-	order_by: z
-		.enum(["email", "campaign_name", "source", "created_at"])
-		.optional()
-		.describe("Sort field applied by Listmonk"),
-	order: z.enum(["asc", "desc"]).optional().describe("Sort direction"),
-});
-
-const bouncePruneInputSchema = bouncePruneSelectionSchema
+// The selection window mirrors bounces.list verbatim (the dry run
+// delegates to it) except for the bounded per-page default, so the preview
+// can never drift from what bounces.list would report.
+const bouncePruneInputSchema = bounceListInputSchema
 	.extend({
+		per_page: z.coerce
+			.number()
+			.int()
+			.positive()
+			.max(MAX_BOUNCE_PRUNE_IDS)
+			.default(MAX_BOUNCE_PRUNE_IDS)
+			.describe("Selection window size (at most 100)"),
 		dry_run: optionalBooleanSchema
 			.default(true)
 			.describe(
 				"Preview the deletion instead of performing it (defaults to true)",
 			),
+		// No minimum: an empty selection is a legitimate verbatim echo, and
+		// echoing it converges to a documented no-op instead of rejecting.
 		bounce_ids: z
 			.array(resourceIdSchema)
-			.min(1)
 			.max(MAX_BOUNCE_PRUNE_IDS)
 			.optional()
 			.describe(
@@ -132,7 +123,7 @@ const bouncePruneInputSchema = bouncePruneSelectionSchema
 	})
 	.superRefine((input, ctx) => {
 		if (input.dry_run) return;
-		if (input.bounce_ids === undefined || input.bounce_ids.length === 0) {
+		if (input.bounce_ids === undefined) {
 			ctx.addIssue({
 				code: "custom",
 				path: ["bounce_ids"],
@@ -278,9 +269,19 @@ export async function pruneBounces(
 	}
 
 	const bounceIds = [...new Set(input.bounce_ids ?? [])].sort((a, b) => a - b);
-	for (const id of bounceIds) {
-		const response = await client.bounce.deleteById({ path: { id } });
-		requireAcknowledgement(response, `Failed to delete bounce ${id}`);
+	// The per-id deletes are independent; run them in small bounded batches
+	// so a destructive run is not latency-bound by up to 100 sequential
+	// round trips, without bursting parallel DELETEs at Listmonk. A failed
+	// acknowledgement still aborts the run with the remaining ids
+	// unattempted, exactly like the sequential loop.
+	const deleteConcurrency = 5;
+	for (let offset = 0; offset < bounceIds.length; offset += deleteConcurrency) {
+		await Promise.all(
+			bounceIds.slice(offset, offset + deleteConcurrency).map(async (id) => {
+				const response = await client.bounce.deleteById({ path: { id } });
+				requireAcknowledgement(response, `Failed to delete bounce ${id}`);
+			}),
+		);
 	}
 	return {
 		dry_run: false,
@@ -336,12 +337,7 @@ export const pruneBouncesOperation = defineOperation({
 		"Preview or delete a bounded selection of bounce records. Destructive runs echo the exact bounce ids a dry run reported, so a retry deletes nothing new.",
 	inputSchema: bouncePruneInputSchema,
 	outputSchema: bouncePruneOutputSchema,
-	safety: {
-		readOnlyHint: false,
-		destructiveHint: true,
-		idempotentHint: true,
-		openWorldHint: true,
-	},
+	safety: deleteResourceSafety,
 	mcp: { name: "listmonk_prune_bounces", legacySuccessText: jsonResourceValue },
 	spec: bindBouncesPruneOperationSpec(),
 	execute: pruneBounces,

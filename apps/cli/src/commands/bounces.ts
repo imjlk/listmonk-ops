@@ -5,6 +5,7 @@ import {
 	invokeGetBounceOperation,
 	invokeListBouncesOperation,
 	invokePruneBouncesOperation,
+	MAX_BOUNCE_PRUNE_IDS,
 	OperationExecutionError,
 } from "@listmonk-ops/operations";
 import { z } from "zod";
@@ -260,8 +261,15 @@ export default defineGroup({
 					description: "Selection window page (dry run)",
 				}),
 				"per-page": option(
-					z.coerce.number().int().positive().max(100).optional(),
-					{ description: "Selection window size, at most 100 (dry run)" },
+					z.coerce
+						.number()
+						.int()
+						.positive()
+						.max(MAX_BOUNCE_PRUNE_IDS)
+						.optional(),
+					{
+						description: `Selection window size, at most ${MAX_BOUNCE_PRUNE_IDS} (dry run)`,
+					},
 				),
 				"campaign-id": option(z.coerce.number().int().positive().optional(), {
 					description: "Filter bounces by campaign ID (dry run)",
