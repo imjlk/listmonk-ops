@@ -250,7 +250,7 @@ describe("operation catalog MCP adapter", () => {
 		const cliOutput = runCliOperationCatalog("campaigns");
 		const mcpOutput = await callMcpOperationCatalog("campaigns");
 
-		expect(cliOutput.operations).toHaveLength(11);
+		expect(cliOutput.operations).toHaveLength(13);
 		expect(stableCatalogFields(cliOutput)).toEqual(
 			stableCatalogFields(mcpOutput),
 		);
