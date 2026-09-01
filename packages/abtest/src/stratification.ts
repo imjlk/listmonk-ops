@@ -14,6 +14,9 @@
  * one variant and skewing results.
  */
 
+import type { AudienceMember } from "./audience";
+import { rankMembers } from "./assignment";
+
 export interface StratificationPolicyV1 {
 	version: 1;
 	dimension: "recipient_domain_provider";
@@ -390,5 +393,162 @@ export function computeStratifiedQuotas(params: {
 		quotas,
 		cells,
 		stratumSizes,
+	};
+}
+
+export interface StratifiedAssignmentGroup {
+	/** Manifest group key: `variant:<variantId>` or `holdout`. */
+	groupKey: string;
+	expectedCount: number;
+	subscriberIds: number[];
+}
+
+export interface StratifiedAssignment {
+	/** One entry per input group, in the input order. */
+	groups: StratifiedAssignmentGroup[];
+	/** The exact quota matrix the slices realize; store this on the test. */
+	stratification: StratificationResult;
+}
+
+/**
+ * Bucket audience members by recipient-domain stratum, applying the same
+ * small-stratum merge the reporting path documents, and return the buckets
+ * keyed by sorted stratum so downstream slicing is deterministic regardless
+ * of audience iteration order.
+ */
+function bucketMembersByStratum(
+	members: readonly AudienceMember[],
+	policy: StratificationPolicyV1,
+): Map<string, AudienceMember[]> {
+	const classifier = createStratumClassifier(policy);
+	const buckets = new Map<string, AudienceMember[]>();
+	for (const member of members) {
+		const stratum = classifier(member.email ?? "");
+		const bucket = buckets.get(stratum);
+		if (bucket) {
+			bucket.push(member);
+		} else {
+			buckets.set(stratum, [member]);
+		}
+	}
+	if (
+		policy.minimumStratumSize > 0 &&
+		policy.smallStratumFallback === "merge_into_other"
+	) {
+		const otherKey = policy.otherStratumKey;
+		for (const [stratum, bucket] of [...buckets.entries()]) {
+			if (stratum !== otherKey && bucket.length < policy.minimumStratumSize) {
+				buckets.delete(stratum);
+				const other = buckets.get(otherKey);
+				if (other) {
+					other.push(...bucket);
+				} else {
+					buckets.set(otherKey, bucket);
+				}
+			}
+		}
+	}
+	return new Map(
+		[...buckets.entries()].sort(([left], [right]) =>
+			left < right ? -1 : left > right ? 1 : 0,
+		),
+	);
+}
+
+/**
+ * Turn the constrained quota matrix into concrete per-group subscriber
+ * slices. Within each stratum, members are ranked with the same
+ * SHA-256 digest ordering the unstratified manifest uses (restricted to
+ * that stratum), and each group consumes its quota cell from the front of
+ * that ranking. The result is deterministic for a given
+ * (testId, seed, audience, policy): crash-resume adoption under the
+ * persisted seed re-derives identical slices, so membership sync stays
+ * idempotent.
+ *
+ * Invariants (validated by tests):
+ * - each group's slice length equals its manifest expectedCount;
+ * - slices are disjoint and their union is the full audience;
+ * - per-stratum group counts equal the stored quota matrix cells.
+ */
+export function assignStratifiedMembers(params: {
+	testId: string;
+	seed: string;
+	members: readonly AudienceMember[];
+	policy: StratificationPolicyV1;
+	/** Manifest groups in manifest order with their exact counts. */
+	groups: readonly { groupKey: string; expectedCount: number }[];
+}): StratifiedAssignment {
+	const { testId, seed, members, policy, groups } = params;
+	if (groups.length === 0) {
+		throw new Error(
+			"Stratified assignment invariant: at least one group is required",
+		);
+	}
+
+	const buckets = bucketMembersByStratum(members, policy);
+	const stratumSizes: Record<string, number> = {};
+	for (const [stratum, bucket] of buckets) {
+		stratumSizes[stratum] = bucket.length;
+	}
+	const groupExactCounts: Record<string, number> = {};
+	const groupOrder: string[] = [];
+	for (const group of groups) {
+		if (groupOrder.includes(group.groupKey)) {
+			throw new Error(
+				`Stratified assignment invariant: duplicate group key ${group.groupKey}`,
+			);
+		}
+		groupOrder.push(group.groupKey);
+		groupExactCounts[group.groupKey] = group.expectedCount;
+	}
+
+	const stratification = computeStratifiedQuotas({
+		stratumSizes,
+		groupExactCounts,
+		groupOrder,
+		totalAudience: members.length,
+	});
+
+	const slices = new Map<string, number[]>(
+		groupOrder.map((groupKey) => [groupKey, []]),
+	);
+	for (const [stratum, bucket] of buckets) {
+		const row = stratification.quotas[stratum] ?? {};
+		const ranked = rankMembers(testId, seed, bucket);
+		let cursor = 0;
+		for (const groupKey of groupOrder) {
+			const quota = row[groupKey] ?? 0;
+			const take = ranked.slice(cursor, cursor + quota);
+			cursor += quota;
+			slices.get(groupKey)?.push(
+				...take.map((entry) => entry.member.subscriberId),
+			);
+		}
+		// A row whose ranked bucket could not satisfy its quotas would leave
+		// members unassigned and break the union invariant; the quota matrix
+		// guarantees row sums match bucket sizes, so treat leftovers as a
+		// hard invariant failure rather than silently dropping subscribers.
+		if (cursor !== ranked.length) {
+			throw new Error(
+				`Stratified assignment invariant: stratum "${stratum}" consumed ${cursor} of ${ranked.length} ranked members`,
+			);
+		}
+	}
+
+	return {
+		groups: groups.map((group) => {
+			const subscriberIds = slices.get(group.groupKey) ?? [];
+			if (subscriberIds.length !== group.expectedCount) {
+				throw new Error(
+					`Stratified assignment invariant: group ${group.groupKey} received ${subscriberIds.length} members, expected ${group.expectedCount}`,
+				);
+			}
+			return {
+				groupKey: group.groupKey,
+				expectedCount: group.expectedCount,
+				subscriberIds,
+			};
+		}),
+		stratification,
 	};
 }

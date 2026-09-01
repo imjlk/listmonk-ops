@@ -903,13 +903,15 @@ A/B 테스트에 **사전 등록된 가설**을 설정하면 수신자 할당 �
 
 ## Recipient-domain stratification (advanced experimentation)
 
-Stratification classifies subscribers by email-domain provider and computes a
+Stratification classifies subscribers by email-domain provider and applies a
 **constrained quota matrix** so each provider stratum gets a proportional share
-of every variant/holdout group. The quota matrix is computed and stored for
-reporting and validation. Note: applying these quotas to the actual recipient
-assignment slices is a planned follow-up; today the assignment itself remains
-the deterministic largest-remainder manifest, and the quota matrix documents
-the target proportional allocation.
+of every variant/holdout group. The quota matrix is realized by the actual
+recipient assignment: within each stratum members are ranked by the same
+deterministic SHA-256 digest ordering the unstratified manifest uses
+(restricted to that stratum), and each group consumes its quota cell from the
+front of that ranking. Group totals still come from the largest-remainder
+manifest, so stratification changes who lands in each group, never how large
+each group is.
 
 ```typescript
 import {
@@ -936,19 +938,33 @@ rules applied to subscriber emails, so mixed-case entries like `"GMAIL.COM"`
 match correctly.
 
 During holdout provisioning, when a stratification policy is enabled and the
-resolved audience carries emails, the quota matrix is computed and stored on
-the `AbTest.stratification` field for reporting and validation.
+resolved audience carries emails, the stratified assignment runs before any
+list mutation and the exact quota matrix it realized is stored on the
+`AbTest.stratification` field for reporting and validation. The computation
+is deterministic for a given (testId, seed, audience, policy), so crash-resume
+adoption under the persisted seed re-derives identical slices and membership
+sync stays idempotent. When any resolved subscriber lacks an email, or the
+quota solver throws, provisioning logs a warning and falls back to the
+unstratified manifest assignment with an undefined stratification — a
+half-stratified audience is never provisioned.
 
 ### 수신자 도메인 층화 (Korean)
 
 층화는 구독자를 이메일 도메인 제공자별로 분류하고, 각 제공자 층(stratum)이
-모든 변형/홀드아웃 그룹의 비례 배분을 받도록 **제약된 할당량 행렬**을
-계산합니다. 할당량 행렬은 보고/검증을 위해 계산되어 저장됩니다. 참고:
-이 할당량을 실제 수신자 할당 슬라이스에 적용하는 것은 후속 작업이며,
-현재 할당 자체는 결정론적 largest-remainder 매니페스트를 그대로 사용하고
-할당량 행렬은 목표 비례 배분을 문서화합니다.
+모든 변형/홀드아웃 그룹의 비례 배분을 받도록 **제약된 할당량 행렬**을 실제
+수신자 할당에 적용합니다. 각 층 안에서 구성원은 층화 없는 매니페스트가
+사용하는 것과 동일한 결정론적 SHA-256 digest 순서(해당 층으로 제한)로
+정렬되고, 각 그룹은 그 순서의 앞부분에서 자기 할당량 칸을 채웁니다. 그룹
+총량은 여전히 largest-remainder 매니페스트에서 오므로, 층화는 각 그룹의
+크기가 아니라 누가 어느 그룹에 들어가는지만 바꿉니다.
 
 - `classifyStratum`으로 구독자를 분류하고, `computeStratifiedQuotas`로
   할당량 행렬을 계산합니다.
-- 홀드아웃 프로비저닝 시 층화 정책이 활성화되어 있으면 할당량 행렬이
-  `AbTest.stratification`에 저장되어 보고/검증에 사용됩니다.
+- 홀드아웃 프로비저닝 시 층화 정책이 활성화되어 있으면 목록 변경 전에
+  층화 할당이 실행되고, 실제로 적용된 할당량 행렬이
+  `AbTest.stratification`에 저장되어 보고/검증에 사용됩니다. 계산은
+  (testId, 시드, 오디언스, 정책)에 대해 결정론적이므로 저장된 시드 아래
+  크래시 재개 도입은 동일한 슬라이스를 다시 도출하고 멤버십 동기화는
+  멱등적으로 유지됩니다. 이메일이 없는 구독자가 하나라도 있거나 할당량
+  계산이 실패하면 경고를 기록하고 층화 정의 없이 매니페스트 할당으로
+  되돌아갑니다 — 절반만 층화된 오디언스는 프로비저닝되지 않습니다.

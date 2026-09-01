@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+	assignStratifiedMembers,
 	classifyStratum,
 	computeStratifiedQuotas,
 	DEFAULT_STRATIFICATION_POLICY,
@@ -201,5 +202,166 @@ describe("computeStratifiedQuotas", () => {
 		for (const cell of result.cells) {
 			expect(Math.abs(cell.quota - cell.ideal)).toBeLessThanOrEqual(1.5);
 		}
+	});
+});
+
+describe("assignStratifiedMembers", () => {
+	const policy = {
+		...DEFAULT_STRATIFICATION_POLICY,
+		enabled: true,
+		minimumStratumSize: 2,
+	};
+
+	function membersFor(domains: Record<string, number>): {
+		subscriberId: number;
+		subscriberUuid: string;
+		email: string;
+	}[] {
+		const members: {
+			subscriberId: number;
+			subscriberUuid: string;
+			email: string;
+		}[] = [];
+		let id = 1;
+		for (const [domain, count] of Object.entries(domains)) {
+			for (let i = 0; i < count; i += 1) {
+				members.push({
+					subscriberId: id,
+					subscriberUuid: `uuid-${String(id).padStart(4, "0")}`,
+					email: `sub${id}@${domain}`,
+				});
+				id += 1;
+			}
+		}
+		return members;
+	}
+
+	const groups = [
+		{ groupKey: "variant:a", expectedCount: 450 },
+		{ groupKey: "variant:b", expectedCount: 450 },
+		{ groupKey: "holdout", expectedCount: 100 },
+	];
+
+	it("realizes the quota matrix in the actual slices", () => {
+		const members = membersFor({
+			"gmail.com": 600,
+			"naver.com": 300,
+			"example.com": 100,
+		});
+		const assignment = assignStratifiedMembers({
+			testId: "test-1",
+			seed: "seed-1",
+			members,
+			policy,
+			groups,
+		});
+
+		// Group totals match the manifest exactly.
+		for (const group of assignment.groups) {
+			expect(group.subscriberIds).toHaveLength(group.expectedCount);
+		}
+
+		// Slices are disjoint and cover the full audience.
+		const assigned = assignment.groups.flatMap((g) => g.subscriberIds);
+		expect(new Set(assigned).size).toBe(members.length);
+
+		// Per-stratum group membership equals the stored quota cells.
+		const emailById = new Map(members.map((m) => [m.subscriberId, m.email]));
+		const domainOf = (id: number) => {
+			const email = emailById.get(id) ?? "";
+			const domain = email.slice(email.lastIndexOf("@") + 1);
+			return domain === "gmail.com" || domain === "googlemail.com"
+				? "gmail"
+				: domain === "naver.com"
+					? "naver"
+					: "other";
+		};
+		for (const [stratum, row] of Object.entries(assignment.stratification.quotas)) {
+			for (const group of assignment.groups) {
+				const inGroup = assignment.groups
+					.find((g) => g.groupKey === group.groupKey)!
+					.subscriberIds.filter((id) => domainOf(id) === stratum);
+				expect(inGroup).toHaveLength(row[group.groupKey] ?? 0);
+			}
+		}
+	});
+
+	it("is deterministic for the same inputs and re-derivable from the seed", () => {
+		const members = membersFor({
+			"gmail.com": 120,
+			"daum.net": 80,
+			"kakao.com": 40,
+			"example.com": 60,
+		});
+		const params = {
+			testId: "test-2",
+			seed: "seed-2",
+			members,
+			policy,
+			groups: [
+				{ groupKey: "variant:a", expectedCount: 150 },
+				{ groupKey: "variant:b", expectedCount: 150 },
+			],
+		};
+		const first = assignStratifiedMembers(params);
+		const second = assignStratifiedMembers(params);
+		// Audience iteration order must not change the outcome.
+		const shuffled = assignStratifiedMembers({
+			...params,
+			members: [...members].reverse(),
+		});
+
+		expect(second.groups).toEqual(first.groups);
+		expect(shuffled.groups).toEqual(first.groups);
+		expect(second.stratification).toEqual(first.stratification);
+	});
+
+	it("merges small strata into other before assigning", () => {
+		const members = membersFor({
+			"gmail.com": 50,
+			"kakao.com": 1,
+			"example.com": 49,
+		});
+		const assignment = assignStratifiedMembers({
+			testId: "test-3",
+			seed: "seed-3",
+			members,
+			policy,
+			groups: [
+				{ groupKey: "variant:a", expectedCount: 50 },
+				{ groupKey: "holdout", expectedCount: 50 },
+			],
+		});
+
+		expect(Object.keys(assignment.stratification.stratumSizes).sort()).toEqual([
+			"gmail",
+			"other",
+		]);
+		expect(assignment.stratification.stratumSizes.other).toBe(50);
+	});
+
+	it("rejects duplicate or empty group declarations", () => {
+		const members = membersFor({ "gmail.com": 4 });
+		expect(() =>
+			assignStratifiedMembers({
+				testId: "t",
+				seed: "s",
+				members,
+				policy,
+				groups: [],
+			}),
+		).toThrow("at least one group");
+		expect(() =>
+			assignStratifiedMembers({
+				testId: "t",
+				seed: "s",
+				members,
+				policy,
+				groups: [
+					{ groupKey: "variant:a", expectedCount: 2 },
+					{ groupKey: "variant:a", expectedCount: 2 },
+				],
+			}),
+		).toThrow("duplicate group key");
 	});
 });
