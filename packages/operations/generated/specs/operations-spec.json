@@ -29120,7 +29120,7 @@
         "reason": "The operation only renders the stored campaign body."
       },
       "since": "0.16.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Preview campaign",
       "verb": "preview"
     },
@@ -29353,7 +29353,7 @@
         "reason": "Every run dispatches a fresh message to every listed recipient; Listmonk offers no test-send idempotency key, so a retry re-sends. Single, explicitly chosen recipients keep the transactional-send convention of not requiring a destructive confirmation."
       },
       "since": "0.16.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Send a campaign test message",
       "verb": "test"
     },
@@ -29616,7 +29616,7 @@
         "reason": "The operation only reads recorded analytics rows."
       },
       "since": "0.16.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Read campaign analytics",
       "verb": "analytics"
     },
@@ -38641,7 +38641,7 @@
         "reason": "The operation only reads the current bounce collection."
       },
       "since": "0.16.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "List bounces",
       "verb": "list"
     },
@@ -38839,7 +38839,7 @@
         "reason": "The operation only reads the current bounce representation."
       },
       "since": "0.16.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Get bounce",
       "verb": "get"
     },
@@ -38984,7 +38984,7 @@
         "reconcileWith": "bounces.list"
       },
       "since": "0.16.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Delete bounce",
       "verb": "delete"
     },
@@ -39278,7 +39278,7 @@
         "reason": "A destructive run deletes exactly the echoed bounce ids through per-id requests whose missing-id acknowledgement is the same success, so repeating the identical echoed request is a documented no-op. Dry runs only preview the selection window."
       },
       "since": "0.16.0",
-      "stability": "experimental",
+      "stability": "stable",
       "title": "Prune bounce records",
       "verb": "prune"
     },

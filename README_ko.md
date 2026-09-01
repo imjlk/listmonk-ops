@@ -551,12 +551,12 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-111개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 104개가
-`stable`이며, 네 개의 바운스 오퍼레이션(`bounces.list`, `bounces.get`,
-`bounces.delete`, `bounces.prune`)과 캠페인 프리뷰/테스트 발송/애널리틱스
+111개 계약은 독립적인 TypeScript/Typia 제품 계약이며 111개 전부가
+`stable`입니다. 바운스 패밀리(`bounces.list`, `bounces.get`,
+`bounces.delete`, `bounces.prune`)와 캠페인 프리뷰/테스트 발송/애널리틱스
 오퍼레이션(`campaigns.preview`, `campaigns.test`, `campaigns.analytics`)은
-관찰된 Listmonk 6.2 응답 형태가 stable 호환성 baseline에 승인되기 전까지
-`experimental`입니다. runtime-operation bridge는 비어 있습니다.
+관찰된 Listmonk 6.2 응답 형태를 로컬 스택으로 검증한 뒤 stable 호환성
+baseline에 승인되었습니다. runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
@@ -794,8 +794,8 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
 Operation 111개 전체, API 경계 규칙, 0개 governed runtime bridge, 104개
-stable compatibility baseline과 spec-to-runtime 직접 graph edge 338개를
-검증합니다.
+stable compatibility baseline(111개)과 spec-to-runtime 직접 graph edge
+338개를 검증합니다.
 
 111개 shared Operation은 모두 독립적인 TypeScript 계약을 사용합니다. 다시
 생성해야 할 governed runtime-bridge 입력이나 snapshot은 없습니다.

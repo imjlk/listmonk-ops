@@ -60,7 +60,7 @@ export const bouncesListOperationSpec = defineOperationSpec({
 			executorNode: "packages/operations/src/bounces.ts#listBounces:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.16.0",
 });
 
@@ -109,7 +109,7 @@ export const bouncesGetOperationSpec = defineOperationSpec({
 			executorNode: "packages/operations/src/bounces.ts#getBounce:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.16.0",
 });
 
@@ -173,7 +173,7 @@ export const bouncesDeleteOperationSpec = defineOperationSpec({
 			executorNode: "packages/operations/src/bounces.ts#deleteBounce:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.16.0",
 });
 
@@ -241,7 +241,7 @@ export const bouncesPruneOperationSpec = defineOperationSpec({
 			executorNode: "packages/operations/src/bounces.ts#pruneBounces:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.16.0",
 });
 

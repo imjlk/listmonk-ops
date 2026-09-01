@@ -979,7 +979,7 @@ Render the stored campaign body to HTML exactly as recipients would see it, with
 - Effects: `read:campaign`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.16.0`
+- Stability: `stable` since `0.16.0`
 
 ## `campaigns.test`
 
@@ -991,7 +991,7 @@ Deliver the campaign to a bounded set of existing-subscriber emails for review. 
 - Effects: `delivery:single:immediate`
 - Policy: confirmation `never`, audit `required`, dry-run `false`
 - Retry: `unsafe`
-- Stability: `experimental` since `0.16.0`
+- Stability: `stable` since `0.16.0`
 
 ## `campaigns.analytics`
 
@@ -1003,7 +1003,7 @@ Read view, click, link, or bounce analytics for a bounded set of campaigns over 
 - Effects: `read:campaign`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.16.0`
+- Stability: `stable` since `0.16.0`
 
 ## `media.delete`
 
@@ -1291,7 +1291,7 @@ Get recorded bounce events from Listmonk with optional campaign, source, and ord
 - Effects: `read:bounce`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.16.0`
+- Stability: `stable` since `0.16.0`
 
 ## `bounces.get`
 
@@ -1303,7 +1303,7 @@ Get a recorded bounce event by its numeric ID
 - Effects: `read:bounce`
 - Policy: confirmation `never`, audit `optional`, dry-run `false`
 - Retry: `safe`
-- Stability: `experimental` since `0.16.0`
+- Stability: `stable` since `0.16.0`
 
 ## `bounces.delete`
 
@@ -1315,7 +1315,7 @@ Delete a recorded bounce event by its numeric ID
 - Effects: `delete:bounce`
 - Policy: confirmation `required`, audit `required`, dry-run `false`
 - Retry: `reconcile`
-- Stability: `experimental` since `0.16.0`
+- Stability: `stable` since `0.16.0`
 
 ## `bounces.prune`
 
@@ -1327,7 +1327,7 @@ Preview or delete a bounded selection of bounce records. Destructive runs echo t
 - Effects: `maintenance:prune:destructive`
 - Policy: confirmation `required`, audit `required`, dry-run `true`
 - Retry: `safe`
-- Stability: `experimental` since `0.16.0`
+- Stability: `stable` since `0.16.0`
 
 ## `user-roles.reconcile`
 

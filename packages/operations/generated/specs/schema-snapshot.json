@@ -25474,7 +25474,7 @@
         "reason": "The operation only renders the stored campaign body."
       },
       "since": "0.16.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "campaigns.test",
@@ -25664,7 +25664,7 @@
         "reason": "Every run dispatches a fresh message to every listed recipient; Listmonk offers no test-send idempotency key, so a retry re-sends. Single, explicitly chosen recipients keep the transactional-send convention of not requiring a destructive confirmation."
       },
       "since": "0.16.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "campaigns.analytics",
@@ -25887,7 +25887,7 @@
         "reason": "The operation only reads recorded analytics rows."
       },
       "since": "0.16.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "media.delete",
@@ -33859,7 +33859,7 @@
         "reason": "The operation only reads the current bounce collection."
       },
       "since": "0.16.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "bounces.get",
@@ -34020,7 +34020,7 @@
         "reason": "The operation only reads the current bounce representation."
       },
       "since": "0.16.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "bounces.delete",
@@ -34122,7 +34122,7 @@
         "reconcileWith": "bounces.list"
       },
       "since": "0.16.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "bounces.prune",
@@ -34372,7 +34372,7 @@
         "reason": "A destructive run deletes exactly the echoed bounce ids through per-id requests whose missing-id acknowledgement is the same success, so repeating the identical echoed request is a documented no-op. Dry runs only preview the selection window."
       },
       "since": "0.16.0",
-      "stability": "experimental"
+      "stability": "stable"
     },
     {
       "id": "user-roles.reconcile",

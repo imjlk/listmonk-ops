@@ -341,7 +341,7 @@ export const campaignsAnalyticsOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#readCampaignAnalytics:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.16.0",
 });
 
@@ -396,7 +396,7 @@ export const campaignsPreviewOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#previewCampaign:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.16.0",
 });
 
@@ -454,7 +454,7 @@ export const campaignsTestOperationSpec = defineOperationSpec({
 				"packages/operations/src/campaigns.ts#sendTestCampaign:function",
 		},
 	},
-	stability: "experimental",
+	stability: "stable",
 	since: "0.16.0",
 });
 
