@@ -365,11 +365,14 @@ export class ListmonkAbTestIntegration {
 				`Stratification enabled for test ${testId} but the resolved audience is empty or some members lack an email; falling back to the unstratified manifest assignment`,
 			);
 		}
+		const groupKeyOf = (
+			group: (typeof assignmentManifest.groups)[number],
+		): string =>
+			group.kind === "variant" ? `variant:${group.variantId}` : "holdout";
 		if (stratificationPolicy.enabled && allMembersHaveEmail) {
 			try {
 				const manifestGroups = assignmentManifest.groups.map((group) => ({
-					groupKey:
-						group.kind === "variant" ? `variant:${group.variantId}` : "holdout",
+					groupKey: groupKeyOf(group),
 					expectedCount: group.expectedCount,
 				}));
 				stratifiedAssignment = assignStratifiedMembers({
@@ -420,7 +423,10 @@ export class ListmonkAbTestIntegration {
 			// buildAssignmentManifest over the unstratified ranked slices;
 			// recompute them from the slices actually applied so a later
 			// reconciliation or drift check against live list membership
-			// never reports false drift when stratification is active.
+			// never reports false drift when stratification is active. The
+			// provenance stamp records that these checksums are re-derivable
+			// only through the stratified assignment, not the ranked
+			// positions the algorithm string describes.
 			const uuidsBySubscriberId = new Map(
 				resolvedMembers.map((member) => [
 					member.subscriberId,
@@ -428,13 +434,22 @@ export class ListmonkAbTestIntegration {
 				]),
 			);
 			for (const group of assignmentManifest.groups) {
-				const groupKey =
-					group.kind === "variant" ? `variant:${group.variantId}` : "holdout";
-				const appliedIds = subscribersByGroupKey.get(groupKey) ?? [];
-				group.subscriberChecksum = groupChecksum(
-					appliedIds.map((id) => uuidsBySubscriberId.get(id) ?? ""),
-				);
+				const appliedIds = subscribersByGroupKey.get(groupKeyOf(group)) ?? [];
+				const appliedUuids = appliedIds.map((id) => {
+					const uuid = uuidsBySubscriberId.get(id);
+					if (uuid === undefined) {
+						// A silent "" fallback would produce a plausible-but-wrong
+						// checksum — exactly the false baseline this recompute
+						// exists to remove — so fail the invariant loudly.
+						throw new Error(
+							`Stratified slice for ${groupKeyOf(group)} contains subscriber id ${id} missing from the resolved audience`,
+						);
+					}
+					return uuid;
+				});
+				group.subscriberChecksum = groupChecksum(appliedUuids);
 			}
+			assignmentManifest.checksumProvenance = "stratified-v1";
 		} else {
 			// Rank only on the fallback path: the stratified branch re-ranks
 			// within each stratum, so a global ranking would be wasted work.

@@ -665,6 +665,9 @@ function isStoredAssignmentManifest(value: unknown): boolean {
 	}
 	return (
 		value.algorithm === "sha256-order-largest-remainder-v1" &&
+		(value.checksumProvenance === undefined ||
+			value.checksumProvenance === "ranked" ||
+			value.checksumProvenance === "stratified-v1") &&
 		typeof value.seed === "string" &&
 		typeof value.audienceChecksum === "string" &&
 		Array.isArray(value.groups) &&

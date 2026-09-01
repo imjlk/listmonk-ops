@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { AbTestService } from "../src/abtest-service";
 import {
@@ -6,7 +6,7 @@ import {
 	type ProvisionedAbTestResources,
 } from "../src/listmonk-integration";
 import { DEFAULT_STRATIFICATION_POLICY } from "../src/stratification";
-import { groupChecksum } from "../src/assignment";
+import { buildAssignmentManifest, groupChecksum } from "../src/assignment";
 import type { AbTest, AbTestConfig } from "../src/types";
 
 function createTestConfig(): AbTestConfig {
@@ -240,6 +240,131 @@ describe("segmentSubscribersForHoldout stratification", () => {
 		return subscribers;
 	}
 
+	test("warns and falls back when a member lacks an email", async () => {
+		const audience = makeAudience();
+		audience[0] = { ...audience[0], email: "" };
+		const createdLists: { id: number; tags: string[] }[] = [];
+		const membershipByList = new Map<number, number[]>();
+		let nextListId = 7001;
+		const warnings: string[] = [];
+		const originalWarn = console.warn;
+		console.warn = (...args: unknown[]) => {
+			warnings.push(args.map(String).join(" "));
+		};
+
+		const client = {
+			subscriber: {
+				list: async ({ query }: { query?: Record<string, unknown> }) => {
+					const listId = Number(query?.list_id ?? 0);
+					const page = Number(query?.page ?? 1);
+					const perPage = Number(query?.per_page ?? 500);
+					const scoped = audience.filter((subscriber) =>
+						subscriber.lists.some((entry) => entry.id === listId),
+					);
+					const start = (page - 1) * perPage;
+					return {
+						data: {
+							results: scoped.slice(start, start + perPage),
+							total: scoped.length,
+							per_page: perPage,
+							page,
+						},
+					};
+				},
+				manageLists: async ({
+					body,
+				}: {
+					body: { ids: number[]; target_list_ids: number[] };
+				}) => {
+					for (const listId of body.target_list_ids) {
+						const existing = membershipByList.get(listId) ?? [];
+						membershipByList.set(listId, [...existing, ...body.ids]);
+					}
+					return { data: true };
+				},
+			},
+			list: {
+				create: async ({ body }: { body: { name: string; tags?: string[] } }) => {
+					const id = nextListId;
+					nextListId += 1;
+					createdLists.push({ id, tags: body.tags ?? [] });
+					return { data: { id, name: body.name } };
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		try {
+			const integration = new ListmonkAbTestIntegration(client);
+			const result = await integration.segmentSubscribersForHoldout(
+				[1],
+				[
+					{ id: "variant-a", name: "A", percentage: 50, contentOverrides: {} },
+					{ id: "variant-b", name: "B", percentage: 50, contentOverrides: {} },
+				],
+				50,
+				{
+					testId: "no-email-test",
+					assignmentSeed: "no-email-seed",
+					stratificationPolicy: {
+						...DEFAULT_STRATIFICATION_POLICY,
+						enabled: true,
+					},
+				},
+			);
+
+			expect(result.stratification).toBeUndefined();
+			expect(
+				result.assignmentManifest.checksumProvenance,
+			).toBeUndefined();
+			expect(warnings.some((line) => line.includes("lack an email"))).toBe(
+				true,
+			);
+			// The fallback assignment is the unstratified ranked manifest:
+			// re-deriving the manifest from the same seed reproduces the
+			// persisted checksums exactly.
+			const emailById = new Map(audience.map((s) => [s.id, s]));
+			const uuidById = new Map(audience.map((s) => [s.id, s.uuid]));
+			const eligible = audience
+				.filter((s) => s.status === "enabled")
+				.map((s) => ({
+					subscriberId: s.id,
+					subscriberUuid: s.uuid,
+					email: emailById.get(s.id)?.email,
+				}));
+			const rederived = buildAssignmentManifest({
+				testId: "no-email-test",
+				seed: "no-email-seed",
+				audience: {
+					capturedAt: result.audienceSnapshot.capturedAt,
+					sourceListIds: [1],
+					subscriberCount: eligible.length,
+					subscriberChecksum: result.audienceSnapshot.subscriberChecksum,
+					eligibilityPolicyVersion: 1,
+				},
+				members: eligible,
+				variants: [
+					{ id: "variant-a", name: "A", percentage: 50, contentOverrides: {} },
+					{ id: "variant-b", name: "B", percentage: 50, contentOverrides: {} },
+				],
+				testGroupPercentage: 50,
+			});
+			expect(
+				result.assignmentManifest.groups.map((group) => [
+					group.kind,
+					group.subscriberChecksum,
+				]),
+			).toEqual(
+				rederived.groups.map((group) => [
+					group.kind,
+					group.subscriberChecksum,
+				]),
+			);
+			expect(uuidById.size).toBeGreaterThan(0);
+		} finally {
+			console.warn = originalWarn;
+		}
+	});
+
 	test("applies the quota matrix to the actual recipient slices", async () => {
 		const audience = makeAudience();
 		const createdLists: { id: number; tags: string[] }[] = [];
@@ -318,6 +443,9 @@ describe("segmentSubscribersForHoldout stratification", () => {
 		);
 
 		expect(result.stratification).toBeDefined();
+		expect(result.assignmentManifest.checksumProvenance).toBe(
+			"stratified-v1",
+		);
 		expect(result.testGroupSize + result.holdoutGroupSize).toBe(
 			audience.length,
 		);
