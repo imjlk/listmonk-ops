@@ -4,6 +4,7 @@ import { providerOperationCatalog } from "../packages/automation/src/provider-op
 import { sequenceOperationCatalog } from "../packages/automation/src/sequence-operations";
 import { webhookOperationCatalog } from "../packages/automation/src/webhook-operations";
 import {
+	bouncesOperationCatalog,
 	campaignOperationCatalog,
 	discoveryOperationCatalog,
 	listOperationCatalog,
@@ -27,6 +28,7 @@ export const sharedOperationCatalogs: readonly OperationCatalog[] = [
 	campaignOperationCatalog,
 	templateOperationCatalog,
 	mediaOperationCatalog,
+	bouncesOperationCatalog,
 	transactionalOperationCatalog,
 	opsOperationCatalog,
 	abTestOperationCatalog,

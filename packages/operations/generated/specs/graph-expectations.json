@@ -2784,6 +2784,60 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/bounces.ts#listBouncesOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesListOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesListOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesListOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/bounces.ts#invokeListBouncesOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/bounces.ts#listBounces:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesListOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesListOperationSpec:variable",
+        "executorNode": "packages/operations/src/bounces.ts#listBounces:function",
+        "invokerNode": "packages/operations/src/bounces.ts#invokeListBouncesOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/bounces.ts#listBouncesOperation:variable"
+      },
+      "operationId": "bounces.list"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/bounces.ts#getBounceOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesGetOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesGetOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesGetOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/bounces.ts#invokeGetBounceOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/bounces.ts#getBounce:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesGetOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesGetOperationSpec:variable",
+        "executorNode": "packages/operations/src/bounces.ts#getBounce:function",
+        "invokerNode": "packages/operations/src/bounces.ts#invokeGetBounceOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/bounces.ts#getBounceOperation:variable"
+      },
+      "operationId": "bounces.get"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/user-roles.ts#reconcileUserRoleManifestOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function"

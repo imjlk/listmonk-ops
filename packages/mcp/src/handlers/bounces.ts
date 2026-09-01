@@ -1,66 +1,24 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
+import {
+	bouncesOperations,
+	invokeBouncesOperationByMcpName,
+} from "@listmonk-ops/operations";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
-import type { HandlerFunction } from "../types/shared.js";
 import {
 	createErrorResult,
 	createSuccessResult,
-	handleDataResponse,
 	validateRequiredParams,
 } from "../utils/response.js";
-import {
-	arrayToCommaString,
-	handleCrudResponse,
-	parseId,
-	parsePaginationParams,
-	withErrorHandler,
-} from "../utils/typeHelpers.js";
+import { arrayToCommaString, parseId } from "../utils/typeHelpers.js";
+import { createOperationResult, toMcpTool } from "./operation-adapter.js";
 
-export const bouncesTools: MCPTool[] = [
-	{
-		name: "listmonk_get_bounces",
-		description: "Get all bounces from Listmonk",
-		inputSchema: {
-			type: "object",
-			properties: {
-				page: {
-					type: "number",
-					description: "Page number for pagination",
-					default: 1,
-				},
-				per_page: {
-					type: "number",
-					description: "Number of items per page",
-					default: 20,
-				},
-				campaign_id: {
-					type: "string",
-					description: "Filter by campaign ID",
-				},
-				subscriber_id: {
-					type: "string",
-					description: "Filter by subscriber ID",
-				},
-				source: {
-					type: "string",
-					description: "Filter by bounce source",
-				},
-			},
-		},
-	},
-	{
-		name: "listmonk_get_bounce",
-		description: "Get a specific bounce by ID",
-		inputSchema: {
-			type: "object",
-			properties: {
-				id: {
-					type: "string",
-					description: "Bounce ID",
-				},
-			},
-			required: ["id"],
-		},
-	},
+/**
+ * Legacy hand-rolled bounce delete tools. They remain transport-specific
+ * until the destructive bounce operations are promoted to the shared
+ * catalog with echo/dry-run semantics; the read tools above them are
+ * already shared operations.
+ */
+const legacyBounceDeleteTools: MCPTool[] = [
 	{
 		name: "listmonk_delete_bounce",
 		description: "Delete a bounce record",
@@ -96,45 +54,31 @@ export const bouncesTools: MCPTool[] = [
 	},
 ];
 
-export const handleBouncesTools: HandlerFunction = withErrorHandler(
-	async (
-		request: CallToolRequest,
-		client: ListmonkClient,
-	): Promise<CallToolResult> => {
-		const { name, arguments: args = {} } = request.params;
+export const bouncesTools: MCPTool[] = [
+	...bouncesOperations.map(toMcpTool),
+	...legacyBounceDeleteTools,
+];
+
+export async function handleBouncesTools(
+	request: CallToolRequest,
+	client: ListmonkClient,
+): Promise<CallToolResult> {
+	const { name, arguments: args = {} } = request.params;
+
+	try {
+		const operationInvocation = await invokeBouncesOperationByMcpName(
+			{ client },
+			name,
+			args,
+		);
+		if (operationInvocation) {
+			return createOperationResult(
+				operationInvocation.operation,
+				operationInvocation.output,
+			);
+		}
 
 		switch (name) {
-			case "listmonk_get_bounces": {
-				const options: NonNullable<
-					Parameters<ListmonkClient["bounce"]["list"]>[0]
-				> = {
-					...parsePaginationParams(args),
-				};
-
-				if (args.campaign_id !== undefined && args.campaign_id !== null) {
-					options.campaign_id = parseId(args.campaign_id);
-				}
-				if (args.source) {
-					options.source = String(args.source);
-				}
-
-				const response = await client.bounce.list(options);
-				return handleDataResponse(response, "Failed to fetch bounces");
-			}
-
-			case "listmonk_get_bounce": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				const response = await client.bounce.getById({
-					path: { id: parseId(args.id) },
-				});
-
-				return handleCrudResponse(response, "Failed to fetch bounce");
-			}
-
 			case "listmonk_delete_bounce": {
 				const validation = validateRequiredParams(request, ["id"]);
 				if (validation) {
@@ -168,5 +112,9 @@ export const handleBouncesTools: HandlerFunction = withErrorHandler(
 			default:
 				return createErrorResult(`Unknown tool: ${name}`);
 		}
-	},
-);
+	} catch (error) {
+		return createErrorResult(
+			error instanceof Error ? error.message : String(error),
+		);
+	}
+};

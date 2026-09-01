@@ -3,6 +3,7 @@ export * from "./subscriber-specs";
 export * from "./campaign-specs";
 export * from "./template-specs";
 export * from "./media-specs";
+export * from "./bounces-specs";
 export * from "./ops-specs";
 export * from "./abtest-specs";
 
@@ -37,6 +38,10 @@ import {
 	mediaDeleteOperationSpec,
 	mediaUploadOperationSpec,
 } from "./media-specs";
+import {
+	bouncesListOperationSpec,
+	bouncesGetOperationSpec,
+} from "./bounces-specs";
 import {
 	opsSegmentDriftOperationSpec,
 	opsDailyDigestOperationSpec,
@@ -106,6 +111,8 @@ export const standaloneOperationSpecs = [
 	abTestTickOperationSpec,
 	abTestReconcileOperationSpec,
 	abTestExportAssignmentOperationSpec,
+	bouncesListOperationSpec,
+	bouncesGetOperationSpec,
 ] as const;
 
 /** @deprecated Use `standaloneOperationSpecs`. */

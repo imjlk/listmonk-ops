@@ -9,6 +9,7 @@ import {
 import packageJson from "../package.json" with { type: "json" };
 
 import abtestCommand from "./commands/abtest";
+import bouncesCommand from "./commands/bounces";
 import campaignsCommand from "./commands/campaigns";
 import capabilitiesCommand from "./commands/capabilities";
 import deliverabilityCommand from "./commands/deliverability";
@@ -44,6 +45,7 @@ const subCommands = {
 	capabilities: capabilitiesCommand,
 	prime: primeCommand,
 	examples: examplesCommand,
+	bounces: bouncesCommand,
 	campaigns: campaignsCommand,
 	lists: listsCommand,
 	media: mediaCommand,

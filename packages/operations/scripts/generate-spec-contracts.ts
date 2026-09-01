@@ -175,6 +175,10 @@ import type {
 	AbTestExportOutput,
 	AbTestDeleteOutput,
 	AbTestDeployWinnerOutput,
+	BounceCollectionOutput,
+	BounceIdInput,
+	BounceListInput,
+	BounceRecord,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
 import { stableValue } from "../src/specs/stable-json.js";
@@ -330,6 +334,12 @@ const contracts = {
 	mediaCollectionOutputContract: contractSchema(
 		typia.json.schema<MediaCollectionOutput>(),
 	),
+	bounceRecordContract: contractSchema(typia.json.schema<BounceRecord>()),
+	bounceCollectionOutputContract: contractSchema(
+		typia.json.schema<BounceCollectionOutput>(),
+	),
+	bounceListInputContract: contractSchema(typia.json.schema<BounceListInput>()),
+	bounceIdInputContract: contractSchema(typia.json.schema<BounceIdInput>()),
 	campaignLifecycleInputContract: contractSchema(
 		typia.json.schema<CampaignLifecycleInput>(),
 	),

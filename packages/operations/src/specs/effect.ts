@@ -6,6 +6,7 @@ export type OperationResourceKind =
 	| "list"
 	| "template"
 	| "media"
+	| "bounce"
 	| "provider"
 	| "experiment"
 	| "sequence"

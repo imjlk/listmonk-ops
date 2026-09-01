@@ -261,6 +261,10 @@ const openapiMediaGetByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.getById:method";
 const openapiMediaDeleteByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.deleteById:method";
+const openapiBounceListMethod =
+	"packages/openapi/src/client/contracts.ts#BounceOperations.list:method";
+const openapiBounceGetByIdMethod =
+	"packages/openapi/src/client/contracts.ts#BounceOperations.getById:method";
 
 const cliOpsModule =
 	"apps/cli/src/commands/ops.ts#apps/cli/src/commands/ops.ts:module";
@@ -1168,6 +1172,46 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				action:
 					"packages/operations/src/media.ts#deleteMediaFile:function",
 				openapi: openapiMediaDeleteByIdMethod,
+			},
+		],
+	}),
+	...resourceOperationContracts({
+		resource: "bounce",
+		cliModule:
+			"apps/cli/src/commands/bounces.ts#apps/cli/src/commands/bounces.ts:module",
+		cliTestModule:
+			"apps/cli/tests/bounces.test.ts#apps/cli/tests/bounces.test.ts:module",
+		mcpHandler:
+			"packages/mcp/src/handlers/bounces.ts#handleBouncesTools:function",
+		dispatcher:
+			"packages/operations/src/bounces.ts#invokeBouncesOperationByMcpName:function",
+		operationTestModule:
+			"packages/operations/tests/bounces.test.ts#packages/operations/tests/bounces.test.ts:module",
+		mcpTestModule:
+			"packages/mcp/tests/unit/bounces.test.ts#packages/mcp/tests/unit/bounces.test.ts:module",
+		testAnchor: {
+			invoker:
+				"packages/operations/src/bounces.ts#invokeListBouncesOperation:function",
+			action: "packages/operations/src/bounces.ts#listBounces:function",
+		},
+		invokers: [
+			{
+				label: "list",
+				cliHandler: "handleListBouncesCommand",
+				cliRender: "renderBounces",
+				invoker:
+					"packages/operations/src/bounces.ts#invokeListBouncesOperation:function",
+				action: "packages/operations/src/bounces.ts#listBounces:function",
+				openapi: openapiBounceListMethod,
+			},
+			{
+				label: "get",
+				cliHandler: "handleGetBounceCommand",
+				cliRender: "renderBounce",
+				invoker:
+					"packages/operations/src/bounces.ts#invokeGetBounceOperation:function",
+				action: "packages/operations/src/bounces.ts#getBounce:function",
+				openapi: openapiBounceGetByIdMethod,
 			},
 		],
 	}),

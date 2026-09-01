@@ -34,6 +34,22 @@ export const mediaResource = defineOperationResourceSpec({
 	terminalStates: ["deleted"],
 });
 
+/**
+ * Bounce records are stateless observations produced by Listmonk or an
+ * inbound provider event. They never transition on their own; deletion by
+ * an operator is the only exit.
+ */
+export const bounceResource = defineOperationResourceSpec({
+	id: "bounce",
+	title: "Bounce record",
+	states: ["recorded", "deleted"],
+	transitions: {
+		recorded: ["deleted"],
+		deleted: [],
+	},
+	terminalStates: ["deleted"],
+});
+
 export const audienceResource = defineOperationResourceSpec({
 	id: "audience",
 	title: "Resolved audience",

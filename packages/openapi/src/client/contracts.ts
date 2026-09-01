@@ -210,22 +210,6 @@ interface BaseGetOperation<T> {
 	get(): Promise<FlattenedResponse<T>>;
 }
 
-interface BaseGetByIdOperation<T> {
-	getById(options: { path: { id: number } }): Promise<CrudResult<T>>;
-}
-
-interface BaseDeleteOperation {
-	delete(options: {
-		query: { all?: boolean; id?: string };
-	}): Promise<FlattenedResponse<boolean>>;
-}
-
-interface BaseDeleteByIdOperation {
-	deleteById(options: {
-		path: { id: number };
-	}): Promise<FlattenedResponse<boolean>>;
-}
-
 export interface BounceListOptions {
 	campaign_id?: number;
 	page?: number;
@@ -233,10 +217,6 @@ export interface BounceListOptions {
 	source?: string;
 	order_by?: "email" | "campaign_name" | "source" | "created_at";
 	order?: "asc" | "desc";
-}
-
-interface BaseBounceListOperation<T> {
-	list(options?: BounceListOptions): Promise<ListResult<T>>;
 }
 
 export type ImportStartParams = {
@@ -260,12 +240,16 @@ interface ImportOperations extends BaseGetOperation<t.ImportStatus> {
 	start(params: ImportStartParams): Promise<FlattenedResponse<t.ImportStatus>>;
 }
 
-interface BounceOperations
-	extends
-		BaseBounceListOperation<t.Bounce>,
-		BaseGetByIdOperation<t.Bounce>,
-		BaseDeleteOperation,
-		BaseDeleteByIdOperation {}
+export interface BounceOperations {
+	list(options?: BounceListOptions): Promise<ListResult<t.Bounce>>;
+	getById(options: { path: { id: number } }): Promise<CrudResult<t.Bounce>>;
+	delete(options: {
+		query: { all?: boolean; id?: string };
+	}): Promise<FlattenedResponse<boolean>>;
+	deleteById(options: {
+		path: { id: number };
+	}): Promise<FlattenedResponse<boolean>>;
+}
 
 interface TransactionalOperations {
 	send(options: TransactionalSendParams): Promise<FlattenedResponse<boolean>>;

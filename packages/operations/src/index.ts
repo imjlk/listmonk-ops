@@ -1,5 +1,6 @@
 export * from "./campaign-lifecycle";
 export * from "./campaigns";
+export * from "./bounces";
 export * from "./catalog";
 export * from "./execution-policy";
 export * from "./discovery";
