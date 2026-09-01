@@ -9,6 +9,7 @@ import {
 	invokeDeleteBounceOperation,
 	invokeGetBounceOperation,
 	invokeListBouncesOperation,
+	invokePruneBouncesOperation,
 } from "../src/bounces";
 import { OperationExecutionError } from "../src/operation";
 import {
@@ -39,7 +40,7 @@ const bounceRecord = {
 
 describe("shared bounce operations", () => {
 	test("exposes a registry with per-operation safety metadata", () => {
-		expect(bouncesOperations).toHaveLength(3);
+		expect(bouncesOperations).toHaveLength(4);
 		for (const operation of bouncesOperations) {
 			expect(operation.inputJsonSchema.type).toBe("object");
 			expect(operation.outputJsonSchema.type).toBe("object");
@@ -51,6 +52,12 @@ describe("shared bounce operations", () => {
 			openWorldHint: true,
 		});
 		expect(bouncesOperations[2]?.safety).toEqual({
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: true,
+			openWorldHint: true,
+		});
+		expect(bouncesOperations[3]?.safety).toEqual({
 			readOnlyHint: false,
 			destructiveHint: true,
 			idempotentHint: true,
@@ -242,6 +249,89 @@ describe("shared bounce operations", () => {
 				{ id: 12 },
 			),
 		).rejects.toThrow("negative acknowledgement");
+	});
+
+	test("previews and prunes bounce batches through the echoed id set", async () => {
+		const list = mock(async () => ({
+			data: {
+				results: [bounceRecord, { ...bounceRecord, id: 2 }],
+				total: 2,
+				per_page: 100,
+				page: 1,
+			},
+		}));
+
+		await expect(
+			invokePruneBouncesOperation(
+				bounceContext({ list: list as BounceClient["bounce"]["list"] }),
+				{},
+			),
+		).resolves.toEqual({
+			dry_run: true,
+			bounce_ids: [1, 2],
+			total: 2,
+			page: 1,
+			per_page: 100,
+		});
+
+		const deleteById = mock(async () => ({ data: true }));
+		await expect(
+			invokePruneBouncesOperation(
+				bounceContext({
+					deleteById: deleteById as BounceClient["bounce"]["deleteById"],
+				}),
+				{ dry_run: false, bounce_ids: ["2", "1", "1"] },
+			),
+		).resolves.toEqual({
+			dry_run: false,
+			bounce_ids: [1, 2],
+			acknowledged: 2,
+		});
+		expect(deleteById).toHaveBeenCalledTimes(2);
+	});
+
+	test("converges a destructive prune that echoes an empty selection", async () => {
+		const deleteById = mock(async () => ({ data: true }));
+		await expect(
+			invokePruneBouncesOperation(
+				bounceContext({
+					deleteById: deleteById as BounceClient["bounce"]["deleteById"],
+				}),
+				{ dry_run: false, bounce_ids: [] },
+			),
+		).resolves.toEqual({
+			dry_run: false,
+			bounce_ids: [],
+			acknowledged: 0,
+		});
+		expect(deleteById).not.toHaveBeenCalled();
+	});
+
+	test("rejects a destructive prune without the echoed id set", async () => {
+		const deleteById = mock(async () => ({ data: true }));
+		await expect(
+			invokePruneBouncesOperation(
+				bounceContext({
+					deleteById: deleteById as BounceClient["bounce"]["deleteById"],
+				}),
+				{ dry_run: false },
+			),
+		).rejects.toThrow("bounce_ids");
+		expect(deleteById).not.toHaveBeenCalled();
+	});
+
+	test("rejects a negative prune acknowledgement mid-batch", async () => {
+		const deleteById = mock(async ({ path }: { path: { id: number } }) => ({
+			data: path.id !== 2,
+		}));
+		await expect(
+			invokePruneBouncesOperation(
+				bounceContext({
+					deleteById: deleteById as unknown as BounceClient["bounce"]["deleteById"],
+				}),
+				{ dry_run: false, bounce_ids: [1, 2] },
+			),
+		).rejects.toThrow("Failed to delete bounce 2");
 	});
 
 	test("dispatches MCP names through the named operations", async () => {

@@ -3,6 +3,7 @@ import {
 	bindBouncesDeleteOperationSpec,
 	bindBouncesGetOperationSpec,
 	bindBouncesListOperationSpec,
+	bindBouncesPruneOperationSpec,
 } from "./specs";
 import { z } from "zod";
 import { defineOperationCatalog } from "./catalog";
@@ -16,6 +17,7 @@ import {
 	deleteResourceSafety,
 	jsonResourceValue,
 	normalizeResourceList,
+	optionalBooleanSchema,
 	readResourceSafety,
 	requireAcknowledgement,
 	ResourceResponseError,
@@ -84,6 +86,62 @@ const bounceIdInputSchema = z.object({
 const bounceDeleteOutputSchema = z.object({
 	id: z.number().int().positive(),
 	deleted: z.boolean(),
+});
+
+/**
+ * Cap on the echoed id set a destructive prune accepts. Mirrors the shared
+ * dispatch limit: one bounded, previewed batch per confirmed run.
+ */
+export const MAX_BOUNCE_PRUNE_IDS = 100;
+
+// The selection window mirrors bounces.list verbatim (the dry run
+// delegates to it) except for the bounded per-page default, so the preview
+// can never drift from what bounces.list would report.
+const bouncePruneInputSchema = bounceListInputSchema
+	.extend({
+		per_page: z.coerce
+			.number()
+			.int()
+			.positive()
+			.max(MAX_BOUNCE_PRUNE_IDS)
+			.default(MAX_BOUNCE_PRUNE_IDS)
+			.describe("Selection window size (at most 100)"),
+		dry_run: optionalBooleanSchema
+			.default(true)
+			.describe(
+				"Preview the deletion instead of performing it (defaults to true)",
+			),
+		// No minimum: an empty selection is a legitimate verbatim echo, and
+		// echoing it converges to a documented no-op instead of rejecting.
+		bounce_ids: z
+			.array(resourceIdSchema)
+			.max(MAX_BOUNCE_PRUNE_IDS)
+			.optional()
+			.describe(
+				"The exact bounce ids a dry run reported; required for a destructive run so the confirmed deletion never drifts from the previewed set",
+			),
+	})
+	.superRefine((input, ctx) => {
+		if (input.dry_run) return;
+		if (input.bounce_ids === undefined) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["bounce_ids"],
+				message:
+					"bounce_ids is required for a destructive prune; echo the ids a dry run reported",
+			});
+		}
+	});
+
+const bouncePruneOutputSchema = z.object({
+	dry_run: z.boolean(),
+	bounce_ids: z.array(z.number().int().positive()),
+	/** Selection-window metadata; present on dry-run previews. */
+	total: z.number().nonnegative().optional(),
+	page: z.number().optional(),
+	per_page: z.number().optional(),
+	/** Per-id acknowledgement count; present on destructive runs. */
+	acknowledged: z.number().int().nonnegative().optional(),
 });
 
 export type BounceRecord = z.output<typeof bounceRecordSchema>;
@@ -173,6 +231,65 @@ export async function deleteBounce(
 	return { id: input.id, deleted: true };
 }
 
+/**
+ * Preview or delete one bounded batch of bounce records. The dry run
+ * reports the exact ids of its selection window; a destructive run echoes
+ * that set as `bounce_ids`. Because Listmonk's bulk endpoint rejects any
+ * request naming a missing id (deleting nothing), the destructive run is
+ * issued as per-id deletes whose missing-id acknowledgement is the same
+ * success — so an echoed retry converges instead of failing the whole
+ * batch. Acknowledgements are not existence proofs: verify the surviving
+ * set with bounces.list.
+ */
+export async function pruneBounces(
+	{ client }: BounceOperationContext,
+	input: z.output<typeof bouncePruneInputSchema>,
+): Promise<z.output<typeof bouncePruneOutputSchema>> {
+	if (input.dry_run) {
+		const page = await listBounces(
+			{ client },
+			{
+				page: input.page,
+				per_page: input.per_page,
+				campaign_id: input.campaign_id,
+				source: input.source,
+				order_by: input.order_by,
+				order: input.order,
+			},
+		);
+		return {
+			dry_run: true,
+			bounce_ids: page.results
+				.map((bounce) => bounce.id)
+				.filter((id): id is number => id !== undefined),
+			total: page.total,
+			page: page.page,
+			per_page: page.per_page,
+		};
+	}
+
+	const bounceIds = [...new Set(input.bounce_ids ?? [])].sort((a, b) => a - b);
+	// The per-id deletes are independent; run them in small bounded batches
+	// so a destructive run is not latency-bound by up to 100 sequential
+	// round trips, without bursting parallel DELETEs at Listmonk. A failed
+	// acknowledgement still aborts the run with the remaining ids
+	// unattempted, exactly like the sequential loop.
+	const deleteConcurrency = 5;
+	for (let offset = 0; offset < bounceIds.length; offset += deleteConcurrency) {
+		await Promise.all(
+			bounceIds.slice(offset, offset + deleteConcurrency).map(async (id) => {
+				const response = await client.bounce.deleteById({ path: { id } });
+				requireAcknowledgement(response, `Failed to delete bounce ${id}`);
+			}),
+		);
+	}
+	return {
+		dry_run: false,
+		bounce_ids: bounceIds,
+		acknowledged: bounceIds.length,
+	};
+}
+
 export const listBouncesOperation = defineOperation({
 	id: "bounces.list",
 	title: "List bounces",
@@ -211,6 +328,19 @@ export const deleteBounceOperation = defineOperation({
 	},
 	spec: bindBouncesDeleteOperationSpec(),
 	execute: deleteBounce,
+});
+
+export const pruneBouncesOperation = defineOperation({
+	id: "bounces.prune",
+	title: "Prune bounce records",
+	description:
+		"Preview or delete a bounded selection of bounce records. Destructive runs echo the exact bounce ids a dry run reported, so a retry deletes nothing new.",
+	inputSchema: bouncePruneInputSchema,
+	outputSchema: bouncePruneOutputSchema,
+	safety: deleteResourceSafety,
+	mcp: { name: "listmonk_prune_bounces", legacySuccessText: jsonResourceValue },
+	spec: bindBouncesPruneOperationSpec(),
+	execute: pruneBounces,
 });
 
 export async function invokeListBouncesOperation(
@@ -276,10 +406,32 @@ export async function invokeDeleteBounceOperation(
 	);
 }
 
+export async function invokePruneBouncesOperation(
+	context: BounceOperationContext,
+	input: unknown,
+): Promise<z.output<typeof bouncePruneOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		pruneBouncesOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof bouncePruneOutputSchema>;
+	try {
+		output = await pruneBounces(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(pruneBouncesOperation.id, error);
+	}
+	return parseOperationOutput(
+		pruneBouncesOperation.id,
+		pruneBouncesOperation.outputSchema,
+		output,
+	);
+}
+
 export const bouncesOperations = [
 	listBouncesOperation,
 	getBounceOperation,
 	deleteBounceOperation,
+	pruneBouncesOperation,
 ] as const;
 
 export const bouncesOperationCatalog = defineOperationCatalog({
@@ -326,6 +478,11 @@ export async function invokeBouncesOperationByMcpName(
 			return {
 				operation: deleteBounceOperation,
 				output: await invokeDeleteBounceOperation(context, input),
+			};
+		case pruneBouncesOperation.mcp.name:
+			return {
+				operation: pruneBouncesOperation,
+				output: await invokePruneBouncesOperation(context, input),
 			};
 		default:
 			return undefined;

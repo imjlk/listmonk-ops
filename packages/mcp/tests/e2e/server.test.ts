@@ -67,6 +67,7 @@ describe("MCP Server Integration", () => {
 		// Bounce tools
 		expect(toolNames).toContain("listmonk_get_bounces");
 		expect(toolNames).toContain("listmonk_delete_bounce");
+		expect(toolNames).toContain("listmonk_prune_bounces");
 
 			// Transactional tools
 			expect(toolNames).toContain("listmonk_send_transactional");

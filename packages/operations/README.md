@@ -52,7 +52,7 @@ behavior to CLI and MCP with a 500-role and 1 MiB serialized-payload bound,
 default dry run, explicit confirmation, and body-free success and
 partial-failure summaries.
 
-All 107 public shared operations attach an
+All 108 public shared operations attach an
 `@listmonk-ops/operations/specs` descriptor. The operation definition validates
 runtime identity, safety hints, MCP metadata, and normalized input/output
 contracts against the declaration, while catalog summaries expose a detached
@@ -69,10 +69,10 @@ Listmonk OpenAPI transport
   -> operation spec (resource, effect, policy, retry, agent context)
 ```
 
-All 107 contracts are authored as TypeScript types and projected with Typia.
-The three bounce operations (`bounces.list`, `bounces.get`, `bounces.delete`)
-are `experimental` until their observed Listmonk 6.2 response and
-acknowledgement shapes join the accepted stable baseline.
+All 108 contracts are authored as TypeScript types and projected with Typia.
+The four bounce operations (`bounces.list`, `bounces.get`, `bounces.delete`,
+`bounces.prune`) are `experimental` until their observed Listmonk 6.2
+response and acknowledgement shapes join the accepted stable baseline.
 The runtime-operation bridge infrastructure is now empty — all operations
 have standalone product-domain contracts. Ninety reviewed core operations
 are `stable`, including the first
@@ -121,9 +121,9 @@ agent-skill, graph, stable compatibility, and migration-exemption artifacts.
 Run `bun run specs:stable:accept` only after explicitly reviewing an intentional
 stable-contract change.
 
-The runtime-operation bridge infrastructure is now empty — all 107
+The runtime-operation bridge infrastructure is now empty — all 108
 operations have standalone product-domain contracts. The final root
-build loads all 107 runtime operations and validates them against their
+build loads all 108 runtime operations and validates them against their
 standalone TypeScript contracts.
 
 The main package exports a `discoveryOperationCatalog` with shared named

@@ -33619,6 +33619,256 @@
       "stability": "experimental"
     },
     {
+      "id": "bounces.prune",
+      "input": {
+        "components": {
+          "schemas": {
+            "BouncePruneInput": {
+              "additionalProperties": false,
+              "properties": {
+                "bounce_ids": {
+                  "description": "The exact bounce ids a dry run reported (at most 100; an empty\nselection is a legitimate verbatim echo). Required for a destructive\nrun so a confirmed deletion never drifts from the previewed set.",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "maxItems": 100,
+                  "type": "array"
+                },
+                "campaign_id": {
+                  "$ref": "#/components/schemas/ResourceId",
+                  "description": "Filter bounce records by the campaign they belong to."
+                },
+                "dry_run": {
+                  "description": "Whether to only preview the deletion. Defaults to true.",
+                  "type": "boolean"
+                },
+                "order": {
+                  "description": "Sort direction applied by Listmonk.",
+                  "oneOf": [
+                    {
+                      "const": "asc"
+                    },
+                    {
+                      "const": "desc"
+                    }
+                  ]
+                },
+                "order_by": {
+                  "description": "Sort field applied by Listmonk.",
+                  "oneOf": [
+                    {
+                      "const": "campaign_name"
+                    },
+                    {
+                      "const": "created_at"
+                    },
+                    {
+                      "const": "email"
+                    },
+                    {
+                      "const": "source"
+                    }
+                  ]
+                },
+                "page": {
+                  "$ref": "#/components/schemas/PositiveInteger",
+                  "description": "One-based page of the selection window a dry run previews."
+                },
+                "per_page": {
+                  "$ref": "#/components/schemas/BouncePruneWindowLimit",
+                  "description": "Selection window size, at most 100. Omitted values use the shared operation default."
+                },
+                "source": {
+                  "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                  "description": "Filter bounce records by their source of origin."
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "BouncePruneWindowLimit": {
+              "description": "Selection window size bound for one previewed prune batch.",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "PositiveInteger": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "TrimmedNonEmptyString": {
+              "minLength": 1,
+              "pattern": "^\\s*\\S[\\s\\S]*$",
+              "type": "string"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "bounce_ids": {
+              "description": "The exact bounce ids a dry run reported (at most 100; an empty\nselection is a legitimate verbatim echo). Required for a destructive\nrun so a confirmed deletion never drifts from the previewed set.",
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            "campaign_id": {
+              "$ref": "#/components/schemas/ResourceId",
+              "description": "Filter bounce records by the campaign they belong to."
+            },
+            "dry_run": {
+              "description": "Whether to only preview the deletion. Defaults to true.",
+              "type": "boolean"
+            },
+            "order": {
+              "description": "Sort direction applied by Listmonk.",
+              "oneOf": [
+                {
+                  "const": "asc"
+                },
+                {
+                  "const": "desc"
+                }
+              ]
+            },
+            "order_by": {
+              "description": "Sort field applied by Listmonk.",
+              "oneOf": [
+                {
+                  "const": "campaign_name"
+                },
+                {
+                  "const": "created_at"
+                },
+                {
+                  "const": "email"
+                },
+                {
+                  "const": "source"
+                }
+              ]
+            },
+            "page": {
+              "$ref": "#/components/schemas/PositiveInteger",
+              "description": "One-based page of the selection window a dry run previews."
+            },
+            "per_page": {
+              "$ref": "#/components/schemas/BouncePruneWindowLimit",
+              "description": "Selection window size, at most 100. Omitted values use the shared operation default."
+            },
+            "source": {
+              "$ref": "#/components/schemas/TrimmedNonEmptyString",
+              "description": "Filter bounce records by their source of origin."
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "output": {
+        "components": {
+          "schemas": {
+            "BouncePruneOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "acknowledged": {
+                  "description": "Per-id acknowledgement count; present on destructive runs.",
+                  "type": "number"
+                },
+                "bounce_ids": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "type": "array"
+                },
+                "dry_run": {
+                  "type": "boolean"
+                },
+                "page": {
+                  "type": "number"
+                },
+                "per_page": {
+                  "type": "number"
+                },
+                "total": {
+                  "description": "Selection-window metadata; present on dry-run previews.",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "dry_run",
+                "bounce_ids"
+              ],
+              "type": "object"
+            },
+            "ResourceId": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "dialect": "openapi-3.1",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "acknowledged": {
+              "description": "Per-id acknowledgement count; present on destructive runs.",
+              "type": "number"
+            },
+            "bounce_ids": {
+              "items": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "type": "array"
+            },
+            "dry_run": {
+              "type": "boolean"
+            },
+            "page": {
+              "type": "number"
+            },
+            "per_page": {
+              "type": "number"
+            },
+            "total": {
+              "description": "Selection-window metadata; present on dry-run previews.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "dry_run",
+            "bounce_ids"
+          ],
+          "type": "object"
+        },
+        "source": "typescript",
+        "stage": "normalized"
+      },
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": true
+      },
+      "retry": {
+        "kind": "safe",
+        "reason": "A destructive run deletes exactly the echoed bounce ids through per-id requests whose missing-id acknowledgement is the same success, so repeating the identical echoed request is a documented no-op. Dry runs only preview the selection window."
+      },
+      "since": "0.16.0",
+      "stability": "experimental"
+    },
+    {
       "id": "user-roles.reconcile",
       "input": {
         "components": {

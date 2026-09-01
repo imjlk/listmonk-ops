@@ -179,6 +179,8 @@ import type {
 	BounceDeleteOutput,
 	BounceIdInput,
 	BounceListInput,
+	BouncePruneInput,
+	BouncePruneOutput,
 	BounceRecord,
 } from "./spec-contracts";
 import type { NormalizedContractSchema } from "../src/specs/json";
@@ -343,6 +345,12 @@ const contracts = {
 	bounceIdInputContract: contractSchema(typia.json.schema<BounceIdInput>()),
 	bounceDeleteOutputContract: contractSchema(
 		typia.json.schema<BounceDeleteOutput>(),
+	),
+	bouncePruneInputContract: contractSchema(
+		typia.json.schema<BouncePruneInput>(),
+	),
+	bouncePruneOutputContract: contractSchema(
+		typia.json.schema<BouncePruneOutput>(),
 	),
 	campaignLifecycleInputContract: contractSchema(
 		typia.json.schema<CampaignLifecycleInput>(),

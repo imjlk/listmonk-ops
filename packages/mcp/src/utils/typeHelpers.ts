@@ -92,14 +92,6 @@ export function withErrorHandler<T extends unknown[]>(
 }
 
 /**
- * Helper to convert array parameters to comma-separated strings for API calls
- */
-export function arrayToCommaString(arr: unknown): string | undefined {
-	if (!Array.isArray(arr)) return undefined;
-	return arr.map((entry) => String(entry)).join(",");
-}
-
-/**
  * Helper to safely cast list types
  */
 export function castListType(type: unknown): "public" | "private" {

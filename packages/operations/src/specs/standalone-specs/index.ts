@@ -42,6 +42,7 @@ import {
 	bouncesListOperationSpec,
 	bouncesGetOperationSpec,
 	bouncesDeleteOperationSpec,
+	bouncesPruneOperationSpec,
 } from "./bounces-specs";
 import {
 	opsSegmentDriftOperationSpec,
@@ -115,6 +116,7 @@ export const standaloneOperationSpecs = [
 	bouncesListOperationSpec,
 	bouncesGetOperationSpec,
 	bouncesDeleteOperationSpec,
+	bouncesPruneOperationSpec,
 ] as const;
 
 /** @deprecated Use `standaloneOperationSpecs`. */

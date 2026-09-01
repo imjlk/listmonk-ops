@@ -2865,6 +2865,33 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/bounces.ts#pruneBouncesOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesPruneOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesPruneOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesPruneOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/bounces.ts#invokePruneBouncesOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/bounces.ts#pruneBounces:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesPruneOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesPruneOperationSpec:variable",
+        "executorNode": "packages/operations/src/bounces.ts#pruneBounces:function",
+        "invokerNode": "packages/operations/src/bounces.ts#invokePruneBouncesOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/bounces.ts#pruneBouncesOperation:variable"
+      },
+      "operationId": "bounces.prune"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/user-roles.ts#reconcileUserRoleManifestOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/user-roles.ts#bindUserRoleReconcileOperationSpec:function"

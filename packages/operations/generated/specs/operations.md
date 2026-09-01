@@ -1281,6 +1281,18 @@ Delete a recorded bounce event by its numeric ID
 - Retry: `reconcile`
 - Stability: `experimental` since `0.16.0`
 
+## `bounces.prune`
+
+Preview or delete a bounded selection of bounce records. Destructive runs echo the exact bounce ids a dry run reported, so a retry deletes nothing new.
+
+- Resource / verb: `bounce.prune`
+- MCP tool: `listmonk_prune_bounces`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `maintenance:prune:destructive`
+- Policy: confirmation `required`, audit `required`, dry-run `true`
+- Retry: `safe`
+- Stability: `experimental` since `0.16.0`
+
 ## `user-roles.reconcile`
 
 Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles

@@ -3,6 +3,8 @@ import {
 	bounceDeleteOutputContract,
 	bounceIdInputContract,
 	bounceListInputContract,
+	bouncePruneInputContract,
+	bouncePruneOutputContract,
 	bounceRecordContract,
 } from "../contract-schemas";
 import { defineOperationSpec } from "../operation";
@@ -177,4 +179,72 @@ export const bouncesDeleteOperationSpec = defineOperationSpec({
 
 export function bindBouncesDeleteOperationSpec(): typeof bouncesDeleteOperationSpec {
 	return bouncesDeleteOperationSpec;
+}
+
+/**
+ * Listmonk's bulk bounce delete rejects any request naming a missing id
+ * with `400 Invalid ID(s)` and deletes nothing, so an echoed retry through
+ * that endpoint diverges. The prune operation therefore issues the
+ * destructive run as per-id deletes — each one a documented no-op
+ * acknowledgement for an already-deleted id — bounded at 100 ids per run.
+ */
+export const bouncesPruneOperationSpec = defineOperationSpec({
+	id: "bounces.prune",
+	resource: "bounce",
+	verb: "prune",
+	title: "Prune bounce records",
+	description:
+		"Preview or delete a bounded selection of bounce records. Destructive runs echo the exact bounce ids a dry run reported, so a retry deletes nothing new.",
+	contract: {
+		input: bouncePruneInputContract,
+		output: bouncePruneOutputContract,
+	},
+	effects: [
+		{
+			kind: "maintenance",
+			resource: "bounce",
+			action: "prune",
+			destructive: true,
+		},
+	],
+	policy: { confirmation: "required", audit: "required", dryRun: true },
+	retry: {
+		kind: "safe",
+		reason:
+			"A destructive run deletes exactly the echoed bounce ids through per-id requests whose missing-id acknowledgement is the same success, so repeating the identical echoed request is a documented no-op. Dry runs only preview the selection window.",
+	},
+	agent: {
+		useWhen: [
+			"Bounce history must be cleaned up after review, one bounded previewed batch at a time.",
+		],
+		avoidWhen: [
+			"Bounce records are still needed for deliverability forensics or an audit trail.",
+		],
+		prerequisites: ["bounces.list"],
+		verifyWith: ["bounces.list"],
+		related: ["bounces.list", "bounces.delete"],
+		retryGuidance:
+			"Run dry_run first, then echo the reported bounce_ids with dry_run false; repeating that exact request deletes nothing new. Acknowledgements are not existence proofs — verify the surviving set with bounces.list.",
+	},
+	projection: {
+		mcpName: "listmonk_prune_bounces",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesPruneOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesPruneOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/bounces.ts#pruneBouncesOperation:variable",
+			invokerNode:
+				"packages/operations/src/bounces.ts#invokePruneBouncesOperation:function",
+			executorNode: "packages/operations/src/bounces.ts#pruneBounces:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.16.0",
+});
+
+export function bindBouncesPruneOperationSpec(): typeof bouncesPruneOperationSpec {
+	return bouncesPruneOperationSpec;
 }
