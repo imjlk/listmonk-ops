@@ -17,7 +17,10 @@ import {
 	bindCampaignsUpdateOperationSpec,
 } from "./specs";
 import { z } from "zod";
-import { CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE } from "./campaign-analytics-date";
+import {
+	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
+	MAX_CAMPAIGN_ANALYTICS_IDS,
+} from "./campaign-analytics-date";
 import {
 	MAX_CAMPAIGN_TEST_RECIPIENTS,
 	MAX_CAMPAIGN_TEST_RECIPIENT_EMAIL_LENGTH,
@@ -943,9 +946,6 @@ export async function cancelCampaign(
  * Render the stored campaign body to HTML without sending anything.
  * Listmonk answers with the rendered document, not a JSON envelope.
  */
-/** Bound on campaigns aggregated by one analytics read. */
-export const MAX_CAMPAIGN_ANALYTICS_IDS = 20;
-
 const ISO_CALENDAR_DATE_PATTERN = new RegExp(
 	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
 );

@@ -4,3 +4,6 @@
  * published Typia contract.
  */
 export const CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE = "^\\d{4}-\\d{2}-\\d{2}$";
+
+/** Bound on campaigns aggregated by one analytics read. */
+export const MAX_CAMPAIGN_ANALYTICS_IDS = 20;

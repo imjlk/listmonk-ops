@@ -1,5 +1,8 @@
 import type { tags } from "typia";
-import type { CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE } from "../../src/campaign-analytics-date";
+import type {
+	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
+	MAX_CAMPAIGN_ANALYTICS_IDS,
+} from "../../src/campaign-analytics-date";
 import type {
 	MAX_CAMPAIGN_TEST_RECIPIENTS,
 	MAX_CAMPAIGN_TEST_RECIPIENT_EMAIL_LENGTH,
@@ -303,8 +306,10 @@ export type CampaignAnalyticsInput = {
 	from: CampaignAnalyticsDate;
 	/** Inclusive range end as an ISO calendar date (YYYY-MM-DD). */
 	to: CampaignAnalyticsDate;
-	/** Campaign ids to aggregate (1 to 20, repeated as id query parameters). */
-	campaign_ids: readonly ResourceId[] & tags.MinItems<1> & tags.MaxItems<20>;
+	/** Campaign ids to aggregate, repeated as id query parameters. */
+	campaign_ids: readonly ResourceId[] &
+		tags.MinItems<1> &
+		tags.MaxItems<typeof MAX_CAMPAIGN_ANALYTICS_IDS>;
 };
 
 export interface CampaignAnalyticsOutput {

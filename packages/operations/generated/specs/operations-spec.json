@@ -29388,7 +29388,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "campaign_ids": {
-                    "description": "Campaign ids to aggregate (1 to 20, repeated as id query parameters).",
+                    "description": "Campaign ids to aggregate, repeated as id query parameters.",
                     "items": {
                       "$ref": "#/components/schemas/ResourceId"
                     },
@@ -29445,7 +29445,7 @@
             "additionalProperties": false,
             "properties": {
               "campaign_ids": {
-                "description": "Campaign ids to aggregate (1 to 20, repeated as id query parameters).",
+                "description": "Campaign ids to aggregate, repeated as id query parameters.",
                 "items": {
                   "$ref": "#/components/schemas/ResourceId"
                 },

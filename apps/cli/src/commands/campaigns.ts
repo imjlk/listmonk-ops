@@ -15,6 +15,8 @@ import {
 	invokeGetCampaignsOperation,
 	invokeGetCampaignAnalyticsOperation,
 	invokeGetCampaignStatsOperation,
+	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
+	MAX_CAMPAIGN_ANALYTICS_IDS,
 	invokePreviewCampaignOperation,
 	invokeTestCampaignOperation,
 	invokePauseCampaignOperation,
@@ -32,6 +34,7 @@ import {
 } from "../lib/command";
 import {
 	parseCsvNumbers,
+	parseCsvNumbersStrict,
 	parseJson,
 	toErrorMessage,
 } from "../lib/command-utils";
@@ -235,10 +238,16 @@ export async function renderGetCampaignStats(
 	context.output.json(stats);
 }
 
+type CampaignAnalyticsFacet = "views" | "clicks" | "links" | "bounces";
+
+const CAMPAIGN_ANALYTICS_DATE = new RegExp(
+	CAMPAIGN_ANALYTICS_DATE_PATTERN_SOURCE,
+);
+
 export async function renderCampaignAnalytics(
 	context: CampaignsCliContext,
 	input: {
-		type: "views" | "clicks" | "links" | "bounces";
+		type: CampaignAnalyticsFacet;
 		from: string;
 		to: string;
 		campaign_ids: number[];
@@ -587,21 +596,25 @@ export async function handleCampaignAnalyticsCommand({
 	flags,
 	...args
 }: HandlerArgs<{
-	type: "views" | "clicks" | "links" | "bounces";
+	type: CampaignAnalyticsFacet;
 	from: string;
 	to: string;
 	"campaign-ids": string;
 }>): Promise<void> {
 	try {
 		const client = await getListmonkClient(args);
-		await renderCampaignAnalytics({ client, output: getOutput() }, {
-			type: flags.type,
-			from: flags.from,
-			to: flags.to,
-			campaign_ids: (parseCsvStrings(flags["campaign-ids"]) ?? []).map(
-				Number,
-			),
-		});
+		await renderCampaignAnalytics(
+			{ client, output: getOutput() },
+			{
+				type: flags.type,
+				from: flags.from,
+				to: flags.to,
+				campaign_ids: parseCsvNumbersStrict(
+					flags["campaign-ids"],
+					"campaign IDs",
+				),
+			},
+		);
 	} catch (error) {
 		throw createCampaignCommandError(
 			"Failed to read campaign analytics",
@@ -1011,15 +1024,14 @@ export default defineGroup({
 					z.enum(["views", "clicks", "links", "bounces"]),
 					{ description: "Analytics facet to read" },
 				),
-				from: option(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), {
+				from: option(z.string().regex(CAMPAIGN_ANALYTICS_DATE), {
 					description: "Range start (YYYY-MM-DD)",
 				}),
-				to: option(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), {
+				to: option(z.string().regex(CAMPAIGN_ANALYTICS_DATE), {
 					description: "Range end (YYYY-MM-DD)",
 				}),
 				"campaign-ids": option(z.string().trim().min(1), {
-					description:
-						"Comma-separated campaign ids to aggregate (at most 20)",
+					description: `Comma-separated campaign ids to aggregate (at most ${MAX_CAMPAIGN_ANALYTICS_IDS})`,
 				}),
 			},
 			handler: handleCampaignAnalyticsCommand,
