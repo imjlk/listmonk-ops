@@ -1,4 +1,5 @@
 export * from "./campaign-lifecycle";
+export * from "./campaign-test-bound";
 export * from "./campaigns";
 export * from "./bounces";
 export * from "./catalog";

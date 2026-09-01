@@ -55,6 +55,8 @@ describe("campaign preview and test operations", () => {
 				messenger: "email",
 				from_email: "No Reply <noreply@yoursite.com>",
 				body: "<p>Stored body</p>",
+				altbody: "Stored plain-text alternative",
+				headers: [{ "X-Campaign": "stored" }],
 			},
 		}));
 		const test = mock(async () => ({ data: true }));
@@ -94,8 +96,8 @@ describe("campaign preview and test operations", () => {
 			// The endpoint rebinds the campaign form, so the derived form
 			// carries the stored plain-text alternative and custom headers
 			// the test message must preserve.
-			altbody: undefined,
-			headers: [],
+			altbody: "Stored plain-text alternative",
+			headers: [{ "X-Campaign": "stored" }],
 			subscribers: ["reader@example.com"],
 		});
 	});
