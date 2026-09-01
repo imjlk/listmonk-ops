@@ -1,10 +1,12 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { AbTestService } from "../src/abtest-service";
 import {
 	ListmonkAbTestIntegration,
 	type ProvisionedAbTestResources,
 } from "../src/listmonk-integration";
+import { DEFAULT_STRATIFICATION_POLICY } from "../src/stratification";
+import { buildAssignmentManifest, groupChecksum } from "../src/assignment";
 import type { AbTest, AbTestConfig } from "../src/types";
 
 function createTestConfig(): AbTestConfig {
@@ -195,5 +197,357 @@ describe("deleteTestResources retry safety", () => {
 
 		expect(deletedCampaigns).toEqual([2]);
 		expect(deletedLists).toEqual([11, 10]);
+	});
+});
+
+describe("segmentSubscribersForHoldout stratification", () => {
+	type SubscriberRecord = {
+		id: number;
+		uuid: string;
+		email: string;
+		name: string;
+		status: string;
+		lists: { id: number; subscription_status: string; name: string }[];
+	};
+
+	function makeAudience(): SubscriberRecord[] {
+		const domains: Record<string, number> = {
+			"gmail.com": 60,
+			"naver.com": 30,
+			"example.com": 30,
+		};
+		const subscribers: SubscriberRecord[] = [];
+		let id = 1;
+		for (const [domain, count] of Object.entries(domains)) {
+			for (let i = 0; i < count; i += 1) {
+				subscribers.push({
+					id,
+					uuid: `strat-uuid-${String(id).padStart(4, "0")}`,
+					email: `strat${id}@${domain}`,
+					name: `Strat ${id}`,
+					status: "enabled",
+					lists: [
+						{
+							id: 1,
+							subscription_status: "unconfirmed",
+							name: "Source",
+						},
+					],
+				});
+				id += 1;
+			}
+		}
+		return subscribers;
+	}
+
+	test("warns and falls back when a member lacks an email", async () => {
+		const audience = makeAudience();
+		audience[0] = { ...audience[0], email: "" };
+		const createdLists: { id: number; tags: string[] }[] = [];
+		const membershipByList = new Map<number, number[]>();
+		let nextListId = 7001;
+		const warnings: string[] = [];
+		const originalWarn = console.warn;
+		console.warn = (...args: unknown[]) => {
+			warnings.push(args.map(String).join(" "));
+		};
+
+		const client = {
+			subscriber: {
+				list: async ({ query }: { query?: Record<string, unknown> }) => {
+					const listId = Number(query?.list_id ?? 0);
+					const page = Number(query?.page ?? 1);
+					const perPage = Number(query?.per_page ?? 500);
+					const scoped = audience.filter((subscriber) =>
+						subscriber.lists.some((entry) => entry.id === listId),
+					);
+					const start = (page - 1) * perPage;
+					return {
+						data: {
+							results: scoped.slice(start, start + perPage),
+							total: scoped.length,
+							per_page: perPage,
+							page,
+						},
+					};
+				},
+				manageLists: async ({
+					body,
+				}: {
+					body: { ids: number[]; target_list_ids: number[] };
+				}) => {
+					for (const listId of body.target_list_ids) {
+						const existing = membershipByList.get(listId) ?? [];
+						membershipByList.set(listId, [...existing, ...body.ids]);
+					}
+					return { data: true };
+				},
+			},
+			list: {
+				create: async ({ body }: { body: { name: string; tags?: string[] } }) => {
+					const id = nextListId;
+					nextListId += 1;
+					createdLists.push({ id, tags: body.tags ?? [] });
+					return { data: { id, name: body.name } };
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		try {
+			const integration = new ListmonkAbTestIntegration(client);
+			const result = await integration.segmentSubscribersForHoldout(
+				[1],
+				[
+					{ id: "variant-a", name: "A", percentage: 50, contentOverrides: {} },
+					{ id: "variant-b", name: "B", percentage: 50, contentOverrides: {} },
+				],
+				50,
+				{
+					testId: "no-email-test",
+					assignmentSeed: "no-email-seed",
+					stratificationPolicy: {
+						...DEFAULT_STRATIFICATION_POLICY,
+						enabled: true,
+					},
+				},
+			);
+
+			expect(result.stratification).toBeUndefined();
+			expect(
+				result.assignmentManifest.checksumProvenance,
+			).toBeUndefined();
+			expect(warnings.some((line) => line.includes("lack an email"))).toBe(
+				true,
+			);
+			// The fallback assignment is the unstratified ranked manifest:
+			// re-deriving the manifest from the same seed reproduces the
+			// persisted checksums exactly.
+			const emailById = new Map(audience.map((s) => [s.id, s]));
+			const uuidById = new Map(audience.map((s) => [s.id, s.uuid]));
+			const eligible = audience
+				.filter((s) => s.status === "enabled")
+				.map((s) => ({
+					subscriberId: s.id,
+					subscriberUuid: s.uuid,
+					email: emailById.get(s.id)?.email,
+				}));
+			const rederived = buildAssignmentManifest({
+				testId: "no-email-test",
+				seed: "no-email-seed",
+				audience: {
+					capturedAt: result.audienceSnapshot.capturedAt,
+					sourceListIds: [1],
+					subscriberCount: eligible.length,
+					subscriberChecksum: result.audienceSnapshot.subscriberChecksum,
+					eligibilityPolicyVersion: 1,
+				},
+				members: eligible,
+				variants: [
+					{ id: "variant-a", name: "A", percentage: 50, contentOverrides: {} },
+					{ id: "variant-b", name: "B", percentage: 50, contentOverrides: {} },
+				],
+				testGroupPercentage: 50,
+			});
+			expect(
+				result.assignmentManifest.groups.map((group) => [
+					group.kind,
+					group.subscriberChecksum,
+				]),
+			).toEqual(
+				rederived.groups.map((group) => [
+					group.kind,
+					group.subscriberChecksum,
+				]),
+			);
+			expect(uuidById.size).toBeGreaterThan(0);
+		} finally {
+			console.warn = originalWarn;
+		}
+	});
+
+	test("applies the quota matrix to the actual recipient slices", async () => {
+		const audience = makeAudience();
+		const createdLists: { id: number; tags: string[] }[] = [];
+		const membershipByList = new Map<number, number[]>();
+		let nextListId = 5001;
+
+		const client = {
+			subscriber: {
+				list: async ({ query }: { query?: Record<string, unknown> }) => {
+					const listId = Number(query?.list_id ?? 0);
+					const page = Number(query?.page ?? 1);
+					const perPage = Number(query?.per_page ?? 500);
+					const scoped = audience.filter((subscriber) =>
+						subscriber.lists.some((entry) => entry.id === listId),
+					);
+					const start = (page - 1) * perPage;
+					const slice = scoped.slice(start, start + perPage);
+					return {
+						data: {
+							results: slice,
+							total: scoped.length,
+							per_page: perPage,
+							page,
+						},
+					};
+				},
+				manageLists: async ({
+					body,
+				}: {
+					body: { action: string; ids: number[]; target_list_ids: number[] };
+				}) => {
+					for (const listId of body.target_list_ids) {
+						const existing = membershipByList.get(listId) ?? [];
+						membershipByList.set(listId, [...existing, ...body.ids]);
+					}
+					return { data: true };
+				},
+			},
+			list: {
+				create: async ({ body }: { body: { name: string; tags?: string[] } }) => {
+					const id = nextListId;
+					nextListId += 1;
+					createdLists.push({ id, tags: body.tags ?? [] });
+					return { data: { id, name: body.name } };
+				},
+			},
+		} as unknown as ListmonkClient;
+
+		const integration = new ListmonkAbTestIntegration(client);
+		const result = await integration.segmentSubscribersForHoldout(
+			[1],
+			[
+				{
+					id: "variant-a",
+					name: "A",
+					percentage: 50,
+					contentOverrides: {},
+				},
+				{
+					id: "variant-b",
+					name: "B",
+					percentage: 50,
+					contentOverrides: {},
+				},
+			],
+			50,
+			{
+				testId: "strat-test",
+				assignmentSeed: "strat-seed",
+				stratificationPolicy: {
+					...DEFAULT_STRATIFICATION_POLICY,
+					enabled: true,
+					minimumStratumSize: 2,
+				},
+			},
+		);
+
+		expect(result.stratification).toBeDefined();
+		expect(result.assignmentManifest.checksumProvenance).toBe(
+			"stratified-v1",
+		);
+		expect(result.testGroupSize + result.holdoutGroupSize).toBe(
+			audience.length,
+		);
+
+		const emailById = new Map(audience.map((s) => [s.id, s.email]));
+		const stratumOf = (id: number): string => {
+			const email = emailById.get(id) ?? "";
+			const domain = email.slice(email.lastIndexOf("@") + 1);
+			if (domain === "gmail.com" || domain === "googlemail.com") return "gmail";
+			if (domain === "naver.com") return "naver";
+			return "other";
+		};
+		const groupKeyOfList = (listId: number): string => {
+			const list = createdLists.find((entry) => entry.id === listId);
+			const tags = list?.tags ?? [];
+			if (tags.includes("abtest-role:holdout")) return "holdout";
+			const variantTag = tags.find((tag) => tag.startsWith("abtest-variant:"));
+			return variantTag ? `variant:${variantTag.slice("abtest-variant:".length)}` : "?";
+		};
+
+		const quotas = result.stratification?.quotas ?? {};
+		// The persisted manifest's per-group checksums must describe the
+		// slices actually applied, not the unstratified ranked slices, so a
+		// later drift check never reports false drift under stratification.
+		const uuidById = new Map(audience.map((s) => [s.id, s.uuid]));
+		const checksumByGroupKey = new Map(
+			result.assignmentManifest.groups.map((group) => [
+				group.kind === "variant" ? `variant:${group.variantId}` : "holdout",
+				group.subscriberChecksum,
+			]),
+		);
+		for (const [listId, memberIds] of membershipByList) {
+			const groupKey = groupKeyOfList(listId);
+			expect(checksumByGroupKey.get(groupKey)).toBe(
+				groupChecksum(memberIds.map((id) => uuidById.get(id) ?? "")),
+			);
+			const counts: Record<string, number> = {};
+			for (const id of memberIds) {
+				const stratum = stratumOf(id);
+				counts[stratum] = (counts[stratum] ?? 0) + 1;
+			}
+			for (const [stratum, count] of Object.entries(counts)) {
+				expect(count).toBe(quotas[stratum]?.[groupKey]);
+			}
+			const expectedTotal = Object.values(quotas).reduce(
+				(sum, row) => sum + (row[groupKey] ?? 0),
+				0,
+			);
+			expect(memberIds).toHaveLength(expectedTotal);
+		}
+
+		// Deterministic re-derivation under the same seed produces the same
+		// membership, which is what crash-resume adoption relies on.
+		const firstPassMemberships = [...membershipByList.entries()].map(
+			([listId, memberIds]) => ({
+				groupKey: groupKeyOfList(listId),
+				memberIds: [...memberIds].sort((a, b) => a - b),
+			}),
+		);
+		membershipByList.clear();
+		createdLists.length = 0;
+		nextListId = 6001;
+		const rerun = await integration.segmentSubscribersForHoldout(
+			[1],
+			[
+				{
+					id: "variant-a",
+					name: "A",
+					percentage: 50,
+					contentOverrides: {},
+				},
+				{
+					id: "variant-b",
+					name: "B",
+					percentage: 50,
+					contentOverrides: {},
+				},
+			],
+			50,
+			{
+				testId: "strat-test",
+				assignmentSeed: "strat-seed",
+				stratificationPolicy: {
+					...DEFAULT_STRATIFICATION_POLICY,
+					enabled: true,
+					minimumStratumSize: 2,
+				},
+			},
+		);
+		expect(rerun.stratification).toEqual(result.stratification);
+		const rerunMemberships = [...membershipByList.entries()].map(
+			([listId, memberIds]) => ({
+				groupKey: groupKeyOfList(listId),
+				memberIds: [...memberIds].sort((a, b) => a - b),
+			}),
+		);
+		expect(rerunMemberships.sort((a, b) =>
+			a.groupKey < b.groupKey ? -1 : a.groupKey > b.groupKey ? 1 : 0,
+		)).toEqual(
+			firstPassMemberships.sort((a, b) =>
+				a.groupKey < b.groupKey ? -1 : a.groupKey > b.groupKey ? 1 : 0,
+			),
+		);
 	});
 });

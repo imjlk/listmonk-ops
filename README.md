@@ -1013,10 +1013,15 @@ underlying Listmonk API behavior and spike rationale.
   (SHA-256 checksum) before recipient assignment so the metadata cannot
   change after recipients are set.
 - `--enable-stratification` — classify subscribers by email-domain provider
-  and compute a constrained quota matrix so each provider stratum gets a
-  proportional share of every variant/holdout group. The quota matrix is
-  computed and stored on the test for reporting/validation; applying it to
-  the actual assignment slices is deferred to a follow-up change set.
+  and apply a constrained quota matrix so each provider stratum gets a
+  proportional share of every variant/holdout group. The actual recipient
+  slices realize the stored quota matrix: within each stratum members are
+  ranked by the same deterministic digest ordering and each group consumes
+  its quota cell, so test/holdout and per-variant totals still come from
+  the largest-remainder manifest and the assignment stays reproducible
+  under the persisted seed. When any resolved subscriber lacks an email,
+  or the quota solver fails, provisioning falls back to the unstratified
+  manifest assignment with an undefined stratification.
 
 ```bash
 listmonk-cli abtest create \

@@ -47,6 +47,19 @@ export interface AssignmentManifest {
 	audienceChecksum: string;
 	groups: AssignmentGroup[];
 	assignedCount: number;
+	/**
+	 * How the per-group `subscriberChecksum` values were derived. Absent
+	 * (or `"ranked"`) means the digest-ranked manifest slices themselves.
+	 * `"stratified-v1"` means provisioning realized the constrained
+	 * stratification quota matrix instead: the checksums describe the
+	 * applied slices and are re-derivable only through
+	 * `assignStratifiedMembers` with the stored seed and the policy used
+	 * at provisioning (the policy itself is discarded at finalization —
+	 * only the seed and the quota matrix persist) — the ranked-position
+	 * helpers (`groupIndexForUuid`) do not describe a stratified
+	 * manifest's membership.
+	 */
+	checksumProvenance?: "ranked" | "stratified-v1";
 }
 
 export class AssignmentError extends Error {

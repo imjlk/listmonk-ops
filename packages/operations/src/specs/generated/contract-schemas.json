@@ -801,6 +801,17 @@
             "audienceChecksum": {
               "type": "string"
             },
+            "checksumProvenance": {
+              "description": "How the per-group checksums were derived; absent means the ranked manifest slices.",
+              "oneOf": [
+                {
+                  "const": "ranked"
+                },
+                {
+                  "const": "stratified-v1"
+                }
+              ]
+            },
             "groups": {
               "items": {
                 "$ref": "#/components/schemas/AbTestAssignmentGroup"
@@ -1380,6 +1391,17 @@
             "audienceChecksum": {
               "type": "string"
             },
+            "checksumProvenance": {
+              "description": "How the per-group checksums were derived; absent means the ranked manifest slices.",
+              "oneOf": [
+                {
+                  "const": "ranked"
+                },
+                {
+                  "const": "stratified-v1"
+                }
+              ]
+            },
             "groups": {
               "items": {
                 "$ref": "#/components/schemas/AbTestAssignmentGroup"
@@ -1512,6 +1534,17 @@
             },
             "audienceChecksum": {
               "type": "string"
+            },
+            "checksumProvenance": {
+              "description": "How the per-group checksums were derived; absent means the ranked manifest slices.",
+              "oneOf": [
+                {
+                  "const": "ranked"
+                },
+                {
+                  "const": "stratified-v1"
+                }
+              ]
             },
             "groups": {
               "items": {
@@ -2114,6 +2147,17 @@
             },
             "audienceChecksum": {
               "type": "string"
+            },
+            "checksumProvenance": {
+              "description": "How the per-group checksums were derived; absent means the ranked manifest slices.",
+              "oneOf": [
+                {
+                  "const": "ranked"
+                },
+                {
+                  "const": "stratified-v1"
+                }
+              ]
             },
             "groups": {
               "items": {
