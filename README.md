@@ -462,6 +462,7 @@ listmonk-cli bounces list --page 1 --per-page 20
 listmonk-cli bounces list --campaign-id 42 --source api \
   --order-by created_at --order desc
 listmonk-cli bounces get --id 7
+listmonk-cli bounces delete --id 7 --confirm
 ```
 
 Campaign lifecycle transitions are validated client-side against an
@@ -484,11 +485,15 @@ The corresponding MCP resource tools include
 and `listmonk_get_media`, `listmonk_get_media_file`, and
 `listmonk_delete_media`. Their results include structured content while
 retaining compatible legacy success text for destructive mutations.
-The bounce read tools `listmonk_get_bounces` and `listmonk_get_bounce` keep
-their legacy names but now project the same shared read operations with
-structured content; the destructive `listmonk_delete_bounce` and
-`listmonk_delete_bounces` tools remain transport-specific until their
-shared operations land.
+The bounce read tools `listmonk_get_bounces` and `listmonk_get_bounce` and
+the single-delete tool `listmonk_delete_bounce` keep their legacy names but
+now project the same shared operations with structured content.
+`bounces.delete` requires explicit confirmation, and Listmonk acknowledges
+an already-deleted ID with the same success, so a retry is a documented
+no-op verified through `bounces.list`. The bulk `listmonk_delete_bounces`
+tool (explicit ids or `all=true`) remains transport-specific: Listmonk
+rejects a bulk delete that names any missing ID, so its retry contract
+needs a dedicated echo design before it joins the shared catalog.
 
 ## Shared Operation Discovery
 
@@ -522,7 +527,7 @@ effect-derived safety, execution requirements, and `useWhen`/`avoidWhen`
 guidance. Status adds runtime identity and a live Listmonk health probe without
 returning credentials.
 
-All 106 public shared operations now include a `spec` descriptor. Specs define
+All 107 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -531,10 +536,11 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 106 contracts are standalone TypeScript/Typia product contracts. Of
-these, 104 are `stable`; the two new bounce reads (`bounces.list`,
-`bounces.get`) are `experimental` until their observed Listmonk 6.2 response
-shapes are accepted into the stable compatibility baseline. The runtime-operation
+All 107 contracts are standalone TypeScript/Typia product contracts. Of
+these, 104 are `stable`; the three new bounce operations (`bounces.list`,
+`bounces.get`, `bounces.delete`) are `experimental` until their observed
+Listmonk 6.2 response and acknowledgement shapes are accepted into the
+stable compatibility baseline. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at the
 generated transport and handwritten adapter first; the product spec
@@ -816,11 +822,11 @@ Operations Spec artifacts are checked in under
 after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
-also verifies all 106 shared operations, the API boundary rule, the 0
-runtime bridges, the 104 stable compatibility baselines, and 323 direct
+also verifies all 107 shared operations, the API boundary rule, the 0
+runtime bridges, the 104 stable compatibility baselines, and 326 direct
 spec-to-runtime graph edges.
 
-All 106 shared operations now use standalone TypeScript contracts. There are
+All 107 shared operations now use standalone TypeScript contracts. There are
 no governed runtime-bridge inputs or snapshots to regenerate.
 
 The spec API is published from the existing operations package through the

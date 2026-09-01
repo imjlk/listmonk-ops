@@ -265,6 +265,8 @@ const openapiBounceListMethod =
 	"packages/openapi/src/client/contracts.ts#BounceOperations.list:method";
 const openapiBounceGetByIdMethod =
 	"packages/openapi/src/client/contracts.ts#BounceOperations.getById:method";
+const openapiBounceDeleteByIdMethod =
+	"packages/openapi/src/client/contracts.ts#BounceOperations.deleteById:method";
 
 const cliOpsModule =
 	"apps/cli/src/commands/ops.ts#apps/cli/src/commands/ops.ts:module";
@@ -1212,6 +1214,15 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 					"packages/operations/src/bounces.ts#invokeGetBounceOperation:function",
 				action: "packages/operations/src/bounces.ts#getBounce:function",
 				openapi: openapiBounceGetByIdMethod,
+			},
+			{
+				label: "delete",
+				cliHandler: "handleDeleteBounceCommand",
+				cliRender: "renderDeleteBounce",
+				invoker:
+					"packages/operations/src/bounces.ts#invokeDeleteBounceOperation:function",
+				action: "packages/operations/src/bounces.ts#deleteBounce:function",
+				openapi: openapiBounceDeleteByIdMethod,
 			},
 		],
 	}),

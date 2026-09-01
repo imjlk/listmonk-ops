@@ -1269,6 +1269,18 @@ Get a recorded bounce event by its numeric ID
 - Retry: `safe`
 - Stability: `experimental` since `0.16.0`
 
+## `bounces.delete`
+
+Delete a recorded bounce event by its numeric ID
+
+- Resource / verb: `bounce.delete`
+- MCP tool: `listmonk_delete_bounce`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `delete:bounce`
+- Policy: confirmation `required`, audit `required`, dry-run `false`
+- Retry: `reconcile`
+- Stability: `experimental` since `0.16.0`
+
 ## `user-roles.reconcile`
 
 Plan or apply a versioned least-privilege user-role manifest against exact-name Listmonk user roles

@@ -3449,6 +3449,52 @@
     "source": "typescript",
     "stage": "normalized"
   },
+  "bounceDeleteOutputContract": {
+    "components": {
+      "schemas": {
+        "BounceDeleteOutput": {
+          "additionalProperties": false,
+          "properties": {
+            "deleted": {
+              "type": "boolean"
+            },
+            "id": {
+              "$ref": "#/components/schemas/ResourceId"
+            }
+          },
+          "required": [
+            "id",
+            "deleted"
+          ],
+          "type": "object"
+        },
+        "ResourceId": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "dialect": "openapi-3.1",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        },
+        "id": {
+          "$ref": "#/components/schemas/ResourceId"
+        }
+      },
+      "required": [
+        "id",
+        "deleted"
+      ],
+      "type": "object"
+    },
+    "source": "typescript",
+    "stage": "normalized"
+  },
   "bounceIdInputContract": {
     "components": {
       "schemas": {

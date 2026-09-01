@@ -4,35 +4,18 @@ import {
 	invokeBouncesOperationByMcpName,
 } from "@listmonk-ops/operations";
 import type { CallToolRequest, CallToolResult, MCPTool } from "../types/mcp.js";
-import {
-	createErrorResult,
-	createSuccessResult,
-	validateRequiredParams,
-} from "../utils/response.js";
-import { arrayToCommaString, parseId } from "../utils/typeHelpers.js";
+import { createErrorResult, createSuccessResult } from "../utils/response.js";
+import { arrayToCommaString } from "../utils/typeHelpers.js";
 import { createOperationResult, toMcpTool } from "./operation-adapter.js";
 
 /**
- * Legacy hand-rolled bounce delete tools. They remain transport-specific
- * until the destructive bounce operations are promoted to the shared
- * catalog with echo/dry-run semantics; the read tools above them are
- * already shared operations.
+ * Legacy hand-rolled bulk bounce delete tool. It remains transport-specific
+ * until the destructive bulk/all bounce operation is designed with
+ * echo/dry-run semantics (Listmonk rejects a bulk delete that names any
+ * missing ID, so its retry contract needs dedicated care); the read and
+ * single-delete tools are already shared operations.
  */
 const legacyBounceDeleteTools: MCPTool[] = [
-	{
-		name: "listmonk_delete_bounce",
-		description: "Delete a bounce record",
-		inputSchema: {
-			type: "object",
-			properties: {
-				id: {
-					type: "string",
-					description: "Bounce ID",
-				},
-			},
-			required: ["id"],
-		},
-	},
 	{
 		name: "listmonk_delete_bounces",
 		description: "Delete multiple bounce records",
@@ -79,18 +62,6 @@ export async function handleBouncesTools(
 		}
 
 		switch (name) {
-			case "listmonk_delete_bounce": {
-				const validation = validateRequiredParams(request, ["id"]);
-				if (validation) {
-					return createErrorResult(validation);
-				}
-
-				await client.bounce.deleteById({
-					path: { id: parseId(args.id) },
-				});
-				return createSuccessResult("Bounce deleted successfully");
-			}
-
 			case "listmonk_delete_bounces": {
 				const query: { all?: boolean; id?: string } = {};
 				const deleteAll = args.all === true || args.all === "true";

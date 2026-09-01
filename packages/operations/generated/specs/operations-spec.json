@@ -38140,6 +38140,151 @@
     {
       "agent": {
         "avoidWhen": [
+          "The record is still needed for deliverability forensics or an audit trail."
+        ],
+        "prerequisites": [
+          "bounces.get"
+        ],
+        "related": [
+          "bounces.get",
+          "bounces.list"
+        ],
+        "retryGuidance": "Verify the record is gone with bounces.list before repeating; Listmonk acknowledges an already-deleted ID with success.",
+        "useWhen": [
+          "A bounce record must be removed from Listmonk's history."
+        ],
+        "verifyWith": [
+          "bounces.list"
+        ]
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "BounceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk bounce ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk bounce ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "BounceDeleteOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "deleted": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  }
+                },
+                "required": [
+                  "id",
+                  "deleted"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "deleted": {
+                "type": "boolean"
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              }
+            },
+            "required": [
+              "id",
+              "deleted"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Delete a recorded bounce event by its numeric ID",
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "bounce",
+          "reversible": false
+        }
+      ],
+      "id": "bounces.delete",
+      "policy": {
+        "audit": "required",
+        "confirmation": "required",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bindBouncesDeleteOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/bounces-specs.ts#bouncesDeleteOperationSpec:variable",
+          "executorNode": "packages/operations/src/bounces.ts#deleteBounce:function",
+          "invokerNode": "packages/operations/src/bounces.ts#invokeDeleteBounceOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/bounces.ts#deleteBounceOperation:variable"
+        },
+        "mcpName": "listmonk_delete_bounce",
+        "openWorld": true
+      },
+      "resource": "bounce",
+      "retry": {
+        "idempotent": true,
+        "kind": "reconcile",
+        "reason": "Deleting an already-deleted bounce is a no-op acknowledgement; verify the surviving set with bounces.list after an ambiguous result.",
+        "reconcileWith": "bounces.list"
+      },
+      "since": "0.16.0",
+      "stability": "experimental",
+      "title": "Delete bounce",
+      "verb": "delete"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "A single role should be inspected without a full manifest.",
           "The protected Super Admin role is the intended target."
         ],

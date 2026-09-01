@@ -1,5 +1,5 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { bouncesTools, handleBouncesTools } from "../../src/handlers/bounces";
 import type { CallToolRequest } from "../../src/types/mcp";
 
@@ -14,7 +14,7 @@ function request(
 }
 
 describe("bounce operation adapter", () => {
-	test("publishes the shared read tools beside the legacy delete tools", () => {
+	test("publishes the shared read and delete tools beside the legacy bulk tool", () => {
 		expect(bouncesTools.map((tool) => tool.name)).toEqual([
 			"listmonk_get_bounces",
 			"listmonk_get_bounce",
@@ -29,6 +29,17 @@ describe("bounce operation adapter", () => {
 			destructiveHint: false,
 			idempotentHint: true,
 		});
+		const deleteTool = bouncesTools.find(
+			(tool) => tool.name === "listmonk_delete_bounce",
+		);
+		expect(deleteTool?.annotations).toMatchObject({
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: true,
+		});
+		expect(deleteTool?.inputSchema.required).toEqual(
+			expect.arrayContaining(["id", "confirm"]),
+		);
 	});
 
 	test("routes bounce reads through the shared operation result adapter", async () => {
@@ -97,20 +108,50 @@ describe("bounce operation adapter", () => {
 		expect(result.isError).toBe(true);
 	});
 
-	test("keeps the legacy delete tools dispatchable", async () => {
+	test("routes the single bounce delete through the shared operation", async () => {
+		// The confirmation gate itself lives at the server boundary
+		// (enforced by the e2e suite); this exercises the shared dispatch
+		// once a request is confirmed.
+		const deleteById = mock(async () => ({ data: true }));
 		const client = {
 			bounce: {
-				deleteById: async () => ({ data: true }),
-				delete: async () => ({ data: true }),
+				deleteById,
 			},
 		} as unknown as ListmonkClient;
 
-		const single = await handleBouncesTools(
-			request("listmonk_delete_bounce", { id: "1" }),
+		const confirmed = await handleBouncesTools(
+			request("listmonk_delete_bounce", { id: "1", confirm: true }),
 			client,
 		);
-		expect(single.isError).toBeFalsy();
-		expect(single.content[0]?.text).toContain("Bounce deleted successfully");
+		expect(confirmed.isError).toBeFalsy();
+		expect(confirmed.structuredContent).toEqual({ id: 1, deleted: true });
+		expect(confirmed.content[0]?.text).toBe("Bounce deleted successfully");
+		expect(deleteById).toHaveBeenCalledWith({ path: { id: 1 } });
+
+		const rejected = await handleBouncesTools(
+			request("listmonk_delete_bounce", { id: true }),
+			client,
+		);
+		expect(rejected.isError).toBe(true);
+	});
+
+	test("keeps the legacy bulk delete tool dispatchable", async () => {
+		const deleteById = mock(async () => ({ data: true }));
+		const deleteBulk = mock(async () => ({ data: true }));
+		const client = {
+			bounce: {
+				deleteById,
+				delete: deleteBulk,
+			},
+		} as unknown as ListmonkClient;
+
+		const bulk = await handleBouncesTools(
+			request("listmonk_delete_bounces", { ids: ["1", "2"] }),
+			client,
+		);
+		expect(bulk.isError).toBeFalsy();
+		expect(bulk.content[0]?.text).toContain("Bounces deleted successfully");
+		expect(deleteBulk).toHaveBeenCalledWith({ query: { id: "1,2" } });
 
 		const unknown = await handleBouncesTools(
 			request("listmonk_unknown_bounce"),

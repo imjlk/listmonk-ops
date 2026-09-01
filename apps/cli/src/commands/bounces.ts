@@ -1,6 +1,7 @@
 import type { OutputUtils } from "@listmonk-ops/common";
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import {
+	invokeDeleteBounceOperation,
 	invokeGetBounceOperation,
 	invokeListBouncesOperation,
 	OperationExecutionError,
@@ -16,7 +17,7 @@ import {
 import { toErrorMessage } from "../lib/command-utils";
 import { getListmonkClient } from "../lib/listmonk";
 
-type BouncesOutput = Pick<typeof OutputUtils, "info" | "json" | "table">;
+type BouncesOutput = Pick<typeof OutputUtils, "info" | "json" | "success" | "table">;
 
 export interface BouncesCliContext {
 	client: Pick<ListmonkClient, "bounce">;
@@ -59,6 +60,15 @@ export async function renderBounce(
 	context.output.json(await invokeGetBounceOperation(context, input));
 }
 
+export async function renderDeleteBounce(
+	context: BouncesCliContext,
+	input: { id: number },
+): Promise<void> {
+	const result = await invokeDeleteBounceOperation(context, input);
+	context.output.success(`Bounce deleted: ${input.id}`);
+	context.output.json(result);
+}
+
 type ListBouncesCommandFlags = {
 	page?: number;
 	"per-page"?: number;
@@ -99,6 +109,23 @@ export async function handleGetBounceCommand({
 		await renderBounce({ client, output: getOutput() }, { id: flags.id });
 	} catch (error) {
 		throw createBouncesCommandError("Failed to get bounce", error);
+	}
+}
+
+export async function handleDeleteBounceCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderDeleteBounce(
+			{ client, output: getOutput() },
+			{
+				id: flags.id,
+			},
+		);
+	} catch (error) {
+		throw createBouncesCommandError("Failed to delete bounce", error);
 	}
 }
 
@@ -145,6 +172,17 @@ export default defineGroup({
 				}),
 			},
 			handler: handleGetBounceCommand,
+		}),
+		defineCommand({
+			name: "delete",
+			operationId: "bounces.delete",
+			description: "Delete a recorded bounce event by ID",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Bounce ID",
+				}),
+			},
+			handler: handleDeleteBounceCommand,
 		}),
 	],
 });
