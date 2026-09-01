@@ -281,3 +281,38 @@ export interface CampaignCloneOutput {
 	campaign: CampaignGetOutput;
 	created: boolean;
 }
+
+export type CampaignPreviewInput = ResourceIdInput;
+
+export interface CampaignPreviewOutput {
+	/** Fully rendered HTML preview of the campaign body. */
+	html: NonEmptyString;
+}
+
+export type CampaignTestInput = ResourceIdInput & {
+	/**
+	 * Emails of existing subscribers who receive the test message (1 to
+	 * 10). The observed Listmonk 6.2 endpoint rejects unknown emails.
+	 */
+	subscribers: readonly (NonEmptyString &
+		tags.MaxLength<254> &
+		tags.Format<"email">)[] &
+		tags.MinItems<1> &
+		tags.MaxItems<10>;
+	/** Optional subject override for the rendered test message. */
+	subject?: TrimmedNonEmptyString | undefined;
+	/** Optional template override for the rendered test message. */
+	template_id?: ResourceId | undefined;
+	/** Optional body override for the rendered test message. */
+	body?: NonEmptyString | undefined;
+	/** Optional messenger override; defaults to the campaign's messenger. */
+	messenger?: TrimmedNonEmptyString | undefined;
+	/** Optional From address override for the rendered test message. */
+	from_email?: NonEmptyString | undefined;
+};
+
+export interface CampaignTestOutput {
+	id: ResourceId;
+	subscribers: string[];
+	sent: boolean;
+}

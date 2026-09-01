@@ -432,6 +432,9 @@ listmonk-cli campaigns pause --id 42 --expected-updated-at <updated_at>
 listmonk-cli campaigns cancel --id 42 --expected-updated-at <updated_at> --confirm
 listmonk-cli campaigns clone --id 42 --name "Copy of Weekly update"
 listmonk-cli campaigns stats --id 42
+listmonk-cli campaigns preview --id 42
+# Recipients must be existing subscribers; each run sends a real message.
+listmonk-cli campaigns test --id 42 --subscribers reviewer@example.com
 
 listmonk-cli subscribers create --email reader@example.com --name Reader
 listmonk-cli subscribers update --id 7 --status enabled
@@ -485,7 +488,9 @@ the API — was dropped from the shared contract.
 The corresponding MCP resource tools include
 `listmonk_get_campaigns`, `listmonk_get_campaign`,
 `listmonk_create_campaign`, `listmonk_update_campaign`,
-`listmonk_delete_campaign`, the equivalent `subscriber` and `template` names,
+`listmonk_delete_campaign`, the preview and test-send tools
+`listmonk_preview_campaign` and `listmonk_test_campaign`, the equivalent
+`subscriber` and `template` names,
 and `listmonk_get_media`, `listmonk_get_media_file`, and
 `listmonk_delete_media`. Their results include structured content while
 retaining compatible legacy success text for destructive mutations.
@@ -538,7 +543,7 @@ effect-derived safety, execution requirements, and `useWhen`/`avoidWhen`
 guidance. Status adds runtime identity and a live Listmonk health probe without
 returning credentials.
 
-All 108 public shared operations now include a `spec` descriptor. Specs define
+All 110 public shared operations now include a `spec` descriptor. Specs define
 product resources and states, effects and derived safety, retry/reconciliation,
 agent context, and typed playbooks independently of Listmonk endpoint shapes.
 The maintenance boundary is:
@@ -547,10 +552,11 @@ The maintenance boundary is:
 Listmonk OpenAPI -> handwritten adapter -> normalized shared executor -> spec
 ```
 
-All 108 contracts are standalone TypeScript/Typia product contracts. Of
-these, 104 are `stable`; the four new bounce operations (`bounces.list`,
-`bounces.get`, `bounces.delete`, `bounces.prune`) are `experimental` until
-their observed Listmonk 6.2 response and acknowledgement shapes are
+All 110 contracts are standalone TypeScript/Typia product contracts. Of
+these, 104 are `stable`; the four bounce operations (`bounces.list`,
+`bounces.get`, `bounces.delete`, `bounces.prune`) and the campaign preview
+and test-send operations (`campaigns.preview`, `campaigns.test`) are
+`experimental` until their observed Listmonk 6.2 response shapes are
 accepted into the stable compatibility baseline. The runtime-operation
 bridge infrastructure is now empty — all operations have standalone
 product-domain contracts. Upstream API changes are therefore absorbed at the
@@ -833,11 +839,11 @@ Operations Spec artifacts are checked in under
 after changing a contract or descriptor; `bun run check` rejects generated
 drift and verifies that every described operation remains connected to its
 named operation invoker and executor in the compiler graph. `bun run build`
-also verifies all 108 shared operations, the API boundary rule, the 0
-runtime bridges, the 104 stable compatibility baselines, and 329 direct
+also verifies all 110 shared operations, the API boundary rule, the 0
+runtime bridges, the 104 stable compatibility baselines, and 335 direct
 spec-to-runtime graph edges.
 
-All 108 shared operations now use standalone TypeScript contracts. There are
+All 110 shared operations now use standalone TypeScript contracts. There are
 no governed runtime-bridge inputs or snapshots to regenerate.
 
 The spec API is published from the existing operations package through the

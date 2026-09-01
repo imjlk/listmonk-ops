@@ -28994,6 +28994,371 @@
     {
       "agent": {
         "avoidWhen": [
+          "A rendered body must be sent to a real recipient."
+        ],
+        "prerequisites": [
+          "campaigns.get"
+        ],
+        "related": [
+          "campaigns.get",
+          "ops.campaign.preflight"
+        ],
+        "retryGuidance": "Retry transient render failures with bounded backoff.",
+        "useWhen": [
+          "A campaign's rendered output must be inspected before launch."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "ResourceIdInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignPreviewOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "html": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Fully rendered HTML preview of the campaign body."
+                  }
+                },
+                "required": [
+                  "html"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "html": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Fully rendered HTML preview of the campaign body."
+              }
+            },
+            "required": [
+              "html"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Render the stored campaign body to HTML exactly as recipients would see it, without sending anything.",
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "campaign"
+        }
+      ],
+      "id": "campaigns.preview",
+      "policy": {
+        "audit": "optional",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsPreviewOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsPreviewOperationSpec:variable",
+          "executorNode": "packages/operations/src/campaigns.ts#previewCampaign:function",
+          "invokerNode": "packages/operations/src/campaigns.ts#invokePreviewCampaignOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#previewCampaignOperation:variable"
+        },
+        "mcpName": "listmonk_preview_campaign",
+        "openWorld": true
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "safe",
+        "reason": "The operation only renders the stored campaign body."
+      },
+      "since": "0.16.0",
+      "stability": "experimental",
+      "title": "Preview campaign",
+      "verb": "preview"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
+          "A rendered preview is sufficient, or recipients are not expecting mail."
+        ],
+        "prerequisites": [
+          "campaigns.get",
+          "campaigns.preview"
+        ],
+        "related": [
+          "campaigns.preview",
+          "ops.campaign.preflight"
+        ],
+        "retryGuidance": "Do not blindly repeat: each confirmed request re-sends the message. Verify the received mail (or the messenger log) before retrying.",
+        "useWhen": [
+          "A campaign draft must be reviewed in a real inbox before launch."
+        ],
+        "verifyWith": []
+      },
+      "contract": {
+        "input": {
+          "components": {
+            "schemas": {
+              "CampaignTestInput": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Optional body override for the rendered test message."
+                  },
+                  "from_email": {
+                    "$ref": "#/components/schemas/NonEmptyString",
+                    "description": "Optional From address override for the rendered test message."
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Positive Listmonk resource ID."
+                  },
+                  "messenger": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                    "description": "Optional messenger override; defaults to the campaign's messenger."
+                  },
+                  "subject": {
+                    "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                    "description": "Optional subject override for the rendered test message."
+                  },
+                  "subscribers": {
+                    "description": "Emails of existing subscribers who receive the test message (1 to\n10). The observed Listmonk 6.2 endpoint rejects unknown emails.",
+                    "items": {
+                      "format": "email",
+                      "maxLength": 254,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "maxItems": 10,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "template_id": {
+                    "$ref": "#/components/schemas/ResourceId",
+                    "description": "Optional template override for the rendered test message."
+                  }
+                },
+                "required": [
+                  "id",
+                  "subscribers"
+                ],
+                "type": "object"
+              },
+              "NonEmptyString": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "TrimmedNonEmptyString": {
+                "minLength": 1,
+                "pattern": "^\\s*\\S[\\s\\S]*$",
+                "type": "string"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Optional body override for the rendered test message."
+              },
+              "from_email": {
+                "$ref": "#/components/schemas/NonEmptyString",
+                "description": "Optional From address override for the rendered test message."
+              },
+              "id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Positive Listmonk resource ID."
+              },
+              "messenger": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                "description": "Optional messenger override; defaults to the campaign's messenger."
+              },
+              "subject": {
+                "$ref": "#/components/schemas/TrimmedNonEmptyString",
+                "description": "Optional subject override for the rendered test message."
+              },
+              "subscribers": {
+                "description": "Emails of existing subscribers who receive the test message (1 to\n10). The observed Listmonk 6.2 endpoint rejects unknown emails.",
+                "items": {
+                  "format": "email",
+                  "maxLength": 254,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 10,
+                "minItems": 1,
+                "type": "array"
+              },
+              "template_id": {
+                "$ref": "#/components/schemas/ResourceId",
+                "description": "Optional template override for the rendered test message."
+              }
+            },
+            "required": [
+              "id",
+              "subscribers"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        },
+        "output": {
+          "components": {
+            "schemas": {
+              "CampaignTestOutput": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/ResourceId"
+                  },
+                  "sent": {
+                    "type": "boolean"
+                  },
+                  "subscribers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "id",
+                  "subscribers",
+                  "sent"
+                ],
+                "type": "object"
+              },
+              "ResourceId": {
+                "maximum": 9007199254740991,
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "dialect": "openapi-3.1",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/ResourceId"
+              },
+              "sent": {
+                "type": "boolean"
+              },
+              "subscribers": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "subscribers",
+              "sent"
+            ],
+            "type": "object"
+          },
+          "source": "typescript",
+          "stage": "normalized"
+        }
+      },
+      "description": "Deliver the campaign to a bounded set of existing-subscriber emails for review. Each confirmed run sends a real message.",
+      "effects": [
+        {
+          "audience": "single",
+          "kind": "delivery",
+          "resource": "campaign",
+          "timing": "immediate"
+        }
+      ],
+      "id": "campaigns.test",
+      "policy": {
+        "audit": "required",
+        "confirmation": "never",
+        "dryRun": false
+      },
+      "projection": {
+        "graph": {
+          "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsTestOperationSpec:function",
+          "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsTestOperationSpec:variable",
+          "executorNode": "packages/operations/src/campaigns.ts#sendTestCampaign:function",
+          "invokerNode": "packages/operations/src/campaigns.ts#invokeTestCampaignOperation:function",
+          "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#testCampaignOperation:variable"
+        },
+        "mcpName": "listmonk_test_campaign",
+        "openWorld": true
+      },
+      "resource": "campaign",
+      "retry": {
+        "kind": "unsafe",
+        "reason": "Every run dispatches a fresh message to every listed recipient; Listmonk offers no test-send idempotency key, so a retry re-sends. Single, explicitly chosen recipients keep the transactional-send convention of not requiring a destructive confirmation."
+      },
+      "since": "0.16.0",
+      "stability": "experimental",
+      "title": "Send a campaign test message",
+      "verb": "test"
+    },
+    {
+      "agent": {
+        "avoidWhen": [
           "The media file is referenced by a campaign or template."
         ],
         "prerequisites": [

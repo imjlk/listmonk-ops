@@ -6,6 +6,8 @@ import {
 	bindCampaignScheduleOperationSpec,
 	bindCampaignStartOperationSpec,
 	bindCampaignsCloneOperationSpec,
+	bindCampaignsPreviewOperationSpec,
+	bindCampaignsTestOperationSpec,
 	bindCampaignsCreateOperationSpec,
 	bindCampaignsDeleteOperationSpec,
 	bindCampaignsListOperationSpec,
@@ -128,6 +130,33 @@ const campaignListOutputSchema = z.object({
 
 const campaignIdInputSchema = z.object({
 	id: resourceIdSchema,
+});
+
+/** Bound on test recipients: a review send, not a bulk delivery. */
+export const MAX_CAMPAIGN_TEST_RECIPIENTS = 10;
+
+const campaignPreviewInputSchema = campaignIdInputSchema;
+
+const campaignPreviewOutputSchema = z.object({
+	html: z.string().min(1),
+});
+
+const campaignTestInputSchema = campaignIdInputSchema.extend({
+	subscribers: z
+		.array(z.string().trim().toLowerCase().min(1).max(254).pipe(z.email()))
+		.min(1)
+		.max(MAX_CAMPAIGN_TEST_RECIPIENTS),
+	subject: z.string().trim().min(1).optional(),
+	template_id: z.number().int().positive().optional(),
+	body: z.string().min(1).optional(),
+	messenger: z.string().trim().min(1).optional(),
+	from_email: z.string().trim().min(1).optional(),
+});
+
+const campaignTestOutputSchema = z.object({
+	id: z.number().int().positive(),
+	subscribers: z.array(z.string()),
+	sent: z.boolean(),
 });
 
 const campaignListInputSchema = z.object({
@@ -900,6 +929,73 @@ export async function cancelCampaign(
 	return transitionCampaign(ctx, input, "cancelled");
 }
 
+/**
+ * Render the stored campaign body to HTML without sending anything.
+ * Listmonk answers with the rendered document, not a JSON envelope.
+ */
+export async function previewCampaign(
+	{ client }: CampaignOperationContext,
+	input: z.output<typeof campaignPreviewInputSchema>,
+): Promise<z.output<typeof campaignPreviewOutputSchema>> {
+	const response = await client.campaign.preview({ path: { id: input.id } });
+	const html = unwrapResourceResponse(
+		response,
+		"Failed to render campaign preview",
+	);
+	if (typeof html !== "string" || html.length === 0) {
+		throw new Error("Campaign preview did not return rendered HTML");
+	}
+	return { html };
+}
+
+/**
+ * Deliver the campaign to a bounded set of existing-subscriber emails.
+ * The observed Listmonk 6.2 endpoint rebinds the whole campaign form from
+ * the request (documented upstream only as a bare CampaignRequest) and
+ * requires the recipient array under the undocumented `subscribers` key,
+ * so the executor derives the form from the stored campaign and overlays
+ * the caller's explicit overrides. Unknown emails are rejected remotely.
+ */
+export async function sendTestCampaign(
+	ctx: CampaignOperationContext,
+	input: z.output<typeof campaignTestInputSchema>,
+): Promise<z.output<typeof campaignTestOutputSchema>> {
+	const stored = unwrapResourceResponse(
+		await ctx.client.campaign.getById({ path: { id: input.id } }),
+		"Failed to load campaign for test send",
+	);
+	const listIds = (stored.lists ?? [])
+		.map((entry) => (entry as { id?: unknown }).id)
+		.filter((id): id is number => typeof id === "number");
+	if (stored.name === undefined || stored.subject === undefined) {
+		throw new Error(
+			"Campaign test send requires a stored campaign with a name and subject",
+		);
+	}
+	const form = {
+		name: stored.name,
+		subject: input.subject ?? stored.subject,
+		lists: listIds,
+		content_type: stored.content_type ?? "html",
+		template_id: input.template_id ?? stored.template_id ?? undefined,
+		messenger: input.messenger ?? stored.messenger ?? "email",
+		from_email: input.from_email ?? stored.from_email,
+		body: stored.body ?? "",
+		...(input.body !== undefined && { body: input.body }),
+		subscribers: input.subscribers,
+	};
+	const response = await ctx.client.campaign.test({
+		path: { id: input.id },
+		body: form,
+	});
+	requireAcknowledgement(response, "Failed to send campaign test message");
+	return {
+		id: input.id,
+		subscribers: input.subscribers,
+		sent: true,
+	};
+}
+
 export async function cloneCampaign(
 	ctx: CampaignOperationContext,
 	input: z.output<typeof cloneCampaignInputSchema>,
@@ -1535,6 +1631,48 @@ export async function invokeCloneCampaignOperation(
 	);
 }
 
+export async function invokePreviewCampaignOperation(
+	context: CampaignOperationContext,
+	input: unknown,
+): Promise<z.output<typeof campaignPreviewOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		previewCampaignOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof campaignPreviewOutputSchema>;
+	try {
+		output = await previewCampaign(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(previewCampaignOperation.id, error);
+	}
+	return parseOperationOutput(
+		previewCampaignOperation.id,
+		previewCampaignOperation.outputSchema,
+		output,
+	);
+}
+
+export async function invokeTestCampaignOperation(
+	context: CampaignOperationContext,
+	input: unknown,
+): Promise<z.output<typeof campaignTestOutputSchema>> {
+	const parsedInput = parseOperationInput(
+		testCampaignOperation.inputSchema,
+		input,
+	);
+	let output: z.output<typeof campaignTestOutputSchema>;
+	try {
+		output = await sendTestCampaign(context, parsedInput);
+	} catch (error) {
+		throw normalizeOperationExecutionError(testCampaignOperation.id, error);
+	}
+	return parseOperationOutput(
+		testCampaignOperation.id,
+		testCampaignOperation.outputSchema,
+		output,
+	);
+}
+
 export async function invokeGetCampaignStatsOperation(
 	context: CampaignOperationContext,
 	input: unknown,
@@ -1556,6 +1694,46 @@ export async function invokeGetCampaignStatsOperation(
 	);
 }
 
+export const previewCampaignOperation = defineOperation({
+	id: "campaigns.preview",
+	title: "Preview campaign",
+	description:
+		"Render the stored campaign body to HTML exactly as recipients would see it, without sending anything.",
+	inputSchema: campaignPreviewInputSchema,
+	outputSchema: campaignPreviewOutputSchema,
+	safety: readResourceSafety,
+	mcp: {
+		name: "listmonk_preview_campaign",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindCampaignsPreviewOperationSpec(),
+	execute: previewCampaign,
+});
+
+export const testCampaignOperation = defineOperation({
+	id: "campaigns.test",
+	title: "Send a campaign test message",
+	description:
+		"Deliver the campaign to a bounded set of existing-subscriber emails for review. Each confirmed run sends a real message.",
+	inputSchema: campaignTestInputSchema,
+	outputSchema: campaignTestOutputSchema,
+	// A test send delivers to explicitly chosen recipients only, so it
+	// follows the transactional-send safety convention rather than the
+	// mass-delivery transition one: a real send, but not destructive.
+	safety: {
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: false,
+		openWorldHint: true,
+	},
+	mcp: {
+		name: "listmonk_test_campaign",
+		legacySuccessText: jsonResourceValue,
+	},
+	spec: bindCampaignsTestOperationSpec(),
+	execute: sendTestCampaign,
+});
+
 export const campaignOperations = [
 	getCampaignsOperation,
 	getCampaignOperation,
@@ -1568,6 +1746,8 @@ export const campaignOperations = [
 	cancelCampaignOperation,
 	cloneCampaignOperation,
 	getCampaignStatsOperation,
+	previewCampaignOperation,
+	testCampaignOperation,
 ] as const;
 
 export const campaignOperationCatalog = defineOperationCatalog({
@@ -1649,6 +1829,16 @@ export async function invokeCampaignOperationByMcpName(
 			return {
 				operation: cloneCampaignOperation,
 				output: await invokeCloneCampaignOperation(context, input),
+			};
+		case previewCampaignOperation.mcp.name:
+			return {
+				operation: previewCampaignOperation,
+				output: await invokePreviewCampaignOperation(context, input),
+			};
+		case testCampaignOperation.mcp.name:
+			return {
+				operation: testCampaignOperation,
+				output: await invokeTestCampaignOperation(context, input),
 			};
 		case getCampaignStatsOperation.mcp.name:
 			return {

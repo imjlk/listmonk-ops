@@ -14,6 +14,8 @@ import {
 	invokeGetCampaignOperation,
 	invokeGetCampaignsOperation,
 	invokeGetCampaignStatsOperation,
+	invokePreviewCampaignOperation,
+	invokeTestCampaignOperation,
 	invokePauseCampaignOperation,
 	invokeScheduleCampaignOperation,
 	invokeStartCampaignOperation,
@@ -230,6 +232,36 @@ export async function renderGetCampaignStats(
 	const stats = await invokeGetCampaignStatsOperation(context, input);
 	context.output.success(`Campaign ${input.id} stats`);
 	context.output.json(stats);
+}
+
+export async function renderPreviewCampaign(
+	context: CampaignsCliContext,
+	input: { id: number },
+): Promise<void> {
+	const preview = await invokePreviewCampaignOperation(context, input);
+	context.output.success(
+		`Campaign ${input.id} rendered preview (${preview.html.length} characters)`,
+	);
+	context.output.json(preview);
+}
+
+export async function renderTestCampaign(
+	context: CampaignsCliContext,
+	input: {
+		id: number;
+		subscribers: string[];
+		subject?: string;
+		template_id?: number;
+		body?: string;
+		messenger?: string;
+		from_email?: string;
+	},
+): Promise<void> {
+	const result = await invokeTestCampaignOperation(context, input);
+	context.output.success(
+		`Campaign ${input.id} test message sent to ${result.subscribers.join(", ")}`,
+	);
+	context.output.json(result);
 }
 
 type ListCommandFlags = {
@@ -531,6 +563,54 @@ export async function handleCancelCampaignCommand({
 		);
 	} catch (error) {
 		throw createCampaignCommandError("Failed to cancel campaign", error);
+	}
+}
+
+export async function handlePreviewCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{ id: number }>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderPreviewCampaign(
+			{ client, output: getOutput() },
+			{
+				id: flags.id,
+			},
+		);
+	} catch (error) {
+		throw createCampaignCommandError("Failed to preview campaign", error);
+	}
+}
+
+export async function handleTestCampaignCommand({
+	flags,
+	...args
+}: HandlerArgs<{
+	id: number;
+	subscribers: string;
+	subject?: string;
+	"template-id"?: number;
+	body?: string;
+	messenger?: string;
+	"from-email"?: string;
+}>): Promise<void> {
+	try {
+		const client = await getListmonkClient(args);
+		await renderTestCampaign({ client, output: getOutput() }, {
+			id: flags.id,
+			subscribers: flags.subscribers
+				.split(",")
+				.map((value) => value.trim())
+				.filter((value) => value.length > 0),
+			subject: flags.subject,
+			template_id: flags["template-id"],
+			body: flags.body,
+			messenger: flags.messenger,
+			from_email: flags["from-email"],
+		});
+	} catch (error) {
+		throw createCampaignCommandError("Failed to send campaign test", error);
 	}
 }
 
@@ -876,6 +956,48 @@ export default defineGroup({
 				),
 			},
 			handler: handleCloneCampaignCommand,
+		}),
+		defineCommand({
+			name: "preview",
+			operationId: "campaigns.preview",
+			description: "Render the stored campaign body to HTML without sending",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+			},
+			handler: handlePreviewCampaignCommand,
+		}),
+		defineCommand({
+			name: "test",
+			operationId: "campaigns.test",
+			description:
+				"Send the campaign as a test message to existing-subscriber emails",
+			options: {
+				id: option(z.coerce.number().int().positive(), {
+					description: "Campaign ID",
+				}),
+				subscribers: option(z.string().trim().min(3), {
+					description:
+						"Comma-separated emails of existing subscribers who receive the test message",
+				}),
+				subject: option(z.string().trim().min(1).optional(), {
+					description: "Subject override for the test message",
+				}),
+				"template-id": option(z.coerce.number().int().positive().optional(), {
+					description: "Template override for the test message",
+				}),
+				body: option(z.string().min(1).optional(), {
+					description: "Body override for the test message",
+				}),
+				messenger: option(z.string().trim().min(1).optional(), {
+					description: "Messenger override (defaults to the campaign's)",
+				}),
+				"from-email": option(z.string().trim().min(3).optional(), {
+					description: "From address override for the test message",
+				}),
+			},
+			handler: handleTestCampaignCommand,
 		}),
 		defineCommand({
 			name: "stats",

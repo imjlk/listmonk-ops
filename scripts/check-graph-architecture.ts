@@ -261,6 +261,10 @@ const openapiMediaGetByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.getById:method";
 const openapiMediaDeleteByIdMethod =
 	"packages/openapi/src/client/contracts.ts#MediaOperations.deleteById:method";
+const openapiCampaignPreviewMethod =
+	"packages/openapi/src/client/contracts.ts#CampaignOperations.preview:method";
+const openapiCampaignTestMethod =
+	"packages/openapi/src/client/contracts.ts#CampaignOperations.test:method";
 const openapiBounceListMethod =
 	"packages/openapi/src/client/contracts.ts#BounceOperations.list:method";
 const openapiBounceGetByIdMethod =
@@ -949,6 +953,26 @@ const resourceCrudContracts: readonly CallPathContract[] = [
 				action:
 					"packages/operations/src/campaigns.ts#listCampaigns:function",
 				openapi: openapiListMethod,
+			},
+			{
+				label: "preview",
+				cliHandler: "handlePreviewCampaignCommand",
+				cliRender: "renderPreviewCampaign",
+				invoker:
+					"packages/operations/src/campaigns.ts#invokePreviewCampaignOperation:function",
+				action:
+					"packages/operations/src/campaigns.ts#previewCampaign:function",
+				openapi: openapiCampaignPreviewMethod,
+			},
+			{
+				label: "test",
+				cliHandler: "handleTestCampaignCommand",
+				cliRender: "renderTestCampaign",
+				invoker:
+					"packages/operations/src/campaigns.ts#invokeTestCampaignOperation:function",
+				action:
+					"packages/operations/src/campaigns.ts#sendTestCampaign:function",
+				openapi: openapiCampaignTestMethod,
 			},
 			{
 				label: "get",
