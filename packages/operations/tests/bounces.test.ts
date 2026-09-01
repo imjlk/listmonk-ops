@@ -3,12 +3,17 @@ import { describe, expect, mock, test } from "bun:test";
 import {
 	bouncesOperations,
 	bouncesOperationCatalog,
+	getBounce,
 	getBouncesOperationByMcpName,
 	invokeBouncesOperationByMcpName,
 	invokeGetBounceOperation,
 	invokeListBouncesOperation,
 } from "../src/bounces";
 import { OperationExecutionError } from "../src/operation";
+import {
+	isResourceMissingError,
+	ResourceResponseError,
+} from "../src/resource-helpers";
 
 type BounceClient = Pick<ListmonkClient, "bounce">;
 
@@ -146,15 +151,42 @@ describe("shared bounce operations", () => {
 
 	test("fails a wrapped single-bounce response without a record", async () => {
 		const getById = mock(async () => ({ data: { results: [] } }));
+		const context = bounceContext({
+			getById: getById as BounceClient["bounce"]["getById"],
+		});
+
+		// The executor classifies the missing record so direct callers can
+		// use isResourceMissingError on both transport-404 and wrapped-empty
+		// paths; the invoker additionally wraps it as an execution error.
+		const executorError = await getBounce(context, { id: 7 }).catch(
+			(failure: unknown) => failure,
+		);
+		expect(isResourceMissingError(executorError)).toBe(true);
+		expect((executorError as ResourceResponseError).status).toBe(404);
+
+		const invokerError = await invokeGetBounceOperation(context, {
+			id: 7,
+		}).catch((failure: unknown) => failure);
+		expect(invokerError).toBeInstanceOf(OperationExecutionError);
+		expect((invokerError as Error).message).toContain("Bounce 7 not found");
+	});
+
+	test("falls back to the caller's page window when the envelope omits it", async () => {
+		const list = mock(async () => ({
+			data: { results: [bounceRecord] },
+		}));
 
 		await expect(
-			invokeGetBounceOperation(
-				bounceContext({
-					getById: getById as BounceClient["bounce"]["getById"],
-				}),
-				{ id: 7 },
+			invokeListBouncesOperation(
+				bounceContext({ list: list as BounceClient["bounce"]["list"] }),
+				{ page: 3, per_page: 50 },
 			),
-		).rejects.toThrow("Bounce 7 not found");
+		).resolves.toMatchObject({
+			results: [bounceRecord],
+			total: 1,
+			per_page: 50,
+			page: 3,
+		});
 	});
 
 	test("surfaces transport failures through the operation error contract", async () => {
