@@ -1,5 +1,9 @@
 import { defineOperationSpec } from "../operation";
 import {
+	campaignPreviewInputContract,
+	campaignPreviewOutputContract,
+	campaignTestInputContract,
+	campaignTestOutputContract,
 	campaignCreateInputContract,
 	campaignCreateOutputContract,
 	campaignUpdateInputContract,
@@ -287,6 +291,123 @@ export const campaignsCloneOperationSpec = defineOperationSpec({
 	stability: "stable",
 	since: "0.9.0",
 });
+
+export const campaignsPreviewOperationSpec = defineOperationSpec({
+	id: "campaigns.preview",
+	resource: "campaign",
+	verb: "preview",
+	title: "Preview campaign",
+	description:
+		"Render the stored campaign body to HTML exactly as recipients would see it, without sending anything.",
+	contract: {
+		input: campaignPreviewInputContract,
+		output: campaignPreviewOutputContract,
+	},
+	effects: [{ kind: "read", resource: "campaign" }],
+	policy: {
+		confirmation: "never",
+		audit: "optional",
+		dryRun: false,
+	},
+	retry: {
+		kind: "safe",
+		reason: "The operation only renders the stored campaign body.",
+	},
+	agent: {
+		useWhen: [
+			"A campaign's rendered output must be inspected before launch.",
+		],
+		avoidWhen: ["A rendered body must be sent to a real recipient."],
+		prerequisites: ["campaigns.get"],
+		verifyWith: [],
+		related: ["campaigns.get", "ops.campaign.preflight"],
+		retryGuidance: "Retry transient render failures with bounded backoff.",
+	},
+	projection: {
+		mcpName: "listmonk_preview_campaign",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsPreviewOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsPreviewOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/campaigns.ts#previewCampaignOperation:variable",
+			invokerNode:
+				"packages/operations/src/campaigns.ts#invokePreviewCampaignOperation:function",
+			executorNode:
+				"packages/operations/src/campaigns.ts#previewCampaign:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.16.0",
+});
+
+export const campaignsTestOperationSpec = defineOperationSpec({
+	id: "campaigns.test",
+	resource: "campaign",
+	verb: "test",
+	title: "Send a campaign test message",
+	description:
+		"Deliver the campaign to a bounded set of existing-subscriber emails for review. Each confirmed run sends a real message.",
+	contract: {
+		input: campaignTestInputContract,
+		output: campaignTestOutputContract,
+	},
+	effects: [
+		{
+			kind: "delivery",
+			resource: "campaign",
+			audience: "single",
+			timing: "immediate",
+		},
+	],
+	policy: { confirmation: "never", audit: "required", dryRun: false },
+	retry: {
+		kind: "unsafe",
+		reason:
+			"Every run dispatches a fresh message to every listed recipient; Listmonk offers no test-send idempotency key, so a retry re-sends. Single, explicitly chosen recipients keep the transactional-send convention of not requiring a destructive confirmation.",
+	},
+	agent: {
+		useWhen: [
+			"A campaign draft must be reviewed in a real inbox before launch.",
+		],
+		avoidWhen: [
+			"A rendered preview is sufficient, or recipients are not expecting mail.",
+		],
+		prerequisites: ["campaigns.get", "campaigns.preview"],
+		verifyWith: [],
+		related: ["campaigns.preview", "ops.campaign.preflight"],
+		retryGuidance:
+			"Do not blindly repeat: each confirmed request re-sends the message. Verify the received mail (or the messenger log) before retrying.",
+	},
+	projection: {
+		mcpName: "listmonk_test_campaign",
+		openWorld: true,
+		graph: {
+			descriptorNode:
+				"packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsTestOperationSpec:variable",
+			bindingNode:
+				"packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsTestOperationSpec:function",
+			runtimeDefinitionNode:
+				"packages/operations/src/campaigns.ts#testCampaignOperation:variable",
+			invokerNode:
+				"packages/operations/src/campaigns.ts#invokeTestCampaignOperation:function",
+			executorNode:
+				"packages/operations/src/campaigns.ts#sendTestCampaign:function",
+		},
+	},
+	stability: "experimental",
+	since: "0.16.0",
+});
+
+export function bindCampaignsPreviewOperationSpec(): typeof campaignsPreviewOperationSpec {
+	return campaignsPreviewOperationSpec;
+}
+
+export function bindCampaignsTestOperationSpec(): typeof campaignsTestOperationSpec {
+	return campaignsTestOperationSpec;
+}
 
 export function bindCampaignsCreateOperationSpec(): typeof campaignsCreateOperationSpec {
 	return campaignsCreateOperationSpec;

@@ -969,6 +969,30 @@ Create a new campaign by copying the body, lists, template, and metadata of an e
 - Retry: `conditional`
 - Stability: `stable` since `0.9.0`
 
+## `campaigns.preview`
+
+Render the stored campaign body to HTML exactly as recipients would see it, without sending anything.
+
+- Resource / verb: `campaign.preview`
+- MCP tool: `listmonk_preview_campaign`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `read:campaign`
+- Policy: confirmation `never`, audit `optional`, dry-run `false`
+- Retry: `safe`
+- Stability: `experimental` since `0.16.0`
+
+## `campaigns.test`
+
+Deliver the campaign to a bounded set of existing-subscriber emails for review. Each confirmed run sends a real message.
+
+- Resource / verb: `campaign.test`
+- MCP tool: `listmonk_test_campaign`
+- Contract source: input `typescript`, output `typescript`
+- Effects: `delivery:single:immediate`
+- Policy: confirmation `never`, audit `required`, dry-run `false`
+- Retry: `unsafe`
+- Stability: `experimental` since `0.16.0`
+
 ## `media.delete`
 
 Delete an uploaded media file from Listmonk

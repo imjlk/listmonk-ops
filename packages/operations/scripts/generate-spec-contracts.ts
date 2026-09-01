@@ -129,6 +129,10 @@ import type {
 	SubscriberDeleteOutput,
 	CampaignCreateInput,
 	CampaignCreateOutput,
+	CampaignPreviewInput,
+	CampaignPreviewOutput,
+	CampaignTestInput,
+	CampaignTestOutput,
 	CampaignUpdateInput,
 	CampaignDeleteInput,
 	CampaignDeleteOutput,
@@ -681,6 +685,18 @@ const contracts = {
 	),
 	campaignCloneOutputContract: contractSchema(
 		typia.json.schema<CampaignCloneOutput>(),
+	),
+	campaignPreviewInputContract: contractSchema(
+		typia.json.schema<CampaignPreviewInput>(),
+	),
+	campaignPreviewOutputContract: contractSchema(
+		typia.json.schema<CampaignPreviewOutput>(),
+	),
+	campaignTestInputContract: contractSchema(
+		typia.json.schema<CampaignTestInput>(),
+	),
+	campaignTestOutputContract: contractSchema(
+		typia.json.schema<CampaignTestOutput>(),
 	),
 	subscriberBulkListsInputContract: contractSchema(
 		typia.json.schema<SubscriberBulkListsInput>(),

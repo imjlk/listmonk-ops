@@ -1,5 +1,9 @@
 import type { tags } from "typia";
 import type {
+	MAX_CAMPAIGN_TEST_RECIPIENTS,
+	MAX_CAMPAIGN_TEST_RECIPIENT_EMAIL_LENGTH,
+} from "../../src/campaign-test-bound";
+import type {
 	ResourceId,
 	NonNegativeInteger,
 	PositiveInteger,
@@ -280,4 +284,45 @@ export interface CampaignCloneInput {
 export interface CampaignCloneOutput {
 	campaign: CampaignGetOutput;
 	created: boolean;
+}
+
+export type CampaignPreviewInput = ResourceIdInput;
+
+export interface CampaignPreviewOutput {
+	/** Fully rendered HTML preview of the campaign body. */
+	html: NonEmptyString;
+}
+
+/**
+ * Bounded email of one existing subscriber who receives a campaign test
+ * message, shared by the published contract and future variants.
+ */
+export type CampaignTestRecipientEmail = NonEmptyString &
+	tags.MaxLength<typeof MAX_CAMPAIGN_TEST_RECIPIENT_EMAIL_LENGTH> &
+	tags.Format<"email">;
+
+export type CampaignTestInput = ResourceIdInput & {
+	/**
+	 * Emails of existing subscribers who receive the test message. The
+	 * observed Listmonk 6.2 endpoint rejects unknown emails.
+	 */
+	subscribers: (readonly CampaignTestRecipientEmail[] &
+		tags.MinItems<1> &
+		tags.MaxItems<typeof MAX_CAMPAIGN_TEST_RECIPIENTS>);
+	/** Optional subject override for the rendered test message. */
+	subject?: TrimmedNonEmptyString | undefined;
+	/** Optional template override for the rendered test message. */
+	template_id?: ResourceId | undefined;
+	/** Optional body override for the rendered test message. */
+	body?: NonEmptyString | undefined;
+	/** Optional messenger override; defaults to the campaign's messenger. */
+	messenger?: TrimmedNonEmptyString | undefined;
+	/** Optional From address override for the rendered test message. */
+	from_email?: TrimmedNonEmptyString | undefined;
+};
+
+export interface CampaignTestOutput {
+	id: ResourceId;
+	subscribers: string[];
+	sent: boolean;
 }

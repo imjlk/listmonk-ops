@@ -431,6 +431,9 @@ listmonk-cli campaigns pause --id 42 --expected-updated-at <updated_at>
 listmonk-cli campaigns cancel --id 42 --expected-updated-at <updated_at> --confirm
 listmonk-cli campaigns clone --id 42 --name "Copy of Weekly update"
 listmonk-cli campaigns stats --id 42
+listmonk-cli campaigns preview --id 42
+# 수신자는 기존 구독자여야 하며, 실행할 때마다 실제 메시지를 보냅니다.
+listmonk-cli campaigns test --id 42 --subscribers reviewer@example.com
 
 listmonk-cli subscribers create --email reader@example.com --name Reader
 listmonk-cli subscribers update --id 7 --status enabled
@@ -484,8 +487,9 @@ listmonk-cli bounces prune --no-dry-run --bounce-ids 5,6,7 --confirm
 대응하는 MCP 리소스 도구에는
 `listmonk_get_campaigns`, `listmonk_get_campaign`,
 `listmonk_create_campaign`, `listmonk_update_campaign`,
-`listmonk_delete_campaign`이며, subscriber와 template에도 같은 이름 규칙이
-적용됩니다. 또한 `listmonk_get_media`, `listmonk_get_media_file`,
+`listmonk_delete_campaign`, 프리뷰/테스트 발송 도구
+`listmonk_preview_campaign`과 `listmonk_test_campaign`이며, subscriber와
+template에도 같은 이름 규칙이 적용됩니다. 또한 `listmonk_get_media`, `listmonk_get_media_file`,
 `listmonk_delete_media`를 제공합니다. 결과는 structured content를 제공하면서
 destructive mutation의 기존 성공 텍스트도 호환성을 위해 유지합니다.
 바운스 읽기 도구 `listmonk_get_bounces`와 `listmonk_get_bounce`, 단일
@@ -536,7 +540,7 @@ Operation만 다루며, 기존 transport 전용 도구는 별도로 계속 제�
 자격 증명을 노출하지 않으면서 런타임 정보와 실제 Listmonk health probe
 결과를 함께 제공합니다.
 
-108개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
+110개 공용 shared Operation 모두 `spec` descriptor를 포함합니다. Spec은
 Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 파생 안전
 정책, 재시도·reconcile, 에이전트 맥락과 타입드 플레이북을 정의합니다.
 유지보수 경계는 다음과 같습니다.
@@ -545,11 +549,11 @@ Listmonk endpoint 형태와 독립적으로 제품 리소스·상태, effect와 
 Listmonk OpenAPI -> handwritten adapter -> 정규화 shared executor -> spec
 ```
 
-108개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 104개가
-`stable`이며, 새로 추가된 네 개의 바운스 오퍼레이션(`bounces.list`,
-`bounces.get`, `bounces.delete`, `bounces.prune`)은 관찰된 Listmonk 6.2
-응답과 확인 형태가 stable 호환성 baseline에 승인되기 전까지
-`experimental`입니다. runtime-operation bridge는 비어 있습니다.
+110개 계약은 독립적인 TypeScript/Typia 제품 계약입니다. 이 중 104개가
+`stable`이며, 네 개의 바운스 오퍼레이션(`bounces.list`, `bounces.get`,
+`bounces.delete`, `bounces.prune`)과 캠페인 프리뷰/테스트 발송
+오퍼레이션(`campaigns.preview`, `campaigns.test`)은 관찰된 Listmonk 6.2
+응답 형태가 stable 호환성 baseline에 승인되기 전까지 `experimental`입니다. runtime-operation bridge는 비어 있습니다.
 모든 Operation은 독립적인 제품 도메인 계약을 사용합니다. 따라서 upstream API
 변경은 먼저 generated transport와 handwritten adapter에서 흡수하며, 정규화
 Operation 계약이나 이메일 운영 의미가 바뀔 때만 제품 Spec을 변경합니다. 정적
@@ -786,11 +790,11 @@ exemption manifest는 비어 있습니다. coverage gate는 누락·dangling·�
 `bun run operations:specs:generate`를 실행하세요. `bun run check`는 생성물
 drift를 거부하고 각 descriptor가 compiler graph에서 named invoker와
 executor에 계속 연결되어 있는지 검증합니다. `bun run build`는 공용
-Operation 108개 전체, API 경계 규칙, 0개 governed runtime bridge, 104개
-stable compatibility baseline과 spec-to-runtime 직접 graph edge 329개를
+Operation 110개 전체, API 경계 규칙, 0개 governed runtime bridge, 104개
+stable compatibility baseline과 spec-to-runtime 직접 graph edge 335개를
 검증합니다.
 
-108개 shared Operation은 모두 독립적인 TypeScript 계약을 사용합니다. 다시
+110개 shared Operation은 모두 독립적인 TypeScript 계약을 사용합니다. 다시
 생성해야 할 governed runtime-bridge 입력이나 snapshot은 없습니다.
 
 Spec API는 별도 npm 패키지가 아니라 기존 operations 패키지의

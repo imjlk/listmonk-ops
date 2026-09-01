@@ -1122,6 +1122,34 @@ Verify with: `campaigns.list`
 
 Retry guidance: Key the clone with idempotency_key so an ambiguous retry replays the bound campaign; without a key, verify with campaigns.list before repeating.
 
+## Preview campaign (`campaigns.preview`)
+
+Contract maturity: `experimental`; effects: `read:campaign`; confirmation: `never`; retry: `safe`.
+
+Use when: A campaign's rendered output must be inspected before launch.
+
+Avoid when: A rendered body must be sent to a real recipient.
+
+Prerequisites: `campaigns.get`
+
+Verify with: none
+
+Retry guidance: Retry transient render failures with bounded backoff.
+
+## Send a campaign test message (`campaigns.test`)
+
+Contract maturity: `experimental`; effects: `delivery:single:immediate`; confirmation: `never`; retry: `unsafe`.
+
+Use when: A campaign draft must be reviewed in a real inbox before launch.
+
+Avoid when: A rendered preview is sufficient, or recipients are not expecting mail.
+
+Prerequisites: `campaigns.get`, `campaigns.preview`
+
+Verify with: none
+
+Retry guidance: Do not blindly repeat: each confirmed request re-sends the message. Verify the received mail (or the messenger log) before retrying.
+
 ## Delete media file (`media.delete`)
 
 Contract maturity: `stable`; effects: `delete:media`; confirmation: `required`; retry: `reconcile`.

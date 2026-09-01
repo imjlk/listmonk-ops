@@ -250,11 +250,11 @@ describe("Campaigns MCP Tools", () => {
 			);
 			utils.assertSuccess(subscriberResult, "Failed to create test subscriber");
 
-			// Send test email
-			const result = await client.callTool("listmonk_test_campaign", {
-				id: testCampaignId.toString(),
-				emails: [testEmail],
-			});
+			// Send test email through the shared operation contract
+		const result = await client.callTool("listmonk_test_campaign", {
+			id: testCampaignId,
+			subscribers: [testEmail],
+		});
 
 		utils.assertSuccess(result, "Failed to send test campaign");
 	});

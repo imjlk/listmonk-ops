@@ -2163,6 +2163,60 @@
     {
       "edges": [
         {
+          "from": "packages/operations/src/campaigns.ts#previewCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsPreviewOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsPreviewOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsPreviewOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokePreviewCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#previewCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsPreviewOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsPreviewOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#previewCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokePreviewCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#previewCampaignOperation:variable"
+      },
+      "operationId": "campaigns.preview"
+    },
+    {
+      "edges": [
+        {
+          "from": "packages/operations/src/campaigns.ts#testCampaignOperation:variable",
+          "kind": "calls",
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsTestOperationSpec:function"
+        },
+        {
+          "from": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsTestOperationSpec:function",
+          "kind": "type_ref",
+          "to": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsTestOperationSpec:variable"
+        },
+        {
+          "from": "packages/operations/src/campaigns.ts#invokeTestCampaignOperation:function",
+          "kind": "calls",
+          "to": "packages/operations/src/campaigns.ts#sendTestCampaign:function"
+        }
+      ],
+      "nodes": {
+        "bindingNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#bindCampaignsTestOperationSpec:function",
+        "descriptorNode": "packages/operations/src/specs/standalone-specs/campaign-specs.ts#campaignsTestOperationSpec:variable",
+        "executorNode": "packages/operations/src/campaigns.ts#sendTestCampaign:function",
+        "invokerNode": "packages/operations/src/campaigns.ts#invokeTestCampaignOperation:function",
+        "runtimeDefinitionNode": "packages/operations/src/campaigns.ts#testCampaignOperation:variable"
+      },
+      "operationId": "campaigns.test"
+    },
+    {
+      "edges": [
+        {
           "from": "packages/operations/src/media.ts#deleteMediaOperation:variable",
           "kind": "calls",
           "to": "packages/operations/src/specs/standalone-specs/media-specs.ts#bindMediaDeleteOperationSpec:function"

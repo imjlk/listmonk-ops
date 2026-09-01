@@ -232,7 +232,17 @@ export type TransactionalSendParams = NonNullable<
 	t.TransactWithSubscriberData["body"]
 >;
 
-export type CampaignTestParams = Omit<t.TestCampaignByIdData, "url">;
+/**
+ * The generated CampaignRequest models `subscribers` as optional, but the
+ * observed Listmonk 6.2 test endpoint refuses the request when it is
+ * absent. Tighten just that field here instead of distorting the
+ * generated types.
+ */
+export type CampaignTestParams = Omit<t.TestCampaignByIdData, "url"> & {
+	body: Omit<t.TestCampaignByIdData["body"], "subscribers"> & {
+		subscribers: string[];
+	};
+};
 
 interface ImportOperations extends BaseGetOperation<t.ImportStatus> {
 	stop(): Promise<FlattenedResponse<t.ImportStatus>>;

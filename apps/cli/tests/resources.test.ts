@@ -1,6 +1,8 @@
 import type { ListmonkClient } from "@listmonk-ops/openapi";
 import { describe, expect, mock, test } from "bun:test";
 import {
+	renderPreviewCampaign,
+	renderTestCampaign,
 	renderCancelCampaign,
 	renderCloneCampaign,
 	renderGetCampaignStats,
@@ -62,6 +64,53 @@ describe("campaign, subscriber, template, and media CLI actions", () => {
 		expect(cliContext.output.table).toHaveBeenCalledWith([
 			{ id: 3, name: "Newsletter" },
 		]);
+	});
+
+	test("renders campaign previews and test sends through the shared operations", async () => {
+		const preview = mock(async () => ({
+			data: "<p>Hi</p>",
+		}));
+		const cliContext = {
+			client: { campaign: { preview } } as unknown as Pick<
+				ListmonkClient,
+				"campaign"
+			>,
+			output: output(),
+		} satisfies CampaignsCliContext;
+
+		await renderPreviewCampaign(cliContext, { id: 1 });
+		expect(preview).toHaveBeenCalledWith({ path: { id: 1 } });
+		expect(cliContext.output.json).toHaveBeenCalledWith({
+			html: "<p>Hi</p>",
+		});
+
+		const getById = mock(async () => ({
+			data: {
+				id: 1,
+				name: "N",
+				subject: "S",
+				lists: [{ id: 1 }],
+				body: "b",
+			},
+		}));
+		const test = mock(async () => ({ data: true }));
+		const testContext = {
+			client: {
+				campaign: { getById, test },
+			} as unknown as Pick<ListmonkClient, "campaign">,
+			output: output(),
+		} satisfies CampaignsCliContext;
+
+		await renderTestCampaign(testContext, {
+			id: 1,
+			subscribers: ["reader@example.com"],
+		});
+		expect(test).toHaveBeenCalledTimes(1);
+		expect(testContext.output.json).toHaveBeenCalledWith({
+			id: 1,
+			subscribers: ["reader@example.com"],
+			sent: true,
+		});
 	});
 
 	test("creates subscribers through the shared operation", async () => {
